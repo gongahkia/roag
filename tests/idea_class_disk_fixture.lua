@@ -9,11 +9,11 @@ function storage:write(n,b)assert(allowed[n]);local f=assert(io.open(dir..'/'..n
 local store=P.new(storage)
 local function advance(s)
  local events={}
- for i=1,4 do local intent=class=='spiritbinder' and i==1 and {kind='sweeping_slash',dx=1,dy=0} or {kind='wait'};local ok,why,e=G.submit(s,intent);assert(ok,why);events[#events+1]=e end
+ for i=1,4 do local intent=(class=='spiritbinder' and i==1 and {kind='sweeping_slash',dx=1,dy=0}) or (class=='wayfinder' and i==1 and {kind='dash',dx=1,dy=0}) or {kind='wait'};local ok,why,e=G.submit(s,intent);assert(ok,why);events[#events+1]=e end
  return P.encode(events)
 end
 if mode=='write'then
- assert(class=='geomancer' or class=='spiritbinder' or class=='tinkerer' or class=='stormcaller')
+ assert(class=='geomancer' or class=='spiritbinder' or class=='tinkerer' or class=='stormcaller' or class=='wayfinder')
  local s=G.new(37,nil,{class_id='core:actor/'..class});local p=G.player(s);p.position.x,p.position.y=7,6
  if class=='spiritbinder' or class=='tinkerer' or class=='stormcaller'then G.spawn_enemy(s,'core:enemy/mossbound_guard',10,6,100000)end
  if class=='stormcaller'then

@@ -7,7 +7,7 @@ selection, action scheduler, combat batches and checked run saves.
 
 ## Duelist
 
-Choose **New Game → Duelist → Begin New Game**. Arrow keys reach all ten
+Choose **New Game → Duelist → Begin New Game**. Arrow keys reach all fifteen
 classes; the existing number shortcuts cover the first nine. Continue keeps
 the class and earned riposte of the saved run.
 
@@ -60,7 +60,7 @@ run schema remains `roag-run/11`; the optional held charge is plain data.
 
 LÖVE windows remain untested under the user's current restriction. No
 physical keyboard, mouse, tablet, native GPU or human balance acceptance
-is claimed. The other five approved classes remain separate unfinished work.
+is claimed. The five additional approved classes are documented below; GUI acceptance remains pending.
 
 ## Geomancer
 
@@ -72,7 +72,7 @@ HP 24, attack 5, defense 1, speed 85. Base move/F/R/X costs: 100/120/130/130.
 
 Placement rejects occupied cells, stairs and any cell whose removal disconnects accessible ground. A block does not rewrite terrain or published art. Its clock pauses with its floor, then rebases exactly on return. Mixed art uses approved Tiny 100 (shared with the Oath Blade Twin) and Micro 116 stone; standalone uses 1-Bit 466 and the existing 262 stone motif.
 
-The title picker shows up to nine rows per page. Arrows/gamepad cycle all classes and move the page; mouse selects the visible rows. Number shortcuts still cover the first nine.
+The title picker shows up to nine rows per page. Arrows/gamepad cycle all classes and move the page; mouse selects visible rows and the PREV/NEXT page buttons. Number shortcuts still cover the first nine.
 
 Nine focused checks and 46 combined class/art/UI contracts pass. `sh tests/idea_class_disk_resume.sh geomancer` checks fresh-process Continue through expiry. Full regression is recorded in the goal ledger when finished; GUI/physical input remains pending.
 
@@ -109,3 +109,32 @@ HP 21, attack 2, base discharge 2, defense 0, speed 100. Base move/F/R/X costs: 
 - **X — Grounding Dash:** normal two-cell Dash; any held charge is spent into one ward. It blocks one positive-damage hit after armor, including DOT. Zero-damage hits do not consume it; repeated grounding cannot stack wards.
 
 The HUD exposes charge and held ward. Charge, ward and pending cross survive exact checked saves; parked discharge time rebases with its floor. Both sprite choices use approved 1-Bit 175; discharge cue 615 is also registered. Seven focused checks, 66 combined contracts and a fresh-process pending-cross Continue pass. The initial cross fixture expected five cells despite a real wall blocking one arm; corrected against actual terrain. No LÖVE visual check is claimed.
+
+## Wayfinder
+
+HP 22, attack 3, defense 0, speed 110. Base move/F/R/X costs: 100/100/100/110.
+
+- **F — Scout Knife:** two-cell, first-body projectile.
+- **R — Plant Beacon:** one marker on adjacent, visible, explored plain floor within the current generated room. Occupied cells and stairs are excluded. Planting does not attack or advance exploration from the beacon.
+- **X — Return:** with a beacon, explicitly return to it for normal paid movement cost. The beacon must be on the same floor and in the current room, with a visible free landing and an explored walkable route of at most six tiles. It does not draw attacks or swap with an enemy. It is consumed on a successful return; rejection keeps it and costs no time. Without a beacon, X is an ordinary two-cell Dash.
+
+Return uses a displacement presentation, triggers entry and pickups **only at the real landing**, and cannot trigger stairs or scout another room. Intermediate enemies do not form permanent terrain; walls and fixed obstacles still constrain the explored route. A marker left on another floor cannot return the player across floors; a later R replaces it. Stage transitions clear the stage-local marker.
+
+Both choices use approved 1-Bit 473 for the scout. The mixed marker is Micro 95; standalone is approved flag 408. Eight focused cases, same-room checks on twelve real generated seeds and checked-store new-process return pass.
+
+## Combined class acceptance
+
+All fifteen classes are selectable through arrow/gamepad navigation or the visible nine-row mouse pages. New class HUD labels expose their owned object, charges, ward or beacon; targeting hints distinguish placement from attacks. All new classes use existing weapon-icon bindings. Classic retains drawn-token fallback colors.
+
+Focused mechanics and integration checks, legal encounters/replay on seeds 3, 9 and 21, and 100-cycle prepared state stress are reproducible with:
+
+```sh
+TMPDIR=/var/tmp luajit tests/run.lua
+TMPDIR=/var/tmp luajit tools/idea_classes_probe.lua
+sh tests/idea_class_disk_resume.sh geomancer spiritbinder tinkerer stormcaller wayfinder
+sh tests/idea_duelist_disk_resume.sh
+```
+
+The sentry also participates in Mirror Hexer reflection: the marker is consumed at commitment, the turned lane is locked/saved, and later impact cannot retarget. Automatic class effects suppress extra boon activation; ordinary player attacks and explicit paid spirit strikes retain the established pipeline. Charge/construct/cross/return data remain plain saved fields in the existing schema; source PNGs and gameplay RNG are preserved.
+
+This is headless engineering evidence. LÖVE windows, actual input, game-scale silhouettes, feedback readability and human balance acceptance remain untested under the user's no-window-test instruction. Legal first encounters are not full-run Victories; the full regression suite separately retains the established legal full-run gates. Prepared stress states are not claimed legal runs or GPU benchmarks.

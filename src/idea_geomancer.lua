@@ -4,7 +4,7 @@ local Terrain=require('src.terrain')
 local Scheduler=require('src.scheduler')
 local G={id='core:actor/geomancer',controller='geomancer_block',
     block_id='core:object/geomancer_bulwark',duration=300,tiny=100,onebit=466}
-G.definition={id=G.id,name='Geomancer',
+G.definition={id=G.id,name='Geomancer',weapon_icon='spell',
     description='Heavy stone bolt, one temporary bulwark, grounded Dash',
     hp=24,damage=5,slash_damage=0,defense=1,speed=85,
     crit_chance_ppm=0,crit_damage_percent=150,

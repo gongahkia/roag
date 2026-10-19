@@ -5,6 +5,7 @@ local D=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
+local Way=require('src.idea_wayfinder')
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
@@ -106,6 +107,8 @@ Classes.order[#Classes.order+1]=Comp.tinker_id
 Classes.definitions[Comp.tinker_id]=Comp.tinker
 Classes.order[#Classes.order+1]=Storm.id
 Classes.definitions[Storm.id]=Storm.definition
+Classes.order[#Classes.order+1]=Way.id
+Classes.definitions[Way.id]=Way.definition
 
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
@@ -154,7 +157,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==Storm.id then
+        if def.id==Way.id then
+            cells=line(state,content,p,dx,dy,2);ranged=true
+        elseif def.id==Storm.id then
             cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='lightning'
         elseif def.id==Comp.spirit_id or def.id==Comp.tinker_id then
             cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='spirit'
@@ -177,7 +182,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
         end
     else
         ability_id=def.special_id
-        if def.id==Storm.id then
+        if def.id==Way.id then
+            cells={{x=p.x+dx,y=p.y+dy}}
+        elseif def.id==Storm.id then
             cells={};local map=content.map_for(state)
             local travel=line(state,content,p,dx,dy,2);local center=travel[2]
             if center and center.x==p.x+2*dx and center.y==p.y+2*dy and content.projectile_passable(map,center.x,center.y,state)then
@@ -251,9 +258,43 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     return cells,ability_id,ranged,damage_type
 end
 
+function Classes.preview_hint(player,kind,preview)
+    if kind=='dash' then return 'Enter to move · Esc cancel' end
+    if kind~='sweeping_slash' then return 'Enter to strike · Esc cancel' end
+    local id=player.definition_id
+    local hints={[D.id]='Enter to parry · no attack damage',
+        [Geo.id]='Enter to raise one finite block',
+        [Comp.tinker_id]='Enter to deploy three-charge sentry',
+        [Storm.id]='Enter to spend charge on locked cross',
+        [Way.id]='Enter to plant return beacon'}
+    if id==Comp.spirit_id then return preview.companion_mode=='strike'
+        and 'Enter to order one paid spirit strike' or 'Enter to position spirit' end
+    return hints[id] or 'Enter to strike · Esc cancel'
+end
+function Classes.status(state,player)
+    local id=player.definition_id
+    if id==Geo.id then
+        for _,e in ipairs(state.entities)do if e.controller==Geo.controller then
+            return e.position.floor_id==player.position.floor_id and ('BULWARK %d TIME'):format(math.max(0,e.expires-state.clock))
+                or 'BULWARK ON OTHER FLOOR','R replace · expires in world time'
+        end end
+        return 'NO BULWARK','R place block · routes stay open'
+    elseif id==Comp.spirit_id then
+        local e=Comp.owned(state,'spirit')
+        return e and 'SPIRIT PLACED' or 'NO BOUND SPIRIT','R position or order adjacent strike'
+    elseif id==Comp.tinker_id then
+        local e=Comp.owned(state,'sentry')
+        return e and ('SENTRY %d/3'):format(e.sentry_shots) or 'NO SENTRY',
+            e and e.sentry_shots==0 and 'Spent · R replaces sentry' or 'Bolts have friendly fire · R replace'
+    elseif id==Storm.id then
+        return ('CHARGE %d/3'):format(player.storm_charge or 0),player.storm_ward and 'Grounded ward ready' or 'R discharge · X ground ward'
+    elseif id==Way.id then
+        return state.class_special.beacon and 'BEACON PLANTED' or 'NO BEACON','R plant · X room-bound return / Dash'
+    end
+end
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==14,"expected fourteen starting classes")
+    assert(#Classes.order==15,"expected fifteen starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

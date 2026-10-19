@@ -8,6 +8,7 @@ local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
+local Way=require('src.idea_wayfinder')
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -323,6 +324,13 @@ function Game.preview(state, kind, dx, dy)
     if not Targeting.direction_index(dx, dy) then
         return {valid=false, reason="invalid direction", cells={}}
     end
+    if kind=='dash' and class.id==Way.id and state.class_special.beacon then
+        local pos=player.position
+        local valid,reason,b,distance=Way.return_preview(state,Content.map_for(state),player,Content,Visibility.can_see,Visibility.was_explored,
+            function(x,y)return occupant(state,pos.floor_id,x,y,player.id,false)end)
+        return {valid=valid,reason=reason,cost=cost,cells=b and {{x=b.x,y=b.y,status='open'}} or {},
+            distance=1,return_distance=distance,beacon_return=true}
+    end
     if kind=="dash" and class.id=="core:actor/shade" then
         local decoy=state.class_special and state.class_special.decoy
         if not decoy or decoy.floor_id~=player.position.floor_id then
@@ -422,6 +430,11 @@ function Game.preview(state, kind, dx, dy)
             or occupant(state,position.floor_id,cell.x,cell.y,player.id,false) then
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
+    end
+    if kind=='sweeping_slash' and class.id==Way.id then
+        local valid,reason=Way.plant_preview(state,Content.map_for(state),player,cells[1],Visibility.can_see,Visibility.was_explored,
+            function(x,y)return occupant(state,position.floor_id,x,y,player.id,false)end)
+        return {valid=valid,reason=reason,cost=cost,cells=cells}
     end
     if kind=='sweeping_slash' and class.id==Storm.id then
         local valid=(player.storm_charge or 0)>0 and not state.class_special.storm and #cells>0
@@ -1548,7 +1561,7 @@ local function advance_to_player(state, output)
             end,function(sentry,cells,action_id)
                 local source=copy(Game.player(state));source.position=copy(sentry.position)
                 source.collision_id=sentry.id;source.controller='construct'
-                attack(state,output,source,action_id,'core:ability/tinkerer_sentry',cells,3,true,{class_generated=true})
+                attack(state,output,source,action_id,'core:ability/tinkerer_sentry',cells,3,true,{class_generated=true,reflection=copy(sentry.sentry_reflection)})
             end)
         elseif item.idea_geomancer then
             Geo.expire(state,item,function(kind,fields,source_id,action_id)
@@ -1701,7 +1714,15 @@ function Game.submit(state, intent)
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
     if preview.bump then action.bump = true end
-    if kind == "move" or kind == "dash" then
+    if kind=='dash' and preview.beacon_return then
+        local b=assert(state.class_special.beacon);local x,y=position.x,position.y
+        position.x,position.y=b.x,b.y;state.class_special.beacon=nil
+        action.distance=preview.return_distance
+        emit(state,output,'Displaced',{target_id=player.id,reason='beacon',floor_id=position.floor_id,from_x=x,from_y=y,x=b.x,y=b.y},player.id,action_id)
+        emit(state,output,'TileEntered',{floor_id=position.floor_id,from_x=x,from_y=y,x=b.x,y=b.y,forced=true},player.id,action_id)
+        Rewards.pickup_at(state,player,b.x,b.y,function(kind,fields,source_id)emit(state,output,kind,fields,source_id,action_id)end)
+        emit(state,output,'BeaconReturned',{floor_id=position.floor_id,x=b.x,y=b.y},player.id,action_id)
+    elseif kind == "move" or kind == "dash" then
         local from_x, from_y = position.x, position.y
         local travel_dx=preview.swap and preview.cells[1].x-from_x or intent.dx
         local travel_dy=preview.swap and preview.cells[1].y-from_y or intent.dy
@@ -1770,7 +1791,12 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id==Storm.definition.special_id then
+        if ability_id==Way.definition.special_id then
+            local _,_,room=Way.plant_preview(state,Content.map_for(state),player,cells[1],Visibility.can_see,Visibility.was_explored,
+                function(x,y)return occupant(state,position.floor_id,x,y,player.id,false)end)
+            Way.plant(state,player,cells[1],room)
+            emit(state,output,'BeaconPlanted',{floor_id=position.floor_id,x=cells[1].x,y=cells[1].y},player.id,action_id)
+        elseif ability_id==Storm.definition.special_id then
             Storm.lock(state,player,cells,action_id,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
         elseif ability_id==Comp.tinker.special_id then
             Comp.deploy(state,player,cells[1],action_id,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
@@ -2001,7 +2027,7 @@ function Game.pending_strikes(state)
             result[#result+1]={sequence=e.sentry_schedule_id,schedule_id=e.sentry_schedule_id,
                 source_id=e.owner_id,floor_id=e.position.floor_id,source_x=e.position.x,source_y=e.position.y,
                 ability_id='core:ability/tinkerer_sentry',target_cells=copy(e.sentry_cells),damage=3,
-                due=e.sentry_due,companion=true}
+                due=e.sentry_due,companion=true,reflection=copy(e.sentry_reflection)}
         end
     end
     local storm=state.class_special.storm
@@ -2206,6 +2232,7 @@ function Game.restore(snapshot)
     Geo.validate(state,maps)
     Comp.validate(state,maps)
     Storm.validate(state,maps)
+    Way.validate(state,maps,player)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do

@@ -9,6 +9,7 @@ local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
+local Way=require('src.idea_wayfinder')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -39,7 +40,9 @@ O.actors[Geo.id]=Geo.onebit
 O.actors[Comp.spirit_id]=122
 O.actors[Comp.tinker_id]=222
 O.actors[Storm.id]=175
+O.actors[Way.id]=473
 O.objects={
+    [Way.beacon_id]=408,
     ['core:ui/storm_charge_effect']=615,
     [Comp.sentry_object]=262,
     [Comp.spirit_object]=417,

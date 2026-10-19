@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "deeae82c00285885",
+  "mapping_checksum": "cf0769721bd03f2f",
   "packs": {
     "kenney": {
-      "actor_count": 64,
-      "actor_silhouettes": 53,
+      "actor_count": 65,
+      "actor_silhouettes": 54,
       "bindings": [
         {
           "height": 8,
@@ -381,6 +381,33 @@
           "motif": "",
           "pose_alias": true,
           "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder",
+          "index": 473,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/attack",
+          "index": 473,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/hurt",
+          "index": 473,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -2814,6 +2841,15 @@
           "width": 16
         },
         {
+          "height": 8,
+          "id": "core:object/return_beacon",
+          "index": 95,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
           "height": 16,
           "id": "core:object/review_brazier_lit",
           "index": 507,
@@ -3652,7 +3688,7 @@
           "sheet": "tiny"
         }
       ],
-      "static_pose_aliases": 128,
+      "static_pose_aliases": 130,
       "usage": {
         "caves": {
           "145": [
@@ -4037,6 +4073,9 @@
           "90": [
             "core:drop/currency",
             "core:ui/currency_icon"
+          ],
+          "95": [
+            "core:object/return_beacon"
           ]
         },
         "onebit": {
@@ -4143,6 +4182,9 @@
           ],
           "417": [
             "core:object/bound_spirit"
+          ],
+          "473": [
+            "core:actor/wayfinder"
           ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
@@ -4379,8 +4421,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 64,
-      "actor_silhouettes": 62,
+      "actor_count": 65,
+      "actor_silhouettes": 63,
       "bindings": [
         {
           "height": 16,
@@ -4755,6 +4797,33 @@
           "height": 16,
           "id": "core:actor/trapper/hurt",
           "index": 77,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder",
+          "index": 473,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/attack",
+          "index": 473,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/hurt",
+          "index": 473,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -7192,6 +7261,15 @@
         },
         {
           "height": 16,
+          "id": "core:object/return_beacon",
+          "index": 408,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/review_brazier_lit",
           "index": 739,
           "motif": "",
@@ -7957,7 +8035,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 128,
+      "static_pose_aliases": 130,
       "usage": {
         "onebit": {
           "1010": [
@@ -8223,6 +8301,9 @@
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
           ],
+          "408": [
+            "core:object/return_beacon"
+          ],
           "410": [
             "core:enemy/glass_charger"
           ],
@@ -8286,6 +8367,9 @@
           ],
           "472": [
             "core:actor/ranger"
+          ],
+          "473": [
+            "core:actor/wayfinder"
           ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
@@ -8523,26 +8607,26 @@
     {
       "empty": 1,
       "grid": 160,
-      "kenney": 54,
+      "kenney": 55,
       "nonempty": 159,
       "onebit": 0,
       "sheet": "micro",
-      "union": 54,
-      "unused_kenney": 105,
+      "union": 55,
+      "unused_kenney": 104,
       "unused_onebit": 159,
-      "unused_union": 105
+      "unused_union": 104
     },
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 76,
+      "kenney": 77,
       "nonempty": 1077,
-      "onebit": 172,
+      "onebit": 174,
       "sheet": "onebit",
-      "union": 172,
-      "unused_kenney": 1001,
-      "unused_onebit": 905,
-      "unused_union": 905
+      "union": 174,
+      "unused_kenney": 1000,
+      "unused_onebit": 903,
+      "unused_union": 903
     },
     {
       "empty": 63,
@@ -8612,6 +8696,9 @@
     "core:actor/trapper",
     "core:actor/trapper/attack",
     "core:actor/trapper/hurt",
+    "core:actor/wayfinder",
+    "core:actor/wayfinder/attack",
+    "core:actor/wayfinder/hurt",
     "core:boon/aftershock/detail",
     "core:boon/aftershock/icon",
     "core:boon/alchemical_flip/detail",
@@ -8882,6 +8969,7 @@
     "core:object/geomancer_bulwark",
     "core:object/idea_cache_dormant",
     "core:object/idea_silt_trail",
+    "core:object/return_beacon",
     "core:object/review_brazier_lit",
     "core:object/review_brazier_unlit",
     "core:object/review_gate_bottom",

@@ -1,6 +1,6 @@
 local Scheduler=require('src.scheduler')
 local S={id='core:actor/stormcaller',cap=3,delay=100,symbol=615}
-S.definition={id=S.id,name='Stormcaller',description='Build charge on bolt hits; discharge a locked cross or Dash to ground a ward',
+S.definition={id=S.id,name='Stormcaller',weapon_icon='spell',description='Build charge on bolt hits; discharge a locked cross or Dash to ground a ward',
  hp=21,damage=2,slash_damage=2,defense=0,speed=100,crit_chance_ppm=0,crit_damage_percent=150,
  costs={move=100,basic_attack=100,sweeping_slash=150,dash=130},dash_distance=2,
  basic_id='core:ability/stormcaller_bolt',special_id='core:ability/stormcaller_discharge',
@@ -31,7 +31,7 @@ function S.lock(state,owner,cells,action_id,emit)
   attack_id=action_id,floor_id=owner.position.floor_id})
  work.effect_id=work.id;work.idea_storm=true
  state.class_special.storm={schedule_id=work.id,due=work.due,action_id=action_id,owner_id=owner.id,
-  floor_id=owner.position.floor_id,cells=cells,damage=owner.slash_damage+2*charge,charge=charge}
+  floor_id=owner.position.floor_id,center_x=cells[1].x,center_y=cells[1].y,cells=cells,damage=owner.slash_damage+2*charge,charge=charge}
  emit('StormDischargeLocked',{target_cells=cells,due=work.due,charge=charge,damage=owner.slash_damage+2*charge,
   floor_id=owner.position.floor_id,x=owner.position.x,y=owner.position.y})
 end
@@ -66,6 +66,8 @@ function S.validate(state,maps)
   local seen={};for _,c in ipairs(r.cells)do
    assert(c.floor_id==r.floor_id and type(c.x)=='number' and c.x%1==0 and type(c.y)=='number' and c.y%1==0
     and c.x>=1 and c.x<=map.width and c.y>=1 and c.y<=map.height,'invalid storm cell')
+   assert(type(r.center_x)=='number' and type(r.center_y)=='number'
+    and math.abs(c.x-r.center_x)+math.abs(c.y-r.center_y)<=1,'invalid storm cross')
    local k=c.x..','..c.y;assert(not seen[k],'duplicate storm cell');seen[k]=true
   end
  end

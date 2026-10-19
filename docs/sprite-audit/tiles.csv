@@ -616,7 +616,7 @@ micro,91,88,40,28,,
 micro,92,96,40,58,,
 micro,93,104,40,31,,
 micro,94,112,40,36,,
-micro,95,120,40,48,,
+micro,95,120,40,48,core:object/return_beacon,
 micro,96,0,48,44,,
 micro,97,8,48,24,,
 micro,98,16,48,30,,
@@ -1089,7 +1089,7 @@ onebit,404,192,128,96,,
 onebit,405,208,128,72,,
 onebit,406,224,128,83,,
 onebit,407,240,128,85,,
-onebit,408,256,128,40,,
+onebit,408,256,128,40,,core:object/return_beacon
 onebit,409,272,128,82,,
 onebit,410,288,128,70,,core:enemy/glass_charger
 onebit,411,304,128,72,core:enemy/ember_moth,core:enemy/ember_moth
@@ -1154,7 +1154,7 @@ onebit,469,448,144,78,,core:actor/alchemist
 onebit,470,464,144,78,,
 onebit,471,480,144,73,,core:enemy/forge_conjurer
 onebit,472,496,144,80,,core:actor/ranger
-onebit,473,512,144,32,,
+onebit,473,512,144,32,core:actor/wayfinder,core:actor/wayfinder
 onebit,474,528,144,40,,
 onebit,475,544,144,33,,
 onebit,476,560,144,35,,

@@ -6,6 +6,7 @@ local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
+local Way=require('src.idea_wayfinder')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -978,6 +979,10 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='BeaconPlanted'then
+                notice='Beacon planted: X returns within this room along at most six explored tiles; one return'
+            elseif event.kind=='BeaconReturned'then
+                notice='Returned to beacon; plant another to return again'
             elseif event.kind=='StormChargeGained'then
                 notice='Storm charge '..event.charge..'/3: R locked cross, or X ground one-hit ward'
             elseif event.kind=='StormDischargeLocked'then
@@ -1450,9 +1455,13 @@ function love.keypressed(key, _, isrepeat)
         notice = Classes.for_player(Game.player(state)).special_name..
             ": choose direction, then Enter"
     elseif key == "x" then
-        targeting = { kind = "dash" }
-        notice = Classes.for_player(Game.player(state)).dash_name..
-            ": choose cardinal direction, then Enter"
+        if Game.player(state).definition_id==Way.id and state.class_special.beacon then
+            submit({kind='dash',dx=1,dy=0})
+        else
+            targeting = { kind = "dash" }
+            notice = Classes.for_player(Game.player(state)).dash_name..
+                ": choose cardinal direction, then Enter"
+        end
     elseif key == "space" or key == "." or key == "kp5" then
         submit({ kind = "wait" })
     elseif cardinal[key] then
@@ -2195,7 +2204,7 @@ local function draw_history_event(event)
                 end
                 if attacker and attacker.controller=='player' then
                     local id=attacker.definition_id
-                    local weapon=id=='core:actor/ranger' and 'bow' or
+                    local weapon=(Classes.get(id) or {}).weapon_icon or (id=='core:actor/ranger' and 'bow') or
                         (id=='core:actor/arcanist' or id=='core:actor/alchemist') and 'spell' or
                         (id=='core:actor/hookrunner' and
                             event.ability_id=='core:ability/hookrunner_hook') and 'hook' or
@@ -2638,6 +2647,13 @@ local function draw_world()
             end
         end
     end
+    local beacon=state.class_special.beacon
+    if beacon and beacon.floor_id==state.active_floor_id and visible_at(beacon.x,beacon.y)then
+        local x,y=Camera.tile_top_left(camera,beacon.x,beacon.y)
+        if not draw_visual(bound_visual(Way.beacon_id),x+TILE*.2,y+TILE*.2,TILE*.6,TILE*.6)then
+            love.graphics.setColor(.4,.9,.8);love.graphics.rectangle('line',x+9,y+9,TILE-18,TILE-18)
+        end
+    end
     draw_enemies()
     draw_squad_cues()
     if state.stage and state.stage.phase=="elite_active" then
@@ -2693,6 +2709,9 @@ local function draw_world()
         love.graphics.setColor(unpack(colors[Game.player(state).definition_id] or {.7,.8,.9}))
         love.graphics.circle("fill", screen_x + TILE / 2 - TILE/32,
             screen_y + TILE / 2 - TILE/32, 11*TILE/32)
+    end
+    if Game.player(state).definition_id==Storm.id and (Game.player(state).storm_charge or 0)>0 then
+        draw_visual(bound_visual('core:ui/storm_charge_effect'),screen_x+TILE*.70,screen_y,TILE*.28,TILE*.28,.9)
     end
     local current_group=Playback.current_group(playback)
     if current_group then
@@ -2896,9 +2915,9 @@ local function draw_panel()
                 color={1,.44,.4};break
             end
         end
-        if warning=='' and not targeting and Game.player(state).definition_id==Storm.id then
-            local p=Game.player(state);warning=('CHARGE %d/3'):format(p.storm_charge or 0)
-            detail=p.storm_ward and 'Grounded ward ready' or 'R discharge · X ground ward';color=PixelUI.colors.selected
+        if warning=='' and not targeting then
+            local label,info=Classes.status(state,Game.player(state))
+            if label then warning=label;detail=info;color=PixelUI.colors.selected end
         end
         if warning=='' and not targeting and Game.player(state).duelist_riposte then
             warning='RIPOSTE READY';detail='Next paid thrust +2 damage';color=PixelUI.colors.selected
@@ -2906,8 +2925,7 @@ local function draw_panel()
         if warning=='' and targeting then
             warning='AIMING'
             local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
-            detail=preview and (preview.valid and (Game.player(state).definition_id==Duelist.id and targeting.kind=='sweeping_slash'
-                    and 'Enter to parry · no attack damage' or 'Enter to strike · Esc cancel') or preview.reason)
+            detail=preview and (preview.valid and Classes.preview_hint(Game.player(state),targeting.kind,preview) or preview.reason)
                 or 'Choose a direction · Esc cancel'
             color=PixelUI.colors.selected
         elseif warning=='' and state.stage and state.stage.phase=='extraction'then
@@ -3168,6 +3186,9 @@ local function draw_title_page()
             PixelUI.option(i..' '..Classes.get(id).name:upper(),190,150+(i-first)*36,290,
                 id==selected_class_id,ui_menu_font)
         end
+        PixelUI.center(('PAGE %d/%d'):format(math.floor((first-1)/9)+1,math.ceil(#Classes.order/9)),480,ui_body_font,PixelUI.colors.muted,190,290)
+        PixelUI.option('< PREV',190,508,120,false,ui_body_font,first==1)
+        PixelUI.option('NEXT >',350,508,130,false,ui_body_font,last==#Classes.order)
         local chosen=Classes.get(selected_class_id)
         local art=bound_visual(selected_class_id)
         if art then draw_visual(art,614,162,96,96)end
@@ -3476,7 +3497,9 @@ function love.mousepressed(x,y,button,istouch,presses)
         elseif title_view=='class'then
             local first,last=PixelUI.class_page(Classes.order,selected_class_id)
             local index=PixelUI.class_at(x,y,first,last)
-            if index then selected_class_id=Classes.order[index]
+            local direction=PixelUI.class_nav_at(x,y)
+            if direction then selected_class_id=PixelUI.class_page_target(Classes.order,selected_class_id,direction)
+            elseif index then selected_class_id=Classes.order[index]
             elseif x>=496 and x<=832 and y>=490 and y<=536 then request_new_run()end
         elseif title_view=='settings'then
             settings_click(x,y)

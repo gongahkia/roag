@@ -7,10 +7,10 @@ The live catalogue includes these bindings.
 
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
-game content is ten classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
+game content is fifteen classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
 boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth and Duelist.
-The live HTML/JSON/CSV reflect 379
+Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller and Wayfinder.
+The live HTML/JSON/CSV reflect 399
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -42,16 +42,16 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **379/379 active sprite bindings resolve in each choice**:
+that happen to exist. **399/399 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
-| Ten classes + 50 enemy forms, base/attack/hurt | 180 | 50 distinct bodies for 60 actor IDs | 58 bodies for 60 actor IDs |
-| Drops 3, chests 2, other objects 8 | 13 | Native Micro art | Native 1-Bit art |
+| Fifteen classes + 50 enemy forms, base/attack/hurt | 195 | 54 distinct bodies for 65 actor IDs | 63 bodies for 65 actor IDs |
+| Drops 3, chests 2, other objects 12 | 17 | Micro art + 1-Bit familiar | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
 | Hit, boon, Burning, block, attack center/impact | 6 | Native Micro art | Native 1-Bit art |
-| Squad, corpse, alarm, oath and reflector cues | 10 | Native 1-Bit art | Native 1-Bit art |
+| Squad, corpse, alarm, oath, reflector and charge cues | 11 | Native 1-Bit art | Native 1-Bit art |
 | Class weapon symbols | 5 | Native Micro art | Native 1-Bit art |
 | 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
 | Mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
@@ -66,7 +66,7 @@ missing wall variant.
 
 ### Art reuse and semantic approximations
 
-Both choices have **120 static pose aliases**: attack/hurt reuse each actor's
+Both choices have **130 static pose aliases**: attack/hurt reuse each actor's
 base image. No animation is provided. Boon detail reuses its icon. Currency
 drop and HUD gold deliberately share a motif. Effect sprites are generic, not
 one custom visual for every boon/element/weapon.
@@ -88,7 +88,7 @@ Both choices also share the approved Duelist / Oath Pike body (Tiny 99 in the
 mixed choice, 1-Bit 124 in standalone). The 1-Bit choice shares that pair and
 the skeleton/fragment body (323), with the fragment rendered smaller. This
 explicit reuse is not an extra unique silhouette. The mixed choice has those
-two pairs in addition to the eight pairs above. Many identities remain
+two pairs in addition to the eight pairs above and the approved Geomancer / Oath Blade reuse (Tiny 100). The familiar uses 417, also the awake Haunted Cache motif. Stone/stand symbols are representative shared objects. Many identities remain
 representative motifs: a knight for a guard, wizard for a caster, plant/beast
 for a hostile. Distinct native art is not proof that a boss visually conveys
 its exact attack mechanics. Both packs use representative stair/gateway and
@@ -132,7 +132,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-379 binding requirements above. Decoy/snare markers are also still drawn
+399 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -144,17 +144,17 @@ shown intact. Transparent key/background is accounted for in Micro.
 
 | Original sheet | Grid cells | Nonempty | Mixed referenced / unused | Standalone referenced / unused | Unused by either |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Micro Roguelike 8px | 160 | 159 | 52 / **107** | Not loaded | **107** |
+| Micro Roguelike 8px | 160 | 159 | 55 / **104** | Not loaded | **104** |
 | Caves & Dungeons 16px, 1px gutters | 522 | 522 | 69 / **453** | Not loaded | **453** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 73 / **1,004** | 167 / **910** | **910** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 77 / **1,000** | 174 / **903** | **903** |
 | Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 7 / **1,697** | Not loaded | **1,697** |
-| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 23 / **109** | Not loaded | **109** |
+| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 25 / **107** | Not loaded | **107** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **318 referenced by
-either choice**, **3,276 unreferenced**. Across just the original three sheets,
-there are **1,470** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **330 referenced by
+either choice**, **3,264 unreferenced**. Across just the original three sheets,
+there are **1,460** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,276 unique useful objects:
+These counts are grid occupancy, not a claim of 3,264 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the

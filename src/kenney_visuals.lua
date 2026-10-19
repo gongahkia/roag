@@ -9,6 +9,7 @@ local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
+local Way=require('src.idea_wayfinder')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -31,6 +32,7 @@ local actors={
     ['core:enemy/hollow_regent']=9,
 }
 local objects={
+    [Way.beacon_id]=95,
     [Comp.sentry_object]=119,
     [Geo.block_id]=116,
     ['core:drop/currency']=90,['core:drop/food']=137,['core:drop/health']=135,
@@ -162,7 +164,7 @@ function K.new(read,make_texture,make_quad)
     for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
     local shared={}
     for id,index in pairs(IdeaEnemies.shared_onebit or {})do shared[id]=index end
-    shared[Storm.id]=175
+    shared[Storm.id]=175;shared[Way.id]=473
     for id,index in pairs(shared) do
         local x,y,w,h=Symbols.region(index)
         local sprite={texture=symbols.texture,quad=make_quad(x,y,w,h,Symbols.width,Symbols.height),

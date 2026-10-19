@@ -1,17 +1,18 @@
 -- Explicitly commanded friendly objects. They are not AI actors, observers,
 -- damageable reward sources or autonomous free attacks.
 local Scheduler=require('src.scheduler')
+local Mirrors=require('src.idea_mirrors')
 local C={spirit_id='core:actor/spiritbinder',controller='idea_companion',
  spirit_object='core:object/bound_spirit'}
 C.symbols={[C.spirit_object]=417,['core:ui/storm_charge_effect']=615}
 C.tinker_id='core:actor/tinkerer';C.sentry_object='core:object/bolt_sentry'
-C.tinker={id=C.tinker_id,name='Tinkerer',description='Hand bolt, one three-charge sentry, utility roll',
+C.tinker={id=C.tinker_id,name='Tinkerer',weapon_icon='bow',description='Hand bolt, one three-charge sentry, utility roll',
  hp=23,damage=3,slash_damage=0,defense=0,speed=95,crit_chance_ppm=0,crit_damage_percent=150,
  costs={move=100,basic_attack=100,sweeping_slash=160,dash=120},dash_distance=2,
  basic_id='core:ability/tinkerer_bolt',special_id='core:ability/tinkerer_deploy',
  basic_name='Hand Bolt',special_name='Deploy Sentry',dash_name='Utility Roll',
  ui_controls='F Bolt · R Sentry (3 bolts) · X Roll'}
-C.spirit={id=C.spirit_id,name='Spiritbinder',description='Tether bolt, one commanded spirit, short spirit step',
+C.spirit={id=C.spirit_id,name='Spiritbinder',weapon_icon='spell',description='Tether bolt, one commanded spirit, short spirit step',
  hp=20,damage=3,slash_damage=3,defense=0,speed=100,crit_chance_ppm=0,crit_damage_percent=150,
  costs={move=100,basic_attack=110,sweeping_slash=140,dash=120},dash_distance=2,
  basic_id='core:ability/spiritbinder_bolt',special_id='core:ability/spiritbinder_command',
@@ -111,7 +112,7 @@ function C.resolve(state,item,content,visible,emit,fire)
    local shown=true;for _,c in ipairs(cells)do if not visible(state,c.floor_id,c.x,c.y)then shown=false;break end end
    if shown then fire(e,cells,item.attack_id)end
   end
-  e.sentry_cells=nil
+  e.sentry_cells=nil;e.sentry_reflection=nil
   if e.sentry_shots>0 then schedule(state,e,'commit',state.clock+120,item.attack_id)
   else e.sentry_phase=nil;e.sentry_due=nil;e.sentry_schedule_id=nil end
  else
@@ -134,6 +135,12 @@ function C.resolve(state,item,content,visible,emit,fire)
    local dx=p.x==q.x and 0 or (p.x>q.x and 1 or -1);local dy=p.y==q.y and 0 or (p.y>q.y and 1 or -1)
    e.sentry_cells={}
    for step=1,dist do e.sentry_cells[#e.sentry_cells+1]={floor_id=q.floor_id,x=q.x+dx*step,y=q.y+dy*step}end
+   local reflected,reflection=Mirrors.route(state,e,e.sentry_cells,true)
+   e.sentry_cells=reflected;e.sentry_reflection=reflection
+   if reflection then
+    Mirrors.consume(state,reflection)
+    emit('MirrorReflected',{reflection=reflection,target_cells=reflected,floor_id=q.floor_id,x=reflection.x,y=reflection.y})
+   end
    schedule(state,e,'impact',state.clock+80,item.attack_id)
    emit('SentryCommitted',{target_id=best.id,floor_id=q.floor_id,x=q.x,y=q.y,
     target_cells=e.sentry_cells,due=e.sentry_due,shots=e.sentry_shots})
@@ -168,14 +175,28 @@ function C.validate(state,maps)
     assert(found,'missing sentry work');work[e.sentry_schedule_id]=true
     if e.sentry_phase=='impact'then
      assert(type(e.sentry_cells)=='table' and #e.sentry_cells>=1 and #e.sentry_cells<=4,'invalid sentry lane')
-     local dx,dy
+     local dx,dy;local reflect=e.sentry_reflection
+     if reflect then
+      assert(type(reflect.id)=='number' and reflect.id%1==0 and reflect.id>=1 and reflect.id<state.next_action_id
+       and type(reflect.source_id)=='number' and reflect.source_id%1==0 and reflect.source_id>=1 and reflect.source_id<state.next_entity_id
+       and type(reflect.step)=='number' and reflect.step%1==0 and reflect.step>=1 and reflect.step<#e.sentry_cells
+       and type(reflect.in_dx)=='number' and type(reflect.in_dy)=='number' and math.abs(reflect.in_dx)+math.abs(reflect.in_dy)==1
+       and reflect.out_dx==-reflect.in_dy and reflect.out_dy==reflect.in_dx,'invalid sentry reflection')
+     end
      for i,c in ipairs(e.sentry_cells)do
       local x,y=c.x-e.position.x,c.y-e.position.y
       if i==1 then dx,dy=x,y;assert(math.abs(dx)+math.abs(dy)==1,'invalid sentry direction')end
-      assert(c.floor_id==e.position.floor_id and x==dx*i and y==dy*i,'unlocked sentry lane')
+      local expected_x,expected_y=e.position.x+dx*i,e.position.y+dy*i
+      if reflect then
+       assert(dx==reflect.in_dx and dy==reflect.in_dy,'unlocked sentry reflection')
+       if i==reflect.step then assert(c.x==reflect.x and c.y==reflect.y,'moved sentry mirror')end
+       if i>reflect.step then expected_x,expected_y=reflect.x+reflect.out_dx*(i-reflect.step),reflect.y+reflect.out_dy*(i-reflect.step)end
+      end
+      assert(c.floor_id==e.position.floor_id and c.x==expected_x and c.y==expected_y
+       and c.x>=1 and c.x<=map.width and c.y>=1 and c.y<=map.height,'unlocked sentry lane')
      end
-    else assert(e.sentry_cells==nil,'uncommitted sentry lane')end
-   else assert(e.sentry_shots==0 and not e.sentry_due and not e.sentry_schedule_id and not e.sentry_cells,'invalid spent sentry')end
+    else assert(e.sentry_cells==nil and e.sentry_reflection==nil,'uncommitted sentry lane')end
+   else assert(e.sentry_shots==0 and not e.sentry_due and not e.sentry_schedule_id and not e.sentry_cells and not e.sentry_reflection,'invalid spent sentry')end
   end
   seen[kind]=true
  end end

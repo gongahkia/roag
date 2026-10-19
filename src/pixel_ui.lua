@@ -78,6 +78,15 @@ function U.class_page(order,selected)
     local first=math.floor((index-1)/9)*9+1
     return first,math.min(#order,first+8)
 end
+function U.class_nav_at(x,y)
+    if y<500 or y>=538 then return end
+    if x>=190 and x<310 then return -1 end
+    if x>=350 and x<480 then return 1 end
+end
+function U.class_page_target(order,selected,delta)
+    local first=U.class_page(order,selected)
+    return order[math.max(1,math.min(math.floor((#order-1)/9)*9+1,first+delta*9))]
+end
 function U.class_at(x,y,first,last)
     first,last=first or 1,last or 9
     local row=U.row_at(190,150,290,32,last-first+1,36,x,y)

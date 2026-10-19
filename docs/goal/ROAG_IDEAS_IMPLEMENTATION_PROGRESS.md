@@ -43,7 +43,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
-| `wayfinder-class` | Wayfinder — a visible return beacon | pending | — |
+| `wayfinder-class` | Wayfinder — a visible return beacon | headless verified; GUI pending | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
 | `offering-font` | One-use HP offering font | pending | — |
 | `ration-cache` | Sealed ration cache | pending | — |
 | `cleanse-flask` | Single-use cleansing flask | pending | — |
@@ -320,3 +320,56 @@ Spiritbinder is integrated: six final focused cases and two-process paid-command
 Tinkerer is integrated: seven final focused cases, 59 combined contracts and new-process pending-shot continuation pass. A regression caught guaranteed Temporal Echo still activating at coefficient zero; the new sentry-generated event flag explicitly excludes these automatic records from boon activation. Existing attack/proc rules remain unchanged for untagged events. Failure logs are retained. The Geomancer frozen full gate has now passed **519/519** at `/var/tmp/roag-geomancer-full-20261019.log`; Spiritbinder commit `9507efcb`. No LÖVE windows opened.
 
 Stormcaller is integrated: seven focused cases, 66 combined contracts and fresh-process pending-cross continuation pass. Charge only comes from positive direct bolts, capped at three; discharge and ground ward are alternative spent-charge choices. Its delayed cross is fixed and explicitly cannot activate boon chains. Fixture corrections handled a real wall truncating the cross and made the disk fixture earn charge before casting. Tinkerer commit `0b084f9f`. Four of this five-class batch are integrated; Wayfinder is next.
+
+### Five classes implemented — integration gate
+
+The Geomancer, Spiritbinder, Tinkerer, Stormcaller and Wayfinder are integrated.
+Full pre-handoff-fix gate: **553 passed, 0 failed**, frozen source
+`/var/tmp/roag-five-classes-final-m5yyxtkz`, log
+`/var/tmp/roag-five-classes-final-headless-20261019.log`. This includes all
+original legal Victories, seven miniboss routes, generation corpora and prior
+combat/save/asset/audio checks. The new focus gate is **43/43**.
+
+- Fifteen genuine first-encounter runs: seeds **3, 9, 21** for each of the five
+  classes, with exact ordered event/action replay and final full snapshots.
+  These are not full-run Victory claims.
+- All five have real checked-store write → separate-process Continue → second
+  generation checks. Spiritbinder orders a saved familiar strike; Tinkerer
+  resumes a pending bolt; Stormcaller resumes a delayed cross; Geomancer
+  expires its saved block; Wayfinder performs its saved beacon return.
+- 100 prepared repeated-use cycles per class retain bounded entity/scheduler
+  state, valid saves and unchanged RNG. These are fixtures, not legal runs or
+  renderer benchmarks. CPU per 100 cycles: Geomancer .0293 s, Spiritbinder
+  .0159 s, Tinkerer .0099 s, Stormcaller .0288 s, Wayfinder .0218 s, under
+  Linux 6.18 WSL2 x86_64 / LuaJIT 2.1. No GPU measurement was made.
+  The Lua heap samples vary with GC/JIT; bounded saved state (5.1–5.7 KB) and
+  queues are the reliable assertion, not a general memory-leak claim.
+- All 13 enemy disk scenarios and the original art/review checks pass. The
+  first combined disk command lacked the copied Duelist fixture in the
+  staging directory; it was supplied and the actual Duelist disk gate passed.
+- Both Kenney choices resolve **399/399** bindings: 65 actor IDs / 130 static
+  pose aliases. Original source PNGs and user-reviewed HTML/feedback remain
+  unchanged. The catalogue now records 330 used / 3,264 unused native cells.
+- Source and tests are frozen separately during full runs. An earlier
+  unfinished 552-test run was stopped only for its verified own process to
+  add Sentry/Mirror integration. The later 553/553 run completed. Assertion
+  logs from corrected fixtures remain available; no GUI crash fix is claimed.
+
+Final focus: `/var/tmp/roag-five-classes-final-focused-20261019.log`;
+legal/repeated-use evidence: `/var/tmp/roag-five-classes-final-probe-20261019.log`;
+disk evidence: `/var/tmp/roag-five-classes-final-disk-20261019.log`.
+`tools/idea_classes_probe.lua` reproduces the legal prefixes and labelled stress.
+The class guide records actual controls and source art reuse.
+
+During final audit a separate pre-existing stage-handoff defect was reproduced:
+a seed-2 Geomancer could receive Adventurer-only Longblade Geometry on stage 2
+because the fresh stage generated offers before restoring the chosen class.
+The release candidate passes the class ID into fresh stage/finale construction;
+a new assisted fixture checks later offers and compatible saves for all fifteen
+classes. Its **44/44** focus and all-class fresh-process checks pass. A full
+554-test release gate is running; its outcome is not presumed.
+
+This user-requested batch is classes only. Items/rooms, three terrains,
+environment/presentation directions and 50+ additional boons remain pending.
+LÖVE windows, physical input, game-scale readability and human balance
+acceptance remain deferred. No later batch is started in this turn.
