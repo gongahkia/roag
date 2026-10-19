@@ -938,6 +938,18 @@ local function drain_effects(state, output)
                     end
                 end
             elseif event.kind=='TileEntered' then
+                -- Ordinary walking has already checked the Trapper's snare in
+                -- enemy_turn. Forced arrival uses the same finite trap here.
+                local snare=state.class_special and state.class_special.snare
+                local victim=Game.entity(state,event.source_id)
+                if event.forced and snare and victim and victim.controller=='ai'
+                    and victim.hp>0 and snare.floor_id==event.floor_id
+                    and snare.x==event.x and snare.y==event.y then
+                    state.class_special.snare=nil;victim.skip_next_turn=true
+                    emit(state,output,'SnareTriggered',{floor_id=event.floor_id,
+                        x=event.x,y=event.y,target_id=victim.id},state.player_id,event.action_id)
+                    terrain_damage(state,output,state.player_id,event.action_id,victim,3,'physical','player')
+                end
                 for i=#(state.enemy_snares or {}),1,-1 do
                     local trap=state.enemy_snares[i]
                     if trap.floor_id==event.floor_id and trap.x==event.x and trap.y==event.y
@@ -1187,6 +1199,24 @@ local function resolve_impact(state, item, output)
                             enemy.id,pending.action_id)
                     end
                 end
+            end
+        elseif pending.support.kind=='phase' then
+            local cell=pending.target_cells[1]
+            local valid=IdeaEnemies.phase_landing(state,enemy,cell,Content.map_for(state),
+                function(s,id,x,y)return Content.walkable(Content.map_for(s),x,y)
+                    and not occupant(s,s.active_floor_id,x,y,id,false)end,
+                function(x,y)return Visibility.can_see(state,state.active_floor_id,x,y)end)
+            if valid then
+                local from_x,from_y=enemy.position.x,enemy.position.y
+                enemy.position.x,enemy.position.y=cell.x,cell.y
+                emit(state,output,'Displaced',{target_id=enemy.id,reason='phase',
+                    floor_id=cell.floor_id,from_x=from_x,from_y=from_y,x=cell.x,y=cell.y},
+                    enemy.id,pending.action_id)
+                emit(state,output,'TileEntered',{floor_id=cell.floor_id,
+                    from_x=from_x,from_y=from_y,x=cell.x,y=cell.y,forced=true},enemy.id,pending.action_id)
+            else
+                emit(state,output,'PhaseBlocked',{floor_id=cell.floor_id,x=cell.x,y=cell.y},
+                    enemy.id,pending.action_id)
             end
         elseif pending.support.kind=='ward' then
             enemy.ai_memory.ward_ready=true
@@ -1978,6 +2008,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='phase' and entity.definition_id=='core:enemy/hollow_wraith')
                     or (support.kind=='ward' and entity.definition_id=='core:enemy/ward_weaver')
                     or (support.kind=='snare' and entity.definition_id=='core:enemy/snare_scribe'),
                     "invalid pending support windup")

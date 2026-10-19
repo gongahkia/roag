@@ -4,6 +4,7 @@ local EliteAI = require("src.elite_ai")
 local RegularAI = require("src.regular_ai")
 local SquadAI = require('src.squad_ai')
 local IdeaEnemies = require('src.idea_enemies')
+local Visibility = require('src.visibility')
 
 local AI = {}
 local directions = {{0,-1},{1,0},{0,1},{-1,0}} -- stable N, E, S, W
@@ -169,7 +170,8 @@ function AI.choose(state, enemy)
                 return Content.projectile_passable(map,x,y,state)
             end,
             clear_line=clear_line,next_step=next_step,
-            adjacent_goals=adjacent_goals,free=free})
+            adjacent_goals=adjacent_goals,free=free,
+            visible=function(x,y)return Visibility.can_see(state,state.active_floor_id,x,y)end})
     end
 
     if definition.ai=="hollow_regent" then

@@ -957,6 +957,8 @@ local function submit(intent)
                 notice='Snare: 1 damage and +40 recovery time'
             elseif event.kind=='ShoveBlocked' and event.target_id==state.player_id then
                 notice='Shove blocked: '..event.reason
+            elseif event.kind=='PhaseBlocked' then
+                notice='Wraith phase blocked: destination occupied, out of sight or protected'
             elseif event.kind=='Displaced' and event.target_id==state.player_id and event.reason=='shove' then
                 notice='Rammer shove: forced one tile'
             elseif event.kind=="VaultKeyCollected" then

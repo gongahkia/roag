@@ -1550,6 +1550,7 @@ require("tests.expansion_full_run_tests")(test, equal)
 require("tests.pickup_aoe_tests")(test, equal)
 require('tests.enemy_squad_tests')(test,equal)
 require('tests.idea_enemy_tests')(test,equal)
+require('tests.idea_wraith_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

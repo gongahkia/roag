@@ -1097,7 +1097,7 @@ onebit,412,320,128,72,,
 onebit,413,336,128,70,,
 onebit,414,352,128,80,,
 onebit,415,368,128,59,,core:enemy/rushwing
-onebit,416,384,128,66,,
+onebit,416,384,128,66,core:enemy/hollow_wraith,core:enemy/hollow_wraith
 onebit,417,400,128,96,,
 onebit,418,416,128,68,,core:enemy/spore_herald
 onebit,419,432,128,82,,core:enemy/mycelial_matriarch

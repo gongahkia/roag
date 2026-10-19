@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "de780399a95d24d5",
+  "mapping_checksum": "1de22a103e3c1248",
   "packs": {
     "kenney": {
-      "actor_count": 45,
-      "actor_silhouettes": 37,
+      "actor_count": 46,
+      "actor_silhouettes": 38,
       "bindings": [
         {
           "height": 8,
@@ -1707,6 +1707,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith",
+          "index": 416,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/attack",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/hurt",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/index_keeper",
           "index": 6,
@@ -3016,7 +3043,7 @@
           "sheet": "micro"
         }
       ],
-      "static_pose_aliases": 90,
+      "static_pose_aliases": 92,
       "usage": {
         "caves": {
           "145": [
@@ -3471,6 +3498,9 @@
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
           ],
+          "416": [
+            "core:enemy/hollow_wraith"
+          ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
           ],
@@ -3659,8 +3689,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 45,
-      "actor_silhouettes": 45,
+      "actor_count": 46,
+      "actor_silhouettes": 46,
       "bindings": [
         {
           "height": 16,
@@ -5365,6 +5395,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/hollow_wraith",
+          "index": 416,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/attack",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/hurt",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/index_keeper",
           "index": 76,
           "motif": "",
@@ -6608,7 +6665,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 90,
+      "static_pose_aliases": 92,
       "usage": {
         "onebit": {
           "1010": [
@@ -6835,6 +6892,9 @@
           ],
           "415": [
             "core:enemy/rushwing"
+          ],
+          "416": [
+            "core:enemy/hollow_wraith"
           ],
           "418": [
             "core:enemy/spore_herald"
@@ -7108,14 +7168,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 61,
+      "kenney": 62,
       "nonempty": 1077,
-      "onebit": 148,
+      "onebit": 149,
       "sheet": "onebit",
-      "union": 148,
-      "unused_kenney": 1016,
-      "unused_onebit": 929,
-      "unused_union": 929
+      "union": 149,
+      "unused_kenney": 1015,
+      "unused_onebit": 928,
+      "unused_union": 928
     },
     {
       "empty": 63,
@@ -7332,6 +7392,9 @@
     "core:enemy/hollow_regent",
     "core:enemy/hollow_regent/attack",
     "core:enemy/hollow_regent/hurt",
+    "core:enemy/hollow_wraith",
+    "core:enemy/hollow_wraith/attack",
+    "core:enemy/hollow_wraith/hurt",
     "core:enemy/index_keeper",
     "core:enemy/index_keeper/attack",
     "core:enemy/index_keeper/hurt",

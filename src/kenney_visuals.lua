@@ -150,6 +150,12 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_pillar_bottom']=174,
     }) do handles[id]=cave_cell(index) end
     for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
+    for id,index in pairs(IdeaEnemies.shared_onebit or {}) do
+        local x,y,w,h=Symbols.region(index)
+        local sprite={texture=symbols.texture,quad=make_quad(x,y,w,h,Symbols.width,Symbols.height),
+            width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=index}
+        handles[id]=sprite;handles[id..'/attack']=sprite;handles[id..'/hurt']=sprite
+    end
     handles['core:boon/ring_of_reversal/icon']=handle(89,true)
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end

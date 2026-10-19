@@ -6,10 +6,11 @@ and feature authority. This guide records implemented slices; the full
 
 ## Heavy Rammer
 
-Newly generated stage floors can replace one ordinary, non-squad enemy with
-a Rammer. An independent floor-seeded selection attempts this on one quarter
-of floors; it never adds another crowd, changes terrain, consumes combat RNG,
-or repopulates an existing saved floor. Replacement stays at least eight
+Each newly generated stage floor has a seeded one-in-four eligibility check.
+A separate stream can select one ordinary, non-squad enemy for replacement
+with an implemented idea encounter. The Rammer is one candidate. This keeps
+the crowd size and geometry intact and consumes no combat RNG. Restoring a
+saved floor does not repopulate it. Replacement stays at least eight
 Manhattan tiles from the entrance. Original runtime entity IDs remain stable.
 
 | Parameter | Value |
@@ -37,6 +38,31 @@ The shove never transitions floors or changes the player's action readiness
 itself. Normal tile-entry mechanics still apply: brambles, snares, supplies and
 boons see the actual forced entry. A triggered snare delays the queued player
 recovery exactly once. The existing slide renderer presents displacement.
+
+## Hollow Wraith
+
+The Wraith uses **only 1-Bit 416 in both Kenney choices**, including static
+attack/hurt aliases. Classic shows a W token. Its HP/damage/defense are
+7/2/0; speed 90, base windup 100, recovery 120, ordinary move cost 100.
+
+It can commit a two-cell cardinal phase across one wall cell toward the player.
+The landing must be visible from the player's current position, walkable,
+unoccupied and free of stairs/exits. The cyan support outline announces this
+landing. Standing on it cancels the move; it never inflicts an arrival hit.
+Stun, displacement and death cancel the commitment. Losing sight of the landing
+also prevents arrival. The wall remains intact. Water and wider wall blocks do
+not become free traversal. A normal movement/attack fallback remains available.
+
+After phase recovery, the Wraith uses a separate ordinary adjacent strike.
+Strict scheduler timing still applies. The blink renderer does not slide it
+through the intervening wall; canonical forced arrival triggers terrain and
+finite Trapper/enemy snares. Phase animation/update never advances simulation.
+
+New stage generation selects at most one approved idea replacement per floor,
+from the currently implemented set, using the existing separate seeded stream.
+Old saved floors remain concrete. Read-only sight queries use the observer's
+current position rather than the potentially stale end-of-action visibility
+cache; exploration is not changed by a query.
 
 ## Verification
 

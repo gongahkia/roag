@@ -29,6 +29,20 @@ local function line_clear(state, map, x0, y0, x1, y1)
     return true
 end
 
+-- Read-only sight query using the observer's CURRENT position. AI commitments
+-- happen before end-of-action recompute, so a cached visible set can be stale.
+function Visibility.can_see(state,floor_id,x,y)
+    local map=Content.map_for(state)
+    if not map or floor_id~=state.active_floor_id or x<1 or x>map.width
+        or y<1 or y>map.height then return false end
+    local player
+    for _,e in ipairs(state.entities) do if e.id==state.player_id then player=e;break end end
+    if not player then return false end
+    local p=player.position
+    local radius=state.visible and state.visible.radius or Visibility.radius
+    return (x-p.x)^2+(y-p.y)^2<=radius^2 and line_clear(state,map,p.x,p.y,x,y)
+end
+
 function Visibility.recompute(state, radius)
     local map=assert(Content.map_for(state),"missing visibility map")
     local player

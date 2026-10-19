@@ -4,15 +4,60 @@ local I={version='roag-idea-enemies/1'}
 I.enemies={
     -- id, name, HP, damage, defense, speed, windup, recovery, range
     {'heavy_rammer','Heavy Rammer',12,2,1,70,110,140,1},
+    {'hollow_wraith','Hollow Wraith',7,2,0,90,100,120,1},
 }
-I.roles={['core:enemy/heavy_rammer']='rammer'}
+I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith'}
 I.tiny={['core:enemy/heavy_rammer']=89}
-I.onebit={['core:enemy/heavy_rammer']=129}
-I.abilities={rammer_shove='rammer shove'}
+-- The reviewed redirect permits only 416, in BOTH settings choices.
+I.shared_onebit={['core:enemy/hollow_wraith']=416}
+I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416}
+I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch'}
+local directions={{0,-1},{1,0},{0,1},{-1,0}}
+
+function I.phase_geometry(from,to)
+    local dx,dy=to.x-from.x,to.y-from.y
+    return (dx==0 or dy==0) and math.abs(dx)+math.abs(dy)==2
+end
+
+function I.phase_landing(state,enemy,cell,map,free,visible)
+    if cell.floor_id~=enemy.position.floor_id or cell.floor_id~=state.active_floor_id
+        or not I.phase_geometry(enemy.position,cell) then return false end
+    if not free(state,enemy.id,cell.x,cell.y) or not visible(cell.x,cell.y) then return false end
+    for _,stair in ipairs(map.placements and map.placements.stairs or {}) do
+        if stair.x==cell.x and stair.y==cell.y then return false end
+    end
+    for _,other in ipairs(state.entities) do
+        local p=other.position
+        if other.controller=='exit' and p.floor_id==cell.floor_id
+            and p.x==cell.x and p.y==cell.y then return false end
+    end
+    return true
+end
 
 function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
+    if I.roles[enemy.definition_id]=='wraith' then
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id='core:ability/wraith_touch',cells={{x=b.x,y=b.y}}}
+        end
+        local best,score
+        for _,d in ipairs(directions) do
+            local x,y=a.x+d[1]*2,a.y+d[2]*2
+            local middle=h.map.rows[a.y+d[2]]
+            local cell={floor_id=a.floor_id,x=x,y=y}
+            local distance=math.abs(x-b.x)+math.abs(y-b.y)
+            if middle and middle:sub(a.x+d[1],a.x+d[1])=='#'
+                and distance<math.abs(dx)+math.abs(dy)
+                and I.phase_landing(state,enemy,cell,h.map,h.free,h.visible)
+                and (not score or distance<score) then best,score=cell,distance end
+        end
+        if best then
+            return {kind='windup',ability_id='core:ability/wraith_phase',cells={best},
+                support={kind='phase'}}
+        end
+        return h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+    end
     if math.abs(dx)+math.abs(dy)==1 then
         return {kind='windup',ability_id='core:ability/rammer_shove',
             cells={{x=b.x,y=b.y}},
@@ -38,7 +83,8 @@ function I.populate(state,map,replace)
     table.sort(choices,function(a,b)return a.id<b.id end)
     if #choices==0 then return end
     local target=choices[math.floor(seed/4)%#choices+1]
-    replace(target,'core:enemy/heavy_rammer')
+    local definition=I.enemies[math.floor(seed/16)%#I.enemies+1]
+    replace(target,'core:enemy/'..definition[1])
     for _,p in ipairs(map.placements.enemies) do
         if p.x==target.position.x and p.y==target.position.y then
             p.definition_id=target.definition_id
@@ -48,6 +94,15 @@ function I.populate(state,map,replace)
 end
 
 function I.validate_pending(enemy,pending)
+    local phase=pending.support and pending.support.kind=='phase'
+    if phase or pending.ability_id=='core:ability/wraith_phase' then
+        assert(phase and enemy.definition_id=='core:enemy/hollow_wraith'
+            and pending.ability_id=='core:ability/wraith_phase'
+            and #pending.target_cells==1
+            and pending.target_cells[1].floor_id==pending.floor_id
+            and I.phase_geometry({x=pending.source_x,y=pending.source_y},pending.target_cells[1]),
+            'invalid committed phase')
+    end
     local s=pending.shove
     if not s and pending.ability_id~='core:ability/rammer_shove' then return end
     assert(enemy.definition_id=='core:enemy/heavy_rammer'

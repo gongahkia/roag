@@ -26,9 +26,9 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | --- | --- | --- | --- |
 | `reanimator` | Grave Cantor + finite resurrection | pending | — |
 | `haunted-cache` | Haunted cache / chest mimic | pending | — |
-| `heavy-rammer` | Heavy Rammer + positional shove | implemented; regression hardening | Source in `38c34a96`; 12 focused checks, real rotating-store Continue; complete legal corpus gate remains open |
+| `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
-| `hollow-wraith` | Hollow Wraith + announced phase step | pending | — |
+| `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; this feature commit |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | pending | — |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
@@ -106,46 +106,53 @@ No feature is complete merely because a schema, fixture or metadata record exist
 
 ## Last verified action
 
-Task 0 complete: preserved original reviewed inventory and archive/source hashes; freshness tooling validates the historical user-reviewed snapshot independently of live assignments. Six feedback state tests, source checks and previous 30/30 squad acceptance pass.
+- Task 0: reviewed inventory, user feedback and original PNG hashes remain frozen;
+  live sprite assignments are separate. Six feedback state checks and all prior
+  30/30 squad decisions pass. Task commit `0f9fbd9f`.
+- Rammer/driver hardening: **389 passed, 0 failed**, full frozen source run
+  `/var/tmp/roag-rammer-final-headless-20261019.log`; task commit `0f643d9e`.
+  Twelve focused tests and a fresh-process rotating-store Continue pass.
+- Wraith: integrated into the live source. **398 passed, 0 failed**, full run
+  `/var/tmp/roag-wraith-final-headless-20261019.log`. Nine added focused tests
+  cover visible wall crossing, separate attacks, occupied landing cancellation,
+  sight queries, interruption, Trapper contact, exact saves and only 416 in both
+  packs. The live combined focus run is **21/21**; both encounter disk scenarios
+  pass write → new process → Continue → second checked save generation.
+- Both Kenney choices now resolve **330/330** required bindings, 46 actor IDs and
+  92 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+  Original source PNGs, archived comments and prior selected bindings pass checks.
+- No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
-Rammer integration is present; 12 focused checks cover strict locked shove timing,
-blocked landings, hazards/pickups/snares, friendly fire, interruptions, exact save
-continuation, presentation-only slides and a seven-biome paired-floor corpus.
-`sh tests/idea_enemy_disk_resume.sh` passes two separate LuaJIT processes with
-real checked save generations. GUI remains untested.
+### Regressions diagnosed and corrected
 
-The first expanded full run was **383 passed / 3 failed** (log
-`/var/tmp/roag-ideas-rammer-20261019.log`): one obsolete encounter-pool assertion,
-one invalid route-history fixture and one guided navigation limit. The two
-fixtures are corrected. Guided routes expose pre-existing automation errors:
-repeated safe-cell dodges, firing through blocked projectile corners, attacking
-protected brutes without luring/flanking, and dodging fully blocked damage.
-These are driver changes; actor stats, combat rules, RNG and map geometry are
-unchanged. Some attempted driver revisions changed routes adversely; their logs
-are preserved, and no green full-suite claim is made for those revisions.
-`/var/tmp/roag-rammer-focused-12.log` is **12/12**. The two remaining failures
-in frozen broad runs were the older single-floor seed-3 Victory/profile gates:
-the guide abandoned an earned chest and ten-HP supply, entering the finale at
-5 HP. It now claims the normal reward and collects the existing supply through
-legal actions. Seed 3 wins at 9 HP after 1,039 actions, with exact full snapshot
-replay (`/var/tmp/roag-seed3-earned-recovery.log`). Both actual failing gates
-pass in `/var/tmp/roag-seed3-gates-accepted.log`; the complete final rerun is
-live in `/var/tmp/roag-rammer-final-headless-20261019.log`.
+The first expanded full run was 383/3: an obsolete encounter-pool assertion,
+an invalid route-history fixture, and a guided navigation limit. Later driver
+revisions exposed more strategy failures; their `/var/tmp/roag-*` logs are kept.
+Verified automation defects included endless safe-cell dodges, shooting through
+blocked projectile corners, ignoring ward-counterplay and treating support
+markers as damage. The legal driver now consults actual attack geometry and
+uses ordinary attacks, lures or movement after a proven stall. No game actor
+stats, geometry, scheduler rules or combat logic were changed by these fixes.
 
-Wraith is staged in `/var/tmp/roag-idea-wraith-0_uo5rfw`: actual announced wall
-crossing, separate normal attacks, only 416 in both packs, protected/visible
-landings, Trapper contact and fresh-process continuation. Its focused checks
-pass; a frozen full run was **395 passed / 1 failed**, the remaining guided-run
-failure. Grave Cantor is staged in `/var/tmp/roag-idea-revival-kf0ggjgt`: eight
-focused tests and three fresh-process encounter scenarios pass. Neither staged
-feature is claimed live or complete yet. Wraith's revised full legal-run group
-passes **4/4**, including six class victories and all seven miniboss routes
-(`/var/tmp/roag-wraith-legal-accepted-latest.log`). Its complete rerun is live in
-`/var/tmp/roag-wraith-final-headless-20261019.log`. Gulp Toad is also staged in
-`/var/tmp/roag-idea-toad-wdfn7s52`: loose-drop interception, one original carried
-drop, death release, source references, save/replay and a seeded population/art
-corpus. It is not yet integrated. Keep these task-local workspaces until
-their reviewed changes are integrated; they are not personal project/save data.
+The older single-floor seed-3 route abandoned its earned third-elite chest and
+health supply, reaching the finale at 5 HP. It now claims that real reward and
+collects the existing pickup by normal actions. It wins at 9 HP after 1,039
+legal actions and replays to an identical full snapshot; the Victory/profile
+checks pass. See `/var/tmp/roag-seed3-earned-recovery.log` and
+`/var/tmp/roag-seed3-gates-accepted.log`.
 
-Next: finish verified legal-driver hardening, then integrate Wraith and Cantor
-in separate task commits. Every other ledger row remains pending. Goal ACTIVE.
+### Next staged work (not yet live)
+
+- Grave Cantor: `/var/tmp/roag-idea-revival-kf0ggjgt`, eight focused tests and
+  fresh-process pending-revival continuation pass. One committed revival budget,
+  blocked/cancelled attempts, weaker revived bodies, bounded corpse records and
+  no repeat XP/currency/supply rewards. Broad acceptance is next.
+- Gulp Toad: `/var/tmp/roag-idea-toad-wdfn7s52`, seven focused tests and a real
+  fresh-process gulp/cargo scenario pass. One original loose drop is carried and
+  released on death; interception and competing gulps cannot duplicate loot.
+- Keep these task workspaces until their reviewed changes are integrated. They
+  are disposable implementation fixtures, not personal project/save data.
+
+Next: integrate and verify Cantor, then Toad, each in a separate task commit.
+All remaining ledger entries stay in scope. Goal ACTIVE; no full-goal completion
+claim is made.
