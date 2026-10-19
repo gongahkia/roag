@@ -1,0 +1,28 @@
+name: Build and simulation checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.402'
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - run: dotnet restore Regolith.sln --locked-mode
+      - run: dotnet build Regolith.sln --configuration Release --no-restore
+      - run: dotnet test Regolith.sln --configuration Release --no-build
+      - name: Run deterministic headless scenario
+        run: dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --headless 700 --demo --seed 42

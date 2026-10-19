@@ -1,0 +1,137 @@
+using Regolith.Client;
+using Regolith.Core;
+
+try
+{
+    var options = ClientOptions.Parse(args);
+    if (options.Help)
+    {
+        Console.WriteLine("REGOLITH / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\nFor headless simulation or benchmarks use ./play.sh --headless TICKS or ./play.sh --benchmark.");
+        return 0;
+    }
+    using var game = new ColonyGame(options);
+    game.Run();
+    return 0;
+}
+catch (Exception error) when (error is ArgumentException or FormatException or IOException or System.Text.Json.JsonException or OverflowException)
+{
+    Console.Error.WriteLine("Regolith: " + error.Message);
+    return 1;
+}
+
+namespace Regolith.Client
+{
+    public sealed class ClientOptions
+    {
+        public int Seed { get; private set; } = 42;
+        public int Width { get; private set; } = 96;
+        public int Height { get; private set; } = 64;
+        public string SavePath { get; private set; } = Simulation.DefaultSave;
+        public bool Load
+        {
+            get; private set;
+        }
+        public bool Demo
+        {
+            get; private set;
+        }
+        public bool SkipIntro
+        {
+            get; private set;
+        }
+        public bool SmokeTest
+        {
+            get; private set;
+        }
+        public string? Screenshot
+        {
+            get; private set;
+        }
+        public int Frames
+        {
+            get; private set;
+        }
+        public int WindowWidth { get; private set; } = 1440;
+        public int WindowHeight { get; private set; } = 900;
+        public bool Help
+        {
+            get; private set;
+        }
+        public static ClientOptions Parse(string[] args)
+        {
+            var result = new ClientOptions();
+            for (int i = 0; i < args.Length; i++)
+            {
+                string Value()
+                {
+                    if (i + 1 >= args.Length)
+                    {
+                        throw new ArgumentException("Missing value for " + args[i]);
+                    }
+
+                    return args[++i];
+                }
+                int Number() => int.Parse(Value(), System.Globalization.CultureInfo.InvariantCulture);
+                switch (args[i])
+                {
+                    case "--seed":
+                        result.Seed = Number();
+                        break;
+                    case "--width":
+                        result.Width = Number();
+                        break;
+                    case "--height":
+                        result.Height = Number();
+                        break;
+                    case "--save":
+                        result.SavePath = Path.GetFullPath(Value());
+                        break;
+                    case "--load":
+                        result.Load = true;
+                        break;
+                    case "--demo":
+                        result.Demo = true;
+                        break;
+                    case "--skip-intro":
+                        result.SkipIntro = true;
+                        break;
+                    case "--smoke-test":
+                        result.SmokeTest = true;
+                        break;
+                    case "--screenshot":
+                        result.Screenshot = Path.GetFullPath(Value());
+                        break;
+                    case "--frames":
+                        result.Frames = Number();
+                        break;
+                    case "--help":
+                        result.Help = true;
+                        break;
+                    case "--window-size":
+                        var size = Value().Split('x');
+                        if (size.Length != 2)
+                        {
+                            throw new ArgumentException("Window size must be WIDTHxHEIGHT.");
+                        }
+
+                        result.WindowWidth = int.Parse(size[0]);
+                        result.WindowHeight = int.Parse(size[1]);
+                        break;
+                    default:
+                        throw new ArgumentException("Unknown option: " + args[i]);
+                }
+            }
+            if (result.Width < 48 || result.Height < 32 || result.Width > 2048 || result.Height > 2048 || result.Frames < 0)
+            {
+                throw new ArgumentException("Invalid dimensions or frame count.");
+            }
+
+            if (result.WindowWidth < 1024 || result.WindowHeight < 720 || result.WindowWidth > 4096 || result.WindowHeight > 2160)
+            {
+                throw new ArgumentException("Window size must be between 1024x720 and 4096x2160.");
+            }
+
+            return result;
+        }
+    }
+}

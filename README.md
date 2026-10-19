@@ -1,136 +1,106 @@
 # REGOLITH
 
-**A small life on the Moon.** A playable colony simulator in your terminal, inspired by the work orders and small human stories of Dwarf Fortress. You start with **Ada alone** in a sealed outpost. Stranded people are dying in the lunar wasteland. Send rescue expeditions, bring them home, and build a colony from the people you save. Your crew finds routes, mines, builds, tends crops, eats, rests, and retreats when suit oxygen runs low.
+**A small life on the Moon.** A sprite-based colony simulator built with **C# / .NET 10 and MonoGame DesktopGL**. Ada starts alone at Tranquility. Click stranded people in the wasteland, send a rescue, escort them into shelter, and build a colony from the people you save.
 
-Python 3.10+ · macOS / Linux · no third-party runtime dependencies
+![Tranquility outpost in the MonoGame client](docs/images/outpost.png)
 
-```sh
-python3 -m regolith
-```
+## Play
 
-Run from this directory. A terminal around **120 × 40** looks best; **76 × 27** is the minimum. Resize at any time. The tutorial has **six short sections**: Enter advances, Left/Right goes back or forward, and Esc skips to the paused outpost. Enter on the final section starts time. Reopen the tutorial with `t`. The game holds time while a menu is open. `q` saves and exits; Ctrl-C also saves.
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then run:
 
 ```sh
-python3 -m regolith --load           # resume your outpost
-python3 -m regolith --seed 8675309   # another patch of the Moon
-python3 -m regolith --demo           # dispatch the first rescue and queue work
-python3 -m regolith --ascii          # basic terminal glyphs
+./play.sh
+./play.sh --load
+./play.sh --seed 8675309
+./play.sh --demo --skip-intro
 ```
 
-The optional `./play.sh` launcher works from any directory. For a system-wide `regolith` command, install with `python3 -m pip install -e .` in a virtual environment. The direct module command requires no install or network access.
+The launcher works from any directory. On macOS/Linux, `./tools/setup-dotnet.sh` can install SDK 10.0.402 into `~/.local/share/regolith/dotnet` without changing your PATH. The SDK is already installed there on the development machine. First launch restores the pinned NuGet packages and builds Release.
 
-## Start alone, bring people home
+On Windows, or with the SDK on your PATH:
 
-1. **One light in the dark.** Ada is the only colonist. The abandoned habitat has life support, two hydroponic farms, a battery, empty sleeping pods, and a 12 kW generator. Space pauses and resumes time.
-2. **A voice in the wasteland.** Mika's distress beacon appears as a red `?`. **Click the survivor on the map** to dispatch Ada with a rescue kit costing **2 food and 2 water**. You can also move the cursor onto them and press **Enter**. A ready colonist is chosen automatically, interrupting their ordinary work. Press **r** to jump between distress markers on the map. Clicking a survivor again shows the current rescue's progress.
-3. **Bring them home.** The rescuer travels to the survivor, supplies emergency oxygen, and escorts them back at half walking speed. The survivor joins your crew only after reaching pressure. New arrivals are injured, hungry, and exhausted; they recover before working. More distress calls arrive over time. Survivors lose oxygen, then health, and can die if you leave them. Space pauses those countdowns, as does opening the tutorial or another menu.
-4. **Live off the Moon.** Press **d**, move to blue ice `~`, amber ore `%`, or purple crystal `*`, and press **Enter** to mine. Ice supplies water, ore supplies metal, and crystals enable equipment. Use **v** to mark a rectangle. Press **p** to survey open ground near the edge of visibility.
-5. **Build a place worth saving.** Press **b** for blueprints. Machines need deck and connected power. Solar arrays can sit inside the starting room, using abstract roof connections. New rooms need deck enclosed by hull with an airlock. The **o** overlays show oxygen, temperature, and power.
-6. **A future at Tranquility.** Rescue **at least three people**, reach cycle 3 with **four living crew and 20 food**, and run a pressurized **Earth uplink** to earn the founding charter. The uplink costs 60 metal, 20 crystal, and 5 kW; expand the starting grid's generation and storage. You can keep rescuing and building afterward.
+```sh
+dotnet run --project src/Regolith.Client --configuration Release
+```
 
-Watch the log. The first debris impact occurs in cycle 2. Move to the impact coordinates, choose **b → Pressure hull**, and order a repair on the missing hull tile. **o** switches to the oxygen overlay so you can see the leak spread and the room recover.
+The native window defaults to **1440×900** and supports resizing down to **1024×720**. Use `--window-size 1280x800` to set its initial size. MonoGame DesktopGL targets Windows, macOS, and Linux; native rendering has been exercised on macOS Intel. Other desktop platforms still need a graphical smoke run. Linux needs a working desktop/OpenGL environment; headless tools need only .NET.
+
+The six-section tutorial opens before time starts. Enter advances; Left goes back; Esc closes it. Reopen it with **T**. Tutorial and construction menus hold simulation time.
+
+## First colony
+
+1. **Save Mika.** Click the red distress contact on the map, then press Space to run time. A rescue costs **2 food + 2 water**. Ada travels out, shares oxygen, and escorts Mika home at half speed. Recruitment happens only inside pressure. **R** locates contacts; it does not open a separate expedition screen.
+2. **Supply the outpost.** Press **D**, then click cyan ice for water, amber ore for metal, or purple crystal for equipment. Jobs reserve workers automatically. **P** surveys nearby open terrain.
+3. **Expand carefully.** **B** opens construction. Machines need deck and connected power. Enclose new deck with hull and an airlock, and add generation/storage before new consumers. **O** cycles oxygen, heat, and power overlays. Repair meteor breaches with pressure hull.
+4. **Bring more people home.** Incoming distress signals have real oxygen and health countdowns. New arrivals need food, sleep, and recovery before becoming reliable workers.
+5. **Earn the founding charter.** Rescue three people, reach cycle 3 with four living crew and 20 food, and power a pressurized Earth uplink. The uplink costs 60 metal, 20 crystal, and 5 kW. Keep building afterward.
 
 ## Controls
 
-| Key | Action |
+| Input | Action |
 | --- | --- |
-| Arrows / `hjkl` | Move cursor; scroll at viewport edges |
-| Shift + arrows / `HJK` | Move five cells (`L` is reserved for loading) |
-| Mouse wheel over map | Zoom in / out around the pointer |
-| `+` / `-` (also `=` / `_`, Page Up / Down) | Zoom in / out around the map cursor |
-| `0` | Reset view to 100% |
-| Map header `[-]` / `[+]` | Click to zoom out / in; click the percentage to reset |
-| Space | Run / pause |
-| `1` / `2` / `3` | 4 / 12 / 28 simulation ticks per second |
-| `.` | Pause and advance one tick |
-| `d` | Mine rock and deposits, or salvage hull / machines |
-| `b` | Open construction palette; Enter equips a blueprint |
-| Enter / left click | Rescue the survivor at that map tile, or place the current work order |
-| `v` | Start / cancel a rectangle; Enter applies orders |
-| `x` | Equip order cancellation; materials are refunded |
-| `p` | Survey open, visible terrain to reveal its surroundings |
-| `r` | Jump between active distress markers on the map |
-| Esc | Cancel selection and return to inspection |
-| `o` | Cycle terrain, oxygen, temperature, and power overlays |
-| `g` | Return cursor to the starting habitat |
-| `c` | Crew manifest; arrows and Enter locate crew, `1`–`9` are shortcuts |
-| `f` | Follow the colonist under the cursor |
-| `e` | Expanded mission log; arrows scroll |
-| `s` / `L` | Save / load; loading pauses time |
-| `?` | Field notes |
-| `t` | Reopen the six-section tutorial |
-| `q` | Save and quit; after colony loss, preserve the last save |
+| Left click / Enter | Inspect, rescue a stranded person, or place the active order |
+| Mouse wheel over map | Zoom around the pointer, from 25% to 300% |
+| Right / middle mouse drag | Pan the map |
+| Arrows / H J K L | Move the map cursor; Shift moves five cells, except Shift+L loads |
+| + / − or Page Up / Down | Zoom around the cursor |
+| 0 / map zoom percentage | Reset zoom |
+| Space / 1 2 3 / period | Pause; select 1× / 3× / 8×; pause and advance one tick |
+| D / B / P / X | Mine or salvage / construction / survey / cancel with refund |
+| V | Start/cancel a rectangular designation; click or Enter confirms |
+| Esc | Close menu, cancel selection, or return to inspection |
+| R / G / F | Locate distress contact / return home / follow selected crew |
+| C / E | Crew manifest / expanded log; mouse wheel scrolls the panel |
+| O | Cycle terrain, oxygen, temperature, and power views |
+| T / ? | Six-section tutorial / control reference |
+| S or F5 / Shift+L or F9 | Save / load (loading pauses) |
+| F11 / Q | Toggle fullscreen / save and quit |
 
-## Map zoom
+Closing the window also saves a living colony. After colony loss, quitting preserves the previous save; **N** starts again. The default C# save is `~/.regolith/colony-csharp.json`; `--save PATH` selects another slot. Writes are atomic and include random state and in-flight expeditions. Python saves are a separate format and are retained at `~/.regolith/colony.json`.
 
-The view has **25%, 50%, 100%, 200%, and 300%** zoom levels. Scroll up to zoom in and down to zoom out. Wheel zoom keeps the location beneath the mouse in place as far as the world boundaries allow. Keyboard zoom centers on the map cursor; arrows still move one world tile at a time and scroll the camera at the edges. The map header has clickable zoom controls, and `0` returns to the standard view.
+## Simulation and structure
 
-At 25% and 50%, each symbol summarizes a 4×4 or 2×2 area, letting you see more of the moon both horizontally and vertically. Survivors, crew, fires, and work orders take priority over terrain. Clicking targets the object actually shown in that area, so rescue markers remain usable in the overview. At 200% and 300%, map cells expand in both dimensions; zoom in for a closer look at construction and individual rooms. Status panels and controls keep their usual text size.
+Geology uses five passes of a Moore-neighborhood cellular automaton. Atmosphere, heat, and fire use local four-neighbor, double-buffered updates. Hull blocks gas; exterior vacuum drains breached rooms; airlocks pass people and electrical connectivity while sealing the air. Connected decks form separate power islands with local battery banks and prioritized life support. Crew track health, food, rest, morale, and suit oxygen while finding routes to work and rescues.
 
-## Imported artwork
+The implementation separates the game from its presentation:
 
-Open [the asset browser](assets/index.html) to inspect the downloaded artwork and enlarged previews. [The complete inventory](assets/catalog.json) records every original image's dimensions, file size, hash, source, and license. All **664 original PNGs** were decoded successfully, and all three ZIP archives passed their CRC checks. Original ZIPs are retained in [assets/archives](assets/archives/).
+| Project | Responsibility |
+| --- | --- |
+| [Regolith.Core](src/Regolith.Core/) | Graphics-free simulation, contiguous world arrays, jobs, routing, rescue, atomic saves |
+| [Regolith.Client](src/Regolith.Client/) | MonoGame rendering, sprite loading, camera, mouse/keyboard input, HUD/tutorial |
+| [Regolith.Tools](src/Regolith.Tools/) | Deterministic headless runs and simulation benchmarks |
+| [Regolith.Core.Tests](tests/Regolith.Core.Tests/) | Environment, work, power, rescue, progression, and saved-continuation checks |
+| [legacy/python](legacy/python/) | Archived terminal prototype, runnable independently |
 
-For individual sprites, see [the sprite guide](assets/SPRITE_GUIDE.md), [the searchable visual reference](assets/sprites.html), and [the complete sprite JSON](assets/sprites.json). They document **7,115 occupied sprite regions** across all three packs, with exact crops, identity confidence, suggested Regolith uses, and future ideas for unmapped artwork. Every bitmap is currently unused by the curses renderer. Full Markdown tables cover [Urizen](assets/reference/urizen.md), [Godot icons](assets/reference/godot-node-icons.md), and [input prompts](assets/reference/input-prompts.md).
+This is a playable single-layer foundation. Resources go directly into shared inventory; crew may share a cell. Hauling, multi-level excavation, combat, modding, rich social behavior, and background simulation threads are future work. See [architecture](docs/ARCHITECTURE.md) for design decisions and [performance](docs/PERFORMANCE.md) for measured limits and reproduction commands.
 
-| Folder | Contents | Suggested use |
-| --- | --- | --- |
-| `assets/godot-node-icons/` | 653 individual icons in six variants; mostly 16×16 | HUD, build tools, resources, health, save, pause, and zoom |
-| `assets/input-prompts/new/` | Seven keyboard / PS4 / Xbox sprite sheets | Tutorial and control prompts |
-| `assets/input-prompts/legacy/` | Two older keyboard / Xbox sheets | Alternative prompt style |
-| `assets/urizen/` | Main 12×12 Urizen atlas and the free 2-bit showcase | Terrain, rooms, machinery, items, and colonists |
-| `assets/previews/` | Contact sheets and enlarged inspection panels | Browse the artwork without modifying originals |
+## Assets
 
-Urizen is the strongest candidate for the colony map. Its atlases use 12×12 tiles with a one-pixel margin and one-pixel gutters; the main sheet includes magenta guide bands to skip when selecting sprites. The five `icon_reset_2.png` files in the Godot variants are 10×12 rather than 16×16.
+All original spritesheets, stable sprite IDs, crop rectangles, and proposed mappings are preserved. The client uses **Urizen tiles and bitmap font**, **Godot node icons**, and **keyboard/mouse prompts** from the three imported packs. Palette tinting and black-background removal happen in texture copies during loading.
 
-The publishers declare CC0 for these packs: [pixel-boy](https://pixel-boy.itch.io/icon-godot-node), [Hyohnoo](https://hyohnoo.itch.io/keyboard-controller-keys), and [vurmux](https://vurmux.itch.io/urizen-onebit-tileset). Source references are also recorded in [assets/CREDITS.txt](assets/CREDITS.txt).
+[assets/runtime-sprites.json](assets/runtime-sprites.json) selects **154 existing IDs** for 60 semantic bindings and 94 glyphs. Regenerate this small runtime selection with `python3 tools/build_runtime_assets.py` (standard library only). Python is not a game dependency, and no content-pipeline editor is required.
 
-## What is actually simulated
+The full [sprite guide](assets/SPRITE_GUIDE.md), [visual browser](assets/sprites.html), and [sprite catalog](assets/sprites.json) retain every occupied region and future-use proposal. Their unused/proposed flags describe the original import audit; use the runtime manifest for current bindings. [catalog.json](assets/catalog.json) retains the original image hashes and archive inventory. Publishers and CC0 declarations are recorded in [CREDITS.txt](assets/CREDITS.txt).
 
-**Geology.** Five generations of an eight-neighbor majority cellular automaton form the basalt terrain. Seeded random walks place ice, iron, and crystal seams. Exploration uncovers terrain as people move through it.
+## Build and verify
 
-**Atmosphere and heat.** Every tick reads the previous cell states and writes the next states to separate buffers. Four-neighbor oxygen exchanges are equal and opposite. Hull and basalt block gas. Surface cells vent to vacuum. Airlocks allow people and power through while blocking atmospheric exchange. Heat diffuses locally, with surface cells tending toward the current sunlight temperature.
-
-**Fire.** Fire consumes local oxygen, adds heat, probabilistically spreads to oxygenated neighboring deck tiles, and dies without oxygen. It damages people and machines. Idle crew fight adjacent fires when it is safe to do so.
-
-**Power and life support.** Connected deck and airlock cells form separate electrical networks. The RTG provides constant power; solar output follows a light cycle and drops during particle storms. Each island stores energy in its own batteries. Life support receives priority when power is short; it consumes water and supplies oxygen and heat. Farms need power, water, pressure, and viable temperature. Botanists accelerate nearby growth.
-
-**People.** Crew use breadth-first pathfinding, prefer work matching their profession, track hunger, health, energy, morale, and suit oxygen, and interrupt work to retreat or sleep. Construction reserves materials when ordered and refunds them on cancellation. Inaccessible jobs stay queued. Named crew have flavor traits; professions affect work and crop tending.
-
-**Rescue expeditions.** Click a stranded survivor's `?` directly on the map to send help. A nearby survivor is available from the start, with further signals broadcast during play. Injured survivors consume suit oxygen while stranded. An expedition reserves one ready colonist, spends a supply kit, follows an actual route, supplies emergency oxygen at contact, and escorts the survivor into pressurized shelter. Only then does that person join the crew, retaining their name, profession, and injuries. A blocked route, exposure, or the rescuer's death can cause an expedition to fail. Living survivors can be reached by a later attempt. Distress markers are visible beyond ordinary exploration. The crew manifest scrolls as the colony grows.
-
-**Pressure and hazards.** Meteoroids breach the hull; particle storms affect solar output and EVA oxygen; electrical faults can start fires. Multiple breaches can overwhelm life support. The telemetry pressure gauge measures the starting habitat; inspect tiles or use overlays to assess additional rooms.
-
-This is a compact, single-layer game, with accelerated fictional day/night cycles. Resources and life support are deliberately abstract: mined material goes straight to the colony inventory, all crew carry EVA suits, and enclosed machines have automatic roof/radiator connections. There is no hauling, vertical excavation, combat, or realistic lunar orbital model.
-
-## Saves and reproducibility
-
-Saves default to `~/.regolith/colony.json`. Use `--save PATH` for another slot. Writes are atomic, and saves include the terrain, atmosphere, fire, jobs, paths, crew, per-bank energy, survivor condition, active expeditions, future distress timing, and random generator state. Loading resumes the same simulation rather than regenerating it. Older saves retain their existing crew and gain future distress signals; start a new game without `--load` for the one-colonist opening. A new game does not replace your save until you save or exit.
-
-For a deterministic run without a terminal:
+Use `./tools/dotnet.sh` in place of `dotnet` if you used the per-user SDK installer.
 
 ```sh
-python3 -m regolith --seed 42 --headless 700 --demo
+dotnet restore Regolith.sln --locked-mode
+dotnet build Regolith.sln --configuration Release --no-restore
+dotnet test Regolith.sln --configuration Release --no-build
+./play.sh --headless 700 --demo --seed 42
+./play.sh --smoke-test --screenshot /tmp/regolith-smoke.png
+./play.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
 ```
 
-This prints a JSON summary and does not write a save. The UI is separate from the simulation, so experiments can also use `Simulation` directly:
+Headless runs print JSON and never write saves. The graphical smoke run opens a real window, exercises tutorial navigation, direct rescue clicks, zoom, recruitment, build cancellation, and save/load, then exits without changing the player's save. `--screenshot PATH --frames 12` captures a normal view and exits; omit `--frames` for an interactive session.
 
-```python
-from regolith.simulation import Simulation
-
-colony = Simulation(seed=42)
-cx, cy = colony.world.center
-colony.designate(cx + 12, cy - 5, "dig")
-colony.step(120)
-print(colony.summary())
-```
-
-## Checks
+NuGet versions are pinned with lockfiles. CI builds and runs core/headless checks on Linux, Windows, and macOS; it does not certify native graphics on those platforms. To create a local distributable for the current machine:
 
 ```sh
-python3 -m unittest discover -v
+dotnet publish src/Regolith.Client --configuration Release --self-contained false --output artifacts/game
 ```
 
-The suite checks atmosphere conservation, local update symmetry, breach / repair behavior, airlocks, heat, fire, reachable work, material reservations, isolated electrical networks, batteries, exploration, loss and victory states, rescue travel and recruitment, supply costs, survivor deaths, expedition failures, and saved simulation continuation. Interaction tests cover direct map clicks, keyboard rescue, repeated clicks, cursor and pointer zoom anchors, zoom limits, and rescue and mining at every zoom level. Real pseudo-terminal tests exercise mouse-wheel zoom in both directions, tutorial sections, mouse and keyboard rescue, crew selection, save / load, and resizing.
-
-Python's built-in `curses` module is needed for the interface. It ships with standard macOS and most Linux Python builds. The headless simulator does not import curses.
+The output includes runtime artwork and credits. This framework-dependent build requires .NET 10 on the destination machine; native installers, signing, and store publishing are not configured.

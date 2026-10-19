@@ -2,7 +2,7 @@
 
 This reference describes **every occupied sprite region in all three downloaded packs**, including every icon variant, both generations of input prompts, the main Urizen atlas, and its free 2-bit sample. It gives each region a stable ID, source rectangle, identification basis, current-game proposal where appropriate, and an idea for future use.
 
-**All 7,115 sprite entries are currently unused by the game.** Regolith renders character glyphs in `regolith/tui.py`; it does not load these PNGs. A proposed mapping below is a design suggestion, not an implemented renderer or a new gameplay feature.
+**The tables and JSON preserve the original import-time audit.** Their `unused` / `proposed` statuses describe the archived terminal prototype in `legacy/python/`, which loads no PNGs. The MonoGame client now uses [runtime-sprites.json](runtime-sprites.json): **154 existing sprite IDs**, covering **60 semantic bindings and 94 font glyphs**. That manifest is the source of truth for current usage. Source images, catalog IDs, rectangles, and proposed mappings remain unchanged; an audit entry marked unused may now be selected by the runtime manifest.
 
 The original [catalog.json](catalog.json) remains the file inventory: dimensions, hashes, archives, publisher links, and licenses. It did not previously enumerate the sprites inside the atlases. The new [sprites.json](sprites.json) supplies that detail.
 
@@ -31,7 +31,7 @@ The long Markdown tables contain **all sprite entries**, not just a shortlist. B
 | Input prompts, all nine sheets | 9 | 786 | 8 author/font-credit regions |
 | **Total** | **664** | **7,115** | **4,772 non-sprite regions** |
 
-There are **11,887 total records**. Of the sprite records, **1,885 have a proposed use for an existing feature**, and **5,230 remain unmapped with future-use ideas**. Actual runtime mappings: **zero**.
+There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `runtime-sprites.json`.
 
 “Occupied sprite region” means a crop containing visible artwork. It does **not** mean a guaranteed independent object or unique design. Multi-cell machines, large buildings, banners, celestial bodies, and plants contribute several cells. Six extremely sparse cells contain only one or two foreground pixels and are explicitly flagged for review. Forty-two sprite crops repeat another crop's exact RGBA pixels and dimensions; their individual entries remain present with `identical_crop_to` links.
 

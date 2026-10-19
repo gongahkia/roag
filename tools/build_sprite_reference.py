@@ -800,7 +800,7 @@ def cell(text):
 
 
 def write_pack_markdown(records, pack, title, output):
-    lines = [f"# {title}", "", "Generated from [sprites.json](../sprites.json). Every listed sprite is **unused by the game runtime**. `proposed` means a suggested mapping to a feature that exists today; `unmapped` means no specific existing feature is assigned. Ideas can require new mechanics or art changes.", "",
+    lines = [f"# {title}", "", "Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [runtime-sprites.json](../runtime-sprites.json) for the MonoGame client's current selection of these unchanged IDs. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.", "",
              "All coordinates are zero-based source pixels; rectangles are `x, y, width, height`. Urizen IDs also encode zero-based row and column. Source paths are relative to `assets/`.", "",
              "Identity basis: **author match** = historical author name matched by visible RGB artwork; **filename** = publisher's filename; **visual** = working description, not a verified author name. Unnamed figures keep their species/profession unconfirmed.", ""]
     sources = sorted({r["source"] for r in records if r["pack"] == pack})
