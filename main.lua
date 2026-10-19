@@ -29,6 +29,7 @@ local Terrain = require("src.terrain")
 local TerrainIdeas=require('src.idea_terrain')
 local Environment=require('src.idea_environment')
 local Presentation=require('src.idea_presentation')
+local Palette=require('src.visual_palette')
 local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
@@ -107,8 +108,7 @@ local visual_refresh_message=''
 local next_world_pack
 local visual_signature
 local audio_runtime,audio_status
--- Applied to every 1-Bit draw call, including built-in fallback effects and HUD.
--- The appearance is fixed; this filter never changes gameplay state.
+-- Neutral terrain/UI with scoped semantic inks; the artwork remains fixed.
 local onebit_filter=require('src.onebit_shader').new()
 local function set_visual_style()
     PixelUI.set_style('onebit',presentation_settings.high_contrast)
@@ -1533,8 +1533,13 @@ function love.gamepadpressed(_,button)
 end
 
 local outline_cache={}
-local function draw_cell(cell, red, green, blue, alpha, outline)
+local function draw_cell(cell, red, green, blue, alpha, outline, ink)
     if not visible_at(cell.x,cell.y) then return end
+    local previous,applied=onebit_filter:set_ink(love.graphics,ink)
+    if ink then
+        red,green,blue=1,1,1
+        if not applied then red,green,blue=unpack(ink)end
+    end
     love.graphics.setColor(red, green, blue, alpha)
     local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
     if outline then
@@ -1552,19 +1557,23 @@ local function draw_cell(cell, red, green, blue, alpha, outline)
         love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, alpha)
     end
+    onebit_filter:set_ink(love.graphics,previous)
 end
 
-local function draw_cells(cells, red, green, blue, alpha, outline)
+local function draw_cells(cells, red, green, blue, alpha, outline, ink)
     for _, cell in ipairs(cells) do
-        draw_cell(cell,red,green,blue,alpha,outline)
+        draw_cell(cell,red,green,blue,alpha,outline,ink)
     end
 end
 
-local function draw_visual(handle,x,y,w,h,alpha,flip_x)
+local function draw_visual(handle,x,y,w,h,alpha,flip_x,ink)
     if not handle then return false end
+    ink=ink or handle.ink
+    local previous,applied=onebit_filter:set_ink(love.graphics,ink)
     local tint=handle.tint
-    love.graphics.setColor(tint and tint[1] or 1,tint and tint[2] or 1,
-        tint and tint[3] or 1,alpha or 1)
+    love.graphics.setColor((tint and tint[1] or 1)*(not applied and ink and ink[1] or 1),
+        (tint and tint[2] or 1)*(not applied and ink and ink[2] or 1),
+        (tint and tint[3] or 1)*(not applied and ink and ink[3] or 1),alpha or 1)
     local draw_x,scale_x=VisualSlots.horizontal_draw(x,w,handle.width,
         flip_x and -1 or 1)
     if handle.quad then
@@ -1574,10 +1583,11 @@ local function draw_visual(handle,x,y,w,h,alpha,flip_x)
         love.graphics.draw(handle.texture,draw_x,y,0,
             scale_x,h/handle.height)
     end
+    onebit_filter:set_ink(love.graphics,previous)
     return true
 end
 local function bound_visual(binding)
-    return visual_assets and visual_assets:resolve(binding) or nil
+    return Palette.resolve(visual_assets,binding)
 end
 local function actor_visual(binding,id)
     local pose=VisualSlots.pose(id,Playback.current(playback),
@@ -1641,6 +1651,8 @@ local function draw_enemies()
                     love.graphics.print('?',x+TILE*.68,y)
                 end
             else
+            local previous_ink=onebit_filter:set_ink(love.graphics,
+                dormant_cache and Palette.chest or Palette.enemy)
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
             -- camera so fallback actors retain the same tile alignment.
             love.graphics.push()
@@ -1722,6 +1734,7 @@ local function draw_enemies()
                     x + 2, y + 26)
             end
             love.graphics.pop()
+            onebit_filter:set_ink(love.graphics,previous_ink)
             end
             local bar_x=x+TILE*3/32
             local bar_y=y+TILE*28/32
@@ -2087,6 +2100,7 @@ local function draw_rewards()
             and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
             if not draw_visual(bound_visual('core:drop/'..drop.kind),x,y,TILE,TILE) then
+                local previous_ink=onebit_filter:set_ink(love.graphics,Palette.binding('core:drop/'..drop.kind))
                 begin_tile_token(x,y)
                 local x,y=0,0
                 if drop.kind=="food" then
@@ -2105,6 +2119,7 @@ local function draw_rewards()
                     love.graphics.circle("line", x + 16, y + 16, 6)
                 end
                 love.graphics.pop()
+                onebit_filter:set_ink(love.graphics,previous_ink)
             end
         end
     end
@@ -2174,6 +2189,7 @@ local function draw_rewards()
             if chest_art then
                 draw_visual(chest_art,x,y,TILE,TILE)
             else
+            local previous_ink=onebit_filter:set_ink(love.graphics,entity.claimed and Palette.spent or Palette.chest)
             begin_tile_token(x,y)
             local x,y=0,0
             if entity.claimed then
@@ -2185,6 +2201,7 @@ local function draw_rewards()
             love.graphics.setColor(1, 0.86, 0.41)
             love.graphics.rectangle("line", x + 4, y + 10, 24, 18)
             love.graphics.pop()
+            onebit_filter:set_ink(love.graphics,previous_ink)
             end
         end
         if entity.position.floor_id==state.active_floor_id
@@ -2261,22 +2278,23 @@ local function draw_history_event(event)
         end
     end
     if event.kind=='HeatVentWarned'then
-        draw_cells(event.target_cells or {},1,.65,.2,.75,true)
+        draw_cells(event.target_cells or {},1,1,1,.75,true,Palette.hostile)
     elseif event.kind=='HeatVentBurst'then
-        draw_cells(event.target_cells or {},1,.45,.15,.85,true)
+        draw_cells(event.target_cells or {},1,1,1,.85,true,Palette.hostile)
         if event.floor_id==state.active_floor_id and visible_at(event.x,event.y)then
             local x,y=Camera.tile_top_left(camera,event.x,event.y)
             draw_visual(bound_visual(TerrainIdeas.binding('heat_vent_burst')),x+TILE*.15,y+TILE*.15,TILE*.7,TILE*.7)
         end
     elseif event.kind == "WindupStarted" then
-        if event.support_kind then draw_cells(event.target_cells,.45,.88,.9,.7,true)
-        else draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true) end
+        local ink=Palette.attack(state.player_id,event,Game.entity(state,event.source_id))
+        draw_cells(event.target_cells,1,1,1,.7,true,ink)
         if event.shove then
             local s=event.shove
-            draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,.8,.3,.5,true)
+            draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,1,1,.5,true,ink)
         end
     elseif event.kind == "AttackPerformed" then
-        draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7, true)
+        local ink=Palette.attack(state.player_id,event,Game.entity(state,event.source_id))
+        draw_cells(event.target_cells,1,1,1,.7,true,ink)
         local cells=event.target_cells or {}
         if #cells>0 then
             local cell=cells[math.ceil(#cells/2)]
@@ -2285,7 +2303,7 @@ local function draw_history_event(event)
                 local attacker=Game.entity(state,event.source_id)
                 local center=bound_visual('core:ui/attack_center_effect')
                 if center then
-                    draw_visual(center,x+TILE*.29,y+TILE*.29,TILE*.42,TILE*.42,.93)
+                    draw_visual(center,x+TILE*.29,y+TILE*.29,TILE*.42,TILE*.42,.93,nil,ink)
                 else
                     love.graphics.setColor(1,.89,.52,.9)
                     love.graphics.line(x+TILE*.38,y+TILE*.5,x+TILE*.62,y+TILE*.5)
@@ -2295,7 +2313,7 @@ local function draw_history_event(event)
                     local class=Classes.for_player(attacker)
                     local kind=event.ability_id==class.special_id and 'sweeping_slash' or 'basic_attack'
                     draw_visual(bound_visual(Presentation.weapon(attacker.definition_id,kind)),
-                        x+TILE*.64,y+TILE*.10,TILE*.27,TILE*.27,.95)
+                        x+TILE*.64,y+TILE*.10,TILE*.27,TILE*.27,.95,nil,ink)
                 end
             end
         end
@@ -2354,11 +2372,12 @@ local function draw_combat_numbers()
             g.setColor(0.025,0.025,0.025,alpha*0.9)
             g.print(label,x-1,y);g.print(label,x+1,y)
             g.print(label,x,y-1);g.print(label,x,y+1)
-            if hit.amount==0 then g.setColor(.73,.86,1,alpha)
-            elseif hit.critical then g.setColor(1,.48,.22,alpha)
-            elseif hit.from_player then g.setColor(1,.88,.45,alpha)
-            else g.setColor(1,.49,.43,alpha) end
+            local ink=Palette.damage(hit)
+            local previous,applied=onebit_filter:set_ink(g,ink)
+            if applied then g.setColor(1,1,1,alpha)
+            else g.setColor(ink[1],ink[2],ink[3],alpha)end
             g.print(label,x,y)
+            onebit_filter:set_ink(g,previous)
         end
     end
     g.setFont(ui_body_font)
@@ -2373,21 +2392,7 @@ local function draw_preview()
             x+TILE*.22,y+TILE*.22,TILE*.56,TILE*.56,.9)
     end
     for _, cell in ipairs(preview.cells) do
-        local r,g,b,a
-        if targeting.kind == "dash" or targeting.kind=='use_utility' then
-            if cell.status == "open" then
-                r,g,b,a=0.22,0.85,0.55,0.55
-            elseif cell.status == "unreachable" then
-                r,g,b,a=0.55,0.55,0.55,0.45
-            else
-                r,g,b,a=1.0,0.27,0.28,0.65
-            end
-        elseif targeting.kind == "sweeping_slash" then
-            r,g,b,a=1.0,0.56,0.17,0.65
-        else
-            r,g,b,a=1.0,0.86,0.30,0.65
-        end
-        draw_cell(cell,r,g,b,a,true)
+        draw_cell(cell,1,1,1,.65,true,Palette.preview(targeting.kind,cell.status))
     end
 end
 
@@ -2717,9 +2722,8 @@ local function draw_world()
     draw_rewards()
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
-            if strike.ember_pulse then draw_cells(strike.target_cells,1,.58,.15,.7,true)
-            elseif strike.support or strike.companion then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
-            else draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true) end
+            draw_cells(strike.target_cells,1,1,1,.7,true,
+                Palette.attack(state.player_id,strike,Game.entity(state,strike.source_id)))
             if strike.ember_landing and visible_at(strike.ember_landing.x,strike.ember_landing.y)then
                 local x,y=Camera.tile_top_left(camera,strike.ember_landing.x,strike.ember_landing.y)
                 draw_visual(bound_visual('core:ui/burning_effect'),
@@ -2727,7 +2731,7 @@ local function draw_world()
             end
             if strike.shove then
                 local s=strike.shove
-                draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,.8,.3,.5,true)
+                draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,1,1,.5,true,Palette.hostile)
             end
         end
     end
@@ -3495,7 +3499,7 @@ function love.update(dt)
 end
 function love.draw()
     local previous_shader,shader_applied=onebit_filter:begin(love.graphics,function(reason)
-        print('Monochrome filter unavailable; safe unshaded rendering: '..tostring(reason))
+        print('1-Bit palette filter unavailable; safe unshaded rendering: '..tostring(reason))
     end)
     if not diagnostics then
         ordinary_draw()

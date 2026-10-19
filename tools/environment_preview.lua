@@ -37,12 +37,22 @@ local function texture(_,path,mode)
  return source
 end
 local function quad(x,y,w,h)return {x=x,y=y,w=w,h=h}end
-local canvas,color,clip;local graphics={}
+local canvas,color,clip,shader;local graphics={}
+-- CPU evaluation of the palette shader, not a GLSL/GPU compilation test.
+function graphics.newShader()
+ return {send=function(self,name,value)assert(name=='ink');self.ink=value end}
+end
+function graphics.getShader()return shader end
+function graphics.setShader(value)shader=value end
 function graphics.setColor(r,g,b,a)color=type(r)=='table' and r or {r,g,b,a or 1}end
 function graphics.setScissor(x,y,w,h)clip=x and {x,y,w,h}or nil end
 local function blend(x,y,r,g,b,a)
  if x<0 or y<0 or x>=canvas.w or y>=canvas.h or a<=0 then return end
  if clip and (x<clip[1]or y<clip[2]or x>=clip[1]+clip[3]or y>=clip[2]+clip[4])then return end
+ if shader then
+  local gray=r*.2126+g*.7152+b*.0722
+  r,g,b=gray*shader.ink[1],gray*shader.ink[2],gray*shader.ink[3]
+ end
  local rr,gg,bb=canvas:getPixel(x,y);canvas:setPixel(x,y,r*a+rr*(1-a),g*a+gg*(1-a),b*a+bb*(1-a),1)
 end
 local function dot(x,y)blend(math.floor(x),math.floor(y),color[1],color[2],color[3],color[4]or 1)end
@@ -97,8 +107,8 @@ local function visit(callback)
  end
  walk(fake.draw);walk(fake.keypressed)
 end
-local world
-visit(function(_,_,n,v)if n=='draw_world'then world=v end end);assert(world)
+local world,filter
+visit(function(_,_,n,v)if n=='draw_world'then world=v elseif n=='onebit_filter'then filter=v end end);assert(world and filter)
 local entries={};local function save(name,label,detail)
  write(root..'/'..name..'.rgba',ffi.string(canvas.bytes,canvas.w*canvas.h*4))
  entries[#entries+1]={name=name,label=label,detail=detail,width=canvas.w,height=canvas.h}
@@ -136,15 +146,20 @@ for _,style in ipairs({'onebit'})do
    ui_body_font=font,ui_display_font=font,ui_menu_font=font}
   visit(function(fn,n,key)if inject[key]~=nil then debug.setupvalue(fn,n,inject[key])end end)
   -- Diagnostic closed-upvalue injection needs new traces, unlike normal input.
-  jit.flush();world()
+  jit.flush();local previous,applied=filter:begin(graphics);world();filter:finish(graphics,previous,applied)
   assert(P.encode(G.snapshot(s))==snap,'render changed authoritative state')
   save(style..'-'..i,case.label..' / '..style,'Generated seed '..s.generated_map.seed..'; '..case.room.family..'; actual world draw pass, spectator crop; text omitted.')
  end
  canvas=Image.new(800,128);color={1,1,1,1};clip=nil
+ local previous,applied=filter:begin(graphics)
  local names={};for name in pairs(E.content.symbols)do names[#names+1]=name end;table.sort(names)
- for i,name in ipairs(names)do local h=assert(native:resolve(E.content.symbol_id(name)))
+ for i,name in ipairs(names)do
+  local id=E.content.symbol_id(name);local h=assert(native:resolve(id))
+  local old_ink=filter:set_ink(graphics,require('src.visual_palette').binding(id))
   graphics.draw(h.texture,h.quad,((i-1)%16)*48+8,math.floor((i-1)/16)*56+8,0,2,2)
+  filter:set_ink(graphics,old_ink)
  end
+ filter:finish(graphics,previous,applied)
  save(style..'-symbols','Action, status, state and combat cues / '..style,'Sorted semantic IDs; static 2× source pixels. Names and gameplay meanings are documented in the environment guide.')
 end
 write(root..'/index.json',json(entries));print('CPU preview complete; authoritative state/RNG unchanged in every view')

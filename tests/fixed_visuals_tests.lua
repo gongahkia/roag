@@ -93,7 +93,7 @@ return function(test,equal)
    and seen['assets/kenney/caves-dungeons/terrain.png'])
  end)
  test('monochrome shader compiles once and restores the callers exact graphics state',function()
-  local filter=require('src.onebit_shader').new();local prior={};local shader={};local active=prior;local calls=0
+  local filter=require('src.onebit_shader').new();local prior={};local shader={send=function()end};local active=prior;local calls=0
   local g={newShader=function(source)calls=calls+1;assert(source:find('pixel.a',1,true));return shader end,
    getShader=function()return active end,setShader=function(value)active=value end}
   for _=1,40 do local old,applied=filter:begin(g);assert(active==shader and old==prior);filter:finish(g,old,applied);assert(active==prior)end

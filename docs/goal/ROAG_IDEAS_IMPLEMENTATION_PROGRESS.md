@@ -974,3 +974,55 @@ checks. Final runtime modules and assets match the fully accepted checkpoint;
 only main.lua's footer/text/hitbox changes and their two test files differ.
 `git diff --check` and main.lua/menu-fixture bytecode/shell checks pass. The
 broader goal remains paused; this follow-up stops here.
+
+### Selective color and damage-number follow-up
+
+The user requested restrained color while retaining the fixed Kenney artwork.
+`visual_palette.lua` now assigns muted chest/spent-chest brown, food tan and
+gold reward/boon/utility ink, plus blue-gray enemy bodies. Dormant mimics retain
+chest ink. Terrain, player bodies and UI remain neutral. Hostile windup/impact
+and pending-strike outlines are red; player attacks, allied actions and previews
+are green; enemy support is blue-gray and blocked movement/cancelled windups stay
+neutral. Existing dotted borders, locked cells, fog and gameplay timing remain.
+
+The cached `onebit_shader` accepts scoped ink after luminance conversion and
+preserves alpha. Initialization validates the uniform before activation, warns
+once on failure, and restores the caller's shader. Source handles are never
+mutated: generation-owned proxies preserve texture/Quad/geometry and separate
+different semantic uses of a shared cell. No new textures or source PNG edits.
+
+Positive damage numbers smoothly traverse the rainbow with a gentle 0.8–1.0
+brightness pulse; blocked zeros stay calm. Color depends on the existing
+presentation age/location/amount, never wall time or gameplay RNG. Critical `!`,
+black edging, rise/fade, 0.78-second lifetime, 24-number limit and the existing
+Effects toggle remain. No new event or simulation update was introduced.
+
+**74/74 focused headless cases pass**, including five new palette cases plus
+motion/numbers, visual/atlas resolution, source coverage, environment rendering,
+settings and footer regressions. Actual main.lua draw callbacks verify semantic
+colors, neutral restoration, mirrored Quad geometry/alpha, hidden-cell/number
+culling, failed-shader native-sprite fallback, and rainbow text from an actual
+resolved legal hit with exact before/after snapshots. All 491 bindings and 13
+approved derivatives remain covered. Log:
+`/var/tmp/roag-accents-regression-20261019.log`. The runner now registers 645
+cases; this is a focused regression result, not a new full-suite count.
+
+Nine regenerated offline world/icon views execute the real world pass and
+evaluate the palette formula on a CPU raster adapter. Source PNG hashes and
+authoritative snapshots remain unchanged. Neutral terrain and blue-gray enemies
+were visually inspected in these CPU views. See the
+[gallery](../visuals/environments/index.html). This does not compile GLSL or
+verify a GPU framebuffer. GUI expectations for preview/enemy/boon colors were
+updated and shell/embedded Lua syntax checked; no LÖVE application or GUI harness
+was opened, as requested. Physical input/native GPU acceptance remains pending.
+The broader approved-ideas goal remains paused; no boon/content work is resumed.
+
+Final follow-up checks: nine CPU PNG/HTML views reproduce byte-for-byte
+(`tools/environment_preview.py --check`), including the inspected warm chest.
+Logs: `/var/tmp/roag-accent-pixels-20261019.log` and
+`/var/tmp/roag-accent-pixels-check-20261019.log`. **86 other runtime modules** and
+all **15 source asset files** remain byte-identical to the prior accepted full
+checkpoint. Main.lua bytecode compilation, three shell/embedded-Lua fixture
+syntax checks and `git diff --check` pass. The previously recorded GUI gallery
+capacity issue/historical GUI instability remain unverified; no GUI fix or pass
+is claimed here. Stop after this requested presentation follow-up.

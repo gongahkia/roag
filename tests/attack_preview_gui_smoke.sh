@@ -14,6 +14,7 @@ local Game=require('src.game')
 local Camera=require('src.camera')
 local Codec=require('src.persistence')
 local Outline=require('src.attack_outline')
+local Palette=require('src.visual_palette')
 local PNG=require('tools.art_png')
 local state,camera
 function Game.new_stage(seed)
@@ -67,13 +68,10 @@ local function check(image)
             for channel=1,4 do assert(math.abs(old[channel]-now[channel])<1/255,
                 c[1]..' preview filled the tile interior')end
         end end
-        local color=c[3]=='dash' and (cell.status=='open' and {.22,.85,.55} or
-            cell.status=='unreachable' and {.55,.55,.55} or {1,.27,.28}) or
-            c[3]=='sweeping_slash' and {1,.56,.17} or {1,.86,.30}
+        local color=Palette.preview(c[3],cell.status)
         local rect=Outline.rectangles(camera.tile)[1]
         local pixel={image:getPixel(math.floor(x+rect[1]+1),math.floor(y+rect[2]))}
-        local gray=color[1]*.2126+color[2]*.7152+color[3]*.0722
-        for channel=1,3 do assert(math.abs(pixel[channel]-gray)<.04,
+        for channel=1,3 do assert(math.abs(pixel[channel]-color[channel])<.04,
             c[1]..' dotted border/status color missing')end
         if cell.status=='wall' then blocked=true end
     end

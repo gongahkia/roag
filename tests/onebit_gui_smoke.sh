@@ -108,7 +108,7 @@ function love.load(...)
     if not ok then fail(why)end
 end
 function love.update()end
-local function compare(image,index,x,y,scale,max_y)
+local function compare(image,index,x,y,scale,max_y,ink)
     local sx,sy=S.region(index);local count=0
     for yy=0,max_y or 15 do for xx=0,15 do
         local r,g,b,a=source:getPixel(sx+xx,sy+yy)
@@ -116,7 +116,7 @@ local function compare(image,index,x,y,scale,max_y)
             local actual={image:getPixel(math.floor(x+(xx+.5)*scale),math.floor(y+(yy+.5)*scale))}
             local gray=r*O.ink[1]*.2126+g*O.ink[2]*.7152+b*O.ink[3]*.0722
             for c=1,3 do
-                assert(math.abs(actual[c]-gray)<=2/255+1e-6,'monochrome 1-Bit sprite differs: '..index)
+                assert(math.abs(actual[c]-gray*(ink and ink[c]or 1))<=2/255+1e-6,'1-Bit sprite ink differs: '..index)
             end
             count=count+1
         end
@@ -126,11 +126,11 @@ end
 local function check(image)
     if mode~='normal' or phase<4 then assert(snapshot()==before,'presentation changed the run/RNG')end
     if love.roagAssetBacking(Game.player(state).definition_id)=='onebit' then
-        for y=0,image:getHeight()-1,16 do for x=0,image:getWidth()-1,16 do
-            local r,g,b=image:getPixel(x,y)
+        for _,p in ipairs({{8,8},{1015,8},{8,635},{1015,635}})do
+            local r,g,b=image:getPixel(p[1],p[2])
             assert(math.abs(r-g)<=1/255+1e-6 and math.abs(g-b)<=1/255+1e-6,
-                ('1-Bit frame contains color at %d,%d'):format(x,y))
-        end end
+                ('neutral backdrop contains color at %d,%d'):format(p[1],p[2]))
+        end
     end
     if mode=='normal' and phase==1 or mode=='resume'then
         local p=Game.player(state).position;local x,y=Camera.tile_top_left(camera,p.x,p.y)
@@ -139,7 +139,12 @@ local function check(image)
         if phase==0 then
             for _,e in ipairs(enemies)do
                 local x,y=Camera.tile_top_left(camera,e.position.x,e.position.y)
-                compare(image,O.actors[e.definition_id],x,y,camera.tile/16,12)
+                local dormant=e.definition_id=='core:enemy/haunted_cache' and
+                    not e.ai_memory.alerted and e.hp==e.max_hp
+                local palette=require('src.visual_palette')
+                compare(image,dormant and O.objects['core:object/idea_cache_dormant'] or
+                    O.actors[e.definition_id],x,y,camera.tile/16,12,
+                    dormant and palette.chest or palette.enemy)
             end
             for i,mark in ipairs(Terrain.order)do
                 local x,y=Camera.tile_top_left(camera,i+2,9)
@@ -148,7 +153,7 @@ local function check(image)
         elseif phase<=8 then
             for line=1,7 do
                 local id=Boons.order[(phase-1)*7+line]
-                if id then compare(image,S.boons[id][1],104,150+(line-1)*44,2)end
+                if id then compare(image,S.boons[id][1],104,150+(line-1)*44,2,nil,require('src.visual_palette').gold)end
             end
         end
     elseif mode=='effects'then

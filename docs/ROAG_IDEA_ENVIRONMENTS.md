@@ -22,7 +22,8 @@ It executes the **actual `main.lua` world pass**, native resolver and image
 compositors with a CPU raster adapter and the original source pixels. This is
 **not a LÖVE screenshot**, GPU equivalence test or human playtest. Text is
 omitted, spectator visibility is enabled for art inspection, and CPU primitive
-edges do not reproduce GPU antialiasing. It leaves the run snapshot/RNG intact.
+edges do not reproduce GPU antialiasing. The CPU adapter evaluates the palette
+formula but does not compile GLSL. It leaves the run snapshot/RNG intact.
 No LÖVE application was opened, as requested.
 
 ```sh
@@ -89,6 +90,12 @@ they do not edit source pixels or repack authored asset IDs.
 
 ## Presentation
 
+* **Selective color:** neutral 1-Bit ground/UI, muted brown/gold rewards and boon
+  icons, blue-gray enemy bodies, red hostile warning/impact outlines and green
+  player action previews. Blocked movement is gray. Only positive damage numbers
+  have a vivid rainbow cycle and gentle brightness pulse; their black edging,
+  rise, fade, critical punctuation and bounded lifetime remain unchanged. Disable
+  numbers with the existing Effects setting. Source artwork is never recolored.
 * **Weapon/action icons:** F/R identify the actual class attack; X uses a
   movement arrow. Existing trap/bulwark/familiar/sentry/beacon objects are reused
   for the relevant class action. No new weapon family uses excluded Micro 78/79.

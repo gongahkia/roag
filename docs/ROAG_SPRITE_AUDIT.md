@@ -103,9 +103,20 @@ These are outside the 491 required sprite bindings:
 - Player decoy/snare markers, some clue strokes and feedback rings.
 - Plain menu/title backdrops and developer overlays.
 
-The fixed monochrome filter covers the full rendered frame. Its compilation
-is cached and guarded; unsupported shaders warn once and allow safe unshaded
-rendering. There is no user setting that chooses an alternative art pack.
+The fixed palette filter keeps terrain, players and UI neutral. Rewards/boons
+use muted brown/gold, enemies blue-gray, hostile attack outlines red, and player
+attacks/previews green. Blocked movement previews stay gray; cancelled windups
+stay neutral. Damage numbers alone cycle through vivid hues with a gentle
+brightness pulse; blocked zeros remain calm. Critical `!`, dark outlines,
+visibility, lifetimes and the existing number limit are retained.
+
+These accents are render-time inks keyed by semantic IDs, never edits to source
+PNGs or atlas coordinates. Cached proxy handles preserve shared textures/Quads
+without tinting unrelated uses of the same source cell. They retire with the
+resource generation on F5. The shader converts source luminance before applying
+the scoped ink, preserves alpha, and restores neutral ink after each draw.
+Compilation/uniform initialization is cached and guarded; unsupported shaders
+warn once and allow safe unshaded rendering. There is no art-pack selector.
 Existing readability settings remain independent of gameplay.
 
 ## Review history is preserved

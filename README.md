@@ -36,6 +36,9 @@ $ make game
 Artwork is fixed to Kenney 1-Bit with the approved monochrome Kenney
 counterparts. Settings adjust sound, effects and accessibility; there is no art
 pack selector. `F5` refreshes artwork/audio. See the [sprite coverage guide](docs/ROAG_SPRITE_AUDIT.md).
+Rewards use muted brown/gold ink, enemies blue-gray, hostile attack outlines red
+and player previews green. Damage numbers smoothly cycle through vivid colors;
+they can be disabled under Settings → Effects → Floating damage numbers.
 
 In **Settings → Sound**, click or drag each volume slider; the percentage appears
 on its right and saves when released. Arrow keys adjust the selected volume too.
