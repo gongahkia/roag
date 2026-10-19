@@ -15,7 +15,7 @@ Odin builds `src/` as one `sandbox` package. Files are organized by responsibili
 | Shared values, coordinates, materials, and creative selection | `types.odin`, `coordinates.odin`, `blocks.odin`, `creative_palette.odin` |
 | Legacy generation, fixed-point landscapes/formations/caves, and immutable jobs | `noise*.odin`, `terrain*.odin`, `mesh_jobs.odin`, `spawn.odin` |
 | Sparse world edits, binary save codec, and block picking | `world.odin`, `world_save.odin`, `raycast.odin` |
-| Player collision and source-fed fluid rules | `player.odin`, `fluids.odin` |
+| Player collision, water currents, and source-fed fluid rules | `player.odin`, `fluid_current.odin`, `fluids.odin` |
 | Skylight/block-light propagation and lazy terrain sampling | `lighting.odin`, `lighting_sampling.odin` |
 | CPU meshing, chunk residency/uploads, and worker lifetime | `mesh.odin`, `stream.odin`, `workers.odin` |
 | Graphics device/frame lifecycle, shader compilation, and texture creation | `render.odin`, `render_shader.odin`, `render_texture.odin` |
@@ -37,6 +37,22 @@ Tests are grouped into matching `*_test.odin` files for world storage, generatio
 Normal play starts in walking mode. The player has a 0.6×1.8 block axis-aligned body and an eye height of 1.62 blocks. The renderer and saves keep eye coordinates; collision bounds derive from them. Solid materials, including ores and leaves, block the body. Water/lava do not; waist immersion slows movement and enables Space/Ctrl swimming.
 
 Walking uses fixed 120 Hz steps, at most twelve per frame, with normalized horizontal input, gravity, terminal velocity, jumping on a fresh key press, and a sprint multiplier. Each axis sweeps the body through every crossed voxel plane and clips travel to the closest solid surface. Remaining axes continue to slide along walls. The queries use the live world generator and edit map, independently of mesh generation or GPU upload; invisible or unfinished chunks cannot cause fall-through. The controller allocates no per-frame collision buffers.
+
+Land gravity uses vertical drag equivalent to retaining 98% of velocity each
+50 ms, approaching a 78.4 blocks/second downward terminal speed. The jump impulse
+is tuned for the 120 Hz substeps to reach about 1.25 blocks and land again after
+about 0.57 seconds. Water retains its own drag, slow sinking, and swim controls.
+
+Water forces use the overlap between the player's body and actual voxel fluid
+surfaces, so ankle-deep streams can push without applying forces above the
+surface. Live neighboring flow levels determine the horizontal current (up to
+1.6 blocks/second); falling cells add 2 blocks/second downward flow. Body-weighted
+currents and drag blend toward movement input plus the current, allowing upstream
+swimming. The combined velocity uses the same collision sweeps as walking.
+Generated river source cells reuse cached terrain columns and the same downhill
+reach selection as river carving; lakes and oceans stay calm. No flow map or
+additional save fields are needed. Spectator mode bypasses these forces, and
+opening settings pauses the player as before.
 
 F toggles spectator mode, which retains free flight, noclip, and creative editing. `--spectator` chooses it at startup; benchmark camera paths also use this mode. Leaving spectator, loading an embedded old camera position, or a fluid reaction creating a block inside the body triggers a bounded upward search for free space. Mode changes reset velocity and pending jumps. The save format remains unchanged and stores position rather than mode or velocity. Normal play therefore starts with collisions unless explicitly overridden.
 

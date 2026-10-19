@@ -151,13 +151,16 @@ Feature_Cache_Entry :: struct {
 	valid:     bool,
 }
 
-world_generated_cached :: proc(w: ^World, p: I3) -> Block {
-	if p.y < 0 || p.y >= HEIGHT {return .Air}
+world_features_cached :: proc(w: ^World, p: I3) -> ^Terrain_Features {
 	key := chunk_of(p)
 	f := &w.feature_cache[hash3(w.seed, key.x, key.y, key.z) % u64(len(w.feature_cache))]
 	if !f.valid || f.key != key || f.seed != w.seed || f.generator != w.generator {
 		f^ = {key, w.seed, w.generator, terrain_features(w.seed, key, w.generator), true}
 	}
+	return &f.features
+}
+
+world_column_cached :: proc(w: ^World, p: I3, features: ^Terrain_Features) -> ^Terrain_Column {
 	c := &w.column_cache[hash3(w.seed, p.x, 0, p.z) % u64(len(w.column_cache))]
 	if !c.valid || c.x != p.x || c.z != p.z || c.seed != w.seed || c.generator != w.generator {
 		c^ = {
@@ -165,11 +168,18 @@ world_generated_cached :: proc(w: ^World, p: I3) -> Block {
 			p.z,
 			w.seed,
 			w.generator,
-			terrain_column(w.seed, p.x, p.z, w.generator, &f.features),
+			terrain_column(w.seed, p.x, p.z, w.generator, features),
 			true,
 		}
 	}
-	if w.generator >= 5 {return terrain_block_v5(w.seed, p, c.column, &f.features)}
-	if w.generator >= 4 {return terrain_block_v4(w.seed, p, c.column, &f.features)}
-	return terrain_block_v3(w.seed, p, c.column, &f.features)
+	return &c.column
+}
+
+world_generated_cached :: proc(w: ^World, p: I3) -> Block {
+	if p.y < 0 || p.y >= HEIGHT {return .Air}
+	f := world_features_cached(w, p)
+	c := world_column_cached(w, p, f)
+	if w.generator >= 5 {return terrain_block_v5(w.seed, p, c^, f)}
+	if w.generator >= 4 {return terrain_block_v4(w.seed, p, c^, f)}
+	return terrain_block_v3(w.seed, p, c^, f)
 }

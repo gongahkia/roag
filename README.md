@@ -84,3 +84,7 @@ Without Make, use `python3 scripts/build.py build`, `check`, `test`, or `run`
 Worlds and settings are saved under `saves/`. More detail is in
 [settings](docs/settings.md), [terrain](docs/terrain.md), and
 [architecture](docs/architecture.md).
+
+Flowing water and rivers carry you downstream, and waterfalls pull downward.
+WASD and Space/Ctrl let you swim against the flow. Land jumps reach about 1.25
+blocks with brisker gravity; spectator flight ignores water forces and gravity.

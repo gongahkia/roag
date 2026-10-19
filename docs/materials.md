@@ -14,6 +14,14 @@ Water and lava placements create persistent sources. They fall into open cells f
 
 Water has transparent, stepped surfaces. Lava uses animated emissive textures and casts warm voxel light onto its surroundings. The placeable **Lamp** on page 5, slot 7 also emits light. See [lighting](lighting.md) for skylight, shadows, and update behavior. Fluid camera immersion adds tint and distance fog. Walking is the default, with solid block collisions, gravity, jumping, and sprinting. Fluids slow movement and allow swimming with Space/Ctrl. **F** toggles spectator flight with noclip. Solid blocks cannot be placed inside the walking player's body. There is no health/damage system in this creative tranche.
 
+Flowing water carries you downstream, including in shallow streams. Waterfalls
+pull downward; hold **Space** to swim upward, **Ctrl** to dive, or **WASD** to
+swim against a current. Body contact controls the strength of water drag and
+push. Generated rivers also carry swimmers along their downhill channels, while
+calm pools, lakes, and oceans have no horizontal current. Solids still stop the
+player, and removing a flow's source stops its push once the water drains.
+Spectator flight ignores currents.
+
 New worlds generate lowland lakes at level 52, underground lava in caves at heights 6–12, and clustered ores within stone:
 
 | Ore | Height range |

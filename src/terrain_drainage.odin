@@ -120,10 +120,7 @@ river_segment_sample :: proc(x, z: i32, a, b: I3) -> (distance2, level: i64) {
 	return (qx * qx + qz * qz) / (TQ * TQ), i64(a.y) * TQ + i64(b.y - a.y) * t
 }
 
-river_carve :: proc(c: ^Terrain_Column, x, z: i32, set: ^River_Set) {
-	// Ocean terrain already belongs to the sea-level water body. A stream
-	// cannot manufacture elevated embankments across an existing ocean.
-	if c.height < SEA_LEVEL {return}
+river_nearest_reach :: proc(c: Terrain_Column, x, z: i32, set: ^River_Set) -> (reach: River_Reach, distance2, level: i64, found: bool) {
 	best := i64(1 << 60)
 	best_d, best_level: i64
 	best_r: River_Reach
@@ -140,8 +137,15 @@ river_carve :: proc(c: ^Terrain_Column, x, z: i32, set: ^River_Set) {
 		score := d * TQ / i64(margin * margin)
 		if score < best {best = score; best_d = d; best_level = level; best_r = r}
 	}
-	if best == i64(1 << 60) {return}
-	r := best_r
+	return best_r, best_d, best_level, best != i64(1 << 60)
+}
+
+river_carve :: proc(c: ^Terrain_Column, x, z: i32, set: ^River_Set) {
+	// Ocean terrain already belongs to the sea-level water body. A stream
+	// cannot manufacture elevated embankments across an existing ocean.
+	if c.height < SEA_LEVEL {return}
+	r, best_d, best_level, found := river_nearest_reach(c^, x, z, set)
+	if !found {return}
 	d := integer_sqrt(best_d)
 	margin := r.lake ? r.width + 8 : min(28, r.width + 14 + i32(c.relief * 8 / TQ))
 	if d <= i64(r.width) {

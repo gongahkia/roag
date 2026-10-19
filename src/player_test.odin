@@ -125,3 +125,25 @@ test_player_placement_overlap_and_fluid_swimming :: proc(t: ^testing.T) {
 	player_update(&p, &w, &eye, {speed = 14, ascend = true}, 0.1)
 	testing.expect(t, eye.y > 182.9 && p.velocity.y > 0 && !player_collides(&w, eye))
 }
+
+@(test)
+test_player_land_gravity_has_brisk_falls_and_a_block_high_jump :: proc(t: ^testing.T) {
+	w: World; test_player_world(&w); defer world_destroy(&w)
+	p: Player; eye := test_player_eye(); eye.y = 400
+	for _ in 0 ..< 30 {player_update(&p, &w, &eye, {speed = 14}, 1.0 / 60)}
+	testing.expect(t, 400 - eye.y > 3.6 && 400 - eye.y < 4.1, "A half-second fall must accelerate faster than the old floaty gravity")
+	testing.expect(t, p.velocity.y < -14 && p.velocity.y > -15)
+	p = {}; eye.y = 900
+	for _ in 0 ..< 480 {player_update(&p, &w, &eye, {speed = 14}, 1.0 / 60)}
+	testing.expect(t, p.velocity.y < -75 && p.velocity.y >= -PLAYER_TERMINAL_SPEED)
+	p = {}; eye = test_player_eye(); player_set_spectator(&p, &w, &eye, false)
+	base := eye.y
+	peak, landed_at := base, 0.0
+	for tick in 0 ..< 120 {
+		player_update(&p, &w, &eye, {speed = 14, jump = tick == 0}, PLAYER_TICK)
+		peak = max(peak, eye.y)
+		if tick > 0 && p.grounded {landed_at = f64(tick + 1) * PLAYER_TICK; break}
+	}
+	testing.expect(t, peak - base > 1.2 && peak - base < 1.3, "Jump must clear one block and peak near 1.25 blocks")
+	testing.expect(t, landed_at > 0.5 && landed_at < 0.6, "Jump must return promptly instead of hanging in the air")
+}

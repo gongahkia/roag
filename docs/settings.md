@@ -15,6 +15,12 @@ Changes apply immediately and save on resume and exit to `saves/settings.cfg`, s
 
 Normal play starts with **walking, gravity, and block collisions**. **WASD** moves, **Space** jumps, and **Shift** sprints. In deep water or lava, Space swims upward and Ctrl swims downward. Press **F** to toggle **spectator/noclip**, using the previous free-flight controls: WASD, Space up, Ctrl down, and Shift for faster flight. Start with `--spectator` to select that mode on launch. The hotbar shows the active mode. Benchmarks retain free flight for reproducible camera paths. Opening settings freezes the player's motion; streaming and fluid simulation continue.
 
+Flowing water carries the player, including in shallow streams, and waterfalls
+pull downward. WASD and Space/Ctrl let you swim against the flow. Generated
+rivers have downstream currents; still pools and lakes stay calm. Current speed
+is independent of the keyboard movement setting. Land jumps reach roughly 1.25
+blocks, with faster, less floaty falling.
+
 The renderer checks the current video mode of the monitor covering the largest part of the window once per second. Moving to another monitor or changing its mode updates the detected refresh rate and cap. If the display reports no usable rate, the panel says **DISPLAY UNKNOWN** and does not invent a 60 Hz limit. A software limiter supplements VSync when drivers or compositors ignore the swap request. It sleeps rather than spinning, using a high-resolution waitable timer on supported Windows systems.
 
 **FPS is measured from completed frames**, including CPU work, buffer swapping, and cap waits. GPU query time is a separate measurement and is never used to calculate FPS. The HUD labels the measured rate, display Hz, active cap, and software renderers such as llvmpipe. The frame-time graph's reference line follows the active cap (or detected refresh when uncapped).
