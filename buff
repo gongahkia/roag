@@ -1,5 +1,0 @@
-- Liquid simulation: not yet. Water is static terrain: it blocks movement, allows sight and ranged attacks, and does not flow or spread. Some water cells vary when a room is generated, but they do not simulate afterward. See terrain.lua (src/terrain.lua:11) and generation.lua (src/generation.lua:238).
-
-- Ranged attacks: yes; moving bullets or projectiles: not yet. Bow shots, bolts, and other ranged abilities check cells and obstacles, then resolve damage when the attack occurs. The game draws attack and impact effects, but has no projectile entity travelling through the world over time. See classes.lua (src/classes.lua:111), game.lua (src/game.lua:466), and main.lua (main.lua:1847).
-
-- Add more biomes please
