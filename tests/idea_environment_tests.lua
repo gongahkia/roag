@@ -98,6 +98,9 @@ return function(test,equal)
    local c=pixel('ruin',255,p[1],p[2]);assert(c[1]==762/2048 and c[2]==p[1]/16 and c[3]==p[2]/16)
   end
   assert(next(written))
+  -- The carpet starts at column 10, not 12: the adjacent cells are masonry.
+  local c=pixel('carpet',255,7,5);assert(c[1]==980/2048 and c[2]==7/16 and c[3]==5/16)
+  equal(D.materials.carpet.mixed.grid,{922,923,924,979,980,981,1036,1037,1038})
  end)
  test('water exterior and concave corners use the inspected RPG bank family rather than stray floor sprites',function()
   local _,pixel=sampled('rpg','kenney')

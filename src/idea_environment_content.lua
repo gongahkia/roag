@@ -15,7 +15,7 @@ C.materials={
  ruin_carved={kind='wall',mixed={sheet='rpg',grid={707,708,709,764,765,766,821,822,823}},mono={sheet='onebit',grid=native_wall}},
  observatory={kind='wall',mixed={sheet='rpg',grid={710,711,712,767,768,769,824,825,826}},mono={sheet='onebit',grid=native_wall}},
  garden={kind='floor',patch=true,mixed={sheet='rpg',grid={344,345,346,401,402,403,458,459,460}},mono={sheet='onebit',center=5,accent=98}},
- carpet={kind='floor',patch=true,mixed={sheet='rpg',grid={924,925,926,981,982,983,1038,1039,1040}},mono={sheet='onebit',center=852,border=true}},
+ carpet={kind='floor',patch=true,mixed={sheet='rpg',grid={922,923,924,979,980,981,1036,1037,1038}},mono={sheet='onebit',center=852,border=true}},
  drowned={kind='water',mixed={sheet='rpg',grid={2,3,4,59,60,61,116,117,118},inner={115,114,57,58}},
   mono={sheet='rpg',grid={2,3,4,59,60,61,116,117,118},inner={115,114,57,58},water_conversion=true}},
  broken={kind='wall',mixed={sheet='caves',center=39,frame=38,accent=3},mono={sheet='caves',center=39,frame=38,accent=3}},
