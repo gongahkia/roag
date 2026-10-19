@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "c25ccc305356526c",
+  "mapping_checksum": "9754d3a1bf2db240",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -448,6 +448,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/backtrail_mantle/detail",
+          "index": 87,
+          "motif": "travelling mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backtrail_mantle/icon",
+          "index": 87,
+          "motif": "travelling mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/battle_march/detail",
           "index": 89,
           "motif": "marching boots",
@@ -496,6 +514,24 @@
           "id": "core:boon/betrayal_ward/icon",
           "index": 185,
           "motif": "quartered shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bishops_wake/detail",
+          "index": 1024,
+          "motif": "chess bishop",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bishops_wake/icon",
+          "index": 1024,
+          "motif": "chess bishop",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -646,6 +682,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/crosswind/detail",
+          "index": 584,
+          "motif": "four-point cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crosswind/icon",
+          "index": 584,
+          "motif": "four-point cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/crowdbreaker/detail",
           "index": 384,
           "motif": "great axe",
@@ -784,6 +838,24 @@
           "id": "core:boon/expanding_sigil/icon",
           "index": 709,
           "motif": "circular sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fan_of_blades/detail",
+          "index": 39,
+          "motif": "crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fan_of_blades/icon",
+          "index": 39,
+          "motif": "crossed blades",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -982,6 +1054,60 @@
           "id": "core:boon/harriers_response/icon",
           "index": 623,
           "motif": "target corners",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_crown/detail",
+          "index": 816,
+          "motif": "crowned card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_crown/icon",
+          "index": 816,
+          "motif": "crowned card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/knights_gambit/detail",
+          "index": 1027,
+          "motif": "chess knight",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/knights_gambit/icon",
+          "index": 1027,
+          "motif": "chess knight",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/linebreaker_pawn/detail",
+          "index": 1021,
+          "motif": "chess pawn",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/linebreaker_pawn/icon",
+          "index": 1021,
+          "motif": "chess pawn",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1342,6 +1468,24 @@
           "id": "core:boon/road_flask/icon",
           "index": 965,
           "motif": "travelling chalice",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rooks_wake/detail",
+          "index": 1023,
+          "motif": "chess rook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rooks_wake/icon",
+          "index": 1023,
+          "motif": "chess rook",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4819,6 +4963,18 @@
           "1013": [
             "core:boon/bloodrush/icon + /detail"
           ],
+          "1021": [
+            "core:boon/linebreaker_pawn/icon + /detail"
+          ],
+          "1023": [
+            "core:boon/rooks_wake/icon + /detail"
+          ],
+          "1024": [
+            "core:boon/bishops_wake/icon + /detail"
+          ],
+          "1027": [
+            "core:boon/knights_gambit/icon + /detail"
+          ],
           "103": [
             "core:object/review_mushroom_1"
           ],
@@ -5188,6 +5344,9 @@
           "385": [
             "core:ui/ability_axe_icon"
           ],
+          "39": [
+            "core:boon/fan_of_blades/icon + /detail"
+          ],
           "392": [
             "core:object/interaction_archive_contract",
             "core:object/interaction_bell_clue"
@@ -5401,6 +5560,9 @@
           "580": [
             "core:object/interaction_cleanse_flask"
           ],
+          "584": [
+            "core:boon/crosswind/icon + /detail"
+          ],
           "591": [
             "core:object/review_pillar_middle"
           ],
@@ -5599,6 +5761,9 @@
           "80": [
             "core:actor/hookrunner"
           ],
+          "816": [
+            "core:boon/hollow_crown/icon + /detail"
+          ],
           "817": [
             "core:boon/ration_reserve/icon + /detail"
           ],
@@ -5621,6 +5786,9 @@
           ],
           "867": [
             "core:object/interaction_bell"
+          ],
+          "87": [
+            "core:boon/backtrail_mantle/icon + /detail"
           ],
           "89": [
             "core:boon/battle_march/icon + /detail"
@@ -5706,11 +5874,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 256,
+      "onebit": 264,
       "sheet": "onebit",
-      "union": 256,
-      "unused_onebit": 821,
-      "unused_union": 821
+      "union": 264,
+      "unused_onebit": 813,
+      "unused_union": 813
     },
     {
       "empty": 63,
@@ -5783,12 +5951,16 @@
     "core:boon/aftershock/icon",
     "core:boon/alchemical_flip/detail",
     "core:boon/alchemical_flip/icon",
+    "core:boon/backtrail_mantle/detail",
+    "core:boon/backtrail_mantle/icon",
     "core:boon/battle_march/detail",
     "core:boon/battle_march/icon",
     "core:boon/beggars_cap/detail",
     "core:boon/beggars_cap/icon",
     "core:boon/betrayal_ward/detail",
     "core:boon/betrayal_ward/icon",
+    "core:boon/bishops_wake/detail",
+    "core:boon/bishops_wake/icon",
     "core:boon/bloodrush/detail",
     "core:boon/bloodrush/icon",
     "core:boon/bramble_compact/detail",
@@ -5805,6 +5977,8 @@
     "core:boon/crescent_reach/icon",
     "core:boon/crossfire_omen/detail",
     "core:boon/crossfire_omen/icon",
+    "core:boon/crosswind/detail",
+    "core:boon/crosswind/icon",
     "core:boon/crowdbreaker/detail",
     "core:boon/crowdbreaker/icon",
     "core:boon/crownfire/detail",
@@ -5821,6 +5995,8 @@
     "core:boon/executioners_thread/icon",
     "core:boon/expanding_sigil/detail",
     "core:boon/expanding_sigil/icon",
+    "core:boon/fan_of_blades/detail",
+    "core:boon/fan_of_blades/icon",
     "core:boon/far_witness/detail",
     "core:boon/far_witness/icon",
     "core:boon/fateful_dice/detail",
@@ -5843,6 +6019,12 @@
     "core:boon/guardians_vow/icon",
     "core:boon/harriers_response/detail",
     "core:boon/harriers_response/icon",
+    "core:boon/hollow_crown/detail",
+    "core:boon/hollow_crown/icon",
+    "core:boon/knights_gambit/detail",
+    "core:boon/knights_gambit/icon",
+    "core:boon/linebreaker_pawn/detail",
+    "core:boon/linebreaker_pawn/icon",
     "core:boon/longblade_geometry/detail",
     "core:boon/longblade_geometry/icon",
     "core:boon/mist_veil/detail",
@@ -5883,6 +6065,8 @@
     "core:boon/ring_of_reversal/icon",
     "core:boon/road_flask/detail",
     "core:boon/road_flask/icon",
+    "core:boon/rooks_wake/detail",
+    "core:boon/rooks_wake/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
     "core:boon/splitflight/detail",

@@ -278,7 +278,7 @@ local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
     mark_damage=true,status_neighbors=true,cleanse_owner=true,refund_purchase=true,
-    enrich_drop=true}
+    enrich_drop=true,pattern=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
@@ -291,7 +291,8 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     special_attack=true,target_hp_percent_before=true,owner_in_locked_cells=true,
     overlapping_windups=true,approaching_owner=true,aligned_hostiles=true,
     event_distance=true,visible_source=true,visible_event=true,supply_kind=true,
-    supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true}
+    supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true,
+    pattern_axis=true,actual_dash=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -302,7 +303,9 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op=='roll_face' then
+        if node.op=='pattern_axis' then
+            assert(node.value=='cardinal' or node.value=='diagonal','invalid pattern axis')
+        elseif node.op=='roll_face' then
             assert(type(node.value)=='number' and node.value%1==0 and node.value>=1
                 and node.value<=8,'invalid dice face predicate')
         elseif node.op=='supply_kind' then
@@ -384,6 +387,11 @@ function Catalog.validate(definitions, order)
         end
         for _, effect in ipairs(def.effects) do
             assert(valid_effects[effect.kind], "invalid boon effect")
+            if effect.pattern or effect.kind=='pattern' then
+                assert(require('src.boon_patterns').names[effect.pattern]
+                    and (effect.kind=='pattern' or effect.kind=='echo'),
+                    'invalid boon pattern')
+            end
             if effect.when then validate_predicate(effect.when) end
             assert(effect.proc_coefficient == nil or
                 (type(effect.proc_coefficient) == "number" and effect.proc_coefficient >= 0
@@ -427,6 +435,14 @@ function Catalog.validate(definitions, order)
             assert(effect.scale==nil or effect.scale=="adjacent_hostiles"
                 or (effect.scale=='supply_excess' and effect.kind=='ward'),
                 "invalid effect scale")
+        end
+        if def.pattern_preview then
+            local p=def.pattern_preview
+            assert(type(p)=='table' and ({hit=true,kill=true,dash=true,wait=true})[p.trigger]
+                and #def.effects==1 and def.effects[1].pattern,
+                'invalid pattern preview')
+            assert(p.axis==nil or p.axis=='cardinal' or p.axis=='diagonal','invalid preview axis')
+            assert(p.special==nil or p.special==true,'invalid special preview')
         end
         local last_power, last_chance = -1, -1
         for _, rarity in ipairs(Catalog.rarities) do

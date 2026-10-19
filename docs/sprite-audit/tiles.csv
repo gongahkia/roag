@@ -560,7 +560,7 @@ onebit,35,560,0,90,
 onebit,36,576,0,74,
 onebit,37,592,0,86,
 onebit,38,608,0,84,
-onebit,39,624,0,72,
+onebit,39,624,0,72,core:boon/fan_of_blades/icon + /detail
 onebit,40,640,0,70,
 onebit,41,656,0,78,
 onebit,42,672,0,78,
@@ -608,7 +608,7 @@ onebit,83,544,16,84,
 onebit,84,560,16,76,
 onebit,85,576,16,84,
 onebit,86,592,16,76,
-onebit,87,608,16,70,
+onebit,87,608,16,70,core:boon/backtrail_mantle/icon + /detail
 onebit,88,624,16,84,
 onebit,89,640,16,76,core:boon/battle_march/icon + /detail
 onebit,90,656,16,86,
@@ -1105,7 +1105,7 @@ onebit,580,656,176,86,core:object/interaction_cleanse_flask
 onebit,581,672,176,98,
 onebit,582,688,176,84,
 onebit,583,704,176,90,
-onebit,584,720,176,90,
+onebit,584,720,176,90,core:boon/crosswind/icon + /detail
 onebit,585,736,176,90,
 onebit,586,752,176,90,
 onebit,587,768,176,200,
@@ -1337,7 +1337,7 @@ onebit,812,448,256,67,
 onebit,813,464,256,71,
 onebit,814,480,256,65,
 onebit,815,496,256,70,
-onebit,816,512,256,67,
+onebit,816,512,256,67,core:boon/hollow_crown/icon + /detail
 onebit,817,528,256,74,core:boon/ration_reserve/icon + /detail
 onebit,818,544,256,78,core:boon/prospectors_heart/icon + /detail; core:drop/currency; core:ui/currency_icon
 onebit,819,560,256,62,
@@ -1542,13 +1542,13 @@ onebit,1017,592,320,20,
 onebit,1018,608,320,52,
 onebit,1019,624,320,28,
 onebit,1020,640,320,40,
-onebit,1021,656,320,69,
+onebit,1021,656,320,69,core:boon/linebreaker_pawn/icon + /detail
 onebit,1022,672,320,28,
-onebit,1023,688,320,62,
-onebit,1024,704,320,29,
+onebit,1023,688,320,62,core:boon/rooks_wake/icon + /detail
+onebit,1024,704,320,29,core:boon/bishops_wake/icon + /detail
 onebit,1025,720,320,30,
 onebit,1026,736,320,34,
-onebit,1027,752,320,55,
+onebit,1027,752,320,55,core:boon/knights_gambit/icon + /detail
 onebit,1028,768,320,128,
 onebit,1029,0,336,88,
 onebit,1030,16,336,87,

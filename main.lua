@@ -2414,6 +2414,9 @@ local function draw_preview()
     for _, cell in ipairs(preview.cells) do
         draw_cell(cell,1,1,1,.65,true,Palette.preview(targeting.kind,cell.status))
     end
+    for _,cell in ipairs(preview.valid and preview.boon_cells or {})do
+        draw_cell(cell,1,1,1,.65,true,Palette.friendly)
+    end
 end
 
 local function draw_minimap()
@@ -2741,6 +2744,9 @@ local function draw_world()
     end
     draw_rewards()
     if not Playback.busy(playback) then
+        for _,effect in ipairs(Game.pending_boon_effects(state))do
+            draw_cells(effect.target_cells or {},1,1,1,.65,true,Palette.friendly)
+        end
         for _, strike in ipairs(Game.pending_strikes(state)) do
             draw_cells(strike.target_cells,1,1,1,.7,true,
                 Palette.attack(state.player_id,strike,Game.entity(state,strike.source_id)))

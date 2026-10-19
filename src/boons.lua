@@ -5,6 +5,7 @@ local Terrain=require("src.terrain")
 local Classes=require("src.classes")
 local Visibility=require("src.visibility")
 local Floors=require("src.floors")
+local Patterns=require('src.boon_patterns')
 
 local Boons = {}
 local PPM = 1000000
@@ -86,6 +87,11 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='pattern_axis' then return Patterns.axis(event,node.value)end
+    if op=='actual_dash' then
+        return event.kind=='Moved' and event.ability_id=='core:ability/dash'
+            and state.last_action and state.last_action.kind=='dash' or false
+    end
     if op=='roll_face' then return event.fate_face==node.value end
     if op=='unique_action' then
         if not event.root_action_id then return false end
@@ -296,6 +302,85 @@ function Boons.aggregate(id, stacks, field)
     local def = assert(Catalog.get(id), "unknown boon")
     assert(field == "chance" or field == "power", "unknown boon parameter")
     return magnitude(def, stacks, field)
+end
+
+function Boons.has_pattern(owner)
+    if not owner.boons or not next(owner.boons)then return false end
+    for _,id in ipairs(Catalog.order)do
+        if owner.boons and owner.boons[id] and Catalog.get(id).pattern_preview then return true end
+    end
+    return false
+end
+
+-- Conditional cells, not a simulation or a prediction of random rolls/blocks.
+-- Inspect only visible primary victims; actor occupancy never affects shapes.
+function Boons.preview_patterns(state,owner,kind,preview,ranged,origin)
+    if not preview.valid or not Boons.has_pattern(owner) then return end
+    if kind~='dash' and kind~='wait' and not Classes.immediate_attack(owner,
+        preview.bump and 'basic_attack' or kind,preview) then return end
+    if kind=='dash' and preview.beacon_return then return end
+    local events={}
+    local p=owner.position
+    if kind=='dash' or kind=='wait' then
+        events[1]={floor_id=p.floor_id,x=p.x,y=p.y,from_x=p.x,from_y=p.y,
+            source_position=origin or p}
+    else
+        local map=Content.map_for(state)
+        for _,cell in ipairs(preview.cells)do
+            local floor_id=cell.floor_id or p.floor_id
+            local pass=not ranged or Content.projectile_passable(map,cell.x,cell.y,state)
+            if not pass and ranged~='area' then break end
+            local target
+            if pass and Visibility.is_visible(state,floor_id,cell.x,cell.y)then
+                for _,actor in ipairs(state.entities)do
+                    local q=actor.position
+                    if actor.id~=owner.id and actor.hp and actor.hp>0 and q
+                        and q.floor_id==floor_id and q.x==cell.x and q.y==cell.y then
+                        target=actor;break
+                    end
+                end
+            end
+            if target and target.faction~=owner.faction and not target.invulnerable then
+                events[#events+1]={floor_id=floor_id,x=cell.x,y=cell.y,
+                    source_position=origin or p}
+            end
+            if target and ranged==true then break end
+        end
+    end
+    local cells,seen,conditions={},{},{}
+    for _,id in ipairs(Catalog.order)do
+        local def=Catalog.get(id)
+        local info=def.pattern_preview
+        if owner.boons and owner.boons[id] and info
+            and ((kind=='dash' and info.trigger=='dash')
+                or (kind=='wait' and info.trigger=='wait')
+                or (kind~='dash' and kind~='wait' and (info.trigger=='hit' or info.trigger=='kill')))
+            and (not info.special or kind=='sweeping_slash')then
+            local effect=def.effects[1]
+            for _,event in ipairs(events)do
+                if not info.axis or Patterns.axis(event,info.axis)then
+                    for _,cell in ipairs(Patterns.cells(state,effect.pattern,event))do
+                        local key=id..':'..cell.x..':'..cell.y
+                        if not seen[key] and Visibility.is_visible(state,cell.floor_id,cell.x,cell.y)then
+                            seen[key]=true
+                            cells[#cells+1]={floor_id=cell.floor_id,x=cell.x,y=cell.y,
+                                boon_id=id,condition=info.trigger,delay=effect.delay}
+                            conditions[info.trigger]=true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if #cells>0 then
+        preview.boon_cells=cells
+        local labels={}
+        for _,trigger in ipairs({'hit','kill','dash','wait'})do
+            if conditions[trigger]then labels[#labels+1]=trigger=='dash' and 'Dash wake +150 time'
+                or trigger=='wait' and 'Wait rays' or 'on '..trigger end
+        end
+        preview.boon_hint=table.concat(labels,' / ')
+    end
 end
 
 function Boons.proc_count(state, chance_ppm, coefficient)

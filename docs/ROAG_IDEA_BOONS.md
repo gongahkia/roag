@@ -4,9 +4,9 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Nine additions are implemented so far: 62 total, 58 in a normal unearned
-New Run pool, plus the four existing achievement unlocks. At least 41 more
-additions are still required.** This first group does not complete the goal.
+**Seventeen additions are implemented so far: 70 total, 66 in a normal unearned
+New Run pool, plus the four existing achievement unlocks. At least 33 more
+additions are still required.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
 appears in the preview and cannot kill the player. Oracle's
@@ -20,6 +20,45 @@ terrain/status interactions, defense/cadence and skill transformations. Each
 addition needs an actual tactical difference, accurate text and artwork, real
 action tests and saved-state continuation. Renamed damage bonuses do not meet
 the requested distinct-mechanic requirement.
+
+## Positional patterns and a locked Dash wake
+
+All eight use **1 / 2 / 3 / 4 damage per cell before defense**, per copy at
+Common / Uncommon / Rare / Legendary. Powers are provisional pending the final
+reward/build corpus. Geometry is bounded, deterministic and independent of RNG.
+The starting catalogue, existing actors, enemy schedules and base costs remain.
+
+| Boon / native icon | Actual trigger and geometry |
+| --- | --- |
+| Linebreaker's Pawn / 1021 | Each positive primary hit sends two cells beyond the victim, away from the real strike origin |
+| Rook's Wake / 1023 | Cardinal primary hits send two perpendicular rays, two cells per side |
+| Bishop's Wake / 1024 | Diagonal primary hits send four diagonal rays, two cells each |
+| Knight's Gambit / 1027 | Positive special hits strike eight L endpoints; at least one of the two orthogonal leg orders must be clear |
+| Hollow Crown / 816 | Credited hostile kills strike the hollow Chebyshev radius-two perimeter; the center and inner ring are spared |
+| Crosswind / 584 | A paid Wait sends four cardinal two-cell rays from the current player tile |
+| Fan of Blades / 39 | Positive special hits strike three forward fan cells beyond the victim |
+| Backtrail Mantle / 87 | An actual full or partial Dash locks the starting cross (center + four neighbors), resolving after 150 world time |
+
+`src/boon_patterns.lua` is shared by actual effects and conditional previews.
+Rays stop at walls, closed doors and projectile-blocking objects. Diagonal
+corner checks and short supercover segments prevent leaks through masonry.
+Knight endpoints use explicit bending paths, not an unannounced wall jump.
+Victim-triggered effects occur after the complete primary HP batch and use
+ordinary defense, ward, forcefield, friendly-fire and ancestry rules. Secondary
+pattern damage is not another direct attack. Utility/parry/placement never
+pretends to be a special hit. A commanded Spirit uses its actual strike origin.
+
+While F/R/X aiming, applicable **visible** conditional cells use the same green
+dotted outlines as primary previews; the footer says `on hit`, `on kill` or
+`Dash wake +150 time`. These are explicitly conditional, not guaranteed damage
+or predictions of Dice, defense or forcefield outcomes. No hidden primary victim
+or fogged cell is displayed. Wait commits immediately, as before; Crosswind has
+no extra aiming mode. A pending wake remains outlined in green after Dash.
+
+Backtrail copies its activation before replacing locked cells, so it cannot
+mutate the shared triggering event or a Temporal Echo. Walking, escape-scroll
+movement and Wayfinder beacon returns do not trigger it. Impact keeps the
+original cells if the player moves; save/Continue and F5 retain them exactly.
 
 ## First group: supplies and rewards
 
@@ -170,6 +209,7 @@ sh tests/idea_boon_disk_resume.sh
 TMPDIR=/var/tmp sh tests/idea_boon_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh
 ROAG_DICE_REFRESHES=12 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh 4
+ROAG_PATTERN_CASE=backtrail_mantle TMPDIR=/var/tmp sh tests/idea_pattern_gui_smoke.sh
 python3 tools/sprite_audit.py --check
 git diff --check
 ```
@@ -245,7 +285,7 @@ All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 
 ### Still required for final acceptance
 
-- Finish the remaining 41+ boons and verify
+- Finish the remaining 33+ boons and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.

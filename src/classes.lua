@@ -269,7 +269,7 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     return cells,ability_id,ranged,damage_type
 end
 
-function Classes.preview_hint(player,kind,preview)
+local function action_hint(player,kind,preview)
     if preview.vow then
         return ('VOW: %d HP -> +%d damage%s · P off · Enter'):format(
             preview.vow.hp_cost,preview.vow.bonus,preview.fate_power and ' · die on commit' or '')
@@ -286,6 +286,10 @@ function Classes.preview_hint(player,kind,preview)
     if id==Comp.spirit_id then return preview.companion_mode=='strike'
         and 'Enter to order one paid spirit strike' or 'Enter to position spirit' end
     return hints[id] or 'Enter to strike · Esc cancel'
+end
+function Classes.preview_hint(player,kind,preview)
+    local hint=action_hint(player,kind,preview)
+    return preview.boon_hint and hint..' · '..preview.boon_hint or hint
 end
 function Classes.status(state,player)
     local id=player.definition_id

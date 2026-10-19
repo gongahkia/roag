@@ -8,6 +8,21 @@ notes below are historical checkpoints. The full goal remains incomplete until
 both passes are implemented and independently verified.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
+## Follow-up requested after the active goal
+
+After the remaining additional boons and combined acceptance are finished:
+
+1. Audit the complete repository for obsolete intermediate code, HTML and
+   documentation produced during development. Remove confirmed obsolete files;
+   retain required runtime assets, tests, licences and useful production docs.
+2. Make one coherent cleanup commit. Update README.md only within its Controls
+   H2 section, using the existing table format and controls verified in code.
+3. Research and propose additional visual juice for movement, attacks,
+   discovery and selection. Present the ideas in chat for approval/rejection;
+   do not implement these proposed additions before the user's decision.
+
+This is ordered follow-up, not a replacement for the unfinished active goal.
+
 ## Authority and invariants
 
 - User feedback: [original export](../sprite-audit/ideas-feedback.json), [interpretation](../sprite-audit/ideas-feedback-summary.md), [constraints](../sprite-audit/ideas-decisions.json).
@@ -91,7 +106,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | Nine new boon icons + eight face bindings; 16 unique new native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 9 additions / 62 total | Current full 711/711; 64 focused, native GUI/save checks; at least 41 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 17 additions / 70 total | Prior full 711/711; 85 focused, native GUI/save checks; current 732-case gate running; at least 33 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1280,3 +1295,52 @@ and read-only preview geometry. At least 41 further boons and final integration
 remain active; do not create another goal, reset the tree or resume the rejected
 classes/room/bitmap skin. No further approval is needed for the already
 approved boon brainstorming/implementation.
+
+
+## Positional boon group — seventeen additions (2026-10-19)
+
+Eight actual additions: Linebreaker's Pawn, Rook's Wake, Bishop's Wake,
+Knight's Gambit, Hollow Crown, Crosswind, Fan of Blades and Backtrail Mantle.
+Current catalogue **70**, normal unearned pool **66**, approved additions
+**17/50+**; at least 33 more plus final integration remain. All have native
+1-Bit art, separate tactical shapes/triggers and configurable 1/2/3/4 power.
+Shared pure geometry drives both execution and conditional previews. Walls,
+doors, diagonal corners and both Knight leg orders are checked. Actual Spirit
+origins and Duelist piercing victims work; effects retain primary-batch order,
+ordinary defense/friendly fire and bounded causal ancestry. Real Dash, including
+partial Dash, locks a 150-time starting cross. Walking, escape scrolls, placement,
+parry and beacon returns cannot create hidden special hits or Dash wakes.
+
+**21/21** new action/geometry/preview/save cases, **85/85** combined new-boon
+cases. First focus returned 12/19: preview cells intentionally lacked a floor
+ID (the adapter now uses the owner floor), two save fixtures incorrectly called
+an edited test map a generated floor, and fog fixture used the wrong visible-set
+shape. The next run returned 18/19 because the Duelist really pierces both
+victims; the test now verifies every primary hit and its real damage. No save
+validation or existing attack was weakened. All failure logs are retained at
+`/var/tmp/roag-idea-patterns-focus*-20261019.log`.
+
+Actual GUI: **24/24** isolated processes across eight boons and three rounds,
+logs `/var/tmp/roag-pattern-gui-round{1,2,3}-20261019.log`; another **8/8** pass
+in a 1280x800 window (the game still uses its fixed 1024x640 content layout,
+not a new responsive renderer). Captured green dotted conditional/locked cells
+match the shared geometry and keep tile interiors clear; actual callbacks
+cancel/commit, real damage and effect playback are checked. The real inventory
+checks all 17 new icons against original source PNG pixels over three pages.
+Inspected screenshots: `/var/tmp/roag-pattern-gui-AKbJhi/conditional-preview.png`,
+`/var/tmp/roag-pattern-gui-F0QICF/locked-wake.png`, and
+`/var/tmp/roag-idea-boon-gui-lMOLrt/inventory-3.png`. The existing player preview
+GUI also passes. One attempted new harness called a nonexistent `love.resize`;
+that fixture error is retained at `/var/tmp/roag-pattern-gui-jbxRB1/love.log`,
+and was corrected without changing production window/input code.
+
+A checked-store fresh-process wake/Wait/Echo continuation passes generation 2:
+`/var/tmp/roag-boons-disk-gGsynI`; these are assisted prerequisites, not earned
+legal-run claims. Native coverage **533/533**, all 15 original asset files
+byte-identical, same 13 approved cross-sheet derivatives. Frozen idea and
+item-room review gates pass 6/6 and 7/7. Full **732-case** gate runs from frozen
+`/var/tmp/roag-idea-patterns-final-pf8fh0yn`, log
+`/var/tmp/roag-idea-patterns-full-20261019.log`; do not count it until terminal.
+Environment is LÖVE 11.5 / Fedora WSL / Mesa26.2.4 llvmpipe, not physical input,
+human acceptance or native GPU performance. Production cleanup/Controls README
+and approval-only visual-juice proposals are queued after this full goal.

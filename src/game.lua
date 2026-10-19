@@ -1,6 +1,7 @@
 local AI = require("src.ai")
 local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
+local BoonPatterns=require('src.boon_patterns')
 local Achievements = require("src.achievements")
 local Content = require("src.content")
 local Classes = require("src.classes")
@@ -477,6 +478,18 @@ function Game.preview(state,kind,dx,dy,steps,options)
         preview.bump and 'basic_attack' or kind,preview) then
         preview.fate_power=Boons.dice_power(owner)
     end
+    if preview.valid and Boons.has_pattern(owner)then
+        local ranged,origin
+        if kind=='basic_attack' or kind=='sweeping_slash' or preview.bump then
+            local _,_,_,r=Game.effective_ability(state,preview.bump and 'basic_attack' or kind,
+                dx,dy,not preview.bump)
+            ranged=r
+            if kind=='sweeping_slash' and preview.companion_mode=='strike' then
+                origin=Comp.owned(state,'spirit').position
+            end
+        end
+        Boons.preview_patterns(state,owner,kind,preview,ranged,origin)
+    end
     if not (options and options.vow) or not preview.valid then return preview end
     local vow=Boons.attack_vow(owner)
     if not vow then
@@ -646,6 +659,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
     damage_type, critical, direct_attack, ability_id, fate_roll)
     local outcomes = {}
     local map = Content.map_for(state)
+    local pattern_origin=direct_attack and Boons.has_pattern(source) and source.position or nil
     for _, cell in ipairs(cells) do
         -- true is the legacy shot (stop at first occupant); "piercing_line"
         -- stops at terrain, while "area" checks each locked cell separately.
@@ -710,6 +724,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 block_reason=block_reason,protecting_id=protecting_id,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
+                pattern_origin=copy(pattern_origin),
                 reward_exempt=target.reward_exempt or nil,
                 fate_face=fate_roll and fate_roll.face or nil,
                 fate_skull=skull or nil,
@@ -804,6 +819,7 @@ end
 local function effect_cells(state, activation, effect)
     local event = activation.event
     if effect.kind == "echo_impact" then return event.target_cells or {} end
+    if effect.kind=='pattern' then return BoonPatterns.cells(state,effect.pattern,event)end
     if effect.kind == "damage_source" then
         local target = Game.entity(state, event.source_id)
         if not target or target.hp <= 0 then return {} end
@@ -902,18 +918,24 @@ local function execute_effect(state, output, activation, effect)
     local source = owner or {id=activation.owner_id, position=activation.source_position}
     context.cause = effect_cause(activation, effect)
     if effect.kind == "echo" then
+        -- Lock a private activation copy. Mutating the shared triggering event
+        -- here would corrupt other subscribed boons (including Temporal Echo).
+        local locked=copy(activation)
+        if effect.pattern then
+            locked.event.target_cells=BoonPatterns.cells(state,effect.pattern,activation.event)
+        end
         local due = state.clock + effect.delay
         local scheduled = Scheduler.enqueue(state, {kind="effect", due=due,
             actor_id=source.id, attack_id=activation.root_action_id})
         scheduled.effect_id = scheduled.id
         state.delayed_effects[scheduled.id] = {
-            activation=copy(activation),
+            activation=locked,
             effect={kind="echo_impact", damage_type=effect.damage_type,
                 proc_coefficient=effect.proc_coefficient},
         }
         emit(state, output, "DelayedEffectScheduled", {
             boon_id=activation.boon_id, activation_id=activation.id,
-            due=due, effect_id=scheduled.id, target_cells=activation.event.target_cells,
+            due=due, effect_id=scheduled.id, target_cells=locked.event.target_cells,
         }, source.id, activation.root_action_id)
     elseif effect.kind=="prime" or effect.kind=="speed_boost"
         or effect.kind=="ward" then

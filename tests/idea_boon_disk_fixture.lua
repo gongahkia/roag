@@ -8,7 +8,8 @@ local Catalog=require('src.boon_content')
 local mode,dir,scenario=arg[1],arg[2],arg[3]
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
-assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice' or scenario=='handoff')
+assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice'
+    or scenario=='handoff' or scenario=='patterns')
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -38,6 +39,20 @@ local function save_expected(s,plan,label)
     print('PASS '..scenario..': '..label..', generation 1')
 end
 if mode=='write' then
+    if scenario=='patterns'then
+        local s=G.new(37);local p=G.player(s);p.position.x,p.position.y=7,6
+        for _,slug in ipairs({'backtrail_mantle','linebreaker_pawn','crosswind','temporal_echo'})do
+            G.set_boon_stacks(s,p.id,'core:boon/'..slug,'rare',1)
+        end
+        local foe=G.spawn_enemy(s,'core:enemy/mossbound_guard',7,5,100000)
+        foe.hp=100;foe.max_hp=100
+        submit(s,{kind='dash',dx=1,dy=0})
+        assert(#G.pending_boon_effects(s)==1 and s.clock<150)
+        save_expected(s,{{kind='wait'},{kind='basic_attack',dx=-1,dy=0},
+            {kind='wait'},{kind='move',dx=-1,dy=0},{kind='wait'}},
+            'saved locked Dash wake, paid Wait rays and pending continuation')
+        return
+    end
     if scenario=='handoff' then
         local F=require('tests.idea_boon_handoff_fixture')
         local s,p,exit=F.burning()

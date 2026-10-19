@@ -81,4 +81,48 @@ for n=1,8 do
         label=I.faces[n]}
 end
 
+local function pattern(slug,name,text,icon,motif,shape,trigger,extra,delay)
+    local clauses={{op='source_owner'}}
+    if trigger=='hit' then
+        clauses[#clauses+1]={op='target_hostile'}
+        clauses[#clauses+1]={op='direct_attack'}
+        clauses[#clauses+1]={op='positive'}
+    elseif trigger=='kill' then clauses[#clauses+1]={op='target_hostile'}
+    elseif trigger=='dash' then clauses[#clauses+1]={op='actual_dash'}end
+    if extra then clauses[#clauses+1]=extra end
+    local effect={kind=delay and 'echo' or 'pattern',pattern=shape,
+        damage_type='physical',delay=delay}
+    add(slug,name,text,icon,motif,
+        {({hit='DamageTaken',kill='EntityKilled',dash='Moved',wait='Waited'})[trigger]},
+        {all=clauses},{effect},{1,2,3,4},'pattern damage per cell before defense')
+    local def=I.definitions['core:boon/'..slug]
+    def.tags={'ideas','spatial'}
+    def.pattern_preview={trigger=trigger,axis=extra and extra.op=='pattern_axis' and extra.value or nil,
+        special=extra and extra.op=='special_attack' or nil}
+end
+pattern('linebreaker_pawn',"Linebreaker's Pawn",
+    'Positive primary hits send a two-cell lance beyond the victim, away from the strike origin. Walls and closed doors stop it.',
+    1021,'chess pawn','lance','hit')
+pattern('rooks_wake',"Rook's Wake",
+    'Cardinal primary hits send two cells in both perpendicular directions from the victim. It rewards lining up a row of foes.',
+    1023,'chess rook','rook','hit',{op='pattern_axis',value='cardinal'})
+pattern('bishops_wake',"Bishop's Wake",
+    'Diagonal primary hits release four diagonal two-cell rays from the victim. Stone corners block each ray.',
+    1024,'chess bishop','bishop','hit',{op='pattern_axis',value='diagonal'})
+pattern('knights_gambit',"Knight's Gambit",
+    'Positive special-attack hits strike the eight L-shaped endpoints around the victim. At least one clear two-leg route is required; adjacent cells are spared.',
+    1027,'chess knight','knight','hit',{op='special_attack'})
+pattern('hollow_crown','Hollow Crown',
+    'Credited hostile kills strike a hollow ring two tiles from the victim. The inner ring is spared, and walls block the outer ring.',
+    816,'crowned card','crown','kill')
+pattern('crosswind','Crosswind',
+    'Wait sends four cardinal rays two cells from your current tile. It spends ordinary Wait time, hits no diagonals and stops at walls.',
+    584,'four-point cross','crosswind','wait')
+pattern('fan_of_blades','Fan of Blades',
+    'Positive special-attack hits strike a three-cell forward fan beyond the victim. Walls and stone corners block it.',
+    39,'crossed blades','fan','hit',{op='special_attack'})
+pattern('backtrail_mantle','Backtrail Mantle',
+    'A committed Dash locks a five-cell cross at its starting tile, striking after 150 world time. Utility movement and beacon returns do not trigger it.',
+    87,'travelling mantle','backtrail','dash',nil,150)
+
 return I
