@@ -30,21 +30,28 @@ function P.effect(event)
   return 'core:ui/status_heal_icon'
  end
 end
-function P.statuses(player)
+function P.statuses(player,clock)
  local out={}
  if player.statuses and player.statuses.burning then out[#out+1]={id='core:ui/burning_effect',label='Burning'}end
- if (player.pickup_ward_actions or 0)>0 or player.storm_ward then out[#out+1]={id='core:ui/status_ward_icon',label='Ward'}end
+ local ward=clock and require('src.boons').ward_total({clock=clock},player)or 0
+ if (player.pickup_ward_actions or 0)>0 or player.storm_ward or ward>0 then
+  out[#out+1]={id='core:ui/status_ward_icon',label=ward>0 and 'Ward '..ward or 'Ward'}
+ end
  if (player.supply_focus_actions or 0)>0 then out[#out+1]={id='core:ui/status_focus_icon',label='Focus'}end
  if player.definition_id=='core:actor/stormcaller'then
   local charge=math.max(0,math.min(3,player.storm_charge or 0))
   out[#out+1]={id='core:ui/status_charge_'..charge..'_icon',label='Charge '..charge}
  end
+ return out
+end
+-- A roll is historical feedback, not a fourth timed status competing with fire,
+-- wards and class charge for the character panel's three active-status slots.
+function P.last_roll(player)
  local fate=player.boon_memory and player.boon_memory['core:boon/fateful_dice']
  if fate and fate.face and player.boons and player.boons['core:boon/fateful_dice']then
-  out[#out+1]={id='core:ui/fate_'..fate.face..'_icon',
-   label=require('src.idea_boon_content').faces[fate.face]}
+  return {id='core:ui/fate_'..fate.face..'_icon',
+   label='Last roll: '..require('src.idea_boon_content').faces[fate.face]}
  end
- return out
 end
 function P.signal(phase)
  return (phase=='warning' or phase=='armed') and 'core:ui/signal_armed_effect'

@@ -3155,15 +3155,17 @@ local function draw_inventory()
     local art=actor_visual(player.definition_id,state.player_id)
     if art then draw_visual(art,724,136,96,96)end
     PixelUI.center(class.name:upper(),248,ui_menu_font,PixelUI.colors.selected,624,312)
+    local speed_bonus=require('src.boons').speed_bonus(state,player)
     local lines={('Level %d · XP %d'):format(state.progression.level,state.progression.xp_total),
         ('HEALTH %d/%d'):format(player.hp,player.max_hp),
         ('Attack %d · Defense %d'):format(player.damage,player.defense),
-        ('Speed %d · GOLD %d'):format(player.speed,state.currency),
+        ('Speed %d%s · GOLD %d'):format(player.speed+speed_bonus,
+            speed_bonus>0 and (' (+%d)'):format(speed_bonus) or '',state.currency),
         ('Boons %d'):format(#owned)}
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.text)
     for i,line in ipairs(lines)do g.print(line,636,286+(i-1)*26)end
     local u=player.utility
-    for index,status in ipairs(Presentation.statuses(player))do
+    for index,status in ipairs(Presentation.statuses(player,state.clock))do
         if index<=3 then
             local x=636+(index-1)*96
             draw_visual(bound_visual(status.id),x,410,16,16)
@@ -3173,6 +3175,11 @@ local function draw_inventory()
     if u then draw_visual(bound_visual(Interactions.definitions.binding(u.kind)),636,432,32,32)end
     g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
     g.printf(Interactions.status(state)~='' and Interactions.status(state) or 'Utility slot empty',676,432,252)
+    local last_roll=Presentation.last_roll(player)
+    if last_roll then
+        draw_visual(bound_visual(last_roll.id),636,480,16,16)
+        g.setFont(ui_body_font);g.setColor(PixelUI.colors.text);g.print(last_roll.label,658,482)
+    end
     PixelUI.option('U · UTILITY / ITEMS',88,492,488,false,ui_menu_font)
     PixelUI.center('I / Esc close',518,ui_menu_font,PixelUI.colors.muted,88,488)
 end

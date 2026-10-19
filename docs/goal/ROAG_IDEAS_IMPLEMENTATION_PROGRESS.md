@@ -106,7 +106,7 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 30 new boon icons + eight face bindings; 37 unique native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 38 additions / 91 total | last full 780/780 at 30; current 157 focused plus 24 cadence GUI and eight disk scenarios; at least 12 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | implemented — 50 additions / 103 total; final acceptance pending | current 185 focused; final twelve 36 GUI and 12 disk scenarios; combined 832-case gate pending |
 
 ## Dependency-based batches
 
@@ -1587,3 +1587,22 @@ Purging Seal. Details and powers are in `docs/ROAG_IDEA_BOONS.md`.
 - Last twelve boons, final combined acceptance, then requested production cleanup
   and researched visual-polish proposals remain. No new speculative visual juice
   implemented ahead of the user's approval.
+
+## Fifty-addition implementation checkpoint — final acceptance remains ACTIVE
+
+The final twelve support boons are implemented (full table in the boon guide).
+103 total IDs / 99 normal unearned IDs; all 50 added icon regions are distinct.
+28 new focused tests and 185/185 combined; 36/36 final-twelve GUI processes over
+three rounds; 12 exact fresh-process checked-store continuations. Native icon
+checks cover all 50; all eight separate last-roll history views pass.
+
+Character speed now includes current temporary speed, wards show their actual
+remaining capacity, and last dice history has a separate labeled row. These
+complete previously observed integration/readability issues; no unapproved new
+visual-polish feature was added. The old active-status/pixel checks were updated
+for that deliberate history placement, retaining original-source comparisons.
+
+Complete 832-case headless gate, combined earlier-feature GUI/save/seed/Victory,
+readability and performance acceptance remain. Only after those pass proceed to
+the user's production cleanup / one cleanup commit / Controls-only README edit /
+web-researched visual-juice proposals. No goal completion claim yet.

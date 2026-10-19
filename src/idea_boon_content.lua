@@ -237,4 +237,71 @@ add('purging_seal','Purging Seal',
     {all={{op='target_owner'},{op='event_status',value='burning'}}},
     {{kind='area',radius=1,damage_type='fire'}},{1,2,3,4},'cleansing burst damage per cell before defense')
 
+add('doorward_lamp','Doorward Lamp',
+    'Opening a closed door grants a one-hit ward for 400 world time. Walking through an already open door cannot renew it.',
+    158,'arched doorway',{'DoorOpened'},owner,
+    {{kind='ward',duration=400}},{2,3,4,6},'damage absorbed by the door-opening ward')
+add('secret_apple','Secret Apple',
+    'Your actual discovery of a secret restores health once. Revealed secrets cannot be harvested again; inspecting the map is free and gives no healing.',
+    915,'hidden apple',{'SecretDiscovered'},owner,
+    {{kind='heal_owner'}},{3,5,7,10},'health per newly discovered secret')
+add('spoils_aegis','Spoils Aegis',
+    'Claiming a paid chest grants a one-hit ward for 600 world time. The full price is still required; free secret and elite rewards do not count.',
+    1076,'crowned shield',{'ChestClaimed'},
+    {all={owner,{op='event_amount',field='price',min=1}}},
+    {{kind='ward',duration=600}},{2,3,4,6},'damage absorbed by the purchased ward')
+add('mist_lullaby','Mist Lullaby',
+    'Wait while hurt on obscuring mist to recover health, at most once per 400 world time. Wait still advances enemies and committed attacks normally.',
+    1061,'resting musical note',{'Waited'},
+    {all={owner,{op='owner_missing_hp'},{op='source_on_terrain',value='m'},
+        {op='cooldown_ready'}}},
+    {{kind='heal_owner',cooldown=400}},{1,2,3,4},'health from a mist rest; cooldown 400')
+add('rime_disk','Rime Disk',
+    'Leaving glazed ice grants a one-hit ward for 200 world time. Staying on ice or moving between ordinary floor tiles cannot renew it.',
+    1056,'crossed circular disk',{'TileEntered'},
+    {all={owner,{op='from_terrain',value='i'}}},
+    {{kind='ward',duration=200}},{1,2,3,4},'damage absorbed after leaving ice')
+add('vent_mantle','Vent Mantle',
+    'Entering a heat vent grants a one-hit ward for 200 world time, at most once per 200 time. The vent keeps its locked timing and normal damage; standing still cannot renew the ward.',
+    38,'vented protective mantle',{'TileEntered'},
+    {all={owner,{op='on_special_terrain',value='heat_vent'},{op='cooldown_ready'}}},
+    {{kind='ward',duration=200}},{1,2,3,4},'damage absorbed by the vent-entry ward')
+add('patient_rebuke','Patient Rebuke',
+    'Fully blocking a hostile direct attack stores one charge for 400 world time. Your next paid Wait spends it on a one-cell burst; empty waiting cannot create another charge.',
+    1069,'held stop seal',{'DamageBlocked','Waited'},
+    {any={{all={{op='event_kind',value='DamageBlocked'},{op='target_owner'},
+        {op='source_hostile'},{op='direct_attack'}}},
+        {all={owner,{op='event_kind',value='Waited'},{op='primed'}}}}},
+    {{kind='prime',duration=400,when={op='event_kind',value='DamageBlocked'}},
+        {kind='area',radius=1,damage_type='physical',consume_prime=true,
+            when={op='event_kind',value='Waited'}}},
+    {2,3,4,6},'damage from the charged Wait burst before defense')
+add('beacon_afterglow','Beacon Afterglow',
+    'Wayfinder: returning to your beacon sends two-cell cardinal rays from the actual landing. Walls stop the rays, diagonals are spared, and ordinary Dashes cannot trigger them.',
+    1048,'four-way beacon',{'BeaconReturned'},owner,
+    {{kind='pattern',pattern='crosswind',damage_type='arcane'}},
+    {1,2,3,4},'beacon-landing ray damage before defense')
+I.definitions['core:boon/beacon_afterglow'].eligible_classes={'core:actor/wayfinder'}
+I.definitions['core:boon/beacon_afterglow'].pattern_preview={trigger='return'}
+add('sentry_quartermaster','Sentry Quartermaster',
+    'Tinkerer: deploying or replacing your sentry grants action speed for 200 world time. It does not add sentry shots or make autonomous bolts trigger other boons.',
+    1039,'supply drawer',{'SentryDeployed'},owner,
+    {{kind='speed_boost',duration=200}},{10,15,20,25},'temporary deployment speed')
+I.definitions['core:boon/sentry_quartermaster'].eligible_classes={'core:actor/tinkerer'}
+add('spirit_shelter','Spirit Shelter',
+    'Spiritbinder: placing or repositioning your spirit grants a one-hit ward for 150 world time. Commanded strikes do not renew it; the spirit never becomes a shield entity.',
+    1075,'crossed spirit ward',{'SpiritPositioned'},owner,
+    {{kind='ward',duration=150}},{2,3,4,6},'damage absorbed by the positioning ward')
+I.definitions['core:boon/spirit_shelter'].eligible_classes={'core:actor/spiritbinder'}
+add('grounding_rod','Grounding Rod',
+    'Stormcaller: actually grounding stored charge with Dash adds a one-hit damage ward for 300 world time behind your normal grounding shield. An uncharged Dash gives no ward.',
+    1050,'vertical grounding rod',{'StormGrounded'},owner,
+    {{kind='ward',duration=300}},{1,2,3,4},'damage absorbed after the grounding shield')
+I.definitions['core:boon/grounding_rod'].eligible_classes={'core:actor/stormcaller'}
+add('mirror_dividend','Mirror Dividend',
+    'Reflecting your own attack from an enemy mirror restores health once per attack. Failed reflection, enemy fire and automatic class shots cannot heal you.',
+    1028,'paired mirror frames',{'MirrorReflected'},
+    {all={owner,{op='unique_action'}}},
+    {{kind='heal_owner'}},{2,3,4,6},'health per real reflected manual attack')
+
 return I

@@ -559,7 +559,7 @@ onebit,34,544,0,86,
 onebit,35,560,0,90,
 onebit,36,576,0,74,
 onebit,37,592,0,86,
-onebit,38,608,0,84,
+onebit,38,608,0,84,core:boon/vent_mantle/icon + /detail
 onebit,39,624,0,72,core:boon/fan_of_blades/icon + /detail
 onebit,40,640,0,70,core:boon/backswing/icon + /detail
 onebit,41,656,0,78,
@@ -679,7 +679,7 @@ onebit,154,112,48,42,
 onebit,155,128,48,70,
 onebit,156,144,48,12,
 onebit,157,160,48,84,
-onebit,158,176,48,98,
+onebit,158,176,48,98,core:boon/doorward_lamp/icon + /detail
 onebit,159,192,48,54,
 onebit,160,208,48,36,
 onebit,161,224,48,56,
@@ -1436,7 +1436,7 @@ onebit,911,464,288,72,
 onebit,912,480,288,66,
 onebit,913,496,288,71,
 onebit,914,512,288,68,
-onebit,915,528,288,78,core:ui/idea_alarm_effect
+onebit,915,528,288,78,core:boon/secret_apple/icon + /detail; core:ui/idea_alarm_effect
 onebit,916,544,288,95,core:boon/cinder_stopper/icon + /detail
 onebit,917,560,288,50,
 onebit,918,576,288,58,
@@ -1549,7 +1549,7 @@ onebit,1024,704,320,29,core:boon/bishops_wake/icon + /detail
 onebit,1025,720,320,30,
 onebit,1026,736,320,34,core:boon/pommel_return/icon + /detail
 onebit,1027,752,320,55,core:boon/knights_gambit/icon + /detail
-onebit,1028,768,320,128,
+onebit,1028,768,320,128,core:boon/mirror_dividend/icon + /detail
 onebit,1029,0,336,88,
 onebit,1030,16,336,87,
 onebit,1031,32,336,96,
@@ -1560,7 +1560,7 @@ onebit,1035,96,336,104,
 onebit,1036,112,336,106,
 onebit,1037,128,336,69,
 onebit,1038,144,336,74,
-onebit,1039,160,336,74,
+onebit,1039,160,336,74,core:boon/sentry_quartermaster/icon + /detail
 onebit,1040,176,336,84,
 onebit,1041,192,336,98,
 onebit,1042,208,336,92,
@@ -1569,20 +1569,20 @@ onebit,1044,240,336,74,
 onebit,1045,256,336,66,
 onebit,1046,272,336,56,
 onebit,1047,288,336,66,
-onebit,1048,304,336,76,
+onebit,1048,304,336,76,core:boon/beacon_afterglow/icon + /detail
 onebit,1049,320,336,56,
-onebit,1050,336,336,48,
+onebit,1050,336,336,48,core:boon/grounding_rod/icon + /detail
 onebit,1051,352,336,48,
 onebit,1052,368,336,50,core:boon/field_dressing/icon + /detail
 onebit,1053,384,336,50,core:boon/scavengers_hook/icon + /detail
 onebit,1054,400,336,50,core:boon/grasping_hand/icon + /detail
 onebit,1055,416,336,50,core:boon/anchor_maul/icon + /detail
-onebit,1056,432,336,40,
+onebit,1056,432,336,40,core:boon/rime_disk/icon + /detail
 onebit,1057,448,336,86,
 onebit,1058,464,336,86,
 onebit,1059,480,336,86,
 onebit,1060,496,336,86,
-onebit,1061,512,336,43,
+onebit,1061,512,336,43,core:boon/mist_lullaby/icon + /detail
 onebit,1062,528,336,77,core:boon/split_thrust/icon + /detail
 onebit,1063,544,336,58,core:boon/needle_flight/icon + /detail
 onebit,1064,560,336,80,
@@ -1590,14 +1590,14 @@ onebit,1065,576,336,124,core:boon/purging_seal/icon + /detail
 onebit,1066,592,336,108,core:boon/borrowed_guard/icon + /detail
 onebit,1067,608,336,80,
 onebit,1068,624,336,136,
-onebit,1069,640,336,106,
+onebit,1069,640,336,106,core:boon/patient_rebuke/icon + /detail
 onebit,1070,656,336,68,
 onebit,1071,672,336,80,
 onebit,1072,688,336,118,core:boon/hourglass_clasp/icon + /detail
 onebit,1073,704,336,81,
 onebit,1074,720,336,86,
-onebit,1075,736,336,88,
-onebit,1076,752,336,109,
+onebit,1075,736,336,88,core:boon/spirit_shelter/icon + /detail
+onebit,1076,752,336,109,core:boon/spoils_aegis/icon + /detail
 onebit,1077,768,336,100,core:boon/stone_backstop/icon + /detail
 rpg,0,0,0,256,
 rpg,1,17,0,256,

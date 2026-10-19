@@ -148,18 +148,15 @@ local function check_and_advance(image)
         print('Dice F5 refreshes:',refreshes,'images:',stats.images,'texture bytes:',stats.texturememory)
         love.keypressed('i');stage='dice-status'
     elseif stage=='dice-status' then
-        local statuses=require('src.idea_presentation').statuses(p)
-        local found
-        for n,status in ipairs(statuses)do
-            if status.id==I.cues[wanted_face].id then found=n;break end
-        end
-        assert(found and found<=3,'rolled icon not shown in character panel')
+        local last=require('src.idea_presentation').last_roll(p)
+        assert(last and last.id==I.cues[wanted_face].id
+            and last.label:find('Last roll:',1,true),'last-roll history missing')
         local sx,sy=S.region(I.cues[wanted_face].index)
         local checked=0
         for y=0,15 do for x=0,15 do
             local r,g,b,a=source:getPixel(sx+x,sy+y)
             if a==1 then
-                local actual={image:getPixel(636+(found-1)*96+x,410+y)}
+                local actual={image:getPixel(636+x,480+y)}
                 local gray=r*O.ink[1]*.2126+g*O.ink[2]*.7152+b*O.ink[3]*.0722
                 for c=1,3 do assert(math.abs(actual[c]-gray*Palette.gold[c])<=2/255+1e-6,
                     'rolled face pixels differ: '..wanted_face)end

@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "58e0dc58b467812b",
+  "mapping_checksum": "1e8c2586a2b2270b",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -520,6 +520,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/beacon_afterglow/detail",
+          "index": 1048,
+          "motif": "four-way beacon",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beacon_afterglow/icon",
+          "index": 1048,
+          "motif": "four-way beacon",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/beggars_cap/detail",
           "index": 33,
           "motif": "broad travelling hat",
@@ -862,6 +880,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/doorward_lamp/detail",
+          "index": 158,
+          "motif": "arched doorway",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/doorward_lamp/icon",
+          "index": 158,
+          "motif": "arched doorway",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/earthshaker/detail",
           "index": 380,
           "motif": "war hammer",
@@ -1150,6 +1186,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/grounding_rod/detail",
+          "index": 1050,
+          "motif": "vertical grounding rod",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grounding_rod/icon",
+          "index": 1050,
+          "motif": "vertical grounding rod",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/guardians_vow/detail",
           "index": 236,
           "motif": "ward shield",
@@ -1312,6 +1366,42 @@
         },
         {
           "height": 16,
+          "id": "core:boon/mirror_dividend/detail",
+          "index": 1028,
+          "motif": "paired mirror frames",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mirror_dividend/icon",
+          "index": 1028,
+          "motif": "paired mirror frames",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_lullaby/detail",
+          "index": 1061,
+          "motif": "resting musical note",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_lullaby/icon",
+          "index": 1061,
+          "motif": "resting musical note",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/mist_veil/detail",
           "index": 717,
           "motif": "drifting flecks",
@@ -1450,6 +1540,24 @@
           "id": "core:boon/passing_ember/icon",
           "index": 195,
           "motif": "lit passing fuse",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/patient_rebuke/detail",
+          "index": 1069,
+          "motif": "held stop seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/patient_rebuke/icon",
+          "index": 1069,
+          "motif": "held stop seal",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1690,6 +1798,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/rime_disk/detail",
+          "index": 1056,
+          "motif": "crossed circular disk",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rime_disk/icon",
+          "index": 1056,
+          "motif": "crossed circular disk",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/ring_of_reversal/detail",
           "index": 337,
           "motif": "reversal ring",
@@ -1762,6 +1888,42 @@
         },
         {
           "height": 16,
+          "id": "core:boon/secret_apple/detail",
+          "index": 915,
+          "motif": "hidden apple",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/secret_apple/icon",
+          "index": 915,
+          "motif": "hidden apple",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sentry_quartermaster/detail",
+          "index": 1039,
+          "motif": "supply drawer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sentry_quartermaster/icon",
+          "index": 1039,
+          "motif": "supply drawer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/shared_agony/detail",
           "index": 531,
           "motif": "paired hearts",
@@ -1774,6 +1936,24 @@
           "id": "core:boon/shared_agony/icon",
           "index": 531,
           "motif": "paired hearts",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spirit_shelter/detail",
+          "index": 1075,
+          "motif": "crossed spirit ward",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spirit_shelter/icon",
+          "index": 1075,
+          "motif": "crossed spirit ward",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1810,6 +1990,24 @@
           "id": "core:boon/splitflight/icon",
           "index": 282,
           "motif": "drawn bow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spoils_aegis/detail",
+          "index": 1076,
+          "motif": "crowned shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spoils_aegis/icon",
+          "index": 1076,
+          "motif": "crowned shield",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1990,6 +2188,24 @@
           "id": "core:boon/twin_seals/icon",
           "index": 903,
           "motif": "two diamond seals",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/vent_mantle/detail",
+          "index": 38,
+          "motif": "vented protective mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/vent_mantle/icon",
+          "index": 38,
+          "motif": "vented protective mantle",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -5356,12 +5572,24 @@
           "1027": [
             "core:boon/knights_gambit/icon + /detail"
           ],
+          "1028": [
+            "core:boon/mirror_dividend/icon + /detail"
+          ],
           "103": [
             "core:object/review_mushroom_1"
+          ],
+          "1039": [
+            "core:boon/sentry_quartermaster/icon + /detail"
           ],
           "104": [
             "core:boon/bramble_compact/icon + /detail",
             "core:terrain/bramble_bed"
+          ],
+          "1048": [
+            "core:boon/beacon_afterglow/icon + /detail"
+          ],
+          "1050": [
+            "core:boon/grounding_rod/icon + /detail"
           ],
           "1052": [
             "core:boon/field_dressing/icon + /detail"
@@ -5375,6 +5603,12 @@
           "1055": [
             "core:boon/anchor_maul/icon + /detail"
           ],
+          "1056": [
+            "core:boon/rime_disk/icon + /detail"
+          ],
+          "1061": [
+            "core:boon/mist_lullaby/icon + /detail"
+          ],
           "1062": [
             "core:boon/split_thrust/icon + /detail"
           ],
@@ -5387,8 +5621,17 @@
           "1066": [
             "core:boon/borrowed_guard/icon + /detail"
           ],
+          "1069": [
+            "core:boon/patient_rebuke/icon + /detail"
+          ],
           "1072": [
             "core:boon/hourglass_clasp/icon + /detail"
+          ],
+          "1075": [
+            "core:boon/spirit_shelter/icon + /detail"
+          ],
+          "1076": [
+            "core:boon/spoils_aegis/icon + /detail"
           ],
           "1077": [
             "core:boon/stone_backstop/icon + /detail"
@@ -5464,6 +5707,9 @@
           ],
           "147": [
             "core:object/env_forge_panel"
+          ],
+          "158": [
+            "core:boon/doorward_lamp/icon + /detail"
           ],
           "16": [
             "composite terrain material: wall"
@@ -5739,6 +5985,9 @@
           ],
           "378": [
             "core:boon/longblade_geometry/icon + /detail"
+          ],
+          "38": [
+            "core:boon/vent_mantle/icon + /detail"
           ],
           "380": [
             "core:boon/earthshaker/icon + /detail"
@@ -6226,6 +6475,7 @@
             "core:boon/twin_seals/icon + /detail"
           ],
           "915": [
+            "core:boon/secret_apple/icon + /detail",
             "core:ui/idea_alarm_effect"
           ],
           "916": [
@@ -6315,11 +6565,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 285,
+      "onebit": 296,
       "sheet": "onebit",
-      "union": 285,
-      "unused_onebit": 792,
-      "unused_union": 792
+      "union": 296,
+      "unused_onebit": 781,
+      "unused_union": 781
     },
     {
       "empty": 63,
@@ -6400,6 +6650,8 @@
     "core:boon/backtrail_mantle/icon",
     "core:boon/battle_march/detail",
     "core:boon/battle_march/icon",
+    "core:boon/beacon_afterglow/detail",
+    "core:boon/beacon_afterglow/icon",
     "core:boon/beggars_cap/detail",
     "core:boon/beggars_cap/icon",
     "core:boon/betrayal_ward/detail",
@@ -6438,6 +6690,8 @@
     "core:boon/detonation_bloom/icon",
     "core:boon/distant_bastion/detail",
     "core:boon/distant_bastion/icon",
+    "core:boon/doorward_lamp/detail",
+    "core:boon/doorward_lamp/icon",
     "core:boon/earthshaker/detail",
     "core:boon/earthshaker/icon",
     "core:boon/emberbrand/detail",
@@ -6470,6 +6724,8 @@
     "core:boon/grasping_hand/icon",
     "core:boon/grave_dividend/detail",
     "core:boon/grave_dividend/icon",
+    "core:boon/grounding_rod/detail",
+    "core:boon/grounding_rod/icon",
     "core:boon/guardians_vow/detail",
     "core:boon/guardians_vow/icon",
     "core:boon/harriers_response/detail",
@@ -6488,6 +6744,10 @@
     "core:boon/long_wick/icon",
     "core:boon/longblade_geometry/detail",
     "core:boon/longblade_geometry/icon",
+    "core:boon/mirror_dividend/detail",
+    "core:boon/mirror_dividend/icon",
+    "core:boon/mist_lullaby/detail",
+    "core:boon/mist_lullaby/icon",
     "core:boon/mist_veil/detail",
     "core:boon/mist_veil/icon",
     "core:boon/needle_flight/detail",
@@ -6504,6 +6764,8 @@
     "core:boon/pain_dividend/icon",
     "core:boon/passing_ember/detail",
     "core:boon/passing_ember/icon",
+    "core:boon/patient_rebuke/detail",
+    "core:boon/patient_rebuke/icon",
     "core:boon/perfect_guard/detail",
     "core:boon/perfect_guard/icon",
     "core:boon/phantom_lunge/detail",
@@ -6530,6 +6792,8 @@
     "core:boon/resonant_wounds/icon",
     "core:boon/rhythm_of_steel/detail",
     "core:boon/rhythm_of_steel/icon",
+    "core:boon/rime_disk/detail",
+    "core:boon/rime_disk/icon",
     "core:boon/ring_of_reversal/detail",
     "core:boon/ring_of_reversal/icon",
     "core:boon/road_flask/detail",
@@ -6538,12 +6802,20 @@
     "core:boon/rooks_wake/icon",
     "core:boon/scavengers_hook/detail",
     "core:boon/scavengers_hook/icon",
+    "core:boon/secret_apple/detail",
+    "core:boon/secret_apple/icon",
+    "core:boon/sentry_quartermaster/detail",
+    "core:boon/sentry_quartermaster/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
+    "core:boon/spirit_shelter/detail",
+    "core:boon/spirit_shelter/icon",
     "core:boon/split_thrust/detail",
     "core:boon/split_thrust/icon",
     "core:boon/splitflight/detail",
     "core:boon/splitflight/icon",
+    "core:boon/spoils_aegis/detail",
+    "core:boon/spoils_aegis/icon",
     "core:boon/static_footsteps/detail",
     "core:boon/static_footsteps/icon",
     "core:boon/stone_backstop/detail",
@@ -6564,6 +6836,8 @@
     "core:boon/turncoat_spark/icon",
     "core:boon/twin_seals/detail",
     "core:boon/twin_seals/icon",
+    "core:boon/vent_mantle/detail",
+    "core:boon/vent_mantle/icon",
     "core:boon/volatile_vial/detail",
     "core:boon/volatile_vial/icon",
     "core:boon/ward_ledger/detail",

@@ -10,6 +10,7 @@ cp -R "$project_dir/src" "$output/app/src"
 cp -R "$project_dir/assets" "$output/app/assets"
 cp "$project_dir/tools/art_png.lua" "$output/app/tools/art_png.lua"
 cp "$project_dir/tests/idea_cadence_fixture.lua" "$output/app/tests/idea_cadence_fixture.lua"
+cp "$project_dir/tests/idea_support_fixture.lua" "$output/app/tests/idea_support_fixture.lua"
 cat > "$output/app/main.lua" <<'LUA'
 io.stdout:setvbuf('line')
 function love.errorhandler(why)
@@ -24,8 +25,9 @@ local O=require('src.onebit_visuals')
 local Palette=require('src.visual_palette')
 local Playback=require('src.playback')
 local PNG=require('tools.art_png')
-local F=require('tests.idea_cadence_fixture')
-local slug=os.getenv('ROAG_CADENCE_BOON_CASE') or 'threefold_remedy'
+local support=os.getenv('ROAG_SUPPORT_BOON_CASE')
+local F=require(support and 'tests.idea_support_fixture' or 'tests.idea_cadence_fixture')
+local slug=support or os.getenv('ROAG_CADENCE_BOON_CASE') or 'threefold_remedy'
 local s,p,events,pb,f
 local playback_new=Playback.new
 function Playback.new(...)pb=playback_new(...);return pb end
@@ -63,10 +65,16 @@ local function advance(image)
     PNG.write(output..'/'..stage..'.png',image)
     if stage=='before'then
         baseline=image
-        if f.intent.kind=='move'then love.keypressed('d')
+        local dx,dy=f.intent.dx or 1,f.intent.dy or 0
+        local direction=dx<0 and (dy<0 and 'q' or dy>0 and 'z' or 'a')
+            or dx>0 and (dy<0 and 'e' or dy>0 and 'c' or 'd') or dy<0 and 'w' or 's'
+        if f.intent.kind=='move'then love.keypressed(direction)
+        elseif f.intent.kind=='wait'then love.keypressed('space')
+        elseif f.intent.kind=='claim_chest'then
+            love.keypressed('d');love.keypressed('1');love.keypressed('return')
         else
-            love.keypressed(f.intent.kind=='sweeping_slash' and 'r' or 'f')
-            love.keypressed('d');love.keypressed('return')
+            love.keypressed(f.intent.kind=='sweeping_slash' and 'r' or f.intent.kind=='dash' and 'x' or 'f')
+            love.keypressed(direction);love.keypressed('return')
         end
         assert(events and #events>0);F.check(f,events)
         local shown=false

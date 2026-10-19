@@ -45,7 +45,7 @@ return function(test,equal)
             e.boon_id=='core:boon/'..slug then list[#list+1]=e end end
         return list
     end
-    test('eight positional boons declare distinct native art, conditional previews and validated shapes',function()
+    test('positional boons declare distinct native art, conditional previews and validated shapes',function()
         local n,seen=0,{}
         for _,id in ipairs(C.order)do local d=C.get(id)
             if d.pattern_preview then
@@ -54,7 +54,7 @@ return function(test,equal)
                 assert(require('src.kenney_symbols').boons[id][1]==d.art.index)
             end
         end
-        assert(n==8 and C.validate())
+        assert(n==9 and C.validate())
         local d=Codec.decode(Codec.encode(C.get('core:boon/linebreaker_pawn')))
         d.effects[1].pattern='whole_floor'
         assert(not pcall(C.validate,{[d.id]=d},{d.id}))

@@ -4,9 +4,9 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Thirty-eight additions are implemented so far: 91 total, 87 in the normal
-unearned New Run ID list, plus the four existing achievement unlocks. At least
-12 more additions are still required.** These groups do not complete the goal.
+**All fifty additions are implemented: 103 total, 99 in the normal unearned
+New Run ID list, plus the four existing achievement unlocks. Final combined
+integration/acceptance is still in progress; the sustained goal is not complete.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
 appears in the preview and cannot kill the player. Oracle's
@@ -363,7 +363,7 @@ fresh process. Their complete frozen **754-case** gate passes **754/754**, 519.5
 151,852 KiB peak LuaJIT RSS, log `/var/tmp/roag-idea-control-boons-full-20261019.log`. These are assisted
 callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
 
-- Finish the remaining 12+ boons and verify
+- Verify all fifty additions and
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.
@@ -435,3 +435,39 @@ GUI ledger check looked only at the first event of a coalesced beat; it now chec
 the full ordered visible group. No gameplay damage, timing or save validation was
 weakened to make these tests pass. Callback-driven GUI and llvmpipe remain distinct
 from physical input or human play acceptance.
+
+## Exploration, terrain and class-tool support — final twelve additions
+
+| Boon / native icon | Trigger and behavior (Common / Uncommon / Rare / Legendary) |
+| --- | --- |
+| Doorward Lamp / 158 | Actually open a closed door: one-hit ward 2/3/4/6, 400 time |
+| Secret Apple / 915 | Actually discover a new secret: heal 3/5/7/10, once per secret |
+| Spoils Aegis / 1076 | Paid chest claim: one-hit ward 2/3/4/6, 600 time; no free or unaffordable claims |
+| Mist Lullaby / 1061 | Paid Wait while hurt on actual obscuring mist: heal 1/2/3/4, cooldown 400; enemies keep acting |
+| Rime Disk / 1056 | Leave glazed ice: one-hit ward 1/2/3/4, 200 time |
+| Vent Mantle / 38 | Enter an actual heat vent: ward 1/2/3/4, 200-time duration/cooldown; original locked impact remains |
+| Patient Rebuke / 1069 | Fully block a hostile direct attack: one 400-time charge; next paid Wait spends it on a radius-one burst 2/3/4/6 |
+| Beacon Afterglow / 1048 | Wayfinder beacon return: two-cell clear cardinal rays from actual landing, 1/2/3/4; green preview excludes normal Dash wake |
+| Sentry Quartermaster / 1039 | Tinkerer deployment: +10/15/20/25 action speed, 200 time; no extra bolts or autonomous proc chains |
+| Spirit Shelter / 1075 | Spiritbinder positioning: one-hit ward 2/3/4/6, 150 time; commanded strikes cannot renew it |
+| Grounding Rod / 1050 | Stormcaller grounds actual stored charge: ward 1/2/3/4, 300 time, behind the existing grounding shield |
+| Mirror Dividend / 1028 | Real player reflection: heal 2/3/4/6 once per attack; failed routes and class-generated autonomous shots excluded |
+
+The character panel now reports effective speed and the temporary bonus, active
+boon-ward capacity, and a separate **Last roll** row. Historical dice feedback
+cannot displace Burning, shields or charge from their active-status row.
+
+Final-twelve focused tests: 28/28; all new-boon tests: **185/185**. Actual callbacks
+and screenshots: **36/36** final-twelve processes across three rounds, plus all
+eight dice histories and native source-pixel comparisons for every one of the
+50 added icons. Twelve checked-store fresh-process continuations retain exact
+later state/events. These are assisted fixtures, not earned full runs. Logs:
+`/var/tmp/roag-support-*20261019.log`, `roag-50-boons-combined-focus-20261019.log`,
+`roag-50-boon-icons-gui-20261019.log`, `roag-last-roll-gui-20261019.log`.
+The complete **832-case** regression and final integration matrix remain pending.
+
+Initial support fixture failures used the wrong generated-biome entry point,
+looked for mist outside its Archive biome, placed a foe on the spirit instead
+of beside it, and forged a chest price without its matching definition. The
+corrected fixtures use natural Archive mist / Observatory ice and validated
+existing class/chest contracts. Failed logs remain retained.

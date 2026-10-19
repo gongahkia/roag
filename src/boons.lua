@@ -105,6 +105,10 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='on_special_terrain' then
+        local n=require('src.idea_terrain').at(state,event.floor_id,event.x,event.y)
+        return n and n.kind==node.value or false
+    end
     if op=='event_status' then return event.status==node.value end
     if op=='target_entity_hostile' then
         local target=entity(state,event.target_id)
@@ -356,11 +360,11 @@ function Boons.preview_patterns(state,owner,kind,preview,ranged,origin)
     if not preview.valid or not Boons.has_pattern(owner) then return end
     if kind~='dash' and kind~='wait' and not Classes.immediate_attack(owner,
         preview.bump and 'basic_attack' or kind,preview) then return end
-    if kind=='dash' and preview.beacon_return then return end
     local events={}
     local p=owner.position
     if kind=='dash' or kind=='wait' then
-        events[1]={floor_id=p.floor_id,x=p.x,y=p.y,from_x=p.x,from_y=p.y,
+        local at=preview.beacon_return and preview.cells[1] or p
+        events[1]={floor_id=p.floor_id,x=at.x,y=at.y,from_x=at.x,from_y=at.y,
             source_position=origin or p}
     else
         local map=Content.map_for(state)
@@ -390,7 +394,8 @@ function Boons.preview_patterns(state,owner,kind,preview,ranged,origin)
         local def=Catalog.get(id)
         local info=def.pattern_preview
         if owner.boons and owner.boons[id] and info
-            and ((kind=='dash' and info.trigger=='dash')
+            and ((kind=='dash' and not preview.beacon_return and info.trigger=='dash')
+                or (kind=='dash' and preview.beacon_return and info.trigger=='return')
                 or (kind=='wait' and info.trigger=='wait')
                 or (kind~='dash' and kind~='wait' and (info.trigger=='hit' or info.trigger=='kill')))
             and (not info.special or kind=='sweeping_slash')then
@@ -413,9 +418,9 @@ function Boons.preview_patterns(state,owner,kind,preview,ranged,origin)
     if #cells>0 then
         preview.boon_cells=cells
         local labels={}
-        for _,trigger in ipairs({'hit','kill','dash','wait'})do
+        for _,trigger in ipairs({'hit','kill','dash','wait','return'})do
             if conditions[trigger]then labels[#labels+1]=trigger=='dash' and 'Dash wake +150 time'
-                or trigger=='wait' and 'Wait rays' or 'on '..trigger end
+                or trigger=='wait' and 'Wait rays' or trigger=='return' and 'beacon landing rays' or 'on '..trigger end
         end
         preview.boon_hint=table.concat(labels,' / ')
     end

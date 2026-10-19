@@ -273,7 +273,9 @@ for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
     DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true,
     CurrencyCollected=true,BoonActivated=true,TerrainTriggered=true,TerrainBroken=true,
-    SupplyCollected=true,ChestClaimed=true,Waited=true,StatusApplied=true,StatusCleansed=true}
+    SupplyCollected=true,ChestClaimed=true,Waited=true,StatusApplied=true,StatusCleansed=true,
+    DoorOpened=true,SecretDiscovered=true,BeaconReturned=true,SpiritPositioned=true,
+    SentryDeployed=true,StormGrounded=true,MirrorReflected=true}
 local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
@@ -295,7 +297,7 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true,
     pattern_axis=true,actual_dash=true,regular_target=true,basic_attack=true,
     cooldown_ready=true,owner_missing_hp=true,active_ward=true,burning_target=true,owner_axis=true,
-    back_to_wall=true,event_status=true,target_entity_hostile=true}
+    back_to_wall=true,event_status=true,target_entity_hostile=true,on_special_terrain=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -306,7 +308,9 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op=='event_status' then
+        if node.op=='on_special_terrain' then
+            assert(node.value=='heat_vent','invalid special terrain predicate')
+        elseif node.op=='event_status' then
             assert(node.value=='burning','invalid event status')
         elseif node.op=='pattern_axis' or node.op=='owner_axis' then
             assert(node.value=='cardinal' or node.value=='diagonal','invalid pattern axis')
@@ -417,6 +421,11 @@ function Catalog.validate(definitions, order)
                     or effect.kind=='apply_status' and effect.target=='nearest'),
                     'invalid clear-path effect')
             end
+            if effect.cooldown~=nil and effect.kind~='stun_target' then
+                assert(effect.kind=='heal_owner' and type(effect.cooldown)=='number'
+                    and effect.cooldown%1==0 and effect.cooldown>=400 and effect.cooldown<=10000,
+                    'invalid healing cooldown')
+            end
             if effect.pattern or effect.kind=='pattern' then
                 assert(require('src.boon_patterns').names[effect.pattern]
                     and (effect.kind=='pattern' or effect.kind=='echo'),
@@ -459,7 +468,7 @@ function Catalog.validate(definitions, order)
             end
             if effect.consume_prime~=nil then
                 assert(effect.consume_prime==true and
-                    (effect.kind=="damage_target" or effect.kind=='heal_owner'),
+                    (effect.kind=="damage_target" or effect.kind=='heal_owner' or effect.kind=='area'),
                     "invalid primed effect")
             end
             assert(effect.scale==nil or effect.scale=="adjacent_hostiles"
@@ -468,7 +477,7 @@ function Catalog.validate(definitions, order)
         end
         if def.pattern_preview then
             local p=def.pattern_preview
-            assert(type(p)=='table' and ({hit=true,kill=true,dash=true,wait=true})[p.trigger]
+            assert(type(p)=='table' and ({hit=true,kill=true,dash=true,wait=true,['return']=true})[p.trigger]
                 and #def.effects==1 and def.effects[1].pattern,
                 'invalid pattern preview')
             assert(p.axis==nil or p.axis=='cardinal' or p.axis=='diagonal','invalid preview axis')

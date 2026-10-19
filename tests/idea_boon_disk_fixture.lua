@@ -9,10 +9,11 @@ local mode,dir,scenario=arg[1],arg[2],arg[3]
 local form_name=scenario and scenario:match('^form_([a-z_]+)$')
 local form=form_name and require('src.boon_patterns').weapon_forms[form_name]
 local cadence=scenario and scenario:match('^cadence_([a-z_]+)$')
+local support=scenario and scenario:match('^support_([a-z_]+)$')
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
 assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice'
-    or scenario=='handoff' or scenario=='patterns' or scenario=='controls' or form or cadence)
+    or scenario=='handoff' or scenario=='patterns' or scenario=='controls' or form or cadence or support)
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -42,11 +43,12 @@ local function save_expected(s,plan,label)
     print('PASS '..scenario..': '..label..', generation 1')
 end
 if mode=='write' then
-    if cadence then
-        local F=require('tests.idea_cadence_fixture');local f=F.prepare(cadence)
+    if cadence or support then
+        local F=require(support and 'tests.idea_support_fixture' or 'tests.idea_cadence_fixture')
+        local f=F.prepare(support or cadence)
         F.check(f,submit(f.state,f.intent))
         save_expected(f.state,{{kind='wait'},{kind='basic_attack',dx=1,dy=0},
-            {kind='wait'},{kind='move',dx=0,dy=-1},{kind='wait'}},
+            {kind='wait'},{kind='wait'}},
             'saved real cadence proc, status/cooldown memory and exact later actions')
         return
     end

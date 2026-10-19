@@ -1162,6 +1162,10 @@ local function execute_effect(state, output, activation, effect)
             end
             local before=owner.hp
             owner.hp=math.min(owner.max_hp,owner.hp+activation.power)
+            if effect.cooldown and owner.hp>before then
+                owner.boon_memory=owner.boon_memory or {}
+                owner.boon_memory[activation.boon_id]={expires_at=state.clock+effect.cooldown}
+            end
             emit(state,output,"Healed",{target_id=owner.id,
                 requested=activation.power,actual_gain=owner.hp-before,
                 hp_before=before,hp_after=owner.hp},source.id,activation.root_action_id)
