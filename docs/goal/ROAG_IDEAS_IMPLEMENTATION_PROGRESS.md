@@ -946,9 +946,31 @@ fixed-look cases pass **10/10**; the existing preference case separately passes
 `/var/tmp/roag-settings-focus-20261019.log` and
 `/var/tmp/roag-settings-preferences-20261019.log`.
 
-The prior full baseline is **635/635**. The final full suite is running from
-frozen source `/var/tmp/roag-settings-final-bpyvl0g8`, with log
-`/var/tmp/roag-settings-final-headless-20261019.log`; its result will be recorded
-before completion. No LÖVE application or GUI harness was opened, as requested.
+The prior full baseline is **635/635**. The full slider/Small-text checkpoint
+passed **639/639**, zero failures, exit **0**, from frozen source
+`/var/tmp/roag-settings-final-bpyvl0g8`, with log
+`/var/tmp/roag-settings-final-headless-20261019.log`.
+No LÖVE application or GUI harness was opened, as requested.
 Actual rendered-frame/physical-input acceptance remains unverified. The broader
 approved-ideas goal remains **paused**; no additional-boon work is resumed.
+
+The user then requested an inventory-footer adjustment while that frozen suite
+was running. **U · Utility / Items** now sits under the Boons page/inspect hint,
+above **I / Esc close**. Its mouse hitbox moved with the instruction; the old
+character-panel hitbox is inactive. The carried item/status remains character
+information. All player-facing occurrences of “no world time” were removed,
+including help/notices; menu/simulation timing is unchanged.
+
+Final UI delta checks: **11/11** fixed-art/settings/footer cases, **2/2** existing
+service/inventory/scroll input cases, and the **1/1** existing preference case.
+The new footer case draws seven boon rows through the actual inventory callback,
+checks all three footer positions, clicks the moved target, rejects the old
+target and verifies exact authoritative snapshots. Logs:
+`/var/tmp/roag-settings-footer-focus-20261019.log` and
+`/var/tmp/roag-inventory-input-focus-20261019.log`. The passed 639-case frozen
+suite covers the slider/Small-text checkpoint before this later footer delta;
+the final tree registers 640 cases. No GUI run is implied by these callback
+checks. Final runtime modules and assets match the fully accepted checkpoint;
+only main.lua's footer/text/hitbox changes and their two test files differ.
+`git diff --check` and main.lua/menu-fixture bytecode/shell checks pass. The
+broader goal remains paused; this follow-up stops here.

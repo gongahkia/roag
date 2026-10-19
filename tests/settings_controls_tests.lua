@@ -214,4 +214,39 @@ return function(test,equal)
         end)
         equal(Game.snapshot(f.state),before)
     end)
+    test('inventory groups utility and close instructions in the boon footer with matching click target',function()
+        local f=fixture()
+        for i=1,7 do
+            Game.set_boon_stacks(f.state,f.state.player_id,
+                require('src.boon_content').order[i],'common',1)
+        end
+        local before=Game.snapshot(f.state)
+        f.set('title',false);f.set('inventory_open',true)
+        with_love(f.love,function()
+            f.get('draw_inventory')()
+            local utility,close,page=false,false,false
+            for _,text in ipairs(f.text)do
+                assert(not tostring(text.text):find('no world time',1,true))
+                if text.text=='U · UTILITY / ITEMS'then
+                    utility=true;assert(text.x==88 and text.y==492 and text.width==488)
+                elseif text.text=='I / Esc close'then
+                    close=true;assert(text.x==88 and text.y==518)
+                elseif tostring(text.text):find('PAGE ',1,true)==1 then
+                    page=true;assert(text.y==466)
+                end
+            end
+            assert(utility and close and page)
+            love.mousepressed(700,495,1) -- Former character-panel action is gone.
+            assert(love.roagUIState().page=='inventory')
+            love.mousepressed(300,500,1)
+            assert(love.roagUIState().page=='interaction')
+            love.keypressed('escape');love.keypressed('i');love.keypressed('u')
+            assert(love.roagUIState().page=='interaction')
+            f.get('draw_help')()
+            for _,text in ipairs(f.text)do
+                assert(not tostring(text.text):find('no world time',1,true))
+            end
+        end)
+        equal(Game.snapshot(f.state),before)
+    end)
 end

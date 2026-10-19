@@ -1047,7 +1047,7 @@ local function submit(intent)
             end
         elseif reason=="exit" and preview and preview.exit_id then
             route_menu=Game.route_options(state,preview.exit_id)
-            if route_menu then notice="Routes ready — no world time" end
+            if route_menu then notice="Routes ready" end
         else
             notice = (reason or "Invalid action") .. " — no time"
         end
@@ -1228,7 +1228,7 @@ function love.keypressed(key, _, isrepeat)
                 combat_numbers=CombatNumbers.new()
                 targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
                 reset_camera()
-                notice=('SPECTATOR · floor %d/2 · no world time'):format(
+                notice=('SPECTATOR · floor %d/2'):format(
                     state.active_floor_index or 1)
             else notice='Spectator floor: '..tostring(reason) end
             return
@@ -1247,7 +1247,7 @@ function love.keypressed(key, _, isrepeat)
         elseif key=='escape' then
             if targeting or chest_menu or route_menu or boon_detail_id then
                 targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
-                notice='Inspection menu closed · no world time'
+                notice='Inspection menu closed'
             else love.event.quit() end
             return
         elseif spectator_free then
@@ -1256,7 +1256,7 @@ function love.keypressed(key, _, isrepeat)
                 spectator_focus=Spectator.camera_step(state,spectator_focus,
                     direction[1],direction[2],
                     love.keyboard.isDown('lshift','rshift'))
-                notice=('FREE CAMERA · %d,%d · no world time'):format(
+                notice=('FREE CAMERA · %d,%d'):format(
                     spectator_focus.x,spectator_focus.y)
             elseif key=='tab' then minimap_visible=not minimap_visible
             end
@@ -3120,7 +3120,7 @@ local function draw_inventory()
                 inventory_selection==line,ui_menu_font)
         end
     end
-    PixelUI.center(('PAGE %d/%d · V next · Enter inspect'):format(page+1,pages),492,
+    PixelUI.center(('PAGE %d/%d · V next · Enter inspect'):format(page+1,pages),466,
         ui_menu_font,PixelUI.colors.muted,88,488)
     local art=actor_visual(player.definition_id,state.player_id)
     if art then draw_visual(art,724,136,96,96)end
@@ -3143,8 +3143,8 @@ local function draw_inventory()
     if u then draw_visual(bound_visual(Interactions.definitions.binding(u.kind)),636,432,32,32)end
     g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
     g.printf(Interactions.status(state)~='' and Interactions.status(state) or 'Utility slot empty',676,432,252)
-    PixelUI.option('U · UTILITY / ITEMS',636,486,292,false,ui_menu_font)
-    PixelUI.center('I / Esc close · no world time',518,ui_menu_font,PixelUI.colors.muted,88,488)
+    PixelUI.option('U · UTILITY / ITEMS',88,492,488,false,ui_menu_font)
+    PixelUI.center('I / Esc close',518,ui_menu_font,PixelUI.colors.muted,88,488)
 end
 
 local function draw_help()
@@ -3169,7 +3169,7 @@ local function draw_help()
         g.setColor(PixelUI.colors.text);g.print(row[2],372,y)
     end
     g.setColor(PixelUI.colors.muted)
-    g.printf('Outlined tiles are locked attacks. A fast committed strike can land before your next turn. Menus cost no world time.',194,438,630)
+    g.printf('Outlined tiles are locked attacks. A fast committed strike can land before your next turn.',194,438,630)
     PixelUI.center('F1 / Esc / click to return',516,ui_menu_font,PixelUI.colors.selected,160,704)
 end
 
@@ -3595,7 +3595,7 @@ function love.mousepressed(x,y,button,istouch,presses)
     if boon_detail_id then boon_detail_id=nil;return end
     if interaction_ui.menu then interaction_ui.response(interaction_ui.controller.mouse(interaction_ui.menu,x,y,presses));return end
     if inventory_open then
-        if x>=636 and x<=928 and y>=478 and y<=516 then interaction_ui.utility();return end
+        if x>=88 and x<576 and y>=490 and y<514 then interaction_ui.utility();return end
         local owned=owned_boon_ids();local pages=math.max(1,math.ceil(#owned/7))
         local row=PixelUI.row_at(88,150,488,38,7,44,x,y)
         if row and owned[(boon_page%pages)*7+row]then
