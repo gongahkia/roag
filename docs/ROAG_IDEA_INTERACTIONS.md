@@ -102,6 +102,7 @@ Run without opening LÖVE windows:
 TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp ROAG_TEST_RANGE=555-589 luajit tests/run.lua
 sh tests/idea_interaction_disk_resume.sh
+TMPDIR=/var/tmp luajit tests/idea_interaction_acceptance.lua
 make item-room-review-test sprite-ideas-test enemy-review-check surplus-audit-check
 python3 tools/sprite_audit.py --check
 git diff --check
@@ -112,6 +113,14 @@ seven write → fresh-process Continue scenarios compare complete future events,
 snapshots, RNG and scheduler state through two checked save generations. A
 70-floor corpus (seven biomes, five seeds, both floors) finds all 14 features,
 enforces placement budgets and compares exact regeneration/restoration.
+The natural-floor probe reaches ten interaction types through public legal
+actions, then compares every event and the final snapshot after exact replay
+with a mid-trace restore. Flask collection is covered there; real Burning
+cleansing, forge, trader, memorial and contract outcomes also have prepared
+focused/disk fixtures. Those prepared scenarios are not claimed as natural
+ordinary-action completions. Failed navigation attempts are logged, including
+action-limit exits and one unavailable west-side fixture approach; the probe
+tries another generated candidate rather than altering the world.
 The full final gate and legal-action probe results are recorded in the
 [progress log](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 
