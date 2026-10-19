@@ -106,7 +106,7 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 23 new boon icons + eight face bindings; 30 unique native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 23 additions / 76 total | 17-addition full 732/732; current 107 focused, native GUI/save checks; 754-case full gate running; at least 27 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 23 additions / 76 total | 17-addition full 732/732; current full 754/754, 107 focused, native GUI/save checks; at least 27 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1457,3 +1457,19 @@ test files match. Poll that live handle rather than launching a duplicate.
 It must not be called covered by the prior 732-case result. Full broad
 acceptance and the queued production cleanup/Controls README/approval-only
 visual-juice proposals remain unfinished.
+
+
+## Control/resource clean full gate (2026-10-19)
+
+**754/754**, terminal exit 0, **519.58 s**, peak LuaJIT RSS **151,852 KiB**.
+Complete frozen source `/var/tmp/roag-idea-control-boons-final-hwi_fi8w`, log
+`/var/tmp/roag-idea-control-boons-full-20261019.log`, runtime commit `fc722bca`.
+All 191 runtime/Lua-test files matched the live checkpoint. This includes the
+original 647 cases plus 107 new supply/vow/dice/pattern/control/continuation
+cases, current-pool legal Victories, biome/miniboss routes and exact replay.
+No failing test was removed or relaxed. Source assets remain 15/15 unchanged.
+
+Next: continue genuinely distinct class-weapon forms using existing inputs and
+shared primary execution/preview geometry. Twenty-seven or more additions,
+final combined acceptance, and the queued production cleanup/Controls README/
+approval-only visual proposals remain. Do not stop at this partial checkpoint.

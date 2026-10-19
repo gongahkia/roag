@@ -326,8 +326,8 @@ With the subsequent six control/resource additions, current focused tests pass
 **107/107** (the earlier 85 plus 22). Their actual GUI passes **18/18**, all 23
 native icons pass original-source pixel checks, the expanded 76-boon gallery
 passes, and the new checked-store control scenario continues exactly in a
-fresh process. Their full **754-case** gate is running separately; do not claim
-it passed from focused results or the older complete run. These are assisted
+fresh process. Their complete frozen **754-case** gate passes **754/754**, 519.58 s /
+151,852 KiB peak LuaJIT RSS, log `/var/tmp/roag-idea-control-boons-full-20261019.log`. These are assisted
 callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
 
 - Finish the remaining 27+ boons and verify
