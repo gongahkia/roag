@@ -4,6 +4,7 @@ local BoonContent = require("src.boon_content")
 local Achievements = require("src.achievements")
 local Content = require("src.content")
 local Classes = require("src.classes")
+local Duelist=require('src.idea_duelist')
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -448,13 +449,13 @@ function Game.effective_ability(state, kind, dx, dy, explicit)
     assert(kind == "basic_attack" or kind == "sweeping_slash", "unknown ability")
     local owner = Game.player(state)
     local base,ability_id,ranged,damage_type=Classes.attack(state,owner,
-        kind,dx,dy,Content)
+        kind,dx,dy,Content,explicit)
     assert(base, "invalid ability direction")
     local cells,damage,modified_ranged=Boons.ability(state,owner,ability_id,base,
-        kind == "basic_attack" and owner.damage or owner.slash_damage,
+        (kind == "basic_attack" and owner.damage or owner.slash_damage)+Duelist.bonus_for(owner,kind),
         dx,dy,explicit,ranged)
     local routed,reflection=cells,nil
-    if ability_id~='core:ability/hookrunner_hook'then
+    if ability_id~='core:ability/hookrunner_hook' and ability_id~='core:ability/duelist_thrust'then
         routed,reflection=IdeaMirrors.route(state,owner,cells,modified_ranged)
     end
     return routed,damage,ability_id,modified_ranged,damage_type,reflection
@@ -583,6 +584,8 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             local block_reason,protecting_id=Squads.block(state,target,source,direct_attack)
             local after_defense = (target.invulnerable or block_reason) and 0 or
                 math.max(0, attempted - (target.defense or 0))
+            local parried=Duelist.parry(state,target,source,direct_attack,ranged,after_defense)
+            if parried then after_defense=0;block_reason='parry' end
             local pickup_ward=false
             if target.id==state.player_id and after_defense>0
                 and (target.pickup_ward_actions or 0)>0 then
@@ -602,7 +605,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 attempted_damage=attempted, after_defense=after_defense,
                 reversal_bonus=reversal_bonus>0 and reversal_bonus or nil,
                 ward_absorbed=ward_absorbed,
-                pickup_ward=pickup_ward or nil,
+                pickup_ward=pickup_ward or nil,parried=parried or nil,
                 block_reason=block_reason,protecting_id=protecting_id,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
@@ -630,6 +633,10 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 target_id=outcome.target_id,bonus=outcome.reversal_bonus,
                 floor_id=outcome.floor_id,x=outcome.x,y=outcome.y},
                 source.id,action_id)
+        end
+        if outcome.parried then
+            emit(state,output,'DuelistParried',{target_id=source.id,floor_id=outcome.floor_id,
+                x=outcome.x,y=outcome.y,bonus=Duelist.bonus},outcome.target_id,action_id)
         end
         if outcome.pickup_ward then
             emit(state,output,'WardFlaskBlocked',{
@@ -1720,7 +1727,11 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id=="core:ability/shade_decoy" then
+        if ability_id=='core:ability/duelist_parry'then
+            Duelist.raise(state,player,intent.dx,intent.dy,preview.cost)
+            emit(state,output,'DuelistGuardRaised',{floor_id=position.floor_id,x=position.x,y=position.y,
+                dx=intent.dx,dy=intent.dy,expires=state.clock+preview.cost},player.id,action_id)
+        elseif ability_id=="core:ability/shade_decoy" then
             state.class_special.decoy={floor_id=position.floor_id,
                 x=cells[1].x,y=cells[1].y}
             emit(state,output,"DecoyPlaced",{floor_id=position.floor_id,
@@ -1731,6 +1742,11 @@ function Game.submit(state, intent)
             emit(state,output,"SnarePlaced",{floor_id=position.floor_id,
                 x=cells[1].x,y=cells[1].y},player.id,action_id)
         else
+            if ability_id=='core:ability/duelist_thrust' and player.duelist_riposte then
+                player.duelist_riposte=nil
+                emit(state,output,'DuelistRiposteSpent',{bonus=Duelist.bonus,floor_id=position.floor_id,
+                    x=position.x,y=position.y},player.id,action_id)
+            end
             if reflection then
                 IdeaMirrors.consume(state,reflection)
                 emit(state,output,'MirrorReflected',{reflection=copy(reflection),target_cells=copy(cells),
@@ -1858,6 +1874,7 @@ function Game.submit(state, intent)
     Visibility.recompute(state)
     Boons.prune_histories(state)
     Achievements.prune(state)
+    if state.class_special then state.class_special.duelist_guard=nil end
     contexts[output] = nil
     return true, nil, output
 end
@@ -2111,6 +2128,7 @@ function Game.restore(snapshot)
     assert(type(player.hp) == "number" and player.hp >= 0 and player.hp <= player.max_hp,
         "invalid player health")
     Squads.validate(state,maps)
+    Duelist.validate(state)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do

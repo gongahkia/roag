@@ -2,10 +2,10 @@ local Audit=require('src.sprite_audit')
 return function(test,equal)
     test('native sprite inventory checks runtime coverage and distinguishes shared/static poses',function()
         local report=Audit.collect()
-        assert(#report.requirements==376)
+        assert(#report.requirements==379)
         for _,pack in pairs(report.packs)do
-            assert(#pack.missing==0 and #pack.bindings==376)
-            assert(pack.actor_count==59 and pack.static_pose_aliases==118)
+            assert(#pack.missing==0 and #pack.bindings==379)
+            assert(pack.actor_count==60 and pack.static_pose_aliases==120)
             assert(pack.wall_masks==47 and pack.water_masks==47)
         end
         assert(report.packs.onebit.actor_silhouettes==58)

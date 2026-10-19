@@ -37,7 +37,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `ember-moth` | Ember Moth + readable burning landing | headless verified; GUI pending | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; `401e0c28` |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
 | `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
-| `duelist-class` | Duelist — precision and paid riposte | pending | — |
+| `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
 | `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | pending | — |
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
@@ -177,8 +177,15 @@ No feature is complete merely because a schema, fixture or metadata record exist
   file matches this full verified tree. Thirteen disk scenarios also pass; the
   Moth case resolves a real saved pulse in a third process. All 13 enemy
   concepts are now headless integrated; GUI/game-scale readability is pending.
-- Both Kenney choices now resolve **376/376** required bindings, 59 actor IDs and
-  118 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Duelist: **510 passed, 0 failed**, frozen source
+  `/var/tmp/roag-duelist-y5_43u37`, log
+  `/var/tmp/roag-duelist-final-verified-headless-20261019.log`. Twelve focused
+  cases, 133 combined checks, a genuine legal seed-9 Victory (977 actions,
+  26 HP) and fresh-process checked-store riposte continuation pass. Runtime
+  and tests match the verified source; the separately added disk script also
+  passes. Five approved classes and the other batches remain unfinished.
+- Both Kenney choices now resolve **379/379** required bindings, 60 actor IDs and
+  120 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -290,14 +297,16 @@ screenshot. The initial full Chromium screenshot command stalled and was
 stopped only for its dedicated test profile; its log is retained. The bounded
 headless-shell retry succeeded. No LÖVE window or physical input was used.
 
-The next approved class, Duelist, is prototyped separately in
-`/var/tmp/roag-duelist-y5_43u37`. Twelve focused cases pass after correcting
-two fixture assumptions (Guard cardinal reach and blocked-cell preview).
-Parry costs a normal action, blocks one eligible frontal melee impact during
-that recovery only, and funds one next paid thrust for +2 damage. It is not
-integrated or claimed complete. Its combined 133 checks pass and the full
-510-test gate is running. A persistent saved-riposte HUD cue was added before
-the final gate; the earlier unfinished log is retained. The real separate-process
-paid-parry/riposte Continue passes in `/var/tmp/roag-duelist-disk-JJl3b2`,
-including exact events, HP, RNG, schedule and checked save generation 2.
-Full/UI checks remain. No class or boon ledger row is marked done yet.
+Duelist is integrated from `/var/tmp/roag-duelist-y5_43u37`. Twelve focused
+cases pass after correcting two fixture assumptions (Guard cardinal reach and
+blocked-cell preview). Parry costs a normal action, blocks one eligible frontal
+melee impact during that recovery only, and funds one next paid thrust for
++2 damage. The combined 133 checks and full **510/510** gate pass. A persistent
+saved-riposte HUD cue was included in that final gate; the earlier unfinished
+log is retained. Separate-process paid-parry/riposte Continue passes, including
+exact events, HP, RNG, schedule and checked save generation 2. The repeatable
+script is `tests/idea_duelist_disk_resume.sh`; its accepted log is
+`/var/tmp/roag-duelist-final-disk-20261019.log`. This proves headless behavior,
+not GUI readability or human balance. The Geomancer prototype remains isolated
+at `/var/tmp/roag-geomancer-ceeabc3f`, unwired and unclaimed. All remaining class,
+item, room, terrain, environment, presentation and 50+ boon work stays in scope.

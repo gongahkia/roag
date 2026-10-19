@@ -1,8 +1,8 @@
 {
-  "mapping_checksum": "1b9f679812285b72",
+  "mapping_checksum": "1d65a4afd2902e6b",
   "packs": {
     "kenney": {
-      "actor_count": 59,
+      "actor_count": 60,
       "actor_silhouettes": 50,
       "bindings": [
         {
@@ -112,6 +112,33 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist",
+          "index": 99,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/attack",
+          "index": 99,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/hurt",
+          "index": 99,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 16,
@@ -3463,9 +3490,17 @@
           ],
           "index": 323,
           "sheet": "onebit"
+        },
+        {
+          "ids": [
+            "core:actor/duelist",
+            "core:enemy/oath_twin_a"
+          ],
+          "index": 99,
+          "sheet": "tiny"
         }
       ],
-      "static_pose_aliases": 118,
+      "static_pose_aliases": 120,
       "usage": {
         "caves": {
           "145": [
@@ -4161,6 +4196,7 @@
             "core:enemy/banner_captain"
           ],
           "99": [
+            "core:actor/duelist",
             "core:enemy/oath_twin_a"
           ]
         }
@@ -4169,7 +4205,7 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 59,
+      "actor_count": 60,
       "actor_silhouettes": 58,
       "bindings": [
         {
@@ -4275,6 +4311,33 @@
           "height": 16,
           "id": "core:actor/berserker/hurt",
           "index": 226,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist",
+          "index": 124,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/attack",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/hurt",
+          "index": 124,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -7561,6 +7624,14 @@
       "shared_actors": [
         {
           "ids": [
+            "core:actor/duelist",
+            "core:enemy/oath_twin_a"
+          ],
+          "index": 124,
+          "sheet": "onebit"
+        },
+        {
+          "ids": [
             "core:enemy/bone_fragment",
             "core:enemy/bone_splitter"
           ],
@@ -7568,7 +7639,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 118,
+      "static_pose_aliases": 120,
       "usage": {
         "onebit": {
           "1010": [
@@ -7602,6 +7673,7 @@
             "core:enemy/mend_acolyte"
           ],
           "124": [
+            "core:actor/duelist",
             "core:enemy/oath_twin_a"
           ],
           "126": [
@@ -8174,6 +8246,9 @@
     "core:actor/berserker",
     "core:actor/berserker/attack",
     "core:actor/berserker/hurt",
+    "core:actor/duelist",
+    "core:actor/duelist/attack",
+    "core:actor/duelist/hurt",
     "core:actor/hookrunner",
     "core:actor/hookrunner/attack",
     "core:actor/hookrunner/hurt",

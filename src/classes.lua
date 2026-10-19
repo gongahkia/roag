@@ -1,6 +1,7 @@
 -- Starting-class content and geometry. Simulation still submits the familiar
 -- basic_attack, sweeping_slash and dash actions through one scheduler.
 local Targeting=require("src.targeting")
+local D=require('src.idea_duelist')
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
@@ -92,6 +93,9 @@ Classes.definitions={
 local directions={{0,-1},{1,-1},{1,0},{1,1},
     {0,1},{-1,1},{-1,0},{-1,-1}}
 
+Classes.order[#Classes.order+1]=D.id
+Classes.definitions[D.id]=D.definition
+
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
     return assert(Classes.get(player.definition_id),"unknown player class")
@@ -133,13 +137,15 @@ local function line(state,content,position,dx,dy,range)
     return cells
 end
 
-function Classes.attack(state,player,kind,dx,dy,content)
+function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local def=Classes.for_player(player)
     local p=player.position
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==Classes.order[2] then
+        if def.id==D.id and explicit then
+            cells=line(state,content,p,dx,dy,2);ranged='piercing_line'
+        elseif def.id==Classes.order[2] then
             cells=line(state,content,p,dx,dy,4);ranged=true
         elseif def.id==Classes.order[3] then
             cells=line(state,content,p,dx,dy,3)
@@ -154,7 +160,9 @@ function Classes.attack(state,player,kind,dx,dy,content)
         end
     else
         ability_id=def.special_id
-        if def.id==Classes.order[2] then
+        if def.id==D.id then
+            cells=Targeting.cells('sweeping_slash',p.x,p.y,dx,dy)
+        elseif def.id==Classes.order[2] then
             cells=line(state,content,p,dx,dy,5)
             ranged="piercing_line"
         elseif def.id==Classes.order[3] then
@@ -215,7 +223,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==9,"expected nine starting classes")
+    assert(#Classes.order==10,"expected ten starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

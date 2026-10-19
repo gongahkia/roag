@@ -7,10 +7,10 @@ The live catalogue includes these bindings.
 
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
-game content is nine classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
+game content is ten classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
 boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm and Ember Moth.
-The live HTML/JSON/CSV reflect 376
+Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth and Duelist.
+The live HTML/JSON/CSV reflect 379
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -42,11 +42,11 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **376/376 active sprite bindings resolve in each choice**:
+that happen to exist. **379/379 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
-| Nine classes + 50 enemy forms, base/attack/hurt | 177 | 50 distinct bodies for 59 actor IDs | 58 bodies for 59 actor IDs |
+| Ten classes + 50 enemy forms, base/attack/hurt | 180 | 50 distinct bodies for 60 actor IDs | 58 bodies for 60 actor IDs |
 | Drops 3, chests 2, other objects 8 | 13 | Native Micro art | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
@@ -66,7 +66,7 @@ missing wall variant.
 
 ### Art reuse and semantic approximations
 
-Both choices have **118 static pose aliases**: attack/hurt reuse each actor's
+Both choices have **120 static pose aliases**: attack/hurt reuse each actor's
 base image. No animation is provided. Boon detail reuses its icon. Currency
 drop and HUD gold deliberately share a motif. Effect sprites are generic, not
 one custom visual for every boon/element/weapon.
@@ -84,10 +84,11 @@ The existing mix has these eight pairs sharing body images:
 | 15 | Cinder Bellkeeper / Ash Marshal |
 | 22 | Canal Lancer / Canal Lockmaster |
 
-The 1-Bit choice shares only the new skeleton/fragment body (323), with the
-fragment rendered smaller. This explicit reuse is not an extra unique
-silhouette. The mixed choice has that pair in addition to the eight pairs
-above. Many identities remain
+Both choices also share the approved Duelist / Oath Pike body (Tiny 99 in the
+mixed choice, 1-Bit 124 in standalone). The 1-Bit choice shares that pair and
+the skeleton/fragment body (323), with the fragment rendered smaller. This
+explicit reuse is not an extra unique silhouette. The mixed choice has those
+two pairs in addition to the eight pairs above. Many identities remain
 representative motifs: a knight for a guard, wizard for a caster, plant/beast
 for a hostile. Distinct native art is not proof that a boss visually conveys
 its exact attack mechanics. Both packs use representative stair/gateway and
@@ -131,7 +132,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-376 binding requirements above. Decoy/snare markers are also still drawn
+379 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory

@@ -2,6 +2,7 @@ local Camera = require("src.camera")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
 local Classes = require("src.classes")
+local Duelist=require('src.idea_duelist')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -974,6 +975,12 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='DuelistGuardRaised'then
+                notice='Timed parry: one frontal adjacent melee hit during this paid action; arrows and fire bypass'
+            elseif event.kind=='DuelistParried'then
+                notice='Parried: next paid thrust gains +2 damage; no automatic attack'
+            elseif event.kind=='DuelistRiposteSpent'then
+                notice='Riposte spent: +2 thrust damage'
             elseif event.kind=='EmberCreated' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y)then
                 notice='Ember: two fire pulses, 100 time apart; leave the marked tile'
@@ -2861,10 +2868,14 @@ local function draw_panel()
                 color={1,.44,.4};break
             end
         end
+        if warning=='' and not targeting and Game.player(state).duelist_riposte then
+            warning='RIPOSTE READY';detail='Next paid thrust +2 damage';color=PixelUI.colors.selected
+        end
         if warning=='' and targeting then
             warning='AIMING'
             local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
-            detail=preview and (preview.valid and 'Enter to strike · Esc cancel' or preview.reason)
+            detail=preview and (preview.valid and (Game.player(state).definition_id==Duelist.id and targeting.kind=='sweeping_slash'
+                    and 'Enter to parry · no attack damage' or 'Enter to strike · Esc cancel') or preview.reason)
                 or 'Choose a direction · Esc cancel'
             color=PixelUI.colors.selected
         elseif warning=='' and state.stage and state.stage.phase=='extraction'then
@@ -3131,7 +3142,7 @@ local function draw_title_page()
         PixelUI.center(('HP %d · ATK %d · DEF %d · SPD %d'):format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
             406,ui_menu_font,PixelUI.colors.muted,496,336)
         PixelUI.option('BEGIN NEW GAME',496,502,336,false,ui_menu_font)
-        PixelUI.center('1–9 / arrows choose · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.center('1–9 / arrows choose all 10 · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
     elseif title_view=='settings'then draw_settings()end
     if title_view~='home'then
         g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected);g.print('< BACK',192,608)

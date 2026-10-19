@@ -30,14 +30,16 @@ return function(test,equal)
             local prior=used[index]
             if prior then
                 local aliases={['core:enemy/bone_fragment']='core:enemy/bone_splitter',
-                    ['core:enemy/bone_splitter']='core:enemy/bone_fragment'}
+                    ['core:enemy/bone_splitter']='core:enemy/bone_fragment',
+                    ['core:actor/duelist']='core:enemy/oath_twin_a',
+                    ['core:enemy/oath_twin_a']='core:actor/duelist'}
                 assert(aliases[id]==prior,'unexpected shared actor silhouette '..id)
             end
             used[index]=id;count=count+1
             assert(h.source=='onebit' and h.width==16 and h.quad.x==index%49*16)
             assert(art:resolve(id..'/attack')==h and art:resolve(id..'/hurt')==h)
         end
-        assert(count==59)
+        assert(count==60)
         for id in pairs(O.objects)do assert(art:resolve(id) and Slots.bindings[id])end
         for _,id in ipairs(Boons.order)do
             local h=assert(art:resolve(id..'/icon'));assert(art:resolve(id..'/detail')==h)

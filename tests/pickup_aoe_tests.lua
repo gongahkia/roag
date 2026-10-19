@@ -18,7 +18,7 @@ return function(test,equal)
     end
 
     test("Sentinel and Alchemist are selectable plain-data classes with distinct area kits",function()
-        assert(Classes.validate() and #Classes.order==9)
+        assert(Classes.validate() and #Classes.order==10)
         local sentinel=new("core:actor/sentinel")
         local s=Game.player(sentinel)
         assert(s.defense==2 and s.max_hp==29)
