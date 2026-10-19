@@ -38,7 +38,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
 | `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
 | `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
-| `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
+| `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | pending | — |
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | pending | — |
@@ -310,3 +310,7 @@ script is `tests/idea_duelist_disk_resume.sh`; its accepted log is
 not GUI readability or human balance. The Geomancer prototype remains isolated
 at `/var/tmp/roag-geomancer-ceeabc3f`, unwired and unclaimed. All remaining class,
 item, room, terrain, environment, presentation and 50+ boon work stays in scope.
+
+## Five-class batch — 19 October
+
+Rechecked the unmodified baseline: **510/510**, log `/var/tmp/roag-five-classes-baseline-20261019.log`. Geomancer is integrated from `/var/tmp/roag-geomancer-ceeabc3f`: nine focused tests, 46 class/art/UI contracts and two-process expiry/save continuation pass. Its isolated full gate is running; no result is presumed. New blocks are entity overlays, cannot seal accessible routes, and expire after 300 simulation time. Character selection now uses bounded nine-row pages and matching mouse hitboxes; Classic fallback colors cover additional classes. No LÖVE windows opened.

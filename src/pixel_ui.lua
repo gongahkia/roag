@@ -72,7 +72,17 @@ function U.settings_at(x,y,w,count,px,py)
     return U.row_at(x+36,y+166,w-72,40,count,48,px,py)
 end
 function U.home_at(x,y)return U.row_at(280,232,464,34,5,42,x,y)end
-function U.class_at(x,y)return U.row_at(190,150,290,32,9,36,x,y)end
+function U.class_page(order,selected)
+    local index=1
+    for i,id in ipairs(order)do if id==selected then index=i;break end end
+    local first=math.floor((index-1)/9)*9+1
+    return first,math.min(#order,first+8)
+end
+function U.class_at(x,y,first,last)
+    first,last=first or 1,last or 9
+    local row=U.row_at(190,150,290,32,last-first+1,36,x,y)
+    return row and row+first-1
+end
 function U.pause_at(x,y)return U.row_at(306,252,412,38,3,44,x,y)end
 function U.chest_at(x,y)return U.row_at(102,178,420,62,3,76,x,y)end
 function U.route_at(count,x,y)return U.row_at(180,216,664,54,count,64,x,y)end

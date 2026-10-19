@@ -5,6 +5,7 @@ local Achievements = require("src.achievements")
 local Content = require("src.content")
 local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
+local Geo=require('src.idea_geomancer')
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -418,6 +419,10 @@ function Game.preview(state, kind, dx, dy)
             or occupant(state,position.floor_id,cell.x,cell.y,player.id,false) then
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
+    end
+    if kind=='sweeping_slash' and class.id==Geo.id then
+        local valid,reason=Geo.preview(state,Content.map_for(state),cells[1].x,cells[1].y)
+        return {valid=valid,reason=reason,cost=cost,cells=cells}
     end
     return {valid=true, cost=cost, cells=cells,reflection=reflection}
 end
@@ -1511,6 +1516,10 @@ local function advance_to_player(state, output)
             Stage.resolve_due(state,item,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,nil)
             end,Game.spawn_enemy)
+        elseif item.idea_geomancer then
+            Geo.expire(state,item,function(kind,fields,source_id,action_id)
+                emit(state,output,kind,fields,source_id,action_id)
+            end)
         elseif item.idea_ember then
             IdeaEmbers.resolve(state,item,function(x,y)
                 return occupant(state,state.active_floor_id,x,y,nil,true)
@@ -1727,7 +1736,11 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id=='core:ability/duelist_parry'then
+        if ability_id==Geo.definition.special_id then
+            Geo.place(state,player,cells[1].x,cells[1].y,action_id,function(kind,fields)
+                emit(state,output,kind,fields,player.id,action_id)
+            end)
+        elseif ability_id=='core:ability/duelist_parry'then
             Duelist.raise(state,player,intent.dx,intent.dy,preview.cost)
             emit(state,output,'DuelistGuardRaised',{floor_id=position.floor_id,x=position.x,y=position.y,
                 dx=intent.dx,dy=intent.dy,expires=state.clock+preview.cost},player.id,action_id)
@@ -2129,6 +2142,7 @@ function Game.restore(snapshot)
         "invalid player health")
     Squads.validate(state,maps)
     Duelist.validate(state)
+    Geo.validate(state,maps)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
@@ -2156,7 +2170,8 @@ function Game.restore(snapshot)
             and entity.controller~="exit"
             and entity.controller~="review_vault"
             and entity.controller~="review_gate"
-            and entity.controller~="review_pillar" then
+            and entity.controller~="review_pillar"
+            and entity.controller~=Geo.controller then
             error("unknown entity controller")
         end
         if entity.controller=='review_vault' then

@@ -1,8 +1,8 @@
 {
-  "mapping_checksum": "1d65a4afd2902e6b",
+  "mapping_checksum": "5157447fb61bf97f",
   "packs": {
     "kenney": {
-      "actor_count": 60,
+      "actor_count": 61,
       "actor_silhouettes": 50,
       "bindings": [
         {
@@ -135,6 +135,33 @@
           "height": 16,
           "id": "core:actor/duelist/hurt",
           "index": 99,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer",
+          "index": 100,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/attack",
+          "index": 100,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/hurt",
+          "index": 100,
           "motif": "",
           "pose_alias": true,
           "sheet": "tiny",
@@ -2661,6 +2688,15 @@
           "width": 8
         },
         {
+          "height": 8,
+          "id": "core:object/geomancer_bulwark",
+          "index": 116,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
           "height": 16,
           "id": "core:object/idea_cache_dormant",
           "index": 90,
@@ -3493,6 +3529,14 @@
         },
         {
           "ids": [
+            "core:actor/geomancer",
+            "core:enemy/oath_twin_b"
+          ],
+          "index": 100,
+          "sheet": "tiny"
+        },
+        {
+          "ids": [
             "core:actor/duelist",
             "core:enemy/oath_twin_a"
           ],
@@ -3500,7 +3544,7 @@
           "sheet": "tiny"
         }
       ],
-      "static_pose_aliases": 120,
+      "static_pose_aliases": 122,
       "usage": {
         "caves": {
           "145": [
@@ -3728,6 +3772,9 @@
           ],
           "11": [
             "core:actor/ranger"
+          ],
+          "116": [
+            "core:object/geomancer_bulwark"
           ],
           "118": [
             "core:object/stairs_up"
@@ -4130,6 +4177,7 @@
         },
         "tiny": {
           "100": [
+            "core:actor/geomancer",
             "core:enemy/oath_twin_b"
           ],
           "108": [
@@ -4205,8 +4253,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 60,
-      "actor_silhouettes": 58,
+      "actor_count": 61,
+      "actor_silhouettes": 59,
       "bindings": [
         {
           "height": 16,
@@ -4338,6 +4386,33 @@
           "height": 16,
           "id": "core:actor/duelist/hurt",
           "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer",
+          "index": 466,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/attack",
+          "index": 466,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/hurt",
+          "index": 466,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -6865,6 +6940,15 @@
         },
         {
           "height": 16,
+          "id": "core:object/geomancer_bulwark",
+          "index": 262,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/idea_cache_dormant",
           "index": 303,
           "motif": "",
@@ -7639,7 +7723,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 120,
+      "static_pose_aliases": 122,
       "usage": {
         "onebit": {
           "1010": [
@@ -7757,7 +7841,8 @@
             "core:enemy/canal_lancer"
           ],
           "262": [
-            "core:boon/stonewake/icon + /detail"
+            "core:boon/stonewake/icon + /detail",
+            "core:object/geomancer_bulwark"
           ],
           "267": [
             "core:terrain/obscuring_mist"
@@ -7938,6 +8023,9 @@
           ],
           "461": [
             "core:enemy/pack_chorister"
+          ],
+          "466": [
+            "core:actor/geomancer"
           ],
           "467": [
             "core:actor/arcanist"
@@ -8187,26 +8275,26 @@
     {
       "empty": 1,
       "grid": 160,
-      "kenney": 52,
+      "kenney": 53,
       "nonempty": 159,
       "onebit": 0,
       "sheet": "micro",
-      "union": 52,
-      "unused_kenney": 107,
+      "union": 53,
+      "unused_kenney": 106,
       "unused_onebit": 159,
-      "unused_union": 107
+      "unused_union": 106
     },
     {
       "empty": 1,
       "grid": 1078,
       "kenney": 73,
       "nonempty": 1077,
-      "onebit": 167,
+      "onebit": 168,
       "sheet": "onebit",
-      "union": 167,
+      "union": 168,
       "unused_kenney": 1004,
-      "unused_onebit": 910,
-      "unused_union": 910
+      "unused_onebit": 909,
+      "unused_union": 909
     },
     {
       "empty": 63,
@@ -8249,6 +8337,9 @@
     "core:actor/duelist",
     "core:actor/duelist/attack",
     "core:actor/duelist/hurt",
+    "core:actor/geomancer",
+    "core:actor/geomancer/attack",
+    "core:actor/geomancer/hurt",
     "core:actor/hookrunner",
     "core:actor/hookrunner/attack",
     "core:actor/hookrunner/hurt",
@@ -8529,6 +8620,7 @@
     "core:object/door_closed",
     "core:object/door_open",
     "core:object/exit",
+    "core:object/geomancer_bulwark",
     "core:object/idea_cache_dormant",
     "core:object/idea_silt_trail",
     "core:object/review_brazier_lit",

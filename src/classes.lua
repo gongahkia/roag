@@ -2,6 +2,7 @@
 -- basic_attack, sweeping_slash and dash actions through one scheduler.
 local Targeting=require("src.targeting")
 local D=require('src.idea_duelist')
+local Geo=require('src.idea_geomancer')
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
@@ -95,6 +96,8 @@ local directions={{0,-1},{1,-1},{1,0},{1,1},
 
 Classes.order[#Classes.order+1]=D.id
 Classes.definitions[D.id]=D.definition
+Classes.order[#Classes.order+1]=Geo.id
+Classes.definitions[Geo.id]=Geo.definition
 
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
@@ -143,7 +146,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==D.id and explicit then
+        if def.id==Geo.id then
+            cells=line(state,content,p,dx,dy,3);ranged=true
+        elseif def.id==D.id and explicit then
             cells=line(state,content,p,dx,dy,2);ranged='piercing_line'
         elseif def.id==Classes.order[2] then
             cells=line(state,content,p,dx,dy,4);ranged=true
@@ -160,7 +165,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
         end
     else
         ability_id=def.special_id
-        if def.id==D.id then
+        if def.id==Geo.id then
+            cells={{x=p.x+dx,y=p.y+dy}}
+        elseif def.id==D.id then
             cells=Targeting.cells('sweeping_slash',p.x,p.y,dx,dy)
         elseif def.id==Classes.order[2] then
             cells=line(state,content,p,dx,dy,5)
@@ -223,7 +230,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==10,"expected ten starting classes")
+    assert(#Classes.order==11,"expected eleven starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

@@ -6,6 +6,7 @@ local Biomes=require('src.biomes')
 local Squads=require('src.enemy_squads')
 local IdeaEnemies=require('src.idea_enemies')
 local Duelist=require('src.idea_duelist')
+local Geo=require('src.idea_geomancer')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -32,7 +33,9 @@ O.actors={
 for role,index in pairs(Squads.onebit) do O.actors['core:enemy/'..role]=index end
 for id,index in pairs(IdeaEnemies.onebit) do O.actors[id]=index end
 O.actors[Duelist.id]=Duelist.onebit
+O.actors[Geo.id]=Geo.onebit
 O.objects={
+    [Geo.block_id]=262,
     ['core:drop/currency']=818,['core:drop/food']=238,['core:drop/health']=670,
     ['core:chest/standard']=302,['core:chest/free_elite']=301,
     ['core:object/chest_open']=344,['core:object/door_closed']=548,

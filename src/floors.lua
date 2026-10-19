@@ -94,6 +94,7 @@ function Floors.resume(state,floor_id)
     for _,entity in ipairs(state.entities) do
         if entity.id~=state.player_id and entity.position
             and entity.position.floor_id==floor_id then
+            if entity.controller=='geomancer_block' then entity.expires=entity.expires+delta end
             if entity.pending_attack then
                 entity.pending_attack.due=entity.pending_attack.due+delta
             end

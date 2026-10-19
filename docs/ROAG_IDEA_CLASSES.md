@@ -61,3 +61,17 @@ run schema remains `roag-run/11`; the optional held charge is plain data.
 LÖVE windows remain untested under the user's current restriction. No
 physical keyboard, mouse, tablet, native GPU or human balance acceptance
 is claimed. The other five approved classes remain separate unfinished work.
+
+## Geomancer
+
+HP 24, attack 5, defense 1, speed 85. Base move/F/R/X costs: 100/120/130/130.
+
+- **F — Stone Bolt:** three-cell, first-body projectile with normal armor and corner blocking.
+- **R — Raise Bulwark:** choose adjacent cardinal plain floor. Pay the normal action to create one stone block for 300 world time. It blocks walking, sight and projectiles; it has no HP, XP or loot. Replacing it removes its old expiry work.
+- **X — Grounded Dash:** the existing two-cell traversal and entry rules.
+
+Placement rejects occupied cells, stairs and any cell whose removal disconnects accessible ground. A block does not rewrite terrain or published art. Its clock pauses with its floor, then rebases exactly on return. Mixed art uses approved Tiny 100 (shared with the Oath Blade Twin) and Micro 116 stone; standalone uses 1-Bit 466 and the existing 262 stone motif.
+
+The title picker shows up to nine rows per page. Arrows/gamepad cycle all classes and move the page; mouse selects the visible rows. Number shortcuts still cover the first nine.
+
+Nine focused checks and 46 combined class/art/UI contracts pass. `sh tests/idea_class_disk_resume.sh geomancer` checks fresh-process Continue through expiry. Full regression is recorded in the goal ledger when finished; GUI/physical input remains pending.

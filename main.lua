@@ -3,6 +3,7 @@ local BoonContent = require("src.boon_content")
 local Content = require("src.content")
 local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
+local Geo=require('src.idea_geomancer')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -975,6 +976,10 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='GeomancerBlockRaised'then
+                notice='Bulwark: blocks movement, sight and bolts; expires after 300 world time'
+            elseif event.kind=='GeomancerBlockExpired'then
+                notice='Bulwark expired'
             elseif event.kind=='DuelistGuardRaised'then
                 notice='Timed parry: one frontal adjacent melee hit during this paid action; arrows and fire bypass'
             elseif event.kind=='DuelistParried'then
@@ -2610,6 +2615,15 @@ local function draw_world()
     end
     draw_preview()
     draw_rewards()
+    for _,object in ipairs(state.entities)do
+        local p=object.position
+        if object.controller==Geo.controller and p.floor_id==state.active_floor_id and visible_at(p.x,p.y)then
+            local x,y=Camera.tile_top_left(camera,p.x,p.y)
+            if not draw_visual(bound_visual(object.definition_id),x,y,TILE,TILE)then
+                love.graphics.setColor(.6,.6,.5);love.graphics.rectangle('fill',x+5,y+5,TILE-10,TILE-10)
+            end
+        end
+    end
     draw_enemies()
     draw_squad_cues()
     if state.stage and state.stage.phase=="elite_active" then
@@ -2662,7 +2676,7 @@ local function draw_world()
             [Classes.order[8]]={0.96,0.69,0.35},
             [Classes.order[9]]={0.68,0.86,0.41},
         }
-        love.graphics.setColor(unpack(colors[Game.player(state).definition_id]))
+        love.graphics.setColor(unpack(colors[Game.player(state).definition_id] or {.7,.8,.9}))
         love.graphics.circle("fill", screen_x + TILE / 2 - TILE/32,
             screen_y + TILE / 2 - TILE/32, 11*TILE/32)
     end
@@ -3130,8 +3144,10 @@ local function draw_title_page()
         PixelUI.center('Enter continues · Esc / click BACK',554,ui_menu_font,PixelUI.colors.muted)
     elseif title_view=='class'then
         menu_frame('CHOOSE YOUR CHARACTER',160,92,704,470,ui_display_font)
-        for i,id in ipairs(Classes.order)do
-            PixelUI.option(i..' '..Classes.get(id).name:upper(),190,150+(i-1)*36,290,
+        local first,last=PixelUI.class_page(Classes.order,selected_class_id)
+        for i=first,last do
+            local id=Classes.order[i]
+            PixelUI.option(i..' '..Classes.get(id).name:upper(),190,150+(i-first)*36,290,
                 id==selected_class_id,ui_menu_font)
         end
         local chosen=Classes.get(selected_class_id)
@@ -3142,7 +3158,7 @@ local function draw_title_page()
         PixelUI.center(('HP %d · ATK %d · DEF %d · SPD %d'):format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
             406,ui_menu_font,PixelUI.colors.muted,496,336)
         PixelUI.option('BEGIN NEW GAME',496,502,336,false,ui_menu_font)
-        PixelUI.center('1–9 / arrows choose all 10 · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.center(('Arrows choose all %d · 1–9 shortcuts · Enter begin · Esc back'):format(#Classes.order),598,ui_menu_font,PixelUI.colors.muted)
     elseif title_view=='settings'then draw_settings()end
     if title_view~='home'then
         g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected);g.print('< BACK',192,608)
@@ -3440,7 +3456,8 @@ function love.mousepressed(x,y,button,istouch,presses)
         elseif title_view=='continue'then
             if x>=320 and x<=704 and y>=416 and y<=466 then activate_title_selection()end
         elseif title_view=='class'then
-            local index=PixelUI.class_at(x,y)
+            local first,last=PixelUI.class_page(Classes.order,selected_class_id)
+            local index=PixelUI.class_at(x,y,first,last)
             if index then selected_class_id=Classes.order[index]
             elseif x>=496 and x<=832 and y>=490 and y<=536 then request_new_run()end
         elseif title_view=='settings'then
