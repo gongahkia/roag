@@ -117,7 +117,7 @@ return function(test,equal)
     end)
 
     test("new area boons batch secondary hits and are offered only to new kits",function()
-        assert(Catalog.validate() and #Catalog.order==53)
+        assert(Catalog.validate() and #Catalog.order==53+#require('src.idea_boon_content').order)
         for _,id in ipairs({"core:boon/aftershock","core:boon/reprisal_nova"}) do
             local def=Catalog.get(id)
             for _,rarity in ipairs(Catalog.rarities) do

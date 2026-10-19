@@ -30,6 +30,9 @@ function Catalog.normal_order()
     result[#result+1]="core:boon/aftershock"
     result[#result+1]="core:boon/reprisal_nova"
     result[#result+1]="core:boon/ring_of_reversal"
+    for _,id in ipairs(require('src.idea_boon_content').order)do
+        result[#result+1]=id
+    end
     return result
 end
 
@@ -259,15 +262,23 @@ Catalog.definitions["core:boon/ring_of_reversal"]={
     effects={},unit="bonus damage on the next direct hit against that attacker",
 }
 
+local ideas=require('src.idea_boon_content')
+for _,id in ipairs(ideas.order)do
+    assert(not Catalog.definitions[id],'duplicate idea boon')
+    Catalog.order[#Catalog.order+1]=id
+    Catalog.definitions[id]=ideas.definitions[id]
+end
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
     DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true,
-    CurrencyCollected=true,BoonActivated=true,TerrainTriggered=true,TerrainBroken=true}
+    CurrencyCollected=true,BoonActivated=true,TerrainTriggered=true,TerrainBroken=true,
+    SupplyCollected=true,ChestClaimed=true,Waited=true}
 local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
-    mark_damage=true,status_neighbors=true}
+    mark_damage=true,status_neighbors=true,cleanse_owner=true,refund_purchase=true,
+    enrich_drop=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
@@ -279,7 +290,8 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     target_near_terrain=true,terrain_id=true,damage_type=true,primed=true,
     special_attack=true,target_hp_percent_before=true,owner_in_locked_cells=true,
     overlapping_windups=true,approaching_owner=true,aligned_hostiles=true,
-    event_distance=true,visible_source=true,visible_event=true}
+    event_distance=true,visible_source=true,visible_event=true,supply_kind=true,
+    supply_excess=true,event_amount=true,rewarded_drop=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -290,7 +302,13 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op == "pair_adjacent_damage" then
+        if node.op=='supply_kind' then
+            assert(node.value=='food' or node.value=='health','invalid supply predicate')
+        elseif node.op=='event_amount' then
+            assert(({amount=true,actual_gain=true,price=true})[node.field]
+                and type(node.min)=='number' and node.min%1==0 and node.min>=0,
+                'invalid event amount predicate')
+        elseif node.op == "pair_adjacent_damage" then
             assert(node.neighborhood == "cardinal" or node.neighborhood == "eight",
                 "invalid pair neighborhood")
         elseif node.op == "adjacent_hostiles" then
@@ -332,6 +350,11 @@ function Catalog.validate(definitions, order)
         assert(type(id) == "string" and id:match("^core:boon/"), "invalid boon ID")
         assert(def.id == id, "boon definition ID mismatch")
         assert(type(def.name) == "string" and type(def.description) == "string", "invalid boon text")
+        if def.art then
+            assert(type(def.art.index)=='number' and def.art.index%1==0
+                and def.art.index>=0 and def.art.index<1078
+                and type(def.art.motif)=='string' and #def.art.motif>0,'invalid boon art')
+        end
         assert(def.unit==nil or (type(def.unit)=="string" and #def.unit>0),
             "invalid boon magnitude text")
         assert(type(def.tags) == "table" and type(def.triggers) == "table"
@@ -384,11 +407,17 @@ function Catalog.validate(definitions, order)
             if effect.kind=="status_neighbors" then
                 assert(effect.status=="burning","invalid shared status")
             end
+            if effect.kind=='cleanse_owner' then
+                assert(effect.status=='burning','invalid cleansed status')
+            end
             if effect.consume_prime~=nil then
-                assert(effect.consume_prime==true and effect.kind=="damage_target",
+                assert(effect.consume_prime==true and
+                    (effect.kind=="damage_target" or effect.kind=='heal_owner'),
                     "invalid primed effect")
             end
-            assert(effect.scale==nil or effect.scale=="adjacent_hostiles","invalid effect scale")
+            assert(effect.scale==nil or effect.scale=="adjacent_hostiles"
+                or (effect.scale=='supply_excess' and effect.kind=='ward'),
+                "invalid effect scale")
         end
         local last_power, last_chance = -1, -1
         for _, rarity in ipairs(Catalog.rarities) do

@@ -81,7 +81,7 @@ return function(test,equal)
   bad=false;assert(refresh() and fake.roagAssetBacking(G.player(s).definition_id)=='onebit')
   equal(G.snapshot(s),before)
  end)
- test('fixed artwork preserves all 491 bindings and exactly thirteen approved cross-sheet counterparts',function()
+ test('fixed artwork preserves all existing and additive boon bindings and exactly thirteen approved cross-sheet counterparts',function()
   local seen={};local function reader(path)assert(not path:find('micro%-roguelike'));seen[path]=true;return read(path)end
   local native=assert(O.new(reader,image,quad));local count=0
   for _,id in ipairs(require('src.sprite_audit').collect().requirements)do

@@ -74,6 +74,10 @@ S.boons={}
 for slug,definition in pairs(definitions)do
     S.boons['core:boon/'..slug]=definition
 end
+for _,id in ipairs(require('src.idea_boon_content').order)do
+    local art=require('src.idea_boon_content').definitions[id].art
+    S.boons[id]={art.index,art.motif,defense}
+end
 -- Terrain symbols are an inset marker on plain ground, never random floor
 -- decoration. Insets preserve integer 2x scaling at ROAG's fixed 40px tile.
 S.terrain={

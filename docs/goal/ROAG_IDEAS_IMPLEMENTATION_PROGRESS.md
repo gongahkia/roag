@@ -1,10 +1,11 @@
 # Approved idea implementation — sustained goal
 
-Status: **PAUSED — requested terrain/environment checkpoint reached; stop before boons**.
-The user resumed these two batches explicitly and requested a terrain commit
-before environment work, then a stop. Both batches are headless verified; real
-LÖVE/human visual acceptance remains pending. The wider approved-ideas goal
-remains incomplete.
+Status: **ACTIVE — user resumed the 50+ additional-boon batch and final acceptance**.
+The previous terrain/environment stop was honored. The user has now explicitly
+requested the remaining boon and final-integration passes, web research as
+needed, atomic commits, and LÖVE testing for final acceptance. Earlier paused
+notes below are historical checkpoints. The full goal remains incomplete until
+both passes are implemented and independently verified.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
 ## Authority and invariants
@@ -15,7 +16,9 @@ No feature is complete merely because a schema, fixture or metadata record exist
 - Pilgrim becomes a boon; Cantor class and Oracle room remain rejected. Use the requested hat/cup/dice/skull/cross art for suitable boons.
 - All exact sprite exclusions and previous rejections apply. Webs use drawn lines; use only 416 for Wraith. No rejected bulk-kit/bitmap/UI-skin feature is smuggled back in.
 - Keep deterministic scheduler ordering, batch HP semantics, friendly fire, authoritative RNG, frozen inactive floors, exact save continuation, legal progression and stable visual IDs.
-- No LÖVE app/window tests: the user’s restriction remains in force. Headless, native-API/source checks, source-pixel/browser artifacts and static renderer traces can run; report real GUI/playtest evidence as pending.
+- LÖVE GUI testing is now authorized for the final acceptance pass. Use isolated
+  save directories, bounded processes and retained logs/screenshots; never imply
+  callback testing is human play or physical keyboard/mouse/tablet acceptance.
 - Commit each completed task separately; keep partial tasks unclaimed. Never reset or clean user changes.
 
 ## Baseline
@@ -87,8 +90,8 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | pending boon/presentation batch | Preserve the rejected room constraint |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
-| `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | pending | — |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | pending | — |
+| `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — first 7 additions / 60 total | 22 focused, 77 combined, 3 separate actual GUI processes; supply/reward/save/native pixel checks; full updated gate pending; at least 43 more required |
 
 ## Dependency-based batches
 
@@ -1049,3 +1052,66 @@ Visibility is now a local dependency. `git diff --check` passes. No simulation,
 save schema, art/palette or profile change; no LÖVE GUI application was opened.
 This fixes the reproduced Lua error, without claiming a fix for historical
 unexplained engine/GUI instability. The broader goal remains paused.
+
+
+## Resumed boon pass — first supply/reward group (2026-10-19)
+
+The user's resumed scope is 50+ additional distinct boons and final acceptance;
+this group is **7 additions**, not a completion claim. The catalogue is now 60,
+normal unearned New Run pool 56; the old 49-ID saved pool remains frozen. At
+least 43 further additions, Pilgrim/dice and full combined acceptance remain.
+See [actual mechanics, limits and remaining acceptance](../ROAG_IDEA_BOONS.md).
+
+Actual starting full baseline: **647/647**, frozen source
+`/var/tmp/roag-boons-resume-baseline-l0z_dr93`, log
+`/var/tmp/roag-boons-resume-baseline-retry-20261019.log`. The earlier attempt's
+terminal signal 143 is retained in its original log and is not a successful run.
+The prior status-only goal turn made no implementation progress; this resumed
+turn implements the next real slice and independently tests it.
+
+Implemented Beggar's Cap (approved hat 33), Overflow Chalice (approved cup 824),
+Road Flask, Field Dressing, Ration Reserve, Broker's Seal and Funeral Coin.
+No class/enemy/chest/terrain parameter or earlier boon definition changed.
+Stable ordered multi-ward consumption and additive temporary speed replace the
+old single-Betrayal/single-Bloodrush lookup. Real Burning cleansing removes only
+its pending tick. Refunds cannot waive initial affordability or trigger pickup
+loops. Exempt resurrected/called enemies cannot generate bonus gold. An expired
+large captured ward cannot be renewed by a smaller waste amount.
+
+Evidence:
+
+- **22/22** new focused cases; **77/77** combined boon/native-art/environment
+  checks. First focused run was 20/21: its food/Burning test incorrectly assumed
+  one damage per Common Emberbrand tick; actual content is two. It now derives
+  the assertion from the real declared power, still requiring one real tick and
+  no cleanse/heal. A separate expired-ward regression adds case 22.
+- Updated full gate: **668 passed / 1 failed**, 437.76 s, peak LuaJIT RSS
+  151,620 KiB. The only failure was a leftover fixed 50-entry achievement-pool
+  assertion. Its corrected separate rerun passes the actual legal elite defeat,
+  one-time profile award and future Guardian's Vow offer. A complete clean
+  retry remains required; no failed result is counted as a full green gate.
+- Fresh processes: new supply state and legacy state both resume exactly;
+  separately frozen **pre-change** source writes pending Burning/Echo, speed/
+  ward memory and the old 49-ID pool, then current source continues with
+  byte-identical events and authoritative snapshot. Old-source artifact:
+  `/var/tmp/roag-boons-disk-ufWkhb`. Checked stores advance to generation 2.
+- Existing Geomancer (1), item/room (7), terrain (3), environment (1) disk
+  scenarios all pass write -> separate process Continue -> checked generation 2.
+- **3/3 actual new boon GUI processes**, source-pixel comparisons for all seven
+  icons, actual pickup callbacks, read-only inventory/details and retained PNGs.
+  Passing artifact directories: `/var/tmp/roag-idea-boon-gui-0PUwTs`,
+  `/var/tmp/roag-idea-boon-gui-IIuxXR`, `/var/tmp/roag-idea-boon-gui-tAEDpo`.
+  The initial failed attempt `/var/tmp/roag-idea-boon-gui-PpF5KC` remains intact:
+  startup's developer-showcase reset had cleared fixture grants. Granting after
+  that existing reset fixes the fixture; there was no engine crash/signal 139.
+- Native coverage **505/505**, same 13 approved monochrome counterparts, no
+  missing bindings. The live catalogue is regenerated. Original PNGs and frozen
+  review/feedback remain intact; **6/6** idea and **7/7** item review safety
+  checks pass. `git diff --check` passes.
+- LÖVE **11.5**, Mesa 26.2.4 / OpenGL 4.6 **llvmpipe LLVM 22.1.8** in Fedora
+  WSL. Callback-driven screenshots, not physical keyboard/mouse/tablet testing
+  or human/native-GPU acceptance. No real player save/profile was used.
+
+The GUI exposed two presentation follow-ups for final acceptance: temporary
+speed is not yet reflected in the character stat line, and capped bonus healing
+can add zero-gain notices. These remain recorded, not silently called polished.

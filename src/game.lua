@@ -879,11 +879,19 @@ local function execute_effect(state, output, activation, effect)
         if owner and owner.hp and owner.hp>0 then
             owner.boon_memory=owner.boon_memory or {}
             local memory=owner.boon_memory[activation.boon_id] or {}
+            local unexpired=(memory.expires_at or -1)>=state.clock
             memory.expires_at=state.clock+effect.duration
             if effect.kind=="prime" then memory.charges=1
             elseif effect.kind=="speed_boost" then
                 memory.speed=math.max(memory.speed or 0,activation.power)
-            else memory.ward=math.max(memory.ward or 0,activation.power) end
+            else
+                local power=activation.power
+                if effect.scale=='supply_excess' then
+                    power=math.min(power,math.max(0,(activation.event.amount or 0)
+                        -(activation.event.actual_gain or 0)))
+                end
+                memory.ward=math.max(unexpired and (memory.ward or 0) or 0,power)
+            end
             owner.boon_memory[activation.boon_id]=memory
             emit(state,output,"BoonStateApplied",{boon_id=activation.boon_id,
                 effect_kind=effect.kind,expires_at=memory.expires_at,
@@ -941,8 +949,49 @@ local function execute_effect(state, output, activation, effect)
                 x=target.position.x,y=target.position.y,
                 power=target.statuses[effect.status].power},source.id,activation.root_action_id)
         end
+    elseif effect.kind=='cleanse_owner' then
+        local status=owner and owner.statuses and owner.statuses[effect.status]
+        if owner and owner.hp and owner.hp>0 and status then
+            for index=#state.schedule,1,-1 do
+                if state.schedule[index].id==status.schedule_id then
+                    table.remove(state.schedule,index)
+                end
+            end
+            owner.statuses[effect.status]=nil
+            emit(state,output,'StatusCleansed',{status=effect.status,target_id=owner.id,
+                floor_id=owner.position.floor_id,x=owner.position.x,y=owner.position.y},
+                source.id,activation.root_action_id)
+        end
+    elseif effect.kind=='refund_purchase' then
+        if owner and owner.id==state.player_id and owner.hp and owner.hp>0 then
+            local amount=math.min(activation.power,activation.event.price or 0)
+            if amount>0 then
+                local old=state.currency;state.currency=old+amount
+                -- A refund is not a second pickup; it cannot retrigger gold
+                -- pickup boons or be repeated by reopening a claimed chest.
+                emit(state,output,'CurrencyRefunded',{boon_id=activation.boon_id,
+                    chest_id=activation.event.chest_id,amount=amount,
+                    old_currency=old,new_currency=state.currency},source.id,activation.root_action_id)
+            end
+        end
+    elseif effect.kind=='enrich_drop' then
+        for _,drop in ipairs(state.drops)do
+            if drop.kind=='currency' and not drop.collected
+                and drop.killed_entity_id==activation.event.target_id then
+                drop.amount=drop.amount+activation.power
+                emit(state,output,'CurrencyDropEnriched',{boon_id=activation.boon_id,
+                    drop_id=drop.id,amount=activation.power,new_amount=drop.amount,
+                    floor_id=drop.position.floor_id,x=drop.position.x,y=drop.position.y},
+                    source.id,activation.root_action_id)
+                break
+            end
+        end
     elseif effect.kind=="heal_owner" then
         if owner and owner.hp and owner.hp>0 then
+            if effect.consume_prime and owner.boon_memory then
+                local memory=owner.boon_memory[activation.boon_id]
+                if memory then memory.charges=0 end
+            end
             local before=owner.hp
             owner.hp=math.min(owner.max_hp,owner.hp+activation.power)
             emit(state,output,"Healed",{target_id=owner.id,

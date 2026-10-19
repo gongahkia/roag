@@ -131,7 +131,7 @@ return function(test,equal)
             end
             count=count+1
         end
-        assert(count==53)
+        assert(count==#Boons.order)
         for id in pairs(Symbols.boons)do assert(Boons.definitions[id],'orphan boon mapping')end
         assert(art:resolve('core:boon/unknown/icon')==nil)
     end)

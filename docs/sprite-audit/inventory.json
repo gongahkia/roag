@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "b876dd64b18d2ac3",
+  "mapping_checksum": "68c666c4b494f83d",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -466,6 +466,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/beggars_cap/detail",
+          "index": 33,
+          "motif": "broad travelling hat",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beggars_cap/icon",
+          "index": 33,
+          "motif": "broad travelling hat",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/betrayal_ward/detail",
           "index": 185,
           "motif": "quartered shield",
@@ -514,6 +532,24 @@
           "id": "core:boon/bramble_compact/icon",
           "index": 104,
           "motif": "thorn bush",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/brokers_seal/detail",
+          "index": 489,
+          "motif": "star seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/brokers_seal/icon",
+          "index": 489,
+          "motif": "star seal",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -772,6 +808,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/field_dressing/detail",
+          "index": 1052,
+          "motif": "crossed bandage",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/field_dressing/icon",
+          "index": 1052,
+          "motif": "crossed bandage",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/final_spark/detail",
           "index": 619,
           "motif": "fading spark ring",
@@ -838,6 +892,24 @@
           "id": "core:boon/froststep_catalyst/icon",
           "index": 707,
           "motif": "frost sparks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/funeral_coin/detail",
+          "index": 773,
+          "motif": "stamped coin",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/funeral_coin/icon",
+          "index": 773,
+          "motif": "stamped coin",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -970,6 +1042,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/overflow_chalice/detail",
+          "index": 824,
+          "motif": "prize cup",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/overflow_chalice/icon",
+          "index": 824,
+          "motif": "prize cup",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/packed_powder/detail",
           "index": 486,
           "motif": "bomb",
@@ -1096,6 +1186,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/ration_reserve/detail",
+          "index": 817,
+          "motif": "wrapped ration",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ration_reserve/icon",
+          "index": 817,
+          "motif": "wrapped ration",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/recurve/detail",
           "index": 333,
           "motif": "recurve bow",
@@ -1180,6 +1288,24 @@
           "id": "core:boon/ring_of_reversal/icon",
           "index": 337,
           "motif": "reversal ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/road_flask/detail",
+          "index": 965,
+          "motif": "travelling chalice",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/road_flask/icon",
+          "index": 965,
+          "motif": "travelling chalice",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4592,6 +4718,9 @@
             "core:boon/bramble_compact/icon + /detail",
             "core:terrain/bramble_bed"
           ],
+          "1052": [
+            "core:boon/field_dressing/icon + /detail"
+          ],
           "111": [
             "core:object/review_plate_tiny_up",
             "core:object/review_plate_up"
@@ -4887,6 +5016,9 @@
           "329": [
             "core:ui/weapon_spell_icon"
           ],
+          "33": [
+            "core:boon/beggars_cap/icon + /detail"
+          ],
           "330": [
             "core:ui/ability_sword_icon"
           ],
@@ -5039,6 +5171,9 @@
           ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
+          ],
+          "489": [
+            "core:boon/brokers_seal/icon + /detail"
           ],
           "49": [
             "core:object/review_overgrowth_1"
@@ -5340,6 +5475,9 @@
           "771": [
             "core:boon/far_witness/icon + /detail"
           ],
+          "773": [
+            "core:boon/funeral_coin/icon + /detail"
+          ],
           "78": [
             "core:enemy/pin_archer"
           ],
@@ -5349,6 +5487,9 @@
           "80": [
             "core:actor/hookrunner"
           ],
+          "817": [
+            "core:boon/ration_reserve/icon + /detail"
+          ],
           "818": [
             "core:boon/prospectors_heart/icon + /detail",
             "core:drop/currency",
@@ -5356,6 +5497,9 @@
           ],
           "823": [
             "core:boon/rhythm_of_steel/icon + /detail"
+          ],
+          "824": [
+            "core:boon/overflow_chalice/icon + /detail"
           ],
           "830": [
             "core:boon/cluster_rupture/icon + /detail"
@@ -5371,6 +5515,9 @@
           ],
           "915": [
             "core:ui/idea_alarm_effect"
+          ],
+          "965": [
+            "core:boon/road_flask/icon + /detail"
           ],
           "98": [
             "core:object/env_plant_b",
@@ -5447,11 +5594,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 248,
+      "onebit": 255,
       "sheet": "onebit",
-      "union": 248,
-      "unused_onebit": 829,
-      "unused_union": 829
+      "union": 255,
+      "unused_onebit": 822,
+      "unused_union": 822
     },
     {
       "empty": 63,
@@ -5526,12 +5673,16 @@
     "core:boon/alchemical_flip/icon",
     "core:boon/battle_march/detail",
     "core:boon/battle_march/icon",
+    "core:boon/beggars_cap/detail",
+    "core:boon/beggars_cap/icon",
     "core:boon/betrayal_ward/detail",
     "core:boon/betrayal_ward/icon",
     "core:boon/bloodrush/detail",
     "core:boon/bloodrush/icon",
     "core:boon/bramble_compact/detail",
     "core:boon/bramble_compact/icon",
+    "core:boon/brokers_seal/detail",
+    "core:boon/brokers_seal/icon",
     "core:boon/circuit_chorus/detail",
     "core:boon/circuit_chorus/icon",
     "core:boon/cluster_rupture/detail",
@@ -5560,6 +5711,8 @@
     "core:boon/expanding_sigil/icon",
     "core:boon/far_witness/detail",
     "core:boon/far_witness/icon",
+    "core:boon/field_dressing/detail",
+    "core:boon/field_dressing/icon",
     "core:boon/final_spark/detail",
     "core:boon/final_spark/icon",
     "core:boon/flashpoint/detail",
@@ -5568,6 +5721,8 @@
     "core:boon/fracture_dividend/icon",
     "core:boon/froststep_catalyst/detail",
     "core:boon/froststep_catalyst/icon",
+    "core:boon/funeral_coin/detail",
+    "core:boon/funeral_coin/icon",
     "core:boon/grave_dividend/detail",
     "core:boon/grave_dividend/icon",
     "core:boon/guardians_vow/detail",
@@ -5582,6 +5737,8 @@
     "core:boon/opening_cut/icon",
     "core:boon/ordered_ranks/detail",
     "core:boon/ordered_ranks/icon",
+    "core:boon/overflow_chalice/detail",
+    "core:boon/overflow_chalice/icon",
     "core:boon/packed_powder/detail",
     "core:boon/packed_powder/icon",
     "core:boon/pain_dividend/detail",
@@ -5596,6 +5753,8 @@
     "core:boon/pulse_step/icon",
     "core:boon/pursuit_spark/detail",
     "core:boon/pursuit_spark/icon",
+    "core:boon/ration_reserve/detail",
+    "core:boon/ration_reserve/icon",
     "core:boon/recurve/detail",
     "core:boon/recurve/icon",
     "core:boon/reprisal_nova/detail",
@@ -5606,6 +5765,8 @@
     "core:boon/rhythm_of_steel/icon",
     "core:boon/ring_of_reversal/detail",
     "core:boon/ring_of_reversal/icon",
+    "core:boon/road_flask/detail",
+    "core:boon/road_flask/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
     "core:boon/splitflight/detail",

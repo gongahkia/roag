@@ -86,6 +86,17 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='supply_kind' then return event.supply_kind==node.value end
+    if op=='supply_excess' then
+        return (event.amount or 0)>(event.actual_gain or 0)
+    end
+    if op=='event_amount' then
+        return type(event[node.field])=='number' and event[node.field]>=node.min
+    end
+    if op=='rewarded_drop' then
+        local def=Content.get_enemy(event.target_definition_id)
+        return not event.reward_exempt and def and def.currency_drop>0 or false
+    end
     if op=="event_kind" then return event.kind==node.value end
     if op=="visible_source" then
         local p=event.source_position
@@ -378,20 +389,31 @@ function Boons.validate_inventory(owner)
 end
 
 function Boons.speed_bonus(state,owner)
-    local memory=owner.boon_memory and
-        owner.boon_memory["core:boon/bloodrush"]
-    return memory and (memory.expires_at or -1)>=state.clock
-        and (memory.speed or 0) or 0
+    if not owner.boon_memory then return 0 end
+    local bonus=0
+    for _,id in ipairs(Catalog.order)do
+        local memory=owner.boon_memory[id]
+        if memory and (memory.expires_at or -1)>=state.clock then
+            bonus=bonus+(memory.speed or 0)
+        end
+    end
+    return bonus
 end
 
 function Boons.consume_ward(state,owner,damage)
     if damage<=0 then return 0 end
-    local memory=owner.boon_memory and
-        owner.boon_memory["core:boon/betrayal_ward"]
-    if not memory or (memory.expires_at or -1)<state.clock
-        or (memory.ward or 0)<=0 then return 0 end
-    local absorbed=math.min(damage,memory.ward)
-    memory.ward=0 -- one positive hit consumes the stored ward
+    if not owner.boon_memory then return 0 end
+    local absorbed=0
+    -- Consume in catalogue order, leaving later wards intact when an earlier
+    -- ward already covered the hit. No pairs-order-dependent protection.
+    for _,id in ipairs(Catalog.order)do
+        local memory=owner.boon_memory[id]
+        if absorbed<damage and memory and (memory.expires_at or -1)>=state.clock
+            and (memory.ward or 0)>0 then
+            absorbed=absorbed+math.min(damage-absorbed,memory.ward)
+            memory.ward=0
+        end
+    end
     return absorbed
 end
 

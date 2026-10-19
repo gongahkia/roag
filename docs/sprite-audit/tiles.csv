@@ -554,7 +554,7 @@ onebit,29,464,0,81,
 onebit,30,480,0,72,
 onebit,31,496,0,82,core:enemy/vault_lurker
 onebit,32,512,0,98,core:enemy/cinder_bellkeeper
-onebit,33,528,0,86,
+onebit,33,528,0,86,core:boon/beggars_cap/icon + /detail
 onebit,34,544,0,86,
 onebit,35,560,0,90,
 onebit,36,576,0,74,
@@ -1010,7 +1010,7 @@ onebit,485,704,144,69,
 onebit,486,720,144,58,core:boon/packed_powder/icon + /detail
 onebit,487,736,144,49,
 onebit,488,752,144,50,
-onebit,489,768,144,196,
+onebit,489,768,144,196,core:boon/brokers_seal/icon + /detail
 onebit,490,0,160,96,
 onebit,491,16,160,100,
 onebit,492,32,160,90,
@@ -1294,7 +1294,7 @@ onebit,769,544,240,123,
 onebit,770,560,240,90,
 onebit,771,576,240,78,core:boon/far_witness/icon + /detail
 onebit,772,592,240,94,
-onebit,773,608,240,76,
+onebit,773,608,240,76,core:boon/funeral_coin/icon + /detail
 onebit,774,624,240,152,
 onebit,775,640,240,116,
 onebit,776,656,240,128,
@@ -1338,14 +1338,14 @@ onebit,813,464,256,71,
 onebit,814,480,256,65,
 onebit,815,496,256,70,
 onebit,816,512,256,67,
-onebit,817,528,256,74,
+onebit,817,528,256,74,core:boon/ration_reserve/icon + /detail
 onebit,818,544,256,78,core:boon/prospectors_heart/icon + /detail; core:drop/currency; core:ui/currency_icon
 onebit,819,560,256,62,
 onebit,820,576,256,48,
 onebit,821,592,256,48,
 onebit,822,608,256,60,
 onebit,823,624,256,73,core:boon/rhythm_of_steel/icon + /detail
-onebit,824,640,256,104,
+onebit,824,640,256,104,core:boon/overflow_chalice/icon + /detail
 onebit,825,656,256,90,
 onebit,826,672,256,98,
 onebit,827,688,256,76,
@@ -1486,7 +1486,7 @@ onebit,961,480,304,67,
 onebit,962,496,304,72,
 onebit,963,512,304,69,
 onebit,964,528,304,54,
-onebit,965,544,304,99,
+onebit,965,544,304,99,core:boon/road_flask/icon + /detail
 onebit,966,560,304,47,
 onebit,967,576,304,52,
 onebit,968,592,304,44,
@@ -1573,7 +1573,7 @@ onebit,1048,304,336,76,
 onebit,1049,320,336,56,
 onebit,1050,336,336,48,
 onebit,1051,352,336,48,
-onebit,1052,368,336,50,
+onebit,1052,368,336,50,core:boon/field_dressing/icon + /detail
 onebit,1053,384,336,50,
 onebit,1054,400,336,50,
 onebit,1055,416,336,50,

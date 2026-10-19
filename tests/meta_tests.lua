@@ -38,11 +38,11 @@ return function(test,equal)
     end
     test('twenty-two achievements preserve four functioning boon unlocks',function()
         assert(AchievementContent.validate() and #AchievementContent.order==22)
-        assert(#BoonContent.order==53 and #Achievements.pool({})==49)
+        assert(#BoonContent.order==53+#require('src.idea_boon_content').order and #Achievements.pool({})==49+#require('src.idea_boon_content').order)
         local earned={}
         for _,id in ipairs(AchievementContent.order) do earned[id]=true end
         local pool=Achievements.pool(earned)
-        assert(#pool==53 and Achievements.validate_pool(pool))
+        assert(#pool==#BoonContent.order and Achievements.validate_pool(pool))
         for i=1,4 do
             local id=AchievementContent.order[i]
             local reward=AchievementContent.get(id).reward
@@ -216,7 +216,8 @@ return function(test,equal)
         local disk=storage();local profiles=Profile.new(disk)
         assert(profiles:commit_awards(run.state.meta.pending))
         local next_pool=Achievements.pool(profiles:inspect().profile.earned)
-        assert(#next_pool==50 and next_pool[50]=='core:boon/guardians_vow')
+        assert(#next_pool==50+#require('src.idea_boon_content').order
+            and next_pool[#next_pool]=='core:boon/guardians_vow')
         local found=false
         for seed=1,200 do
             local next_run=Game.new_stage(seed,{available_boons=next_pool})
