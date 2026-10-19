@@ -107,6 +107,7 @@ function Rewards.on_event(state, event, emit)
     local definition = Content.get_enemy(event.target_definition_id)
     if not definition or state.rewarded_kills[event.target_id] then return end
     state.rewarded_kills[event.target_id] = true
+    if event.reward_exempt then return end -- finite revivals never duplicate XP/gold/supplies
     if definition.xp_reward>0 and event.source_id == state.player_id
         and event.source_faction == "player" then
         Rewards.gain_xp(state, definition.xp_reward, event, emit)

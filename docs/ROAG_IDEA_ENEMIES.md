@@ -8,8 +8,8 @@ and feature authority. This guide records implemented slices; the full
 
 Each newly generated stage floor has a seeded one-in-four eligibility check.
 A separate stream can select one ordinary, non-squad enemy for replacement
-with an implemented idea encounter. The Rammer is one candidate. This keeps
-the crowd size and geometry intact and consumes no combat RNG. Restoring a
+with an implemented idea encounter. The Rammer is one candidate. The Rammer
+does not add actors or change geometry and consumes no combat RNG. Restoring a
 saved floor does not repopulate it. Replacement stays at least eight
 Manhattan tiles from the entrance. Original runtime entity IDs remain stable.
 
@@ -64,6 +64,37 @@ Old saved floors remain concrete. Read-only sight queries use the observer's
 current position rather than the potentially stale end-of-action visibility
 cache; exploration is not changed by a query.
 
+## Grave Cantor
+
+The fragile Cantor uses Tiny 88 in the mixed pack and 1-Bit 318 in standalone;
+its visible corpse marker uses 1-Bit 539 in both. Classic shows C. HP/damage/
+defense are 7/1/0, speed 80, base windup 150, recovery 160 and range four.
+It still has an ordinary adjacent attack.
+
+An eligible ordinary ally's death leaves a marker while an unused Cantor is
+alive on that floor. The caster commits **one** revival attempt, locking that
+corpse and spending its budget immediately. Occupying the corpse, interrupting
+or killing the caster, or losing sight of the destination prevents revival.
+The attempt remains spent. Multiple casters cannot claim the same corpse.
+The support outline does not deal damage or guarantee a player reaction action.
+
+A successful revival creates a fresh ordinary actor with half the original
+maximum HP (rounded up), no copied statuses, and no repeat XP, currency or
+supply reward. It cannot become another revival corpse. Elites, bosses,
+special squads and Cantors cannot be revived. Real kill effects still occur;
+the finite budget and excluded bodies prevent resurrection chains. Corpses
+are bounded to 16 per floor and 32 total, then pruned when no caster needs them.
+Pending claims, spent budgets and revived actors survive exact save/Continue.
+
+A 210-stage / 420-floor probe initially found 26 Cantors and **zero** eligible
+allies in clear four-tile range. Placement now reuses a nearby eligible ally or
+adds one ordinary companion using the replaced actor's existing definition.
+It uses an unoccupied adjacent ordinary floor cell at least eight tiles from
+the entrance, avoiding markers, stairs, quest cells and the elite. If no safe
+formation fits, that replacement is skipped. It never carves terrain to fit.
+The same fixed corpus asserts that every generated Cantor has an eligible ally
+in clear range. Existing concrete saves are never repopulated.
+
 ## Verification
 
 ```sh
@@ -77,6 +108,10 @@ Focused assertions cover locked timing, leaving the target cell, pure landing
 queries, blocked landings, canonical hazard/pickup contacts, exact snare delay,
 friendly fire, interruption, corrupted pending data rejection, save continuation,
 presentation-only sliding and seven-biome/two-floor seeded population.
+Cantor assertions cover finite claims, occupied/cancelled attempts, simultaneous
+caster/ally deaths, reward suppression, corpse bounds, natural company and
+reserved placement. Its disk scenario saves a pending revival in one process
+and resolves it identically in another, then saves the second generation.
 The disk script uses two separate LuaJIT processes and an isolated `/var/tmp`
 directory, comparing full snapshots and events, including RNG and scheduler.
 It does not open LÖVE or touch personal saves.

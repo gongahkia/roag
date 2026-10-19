@@ -959,6 +959,12 @@ local function submit(intent)
                 notice='Shove blocked: '..event.reason
             elseif event.kind=='PhaseBlocked' then
                 notice='Wraith phase blocked: destination occupied, out of sight or protected'
+            elseif event.kind=='EnemyRevived' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Grave Cantor: one weakened revival; no repeat rewards'
+            elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Revival blocked: the Cantor has spent its only attempt'
             elseif event.kind=='Displaced' and event.target_id==state.player_id and event.reason=='shove' then
                 notice='Rammer shove: forced one tile'
             elseif event.kind=="VaultKeyCollected" then
@@ -1637,6 +1643,16 @@ local function draw_enemies()
 end
 
 local function draw_squad_cues()
+    for _,corpse in ipairs(state.idea_corpses or {})do
+        if corpse.floor_id==state.active_floor_id and visible_at(corpse.x,corpse.y)then
+            local x,y=Camera.tile_top_left(camera,corpse.x,corpse.y)
+            if not draw_visual(bound_visual('core:ui/idea_corpse_effect'),
+                x+TILE*.25,y+TILE*.25,TILE*.5,TILE*.5,.65)then
+                love.graphics.setColor(.7,.7,.85,.7)
+                love.graphics.print('+',x+TILE*.4,y+TILE*.3)
+            end
+        end
+    end
     local function badge(name,x,y)
         if not draw_visual(bound_visual('core:ui/squad_'..name..'_effect'),
             x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95) then

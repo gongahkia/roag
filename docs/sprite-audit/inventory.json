@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "1de22a103e3c1248",
+  "mapping_checksum": "8238ccdaa6513bfc",
   "packs": {
     "kenney": {
-      "actor_count": 46,
-      "actor_silhouettes": 38,
+      "actor_count": 47,
+      "actor_silhouettes": 39,
       "bindings": [
         {
           "height": 8,
@@ -1654,6 +1654,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/grave_cantor",
+          "index": 88,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/attack",
+          "index": 88,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/hurt",
+          "index": 88,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 89,
           "motif": "",
@@ -2878,6 +2905,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_corpse_effect",
+          "index": 539,
+          "motif": "core:ui/idea_corpse_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -3043,7 +3079,7 @@
           "sheet": "micro"
         }
       ],
-      "static_pose_aliases": 92,
+      "static_pose_aliases": 94,
       "usage": {
         "caves": {
           "145": [
@@ -3522,6 +3558,9 @@
           "535": [
             "core:ui/squad_heal_effect"
           ],
+          "539": [
+            "core:ui/idea_corpse_effect"
+          ],
           "563": [
             "core:boon/crescent_reach/icon + /detail"
           ],
@@ -3671,6 +3710,9 @@
           "87": [
             "core:enemy/pin_archer"
           ],
+          "88": [
+            "core:enemy/grave_cantor"
+          ],
           "89": [
             "core:enemy/heavy_rammer"
           ],
@@ -3689,8 +3731,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 46,
-      "actor_silhouettes": 46,
+      "actor_count": 47,
+      "actor_silhouettes": 47,
       "bindings": [
         {
           "height": 16,
@@ -5341,6 +5383,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/grave_cantor",
+          "index": 318,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/attack",
+          "index": 318,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/hurt",
+          "index": 318,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 129,
           "motif": "",
@@ -6565,6 +6634,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_corpse_effect",
+          "index": 539,
+          "motif": "core:ui/idea_corpse_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -6665,7 +6743,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 92,
+      "static_pose_aliases": 94,
       "usage": {
         "onebit": {
           "1010": [
@@ -6827,6 +6905,9 @@
           "31": [
             "core:enemy/vault_lurker"
           ],
+          "318": [
+            "core:enemy/grave_cantor"
+          ],
           "319": [
             "core:enemy/ward_weaver"
           ],
@@ -6973,6 +7054,9 @@
           ],
           "535": [
             "core:ui/squad_heal_effect"
+          ],
+          "539": [
+            "core:ui/idea_corpse_effect"
           ],
           "54": [
             "core:object/review_mushroom_2"
@@ -7168,14 +7252,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 62,
+      "kenney": 63,
       "nonempty": 1077,
-      "onebit": 149,
+      "onebit": 151,
       "sheet": "onebit",
-      "union": 149,
-      "unused_kenney": 1015,
-      "unused_onebit": 928,
-      "unused_union": 928
+      "union": 151,
+      "unused_kenney": 1014,
+      "unused_onebit": 926,
+      "unused_union": 926
     },
     {
       "empty": 63,
@@ -7192,14 +7276,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 16,
+      "kenney": 17,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 16,
-      "unused_kenney": 116,
+      "union": 17,
+      "unused_kenney": 115,
       "unused_onebit": 132,
-      "unused_union": 116
+      "unused_union": 115
     }
   ],
   "requirements": [
@@ -7386,6 +7470,9 @@
     "core:enemy/gloom_strider",
     "core:enemy/gloom_strider/attack",
     "core:enemy/gloom_strider/hurt",
+    "core:enemy/grave_cantor",
+    "core:enemy/grave_cantor/attack",
+    "core:enemy/grave_cantor/hurt",
     "core:enemy/heavy_rammer",
     "core:enemy/heavy_rammer/attack",
     "core:enemy/heavy_rammer/hurt",
@@ -7522,6 +7609,7 @@
     "core:ui/currency_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
+    "core:ui/idea_corpse_effect",
     "core:ui/squad_heal_effect",
     "core:ui/squad_rally_effect",
     "core:ui/squad_shield_effect",

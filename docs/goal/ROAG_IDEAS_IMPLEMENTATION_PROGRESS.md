@@ -24,11 +24,11 @@ No feature is complete merely because a schema, fixture or metadata record exist
 
 | ID | Approved direction | State | Evidence / task commit |
 | --- | --- | --- | --- |
-| `reanimator` | Grave Cantor + finite resurrection | pending | — |
+| `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; this feature commit |
 | `haunted-cache` | Haunted cache / chest mimic | pending | — |
 | `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
-| `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; this feature commit |
+| `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | pending | — |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
@@ -118,8 +118,12 @@ No feature is complete merely because a schema, fixture or metadata record exist
   sight queries, interruption, Trapper contact, exact saves and only 416 in both
   packs. The live combined focus run is **21/21**; both encounter disk scenarios
   pass write → new process → Continue → second checked save generation.
-- Both Kenney choices now resolve **330/330** required bindings, 46 actor IDs and
-  92 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Cantor: **407 passed, 0 failed**, frozen full source run
+  `/var/tmp/roag-cantor-final-headless-20261019.log`; includes all six original
+  class Victories, all seven miniboss routes, exact replay and disk continuation.
+  Nine focused tests include the 210-stage / 420-floor company corpus.
+- Both Kenney choices now resolve **334/334** required bindings, 47 actor IDs and
+  94 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -141,18 +145,33 @@ legal actions and replays to an identical full snapshot; the Victory/profile
 checks pass. See `/var/tmp/roag-seed3-earned-recovery.log` and
 `/var/tmp/roag-seed3-gates-accepted.log`.
 
-### Next staged work (not yet live)
+### Current work under verification
 
-- Grave Cantor: `/var/tmp/roag-idea-revival-kf0ggjgt`, eight focused tests and
-  fresh-process pending-revival continuation pass. One committed revival budget,
+- Grave Cantor is now integrated in the live checkout. Nine focused tests and
+  fresh-process pending-revival continuation pass. Full gate passed from
+  frozen source `/var/tmp/roag-cantor-final-yq2akx43` into
+  `/var/tmp/roag-cantor-final-headless-20261019.log`. One committed revival budget,
   blocked/cancelled attempts, weaker revived bodies, bounded corpse records and
   no repeat XP/currency/supply rewards. Broad acceptance is next.
-- Gulp Toad: `/var/tmp/roag-idea-toad-wdfn7s52`, seven focused tests and a real
+- Gulp Toad: updated staging `/var/tmp/roag-toad-current-rz1bt_ya`, seven focused tests and a real
   fresh-process gulp/cargo scenario pass. One original loose drop is carried and
   released on death; interception and competing gulps cannot duplicate loot.
 - Keep these task workspaces until their reviewed changes are integrated. They
   are disposable implementation fixtures, not personal project/save data.
 
-Next: integrate and verify Cantor, then Toad, each in a separate task commit.
+Cantor placement probe: 26 casters across 210 paired stages initially had zero
+eligible allies in clear four-tile range. The revised placement reuses a nearby
+ally or adds one ordinary companion on free, unreserved adjacent floor; it
+skips an unfit formation and never changes geometry. Every Cantor in the same
+corpus now has company. Corpse caps and fog-clipped messages are also checked.
+
+Next: commit the verified Cantor slice, then integrate and verify Toad in a
+separate task commit. A Toad staging run exposed two obsolete pre-Wraith
+catalogue-count assertions; its log is retained at
+`/var/tmp/roag-toad-final-headless-20261019.log`. The corrected staging has all
+eight native-art checks green and its full regression run is underway; this
+is not a passing full-suite claim yet. The Haunted Cache is staged separately
+at `/var/tmp/roag-cache-xl1hbwa3`: six focused tests, five disk scenarios and
+the combined 43 encounter checks pass; broad acceptance is still pending.
 All remaining ledger entries stay in scope. Goal ACTIVE; no full-goal completion
 claim is made.

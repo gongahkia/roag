@@ -2,6 +2,7 @@
 -- 16px art; packed stride is 16, not the alternative spaced sheet's 17.
 local Atlas=require('src.studio_atlas')
 local Squads=require('src.enemy_squads')
+local IdeaEnemies=require('src.idea_enemies')
 local S={path='assets/kenney/1-bit-pack/symbols.png',width=784,height=352,tile=16}
 S.checksum='3fc46971ed866cba'
 local ink={.90,.89,.82}
@@ -114,6 +115,7 @@ function S.new(read,make_texture,make_quad,options)
     for name,index in pairs(Squads.cues) do
         handles['core:ui/'..name]=handle({index,name,arcane})
     end
+    for id,index in pairs(IdeaEnemies.symbols or {})do handles[id]=handle({index,id,arcane})end
     return {texture=image,handles=handles,signature=S.checksum..':semantic-1'}
 end
 return S

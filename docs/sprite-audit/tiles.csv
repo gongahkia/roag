@@ -999,7 +999,7 @@ onebit,314,320,96,50,,
 onebit,315,336,96,61,,
 onebit,316,352,96,86,,
 onebit,317,368,96,60,,
-onebit,318,384,96,66,,
+onebit,318,384,96,66,,core:enemy/grave_cantor
 onebit,319,400,96,78,,core:enemy/ward_weaver
 onebit,320,416,96,82,,
 onebit,321,432,96,88,,core:enemy/siege_wisp
@@ -1220,7 +1220,7 @@ onebit,535,720,160,82,core:ui/squad_heal_effect,core:ui/squad_heal_effect
 onebit,536,736,160,82,,
 onebit,537,752,160,82,,
 onebit,538,768,160,176,,
-onebit,539,0,176,132,,
+onebit,539,0,176,132,core:ui/idea_corpse_effect,core:ui/idea_corpse_effect
 onebit,540,16,176,75,,
 onebit,541,32,176,71,,
 onebit,542,48,176,80,,core:object/review_pillar_top
@@ -3614,7 +3614,7 @@ tiny,84,0,119,215,core:enemy/ward_weaver,
 tiny,85,17,119,194,,
 tiny,86,34,119,194,core:enemy/mend_acolyte,
 tiny,87,51,119,216,core:enemy/pin_archer,
-tiny,88,68,119,199,,
+tiny,88,68,119,199,core:enemy/grave_cantor,
 tiny,89,85,119,222,core:enemy/heavy_rammer,
 tiny,90,102,119,222,,
 tiny,91,119,119,254,,

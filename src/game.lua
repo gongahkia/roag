@@ -248,7 +248,7 @@ function Game.new(seed, map_id, options)
                     e.hp,e.max_hp,e.damage,e.defense,e.speed=def.hp,def.hp,
                         def.damage,def.defense,def.speed
                     e.ai_memory={last_dx=0,last_dy=0}
-                end)
+                end,Game.spawn_enemy)
             end
         end
         populate_active(false)
@@ -455,6 +455,7 @@ local function cancel_windup(state, target, output, reason, source_id, action_id
     if not pending then return false end
     Scheduler.remove_for_actor(state, target.id, "impact")
     target.pending_attack = nil
+    IdeaEnemies.prune_corpses(state)
     emit(state, output, "WindupCancelled", {
         target_id=target.id, windup_id=pending.schedule_id, reason=reason,
         target_cells=pending.target_cells,
@@ -515,6 +516,7 @@ local function shove_actor(state,output,target,dx,dy,source_id,action_id)
 end
 
 local function remove_dead(state, target, output, source_id, action_id)
+    IdeaEnemies.remember_corpse(state,target)
     if target.id == state.player_id then
         state.game_over = true
         Scheduler.remove_for_actor(state, target.id)
@@ -590,6 +592,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 block_reason=block_reason,protecting_id=protecting_id,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
+                reward_exempt=target.reward_exempt or nil,
                 source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
                 adjacent_hostile_count=adjacent_hostile_count,
                 target_burning=target.statuses and target.statuses.burning~=nil or false,
@@ -931,6 +934,9 @@ local function drain_effects(state, output)
                 source_faction=event.source_faction,
                 source_position=event.source_position,
             }
+            if event.kind=='Died' or event.kind=='WindupCancelled' then
+                IdeaEnemies.prune_corpses(state)
+            end
             if event.kind=='Died' then
                 for i=#(state.enemy_snares or {}),1,-1 do
                     if state.enemy_snares[i].source_id==event.target_id then
@@ -1091,6 +1097,7 @@ local function enemy_turn(state, item, output)
     end
     if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then
+        IdeaEnemies.commit(state,enemy,intent)
         local decoy=state.class_special and state.class_special.decoy
         if decoy and decoy.floor_id==position.floor_id then
             for _,cell in ipairs(intent.cells) do
@@ -1122,6 +1129,7 @@ local function enemy_turn(state, item, output)
             support=copy(intent.support),advance=copy(intent.advance),shove=copy(intent.shove),
             committed_time=state.clock,
         }
+        if intent.support and intent.support.kind=='revive' then IdeaEnemies.prune_corpses(state)end
         if intent.clear_retaliate then enemy.ai_memory.retaliate=nil end
         emit(state, output, "WindupStarted", {
             windup_id=scheduled.id, due=due, ability_id=intent.ability_id,
@@ -1200,6 +1208,34 @@ local function resolve_impact(state, item, output)
                     end
                 end
             end
+        elseif pending.support.kind=='revive' then
+            local c=IdeaEnemies.corpse(state,pending.support.corpse_id)
+            local cell=pending.target_cells[1]
+            local protected=false
+            for _,e in ipairs(state.entities)do
+                if e.controller=='exit' and e.position.floor_id==cell.floor_id
+                    and e.position.x==cell.x and e.position.y==cell.y then protected=true;break end
+            end
+            if c and c.claimed_by==enemy.id and c.floor_id==state.active_floor_id
+                and c.x==cell.x and c.y==cell.y
+                and Content.walkable(Content.map_for(state),c.x,c.y)
+                and Visibility.can_see(state,c.floor_id,c.x,c.y)
+                and not Floors.portal(state,c.x,c.y)
+                and not protected
+                and not occupant(state,c.floor_id,c.x,c.y,nil,false) then
+                local revived=Game.spawn_enemy(state,c.definition_id,c.x,c.y,state.clock+1)
+                revived.max_hp=math.max(1,math.ceil(c.max_hp/2));revived.hp=revived.max_hp
+                revived.revival_of=c.id;revived.revived_by=enemy.id;revived.reward_exempt=true
+                emit(state,output,'EnemyRevived',{target_id=revived.id,original_id=c.id,
+                    definition_id=c.definition_id,floor_id=c.floor_id,x=c.x,y=c.y},enemy.id,pending.action_id)
+            else
+                emit(state,output,'RevivalBlocked',{floor_id=cell.floor_id,
+                    x=cell.x,y=cell.y},enemy.id,pending.action_id)
+            end
+            for i=#(state.idea_corpses or {}),1,-1 do
+                if state.idea_corpses[i].id==pending.support.corpse_id then table.remove(state.idea_corpses,i)end
+            end
+            IdeaEnemies.prune_corpses(state)
         elseif pending.support.kind=='phase' then
             local cell=pending.target_cells[1]
             local valid=IdeaEnemies.phase_landing(state,enemy,cell,Content.map_for(state),
@@ -1911,6 +1947,7 @@ function Game.restore(snapshot)
     assert(type(player.hp) == "number" and player.hp >= 0 and player.hp <= player.max_hp,
         "invalid player health")
     Squads.validate(state,maps)
+    IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
         assert(type(entity.id)=="number" and entity.id%1==0
@@ -2008,6 +2045,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='revive' and entity.definition_id=='core:enemy/grave_cantor')
                     or (support.kind=='phase' and entity.definition_id=='core:enemy/hollow_wraith')
                     or (support.kind=='ward' and entity.definition_id=='core:enemy/ward_weaver')
                     or (support.kind=='snare' and entity.definition_id=='core:enemy/snare_scribe'),

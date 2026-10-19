@@ -6,6 +6,7 @@ local S=require('src.kenney_symbols')
 local T=require('src.kenney_terrain')
 local Slots=require('src.visual_slots')
 local Squads=require('src.enemy_squads')
+local IdeaEnemies=require('src.idea_enemies')
 local Checksum=require('src.studio_atlas').checksum
 local A={}
 local function array()return setmetatable({},{audit_array=true})end
@@ -100,6 +101,7 @@ function A.collect()
         end
         for _,id in ipairs(keys(S.terrain))do use('onebit',S.terrain[id][1],id)end
         for _,cue in ipairs(keys(Squads.cues)) do use('onebit',Squads.cues[cue],'core:ui/'..cue) end
+        for _,id in ipairs(keys(IdeaEnemies.symbols or {}))do use('onebit',IdeaEnemies.symbols[id],id)end
         if name=='kenney'then
             for _,id in ipairs(keys(Slots.bindings))do
                 if id:match('^core:object/review_') then

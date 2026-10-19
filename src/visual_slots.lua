@@ -27,6 +27,7 @@ for _,id in ipairs({'bramble_bed','sticky_bog','glazed_ice','barricade',
     'obscuring_mist','resonant_crystal'})do add('core:terrain/'..id)end
 add('core:ui/burning_effect');add('core:ui/block_effect')
 for name in pairs(Squads.cues) do add('core:ui/'..name) end
+for id in pairs(IdeaEnemies.symbols or {})do add(id)end
 for _,id in ipairs({'attack_center_effect','attack_impact_effect',
     'weapon_sword_icon','weapon_bow_icon','weapon_spell_icon',
     'weapon_dagger_icon','weapon_hook_icon'}) do add('core:ui/'..id) end
