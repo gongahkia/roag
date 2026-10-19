@@ -27,6 +27,7 @@ local IdeaOaths = require('src.idea_oaths')
 local IdeaSentinel = require('src.idea_sentinel')
 local IdeaMirrors = require('src.idea_mirrors')
 local IdeaSilt = require('src.idea_silt')
+local IdeaEmbers = require('src.idea_embers')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -973,6 +974,12 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='EmberCreated' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Ember: two fire pulses, 100 time apart; leave the marked tile'
+            elseif event.kind=='MothLandingBlocked' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Moth cannot land on an occupied tile'
             elseif event.kind=='SiltTrailCreated' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y)then
                 notice='Silt trail: temporary bog, +40 walking / +20 per Dash cell; ground stays intact'
@@ -1696,6 +1703,20 @@ local function draw_enemies()
 end
 
 local function draw_squad_cues()
+    for _,ember in ipairs(state.idea_embers or {})do
+        if ember.floor_id==state.active_floor_id and visible_at(ember.x,ember.y)then
+            local x,y=Camera.tile_top_left(camera,ember.x,ember.y)
+            draw_cell(ember,1,.58,.15,.7,true)
+            if not draw_visual(bound_visual('core:ui/burning_effect'),
+                x+TILE*.28,y+TILE*.28,TILE*.44,TILE*.44,.95)then
+                love.graphics.setColor(1,.6,.2,.9)
+                love.graphics.polygon('line',x+TILE*.5,y+TILE*.2,x+TILE*.73,y+TILE*.68,
+                    x+TILE*.5,y+TILE*.78,x+TILE*.27,y+TILE*.68)
+            end
+            love.graphics.setColor(1,.85,.4)
+            love.graphics.print(tostring(ember.remaining),x+TILE*.76,y+TILE*.03)
+        end
+    end
     for _,silt in ipairs(state.idea_silt or {})do
         if silt.floor_id==state.active_floor_id and silt.expires>state.clock and visible_at(silt.x,silt.y)then
             local x,y=Camera.tile_top_left(camera,silt.x,silt.y)
@@ -2566,8 +2587,14 @@ local function draw_world()
     end
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
-            if strike.support then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
+            if strike.ember_pulse then draw_cells(strike.target_cells,1,.58,.15,.7,true)
+            elseif strike.support then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
             else draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true) end
+            if strike.ember_landing and visible_at(strike.ember_landing.x,strike.ember_landing.y)then
+                local x,y=Camera.tile_top_left(camera,strike.ember_landing.x,strike.ember_landing.y)
+                draw_visual(bound_visual('core:ui/burning_effect'),
+                    x+TILE*.69,y+TILE*.04,TILE*.27,TILE*.27,.95)
+            end
             if strike.shove then
                 local s=strike.shove
                 draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,.8,.3,.5,true)

@@ -311,6 +311,37 @@ continuation, a full 485-test gate and the later complete 498-test all-enemy
 gate verify these contracts. Four driver fixtures and all 109 current combined
 encounter checks pass after the unrelated final driver hardening.
 
+## Ember Moth
+
+HP 6, defense 0, raw damage 2, speed 100, base windup/recovery 180/150.
+Its body uses approved 1-Bit 411 in both looks. At two to three clear tiles a
+visible Moth can commit one of two dives. The destination is the player's
+current plain-floor cell, locked at windup; a small fire cue distinguishes the
+follow-up hazard. Stun/displacement cancels the attempt without refunding it.
+Stairs, exits and blocked ground are excluded. Ordinary damage cannot cancel.
+
+The dive checks its fixed cell at impact. If empty, the Moth relocates there
+with a canonical forced arrival; if occupied, the real occupant takes normal
+friendly-fire damage and the Moth stays put. Bodies never overlap. A brief
+ember remains on valid ground either way. The existing relocation presentation
+snaps an untraversed multi-cell displacement instead of inventing a walked path.
+
+Each ember pulses **1 raw fire damage at +100 and +200 world time**, then ends.
+Leaving avoids later pulses; armor/wards still apply. Only its source Moth is
+immune. Fire may outlive its caster for those finite remaining pulses. At most
+eight embers exist, cells cannot overlap, and each caster has two spent dives.
+Pulse timers use the existing effect queue with explicit validated ownership.
+They freeze/rebase with their floor and appear in the read-only pending-threat
+query, keeping the actual next pulse time visible to the HUD and tactical UI.
+No render clock changes their timing and no source terrain is overwritten.
+
+Twelve focused cases cover pure preview, exact times, landing occupancy,
+friendly fire, source immunity, interruption, frozen floors, corrupted timers
+and exact continuation alongside Burning and Temporal Echo. Thirteen disk
+scenarios pass, including a third-process real fire pulse and checked save
+generation 3. The complete all-enemy suite is **498/498**. Actual LÖVE input
+and rendered readability remain pending under the user's no-window restriction.
+
 ## Verification
 
 ```sh

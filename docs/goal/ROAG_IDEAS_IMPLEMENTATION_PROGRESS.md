@@ -31,10 +31,10 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
 | `mirror-hexer` | Mirror Hexer + reflected lane | headless verified; GUI pending | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; `54f13add` |
-| `trail-worm` | Silt Worm + temporary bog trail | headless verified; GUI pending | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; this feature commit |
+| `trail-worm` | Silt Worm + temporary bog trail | headless verified; GUI pending | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; `caedcd77` |
 | `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
-| `ember-moth` | Ember Moth + readable burning landing | pending | — |
+| `ember-moth` | Ember Moth + readable burning landing | headless verified; GUI pending | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; this feature commit |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
 | `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
@@ -171,8 +171,14 @@ No feature is complete merely because a schema, fixture or metadata record exist
   Only test-driver hardening changed after that first full gate. The same Worm
   gameplay also passes in the complete all-enemy **498/498** gate. Twelve
   fresh-process scenarios pass, including the concrete pending charge/trail.
-- Both Kenney choices now resolve **373/373** required bindings, 58 actor IDs and
-  116 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Ember Moth / all approved enemies: **498 passed, 0 failed**, frozen source
+  `/var/tmp/roag-moths-c89j2ljy`, log
+  `/var/tmp/roag-moth-final-headless-20261019.log`. Every integrated runtime/test
+  file matches this full verified tree. Thirteen disk scenarios also pass; the
+  Moth case resolves a real saved pulse in a third process. All 13 enemy
+  concepts are now headless integrated; GUI/game-scale readability is pending.
+- Both Kenney choices now resolve **376/376** required bindings, 59 actor IDs and
+  118 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -267,7 +273,7 @@ third-process fire pulse. Fixed landings cannot overlap actors. Two separately
 scheduled fire pulses remain visible through the existing pending-threat query
 and expire after 200 world time. Burning and Temporal Echo continue exactly
 alongside them. The complete all-enemy source passes **498/498**, log
-`/var/tmp/roag-moth-final-headless-20261019.log`; integration is next.
+`/var/tmp/roag-moth-final-headless-20261019.log`; this slice is integrated.
 
 Headless browser inspection of the catalogue passed 12 pack/filter cases,
 mobile layout and search without JS errors at the earlier 341-binding state:
@@ -289,4 +295,7 @@ The next approved class, Duelist, is prototyped separately in
 two fixture assumptions (Guard cardinal reach and blocked-cell preview).
 Parry costs a normal action, blocks one eligible frontal melee impact during
 that recovery only, and funds one next paid thrust for +2 damage. It is not
-integrated or claimed complete; fresh-process/full/UI checks remain.
+integrated or claimed complete. Its combined 133 checks pass and the full
+510-test gate is running. A persistent saved-riposte HUD cue was added before
+the final gate; the earlier unfinished log is retained. Fresh-process/UI
+checks remain. No class or boon ledger row is marked done yet.

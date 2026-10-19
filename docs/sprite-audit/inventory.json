@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "c521507d079ccf42",
+  "mapping_checksum": "1b9f679812285b72",
   "packs": {
     "kenney": {
-      "actor_count": 58,
-      "actor_silhouettes": 49,
+      "actor_count": 59,
+      "actor_silhouettes": 50,
       "bindings": [
         {
           "height": 8,
@@ -1624,6 +1624,33 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth",
+          "index": 411,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/attack",
+          "index": 411,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/hurt",
+          "index": 411,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
         },
         {
           "height": 8,
@@ -3438,7 +3465,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 116,
+      "static_pose_aliases": 118,
       "usage": {
         "caves": {
           "145": [
@@ -3912,6 +3939,9 @@
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
           ],
+          "411": [
+            "core:enemy/ember_moth"
+          ],
           "416": [
             "core:enemy/hollow_wraith"
           ],
@@ -4139,8 +4169,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 58,
-      "actor_silhouettes": 57,
+      "actor_count": 59,
+      "actor_silhouettes": 58,
       "bindings": [
         {
           "height": 16,
@@ -5757,6 +5787,33 @@
           "height": 16,
           "id": "core:enemy/ember_crucible/hurt",
           "index": 273,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth",
+          "index": 411,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/attack",
+          "index": 411,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/hurt",
+          "index": 411,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -7511,7 +7568,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 116,
+      "static_pose_aliases": 118,
       "usage": {
         "onebit": {
           "1010": [
@@ -7767,6 +7824,9 @@
           ],
           "410": [
             "core:enemy/glass_charger"
+          ],
+          "411": [
+            "core:enemy/ember_moth"
           ],
           "415": [
             "core:enemy/rushwing"
@@ -8067,14 +8127,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 72,
+      "kenney": 73,
       "nonempty": 1077,
-      "onebit": 166,
+      "onebit": 167,
       "sheet": "onebit",
-      "union": 166,
-      "unused_kenney": 1005,
-      "unused_onebit": 911,
-      "unused_union": 911
+      "union": 167,
+      "unused_kenney": 1004,
+      "unused_onebit": 910,
+      "unused_union": 910
     },
     {
       "empty": 63,
@@ -8282,6 +8342,9 @@
     "core:enemy/ember_crucible",
     "core:enemy/ember_crucible/attack",
     "core:enemy/ember_crucible/hurt",
+    "core:enemy/ember_moth",
+    "core:enemy/ember_moth/attack",
+    "core:enemy/ember_moth/hurt",
     "core:enemy/extraction_pursuer",
     "core:enemy/extraction_pursuer/attack",
     "core:enemy/extraction_pursuer/hurt",

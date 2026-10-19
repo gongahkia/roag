@@ -21,6 +21,7 @@ local IdeaEnemies = require('src.idea_enemies')
 local IdeaSentinel = require('src.idea_sentinel')
 local IdeaMirrors = require('src.idea_mirrors')
 local IdeaSilt = require('src.idea_silt')
+local IdeaEmbers = require('src.idea_embers')
 local IdeaWebs = require('src.idea_webs')
 local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
@@ -894,6 +895,7 @@ local function execute_effect(state, output, activation, effect)
 end
 
 local function drain_effects(state, output)
+    IdeaEmbers.prune(state,Content.map_for(state))
     IdeaSilt.prune(state,Content.map_for(state))
     IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
@@ -954,6 +956,7 @@ local function drain_effects(state, output)
             }
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
+                IdeaEmbers.prune(state,Content.map_for(state))
                 IdeaSilt.prune(state,Content.map_for(state))
                 IdeaMirrors.prune(state,Content.map_for(state))
                 IdeaWebs.prune(state,Content.map_for(state))
@@ -1064,6 +1067,7 @@ local function drain_effects(state, output)
             execute_effect(state, output, item.activation, item.effect)
         end
     end
+    IdeaEmbers.prune(state,Content.map_for(state))
     IdeaSilt.prune(state,Content.map_for(state))
     IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
@@ -1192,6 +1196,7 @@ local function enemy_turn(state, item, output)
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
             damage=enemy.damage+(intent.damage_bonus or 0)+(Squads.rally_source(state,enemy) and 1 or 0), due=due,
             support=copy(intent.support),advance=copy(intent.advance),shove=copy(intent.shove),
+            ember_landing=copy(intent.ember_landing),
             reflection=copy(reflection),sentinel_facing=intent.sentinel_facing,
             committed_time=state.clock,
         }
@@ -1205,7 +1210,7 @@ local function enemy_turn(state, item, output)
             support_kind=intent.support and intent.support.kind,
             sentinel_facing=intent.sentinel_facing,
             sentinel_strike=intent.sentinel_facing and enemy.ai_memory.sentinel_strikes,
-            reflection=copy(reflection),
+            reflection=copy(reflection),ember_landing=copy(intent.ember_landing),
         }, enemy.id, action_id)
         return
     end
@@ -1430,6 +1435,24 @@ local function resolve_impact(state, item, output)
             if target then shove_actor(state,output,target,s.dx,s.dy,enemy.id,pending.action_id) end
         end
     end
+    if pending.ember_landing and not state.game_over then
+        local c=pending.ember_landing;local map=Content.map_for(state)
+        if IdeaEmbers.fits(state,map,c)then
+            if not occupant(state,c.floor_id,c.x,c.y,enemy.id,false)then
+                local from_x,from_y=enemy.position.x,enemy.position.y
+                enemy.position.x,enemy.position.y=c.x,c.y
+                emit(state,output,'Displaced',{target_id=enemy.id,reason='flight',
+                    floor_id=c.floor_id,from_x=from_x,from_y=from_y,x=c.x,y=c.y},enemy.id,pending.action_id)
+                emit(state,output,'TileEntered',{floor_id=c.floor_id,from_x=from_x,from_y=from_y,
+                    x=c.x,y=c.y,forced=true},enemy.id,pending.action_id)
+            else
+                emit(state,output,'MothLandingBlocked',{floor_id=c.floor_id,x=c.x,y=c.y},enemy.id,pending.action_id)
+            end
+            IdeaEmbers.create(state,enemy,pending,map,function(kind,fields)
+                emit(state,output,kind,fields,enemy.id,pending.action_id)
+            end)
+        end
+    end
     if pending.advance and not state.game_over then
         local from_x,from_y=enemy.position.x,enemy.position.y
         local path={}
@@ -1481,6 +1504,14 @@ local function advance_to_player(state, output)
             Stage.resolve_due(state,item,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,nil)
             end,Game.spawn_enemy)
+        elseif item.idea_ember then
+            IdeaEmbers.resolve(state,item,function(x,y)
+                return occupant(state,state.active_floor_id,x,y,nil,true)
+            end,function(kind,fields,source_id,action_id)
+                emit(state,output,kind,fields,source_id,action_id)
+            end,function(target,source_id,action_id,power)
+                terrain_damage(state,output,source_id,action_id,target,power,'fire','enemy')
+            end)
         else
             local payload = state.delayed_effects[item.id]
             if payload then
@@ -1886,6 +1917,14 @@ function Game.pending_strikes(state)
     for _, entity in ipairs(state.entities) do
         if entity.pending_attack and entity.position.floor_id==state.active_floor_id then
             result[#result + 1] = copy(entity.pending_attack)
+        end
+    end
+    for _,r in ipairs(state.idea_embers or {})do
+        if r.floor_id==state.active_floor_id then
+            result[#result+1]={schedule_id=r.schedule_id,sequence=r.schedule_id,action_id=r.action_id,
+                source_id=r.source_id,floor_id=r.floor_id,source_x=r.x,source_y=r.y,
+                ability_id='core:ability/moth_ember',target_cells={{floor_id=r.floor_id,x=r.x,y=r.y}},
+                damage=1,due=r.next_due,ember_pulse=true,committed_time=r.next_due-IdeaEmbers.interval}
         end
     end
     table.sort(result, function(a, b)

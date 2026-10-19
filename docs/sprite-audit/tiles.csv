@@ -1092,7 +1092,7 @@ onebit,407,240,128,85,,
 onebit,408,256,128,40,,
 onebit,409,272,128,82,,
 onebit,410,288,128,70,,core:enemy/glass_charger
-onebit,411,304,128,72,,
+onebit,411,304,128,72,core:enemy/ember_moth,core:enemy/ember_moth
 onebit,412,320,128,72,,
 onebit,413,336,128,70,,
 onebit,414,352,128,80,,
