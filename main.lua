@@ -22,6 +22,7 @@ local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local EnemySquads = require('src.enemy_squads')
+local IdeaEnemies = require('src.idea_enemies')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -965,6 +966,10 @@ local function submit(intent)
             elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Revival blocked: the Cantor has spent its only attempt'
+            elseif event.kind=='DropSwallowed' and Game.is_visible(state,event.floor_id,event.x,event.y) then
+                notice='Gulp Toad swallowed '..event.amount..' '..event.drop_kind..'; defeat it to recover'
+            elseif event.kind=='DropRegurgitated' and Game.is_visible(state,event.floor_id,event.x,event.y) then
+                notice='Recovered drop: '..event.amount..' '..event.drop_kind
             elseif event.kind=='Displaced' and event.target_id==state.player_id and event.reason=='shove' then
                 notice='Rammer shove: forced one tile'
             elseif event.kind=="VaultKeyCollected" then
@@ -1665,6 +1670,11 @@ local function draw_squad_cues()
         if enemy.controller=='ai' and p.floor_id==state.active_floor_id and visible_at(p.x,p.y) then
             local x,y=Camera.tile_top_left(camera,p.x,p.y)
             local role=EnemySquads.roles[enemy.definition_id]
+            local carried=enemy.carried_drop_id and IdeaEnemies.drop(state,enemy.carried_drop_id)
+            if carried then
+                draw_visual(bound_visual('core:drop/'..carried.kind),
+                    x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95)
+            end
             local leader=EnemySquads.ward_source(state,enemy) or EnemySquads.rally_source(state,enemy)
             if leader and visible_at(leader.position.x,leader.position.y) then
                 local lp=leader.position
@@ -1816,7 +1826,7 @@ local function draw_rewards()
         end
     end
     for _, drop in ipairs(state.drops) do
-        if not drop.collected and drop.position.floor_id==state.active_floor_id
+        if not drop.collected and not drop.carried_by and drop.position.floor_id==state.active_floor_id
             and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
             if not draw_visual(bound_visual('core:drop/'..drop.kind),x,y,TILE,TILE) then

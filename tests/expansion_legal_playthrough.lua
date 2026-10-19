@@ -45,14 +45,23 @@ local function fight_target(run,id,max_actions,stop_when)
     if class~=Classes.order[3] and class~=Classes.order[6] then
         return Play.fight(run,id,max_actions,stop_when)
     end
+    local first_trace=#run.trace
     for _=1,max_actions do
         if stop_when and stop_when() then return true end
         local enemy=Game.entity(state,id)
         if not enemy then return true end
         if state.game_over then return false,'dead' end
         local p=Game.player(state).position
-        if Play.escape(run,enemy.position) then
+        if Play.escape(run,enemy.position,nil,true) then
             -- Locked impact cells have priority over a shot.
+        elseif Play.movement_cycle(run,first_trace)then
+            -- Matching the target's movement can oscillate forever without
+            -- obtaining a firing line. Clear a real reachable add or hold one
+            -- ordinary action so the approaching target can enter a line.
+            if not Play.attack_in_reach(run)then
+                local ok,why=Play.action(run,{kind='wait'})
+                if not ok then return false,why end
+            end
         else
             local dx,dy=ranged_direction(state,p,enemy.position)
             if dx then

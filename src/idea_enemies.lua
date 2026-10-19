@@ -7,24 +7,38 @@ I.enemies={
     {'heavy_rammer','Heavy Rammer',12,2,1,70,110,140,1},
     {'hollow_wraith','Hollow Wraith',7,2,0,90,100,120,1},
     {'grave_cantor','Grave Cantor',7,1,0,80,150,160,4},
+    {'gulp_toad','Gulp Toad',14,2,1,80,100,140,1},
 }
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
-    ['core:enemy/grave_cantor']='reviver'}
-I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88}
+    ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad'}
+I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
-    ['core:enemy/grave_cantor']=318}
+    ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422}
 I.symbols={['core:ui/idea_corpse_effect']=539}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
-    cantor_revive='cantor revival',cantor_touch='cantor touch'}
+    cantor_revive='cantor revival',cantor_touch='cantor touch',
+    toad_gulp='swallow loose drop',toad_bite='toad bite'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
 
 function I.revivable(e)
     return corpse_ai[e.ai_id] or e.definition_id=='core:enemy/heavy_rammer'
-        or e.definition_id=='core:enemy/hollow_wraith'
+        or e.definition_id=='core:enemy/hollow_wraith' or e.definition_id=='core:enemy/gulp_toad'
+end
+function I.drop(state,id)
+    for _,drop in ipairs(state.drops)do if drop.id==id then return drop end end
+end
+function I.release_drop(state,target,emit)
+    if not target.carried_drop_id then return end
+    local drop=assert(I.drop(state,target.carried_drop_id),'missing carried drop')
+    assert(drop.carried_by==target.id and not drop.collected,'invalid carried drop release')
+    drop.carried_by=nil;target.carried_drop_id=nil
+    drop.position={floor_id=target.position.floor_id,x=target.position.x,y=target.position.y}
+    emit('DropRegurgitated',{drop_id=drop.id,drop_kind=drop.kind,amount=drop.amount,
+        floor_id=drop.position.floor_id,x=drop.position.x,y=drop.position.y})
 end
 function I.prune_corpses(state)
     for i=#(state.idea_corpses or {}),1,-1 do
@@ -94,6 +108,31 @@ end
 function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
+    if I.roles[enemy.definition_id]=='toad' then
+        local best,score
+        if not enemy.carried_drop_id then
+            for _,drop in ipairs(state.drops)do
+                local p=drop.position
+                local distance=math.abs(p.x-a.x)+math.abs(p.y-a.y)
+                if not drop.collected and not drop.carried_by and p.floor_id==a.floor_id
+                    and distance<=4 and h.free(state,enemy.id,p.x,p.y)
+                    and h.visible(p.x,p.y) and h.clear_line(state,a,p)
+                    and (not score or distance<score or distance==score and drop.id<best.id)then
+                    best,score=drop,distance
+                end
+            end
+        end
+        if best then
+            if score<=1 then return {kind='windup',ability_id='core:ability/toad_gulp',
+                cells={{x=best.position.x,y=best.position.y}},support={kind='gulp',drop_id=best.id}}end
+            return h.next_step(state,enemy,{[(best.position.y-1)*h.map.width+best.position.x]=true})
+                or {kind='wait'}
+        end
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id='core:ability/toad_bite',cells={{x=b.x,y=b.y}}}
+        end
+        return h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+    end
     if I.roles[enemy.definition_id]=='reviver' then
         local best,score
         if not enemy.ai_memory.revival_spent then
@@ -210,6 +249,17 @@ function I.populate(state,map,replace,spawn)
 end
 
 function I.validate_pending(enemy,pending)
+    local gulp=pending.support and pending.support.kind=='gulp'
+    if gulp or pending.ability_id=='core:ability/toad_gulp' then
+        local id=gulp and pending.support.drop_id
+        local cell=pending.target_cells[1]
+        assert(gulp and enemy.definition_id=='core:enemy/gulp_toad'
+            and pending.ability_id=='core:ability/toad_gulp'
+            and type(id)=='number' and id%1==0 and id>=1
+            and #pending.target_cells==1 and cell.floor_id==pending.floor_id
+            and math.abs(cell.x-pending.source_x)+math.abs(cell.y-pending.source_y)<=1,
+            'invalid committed gulp')
+    end
     local revive=pending.support and pending.support.kind=='revive'
     if revive or pending.ability_id=='core:ability/cantor_revive' then
         local id=revive and pending.support.corpse_id
@@ -252,6 +302,21 @@ function I.validate(state,maps,content)
     local function actor(id)
         for _,e in ipairs(state.entities)do if e.id==id then return e end end
     end
+    local carriers={}
+    for _,drop in ipairs(state.drops)do
+        if drop.carried_by then
+            local carrier=actor(drop.carried_by)
+            assert(type(drop.carried_by)=='number' and carrier and carrier.controller=='ai'
+                and carrier.definition_id=='core:enemy/gulp_toad' and carrier.hp>0
+                and carrier.carried_drop_id==drop.id and not drop.collected
+                and carrier.position.floor_id==drop.position.floor_id
+                and not carriers[carrier.id],'invalid swallowed drop')
+            carriers[carrier.id]=true
+        end
+    end
+    for _,e in ipairs(state.entities)do if e.carried_drop_id then
+        assert(e.definition_id=='core:enemy/gulp_toad' and carriers[e.id],'missing swallowed drop')
+    end end
     for _,e in ipairs(state.entities)do
         if e.definition_id=='core:enemy/grave_cantor' then
             assert(e.ai_memory.revival_spent==nil or e.ai_memory.revival_spent==true,'invalid revival budget')
@@ -290,6 +355,8 @@ function I.validate(state,maps,content)
         if p and p.support and p.support.kind=='revive' then
             local c=I.corpse(state,p.support.corpse_id)
             assert(c and c.claimed_by==e.id,'missing pending corpse claim')
+        elseif p and p.support and p.support.kind=='gulp' then
+            assert(I.drop(state,p.support.drop_id),'missing pending gulp drop')
         end
     end
 end

@@ -516,6 +516,9 @@ local function shove_actor(state,output,target,dx,dy,source_id,action_id)
 end
 
 local function remove_dead(state, target, output, source_id, action_id)
+    IdeaEnemies.release_drop(state,target,function(kind,fields)
+        emit(state,output,kind,fields,target.id,action_id)
+    end)
     IdeaEnemies.remember_corpse(state,target)
     if target.id == state.player_id then
         state.game_over = true
@@ -1207,6 +1210,18 @@ local function resolve_impact(state, item, output)
                             enemy.id,pending.action_id)
                     end
                 end
+            end
+        elseif pending.support.kind=='gulp' then
+            local drop=IdeaEnemies.drop(state,pending.support.drop_id)
+            local cell=pending.target_cells[1]
+            if drop and not drop.collected and not drop.carried_by and not enemy.carried_drop_id
+                and drop.position.floor_id==cell.floor_id and drop.position.x==cell.x and drop.position.y==cell.y
+                and not occupant(state,cell.floor_id,cell.x,cell.y,enemy.id,false) then
+                drop.carried_by=enemy.id;enemy.carried_drop_id=drop.id
+                emit(state,output,'DropSwallowed',{drop_id=drop.id,drop_kind=drop.kind,amount=drop.amount,
+                    floor_id=cell.floor_id,x=cell.x,y=cell.y},enemy.id,pending.action_id)
+            else
+                emit(state,output,'GulpBlocked',{floor_id=cell.floor_id,x=cell.x,y=cell.y},enemy.id,pending.action_id)
             end
         elseif pending.support.kind=='revive' then
             local c=IdeaEnemies.corpse(state,pending.support.corpse_id)
@@ -2045,6 +2060,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='gulp' and entity.definition_id=='core:enemy/gulp_toad')
                     or (support.kind=='revive' and entity.definition_id=='core:enemy/grave_cantor')
                     or (support.kind=='phase' and entity.definition_id=='core:enemy/hollow_wraith')
                     or (support.kind=='ward' and entity.definition_id=='core:enemy/ward_weaver')

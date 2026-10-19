@@ -24,12 +24,12 @@ No feature is complete merely because a schema, fixture or metadata record exist
 
 | ID | Approved direction | State | Evidence / task commit |
 | --- | --- | --- | --- |
-| `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; this feature commit |
+| `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
 | `haunted-cache` | Haunted cache / chest mimic | pending | — |
 | `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
-| `gulp-toad` | Gulp Toad + recoverable stolen drop | pending | — |
+| `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; this feature commit |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
 | `pain-linked-twins` | Oath Twins + breakable pain link | pending | — |
@@ -122,8 +122,12 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-cantor-final-headless-20261019.log`; includes all six original
   class Victories, all seven miniboss routes, exact replay and disk continuation.
   Nine focused tests include the 210-stage / 420-floor company corpus.
-- Both Kenney choices now resolve **334/334** required bindings, 47 actor IDs and
-  94 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Toad: **415 passed, 0 failed**, final frozen source
+  `/var/tmp/roag-toad-final-verified-l34a8ps4`, log
+  `/var/tmp/roag-toad-final-verified-headless-20261019.log`. All legal class and
+  route gates, old seed-3 Victory/profile, fresh-process drops and native art pass.
+- Both Kenney choices now resolve **337/337** required bindings, 48 actor IDs and
+  96 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -165,13 +169,54 @@ ally or adds one ordinary companion on free, unreserved adjacent floor; it
 skips an unfit formation and never changes geometry. Every Cantor in the same
 corpus now has company. Corpse caps and fog-clipped messages are also checked.
 
-Next: commit the verified Cantor slice, then integrate and verify Toad in a
-separate task commit. A Toad staging run exposed two obsolete pre-Wraith
+Next: commit the verified Toad slice, then integrate the independently verified
+Haunted Cache in a separate task commit. A Toad staging run exposed two obsolete pre-Wraith
 catalogue-count assertions; its log is retained at
-`/var/tmp/roag-toad-final-headless-20261019.log`. The corrected staging has all
-eight native-art checks green and its full regression run is underway; this
-is not a passing full-suite claim yet. The Haunted Cache is staged separately
+`/var/tmp/roag-toad-final-headless-20261019.log`. The corrected catalogue assertions have all
+eight native-art checks green. That full run finished **412/2**: Alchemist
+seed 9 and Forge route seed 25 died during legal combat. Their complete traces
+are `/var/tmp/roag-toad-legal-failure-diagnosis-20261019.log`; snapshots and
+geometry inspection are in `/var/tmp/roag-toad-stall-inspection-20261019.log`.
+The ranged combat driver was oscillating without firing; the combat escape
+strategy also lacked a legal Dash when all adjacent cells were threatened.
+A six-move cycle now clears a reachable add or holds one ordinary action, and
+combat may use an actual safe Dash landing. Travel keeps its previous policy.
+No game stats, scheduler rules, HP or positions were changed to make the runs
+win. A broader Dash strategy caused regressions in the old single-floor
+seed-3 route and a melee chase loop at the Regent; those failure logs remain
+`/var/tmp/roag-toad-combat-final-headless-20261019.log` (413/2) and
+`/var/tmp/roag-cache-combat-final-headless-20261019.log` (417/4). The final
+strategy retains old single-floor and melee Regent tactics. Ranged combat can
+Dash out of pinned areas; the paired-floor melee Forge strategy uses Dash for
+its centered box. The restored legacy gates pass independently and in the
+final full suites. The same cases now succeed: full Alchemist Victory at **20 HP / 1,158
+actions**, and cleared Forge route at **13 HP / 1,153 actions**. See
+`/var/tmp/roag-toad-driver-combat-only-20261019.log`. The final fresh full gate is **415/415** from
+`/var/tmp/roag-toad-final-verified-l34a8ps4`. Earlier failed variants are retained
+as diagnostic evidence, not reported as successful runs. The Haunted Cache is staged separately
 at `/var/tmp/roag-cache-xl1hbwa3`: six focused tests, five disk scenarios and
-the combined 43 encounter checks pass; broad acceptance is still pending.
+the combined 43 encounter checks pass. Its original full run was **420/420**,
+`/var/tmp/roag-cache-final-headless-20261019.log`; the final combat-driver strategy also passes **421/421** from
+`/var/tmp/roag-cache-strategy-check`, log
+`/var/tmp/roag-cache-final-verified-headless-20261019.log`.
+- Bone Splitter staging `/var/tmp/roag-bones-qj45lqig`: six focused tests, six
+fresh-process disk scenarios and 49 combined encounter checks pass. Primary
+HP batches finish before two reward-exempt fragments appear. Two early fixture
+assumptions about standing fragments and a supposed wall were corrected; logs
+are retained. Broad acceptance remains pending.
+- Alarm Keeper staging `/var/tmp/roag-alarm-_f_mxyws`: seven focused tests pass,
+including one spent-on-commit call, cancellation, fixed legal cells, no extra
+rewards and save checks. The first due-time assertion assumed ceiling instead
+of the existing rounded scheduler cost; it was corrected to 343. Broad
+acceptance remains pending. Its old ten-seed Wraith spawn fixture no longer
+contained a Wraith after the pool grew; expanding it to 100 actual generated
+seeds passes all nine Wraith tests without forcing a spawn.
+- Web Weaver staging `/var/tmp/roag-web-ty1eeyte`: eight focused tests pass.
+Tiny 122 remains the mixed body; inspected native 1-Bit 366 is the alternate
+crawler (414/463/60 remain excluded). Webs use drawn lines, two spent attempts,
+locked anchors, one +50 crossing delay, finite simulation lifetime and exact
+saves. Projectile cuts capture pre-damage blockers; killed blockers cannot
+allow the same shot to cut a hidden anchor. Broad/disk acceptance is pending.
+
 All remaining ledger entries stay in scope. Goal ACTIVE; no full-goal completion
 claim is made.

@@ -1552,6 +1552,8 @@ require('tests.enemy_squad_tests')(test,equal)
 require('tests.idea_enemy_tests')(test,equal)
 require('tests.idea_wraith_tests')(test,equal)
 require('tests.idea_revival_tests')(test,equal)
+require('tests.idea_toad_tests')(test,equal)
+require('tests.idea_driver_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

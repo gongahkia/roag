@@ -90,7 +90,7 @@ local function threatened(state,x,y,ignore_armoured)
     return false
 end
 
-function Play.escape(run,goal,ignore_armoured)
+function Play.escape(run,goal,ignore_armoured,allow_dash)
     local state=run.state
     local p=Game.player(state).position
     if not threatened(state,p.x,p.y,ignore_armoured) then return false end
@@ -107,7 +107,35 @@ function Play.escape(run,goal,ignore_armoured)
         local ok=Play.action(run,{kind='move',dx=best[1],dy=best[2]})
         return ok
     end
+    if not allow_dash then return false end
+    -- A centered 3x3 footprint has no safe one-tile step. Use the existing
+    -- immediate Dash when its actual landing clears all committed cells.
+    for _,d in ipairs(dirs)do
+        local preview=Game.preview(state,'dash',d[1],d[2])
+        local cell=preview.valid and preview.cells[preview.distance]
+        if cell and preview.distance>1 and not threatened(state,cell.x,cell.y)then
+            local value=goal and math.abs(cell.x-goal.x)+math.abs(cell.y-goal.y) or 0
+            if not best or value<score then best,score=d,value end
+        end
+    end
+    if best then return Play.action(run,{kind='dash',dx=best[1],dy=best[2]})end
     return false
+end
+
+function Play.movement_cycle(run,first_trace)
+    local n=#run.trace
+    if n-(first_trace or 0)<6 then return false end
+    local p=Game.player(run.state).position
+    local a,b=run.trace[n],run.trace[n-1]
+    if p.x~=b.from.x or p.y~=b.from.y then return false end
+    for offset=0,5 do
+        local record=run.trace[n-offset]
+        local expected=offset%2==0 and a.from or b.from
+        if not record.ok or record.intent.kind~='move'
+            or record.from.x~=expected.x or record.from.y~=expected.y
+            or record.from.hp~=record.hp then return false end
+    end
+    return true
 end
 
 -- The Alchemist's existing area flask is useful against the approved squads.
@@ -285,7 +313,8 @@ function Play.fight(run,id,max_actions,stop_when)
         enemy=Squads.ward_source(state,enemy) or enemy
         if state.game_over then return false,'dead' end
         local p=Game.player(state).position
-        if Play.escape(run,enemy.position) then
+        if Play.escape(run,enemy.position,nil,state.floor_order~=nil
+            and enemy.definition_id=='core:enemy/ember_crucible') then
             -- Locked strikes are evaluated against current occupancy after this dodge.
         elseif adjacent(p,enemy.position) and not Squads.block(state,enemy,Game.player(state),true) then
             local dx,dy=enemy.position.x-p.x,enemy.position.y-p.y

@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "8238ccdaa6513bfc",
+  "mapping_checksum": "e6fedd8581cf8974",
   "packs": {
     "kenney": {
-      "actor_count": 47,
-      "actor_silhouettes": 39,
+      "actor_count": 48,
+      "actor_silhouettes": 40,
       "bindings": [
         {
           "height": 8,
@@ -1681,6 +1681,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/gulp_toad",
+          "index": 123,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/attack",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/hurt",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 89,
           "motif": "",
@@ -3079,7 +3106,7 @@
           "sheet": "micro"
         }
       ],
-      "static_pose_aliases": 94,
+      "static_pose_aliases": 96,
       "usage": {
         "caves": {
           "145": [
@@ -3689,6 +3716,9 @@
           "120": [
             "core:enemy/rushwing"
           ],
+          "123": [
+            "core:enemy/gulp_toad"
+          ],
           "124": [
             "core:enemy/snare_scribe"
           ],
@@ -3731,8 +3761,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 47,
-      "actor_silhouettes": 47,
+      "actor_count": 48,
+      "actor_silhouettes": 48,
       "bindings": [
         {
           "height": 16,
@@ -5410,6 +5440,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/gulp_toad",
+          "index": 422,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/attack",
+          "index": 422,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/hurt",
+          "index": 422,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 129,
           "motif": "",
@@ -6743,7 +6800,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 94,
+      "static_pose_aliases": 96,
       "usage": {
         "onebit": {
           "1010": [
@@ -6988,6 +7045,9 @@
           ],
           "421": [
             "core:enemy/extraction_pursuer"
+          ],
+          "422": [
+            "core:enemy/gulp_toad"
           ],
           "43": [
             "core:enemy/ash_marshal"
@@ -7254,12 +7314,12 @@
       "grid": 1078,
       "kenney": 63,
       "nonempty": 1077,
-      "onebit": 151,
+      "onebit": 152,
       "sheet": "onebit",
-      "union": 151,
+      "union": 152,
       "unused_kenney": 1014,
-      "unused_onebit": 926,
-      "unused_union": 926
+      "unused_onebit": 925,
+      "unused_union": 925
     },
     {
       "empty": 63,
@@ -7276,14 +7336,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 17,
+      "kenney": 18,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 17,
-      "unused_kenney": 115,
+      "union": 18,
+      "unused_kenney": 114,
       "unused_onebit": 132,
-      "unused_union": 115
+      "unused_union": 114
     }
   ],
   "requirements": [
@@ -7473,6 +7533,9 @@
     "core:enemy/grave_cantor",
     "core:enemy/grave_cantor/attack",
     "core:enemy/grave_cantor/hurt",
+    "core:enemy/gulp_toad",
+    "core:enemy/gulp_toad/attack",
+    "core:enemy/gulp_toad/hurt",
     "core:enemy/heavy_rammer",
     "core:enemy/heavy_rammer/attack",
     "core:enemy/heavy_rammer/hurt",

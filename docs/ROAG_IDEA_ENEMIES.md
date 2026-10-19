@@ -95,6 +95,26 @@ formation fits, that replacement is skipped. It never carves terrain to fit.
 The same fixed corpus asserts that every generated Cantor has an eligible ally
 in clear range. Existing concrete saves are never repopulated.
 
+## Gulp Toad
+
+The Toad uses Tiny 123 / 1-Bit 422. Its HP/damage/defense are 14/2/1, speed
+80, base windup 100 and recovery 140. Without suitable loot it approaches and
+uses an ordinary adjacent bite.
+
+An empty Toad seeks one visible loose currency, food or health drop within
+four tiles and clear sight. At close range it commits a locked gulp. Collect
+the drop first, stand over unneeded food, interrupt the Toad or defeat it to
+prevent the swallow. Two simultaneous gulps cannot claim the same item.
+The Toad never steals inventory or currency the player has already collected.
+
+It carries the **original** drop ID, kind and amount; the ground image is hidden
+and a visible carrier gets that drop's icon badge. Defeating it releases the
+same item at its actual death cell. Its own ordinary kill reward is separate.
+A revived Toad can release carried original loot but still earns no repeat
+enemy reward. One Toad carries at most one drop. There is no replacement-loot
+roll or combat RNG draw. Pending gulps, carried loot, ownership, interception
+and release survive exact save/Continue; malformed ownership is rejected.
+
 ## Verification
 
 ```sh
@@ -112,6 +132,10 @@ Cantor assertions cover finite claims, occupied/cancelled attempts, simultaneous
 caster/ally deaths, reward suppression, corpse bounds, natural company and
 reserved placement. Its disk scenario saves a pending revival in one process
 and resolves it identically in another, then saves the second generation.
+The Toad disk scenario similarly saves before a gulp and restores the original
+cargo in another process. Focused tests also cover all three drop kinds,
+post-release pickup exactly once, a full-health player protecting food and two
+competing claims at the same timestamp.
 The disk script uses two separate LuaJIT processes and an isolated `/var/tmp`
 directory, comparing full snapshots and events, including RNG and scheduler.
 It does not open LÖVE or touch personal saves.
@@ -122,7 +146,12 @@ firing at a diagonal foe through a blocked projectile corner, and bumping a
 warded guard instead of using existing flank/lure/area-attack counterplay.
 The driver now checks actual attack cells, recognizes non-damaging support
 markers, and uses ordinary attacks or travel to break a proven stall. Close
-combat remains subject to normal damage and strict windup timing. The driver never assigns HP, positions or actor statistics. Recovery uses
+combat remains subject to normal damage and strict windup timing. Ranged combat also breaks a proven six-move chase cycle with a reachable
+attack or one ordinary wait, and can use an actual Dash landing out of a
+footprint with no safe adjacent step. The paired-floor melee Forge strategy
+uses Dash for its centered box; old single-floor and close-range Regent
+tactics remain unchanged. These are test strategies, not player input logic.
+The driver never assigns HP, positions or actor statistics. Recovery uses
 normal earned pickups and boons.
 
 Regression fixtures reproduce the old 60-action corridor loop (the corrected

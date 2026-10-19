@@ -3,7 +3,7 @@ local Game=require('src.game')
 local P=require('src.persistence')
 local mode,dir=arg[1],arg[2]
 local scenario=arg[3] or 'rammer'
-assert(scenario=='rammer' or scenario=='wraith' or scenario=='cantor','unknown fixture scenario')
+assert(scenario=='rammer' or scenario=='wraith' or scenario=='cantor' or scenario=='toad','unknown fixture scenario')
 assert((mode=='write' or mode=='continue') and type(dir)=='string'
     and dir:match('^/var/tmp/roag%-idea%-disk%-[%w%-]+$'),'isolated fixture directory required')
 local allowed={['active-a.roag']=true,['active-b.roag']=true,
@@ -21,7 +21,11 @@ local store=P.new(storage)
 if mode=='write' then
     local s=Game.new(37);local p=Game.player(s)
     local enemy
-    if scenario=='cantor' then
+    if scenario=='toad' then
+        p.position.x,p.position.y=8,6
+        enemy=Game.spawn_enemy(s,'core:enemy/gulp_toad',10,6,50);enemy.hp=3
+        require('src.rewards').spawn_currency(s,7,s.active_floor_id,9,6,function()end)
+    elseif scenario=='cantor' then
         p.position.x,p.position.y=7,6
         enemy=Game.spawn_enemy(s,'core:enemy/grave_cantor',10,6,200)
         local victim=Game.spawn_enemy(s,'core:enemy/mossbound_guard',8,6,100000)
@@ -37,7 +41,8 @@ if mode=='write' then
     end
     assert(Game.submit(s,{kind='wait'}))
     assert(s.clock==(scenario=='cantor' and 300 or 100)
-        and enemy.pending_attack.due==(scenario=='cantor' and 388 or scenario=='wraith' and 111 or 157))
+        and enemy.pending_attack.due==(scenario=='cantor' and 388 or scenario=='wraith' and 111
+            or scenario=='toad' and 175 or 157))
     assert(store:save(s));assert(store:inspect().record.seq==1)
     local expected=Game.restore(Game.snapshot(s))
     local ok,_,events=Game.submit(expected,{kind='wait'});assert(ok)
@@ -57,6 +62,13 @@ else
             assert(e.reward_exempt and e.hp==3);found=true
         end end
         assert(found and #s.idea_corpses==0 and s.progression.xp_total==5)
+    elseif scenario=='toad' then
+        local found=false
+        for _,e in ipairs(s.entities)do if e.carried_drop_id then
+            assert(e.definition_id=='core:enemy/gulp_toad' and e.carried_drop_id==s.drops[1].id)
+            found=true
+        end end
+        assert(found and not s.drops[1].collected and s.currency==0)
     end
     if scenario=='wraith' then
         local found=false

@@ -165,7 +165,7 @@ end
 function Rewards.pickup_at(state, actor, x, y, emit)
     for _, drop in ipairs(state.drops) do
         local position = drop.position
-        if not drop.collected and position.floor_id == actor.position.floor_id
+        if not drop.collected and not drop.carried_by and position.floor_id == actor.position.floor_id
             and position.x == x and position.y == y then
             if drop.kind=="currency" then
                 local old = state.currency

@@ -1103,7 +1103,7 @@ onebit,418,416,128,68,,core:enemy/spore_herald
 onebit,419,432,128,82,,core:enemy/mycelial_matriarch
 onebit,420,448,128,109,,core:enemy/mire_binder
 onebit,421,464,128,118,,core:enemy/extraction_pursuer
-onebit,422,480,128,128,,
+onebit,422,480,128,128,,core:enemy/gulp_toad
 onebit,423,496,128,85,,
 onebit,424,512,128,53,,
 onebit,425,528,128,55,,
@@ -3649,7 +3649,7 @@ tiny,119,187,153,141,,
 tiny,120,0,170,164,core:enemy/rushwing,
 tiny,121,17,170,202,,
 tiny,122,34,170,230,,
-tiny,123,51,170,192,,
+tiny,123,51,170,192,core:enemy/gulp_toad,
 tiny,124,68,170,192,core:enemy/snare_scribe,
 tiny,125,85,170,86,,
 tiny,126,102,170,86,,
