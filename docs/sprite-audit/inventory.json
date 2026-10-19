@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "5157447fb61bf97f",
+  "mapping_checksum": "1331d7e36c2fe4af",
   "packs": {
     "kenney": {
-      "actor_count": 61,
-      "actor_silhouettes": 50,
+      "actor_count": 62,
+      "actor_silhouettes": 51,
       "bindings": [
         {
           "height": 8,
@@ -274,6 +274,33 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder",
+          "index": 85,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/attack",
+          "index": 85,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/hurt",
+          "index": 85,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 16,
@@ -2652,6 +2679,15 @@
           "width": 16
         },
         {
+          "height": 16,
+          "id": "core:object/bound_spirit",
+          "index": 417,
+          "motif": "core:object/bound_spirit",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:object/chest_open",
           "index": 77,
@@ -3544,7 +3580,7 @@
           "sheet": "tiny"
         }
       ],
-      "static_pose_aliases": 122,
+      "static_pose_aliases": 124,
       "usage": {
         "caves": {
           "145": [
@@ -4027,6 +4063,9 @@
           "416": [
             "core:enemy/hollow_wraith"
           ],
+          "417": [
+            "core:object/bound_spirit"
+          ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
           ],
@@ -4216,6 +4255,9 @@
           "84": [
             "core:enemy/ward_weaver"
           ],
+          "85": [
+            "core:actor/spiritbinder"
+          ],
           "86": [
             "core:enemy/mend_acolyte"
           ],
@@ -4253,8 +4295,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 61,
-      "actor_silhouettes": 59,
+      "actor_count": 62,
+      "actor_silhouettes": 60,
       "bindings": [
         {
           "height": 16,
@@ -4521,6 +4563,33 @@
           "height": 16,
           "id": "core:actor/shade/hurt",
           "index": 79,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder",
+          "index": 122,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/attack",
+          "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/hurt",
+          "index": 122,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -6904,6 +6973,15 @@
         },
         {
           "height": 16,
+          "id": "core:object/bound_spirit",
+          "index": 417,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/chest_open",
           "index": 344,
           "motif": "",
@@ -7723,7 +7801,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 122,
+      "static_pose_aliases": 124,
       "usage": {
         "onebit": {
           "1010": [
@@ -7752,6 +7830,9 @@
           ],
           "121": [
             "core:terrain/barricade"
+          ],
+          "122": [
+            "core:actor/spiritbinder"
           ],
           "123": [
             "core:enemy/mend_acolyte"
@@ -7992,7 +8073,8 @@
             "core:enemy/hollow_wraith"
           ],
           "417": [
-            "core:enemy/haunted_cache"
+            "core:enemy/haunted_cache",
+            "core:object/bound_spirit"
           ],
           "418": [
             "core:enemy/spore_herald"
@@ -8287,14 +8369,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 73,
+      "kenney": 74,
       "nonempty": 1077,
-      "onebit": 168,
+      "onebit": 169,
       "sheet": "onebit",
-      "union": 168,
-      "unused_kenney": 1004,
-      "unused_onebit": 909,
-      "unused_union": 909
+      "union": 169,
+      "unused_kenney": 1003,
+      "unused_onebit": 908,
+      "unused_union": 908
     },
     {
       "empty": 63,
@@ -8311,14 +8393,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 23,
+      "kenney": 24,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 23,
-      "unused_kenney": 109,
+      "union": 24,
+      "unused_kenney": 108,
       "unused_onebit": 132,
-      "unused_union": 109
+      "unused_union": 108
     }
   ],
   "requirements": [
@@ -8352,6 +8434,9 @@
     "core:actor/shade",
     "core:actor/shade/attack",
     "core:actor/shade/hurt",
+    "core:actor/spiritbinder",
+    "core:actor/spiritbinder/attack",
+    "core:actor/spiritbinder/hurt",
     "core:actor/trapper",
     "core:actor/trapper/attack",
     "core:actor/trapper/hurt",
@@ -8616,6 +8701,7 @@
     "core:enemy/web_weaver",
     "core:enemy/web_weaver/attack",
     "core:enemy/web_weaver/hurt",
+    "core:object/bound_spirit",
     "core:object/chest_open",
     "core:object/door_closed",
     "core:object/door_open",

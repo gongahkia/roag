@@ -4,6 +4,7 @@ local Content = require("src.content")
 local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
+local Comp=require('src.idea_companions')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -976,6 +977,8 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='SpiritPositioned'then
+                notice='Spirit placed: R toward an adjacent visible enemy to order a paid strike; no autonomous attacks'
             elseif event.kind=='GeomancerBlockRaised'then
                 notice='Bulwark: blocks movement, sight and bolts; expires after 300 world time'
             elseif event.kind=='GeomancerBlockExpired'then
@@ -2617,7 +2620,7 @@ local function draw_world()
     draw_rewards()
     for _,object in ipairs(state.entities)do
         local p=object.position
-        if object.controller==Geo.controller and p.floor_id==state.active_floor_id and visible_at(p.x,p.y)then
+        if (object.controller==Geo.controller or object.controller==Comp.controller) and p.floor_id==state.active_floor_id and visible_at(p.x,p.y)then
             local x,y=Camera.tile_top_left(camera,p.x,p.y)
             if not draw_visual(bound_visual(object.definition_id),x,y,TILE,TILE)then
                 love.graphics.setColor(.6,.6,.5);love.graphics.rectangle('fill',x+5,y+5,TILE-10,TILE-10)

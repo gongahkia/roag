@@ -39,7 +39,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
 | `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
 | `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
-| `spiritbinder-class` | Spiritbinder — one commanded familiar | pending | — |
+| `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | pending | — |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | pending | — |
@@ -314,3 +314,5 @@ item, room, terrain, environment, presentation and 50+ boon work stays in scope.
 ## Five-class batch — 19 October
 
 Rechecked the unmodified baseline: **510/510**, log `/var/tmp/roag-five-classes-baseline-20261019.log`. Geomancer is integrated from `/var/tmp/roag-geomancer-ceeabc3f`: nine focused tests, 46 class/art/UI contracts and two-process expiry/save continuation pass. Its isolated full gate is running; no result is presumed. New blocks are entity overlays, cannot seal accessible routes, and expire after 300 simulation time. Character selection now uses bounded nine-row pages and matching mouse hitboxes; Classic fallback colors cover additional classes. No LÖVE windows opened.
+
+Spiritbinder is integrated: six final focused cases and two-process paid-command continuation pass; 52 combined class/art/UI contracts passed before the deployment-near-enemy usability correction, and final integration reruns remain required. Deployment now stops before an enemy rather than requiring the first familiar to be placed in a different direction. The initial disk assertion exposed that usability issue; its diagnostic was retained. Geomancer task commit: `6fecf05c`. LÖVE remains closed.

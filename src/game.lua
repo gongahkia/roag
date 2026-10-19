@@ -6,6 +6,7 @@ local Content = require("src.content")
 local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
+local Comp=require('src.idea_companions')
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -419,6 +420,10 @@ function Game.preview(state, kind, dx, dy)
             or occupant(state,position.floor_id,cell.x,cell.y,player.id,false) then
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
+    end
+    if kind=='sweeping_slash' and class.id==Comp.spirit_id then
+        local valid,reason,mode=Comp.preview(state,player,cells,Content,Visibility.can_see)
+        return {valid=valid,reason=reason,cost=cost,cells=cells,companion_mode=mode}
     end
     if kind=='sweeping_slash' and class.id==Geo.id then
         local valid,reason=Geo.preview(state,Content.map_for(state),cells[1].x,cells[1].y)
@@ -1736,7 +1741,15 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id==Geo.definition.special_id then
+        if ability_id==Comp.spirit.special_id then
+            local _,_,mode,spirit=Comp.preview(state,player,cells,Content,Visibility.can_see)
+            if mode=='strike'then
+                local source=copy(player);source.position=copy(spirit.position)
+                attack(state,output,source,action_id,ability_id,cells,player.slash_damage,false,{damage_type='spirit'})
+            else
+                Comp.place(state,player,cells[1],function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
+            end
+        elseif ability_id==Geo.definition.special_id then
             Geo.place(state,player,cells[1].x,cells[1].y,action_id,function(kind,fields)
                 emit(state,output,kind,fields,player.id,action_id)
             end)
@@ -2143,6 +2156,7 @@ function Game.restore(snapshot)
     Squads.validate(state,maps)
     Duelist.validate(state)
     Geo.validate(state,maps)
+    Comp.validate(state,maps)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
@@ -2171,7 +2185,8 @@ function Game.restore(snapshot)
             and entity.controller~="review_vault"
             and entity.controller~="review_gate"
             and entity.controller~="review_pillar"
-            and entity.controller~=Geo.controller then
+            and entity.controller~=Geo.controller
+            and entity.controller~=Comp.controller then
             error("unknown entity controller")
         end
         if entity.controller=='review_vault' then

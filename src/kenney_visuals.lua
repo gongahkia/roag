@@ -7,6 +7,7 @@ local Squads=require('src.enemy_squads')
 local IdeaEnemies=require('src.idea_enemies')
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
+local Comp=require('src.idea_companions')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -117,6 +118,7 @@ function K.new(read,make_texture,make_quad)
     for id,index in pairs(K.idea_actors) do tiny_bindings[id]=index end
     tiny_bindings[Duelist.id]=Duelist.tiny
     tiny_bindings[Geo.id]=Geo.tiny
+    tiny_bindings[Comp.spirit_id]=85
     approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',
         'd407b7ab694fa5d5',203,186,17,12,tiny_bindings)
     approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',

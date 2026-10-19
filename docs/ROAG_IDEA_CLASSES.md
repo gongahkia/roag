@@ -75,3 +75,15 @@ Placement rejects occupied cells, stairs and any cell whose removal disconnects 
 The title picker shows up to nine rows per page. Arrows/gamepad cycle all classes and move the page; mouse selects the visible rows. Number shortcuts still cover the first nine.
 
 Nine focused checks and 46 combined class/art/UI contracts pass. `sh tests/idea_class_disk_resume.sh geomancer` checks fresh-process Continue through expiry. Full regression is recorded in the goal ledger when finished; GUI/physical input remains pending.
+
+## Spiritbinder
+
+HP 20, attack/command 3, defense 0, speed 100. Base move/F/R/X costs: 100/110/140/120.
+
+- **F — Tether Bolt:** three-cell projectile, stopped by the first body and normal corners.
+- **R — Command Spirit:** toward empty ground, deploy/reposition the same familiar up to two visible tiles away. An enemy in the chosen three-cell direction can instead receive a paid strike if adjacent to the familiar. The first deployment stops before an enemy. Invalid reach/visibility costs no time.
+- **X — Spirit Step:** normal two-cell Dash.
+
+The spirit does not block movement, scout, act autonomously, draw attacks or award rewards. One paid strike uses the owner's existing damage/proc pipeline; deployment creates no attack/Echo. The same familiar ID survives repositioning. Saved ownership and exact subsequent commands are validated. Mixed body uses Tiny 85, standalone body 122; the approved familiar uses 1-Bit 417 in both choices (representative art also used by an awake Haunted Cache).
+
+Six focused tests pass; combined contracts and new-process Continue are recorded in the goal ledger. `sh tests/idea_class_disk_resume.sh spiritbinder` resumes an actual commanded strike after a checked save. No LÖVE window or physical input acceptance is claimed.

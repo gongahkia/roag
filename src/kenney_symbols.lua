@@ -3,6 +3,7 @@
 local Atlas=require('src.studio_atlas')
 local Squads=require('src.enemy_squads')
 local IdeaEnemies=require('src.idea_enemies')
+local Comp=require('src.idea_companions')
 local S={path='assets/kenney/1-bit-pack/symbols.png',width=784,height=352,tile=16}
 S.checksum='3fc46971ed866cba'
 local ink={.90,.89,.82}
@@ -116,6 +117,7 @@ function S.new(read,make_texture,make_quad,options)
         handles['core:ui/'..name]=handle({index,name,arcane})
     end
     for id,index in pairs(IdeaEnemies.symbols or {})do handles[id]=handle({index,id,arcane})end
+    for id,index in pairs(Comp.symbols)do handles[id]=handle({index,id,arcane})end
     return {texture=image,handles=handles,signature=S.checksum..':semantic-1'}
 end
 return S

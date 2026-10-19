@@ -3,6 +3,7 @@
 local Targeting=require("src.targeting")
 local D=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
+local Comp=require('src.idea_companions')
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
@@ -98,6 +99,8 @@ Classes.order[#Classes.order+1]=D.id
 Classes.definitions[D.id]=D.definition
 Classes.order[#Classes.order+1]=Geo.id
 Classes.definitions[Geo.id]=Geo.definition
+Classes.order[#Classes.order+1]=Comp.spirit_id
+Classes.definitions[Comp.spirit_id]=Comp.spirit
 
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
@@ -146,7 +149,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==Geo.id then
+        if def.id==Comp.spirit_id then
+            cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='spirit'
+        elseif def.id==Geo.id then
             cells=line(state,content,p,dx,dy,3);ranged=true
         elseif def.id==D.id and explicit then
             cells=line(state,content,p,dx,dy,2);ranged='piercing_line'
@@ -165,7 +170,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
         end
     else
         ability_id=def.special_id
-        if def.id==Geo.id then
+        if def.id==Comp.spirit_id then
+            cells=Comp.cells(state,player,dx,dy,content)
+        elseif def.id==Geo.id then
             cells={{x=p.x+dx,y=p.y+dy}}
         elseif def.id==D.id then
             cells=Targeting.cells('sweeping_slash',p.x,p.y,dx,dy)
@@ -230,7 +237,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==11,"expected eleven starting classes")
+    assert(#Classes.order==12,"expected twelve starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

@@ -803,7 +803,7 @@ onebit,118,320,32,92,,
 onebit,119,336,32,29,,
 onebit,120,352,32,111,,
 onebit,121,368,32,162,core:terrain/barricade,core:terrain/barricade
-onebit,122,384,32,86,,
+onebit,122,384,32,86,,core:actor/spiritbinder
 onebit,123,400,32,88,,core:enemy/mend_acolyte
 onebit,124,416,32,90,,core:actor/duelist; core:enemy/oath_twin_a
 onebit,125,432,32,88,,
@@ -1098,7 +1098,7 @@ onebit,413,336,128,70,,
 onebit,414,352,128,80,,
 onebit,415,368,128,59,,core:enemy/rushwing
 onebit,416,384,128,66,core:enemy/hollow_wraith,core:enemy/hollow_wraith
-onebit,417,400,128,96,,core:enemy/haunted_cache
+onebit,417,400,128,96,core:object/bound_spirit,core:enemy/haunted_cache; core:object/bound_spirit
 onebit,418,416,128,68,,core:enemy/spore_herald
 onebit,419,432,128,82,,core:enemy/mycelial_matriarch
 onebit,420,448,128,109,,core:enemy/mire_binder
@@ -3611,7 +3611,7 @@ tiny,81,153,102,248,,
 tiny,82,170,102,200,,
 tiny,83,187,102,248,,
 tiny,84,0,119,215,core:enemy/ward_weaver,
-tiny,85,17,119,194,,
+tiny,85,17,119,194,core:actor/spiritbinder,
 tiny,86,34,119,194,core:enemy/mend_acolyte,
 tiny,87,51,119,216,core:enemy/pin_archer,
 tiny,88,68,119,199,core:enemy/grave_cantor,
