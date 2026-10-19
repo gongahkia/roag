@@ -14,4 +14,13 @@ return function(test,equal)
         assert(p.hp==24 and s.clock==230,'normal recovery resolves the old box without a hit')
         assert(not e.pending_attack)
     end)
+    test('Arcanist can hit an off-axis foe with the real Fire Sigil without chasing a bolt line',function()
+        local s=G.new(37,nil,{class_id='core:actor/arcanist'})
+        local p=G.player(s);p.position.x,p.position.y=7,6
+        local e=G.spawn_enemy(s,'core:enemy/mossbound_guard',9,7,100000)
+        local run={state=s,trace={},events={}}
+        assert(Play.attack_in_reach(run))
+        assert(run.trace[1].intent.kind=='sweeping_slash' and e.hp==8)
+        assert(p.position.x==7 and p.position.y==6 and s.clock==170)
+    end)
 end

@@ -18,6 +18,7 @@ local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
 local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
+local IdeaWebs = require('src.idea_webs')
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -883,6 +884,7 @@ local function execute_effect(state, output, activation, effect)
 end
 
 local function drain_effects(state, output)
+    IdeaWebs.prune(state,Content.map_for(state))
     local context = assert(contexts[output], "missing boon resolution context")
     local steps = 0
     while context.event_head <= #context.events or context.effect_head <= #context.effects do
@@ -939,6 +941,7 @@ local function drain_effects(state, output)
             }
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
+                IdeaWebs.prune(state,Content.map_for(state))
             end
             if event.kind=='Died' then
                 IdeaEnemies.split(state,event,Content.map_for(state),function(x,y)
@@ -990,6 +993,18 @@ local function drain_effects(state, output)
                     end
                 end
             end
+            IdeaWebs.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end,function(target,delay)
+                local found=false
+                for _,work in ipairs(state.schedule)do
+                    if work.kind=='actor_ready' and work.actor_id==target.id then
+                        work.due=work.due+delay;found=true;break
+                    end
+                end
+                if found then Scheduler.sort(state)
+                else target.snare_delay=(target.snare_delay or 0)+delay end
+            end)
             Rewards.on_event(state, event, function(kind, fields, source_id)
                 emit(state, output, kind, fields, source_id, event.action_id)
             end)
@@ -1033,6 +1048,7 @@ local function drain_effects(state, output)
             execute_effect(state, output, item.activation, item.effect)
         end
     end
+    IdeaWebs.prune(state,Content.map_for(state))
 end
 
 local function attack(state, output, source, action_id, ability_id, cells, raw_damage, ranged, extra)
@@ -1060,6 +1076,17 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
         fields.target_x, fields.target_y = cells[1].x, cells[1].y
     end
     if extra then for key, value in pairs(extra) do fields[key] = value end end
+    if #(state.idea_webs or {})>0 then
+        -- Capture actual projectile reach BEFORE primary deaths remove blockers.
+        -- Anchor cuts cannot pass through a creature stopped by the same shot.
+        fields.web_cut_cells={}
+        for _,c in ipairs(cells)do
+            local pass=not ranged or Content.projectile_passable(Content.map_for(state),c.x,c.y,state)
+            if not pass and ranged~='area'then break end
+            if pass then fields.web_cut_cells[#fields.web_cut_cells+1]=copy(c)end
+            if ranged==true and occupant(state,c.floor_id,c.x,c.y,source.id,true)then break end
+        end
+    end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
     damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
         extra and extra.damage_type, critical,true,ability_id)
@@ -1217,6 +1244,15 @@ local function resolve_impact(state, item, output)
                     end
                 end
             end
+        elseif pending.support.kind=='web' then
+            local ok,w=IdeaWebs.create(state,enemy,pending,{map=Content.map_for(state),
+                free=function(s,id,x,y)return Content.walkable(Content.map_for(s),x,y)
+                    and not occupant(s,enemy.position.floor_id,x,y,id,false)end,
+                visible=function(x,y)return Visibility.can_see(state,enemy.position.floor_id,x,y)end})
+            local p=pending.support
+            emit(state,output,ok and 'WebCreated' or 'WebBlocked',{
+                web_id=w and w.id,floor_id=enemy.position.floor_id,
+                x=(p.ax+p.bx)/2,y=(p.ay+p.by)/2,ax=p.ax,ay=p.ay,bx=p.bx,by=p.by},enemy.id,pending.action_id)
         elseif pending.support.kind=='alarm' then
             for _,cell in ipairs(pending.target_cells)do
                 local valid=IdeaEnemies.alarm_landing(state,enemy,cell,Content.map_for(state),
@@ -2082,6 +2118,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='web' and entity.definition_id=='core:enemy/web_weaver')
                     or (support.kind=='alarm' and entity.definition_id=='core:enemy/alarm_keeper')
                     or (support.kind=='gulp' and entity.definition_id=='core:enemy/gulp_toad')
                     or (support.kind=='revive' and entity.definition_id=='core:enemy/grave_cantor')

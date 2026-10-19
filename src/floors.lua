@@ -77,6 +77,9 @@ function Floors.resume(state,floor_id)
         item.due=item.due+delta
         state.schedule[#state.schedule+1]=item
     end
+    for _,web in ipairs(state.idea_webs or {})do
+        if web.floor_id==floor_id then web.expires=web.expires+delta end
+    end
     for _,entity in ipairs(state.entities) do
         if entity.id~=state.player_id and entity.position
             and entity.position.floor_id==floor_id then

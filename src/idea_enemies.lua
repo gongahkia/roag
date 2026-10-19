@@ -1,6 +1,7 @@
 -- Approved idea encounters. Effects use the existing Game scheduler/HP batch.
 local RNG=require('src.rng')
 local Squads=require('src.enemy_squads')
+local Webs=require('src.idea_webs')
 local I={version='roag-idea-enemies/1'}
 I.enemies={
     -- id, name, HP, damage, defense, speed, windup, recovery, range
@@ -12,27 +13,32 @@ I.enemies={
     {'bone_splitter','Bone Splitter',8,2,0,80,100,130,1},
     {'bone_fragment','Bone Fragment',2,1,0,95,100,110,1},
     {'alarm_keeper','Alarm Keeper',6,1,0,75,220,150,1},
+    {'web_weaver','Web Weaver',7,1,0,90,140,140,4},
 }
 I.secondary={bone_fragment=true}
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
     ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
     ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
-    ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm'}
+    ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm',
+    ['core:enemy/web_weaver']='web'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
-    ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90}
+    ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90,
+    ['core:enemy/web_weaver']=122}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
     ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
     ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
-    ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
+    ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,
+    ['core:enemy/web_weaver']=366}
 I.objects={['core:object/idea_cache_dormant']=303}
 I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
     cantor_revive='cantor revival',cantor_touch='cantor touch',
     toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite',
     bone_strike='bone strike',fragment_stab='fragment stab',
-    keeper_alarm='reinforcement alarm',keeper_touch='keeper touch'}
+    keeper_alarm='reinforcement alarm',keeper_touch='keeper touch',
+    weaver_web='anchored web',weaver_bite='weaver bite'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -119,6 +125,10 @@ function I.corpse(state,id)
     for _,c in ipairs(state.idea_corpses or {})do if c.id==id then return c end end
 end
 function I.commit(state,enemy,intent)
+    if intent.support and intent.support.kind=='web'then
+        assert((enemy.ai_memory.web_casts or 0)<2,'spent web budget')
+        enemy.ai_memory.web_casts=(enemy.ai_memory.web_casts or 0)+1
+    end
     if intent.support and intent.support.kind=='alarm' then
         assert(not enemy.ai_memory.alarm_spent,'spent alarm')
         enemy.ai_memory.alarm_spent=true
@@ -170,6 +180,7 @@ function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
     local role=I.roles[enemy.definition_id]
+    if role=='web'then return Webs.choose(state,enemy,player,h)end
     if role=='alarm' then
         if not enemy.ai_memory.alarm_spent and h.visible(a.x,a.y)then
             local cells={}
@@ -346,6 +357,7 @@ function I.populate(state,map,replace,spawn)
 end
 
 function I.validate_pending(enemy,pending)
+    Webs.validate_pending(enemy,pending)
     local alarm=pending.support and pending.support.kind=='alarm'
     if alarm or pending.ability_id=='core:ability/keeper_alarm' then
         assert(alarm and enemy.definition_id=='core:enemy/alarm_keeper'
@@ -407,6 +419,7 @@ function I.validate_pending(enemy,pending)
 end
 
 function I.validate(state,maps,content)
+    Webs.validate(state,maps)
     local corpses=state.idea_corpses
     assert(corpses==nil or type(corpses)=='table' and #corpses<=32,'invalid corpse store')
     local seen,counts={},{}

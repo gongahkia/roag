@@ -67,6 +67,9 @@ local function fight_target(run,id,max_actions,stop_when)
             if dx then
                 local ok,why=Play.action(run,Play.attack_intent(run,dx,dy))
                 if not ok then return false,why end
+            elseif class==Classes.order[3] and Play.attack_in_reach(run)then
+                -- The existing short-range Fire Sigil reaches off-axis cells
+                -- that a straight bolt cannot. Use it before chasing alignment.
             else
                 local step=Play.path(state,function(at)
                     return ranged_direction(state,at,enemy.position)~=nil

@@ -180,6 +180,35 @@ Its own normal kill reward remains unchanged. Pending cells, budget and called
 actor ownership survive fresh-process Continue. Malformed or excessive claims
 are rejected. Tests also reject an unseen caller beginning a visible alarm.
 
+## Web Weaver
+
+| Parameter | Value |
+| --- | ---: |
+| HP / defense / raw bite | 7 / 0 / 1 |
+| Speed / base windup / recovery | 90 / 140 / 140 |
+| Mixed / standalone body | Tiny 122 / 1-Bit 366 |
+| Lifetime / crossing recovery / cast budget | 400 / +50 / 2 |
+
+A visible caster announces a five-cell anchored line near the player. Its
+endpoints and footprint lock at commitment. A blocked or occupied anchor
+cancels that placement without refunding the attempt. Protected stairs/exits,
+non-floor cells and overlapping lines are excluded. Lines are drawn and
+fog-clipped, not a mesh sprite. The user-rejected 414/463/Micro 60 are unused
+for this encounter; 366 is a compact native crawler inspected from the sheet.
+
+A line never blocks movement or deals damage. Crossing its interior consumes
+it and adds 50 recovery once, including Dash and forced arrival; the caster
+is immune. Direct attacks cut either endpoint. Real projectile blockers are
+captured before damage, so killing a blocker cannot let that same shot cut an
+anchor behind it. DOT cannot cut anchors. Caster death and simulation-time
+expiry remove lines, and inactive floors freeze their remaining lifetime.
+
+Nine focused tests cover locked geometry, cancellation, overlap, movement,
+shove recovery, pre-damage projectile obstruction, expiry and exact saves.
+The disk test saves an active line, reopens it in a second process, then
+crosses it and checks the third save generation in a third process. No preview
+or drawing call advances simulation time or consumes RNG.
+
 ## Verification
 
 ```sh
@@ -205,7 +234,7 @@ Cache checks cover dormancy, real ranged wake-up, the locked delayed bite,
 leaving its target cell, one normal kill reward, invalid wake data and native
 art. Its disk scenario saves an awakened pending bite, restarts LuaJIT and
 resolves that same legal attack and the second checked save generation.
-The disk script uses two separate LuaJIT processes and an isolated `/var/tmp`
+The disk script uses separate LuaJIT processes and an isolated `/var/tmp`
 directory, comparing full snapshots and events, including RNG and scheduler.
 It does not open LÖVE or touch personal saves.
 
@@ -221,6 +250,7 @@ attack or one ordinary wait, and can use an actual Dash landing out of a
 footprint with no safe adjacent step. The paired-floor melee Forge strategy
 uses Dash for its centered box; old single-floor and close-range Regent
 tactics remain unchanged. These are test strategies, not player input logic.
+Arcanist also considers its actual Fire Sigil before chasing an off-axis foe.
 The driver never assigns HP, positions or actor statistics. Recovery uses
 normal earned pickups and boons.
 

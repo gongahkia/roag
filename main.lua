@@ -969,6 +969,14 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='WebCreated' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Web: crossing adds 50 recovery; strike either anchor to cut the line'
+            elseif event.kind=='WebCrossed' and event.target_id==state.player_id then
+                notice='Web crossed: +50 recovery; line consumed'
+            elseif event.kind=='WebAnchorCut' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Web anchor cut: line cleared'
             elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Revival blocked: the Cantor has spent its only attempt'
@@ -1664,6 +1672,27 @@ local function draw_enemies()
 end
 
 local function draw_squad_cues()
+    for _,web in ipairs(state.idea_webs or {})do
+        if web.floor_id==state.active_floor_id then
+            love.graphics.setColor(.85,.83,.94,.85)
+            for i=0,31 do
+                local a,b=i/32,(i+1)/32
+                local tx=web.ax+(web.bx-web.ax)*(a+b)/2
+                local ty=web.ay+(web.by-web.ay)*(a+b)/2
+                if visible_at(math.floor(tx+.5),math.floor(ty+.5))then
+                    local x1,y1=Camera.tile_top_left(camera,web.ax+(web.bx-web.ax)*a,web.ay+(web.by-web.ay)*a)
+                    local x2,y2=Camera.tile_top_left(camera,web.ax+(web.bx-web.ax)*b,web.ay+(web.by-web.ay)*b)
+                    love.graphics.line(x1+TILE*.5,y1+TILE*.5,x2+TILE*.5,y2+TILE*.5)
+                end
+            end
+            for _,p in ipairs({{web.ax,web.ay},{web.bx,web.by}})do
+                if visible_at(p[1],p[2])then
+                    local x,y=Camera.tile_top_left(camera,p[1],p[2])
+                    love.graphics.circle('line',x+TILE*.5,y+TILE*.5,TILE*.12)
+                end
+            end
+        end
+    end
     for _,corpse in ipairs(state.idea_corpses or {})do
         if corpse.floor_id==state.active_floor_id and visible_at(corpse.x,corpse.y)then
             local x,y=Camera.tile_top_left(camera,corpse.x,corpse.y)

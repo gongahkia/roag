@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "38209e01afab80ca",
+  "mapping_checksum": "a3d6b34596a92159",
   "packs": {
     "kenney": {
-      "actor_count": 52,
-      "actor_silhouettes": 43,
+      "actor_count": 53,
+      "actor_silhouettes": 44,
       "bindings": [
         {
           "height": 8,
@@ -2409,6 +2409,33 @@
           "width": 16
         },
         {
+          "height": 16,
+          "id": "core:enemy/web_weaver",
+          "index": 122,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/attack",
+          "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/hurt",
+          "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:object/chest_open",
           "index": 77,
@@ -3240,7 +3267,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 104,
+      "static_pose_aliases": 106,
       "usage": {
         "caves": {
           "145": [
@@ -3860,6 +3887,9 @@
           "120": [
             "core:enemy/rushwing"
           ],
+          "122": [
+            "core:enemy/web_weaver"
+          ],
           "123": [
             "core:enemy/gulp_toad"
           ],
@@ -3911,8 +3941,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 52,
-      "actor_silhouettes": 51,
+      "actor_count": 53,
+      "actor_silhouettes": 52,
       "bindings": [
         {
           "height": 16,
@@ -6319,6 +6349,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/web_weaver",
+          "index": 366,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/attack",
+          "index": 366,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/hurt",
+          "index": 366,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/chest_open",
           "index": 344,
           "motif": "",
@@ -7085,7 +7142,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 104,
+      "static_pose_aliases": 106,
       "usage": {
         "onebit": {
           "1010": [
@@ -7301,6 +7358,9 @@
           ],
           "344": [
             "core:object/chest_open"
+          ],
+          "366": [
+            "core:enemy/web_weaver"
           ],
           "367": [
             "core:enemy/gloom_strider"
@@ -7615,12 +7675,12 @@
       "grid": 1078,
       "kenney": 66,
       "nonempty": 1077,
-      "onebit": 157,
+      "onebit": 158,
       "sheet": "onebit",
-      "union": 157,
+      "union": 158,
       "unused_kenney": 1011,
-      "unused_onebit": 920,
-      "unused_union": 920
+      "unused_onebit": 919,
+      "unused_union": 919
     },
     {
       "empty": 63,
@@ -7637,14 +7697,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 20,
+      "kenney": 21,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 20,
-      "unused_kenney": 112,
+      "union": 21,
+      "unused_kenney": 111,
       "unused_onebit": 132,
-      "unused_union": 112
+      "unused_union": 111
     }
   ],
   "requirements": [
@@ -7915,6 +7975,9 @@
     "core:enemy/ward_weaver",
     "core:enemy/ward_weaver/attack",
     "core:enemy/ward_weaver/hurt",
+    "core:enemy/web_weaver",
+    "core:enemy/web_weaver/attack",
+    "core:enemy/web_weaver/hurt",
     "core:object/chest_open",
     "core:object/door_closed",
     "core:object/door_open",
