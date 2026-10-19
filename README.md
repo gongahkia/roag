@@ -6,8 +6,9 @@ A silly [roguelike](https://en.wikipedia.org/wiki/Roguelike) with some [secrets]
 
 ## Stack
 
-* [Lua](https://www.lua.org/)
-* [LÖVE2d](https://love2d.org/)
+* *Script*: [Lua](https://www.lua.org/), [LÖVE2d](https://love2d.org/)
+* *Font*: [BigBlue Terminal](https://int10h.org/blog/2015/12/bigblue-terminal-oldschool-fixed-width-font/)
+* *Sprites*: [1-Bit Pack](https://kenney.nl/assets/1-bit-pack) by Kenney
 
 ## Screenshots
 
