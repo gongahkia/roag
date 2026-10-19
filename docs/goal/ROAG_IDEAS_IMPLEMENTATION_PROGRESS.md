@@ -33,9 +33,9 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
 | `pain-linked-twins` | Oath Twins + breakable pain link | pending | — |
-| `alarm-keeper` | Alarm Keeper + one interruptible call | pending | — |
+| `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; this feature commit |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
-| `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; this feature commit |
+| `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
 | `rotating-sentinel` | Rotating Sentinel encounter | pending | — |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
 | `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
@@ -136,8 +136,15 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-bone-final-headless-20261019.log`. Six disk scenarios and native
   art checks pass. The new fragment deliberately shares skeleton 323 with a
   smaller whole-pixel render size; all other standalone actor bodies stay unique.
-- Both Kenney choices now resolve **347/347** required bindings, 51 actor IDs and
-  102 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Alarm Keeper: **434 passed, 0 failed**, source
+  `/var/tmp/roag-alarm-_f_mxyws`, final log
+  `/var/tmp/roag-alarm-final-verified-headless-20261019.log`. Seven disk
+  scenarios pass. A caster must be visible before committing its one call.
+  Paired-floor melee combat now breaks the same verified chase cycle as ranged
+  combat; no AI, HP, geometry or timing rule changed. The formerly failing
+  seed-21 Aqueduct route clears at 22 HP after 646 normal actions.
+- Both Kenney choices now resolve **351/351** required bindings, 52 actor IDs and
+  104 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -179,13 +186,13 @@ ally or adds one ordinary companion on free, unreserved adjacent floor; it
 skips an unfit formation and never changes geometry. Every Cantor in the same
 corpus now has company. Corpse caps and fog-clipped messages are also checked.
 
-Next: commit the verified Bone Splitter slice, then finish Alarm Keeper and
-Web Weaver acceptance. Alarm Keeper
+Next: commit the verified Alarm Keeper slice, then finish Web Weaver
+acceptance and the remaining approved encounters. Alarm Keeper
 finished 432/2: an outdated derived inventory checksum and a melee chase
 cycle on seed-21 stage-one Warden. The catalogue is rebuilt; the exact combat
-trace is `/var/tmp/roag-alarm-seed21-diagnosis-20261019.log`. Neither failure is
-reported as a passing gate. The staged Weaver passes nine focused cases and
-an actual third-process +50 crossing / save-generation-3 test. The initial Bone full check was stopped before
+trace is `/var/tmp/roag-alarm-seed21-diagnosis-20261019.log`. The rebuilt catalogue and paired-floor melee cycle correction both pass
+in the final **434/434** full run; the initial 432/2 log is retained. The staged Weaver passes nine focused cases, the combined **66/66** encounter
+checks, and an actual third-process +50 crossing / save-generation-3 test. The initial Bone full check was stopped before
 broad acceptance because its copied ranged driver was outdated; its partial
 log is `/var/tmp/roag-bone-stale-strategy-aborted-20261019.log`. Future workspaces
 now all match the verified strategy files before starting a full gate. A Toad staging run exposed two obsolete pre-Wraith
@@ -247,3 +254,9 @@ Headless browser inspection of the current live catalogue also passes 12 pack/
 filter cases, mobile layout and search with no JS errors. Screenshots/logs:
 `/var/tmp/roag-ideas-current-catalogue-20261019`. This is HTML inspection, not a
 LÖVE GUI or physical-input test.
+
+Oath Twins development is isolated at `/var/tmp/roag-oaths-8hajnz9s`. The
+prototype pair distributes half mitigated HP loss in the same primary batch,
+with a permanent distance/LOS break, no extra hit procs and normal real kill
+rewards. It is not integrated or claimed verified; focused tests and rendering
+are next.

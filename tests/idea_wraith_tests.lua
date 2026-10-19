@@ -120,7 +120,7 @@ return function(test,equal)
             assert(seen==3)
         end
         local found=false
-        for seed=1,10 do
+        for seed=1,100 do
             local s=Game.new_stage(seed,{multifloor=true})
             for _,e in ipairs(s.entities)do if e.definition_id=='core:enemy/hollow_wraith' then found=true end end
             equal(Game.snapshot(s),Game.snapshot(Game.restore(Game.snapshot(s))))

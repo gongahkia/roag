@@ -11,26 +11,28 @@ I.enemies={
     {'haunted_cache','Haunted Cache',8,2,0,75,140,140,1},
     {'bone_splitter','Bone Splitter',8,2,0,80,100,130,1},
     {'bone_fragment','Bone Fragment',2,1,0,95,100,110,1},
+    {'alarm_keeper','Alarm Keeper',6,1,0,75,220,150,1},
 }
 I.secondary={bone_fragment=true}
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
     ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
     ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
-    ['core:enemy/bone_fragment']='fragment'}
+    ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
     ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
-    ['core:enemy/bone_fragment']=323}
+    ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
     ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
-    ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323}
+    ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
 I.objects={['core:object/idea_cache_dormant']=303}
-I.symbols={['core:ui/idea_corpse_effect']=539}
+I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
     cantor_revive='cantor revival',cantor_touch='cantor touch',
     toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite',
-    bone_strike='bone strike',fragment_stab='fragment stab'}
+    bone_strike='bone strike',fragment_stab='fragment stab',
+    keeper_alarm='reinforcement alarm',keeper_touch='keeper touch'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -117,11 +119,31 @@ function I.corpse(state,id)
     for _,c in ipairs(state.idea_corpses or {})do if c.id==id then return c end end
 end
 function I.commit(state,enemy,intent)
+    if intent.support and intent.support.kind=='alarm' then
+        assert(not enemy.ai_memory.alarm_spent,'spent alarm')
+        enemy.ai_memory.alarm_spent=true
+    end
     if intent.support and intent.support.kind=='revive' then
         local c=assert(I.corpse(state,intent.support.corpse_id),'missing committed corpse')
         assert(not c.claimed_by and not enemy.ai_memory.revival_spent,'spent revival')
         c.claimed_by=enemy.id;enemy.ai_memory.revival_spent=true
     end
+end
+
+function I.alarm_landing(state,enemy,cell,map,free,visible)
+    local a=enemy.position
+    if cell.floor_id~=a.floor_id or a.floor_id~=state.active_floor_id
+        or math.abs(cell.x-a.x)+math.abs(cell.y-a.y)~=1
+        or not map.rows[cell.y] or map.rows[cell.y]:sub(cell.x,cell.x)~='.'
+        or not free(state,enemy.id,cell.x,cell.y) or not visible(cell.x,cell.y)then return false end
+    for _,stair in ipairs(map.placements and map.placements.stairs or {})do
+        if stair.x==cell.x and stair.y==cell.y then return false end
+    end
+    for _,e in ipairs(state.entities)do
+        if e.controller=='exit' and e.position.floor_id==a.floor_id
+            and e.position.x==cell.x and e.position.y==cell.y then return false end
+    end
+    return true
 end
 
 function I.phase_geometry(from,to)
@@ -148,6 +170,23 @@ function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
     local role=I.roles[enemy.definition_id]
+    if role=='alarm' then
+        if not enemy.ai_memory.alarm_spent and h.visible(a.x,a.y)then
+            local cells={}
+            for _,d in ipairs(directions)do
+                local c={floor_id=a.floor_id,x=a.x+d[1],y=a.y+d[2]}
+                if I.alarm_landing(state,enemy,c,h.map,h.free,h.visible)then
+                    cells[#cells+1]=c;if #cells==2 then break end
+                end
+            end
+            if #cells>0 then return {kind='windup',ability_id='core:ability/keeper_alarm',cells=cells,
+                support={kind='alarm'}}end
+        end
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id='core:ability/keeper_touch',cells={{x=b.x,y=b.y}}}
+        end
+        return h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+    end
     if role=='bone' or role=='fragment' then
         if math.abs(dx)+math.abs(dy)==1 then
             return {kind='windup',ability_id='core:ability/'..(role=='bone' and 'bone_strike' or 'fragment_stab'),
@@ -307,6 +346,20 @@ function I.populate(state,map,replace,spawn)
 end
 
 function I.validate_pending(enemy,pending)
+    local alarm=pending.support and pending.support.kind=='alarm'
+    if alarm or pending.ability_id=='core:ability/keeper_alarm' then
+        assert(alarm and enemy.definition_id=='core:enemy/alarm_keeper'
+            and pending.ability_id=='core:ability/keeper_alarm' and enemy.ai_memory.alarm_spent==true
+            and #pending.target_cells>=1 and #pending.target_cells<=2,'invalid committed alarm')
+        local cells={}
+        for _,c in ipairs(pending.target_cells)do
+            local key=c.x..','..c.y
+            assert(c.floor_id==pending.floor_id
+                and math.abs(c.x-pending.source_x)+math.abs(c.y-pending.source_y)==1
+                and not cells[key],'invalid alarm cell')
+            cells[key]=true
+        end
+    end
     local gulp=pending.support and pending.support.kind=='gulp'
     if gulp or pending.ability_id=='core:ability/toad_gulp' then
         local id=gulp and pending.support.drop_id
@@ -375,8 +428,11 @@ function I.validate(state,maps,content)
     for _,e in ipairs(state.entities)do if e.carried_drop_id then
         assert(e.definition_id=='core:enemy/gulp_toad' and carriers[e.id],'missing swallowed drop')
     end end
-    local fragments={}
+    local fragments,calls={},{}
     for _,e in ipairs(state.entities)do
+        if e.definition_id=='core:enemy/alarm_keeper' then
+            assert(e.ai_memory.alarm_spent==nil or e.ai_memory.alarm_spent==true,'invalid alarm budget')
+        end
         if e.definition_id=='core:enemy/haunted_cache' then
             assert(e.ai_memory.alerted==nil or type(e.ai_memory.alerted)=='boolean','invalid cache wake state')
         end
@@ -390,6 +446,13 @@ function I.validate(state,maps,content)
                 and not e.revival_of and not e.revived_by,'invalid bone fragment')
             fragments[e.fragment_of]=(fragments[e.fragment_of] or 0)+1
             assert(fragments[e.fragment_of]<=2,'fragment cap exceeded')
+        elseif e.called_by then
+            assert(e.controller=='ai' and e.definition_id=='core:enemy/ruin_skitter'
+                and e.reward_exempt==true and type(e.called_by)=='number'
+                and e.called_by%1==0 and e.called_by>=1 and e.called_by<e.id
+                and not e.revival_of and not e.revived_by,'invalid alarm reinforcement')
+            calls[e.called_by]=(calls[e.called_by] or 0)+1
+            assert(calls[e.called_by]<=2,'alarm reinforcement cap exceeded')
         elseif e.revival_of or e.revived_by or e.reward_exempt then
             assert(e.controller=='ai' and I.revivable(e) and e.reward_exempt==true
                 and type(e.revival_of)=='number' and e.revival_of%1==0

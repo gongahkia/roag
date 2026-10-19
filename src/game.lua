@@ -1217,6 +1217,22 @@ local function resolve_impact(state, item, output)
                     end
                 end
             end
+        elseif pending.support.kind=='alarm' then
+            for _,cell in ipairs(pending.target_cells)do
+                local valid=IdeaEnemies.alarm_landing(state,enemy,cell,Content.map_for(state),
+                    function(s,id,x,y)return Content.walkable(Content.map_for(s),x,y)
+                        and not occupant(s,cell.floor_id,x,y,id,false)end,
+                    function(x,y)return Visibility.can_see(state,cell.floor_id,x,y)end)
+                if valid then
+                    local reinforcement=Game.spawn_enemy(state,'core:enemy/ruin_skitter',cell.x,cell.y,state.clock+1)
+                    reinforcement.called_by=enemy.id;reinforcement.reward_exempt=true
+                    emit(state,output,'AlarmReinforcement',{target_id=reinforcement.id,
+                        floor_id=cell.floor_id,x=cell.x,y=cell.y},enemy.id,pending.action_id)
+                else
+                    emit(state,output,'AlarmBlocked',{floor_id=cell.floor_id,
+                        x=cell.x,y=cell.y},enemy.id,pending.action_id)
+                end
+            end
         elseif pending.support.kind=='gulp' then
             local drop=IdeaEnemies.drop(state,pending.support.drop_id)
             local cell=pending.target_cells[1]
@@ -2066,6 +2082,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='alarm' and entity.definition_id=='core:enemy/alarm_keeper')
                     or (support.kind=='gulp' and entity.definition_id=='core:enemy/gulp_toad')
                     or (support.kind=='revive' and entity.definition_id=='core:enemy/grave_cantor')
                     or (support.kind=='phase' and entity.definition_id=='core:enemy/hollow_wraith')

@@ -305,6 +305,7 @@ function Play.navigate(run,goal,max_actions)
 end
 
 function Play.fight(run,id,max_actions,stop_when)
+    local first_trace=#run.trace
     for _=1,max_actions do
         local state=run.state
         if stop_when and stop_when() then return true end
@@ -316,6 +317,13 @@ function Play.fight(run,id,max_actions,stop_when)
         if Play.escape(run,enemy.position,nil,state.floor_order~=nil
             and enemy.definition_id=='core:enemy/ember_crucible') then
             -- Locked strikes are evaluated against current occupancy after this dodge.
+        elseif state.floor_order and Play.movement_cycle(run,first_trace)then
+            -- A moving foe can keep a melee chase one tile out of reach too.
+            -- Hold a real action or clear a reachable add, without changing AI.
+            if not Play.attack_in_reach(run)then
+                local ok,why=Play.action(run,{kind='wait'})
+                if not ok then return false,why end
+            end
         elseif adjacent(p,enemy.position) and not Squads.block(state,enemy,Game.player(state),true) then
             local dx,dy=enemy.position.x-p.x,enemy.position.y-p.y
             local ok,reason=Play.action(run,{kind='basic_attack',dx=dx,dy=dy})

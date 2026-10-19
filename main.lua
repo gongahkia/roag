@@ -966,6 +966,9 @@ local function submit(intent)
             elseif event.kind=='BoneFragmented' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Bone Splitter: finish the two weak fragments; no repeat rewards'
+            elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
             elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Revival blocked: the Cantor has spent its only attempt'
@@ -1684,6 +1687,12 @@ local function draw_squad_cues()
             local x,y=Camera.tile_top_left(camera,p.x,p.y)
             local role=EnemySquads.roles[enemy.definition_id]
             local carried=enemy.carried_drop_id and IdeaEnemies.drop(state,enemy.carried_drop_id)
+            if enemy.definition_id=='core:enemy/alarm_keeper' and
+                (not enemy.ai_memory.alarm_spent or enemy.pending_attack
+                    and enemy.pending_attack.support and enemy.pending_attack.support.kind=='alarm')then
+                draw_visual(bound_visual('core:ui/idea_alarm_effect'),
+                    x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95)
+            end
             if carried then
                 draw_visual(bound_visual('core:drop/'..carried.kind),
                     x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95)

@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "1868fc9bed14f82d",
+  "mapping_checksum": "38209e01afab80ca",
   "packs": {
     "kenney": {
-      "actor_count": 51,
-      "actor_silhouettes": 42,
+      "actor_count": 52,
+      "actor_silhouettes": 43,
       "bindings": [
         {
           "height": 8,
@@ -1246,6 +1246,33 @@
           "pose_alias": false,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper",
+          "index": 173,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/attack",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/hurt",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
         },
         {
           "height": 8,
@@ -3022,6 +3049,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_alarm_effect",
+          "index": 915,
+          "motif": "core:ui/idea_alarm_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/idea_corpse_effect",
           "index": 539,
           "motif": "core:ui/idea_corpse_effect",
@@ -3204,7 +3240,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 102,
+      "static_pose_aliases": 104,
       "usage": {
         "caves": {
           "145": [
@@ -3602,6 +3638,9 @@
           "141": [
             "core:boon/crownfire/icon + /detail"
           ],
+          "173": [
+            "core:enemy/alarm_keeper"
+          ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
           ],
@@ -3777,6 +3816,9 @@
           ],
           "89": [
             "core:boon/battle_march/icon + /detail"
+          ],
+          "915": [
+            "core:ui/idea_alarm_effect"
           ]
         },
         "rpg": {
@@ -3869,8 +3911,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 51,
-      "actor_silhouettes": 50,
+      "actor_count": 52,
+      "actor_silhouettes": 51,
       "bindings": [
         {
           "height": 16,
@@ -5111,6 +5153,33 @@
           "index": 670,
           "motif": "",
           "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper",
+          "index": 173,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/attack",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/hurt",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
           "sheet": "onebit",
           "width": 16
         },
@@ -6889,6 +6958,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_alarm_effect",
+          "index": 915,
+          "motif": "core:ui/idea_alarm_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/idea_corpse_effect",
           "index": 539,
           "motif": "core:ui/idea_corpse_effect",
@@ -7007,7 +7085,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 102,
+      "static_pose_aliases": 104,
       "usage": {
         "onebit": {
           "1010": [
@@ -7063,6 +7141,9 @@
           ],
           "172": [
             "core:enemy/banner_captain"
+          ],
+          "173": [
+            "core:enemy/alarm_keeper"
           ],
           "174": [
             "core:enemy/banner_follower"
@@ -7494,6 +7575,9 @@
           ],
           "89": [
             "core:boon/battle_march/icon + /detail"
+          ],
+          "915": [
+            "core:ui/idea_alarm_effect"
           ]
         }
       },
@@ -7529,14 +7613,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 64,
+      "kenney": 66,
       "nonempty": 1077,
-      "onebit": 155,
+      "onebit": 157,
       "sheet": "onebit",
-      "union": 155,
-      "unused_kenney": 1013,
-      "unused_onebit": 922,
-      "unused_union": 922
+      "union": 157,
+      "unused_kenney": 1011,
+      "unused_onebit": 920,
+      "unused_union": 920
     },
     {
       "empty": 63,
@@ -7702,6 +7786,9 @@
     "core:drop/currency",
     "core:drop/food",
     "core:drop/health",
+    "core:enemy/alarm_keeper",
+    "core:enemy/alarm_keeper/attack",
+    "core:enemy/alarm_keeper/hurt",
     "core:enemy/ash_marshal",
     "core:enemy/ash_marshal/attack",
     "core:enemy/ash_marshal/hurt",
@@ -7899,6 +7986,7 @@
     "core:ui/currency_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
+    "core:ui/idea_alarm_effect",
     "core:ui/idea_corpse_effect",
     "core:ui/squad_heal_effect",
     "core:ui/squad_rally_effect",

@@ -159,6 +159,27 @@ attacks, invalid ownership and bounded fragment counts. The disk scenario
 continues two live fragments in a separate process with identical events,
 state and RNG, then writes the second checked generation.
 
+## Alarm Keeper
+
+The Keeper uses approved 1-Bit 173 in both choices, with bell 915 above an
+unused or channeling caster. HP/damage/defense are 6/1/0, speed 75, base windup
+220 and recovery 150. A visible caster commits one long alarm on up to two
+visible adjacent ordinary floor cells. Its only call is spent on commitment.
+
+Stun, displacement and death cancel the pending call. Occupying a marked cell,
+losing sight of it, or a protected/blocked destination prevents that particular
+arrival. The other marked cell can still resolve. There is no retargeting or
+second attempt. Stairs, exits and map boundaries stay clear. Afterward the
+Keeper uses ordinary movement and adjacent attacks.
+
+The fixed arrivals are ordinary Skitters with one owner and no extra XP,
+currency or supply rewards. They may move from one simulation unit after
+arrival, using normal attacks and strict scheduling; there is no free reaction
+action. Killing the caster after the call does not erase already living foes.
+Its own normal kill reward remains unchanged. Pending cells, budget and called
+actor ownership survive fresh-process Continue. Malformed or excessive claims
+are rejected. Tests also reject an unseen caller beginning a visible alarm.
+
 ## Verification
 
 ```sh
@@ -194,7 +215,8 @@ firing at a diagonal foe through a blocked projectile corner, and bumping a
 warded guard instead of using existing flank/lure/area-attack counterplay.
 The driver now checks actual attack cells, recognizes non-damaging support
 markers, and uses ordinary attacks or travel to break a proven stall. Close
-combat remains subject to normal damage and strict windup timing. Ranged combat also breaks a proven six-move chase cycle with a reachable
+combat remains subject to normal damage and strict windup timing. Paired-floor ranged and melee combat break a proven
+six-move chase cycle with a reachable
 attack or one ordinary wait, and can use an actual Dash landing out of a
 footprint with no safe adjacent step. The paired-floor melee Forge strategy
 uses Dash for its centered box; old single-floor and close-range Regent

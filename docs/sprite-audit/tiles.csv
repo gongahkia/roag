@@ -854,7 +854,7 @@ onebit,169,352,48,111,,composite terrain material: frame
 onebit,170,368,48,136,,
 onebit,171,384,48,80,,core:enemy/thornspitter
 onebit,172,400,48,76,,core:enemy/banner_captain
-onebit,173,416,48,82,,
+onebit,173,416,48,82,core:enemy/alarm_keeper,core:enemy/alarm_keeper
 onebit,174,432,48,82,,core:enemy/banner_follower
 onebit,175,448,48,70,,
 onebit,176,464,48,82,,
@@ -1596,7 +1596,7 @@ onebit,911,464,288,72,,
 onebit,912,480,288,66,,
 onebit,913,496,288,71,,
 onebit,914,512,288,68,,
-onebit,915,528,288,78,,
+onebit,915,528,288,78,core:ui/idea_alarm_effect,core:ui/idea_alarm_effect
 onebit,916,544,288,95,,
 onebit,917,560,288,50,,
 onebit,918,576,288,58,,
