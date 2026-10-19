@@ -96,6 +96,7 @@ local settings_message=''
 local pause_settings=false
 local settings_page=1
 local settings_selection=1
+local volume_slider={left=480,right=770,keys={'master','music','effects'}}
 local achievement_page=0
 local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
@@ -113,10 +114,7 @@ local function set_visual_style()
     PixelUI.set_style('onebit',presentation_settings.high_contrast)
     love.graphics.setBackgroundColor(.055,.055,.055)
 end
-local function apply_presentation_settings()
-    ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
-        presentation_settings.font,presentation_settings.text_size)
-    love.graphics.setFont(ui_body_font)
+local function apply_audio_settings()
     if love.audio.setVolume then
         love.audio.setVolume(presentation_settings.master/100)
     end
@@ -124,14 +122,42 @@ local function apply_presentation_settings()
         audio_runtime:set_user_mix(presentation_settings.music/100,
             presentation_settings.effects/100)
     end
+end
+local function apply_presentation_settings()
+    ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
+        presentation_settings.font,presentation_settings.text_size)
+    love.graphics.setFont(ui_body_font)
+    apply_audio_settings()
     set_visual_style(visual_assets and visual_assets.generated and
         visual_assets.generated.style)
 end
-local function save_presentation_settings()
-    apply_presentation_settings()
+local function save_presentation_settings(audio_only)
+    if audio_only then apply_audio_settings() else apply_presentation_settings() end
     local ok,reason=PresentationSettings.save(storage,presentation_settings)
     if not ok then settings_message='Settings not saved: '..tostring(reason)
     else settings_message='Settings saved' end
+end
+local function finish_volume_drag()
+    local drag=volume_slider.drag
+    volume_slider.drag=nil
+    if drag and drag.changed then save_presentation_settings(true) end
+end
+local function update_volume_drag(x)
+    local drag=volume_slider.drag
+    if not drag then return end
+    if help_open or not (title and title_view=='settings' or pause_menu and pause_settings) then
+        finish_volume_drag()
+        return
+    end
+    local fraction=math.max(0,math.min(1,
+        (x-volume_slider.left)/(volume_slider.right-volume_slider.left)))
+    local value=math.floor(fraction*100+.5)
+    if presentation_settings[drag.key]~=value then
+        presentation_settings[drag.key]=value
+        drag.changed=true
+        apply_audio_settings()
+        settings_message='Release to save volume'
+    end
 end
 local function local_room_audio(kind)
     if not state or not state.generated_map or not audio_runtime then return nil end
@@ -641,6 +667,7 @@ local function request_new_run()
 end
 
 local function settings_reset_focus()
+    finish_volume_drag()
     settings_page=1
     settings_selection=1
 end
@@ -665,7 +692,7 @@ local settings_tabs={'SOUND','EFFECTS','ACCESSIBILITY'}
 local settings_lengths={3,4,4}
 local function settings_change(direction)
     if settings_page==1 then
-        local key=({'master','music','effects'})[settings_selection]
+        local key=volume_slider.keys[settings_selection]
         presentation_settings[key]=math.max(0,math.min(100,
             presentation_settings[key]+(direction==0 and 1 or direction)*10))
     elseif settings_page==2 then
@@ -675,16 +702,23 @@ local function settings_change(direction)
         if settings_selection==1 then
             presentation_settings.font=presentation_settings.font=='pixel' and 'sans' or 'pixel'
         elseif settings_selection==2 then
-            presentation_settings.text_size=presentation_settings.text_size=='normal' and 'large' or 'normal'
+            local sizes={'small','normal','large'}
+            for i,size in ipairs(sizes) do
+                if presentation_settings.text_size==size then
+                    presentation_settings.text_size=sizes[(i-1+(direction<0 and -1 or 1))%#sizes+1]
+                    break
+                end
+            end
         elseif settings_selection==3 then
             presentation_settings.high_contrast=not presentation_settings.high_contrast
         else
             presentation_settings=PresentationSettings.defaults()
         end
     end
-    save_presentation_settings()
+    save_presentation_settings(settings_page==1)
 end
 local function settings_keypressed(key,on_title)
+    finish_volume_drag()
     if key=='up' or key=='w' then
         settings_selection=(settings_selection+settings_lengths[settings_page]-2)%
             settings_lengths[settings_page]+1
@@ -3177,8 +3211,10 @@ local function settings_click(x,y)
     if row then
         settings_selection=row
         if settings_page==1 then
-            if x>=795 then settings_change(1)
-            elseif x>=705 and x<765 then settings_change(-1) end
+            if x>=volume_slider.left-8 and x<=volume_slider.right+8 then
+                volume_slider.drag={key=volume_slider.keys[row],changed=false}
+                update_volume_drag(x)
+            end
         else settings_change(0) end
         return true
     end
@@ -3212,7 +3248,7 @@ local function draw_settings()
         end
         local label,value
         if settings_page==1 then
-            local key=({'master','music','effects'})[index]
+            local key=volume_slider.keys[index]
             label=({master='Master volume',music='Music & ambience',
                 effects='Effects & UI'})[key]
             value=presentation_settings[key]..'%'
@@ -3225,22 +3261,34 @@ local function draw_settings()
         else
             label=({'Font','Text size','High contrast','Restore defaults'})[index]
             value=({presentation_settings.font=='pixel' and 'PIXEL' or 'SANS',
-                presentation_settings.text_size=='large' and 'LARGE' or 'NORMAL',
+                presentation_settings.text_size:upper(),
                 presentation_settings.high_contrast and 'ON' or 'OFF','RESET'})[index]
         end
         g.setFont(ui_menu_font)
         g.setColor(selected and PixelUI.colors.selected or PixelUI.colors.text)
         g.print(label,164,y+14)
-        g.printf(value,695,y+14,164,'right')
         if settings_page==1 then
-            g.print('−',719,y+14)
-            g.print('+',805,y+14)
+            local key=volume_slider.keys[index]
+            local width=volume_slider.right-volume_slider.left
+            local position=math.floor(volume_slider.left+width*presentation_settings[key]/100+.5)
+            g.setColor(PixelUI.colors.edge)
+            g.rectangle('fill',volume_slider.left,y+23,width,8)
+            g.setColor(selected and PixelUI.colors.selected or PixelUI.colors.text)
+            if position>volume_slider.left then
+                g.rectangle('fill',volume_slider.left,y+23,position-volume_slider.left,8)
+            end
+            g.rectangle('fill',position-5,y+16,10,22)
+            g.printf(value,794,y+14,65,'right')
+        else
+            g.printf(value,695,y+14,164,'right')
         end
     end
     local info=settings_message~='' and settings_message or
         (art_status=='loaded' and 'Artwork: Kenney 1-Bit · fixed appearance' or 'Artwork unavailable · emergency fallback · F5 retry')
     PixelUI.center(info,501,ui_menu_font,PixelUI.colors.muted,130,764)
-    PixelUI.center('Tab / click category · ↑↓ select · ←→ adjust · Enter apply · Esc back',
+    PixelUI.center(settings_page==1 and
+        'Click / drag volume · ←→ adjust · Tab category · Esc back' or
+        'Tab / click category · ↑↓ select · ←→ adjust · Enter apply · Esc back',
         545,ui_body_font,PixelUI.colors.selected,130,764)
 end
 
@@ -3542,6 +3590,7 @@ function love.roagAssetIdResolved(id)
 end
 function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
+    finish_volume_drag()
     if help_open then help_open=false;return end
     if boon_detail_id then boon_detail_id=nil;return end
     if interaction_ui.menu then interaction_ui.response(interaction_ui.controller.mouse(interaction_ui.menu,x,y,presses));return end
@@ -3634,7 +3683,19 @@ function love.mousepressed(x,y,button,istouch,presses)
         elseif x>=926 then love.keypressed('escape')end
     end
 end
+function love.mousemoved(x,y)
+    update_volume_drag(x)
+end
+function love.mousereleased(x,y,button)
+    if button~=1 then return end
+    update_volume_drag(x)
+    finish_volume_drag()
+end
+function love.focus(focused)
+    if not focused then finish_volume_drag() end
+end
 function love.wheelmoved(dx,dy)
+    finish_volume_drag()
     if interaction_ui.menu then if dy~=0 then interaction_ui.response(interaction_ui.controller.key(interaction_ui.menu,dy>0 and 'up' or 'down'))end;return end
     if help_open or boon_detail_id then return end
     if title and unlocks_view and dy~=0 then

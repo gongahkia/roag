@@ -37,6 +37,10 @@ Artwork is fixed to Kenney 1-Bit with the approved monochrome Kenney
 counterparts. Settings adjust sound, effects and accessibility; there is no art
 pack selector. `F5` refreshes artwork/audio. See the [sprite coverage guide](docs/ROAG_SPRITE_AUDIT.md).
 
+In **Settings → Sound**, click or drag each volume slider; the percentage appears
+on its right and saves when released. Arrow keys adjust the selected volume too.
+**Settings → Accessibility → Text size** cycles through Small, Normal and Large.
+
 ## Controls
 
 | Key | Action |

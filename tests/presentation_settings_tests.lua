@@ -10,7 +10,7 @@ return function(test,equal)
         assert(Settings.save(disk,defaults))
         local loaded,source=Settings.load(disk)
         assert(source=='loaded');equal(defaults,loaded)
-        loaded.music=55
+        loaded.music=55.5
         assert(not Settings.save(disk,loaded))
         local intact=Settings.load(disk)
         assert(intact.music==30)

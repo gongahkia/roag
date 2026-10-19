@@ -51,14 +51,18 @@ local sequences={
 }
 local function snapshot()return Codec.encode(Game.snapshot(tracked))end
 local function stable()assert(snapshot()==before,'menu action changed simulation, RNG, or save snapshot')end
-local function click(x,y,presses)love.mousepressed(x,y,1,false,presses or 1);update(0)end
+local function click(x,y,presses)
+    love.mousepressed(x,y,1,false,presses or 1)
+    love.mousereleased(x,y,1)
+    update(0)
+end
 local function fail(why)
     failed=true;io.stderr:write('MENU '..mode..' FAILED: '..tostring(why)..'\n');love.event.quit(1)
 end
 local function check_settings()
     assert(love.roagVisualPackMode()=='onebit')
     -- First category is Sound; this changes music volume, never artwork.
-    click(805,286)
+    click(683,286) -- 70% on the music slider; release saves it.
     assert(love.roagVisualPackMode()=='onebit')
 end
 function love.load(...)

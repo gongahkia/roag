@@ -10,14 +10,15 @@ function S.validate(value)
     assert(type(value)=='table' and value.format==S.format,'invalid presentation format')
     for _,key in ipairs({'master','music','effects'}) do
         local number=value[key]
-        assert(type(number)=='number' and number%10==0 and
+        assert(type(number)=='number' and number%1==0 and
             number>=0 and number<=100,'invalid '..key..' volume')
     end
     for _,key in ipairs({'shake','flash','combat_effects','damage_numbers','high_contrast'}) do
         assert(type(value[key])=='boolean','invalid '..key..' option')
     end
     assert(value.font=='pixel' or value.font=='sans','invalid font option')
-    assert(value.text_size=='normal' or value.text_size=='large','invalid text size')
+    assert(value.text_size=='small' or value.text_size=='normal' or
+        value.text_size=='large','invalid text size')
     for key in pairs(value) do
         assert(S.defaults()[key]~=nil,'unexpected presentation option')
     end

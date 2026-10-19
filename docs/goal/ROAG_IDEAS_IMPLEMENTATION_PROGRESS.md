@@ -920,3 +920,35 @@ This requested follow-up is implemented and headless verified. **Stop here**;
 the existing larger goal remains paused with all remaining additional-boon,
 redirect and final GUI/human integration work preserved above. There is no
 unrequested continuation into that backlog.
+
+### Settings follow-up — volume sliders and Small text
+
+Replaced the crowded Sound minus/plus controls with click/drag sliders and a
+separate right-aligned percentage. They preview master/music/effects volume
+immediately in one-percent increments, clamp to 0–100%, and save once on release
+or when navigation/focus ends a drag. Arrow keys retain ten-percent adjustments.
+Audio-only adjustments no longer allocate UI fonts. Storage failures remain
+visible. Title and pause settings share these controls.
+
+Accessibility now cycles **Small / Normal / Large**, in either direction with
+arrow keys or forward by clicking/Enter. Small uses body/display/menu font sizes
+10/20/14; Normal remains the default (12/24/16), Large remains 14/26/18. Both
+font faces retain unsupported-glyph fallback. Existing version-1 Normal/Large
+preferences load unchanged; the accepted value set adds Small and integer
+volume percentages. No run/profile schema, gameplay, art or source-asset change.
+
+Four new cases exercise persistence/invalid values, real font loading with
+graphics stubs, actual main.lua click/drag/render/keyboard callbacks, safe drag
+termination and failed saves. They check exact snapshots before/after, no
+per-motion writes and no audio-adjustment font allocation. These and six
+fixed-look cases pass **10/10**; the existing preference case separately passes
+**1/1**. Menu shell and embedded-Lua syntax checks pass. Logs:
+`/var/tmp/roag-settings-focus-20261019.log` and
+`/var/tmp/roag-settings-preferences-20261019.log`.
+
+The prior full baseline is **635/635**. The final full suite is running from
+frozen source `/var/tmp/roag-settings-final-bpyvl0g8`, with log
+`/var/tmp/roag-settings-final-headless-20261019.log`; its result will be recorded
+before completion. No LÖVE application or GUI harness was opened, as requested.
+Actual rendered-frame/physical-input acceptance remains unverified. The broader
+approved-ideas goal remains **paused**; no additional-boon work is resumed.
