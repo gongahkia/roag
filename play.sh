@@ -1,3 +1,4 @@
 #!/bin/sh
 set -eu
-exec "$(dirname "$0")/vagabonds.sh" "$@"
+cd "$(dirname "$0")"
+exec python3 -m regolith "$@"

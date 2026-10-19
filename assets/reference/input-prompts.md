@@ -1,6 +1,6 @@
 # Keyboard and controller prompts: every control graphic
 
-Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [catalog schema 5](CATALOG_V2.md) for neutral artwork metadata and separate current Ithica/preview selection and [ithica-colony-sprites.json](../ithica-colony-sprites.json) for the home bindings. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.
+Generated from [sprites.json](../sprites.json). Every listed sprite is **unused by the game runtime**. `proposed` means a suggested mapping to a feature that exists today; `unmapped` means no specific existing feature is assigned. Ideas can require new mechanics or art changes.
 
 All coordinates are zero-based source pixels; rectangles are `x, y, width, height`. Urizen IDs also encode zero-based row and column. Source paths are relative to `assets/`.
 

@@ -1,10 +1,10 @@
-# Ithica sprite reference and original import audit
+# Regolith sprite reference
 
-The per-pack tables and [sprites.json](sprites.json) preserve the original import-time audit of every occupied region, including uncertain motifs, exact IDs/crops, proposals and future ideas. Their unused/proposed flags refer to the archived Python prototype, which loads no PNGs. The historical proposals below do not assert current gameplay.
+This reference describes **every occupied sprite region in all three downloaded packs**, including every icon variant, both generations of input prompts, the main Urizen atlas, and its free 2-bit sample. It gives each region a stable ID, source rectangle, identification basis, current-game proposal where appropriate, and an idea for future use.
 
-**Current source of truth:** [catalog.json](catalog.json), schema 5, covers **11,887 regions / 7,115 occupied sprites**. `sprites[].asset` provides game-independent descriptions, types, subject confidence, layers, composition and measured colors for every region; all 7,115 occupied crops have recorded inspection. `sprites[].ithica` separately distinguishes **166 current selected IDs**, **75 preview-only IDs** and **6,874 unbound occupied sprites**, with lunar roles, limits and future ideas. [Schema/authoring guide](reference/CATALOG_V2.md) · [14 current field aliases](reference/ithica-sprites.md) · [colony selection](ithica-colony-sprites.json) · [field/preview selection](ithica-expedition-bindings.json).
+**All 7,115 sprite entries are currently unused by the game.** Regolith renders character glyphs in `regolith/tui.py`; it does not load these PNGs. A proposed mapping below is a design suggestion, not an implemented renderer or a new gameplay feature.
 
-Original PNGs, IDs, crops and publisher-identity evidence remain unchanged. Current home and field contexts can cast the same crop differently. The full atlas is available with F2 in Ithica and in [the offline browser/scene lab](atlas.html). Registration in a viewer is not gameplay use.
+The original [catalog.json](catalog.json) remains the file inventory: dimensions, hashes, archives, publisher links, and licenses. It did not previously enumerate the sprites inside the atlases. The new [sprites.json](sprites.json) supplies that detail.
 
 ## Open the reference
 
@@ -31,7 +31,7 @@ The long Markdown tables contain **all sprite entries**, not just a shortlist. B
 | Input prompts, all nine sheets | 9 | 786 | 8 author/font-credit regions |
 | **Total** | **664** | **7,115** | **4,772 non-sprite regions** |
 
-There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `ithica-colony-sprites.json` and catalog schema 5.
+There are **11,887 total records**. Of the sprite records, **1,885 have a proposed use for an existing feature**, and **5,230 remain unmapped with future-use ideas**. Actual runtime mappings: **zero**.
 
 “Occupied sprite region” means a crop containing visible artwork. It does **not** mean a guaranteed independent object or unique design. Multi-cell machines, large buildings, banners, celestial bodies, and plants contribute several cells. Six extremely sparse cells contain only one or two foreground pixels and are explicitly flagged for review. Forty-two sprite crops repeat another crop's exact RGBA pixels and dimensions; their individual entries remain present with `identical_crop_to` links.
 
@@ -39,12 +39,12 @@ There are **11,887 total records**. At import, **1,885 sprite records had a prop
 
 | Field / value | Meaning |
 |---|---|
-| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog schema 5 records current Ithica/preview selection separately. |
-| `mapping_status: proposed` | A proposal for an import-era colony feature; it does not imply an active current binding. |
+| `runtime_status: unused` | No game code currently loads or displays this bitmap. Applies even when the sprite depicts something already simulated. |
+| `mapping_status: proposed` | A suggested use for a feature that exists in Regolith today. It is not an active binding. |
 | `mapping_status: unmapped` | No specific existing feature is assigned. Read `future_ideas` for a possible use and any mechanics/art changes it would need. |
 | `not_applicable` | Empty space, separator art, or a source credit, rather than a gameplay sprite. |
 | `author_metadata_visible_rgb_match` | A historical name from the author's Urizen tile data matches this crop's visible RGB artwork. |
-| `publisher_filename` | The icon name comes from its provided filename. The Import-era colony interpretation is still a proposal. |
+| `publisher_filename` | The icon name comes from its provided filename. The Regolith interpretation is still a proposal. |
 | `visible_key_label_or_symbol` | A key or controller label read from the image. Controller bright/dim states are visual observations. |
 | `visual_inference` / `visual_region_and_silhouette` | A working visual description or group, with unconfirmed author identity. These are deliberately marked as uncertain. |
 
@@ -70,10 +70,10 @@ The main sheet's columns **25, 51, 77, and 103** are magenta separator bands. Th
 
 “Empty” means no nontransparent foreground pixel with any RGB channel above 8. This matters because the files mix transparent, black, and almost-black backgrounds. An alpha-only test incorrectly identifies opaque black padding as art. The threshold is explicit in the generator and JSON; original pixels are never changed.
 
-| Main-sheet columns, inclusive | Visually inspected content | Import-era colony interpretation |
+| Main-sheet columns, inclusive | Visually inspected content | Regolith interpretation |
 |---|---|---|
 | 0–24 | Walls, doors, textures, vegetation, animals, food, minerals, clothing, tools, furniture, buildings, miscellaneous items | Geology and deck/hull candidates; indoor crops; tools, supplies, bunks, salvage, and decoration. Plants and animals do not imply outdoor lunar ecology. |
-| 26–50 | Fantasy/medieval buildings, weapons, armor, scrolls, books, signs, containers, heraldry, effects, modular larger pictures | Mostly future props, keepsakes, reskinned tools/storage, scenario art, or UI symbols. This is an import-era assessment; current lunar combat and retained preview casting are documented separately. |
+| 26–50 | Fantasy/medieval buildings, weapons, armor, scrolls, books, signs, containers, heraldry, effects, modular larger pictures | Mostly future props, keepsakes, reskinned tools/storage, scenario art, or UI symbols. Combat and magic are not current systems. |
 | 52–76 | Metal architecture, roads/rails, vehicles, medical equipment, electronics, computers, machine parts, conduits, banknotes | Strongest machinery/HUD material; many current-feature candidates. Roads, rovers, pipe networks, and money require new mechanics. |
 | 78–102 | Spacecraft and sci-fi effects, figures/poses, celestial objects, patterned tiles, status symbols, bitmap text | Crew/suit alternatives, effects, sector-map art, graphical UI, and font glyphs. Several pictures span cells. |
 | 104–205 | Dense figure/profession matrix, sparse creature rows, miscellaneous figures and poses | Crew appearance candidates near the human figures; other rows remain unconfirmed body/species variants with future-use ideas. |
@@ -95,7 +95,7 @@ The other **4,536 main-sheet occupied cells** receive explicit visual descriptio
 - Cropped parts of a large machine, banner, plant, or planet must be assembled deliberately. They are not all complete one-cell objects.
 - The 125 occupied 2-bit sample cells have visual working labels, not recovered author names. The sample does not provide a complete matching replacement for every one-bit tile.
 
-### Preserved import-era starting mappings
+### Concrete starting mappings for this game
 
 These are also stored in `sprites.json` under `recommended_mappings`. They cover all terrain types and current buildable modules. A different crop can be chosen later without changing the simulation model.
 

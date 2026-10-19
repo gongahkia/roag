@@ -13,7 +13,6 @@ from collections import Counter
 from pathlib import Path
 
 from PIL import Image
-from catalog_io import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
@@ -801,7 +800,7 @@ def cell(text):
 
 
 def write_pack_markdown(records, pack, title, output):
-    lines = [f"# {title}", "", "Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [catalog schema 5](CATALOG_V2.md) for neutral artwork metadata and separate current Ithica/preview selection and [ithica-colony-sprites.json](../ithica-colony-sprites.json) for the home bindings. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.", "",
+    lines = [f"# {title}", "", "Generated from [sprites.json](../sprites.json). Every listed sprite is **unused by the game runtime**. `proposed` means a suggested mapping to a feature that exists today; `unmapped` means no specific existing feature is assigned. Ideas can require new mechanics or art changes.", "",
              "All coordinates are zero-based source pixels; rectangles are `x, y, width, height`. Urizen IDs also encode zero-based row and column. Source paths are relative to `assets/`.", "",
              "Identity basis: **author match** = historical author name matched by visible RGB artwork; **filename** = publisher's filename; **visual** = working description, not a verified author name. Unnamed figures keep their species/profession unconfirmed.", ""]
     sources = sorted({r["source"] for r in records if r["pack"] == pack})
@@ -840,7 +839,7 @@ def main():
     records = build_urizen() + build_icons() + prompts
     ids = [r["id"] for r in records]
     assert len(set(ids)) == len(ids), "Duplicate sprite IDs"
-    files = load_catalog()["images"]
+    files = json.loads((ASSETS / "catalog.json").read_text())["images"]
     sizes = {r["path"]: (r["width"], r["height"]) for r in files}
     assert {r["source"] for r in records} == set(sizes), "A source image is not covered"
     for filename, cols, rows in [("urizen_onebit_tileset__v2d0.png", 206, 50), ("urizen__2bit__free.png", 20, 7)]:
