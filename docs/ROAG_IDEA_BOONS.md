@@ -146,8 +146,14 @@ An earlier updated run was 668/669 because an achievement test still expected a
 fixed 50-entry pool. The corrected test retains the legal elite/profile/unlock
 offer proof and passes in the clean full retry. With Pilgrim, the new focused
 cases are **36/36** (22 supply/reward + 14 vow/compile), and combined boon,
-artwork, environment, settings and palette checks are **101/101**. Its updated
-683-case full gate remains pending until recorded in the progress ledger.
+artwork, environment, settings and palette checks are **101/101**. The first 683-case gate returned 681 pass / 2 fail: a historical M6 chest
+trace accidentally used the widened pool, and the Ranger driver approached
+melee instead of using its four-cell bow. The M6 trace now explicitly retains
+its 48-ID historical pool; current New Run pool coverage remains in the legal
+full-run gates. The Ranger now uses actual ranged positions. All four original
+classes pass the current-pool Victory gate; seed-9 Ranger also has an exact
+action replay. No actor, geometry or combat timing was weakened. A clean full
+retry remains required after the working dice addition.
 
 Pilgrim also passes three independent GUI processes for actual keyboard aim,
 cancel, payment and ordinary follow-up, plus controller LB callback verification

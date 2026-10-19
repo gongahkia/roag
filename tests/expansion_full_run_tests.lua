@@ -47,6 +47,18 @@ return function(test,equal)
             assert(run.state.victory and Game.player(run.state).definition_id==case[1])
             assert(#run.stages==3 and #run.purchases>=1 and #run.trace>500)
             assert(run.state.victory.hp>0)
+            if case[1]==Classes.order[2] then
+                local ranged_hit=false
+                for _,event in ipairs(run.events)do
+                    if event.kind=='DamageTaken' and event.ability_id=='core:ability/ranger_shot'
+                        and event.direct_attack and event.actual_loss>0 then
+                        local from=event.source_position
+                        local distance=math.max(math.abs(from.x-event.x),math.abs(from.y-event.y))
+                        if distance>=2 and distance<=4 then ranged_hit=true;break end
+                    end
+                end
+                assert(ranged_hit,'guided Ranger never used its real four-cell firing range')
+            end
         end
     end)
     test('Sentinel and Alchemist each reach Victory through ordinary submitted actions',function()

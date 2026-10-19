@@ -1158,3 +1158,35 @@ unexplained native GUI failures remain unresolved; no blanket fix is claimed.
 
 A full 683-case gate is still required for this eighth addition. Dice and at
 least **42 further boons**, then final combined acceptance, remain active.
+
+
+## Acceptance-driver corrections found during the dice slice (2026-10-19)
+
+The first eight-addition frozen full gate returned **681 passed / 2 failed**,
+395.84 s / 161,072 KiB peak LuaJIT RSS; retained log
+`/var/tmp/roag-idea-boons-vow-full-20261019.log`. These are not concealed or
+counted as a full pass. Both were reproduced and corrected in test planning:
+
+1. The historical M6 seed-50 Rhythm chest trace accidentally included every
+   newly added boon. It now explicitly freezes its original 48-ID pool and
+   still earns the price, buys the cached Common offer and activates it through
+   ordinary actions: 63 actions / 22 HP / 6,340 world time. The regular full-run
+   driver still uses the **current** normal pool; it was not frozen to hide
+   new-build behavior.
+2. The guided Ranger was delegated to the melee controller and closed to
+   adjacency despite its four-cell bow. Its new ranged strategy uses the
+   actual four-cell reach, terrain/diagonal LOS and existing dodge gate. A
+   preliminary five-cell probe failed and its log remains; the source-defined
+   four-cell strategy succeeds. No game actor, RNG, scheduler, room, movement,
+   telegraph, weapon or boon balance parameter changed.
+
+Proof: the eight-addition runtime now gives seed-9 Ranger a real six-floor
+Victory at **1,026 actions / 33 HP / 89,249 world time**. The current working
+nine-addition pool also gives Ranger a real Victory and exact action replay at
+**1,063 actions / 25 HP / 92,507 world time**, three paid purchases; retained
+trace `/var/tmp/roag-dice-ranger-legal-victory.trace`. That trace contains **zero
+dice rolls** (the build did not own dice); do not present it as legal dice-boon
+acquisition evidence. All four original class Victory cases pass under the
+current working pool. The Ranger gate additionally requires a real primary bow
+hit at distance 2–4, preventing a return to the accidental melee-only strategy.
+A full integrated clean gate is still required for the working dice slice.

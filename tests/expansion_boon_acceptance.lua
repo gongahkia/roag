@@ -6,10 +6,15 @@ local M={}
 function M.run()
     local prior_pool={}
     for _,id in ipairs(Achievements.pool({})) do
-        if id~='core:boon/ring_of_reversal' then
+        -- This is the recorded M6 seed-50 chest/continuation contract. Keep
+        -- its historical pool frozen, like an existing saved run. Current
+        -- New Run offers are exercised by the full-run and idea-boon gates.
+        if id~='core:boon/ring_of_reversal'
+            and not require('src.idea_boon_content').definitions[id] then
             prior_pool[#prior_pool+1]=id
         end
     end
+    assert(#prior_pool==48,'historical M6 pool changed')
     local run=Play.new(50,{meta=Achievements.new_run(true,"m6-acceptance/50"),
         available_boons=prior_pool,multifloor=true})
     local state=run.state
