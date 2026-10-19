@@ -29,10 +29,40 @@ def run(binary, env, args, expected=0):
     return result.stdout
 
 
+def check_ice_surface(binary, env, directory):
+    # Seed 42 has a frozen ocean here. An invisible ice surface exposes the
+    # nearly unlit seabed, so outdoor terrain becomes a black silhouette.
+    save = directory / 'ice.vox'
+    save.write_bytes(struct.pack('<4sQQdddII', b'VOX2', 42, 0, 2, 55, 15, 0, 5))
+    ppm = directory / 'ice.ppm'
+    output = run(binary, env, [
+        '--hidden', '--save', str(save), '--settings', str(directory / 'ice-settings.cfg'),
+        '--spectator', '--radius', '2', '--seconds', '3', '--fps-limit', '60',
+        '--width', '640', '--height', '360', '--no-hud', '--screenshot', str(ppm),
+    ])
+    assert 'OpenGL error' not in output, output
+    header, pixels = ppm.read_bytes().split(b'\n255\n', 1)
+    width, height = map(int, header.splitlines()[1].split())
+    # The lower center contains ice, without sky, HUD, or the selection outline.
+    # Check visibility and its blue tint, allowing texture and driver variation.
+    totals, count = [0, 0, 0], 0
+    for y in range(height * 7 // 10, height * 9 // 10, 2):
+        for x in range(width * 4 // 10, width * 6 // 10, 2):
+            at = (y * width + x) * 3
+            for channel in range(3):
+                totals[channel] += pixels[at + channel]
+            count += 1
+    means = [value / count for value in totals]
+    convert(ppm, ROOT / 'build' / 'smoke-ice.png')
+    assert means[0] > 60 and means[2] > means[0] + 20, f'Frozen ocean ice is missing or unlit: RGB {means}'
+    print('PASS visible, sunlit ice above the dark frozen-ocean seabed', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--skip-input', action='store_true', help='Skip Linux XTest interaction checks')
+    parser.add_argument('--ice-only', action='store_true', help='Only check the frozen-ocean rendering regression')
     args = parser.parse_args()
     os.chdir(ROOT)
     if not args.skip_build:
@@ -51,6 +81,9 @@ def main():
     try:
         with tempfile.TemporaryDirectory(dir=ROOT / 'build') as temporary:
             directory = Path(temporary)
+            check_ice_surface(binary, env, directory)
+            if args.ice_only:
+                return
             ppm = directory / 'smoke.ppm'
             run(binary, env, ['--hidden', '--no-save', '--radius', '2', '--frames', '90', '--screenshot', str(ppm)])
             rgb = ppm.read_bytes().split(b'\n', 3)[3]

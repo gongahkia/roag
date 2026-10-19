@@ -13,7 +13,9 @@ out vec4 color;
 void main() {
     // Solid ice has an exterior surface; rendering its back faces through the
     // front layer caused chunk-shaped compositing seams above frozen water.
-    if(material==31 && !gl_FrontFacing) discard;
+    // Compare explicitly: macOS Intel drivers can miscompile the negated
+    // facing flag in this discard condition and hide front-facing ice too.
+    if(material==31 && gl_FrontFacing==false) discard;
     vec2 coords=uv;
     if(material==16) coords+=vec2(worldTime*0.045,worldTime*0.065);
     if(material==17) coords+=vec2(worldTime*0.018,-worldTime*0.026);
