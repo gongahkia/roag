@@ -53,4 +53,10 @@ add('funeral_coin','Funeral Coin',
     {all={owner,{op='target_hostile'},{op='rewarded_drop'}}},
     {{kind='enrich_drop'}},{1,2,3,4},'extra dropped gold')
 
+add('pilgrims_vow',"Pilgrim's Vow",
+    'While aiming an immediate attack, P / LB toggles a vow: pay 2 HP on commit for bonus primary damage before criticals. Must leave at least 1 HP. Cancel is free; movement and utility cannot pay.',
+    318,'hooded pilgrim',{},nil,{},
+    {3,4,6,8},'bonus primary damage for the 2 HP vow')
+I.definitions['core:boon/pilgrims_vow'].attack_payment={hp=2}
+
 return I

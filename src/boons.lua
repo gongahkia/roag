@@ -388,6 +388,15 @@ function Boons.validate_inventory(owner)
     end
 end
 
+function Boons.attack_vow(owner)
+    local id='core:boon/pilgrims_vow'
+    local stacks=owner.boons and owner.boons[id]
+    if not stacks then return end
+    local def=Catalog.get(id)
+    return {boon_id=id,hp_cost=def.attack_payment.hp,
+        bonus=magnitude(def,stacks,'power')}
+end
+
 function Boons.speed_bonus(state,owner)
     if not owner.boon_memory then return 0 end
     local bonus=0

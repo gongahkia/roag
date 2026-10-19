@@ -127,6 +127,17 @@ function Classes.is_attack(ability_id)
     return false
 end
 
+-- An action that actually enters the immediate primary attack pipeline.
+-- Placement, guard and delayed-discharge skills keep their own semantics.
+function Classes.immediate_attack(player,kind,preview)
+    if kind=='basic_attack' then return true end
+    if kind~='sweeping_slash' then return false end
+    local id=player.definition_id
+    if id==Comp.spirit_id then return preview.companion_mode=='strike' end
+    return id~=D.id and id~=Geo.id and id~=Comp.tinker_id and id~=Storm.id
+        and id~=Way.id and id~='core:actor/shade' and id~='core:actor/trapper'
+end
+
 local function line(state,content,position,dx,dy,range)
     local map=content.map_for(state)
     local cells={}
@@ -259,6 +270,10 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
 end
 
 function Classes.preview_hint(player,kind,preview)
+    if preview.vow then
+        return ('VOW: %d HP -> +%d damage · P off · Enter strike'):format(
+            preview.vow.hp_cost,preview.vow.bonus)
+    end
     if kind=='dash' then return 'Enter to move · Esc cancel' end
     if kind~='sweeping_slash' then return 'Enter to strike · Esc cancel' end
     local id=player.definition_id

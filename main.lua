@@ -870,6 +870,8 @@ local function submit(intent)
             elseif event.kind == "SupplyCollected" then
                 notice = notice .. ("; +%d HP (%s)"):format(
                     event.actual_gain,event.supply_kind)
+            elseif event.kind=='VowPaid' then
+                notice=notice..('; -%d HP (vow)'):format(event.hp_cost)
             elseif event.kind=='Healed' and event.target_id==state.player_id then
                 notice=notice..('; +%d HP recovery'):format(event.actual_gain)
             elseif event.kind == "SecretDiscovered" then
@@ -1430,6 +1432,17 @@ function love.keypressed(key, _, isrepeat)
             notice = "Targeting cancelled — no time"
             return
         end
+        if key=='p' and (targeting.kind=='basic_attack' or targeting.kind=='sweeping_slash')then
+            -- keypressed is at LuaJIT's 60-upvalue limit; use the cached
+            -- module here instead of capturing one more top-level alias.
+            local vow=require('src.boons').attack_vow(Game.player(state))
+            if not vow then notice="You do not own Pilgrim's Vow";return end
+            targeting.vow=not targeting.vow
+            notice=targeting.vow and
+                ('Vow armed: %d HP for +%d primary damage · Enter commits · P off'):format(vow.hp_cost,vow.bonus)
+                or 'Vow off · no HP cost'
+            return
+        end
         if targeting.kind=='use_utility' and (key=='1' or key=='2' or key=='3')then
             targeting.steps=tonumber(key);notice='Escape Scroll: '..key..' tiles · Enter use · Esc cancel';return
         end
@@ -1437,8 +1450,10 @@ function love.keypressed(key, _, isrepeat)
         if direction then
             targeting.dx, targeting.dy = direction[1], direction[2]
             player_facing=VisualSlots.facing(player_facing,direction[1])
-            local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps)
-            notice = preview.valid and "Preview ready; Enter to commit" or
+            local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps,targeting)
+            notice = preview.valid and (preview.vow and
+                Classes.preview_hint(Game.player(state),targeting.kind,preview)
+                or "Preview ready; Enter to commit") or
                 ((preview.reason or "Invalid target") .. " — no time")
             return
         end
@@ -1448,7 +1463,7 @@ function love.keypressed(key, _, isrepeat)
                 return
             end
             local committed = submit({
-                kind = targeting.kind, dx = targeting.dx, dy = targeting.dy,steps=targeting.steps,
+                kind = targeting.kind, dx = targeting.dx, dy = targeting.dy,steps=targeting.steps,vow=targeting.vow,
             })
             if committed then targeting = nil end
         end
@@ -1526,7 +1541,7 @@ function love.gamepadpressed(_,button)
         key=({a='return',b='escape',x='3',y='2',start='escape',
             dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
     else
-        key=({a='return',b='escape',x='f',y='r',
+        key=targeting and button=='leftshoulder' and 'p' or ({a='return',b='escape',x='f',y='r',
             rightshoulder='x',leftshoulder='v',leftstick='e',rightstick='u',start='escape',back='tab',
             dpup='w',dpdown='s',dpleft='a',dpright='d'})[button]
     end
@@ -2386,7 +2401,7 @@ end
 
 local function draw_preview()
     if not targeting or targeting.dx == nil then return end
-    local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps)
+    local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps,targeting)
     if preview.reflection and visible_at(preview.reflection.x,preview.reflection.y)then
         local x,y=Camera.tile_top_left(camera,preview.reflection.x,preview.reflection.y)
         draw_visual(bound_visual('core:ui/idea_reflect_effect'),
@@ -3017,7 +3032,7 @@ local function draw_panel()
         end
         if warning=='' and targeting then
             warning='AIMING'
-            local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy,targeting.steps)
+            local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy,targeting.steps,targeting)
             detail=preview and (preview.valid and (targeting.kind=='use_utility' and ('Scroll '..(targeting.steps or 3)..' tiles · 1/2/3 distance · Enter use') or Classes.preview_hint(Game.player(state),targeting.kind,preview)) or preview.reason)
                 or 'Choose a direction · Esc cancel'
             color=PixelUI.colors.selected
@@ -3160,6 +3175,7 @@ local function draw_help()
         {'WASD / arrows','Move · bump to attack or interact'},
         {'F / R / X','Use your class attacks and movement skill'},
         {'Enter / Esc','Commit aim / cancel aim'},
+        {'P / LB (aim)','Pilgrim vow on/off · HP paid on commit'},
         {'Space','Wait one action'},
         {'I / V / U','Boons / next page / carried utility'},
         {'E','Inspect nearby room objects · confirm a choice'},

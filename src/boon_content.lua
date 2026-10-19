@@ -355,6 +355,12 @@ function Catalog.validate(definitions, order)
                 and def.art.index>=0 and def.art.index<1078
                 and type(def.art.motif)=='string' and #def.art.motif>0,'invalid boon art')
         end
+        if def.attack_payment then
+            assert(type(def.attack_payment)=='table'
+                and type(def.attack_payment.hp)=='number'
+                and def.attack_payment.hp%1==0 and def.attack_payment.hp>0
+                and def.attack_payment.hp<=100,'invalid attack payment')
+        end
         assert(def.unit==nil or (type(def.unit)=="string" and #def.unit>0),
             "invalid boon magnitude text")
         assert(type(def.tags) == "table" and type(def.triggers) == "table"

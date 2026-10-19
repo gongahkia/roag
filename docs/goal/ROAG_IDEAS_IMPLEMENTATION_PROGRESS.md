@@ -47,7 +47,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
 | `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
-| `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | pending boon batch | Original explicit redirect; no Pilgrim class |
+| `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | implemented; focused/headless/GUI/save verified; full updated gate pending | P / controller LB opt-in, 2 HP for one primary attack batch; 14 focused tests, all 15 basic attacks, 3 actual GUI processes + controller/native-art checks; no Pilgrim class |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
 | `wayfinder-class` | Wayfinder — a visible return beacon | headless verified; GUI pending | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
@@ -91,7 +91,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `oracle-choice` | Oracle art redirect; no Oracle room | pending boon/presentation batch | Preserve the rejected room constraint |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — first 7 additions / 60 total | 22 focused, 77 combined, 3 separate actual GUI processes; supply/reward/save/native pixel checks; full updated gate pending; at least 43 more required |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 8 additions / 61 total | First seven full 669/669; current 36 focused, 101 combined; real GUI/save/native pixel checks; full Pilgrim gate pending; at least 42 more required |
 
 ## Dependency-based batches
 
@@ -1115,3 +1115,46 @@ Evidence:
 The GUI exposed two presentation follow-ups for final acceptance: temporary
 speed is not yet reflected in the character stat line, and capped bonus healing
 can add zero-gain notices. These remain recorded, not silently called polished.
+
+
+## Pilgrim redirect — eighth additional boon (2026-10-19)
+
+First-seven retry is now **669 passed / 0 failed**, frozen source
+`/var/tmp/roag-idea-boons-supplies-retry-vu0gxo2a`, log
+`/var/tmp/roag-idea-boons-supplies-retry-full-20261019.log`: **519.52 seconds**,
+156,700 KiB peak LuaJIT RSS. All source/runtime files for that slice correspond
+to task commit `0f4433c0`. Its earlier 668/1 result remains retained; the only
+correction was the obsolete fixed achievement pool count.
+
+Pilgrim's Vow is now a real, explicit boon: F/R aim -> P or controller LB ->
+Enter/A commits 2 nonlethal current HP for +3/4/6/8 primary pre-critical damage
+per copy. Cancel/P off is free. No automatic cost on bump movement, Dash,
+placement/parry/utility or delayed Stormcaller discharge. Immediate basics work
+for all 15 existing classes; a commanded Spirit strike works. One cost empowers
+all targets in one primary batch. Costs are not wardable damage events, no
+reusable charge remains, and ordinary follow-up/Echo does not inherit the bonus.
+The input gate, recovery schedule, stable ability IDs and save formats remain.
+
+Verification: **14/14** new vow/real-main compile cases; **36/36** combined new
+supply/vow cases; **101/101** combined boon/art/environment/settings/palette.
+A failed Spirit fixture was correctly blocked by a real stone corner; placing
+its prepared spirit on clear adjacent ground keeps that existing LOS guard.
+Three separate actual Pilgrim GUI processes pass, plus controller LB callbacks
+and the now two-page native-art inventory. Inspected actual screenshots show
+the 2-HP/+6-damage preview, green targeted cell, and readable boon details.
+The new write -> fresh-process Continue case saves paid HP with pending Echo/
+Burning, then pays a second vow identically after restart. The original frozen
+pre-change source also still resumes under current code with byte-identical
+legacy actions/state. All **15 source asset files** remain byte-identical.
+Coverage is now **507/507**; original review/archive data remains separate.
+
+One reproduced GUI failure was a **Lua load error**, not an engine crash:
+`keypressed` exceeded LuaJIT's 60-upvalue limit after adding an alias. Use cached
+`require` in that branch rather than another captured alias; the real main-file
+compilation now has a regression test. Its error-screen timeout/log remains at
+`/var/tmp/roag-idea-boon-gui-WTu62Y`. Early fixture load-error handling now exits
+with traceback instead of waiting on the standard error window. Historical
+unexplained native GUI failures remain unresolved; no blanket fix is claimed.
+
+A full 683-case gate is still required for this eighth addition. Dice and at
+least **42 further boons**, then final combined acceptance, remain active.

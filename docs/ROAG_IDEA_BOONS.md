@@ -4,12 +4,12 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Seven additions are implemented so far: 60 total, 56 in a normal unearned
-New Run pool, plus the four existing achievement unlocks. At least 43 more
+**Eight additions are implemented so far: 61 total, 57 in a normal unearned
+New Run pool, plus the four existing achievement unlocks. At least 42 more
 additions are still required.** This first group does not complete the goal.
 
-Pilgrim is still a pending **boon**, never a new class. Its eventual explicit
-HP payment must appear in the preview and cannot kill the player. Oracle's
+Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
+appears in the preview and cannot kill the player. Oracle's
 redirect remains the pending dice boon: six numbered outcomes, skull and miss;
 skull kills regular enemies only, never minibosses, the finale or special
 reward-exempt encounter actors. The rejected Oracle room and Cantor class stay
@@ -82,12 +82,36 @@ than assuming a new-to-new round trip proves it.
 
 Icons use untouched native Kenney 1-Bit regions, the existing Image/Quad reader
 and muted gold presentation ink. Every new boon has both `/icon` and `/detail`
-bindings. Current coverage is **505/505** with no missing bindings and the same
+bindings. Current coverage is **507/507** with no missing bindings and the same
 13 approved monochrome cross-sheet counterparts. The live HTML/JSON/CSV
 catalogue is regenerated; frozen review/feedback archives and source PNGs are
 unchanged.
 
 ![First seven new boons in the actual game renderer](visuals/idea-boons-supplies.png)
+
+## Pilgrim's Vow: explicit HP-for-power attack
+
+The eighth addition uses native hooded figure **318**. While aiming an immediate
+attack with **F/R**, press **P** (controller **LB**) to toggle the vow. The preview
+shows **2 HP -> +damage**; **Enter/A** commits, **Esc/B** cancels for free. A
+committed vow spends 2 current HP once and adds **3/4/6/8** primary damage per
+copy before criticals/defense. The payment must leave at least 1 HP. It is a
+cost, not a damage event: wards, invulnerability and retaliation cannot turn
+arming/canceling into healing or avoid the price. A miss still spends the cost.
+
+All 15 existing classes can vow on their basic attack. Immediate damaging
+specials and an actual commanded Spirit strike also support it. Parry, decoy,
+snare/block/sentry/beacon placement and delayed Stormcaller discharge refuse
+payment; Dash, walking, bump attacks, item use, menus and waits never silently
+pay. A single payment empowers the whole primary sweep batch, then expires.
+It does not persist as a buff or add bonus damage to later Echoes/attacks.
+The already scheduled recovery and enemy impact ordering remain unchanged.
+
+Rarity stacks add damage, not additional HP payments. Normal kill healing can
+still synergize with the paid attack. The toggle lives only in the presentation
+aim state; committed HP/action state uses the existing snapshot/save contract.
+
+![Actual Pilgrim price and target preview](visuals/idea-boon-vow.png)
 
 ## Reproducible checks
 
@@ -116,8 +140,23 @@ Resume baseline: **647 passed, 0 failed** from frozen source, log
 `/var/tmp/roag-boons-resume-baseline-retry-20261019.log`. The first interrupted
 attempt ended with signal 143 and is retained at
 `/var/tmp/roag-boons-resume-baseline-20261019.log`; it is not counted as a pass.
-The updated full gate is running; its result will be recorded in the progress
-ledger. Current focused and combined results are **22/22** and **77/77**.
+The seven-addition full gate passes **669/669**, 519.52 s / 156,700 KiB peak
+LuaJIT RSS; log `/var/tmp/roag-idea-boons-supplies-retry-full-20261019.log`.
+An earlier updated run was 668/669 because an achievement test still expected a
+fixed 50-entry pool. The corrected test retains the legal elite/profile/unlock
+offer proof and passes in the clean full retry. With Pilgrim, the new focused
+cases are **36/36** (22 supply/reward + 14 vow/compile), and combined boon,
+artwork, environment, settings and palette checks are **101/101**. Its updated
+683-case full gate remains pending until recorded in the progress ledger.
+
+Pilgrim also passes three independent GUI processes for actual keyboard aim,
+cancel, payment and ordinary follow-up, plus controller LB callback verification
+and the native two-page inventory/detail check. One attempted GUI exposed
+LuaJIT's 60-upvalue compile limit when adding a module alias to `keypressed`;
+the fix uses its cached module without adding another captured alias, and a
+headless real-main compilation regression catches recurrence. The failed log
+`/var/tmp/roag-idea-boon-gui-WTu62Y/love.log` is preserved. This was a Lua load
+error/error-screen timeout, not an unexplained native crash.
 
 New-to-new disk cases pass for both supply state and legacy boon state. A separate
 legacy case was written by frozen pre-change source and continued by current
@@ -131,7 +170,7 @@ All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 
 ### Still required for final acceptance
 
-- Finish the remaining 43+ boons, including all explicit redirects, and verify
+- Finish the remaining 42+ boons, including dice, and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.

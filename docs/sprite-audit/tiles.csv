@@ -839,7 +839,7 @@ onebit,314,320,96,50,
 onebit,315,336,96,61,
 onebit,316,352,96,86,
 onebit,317,368,96,60,
-onebit,318,384,96,66,core:enemy/grave_cantor
+onebit,318,384,96,66,core:boon/pilgrims_vow/icon + /detail; core:enemy/grave_cantor
 onebit,319,400,96,78,core:enemy/ward_weaver
 onebit,320,416,96,82,core:enemy/mirror_hexer
 onebit,321,432,96,88,core:enemy/siege_wisp

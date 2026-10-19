@@ -317,7 +317,7 @@ function Game.new_finale(seed,options)
     return state
 end
 
-function Game.preview(state, kind, dx, dy, steps)
+local function preview_action(state, kind, dx, dy, steps)
     if kind == "cancel" then return {valid=false, reason="cancelled", cells={}} end
     if kind=='use_utility' then
         local preview=Interactions.utility_preview(state,{dx=dx,dy=dy,steps=steps})
@@ -462,6 +462,31 @@ function Game.preview(state, kind, dx, dy, steps)
         return {valid=valid,reason=reason,cost=cost,cells=cells}
     end
     return {valid=true, cost=cost, cells=cells,reflection=reflection}
+end
+
+function Game.preview(state,kind,dx,dy,steps,options)
+    if options~=nil and type(options)~='table' then
+        return {valid=false,reason='invalid preview options',cells={}}
+    end
+    if options and options.vow~=nil and type(options.vow)~='boolean' then
+        return {valid=false,reason='invalid vow option',cells={}}
+    end
+    local preview=preview_action(state,kind,dx,dy,steps)
+    if not (options and options.vow) or not preview.valid then return preview end
+    local owner=Game.player(state)
+    local vow=Boons.attack_vow(owner)
+    if not vow then
+        preview.valid=false;preview.reason="requires Pilgrim's Vow"
+    elseif not Classes.immediate_attack(owner,kind,preview) then
+        preview.valid=false;preview.reason='vow needs an immediate attack; movement and utility are free of HP cost'
+    elseif owner.hp<=vow.hp_cost then
+        preview.valid=false;preview.reason=('vow costs %d HP and must leave 1 HP'):format(vow.hp_cost)
+    else
+        preview.vow=vow
+        local _,damage=Game.effective_ability(state,kind,dx,dy,true)
+        preview.damage=damage+vow.bonus
+    end
+    return preview
 end
 
 function Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)
@@ -1219,6 +1244,10 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     end
     local position = source.position
     if source.id==state.player_id and not (extra and extra.class_generated)then
+        if context and context.vow and not context.vow_spent then
+            raw_damage=raw_damage+context.vow.bonus
+            context.vow_spent=true
+        end
         local bonus=Interactions.focus(Game.player(state))
         if not (extra and extra.focus_included)then raw_damage=raw_damage+bonus end
         if bonus>0 then emit(state,output,'SupplyFocusSpent',{bonus=bonus,floor_id=position.floor_id,x=position.x,y=position.y},source.id,action_id)end
@@ -1746,6 +1775,12 @@ function Game.submit(state, intent)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
+    if intent.vow~=nil and type(intent.vow)~='boolean' then
+        return false,'invalid vow option',{}
+    end
+    if intent.vow and intent.kind~='basic_attack' and intent.kind~='sweeping_slash' then
+        return false,'vow needs an immediate attack',{}
+    end
     local preview, chest
     if intent.kind == "choose_route" then
         local options,reason=Stage.route_options(state,intent.exit_id)
@@ -1819,7 +1854,7 @@ function Game.submit(state, intent)
         preview = {valid=true, cost=Game.effective_cost(COSTS.claim_chest,
             Game.player(state).speed+Boons.speed_bonus(state,Game.player(state)))}
     else
-        preview = Game.preview(state, intent.kind, intent.dx, intent.dy,intent.steps)
+        preview = Game.preview(state, intent.kind, intent.dx, intent.dy,intent.steps,intent)
         if not preview.valid then return false, preview.reason, {}, preview end
     end
 
@@ -1834,6 +1869,16 @@ function Game.submit(state, intent)
         or (preview.door_id and "open_door")
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
+    if preview.vow then
+        local before=player.hp
+        player.hp=before-preview.vow.hp_cost
+        contexts[output].vow=preview.vow
+        action.vow_hp_cost=preview.vow.hp_cost
+        emit(state,output,'VowPaid',{boon_id=preview.vow.boon_id,
+            hp_before=before,hp_after=player.hp,hp_cost=preview.vow.hp_cost,
+            bonus=preview.vow.bonus,floor_id=position.floor_id,
+            x=position.x,y=position.y},player.id,action_id)
+    end
     if preview.bump then action.bump = true end
     local function interaction_emit(k,fields,owner)emit(state,output,k,fields,owner,action_id)end
     Interactions.before_action(state,kind,preview,interaction_emit)

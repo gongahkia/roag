@@ -11,6 +11,12 @@ cp -R "$project_dir/src" "$output/app/src"
 cp -R "$project_dir/assets" "$output/app/assets"
 cp "$project_dir/tools/art_png.lua" "$output/app/tools/art_png.lua"
 cat > "$output/app/main.lua" <<'LUA'
+io.stdout:setvbuf('line')
+-- Also catch parse/load errors before the detailed phase handler is installed.
+function love.errorhandler(why)
+    io.stderr:write(debug.traceback(tostring(why),2)..'\n')
+    return function()return 1 end
+end
 local G=require('src.game')
 local I=require('src.idea_boon_content')
 local C=require('src.boon_content')
@@ -20,9 +26,16 @@ local O=require('src.onebit_visuals')
 local Palette=require('src.visual_palette')
 local P=require('src.persistence')
 local PNG=require('tools.art_png')
+local mode=os.getenv('ROAG_IDEA_BOON_CASE') or 'supply'
+assert(mode=='supply' or mode=='vow')
 local s,p,events
 function G.new_stage()
     s=G.new(37);p=G.player(s);p.hp=6
+    if mode=='vow' then
+        local e=G.spawn_enemy(s,'core:enemy/mossbound_guard',3,2,100000)
+        e.hp=100;e.max_hp=100
+        return s
+    end
     R.spawn_currency(s,2,s.active_floor_id,3,2,function()end,p.id)
     R.spawn_supply(s,'food',s.active_floor_id,3,2,function()end,p.id)
     R.spawn_supply(s,'health',s.active_floor_id,4,2,function()end,p.id)
@@ -74,7 +87,14 @@ function love.load(...)
         for _,id in ipairs(I.order)do G.set_boon_stacks(s,p.id,id,'rare',1)end
         print('Renderer:',love.graphics.getRendererInfo())
         assert(love.roagAssetBacking(p.definition_id)=='onebit')
-        love.keypressed('i');before=snapshot();started=love.timer.getTime()
+        if mode=='vow' then
+            before=snapshot()
+            love.gamepadpressed(nil,'x');love.gamepadpressed(nil,'leftshoulder')
+            love.gamepadpressed(nil,'dpright')
+            assert(snapshot()==before,'arming a vow changed the run')
+            stage='vow-preview'
+        else love.keypressed('i')end
+        before=snapshot();started=love.timer.getTime()
     end,debug.traceback)
     if not ok then fail(why)end
 end
@@ -82,7 +102,28 @@ local function check_and_advance(image)
     assert(snapshot()==before,'drawing or menu changed authoritative state')
     local label=stage=='inventory' and 'inventory-'..page or stage
     PNG.write(output..'/'..label..'.png',image)
-    if stage=='inventory' then
+    if stage=='vow-preview' then
+        love.keypressed('escape');assert(snapshot()==before,'canceling vow changed the run')
+        love.keypressed('f');love.keypressed('p');love.keypressed('d');love.keypressed('return');update(10)
+        assert(p.hp==4 and s.clock==100)
+        local paid=0
+        for _,e in ipairs(events)do
+            if e.kind=='VowPaid' then paid=paid+1;assert(e.hp_cost==2 and e.bonus==6)end
+            if e.kind=='AttackPerformed' then assert(e.raw_damage==p.damage+6)end
+        end
+        assert(paid==1);stage='vow-paid'
+    elseif stage=='vow-paid' then
+        love.keypressed('f');love.keypressed('d');love.keypressed('return');update(10)
+        assert(p.hp==4 and s.clock==200)
+        for _,e in ipairs(events)do
+            assert(e.kind~='VowPaid')
+            if e.kind=='AttackPerformed' then assert(e.raw_damage==p.damage)end
+        end
+        stage='vow-finished'
+    elseif stage=='vow-finished' then
+        print('PASS actual Pilgrim aim, cancel, one paid attack and ordinary follow-up')
+        love.event.quit();return
+    elseif stage=='inventory' then
         for line=1,7 do
             local id=I.order[(page-1)*7+line]
             if id then compare(image,id,line)end
@@ -139,8 +180,14 @@ ROAG_GUI_AUTOSTART=1 ROAG_IDEA_BOON_OUTPUT="$output" XDG_DATA_HOME="$output/data
     timeout -k 3s 30s love "$output/app" > "$output/love.log" 2>&1 || {
     cat "$output/love.log";printf 'Retained failed GUI artifacts: %s\n' "$output";exit 1;
 }
-test -s "$output/inventory-1.png"
-test -s "$output/food-and-gold.png"
-test -s "$output/health-and-ward.png"
-test -s "$output/detail.png"
+if [ "${ROAG_IDEA_BOON_CASE:-supply}" = vow ]; then
+    test -s "$output/vow-preview.png"
+    test -s "$output/vow-paid.png"
+    test -s "$output/vow-finished.png"
+else
+    test -s "$output/inventory-1.png"
+    test -s "$output/food-and-gold.png"
+    test -s "$output/health-and-ward.png"
+    test -s "$output/detail.png"
+fi
 printf 'PASS actual boon renderer and pickups: %s\n' "$output"

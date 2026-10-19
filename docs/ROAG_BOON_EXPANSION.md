@@ -1,5 +1,8 @@
 # Expansion M6: 26 tactical and class boons
 
+This records the historical M6 tranche. The resumed additional-boon pass and
+current catalogue/pool counts are in [Approved additional boons](ROAG_IDEA_BOONS.md).
+
 Normal title **New Run** freezes 46 immediately available boon IDs: the original 20 plus the 26 below. The four previously earned achievement boons remain locked until their existing achievements are earned, bringing a fully unlocked catalogue to 50. Paid, secret and elite/free chests still cache three offers and use their existing rarity weights. Class-specific offers are filtered before sampling, so a class cannot draw a transformation it cannot use. Old direct `Game.new_stage` fixtures and previously saved runs retain their frozen pool; the 20 original identities and their behavior remain unchanged. The boon-content version remains `roag-boons/3` because older definitions/snapshot representations are compatible; new owned boon state is optional plain data.
 
 All values below are **per copy** in Common / Uncommon / Rare / Legendary order. Mixed rarity copies add power without an ownership cap. Effects use the common event/ancestry/damage pipeline and the player’s current effective stats; these are provisional balance values.

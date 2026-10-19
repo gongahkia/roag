@@ -8,7 +8,7 @@ local Catalog=require('src.boon_content')
 local mode,dir,scenario=arg[1],arg[2],arg[3]
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
-assert(scenario=='supply' or scenario=='legacy')
+assert(scenario=='supply' or scenario=='legacy' or scenario=='vow')
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -47,7 +47,7 @@ if mode=='write' then
             ['core:boon/betrayal_ward']={ward=3,expires_at=600}}
         R.spawn_supply(s,'food',s.active_floor_id,3,2,function()end,p.id)
         submit(s,{kind='move',dx=1,dy=0})
-    else
+    elseif scenario=='supply' then
         for _,id in ipairs(require('src.idea_boon_content').order)do
             G.set_boon_stacks(s,p.id,id,'rare',1)
         end
@@ -59,10 +59,15 @@ if mode=='write' then
         submit(s,{kind='move',dx=1,dy=0})
         assert(p.boon_memory['core:boon/ration_reserve'].charges==1)
         assert(p.boon_memory['core:boon/road_flask'].speed==20)
+    else
+        grant('pilgrims_vow')
+        R.spawn_supply(s,'food',s.active_floor_id,3,2,function()end,p.id)
+        submit(s,{kind='move',dx=1,dy=0})
     end
-    submit(s,{kind='basic_attack',dx=1,dy=0})
+    submit(s,{kind='basic_attack',dx=1,dy=0,vow=scenario=='vow' or nil})
+    if scenario=='vow' then assert(p.hp==22)end
     assert(next(s.delayed_effects) and foe.statuses.burning)
-    local plan={{kind='wait'},{kind='basic_attack',dx=1,dy=0},
+    local plan={{kind='wait'},{kind='basic_attack',dx=1,dy=0,vow=scenario=='vow' or nil},
         {kind='move',dx=-1,dy=0},{kind='wait'},{kind='move',dx=1,dy=0}}
     assert(store:save(s));storage:write('plan.data',P.encode(plan))
     local restored=G.restore(G.snapshot(s))

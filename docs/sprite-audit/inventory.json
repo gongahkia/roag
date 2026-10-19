@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "68c666c4b494f83d",
+  "mapping_checksum": "2898e5d16b4c39b6",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -1126,6 +1126,24 @@
           "id": "core:boon/phantom_lunge/icon",
           "index": 564,
           "motif": "long slash",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pilgrims_vow/detail",
+          "index": 318,
+          "motif": "hooded pilgrim",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pilgrims_vow/icon",
+          "index": 318,
+          "motif": "hooded pilgrim",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4980,6 +4998,7 @@
             "core:enemy/vault_lurker"
           ],
           "318": [
+            "core:boon/pilgrims_vow/icon + /detail",
             "core:enemy/grave_cantor"
           ],
           "319": [
@@ -5747,6 +5766,8 @@
     "core:boon/perfect_guard/icon",
     "core:boon/phantom_lunge/detail",
     "core:boon/phantom_lunge/icon",
+    "core:boon/pilgrims_vow/detail",
+    "core:boon/pilgrims_vow/icon",
     "core:boon/prospectors_heart/detail",
     "core:boon/prospectors_heart/icon",
     "core:boon/pulse_step/detail",
