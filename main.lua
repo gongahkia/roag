@@ -16,6 +16,7 @@ local Generation = require("src.generation")
 local Playback = require("src.playback")
 local AttackOutline = require("src.attack_outline")
 local HitFeedback = require("src.hit_feedback")
+local Juice = require("src.visual_juice")
 local CombatNumbers = require("src.combat_numbers")
 local UIFont = require("src.ui_fonts")
 local Rewards = require("src.rewards")
@@ -68,6 +69,7 @@ local notice = "Ready"
 local playback = Playback.new()
 local hit_feedback = HitFeedback.new()
 local combat_numbers = CombatNumbers.new()
+local visual_juice = Juice.new()
 local ui_body_font,ui_display_font,ui_menu_font
 local presentation_settings=PresentationSettings.defaults()
 local minimap_visible = true
@@ -330,6 +332,7 @@ local function reset_camera()
     if spectator_enabled then spectator_focus={x=position.x,y=position.y} end
     camera = Camera.new(map, VIEWPORT, TILE, position.x, position.y)
     hit_feedback = HitFeedback.new()
+    visual_juice = Juice.new()
     camera_state = state
 end
 
@@ -527,6 +530,7 @@ local function refresh_visuals()
 end
 
 function love.update(dt)
+    PixelUI.update(dt,presentation_settings.combat_effects)
     if refresh_pending then
         local reload_audio=true
         refresh_pending=false
@@ -547,6 +551,8 @@ function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
+    Juice.update(visual_juice,dt,state.active_floor_id,presentation_settings.combat_effects,
+        playback,state.player_id)
     CombatNumbers.update(combat_numbers,playback,dt,state.player_id,
         state.active_floor_id)
     local position = Game.player(state).position
@@ -787,6 +793,8 @@ local function submit(intent)
         end
         local shown=visible_events(events)
         Playback.add(playback, shown, state.player_id)
+        Juice.add(visual_juice,shown,state.player_id,state.active_floor_id,
+            presentation_settings.combat_effects)
         if audio_runtime then
             for _,event in ipairs(shown) do audio_runtime:event(event,state) end
             sync_audio_scene()
@@ -1187,6 +1195,9 @@ end
 function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
+    end
+    if key=='return' or key=='kpenter' then
+        require('src.pixel_ui').press() -- cached; preserve the callback's upvalue budget
     end
     if help_open then
         if key=='f1' or key=='escape' or key=='return'then help_open=false end
@@ -1639,6 +1650,9 @@ local function draw_enemies()
             local sprite_scale=VisualSlots.enemy_size(enemy.definition_id,TILE)/TILE
             local sprite_x=x+TILE*(1-sprite_scale)*.5
             local sprite_y=y+TILE*(1-sprite_scale)
+            local kick_x,kick_y=Juice.attack_offset(playback,enemy.id,
+                position.floor_id,presentation_settings.combat_effects)
+            sprite_x,sprite_y=sprite_x+kick_x,sprite_y+kick_y
             local enemy_art=actor_visual(enemy.definition_id,enemy.id) or
                 (visual_assets and visual_assets:resolve_id(enemy.definition_id))
             local dormant_cache=enemy.definition_id=='core:enemy/haunted_cache'
@@ -2190,6 +2204,7 @@ local function draw_rewards()
             and entity.controller == "chest" and
             visible_at(entity.position.x,entity.position.y) then
             local x, y = Camera.tile_top_left(camera, entity.position.x, entity.position.y)
+            y=y+Juice.chest_offset(visual_juice,entity.id,presentation_settings.combat_effects)
             local chest_art=bound_visual(entity.claimed and 'core:object/chest_open' or
                 entity.definition_id)
             if chest_art then
@@ -2270,6 +2285,112 @@ local function draw_rewards()
             end
         end
     end
+end
+
+local function draw_reward_feedback()
+    if not presentation_settings.combat_effects or chest_menu or route_menu or
+        inventory_open or pause_menu or help_open or interaction_ui.menu then return end
+    for _,e in ipairs(visual_juice.items)do
+        if e.floor_id==state.active_floor_id and visible_at(e.x,e.y)then
+            local x,y=Camera.tile_top_left(camera,e.x,e.y)
+            if x>=VIEWPORT.x and y>=VIEWPORT.y and
+                x<VIEWPORT.x+VIEWPORT.width and y<VIEWPORT.y+VIEWPORT.height then
+                local tx,ty=738,611
+                if e.kind=='gold'then tx,ty=450,578
+                elseif e.kind=='health'then tx,ty=36,578 end
+                local sx,sy,size,alpha=Juice.reward_pose(e,x+TILE/2,y+8,tx,ty)
+                if not draw_visual(bound_visual(e.binding),sx-size/2,sy-size/2,size,size,alpha)then
+                    local previous=onebit_filter:set_ink(love.graphics,Palette.gold)
+                    love.graphics.setColor(1,1,1,alpha)
+                    love.graphics.rectangle('fill',sx-3,sy-3,6,6)
+                    onebit_filter:set_ink(love.graphics,previous)
+                end
+            end
+        end
+    end
+end
+
+local function draw_world_accents()
+    if not presentation_settings.combat_effects then return end
+    local g=love.graphics
+    local function ink(color,alpha)
+        local _,applied=onebit_filter:set_ink(g,color)
+        if applied then g.setColor(1,1,1,alpha)
+        else g.setColor(color[1],color[2],color[3],alpha)end
+    end
+    local previous=onebit_filter:set_ink(g,Palette.enemy)
+    -- Re-resolve each frame so a refresh cannot leave a disposed atlas handle.
+    -- Clip the original sprite into nine pieces, preserving transparent pixels.
+    local sx,sy,sw,sh=g.getScissor()
+    for _,e in ipairs(visual_juice.crumbles)do
+        if e.floor_id==state.active_floor_id and visible_at(e.x,e.y)then
+            local size=VisualSlots.enemy_size(e.binding,TILE)
+            local x,y=Camera.tile_top_left(camera,e.x,e.y)
+            x,y=x+(TILE-size)/2,y+TILE-size
+            local art=bound_visual(e.binding)
+            for i=1,9 do
+                local left,top,w,h,dx,dy,alpha=Juice.crumble_piece(e,i,size)
+                local cx,cy=x+left+dx,y+top+dy
+                local right,bottom=cx+w,cy+h
+                if sx then
+                    cx,cy=math.max(cx,sx),math.max(cy,sy)
+                    right,bottom=math.min(right,sx+sw),math.min(bottom,sy+sh)
+                end
+                if right>cx and bottom>cy then
+                    g.setScissor(cx,cy,right-cx,bottom-cy)
+                    if art then draw_visual(art,x+dx,y+dy,size,size,alpha,e.flip,Palette.enemy)
+                    else
+                        ink(Palette.enemy,alpha)
+                        g.rectangle('fill',x+left+dx+2,y+top+dy+2,3,3)
+                    end
+                end
+            end
+        end
+    end
+    if sx then g.setScissor(sx,sy,sw,sh)else g.setScissor()end
+    for _,e in ipairs(visual_juice.impacts)do
+        if e.floor_id==state.active_floor_id and visible_at(e.x,e.y)then
+            local x,y=Camera.tile_top_left(camera,e.x,e.y)
+            x,y=x+TILE/2,y+TILE/2
+            if e.kind=='blocked'then
+                local radius,alpha=Juice.ring_pose(e,TILE)
+                ink(Palette.enemy,alpha)
+                -- Four detached corners make a quiet, hard-edged shield ring.
+                for _,d in ipairs({{-1,-1},{1,-1},{-1,1},{1,1}})do
+                    local px,py=x+d[1]*radius,y+d[2]*radius
+                    g.rectangle('fill',px-(d[1]>0 and 4 or 0),py,5,1)
+                    g.rectangle('fill',px,py-(d[2]>0 and 4 or 0),1,5)
+                end
+            else
+                for i=1,5 do
+                    local dx,dy,size,alpha=Juice.impact_pose(e,i,TILE)
+                    ink(e.friendly and Palette.friendly or Palette.hostile,alpha)
+                    g.rectangle('fill',x+dx,y+dy,size,size)
+                end
+            end
+        end
+    end
+    for _,e in ipairs(visual_juice.celebrations)do
+        if e.floor_id==state.active_floor_id and visible_at(e.x,e.y)then
+            local x,y=Camera.tile_top_left(camera,e.x,e.y)
+            local radius,alpha,rise=Juice.celebration_pose(e,TILE)
+            x=x+TILE/2
+            ink(Palette.gold,alpha)
+            for i=0,7 do
+                local angle=i*math.pi/4
+                g.rectangle('fill',math.floor(x+math.cos(angle)*radius),
+                    math.floor(y+TILE/2+math.sin(angle)*radius),2,2)
+            end
+            local label=e.kind=='secret' and 'SECRET FOUND' or 'LEVEL '..e.level
+            local width=g.getFont():getWidth(label)
+            local lx=math.max(VIEWPORT.x+2,math.min(x-width/2,VIEWPORT.x+VIEWPORT.width-width-2))
+            local ly=math.max(VIEWPORT.y+2,y-16-rise)
+            local height=g.getFont():getHeight()
+            ink({0,0,0},alpha*.85);g.rectangle('fill',lx-3,ly-1,width+6,height+2)
+            ink(Palette.gold,alpha);g.print(label,math.floor(lx),math.floor(ly))
+        end
+    end
+    onebit_filter:set_ink(g,previous)
 end
 
 local function draw_history_event(event)
@@ -2796,6 +2917,9 @@ local function draw_world()
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
+    local kick_x,kick_y=Juice.attack_offset(playback,state.player_id,
+        position.floor_id,presentation_settings.combat_effects)
+    screen_x,screen_y=screen_x+kick_x,screen_y+kick_y
     local avatar=actor_visual(Game.player(state).definition_id,state.player_id)
     if avatar then
         if avatar.source=='generated' then
@@ -2857,6 +2981,7 @@ local function draw_world()
             end
         end
     end
+    draw_world_accents()
     local flash=presentation_settings.flash and HitFeedback.flash_alpha(hit_feedback) or 0
     if flash>0 then
         love.graphics.setColor(1,0.20,0.16,flash)
@@ -2881,7 +3006,10 @@ local function draw_world()
         for index,offer in ipairs(chest_menu.offers)do
             local definition=BoonContent.get(offer.boon_id)
             local y=178+(index-1)*76
-            draw_visual(bound_visual(offer.boon_id..'/icon'),104,y,32,32)
+            local lift,pop=PixelUI.offer_pose(index)
+            local size=math.floor(32*pop+.5)
+            draw_visual(bound_visual(offer.boon_id..'/icon'),104-(size-32)/2,
+                y+lift-(size-32)/2,size,size)
             PixelUI.option(index..'. '..definition.name,146,y,376,
                 index==chest_menu.selected,ui_menu_font)
             PixelUI.center(offer.rarity:upper(),y+24,ui_menu_font,PixelUI.colors.muted,146,376)
@@ -3288,7 +3416,7 @@ local function draw_settings()
         elseif settings_page==2 then
             local key=({'shake','flash','combat_effects','damage_numbers'})[index]
             label=({shake='Screen shake',flash='Hit flash',
-                combat_effects='Combat effect sprites',
+                combat_effects='Visual accents',
                 damage_numbers='Floating damage numbers'})[key]
             value=presentation_settings[key] and 'ON' or 'OFF'
         else
@@ -3431,6 +3559,7 @@ function love.draw()
     if camera_state ~= state then reset_camera() end
     draw_world()
     draw_panel()
+    draw_reward_feedback()
     if spectator_enabled then
         local actor=bound_visual(Game.player(state).definition_id)
         local source=actor and actor.source or 'built-in'
@@ -3522,6 +3651,7 @@ function love.update(dt)
     diagnostics_update_ms=(love.timer.getTime()-start)*1000
 end
 function love.draw()
+    PixelUI.begin_frame(love.roagUIState().page,presentation_settings.combat_effects)
     local previous_shader,shader_applied=onebit_filter:begin(love.graphics,function(reason)
         print('1-Bit palette filter unavailable; safe unshaded rendering: '..tostring(reason))
     end)
@@ -3616,6 +3746,7 @@ function love.roagAssetIdResolved(id)
 end
 function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
+    PixelUI.press()
     finish_volume_drag()
     if help_open then help_open=false;return end
     if boon_detail_id then boon_detail_id=nil;return end

@@ -13,6 +13,52 @@ local high_contrast={background={0,0,0},panel={.04,.06,.12},
 local monochrome_contrast={background={0,0,0},panel={.04,.04,.04},
     edge={.88,.88,.88},light={1,1,1},text={1,1,1},
     muted={.78,.78,.78},selected={1,1,1}}
+-- Position keys are bounded to the visible view; changing views discards them.
+-- Hitboxes never move. These clocks do not gate selection or gameplay input.
+local feedback={enabled=false,rows={},age=0,frame=0}
+function U.update(dt,enabled)
+    feedback.enabled=enabled==true
+    if not feedback.enabled then feedback.rows={};feedback.age=1;return end
+    dt=math.max(0,dt)
+    feedback.age=math.min(1,feedback.age+dt)
+    for _,row in pairs(feedback.rows)do
+        row.age=math.min(1,row.age+dt)
+        row.press=math.min(1,row.press+dt)
+    end
+end
+function U.begin_frame(view,enabled)
+    if feedback.view~=view then
+        feedback.rows={};feedback.age=0;feedback.view=view
+    end
+    if enabled~=nil then U.update(0,enabled)end
+    feedback.frame=feedback.frame+1
+    for key,row in pairs(feedback.rows)do
+        if row.frame<feedback.frame-1 then feedback.rows[key]=nil end
+    end
+end
+function U.press()
+    if not feedback.enabled then return end
+    for _,row in pairs(feedback.rows)do
+        if row.selected and not row.disabled and row.frame==feedback.frame then row.press=0 end
+    end
+end
+function U.option_feedback(label,x,y,w,selected,disabled)
+    if not feedback.enabled then return 0,0,0 end
+    local key=x..':'..y..':'..w
+    local row=feedback.rows[key]
+    if not row then row={age=1,press=1};feedback.rows[key]=row end
+    if selected and (not row.selected or row.label~=label)then row.age=0;row.press=1 end
+    row.selected,row.disabled,row.label,row.frame=selected,disabled,label,feedback.frame
+    if not selected or disabled then return 0,0,0 end
+    local settle=math.max(0,1-row.age/.14)
+    return row.press<.09 and 1 or row.age<.07 and -1 or 0,
+        math.floor(4*settle*settle+.5),settle
+end
+function U.offer_pose(index)
+    if not feedback.enabled then return 0,1 end
+    local t=math.min(1,math.max(0,(feedback.age-(index-1)*.025)/.16))
+    return math.floor(6*(1-t)^2+.5),1+.12*math.sin(math.pi*t)
+end
 function U.set_style(style,contrast)
     U.colors=style=='onebit' and (contrast and monochrome_contrast or monochrome)
         or (contrast and high_contrast or default_colors)
@@ -54,15 +100,21 @@ function U.option(label,x,y,w,selected,font,disabled)
     local g=love.graphics
     if font then g.setFont(font)end
     local face=g.getFont()
+    local dy,spread,pulse=U.option_feedback(label,x,y,w,selected,disabled)
+    y=y+dy
     g.setColor(disabled and U.colors.muted or
         selected and U.colors.selected or U.colors.text)
     g.printf(label,x,y,w,'center')
     if selected then
         local label_width=face:getWidth(label)
         local left=x+(w-label_width)/2
-        local gap=math.max(4,math.floor(face:getHeight()/4))
+        local gap=math.max(4,math.floor(face:getHeight()/4))+spread
         g.print('>',left-gap-face:getWidth('>'),y)
         g.print('<',left+label_width+gap,y)
+        if pulse>0 then
+            g.setColor(U.colors.selected[1],U.colors.selected[2],U.colors.selected[3],pulse*.7)
+            g.rectangle('fill',left,y+face:getHeight()+1,label_width,1)
+        end
     end
 end
 function U.settings_row(x,y,w,index)

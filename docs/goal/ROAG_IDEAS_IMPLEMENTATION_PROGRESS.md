@@ -1,6 +1,7 @@
 # Approved idea implementation — sustained goal
 
-Status: **ENGINEERING AND CLEANUP VERIFIED — optional visual-juice proposals await the user's decision**.
+Status: **ENGINEERING AND CLEANUP VERIFIED — approved visual accents 1/4/5 implemented;
+proposals 2/3/6/7/8 await the user's decision**.
 The previous terrain/environment stop was honored. The user has now explicitly
 requested the remaining boon and final-integration passes, web research as
 needed, atomic commits, and LÖVE testing for final acceptance. Earlier paused
@@ -1673,3 +1674,68 @@ implementation. The final cleanup headless gate passes **837/837**, exit 0, **63
 production-cleanup commit contains these changes and verification notes. The
 original goal and cleanup engineering work are done; human acceptance and the
 new visual-juice proposal decisions remain separate.
+
+
+## Approved visual accents 1 / 4 / 5 — 19 October 2026
+
+User approved attack recoil, menu selection/press feedback and reward/chest
+pops. Implemented in `src/visual_juice.lua`, `src/pixel_ui.lua` and `main.lua`.
+The existing Effects preference is labelled **Visual accents**; no new keys,
+pack, source art, gameplay state or save format is introduced. Attacks use
+existing playback time; collection effects are bounded and never gate actions.
+
+Full **845/845** passes (previous 837 plus eight new cases), **538.46 s**, peak
+RSS **153424 KiB**. Frozen/runtime checksums match. Standard GUI **27/27**;
+new GUI three rounds / nine processes / sixty native frames pass, including
+actual recoil/arc pixels, menu changes, effects-off, F5, pending-accent Save &
+Quit and separate-process Continue. Five related menu/art/aim/facing/gamepad
+groups pass. GUI tests use synthetic callbacks and Xvfb/Mesa; no physical input
+or native GPU acceptance is claimed.
+
+A separate meta GUI test fails identically on the unchanged HEAD and current
+code: its seed-48271 legal driver dies at the first-stage elite. It remains
+unchanged and explicitly unpassed. Logs and fixture-setup findings are retained;
+see [current acceptance](../ROAG_IDEA_ACCEPTANCE.md). No gameplay tuning or
+historical native-crash fix was smuggled into this cosmetic pass.
+
+Remaining optional proposals at this checkpoint: **2 Dash accents; 3 impact
+bursts; 6 discovery celebrations; 7 enemy-defeat crumble; 8 environment motion**.
+The following pass implements the subsequently approved 3, 6 and 7.
+
+## Approved visual accents 3 / 6 / 7 — 19 October 2026
+
+User approved impact/blocked-hit feedback and secret/level-up celebrations,
+plus enemy-defeat crumble if practical. All three fit the existing presentation
+model and are implemented in `src/visual_juice.lua` and `main.lua`. The existing
+Visual accents setting covers them; no new control, art, dependency, simulation
+rule, timing gate or save format is introduced.
+
+Impacts activate once at the displayed beat, retain direction and expire in
+180 ms. Discovery/level badges use subdued gold for 800 ms, coalescing multiple
+levels. Defeated enemy sprites are clipped into nine native transparent pieces
+and dispersed over 240 ms. Binding IDs are resolved again during F5; there are
+no retained Image/Quad handles or extra animation beats. Fog/floor filtering,
+bounded lists and effects-off cleanup remain enforced.
+
+Six new focused headless cases pass, including actual legal hit/block/kill
+actions, generated secret discovery with explicitly assisted placement, exact
+snapshot/continuation, fragmented source coverage and thousand-event caps.
+Expanded native GUI passes three rounds: **18 processes / 99 captured frames**.
+Checks cover fragment pixels/crops, colors, visible badges, expiry, F5 during
+effects, legal action availability, effects-off, 80 repeated blocked attacks per
+round with unchanged texture memory, and existing Save & Quit/separate-process
+Continue/menu stress. Standard game GUI **27/27** and five related menu/art/aim/
+facing/chain groups pass. All use Xvfb and synthetic callbacks, not physical
+input or a native GPU.
+
+Native GUI records: `/var/tmp/roag-juice-next-final-gui-20261019/results.tsv`,
+`roag-juice-next-game-gui-20261019/results.tsv`, and
+`roag-juice-next-related-20261019/results.tsv`. A new fixture assertion initially
+omitted the existing native sprite tint; its log is retained and the source/
+tint/ink pixel comparison corrected. No engine crash is inferred from it.
+The previously documented seed-48271 meta driver failure and historical native
+crash/hang risk remain unresolved; neither is claimed fixed by these cosmetics.
+
+Only optional proposals **2 (Dash afterimages/landing dust)** and **8 (subtle
+environment glints)** remain unimplemented. Further expansion requires the
+user's choice; the original completed expansion goal is not reopened.
