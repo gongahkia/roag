@@ -415,3 +415,48 @@ Resume with **items and interactive rooms**, then the three terrains,
 environment/presentation work, 50+ new boons and final integration/visual
 acceptance. The user requested this checkpoint before proceeding. No later
 batch has been implemented in this turn. The full expansion stays incomplete.
+
+## Next requested checkpoint — item/room detail vote (2026-10-19)
+
+The user requested voting on the next items and interactive rooms. Prepared
+the separate [14-card review](../sprite-audit/items-rooms.html) and
+[instructions](../sprite-audit/items-rooms-guide.md): six items and eight
+interactions already broadly approved, now with concrete action/cost/cancel
+rules, proposed numbers, examples, persistence requirements and both art looks.
+New detail votes are blank. Original 55/30/4 decisions and their exact archived
+files remain intact. The scope is still incomplete; **no item/room mechanic was
+implemented by this review**. The ledger rows remain pending.
+
+Current 399-binding audit/source hashes are checked when building. There are
+111 candidate cells, including three existing cue uses explicitly labelled
+(574 Oath Twins, 539 revival corpse, 915 alarm). Prior user exclusions are
+removed from both art pools. Screenshot inspection additionally caught the
+old potion pool's Tiny 117 hammer: omitted and explained without rewriting
+the earlier approval. Ambiguous bell and 1-Bit fixture silhouettes are flagged;
+no primary 1-Bit assignment is suggested for those two. Shared rules propose
+one utility slot and bounded node frequency; these are proposals, not new
+inventory or generator code.
+
+The review has its own feedback schema, fingerprint-scoped local draft and
+`roag-items-rooms-feedback.json` export. `tools/item_room_feedback.js` validates
+returned JSON read-only. Comments, art decisions and earlier approval context
+remain available for the implementation handoff. Old feedback cannot overwrite
+this draft or be mistaken for the new detail vote. The archived client/template
+are untouched; the new page uses a separate client derived from that frozen UI.
+
+Verification: seven focused Node data/state checks; isolated headless Chromium
+exercises all 14 cards/28 art panels, preference changes, real download/import,
+stale/old-file rejection, local draft reload, literal comments, filters and
+390px mobile layout. Original six idea-state checks, preserved original/surplus
+and 30/30 enemy review archives, live catalogue freshness and diff hygiene pass.
+HTML screenshots/logs: `/var/tmp/roag-items-rooms-review-20261019/`.
+No runtime source, PNG, save/profile or game balance changed. The prior
+554/554 full game release gate remains the last full gameplay run; it was not
+rerun for an offline review page. LÖVE windows remain closed as requested;
+browser screenshots do not constitute game/physical-input acceptance.
+
+Resume: read the user's downloaded `roag-items-rooms-feedback.json`, preserve
+its matching proposal snapshot, resolve exact comments and art ambiguities,
+then implement this batch in finite vertical slices with deterministic,
+legal-action and fresh-process save tests. No review fixture vote is user
+approval. Later terrain/environment/boon batches remain pending.

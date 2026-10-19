@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ROAG — items &amp; interactive rooms vote</title>
+<style>@@STYLE@@
+.plan{border:1px solid var(--border);background:var(--panel);padding:16px 20px;margin:18px 0;border-radius:8px}.plan h3{margin:0 0 12px}.plan dl{margin:0}.plan dt{font-weight:700;color:var(--accent);margin:12px 0 3px}.plan dd{margin:0 0 10px}.example{border-left:3px solid var(--gold);padding-left:12px}.suggested,.reuse{display:block;font-size:10px}.suggested{color:var(--accent)}.reuse{color:var(--gold)}.batch{max-width:110ch}.batch li{margin:8px 0}
+</style></head><body>
+<header><div class="topline"><h1>ROAG / Items &amp; interactive rooms</h1><div class="actions"><button id="download" class="download">Download feedback</button><button id="import">Import this review</button><input type="file" id="import-file" accept="application/json,.json" hidden></div></div>
+<p id="summary"></p><div class="progressline"><strong id="progress" role="status"></strong><span id="storage"></span></div><p id="message" role="status" aria-live="polite"></p>
+<p class="intro">The five classes are implemented. Next: refine these <strong>previously approved concepts</strong> into specific items and room interactions. Vote on the proposed behavior, review both artwork choices, and comment on anything to change. New detail votes start blank; your earlier approvals and comments remain preserved. <strong>Nothing here has been implemented yet.</strong></p>
+<details class="batch"><summary>Shared proposal: item controls, costs and room frequency</summary><ul>
+<li><strong>Controls:</strong> adjacent visible objects get a labelled Interact prompt. Use a choice menu with Confirm/Cancel. Inspection and cancellation are free; a successful service or utility use spends one normal speed-scaled action (nominally 100 world time). This is a proposed interface, not an existing hotkey.</li>
+<li><strong>One utility slot:</strong> flask, scroll or token, shown in an Items section of the existing I screen. No equipment redesign and no silent replacement. Planting a return token commits its one charge; leaving that room forfeits the planted return. Comment on any carried-item card if you prefer immediate-use supplies.</li>
+<li><strong>Frequency:</strong> propose at most two new service/supply nodes plus one new puzzle/hazard assembly on a floor. Signs are informational. Not every concept appears on every floor; do not duplicate these rewards at every existing prop or cut normal chests without pacing evidence.</li>
+<li><strong>Timing:</strong> strict enemy scheduling, locked attack cells, hazards, friendly fire and ordinary recovery remain. A menu or a scroll does not guarantee a safe reaction action.</li>
+<li><strong>Saves:</strong> offers, prices, used state, charges, puzzle progress and pending impacts belong in deterministic run/floor data. Reopen, stairs and Continue must not reroll or refill them. Optional interactions never block the mandatory route.</li>
+<li><strong>Numbers are starting proposals.</strong> Before calling implementation done: deterministic seed/offer and generation checks, real legal-action interactions, cancel/invalid-use checks, boon removal/stack tests and separate-process Save/Continue. LÖVE-window tests remain off at your request.</li>
+</ul></details>
+<details class="instructions"><summary>Voting, artwork and your previous feedback</summary><ol>
+<li>Vote <strong>Approve / Reject / Discuss</strong> on this concrete proposal and each look separately. Mark Next/Later if useful. A rejection or comment is a request to revise these details; the old review is never rewritten.</li>
+<li>Click sprite thumbnails to mark optional preferred cells. <strong>Suggested</strong> is a starting point, not your vote. Changing preferences clears that look's approval. An art-pool approval alone does not choose a final assembly.</li>
+<li><strong>Already used</strong> identifies live reuse; hover for existing binding IDs. The return-token icon, a memorial alternative and a bell alternative now have enemy-cue uses. No such sprite is falsely called unused.</li>
+<li>Your exclusions are enforced: no onebit:525 scroll, RPG:855 charm, onebit:24 memorial, six rejected RPG signs or rejected RPG tent parts. Rejected Oracle/Cantor mechanics and later terrain/environment/boon batches are not reintroduced.</li>
+<li>Drafts save in this browser when supported. Download <strong>roag-items-rooms-feedback.json</strong> when ready, including partial feedback. This is separate from your earlier 89-idea download. Import checks version, fingerprint, IDs and sprite choices before replacing the draft.</li>
+</ol><p>Keyboard: Tab/Enter operate controls; ←/→ changes cards outside form controls. Search accepts names and sprite IDs. The page works offline and cannot save, publish or change the game.</p></details>
+</header>
+<div class="workbench"><aside><h2 class="sidebar-title">14 proposals to refine</h2>
+<label>Search ideas / sprite cells<input id="search" type="search" placeholder="e.g. camp, gold, onebit:574"></label>
+<label>Category<select id="category"><option value="all">Items + rooms</option><option value="item">6 items &amp; supplies</option><option value="room">8 rooms &amp; interactions</option></select></label>
+<label>This review's status<select id="status-filter"><option value="all">Any status</option><option value="unreviewed">Not answered yet</option><option value="approve">Approved details</option><option value="reject">Rejected details</option><option value="discuss">Needs discussion</option><option value="next">Marked “next”</option></select></label>
+<label>Show artwork<select id="look"><option value="both">Both looks</option><option value="kenney">Mixed Kenney</option><option value="onebit">Standalone 1-Bit</option></select></label>
+<p id="visible-count"></p><nav id="queue" aria-label="Item and room review list"></nav>
+<p class="footer-links"><a href="items-rooms-guide.md">Instructions</a> · <a href="items-rooms.json">Proposal data</a> · <a href="index.html">Current sprite catalogue</a> · <a href="ideas.html">Original 89-idea review</a></p>
+</aside><main id="content" aria-live="polite"></main></div>
+<script id="ideas-data" type="application/json">@@DATA@@</script>
+<script>@@CLIENT@@</script>
+</body></html>

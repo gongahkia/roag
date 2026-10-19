@@ -1,0 +1,173 @@
+{
+  "offering-font": {
+    "summary": "Pay a visible, nonlethal HP cost for one of three fixed boon offers at a one-use font.",
+    "plan": [
+      ["Interaction", "Inspect an adjacent visible font, see its three offers and exact HP payment, then confirm one offer. Closing the menu costs nothing."],
+      ["Proposed cost", "Pay ceil(20% of maximum HP), at least 1 HP. Refuse payment if it would leave less than 1 HP. Confirming spends a normal action; pending enemy attacks can still resolve during recovery."],
+      ["Reward", "Use the run's frozen, class-eligible boon pool and normal rarity rules. Save the offers when the font is created; inspecting, cancelling and reloading cannot reroll them."],
+      ["Difference", "A permanent boon purchased with current HP, rather than the future Pilgrim boon's repeated health-spending trigger. Never required for a route."]
+    ],
+    "example": "At 18/24 HP, pay 5 HP and take one displayed boon: 13/24 HP remains. At 5/24 HP, the same font refuses payment.",
+    "risk": "Damage-plus-recovery pacing needs seed tests. A lethal pending attack remains lethal; paying HP does not grant invulnerability.",
+    "suggested": {"kenney": "tiny:74", "onebit": "onebit:690"}
+  },
+  "ration-cache": {
+    "summary": "Open a sealed cache and choose a small immediate heal or protection for the next fight.",
+    "plan": [
+      ["Choose one", "Eat for +4 HP, capped at maximum, or brace against the next positive damage hit during the next three committed player actions."],
+      ["Finite use", "One paid action and one reward per cache. Refuse the food choice at full HP instead of consuming it for nothing. A new ward replaces rather than stacks another supply ward."],
+      ["Placement", "A small supply node in an optional room, from the shared new-interaction budget. It is not an explosive barrel and cannot be broken repeatedly for gold."],
+      ["Difference", "Existing food and health drops stay unchanged at +4 and +10. This adds an explicit recovery-versus-protection choice."]
+    ],
+    "example": "Before entering a fight at full health, take the ward; after a fight at 12/24 HP, take food to reach 16/24.",
+    "risk": "The HUD must show remaining actions and whether the one-hit ward has been spent. It must not block every hit in a burst.",
+    "suggested": {"kenney": "rpg:23", "onebit": "onebit:650"}
+  },
+  "cleanse-flask": {
+    "summary": "Carry one finite dose that removes Burning when deliberately used.",
+    "plan": [
+      ["Utility slot", "Propose one shared carried utility slot for a flask, escape scroll or unplanted return token. No silent replacement: show the occupied slot and ask before exchanging."],
+      ["Use", "Select Use in an Items section of the existing I inspection screen. If Burning, confirm one normal action, remove that status and cancel only its pending ticks, then consume the charge."],
+      ["Invalid use", "If not Burning, refuse without consuming the item or advancing time. Do not promise cures for nonexistent poison, enemy snares, webs or unrelated delayed attacks."],
+      ["Persistence", "An unused carried charge survives stairs and stage changes. Save its charge and identity; no refill from leaving and returning."]
+    ],
+    "example": "Burning has two ticks left. Drink the flask before the next tick to remove both; an already-resolved tick is not healed.",
+    "risk": "A carried-item workflow is new. Prefer one visible slot and explicit Use/Cancel over a full equipment or backpack screen.",
+    "suggested": {"kenney": "tiny:114", "onebit": "onebit:580"},
+    "art_notes": {"kenney": "Fresh visual check: Tiny:117 in the earlier pool is a hammer, so it is omitted here. The original feedback remains intact. Micro:107 is a round blue vessel/orb alternative; prefer a clear bottle if that reading is ambiguous."}
+  },
+  "escape-scroll": {
+    "summary": "Spend one carried scroll on a short, previewed escape step without bypassing walls or stairs.",
+    "plan": [
+      ["Target", "Choose a cardinal direction and a landing up to three tiles away. Every traversed cell must be visible, walkable and clear of actors and closed doors; the landing must be empty."],
+      ["Commit", "Show the exact path before confirmation. A successful move consumes the shared utility charge and one normal action. An invalid target or cancelled preview costs nothing."],
+      ["Boundaries", "No crossing floors, activating stairs, passing closed gates or entering unseen cells. Entered tiles still trigger their real hazards and pickups."],
+      ["Difference", "A scarce three-tile consumable available to any class; it does not replace the repeatable class-specific X ability or promise a guaranteed dodge."]
+    ],
+    "example": "A two-tile route into a visible side alcove is legal. A destination beyond a closed door, even if previously explored, is not.",
+    "risk": "Movement must use existing collision, terrain and event rules. Your rejected onebit:525 is removed from both candidate pools.",
+    "suggested": {"kenney": "rpg:898", "onebit": "onebit:139"}
+  },
+  "return-token": {
+    "summary": "Plant a consumable marker, then make one paid return inside that same room.",
+    "plan": [
+      ["Plant", "Use the shared utility slot to plant at the player's current legal room cell, spending one normal action and committing that charge. The planted token allows one return, not repeated replanting."],
+      ["Return", "Spend another normal action to return to the visible empty marker through a known, currently walkable same-room path of at most four steps. Closed gates and occupied landings invalidate it."],
+      ["Expiry", "Leaving the room or floor forfeits the planted return, with a clear warning. Cancelling an inspection does not consume it. An unplanted carried token can persist between floors."],
+      ["Difference", "Wayfinder is already implemented: its reusable class workflow has a six-step return and an adjacent beacon. This token is shorter-range, finite and takes two paid actions to set up and use."]
+    ],
+    "example": "Plant before approaching the room's far side; return once if the marker remains visible and unoccupied. It cannot rescue you across a locked gate.",
+    "risk": "Its only previously approved icon, onebit:574, now also marks the Oath Twins' link effect. Reuse is disclosed below; comment if this is too confusing or the item overlaps Wayfinder too much.",
+    "suggested": {"kenney": "onebit:574", "onebit": "onebit:574"}
+  },
+  "charm-well": {
+    "summary": "Choose a brief offensive or defensive preparation rather than another permanent stat bonus.",
+    "plan": [
+      ["Choose one", "Brace: block the next positive damage hit. Focus: add +2 damage to the next direct player attack, applied once to its primary hit batch, not separately to every chain or DOT tick."],
+      ["Duration", "Either choice expires after three committed player actions if unused. The next eligible event consumes it. Replacing a supply condition is explicit; no stockpiling or additive refresh loop."],
+      ["Use", "One normal action, one choice per well. Inspection and cancellation are free. Display remaining actions and the exact active condition in the existing HUD/inspection view."],
+      ["Difference", "Ration caches offer healing versus defense. This well offers offense versus defense and neither gold nor a permanent boon."]
+    ],
+    "example": "Take Focus immediately before a planned Sword Strike; it helps that attack but does not multiply a delayed echo and every triggered boon.",
+    "risk": "Multi-target attacks need a precise single primary-batch rule. RPG:855 was rejected and is excluded. Numbers are a proposal, not an applied balance change.",
+    "suggested": {"kenney": "rpg:853", "onebit": "onebit:435"}
+  },
+  "attunement-forge": {
+    "summary": "Trade one selected boon stack plus a little gold for one fixed alternative of the same rarity.",
+    "plan": [
+      ["Select", "Choose the exact owned stack, including rarity, rather than removing every stack of that boon. Show the before/after ability and stat consequences."],
+      ["Proposed exchange", "Pay 3 gold plus that one stack; choose one of three different eligible boon alternatives at the removed stack's rarity. No automatic rarity upgrade. If fewer than three are legal, show the actual smaller set."],
+      ["Stable offers", "Derive and save alternatives per selectable stack identity from the frozen class-eligible run pool. Reopening or changing selection cannot farm rerolls. No valid alternative means no trade."],
+      ["Confirm", "Apply removal, payment and chosen replacement together as one paid action. Cancel leaves everything intact. One completed exchange per forge."]
+    ],
+    "example": "Trade one Common stack and 3 gold for one displayed Common alternative; a Legendary stack of the same original boon remains owned.",
+    "risk": "Transformation removal and proc-dependent state must be recalculated without resetting HP, floor, pending attacks or other boon stacks. This is one of the more involved interactions.",
+    "suggested": {"kenney": "rpg:13", "onebit": "onebit:400"}
+  },
+  "travelling-trader": {
+    "summary": "A stationary supply stall offers two fixed services and allows one purchase.",
+    "plan": [
+      ["Proposed stock", "Always offer food (+4 HP) for 2 gold. The second service is one seeded, saved utility item: a cleanse flask for 2 gold or an escape scroll for 3 gold."],
+      ["Purchase", "Choose one service, inspect price and consequences, then confirm a normal action. Insufficient gold, full HP or an occupied utility slot must not silently spend currency."],
+      ["Finite stock", "One completed purchase per stall, no sale-back, interest, changing stock or refresh-on-reload. Closing the menu is free; it is not a moving cart enemy."],
+      ["Difference", "Normal chests remain the main three-offer boon source. The trader sells tactical supplies, so it does not undercut chest rarity or duplicate the forge."]
+    ],
+    "example": "At 11/24 HP and 3 gold, buy food for 2 or keep the HP risk and buy the displayed escape scroll for 3.",
+    "risk": "Prices need real early-stage affordability tests before implementation is accepted. RPG stall groups contain assembly pieces; choosing an isolated fragment does not approve a complete stall.",
+    "suggested": {"kenney": "rpg:239", "onebit": "onebit:768"}
+  },
+  "memorial-choice": {
+    "summary": "Retire one exact boon stack for meaningful immediate recovery, with the loss previewed first.",
+    "plan": [
+      ["Proposed recovery", "Recover ceil(35% of maximum HP), capped at the missing amount, in exchange for one chosen owned stack. No gold cost, resurrection or permanent maximum-HP gain."],
+      ["Selection", "Show rarity, remaining stacks, actual HP restored and any transformation or ability changes before confirmation. Never remove the entire mixed-rarity boon collection by accident."],
+      ["Commit", "One normal action and one use per memorial. Refuse at full HP or without an eligible stack. Cancel does not retire anything."],
+      ["Difference", "A survival trade, unlike the forge's lateral build correction. Existing healing drops stay intact and the memorial is never required to finish a floor."]
+    ],
+    "example": "At 6/24 HP, retire one unwanted stack to recover 9 HP and reach 15/24. The preview must also show any changed attack geometry.",
+    "risk": "Removing transformations needs the same careful inventory recomputation as the forge. onebit:24 is excluded; onebit:539 now also serves the revival corpse cue.",
+    "suggested": {"kenney": "rpg:564", "onebit": "onebit:72"}
+  },
+  "bell-sequence": {
+    "summary": "Read a visible three-symbol clue, then ring the room's bells in order for one optional reward.",
+    "plan": [
+      ["Readable clue", "Show the ordered symbols with plain text labels in inspection. Match those labels on the three bells in both art packs; audio reinforces rather than supplies the solution."],
+      ["Actions", "Each adjacent bell activation spends one normal action. A wrong bell visibly resets sequence progress without surprise damage, new enemies or a new random solution."],
+      ["Reward", "Complete the fixed sequence once for 5 gold from the room's reward budget. Record the solution, progress and collected reward in the floor save; no repeat reward on reload."],
+      ["Placement", "A safe optional side-room assembly with a reachable clue and every bell accessible. Never lock the main route or require real-time rhythm input."]
+    ],
+    "example": "The plaque says Sun → Leaf → Moon. Ring those labelled bells; an incorrect first choice resets the three-step attempt and is explained.",
+    "risk": "Symbol overlays/labels must remain unambiguous at normal zoom. onebit:915 is already the Alarm Keeper's cue; the other approved bell candidates avoid that reuse.",
+    "suggested": {"kenney": "rpg:681", "onebit": null},
+    "art_notes": {"onebit": "These historically approved silhouettes do not read unambiguously as bells: 867/915 can look like round bombs and 964 like a lantern. No primary sprite is suggested. Vote/comment on repurposing them as labelled gongs, or request a different specific 1-Bit cell; this is not permission to add bombs."}
+  },
+  "falling-fixture": {
+    "summary": "A visible switch commits a one-use falling hazard onto fixed, clearly outlined cells.",
+    "plan": [
+      ["Preview", "Inspect the switch to see a five-cell cross around the hanging fixture, its damage and its exact scheduled impact delay. No hidden target tracking."],
+      ["Trigger", "Activating costs one normal action; impact is committed for +100 world time at the previewed cells. The strict scheduler remains unchanged: this does not guarantee another player action before impact."],
+      ["Proposed impact", "Deal a base 4 physical damage, using normal defense and damage rules, to every actor in those cells, including the player and allies. Ordinary damage does not cancel surviving enemies' windups."],
+      ["Afterward", "One saved activation, no repeat drop, no permanent rubble collision and no blocked mandatory route. Pause/rebase its pending time with the inactive floor."]
+    ],
+    "example": "Lure a brute onto the marked cross, trigger the switch from a safe tile, then respect its already-committed attack while the fixture falls.",
+    "risk": "Requires locked-cell telegraph, friendly-fire attribution, same-time ordering and fresh-process pending-impact tests. It is not a new explosive barrel or spore bomb.",
+    "suggested": {"kenney": "rpg:475", "onebit": null},
+    "art_notes": {"kenney": "The RPG candidates read as candelabra. They need an explicit overhead placement/trigger cue, not an unexplained floating floor ornament. The shared 1-Bit candidates below are unresolved alternatives, not finished hanging art.", "onebit": "Visual check: 547 reads as a chair, and 549 as a headstone. They were in the earlier approved pool, but neither is a finished overhead fixture assignment. No primary is suggested: reject/comment on the artwork if you want another cell or a falling-stone interpretation instead. Approving the mechanic alone does not settle its art."}
+  },
+  "signposted-routes": {
+    "summary": "Place truthful pictorial signs at selected branches so exploration decisions are easier to read.",
+    "plan": [
+      ["Information", "A visible sign describes an already-generated local branch as supplies, treasure or danger, with an arrow and a plain-language inspection label."],
+      ["Fog rule", "Do not reveal the destination's cells, hidden enemies, exact loot, secret rooms or a full-map path. The sign only discloses its intended coarse category."],
+      ["Interaction", "Reading is inspection only: no world time, RNG draw or reward. Use a deterministic destination chosen during generation; no misleading or dynamically tracking signs."],
+      ["Placement", "Do not occupy stairs or close a corridor. Multiple sign variants are visual alternatives rather than new mechanics, and remain legible in both Kenney looks."]
+    ],
+    "example": "A branch sign reads 'Supplies →'. It helps you choose that corridor without lighting up its unseen rooms or showing an enemy count.",
+    "risk": "Six rejected RPG cells (22, 425, 737, 794, 851, 908) are excluded from this review. A pictured arrow must agree with the actual branch direction.",
+    "suggested": {"kenney": "rpg:16", "onebit": "onebit:674"}
+  },
+  "camp-choice": {
+    "summary": "At a rare one-use camp, choose substantial recovery or a cleanse-and-ward preparation.",
+    "plan": [
+      ["Choose one", "Rest: recover ceil(25% of maximum HP), capped at missing HP. Prepare: remove Burning and block one positive damage hit within the next three committed actions."],
+      ["Commit", "One normal action, one completed choice per camp. Inspection/cancel is free. Time and enemies resume during the ordinary recovery; this is not unlimited wait-healing or a global safe zone."],
+      ["Placement", "A rarer optional room node sharing the finite new-interaction budget with caches and wells. Do not add a guaranteed camp to every floor or remove an existing chest without pacing evidence."],
+      ["Difference", "A larger recovery stop than a ration cache, and no cost in gold or boon stacks. The alternative is useful when hurt by Burning but preparing to fight."]
+    ],
+    "example": "At 10/24 HP, Rest heals 6 HP; if Burning and about to fight, Prepare removes the burn and gives a brief one-hit ward instead.",
+    "risk": "Use only the expressly accepted shelter silhouettes: Micro:117 and onebit:508/509. All six rejected RPG tent-part cells stay excluded.",
+    "suggested": {"kenney": "micro:117", "onebit": "onebit:508"}
+  },
+  "archive-contract": {
+    "summary": "Accept a visible optional room challenge; obey a movement constraint to earn one fixed bonus.",
+    "plan": [
+      ["Offer", "Before combat in that optional room, show a fixed list of living ordinary enemy IDs and the condition: defeat them without committing a movement ability or leaving the room."],
+      ["Controls", "Never disable an ability. Attempting a forbidden movement still works normally but explicitly fails the contract. Nonmovement X abilities, ordinary walking and attacks remain allowed."],
+      ["Reward", "Propose 8 gold once all marked original targets are defeated by player-attributed actions, including commanded companions. No duplicate reward from fragments or revivals; pending revivals must settle."],
+      ["Failure / scope", "Leaving, abandoning or breaking the condition ends the bonus, with a clear message and no loss of normal kill rewards. No mandatory objective, extra boss, endless spawn or permanent-profile bonus."]
+    ],
+    "example": "Accept 'No movement abilities'. Walk and fight normally; using Dash escapes safely but forfeits the displayed bonus. Stormcaller's nonmovement grounding is not forbidden just because it uses X.",
+    "risk": "Class fairness, companion attribution, already-committed enemies and frozen-floor continuation need explicit tests. Cannot farm a contract by reopening the menu or reviving the same target.",
+    "suggested": {"kenney": "rpg:901", "onebit": "onebit:392"}
+  }
+}

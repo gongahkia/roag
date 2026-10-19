@@ -24,6 +24,12 @@ the live catalogue is the authority for what remains unused.
 covering all unused cells with separate idea/art votes, preferences, comments
 and downloadable feedback. See the [review guide](sprite-audit/ideas-guide.md).
 
+**Next detail vote:** [items and interactive rooms](sprite-audit/items-rooms.html)
+refines the six approved items and eight approved interactions after the class
+batch. It preserves earlier feedback, enforces excluded art, labels current
+sprite reuse and flags ambiguous assignments. See [opening/voting instructions](sprite-audit/items-rooms-guide.md).
+These proposed mechanics have not been added to gameplay.
+
 ## The choices being compared
 
 | Settings choice | Source artwork | Status |

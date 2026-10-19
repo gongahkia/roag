@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -24,6 +24,8 @@ help:
 	 'make surplus-audit-check Check the shortlist against live mappings' \
 	 'make sprite-ideas     Build the full unused-art idea approval page' \
 	 'make sprite-ideas-test Check idea coverage, feedback and page freshness' \
+	 'make item-room-review Build the focused item/interactive-room voting page' \
+	 'make item-room-review-test Check the focused review and feedback safety' \
 	 'make sprite-review    Refresh embedded art in the review page' \
 	 'make enemy-review     Build the five-combination approval page' \
 	 'make review-test      Check the review data, client and generated page' \
@@ -55,6 +57,12 @@ sprite-ideas-check: sprite-audit-check
 	python3 tools/build_sprite_ideas.py --check
 sprite-ideas-test: sprite-ideas-check
 	node tests/sprite_ideas_page_test.js
+item-room-review: sprite-audit-check
+	python3 tools/build_item_room_review.py
+item-room-review-check: sprite-audit-check
+	python3 tools/build_item_room_review.py --check
+item-room-review-test: item-room-review-check
+	node tests/item_room_review_page_test.js
 sprite-review:
 	python3 tools/build_sprite_review.py
 	python3 tools/build_enemy_review.py
