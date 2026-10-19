@@ -74,7 +74,7 @@ Placement rejects occupied cells, stairs and any cell whose removal disconnects 
 
 The title picker shows up to nine rows per page. Arrows/gamepad cycle all classes and move the page; mouse selects visible rows and the PREV/NEXT page buttons. Number shortcuts still cover the first nine.
 
-Nine focused checks and 46 combined class/art/UI contracts pass. `sh tests/idea_class_disk_resume.sh geomancer` checks fresh-process Continue through expiry. Full regression is recorded in the goal ledger when finished; GUI/physical input remains pending.
+Nine focused checks and 46 combined class/art/UI contracts pass. `sh tests/idea_class_disk_resume.sh geomancer` checks fresh-process Continue through expiry. The final all-class full gate passes 554/554; GUI/physical input remains pending.
 
 ## Spiritbinder
 
@@ -84,7 +84,7 @@ HP 20, attack/command 3, defense 0, speed 100. Base move/F/R/X costs: 100/110/14
 - **R — Command Spirit:** toward empty ground, deploy/reposition the same familiar up to two visible tiles away. An enemy in the chosen three-cell direction can instead receive a paid strike if adjacent to the familiar. The first deployment stops before an enemy. Invalid reach/visibility costs no time.
 - **X — Spirit Step:** normal two-cell Dash.
 
-The spirit does not block movement, scout, act autonomously, draw attacks or award rewards. One paid strike uses the owner's existing damage/proc pipeline; deployment creates no attack/Echo. The same familiar ID survives repositioning. Saved ownership and exact subsequent commands are validated. Mixed body uses Tiny 85, standalone body 122; the approved familiar uses 1-Bit 417 in both choices (representative art also used by an awake Haunted Cache).
+The spirit does not block movement, scout, act autonomously, draw attacks or award rewards. One paid strike uses the owner's existing damage/proc pipeline and owner-based spatial predicates; its strike geometry comes from the familiar. Deployment creates no attack/Echo. The same familiar ID survives repositioning. Saved ownership and exact subsequent commands are validated. Mixed body uses Tiny 85, standalone body 122; the approved familiar uses 1-Bit 417 in both choices (representative art also used by an awake Haunted Cache).
 
 Six focused tests pass; combined contracts and new-process Continue are recorded in the goal ledger. `sh tests/idea_class_disk_resume.sh spiritbinder` resumes an actual commanded strike after a checked save. No LÖVE window or physical input acceptance is claimed.
 
@@ -138,3 +138,11 @@ sh tests/idea_duelist_disk_resume.sh
 The sentry also participates in Mirror Hexer reflection: the marker is consumed at commitment, the turned lane is locked/saved, and later impact cannot retarget. Automatic class effects suppress extra boon activation; ordinary player attacks and explicit paid spirit strikes retain the established pipeline. Charge/construct/cross/return data remain plain saved fields in the existing schema; source PNGs and gameplay RNG are preserved.
 
 This is headless engineering evidence. LÖVE windows, actual input, game-scale silhouettes, feedback readability and human balance acceptance remain untested under the user's no-window-test instruction. Legal first encounters are not full-run Victories; the full regression suite separately retains the established legal full-run gates. Prepared stress states are not claimed legal runs or GPU benchmarks.
+
+### Stage handoff and warning priority
+
+Future stages now generate chest offers using the actual chosen class. This fixes a reproduced seed-2 Geomancer receiving Adventurer-only Longblade Geometry after a route change. Existing concrete chest offers and saved runs are not rewritten. The regression checks offer eligibility and compatible saves for all fifteen classes. Held player resources carry through the existing player handoff; stage-local constructs, cross and beacon remain with their stage.
+
+Class resource hints yield to committed attacks, targeting, extraction deadlines and pursuit warnings. Allied committed lines are labelled separately from enemy attacks. These are code-reviewed presentation changes; actual LÖVE readability remains pending.
+
+Final batch result: **510/510 baseline → 554/554 full regression**, with **44/44** final live focused checks after the disabled-page-button correction. Fifteen legal first encounters/replays (three seeds per new class), five fresh-process special-state saves and 100 prepared use cycles per class pass. The existing six-class legal full-run Victories and seven miniboss routes remain passing. See the goal ledger for exact logs, per-class commits and the explicit GUI limits.

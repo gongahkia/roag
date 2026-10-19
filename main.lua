@@ -2623,7 +2623,7 @@ local function draw_world()
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
             if strike.ember_pulse then draw_cells(strike.target_cells,1,.58,.15,.7,true)
-            elseif strike.support then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
+            elseif strike.support or strike.companion then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
             else draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true) end
             if strike.ember_landing and visible_at(strike.ember_landing.x,strike.ember_landing.y)then
                 local x,y=Camera.tile_top_left(camera,strike.ember_landing.x,strike.ember_landing.y)
@@ -2910,17 +2910,10 @@ local function draw_panel()
             local shown=false
             for _,cell in ipairs(strike.target_cells)do if visible_at(cell.x,cell.y)then shown=true;break end end
             if shown then
-                warning=strike.support and 'SUPPORT CHANNEL' or 'INCOMING ATTACK'
+                warning=strike.support and 'SUPPORT CHANNEL' or strike.companion and 'YOUR COMMITTED ATTACK' or 'INCOMING ATTACK'
                 detail=Content.ability_name(strike.ability_id)..' · '..math.max(0,strike.due-state.clock)..' time'
                 color={1,.44,.4};break
             end
-        end
-        if warning=='' and not targeting then
-            local label,info=Classes.status(state,Game.player(state))
-            if label then warning=label;detail=info;color=PixelUI.colors.selected end
-        end
-        if warning=='' and not targeting and Game.player(state).duelist_riposte then
-            warning='RIPOSTE READY';detail='Next paid thrust +2 damage';color=PixelUI.colors.selected
         end
         if warning=='' and targeting then
             warning='AIMING'
@@ -2933,6 +2926,13 @@ local function draw_panel()
             color=PixelUI.colors.selected
         elseif warning=='' and state.stage and state.stage.phase=='pursuit'then
             warning='PURSUER ACTIVE';detail='Reach the exit';color={1,.44,.4}
+        end
+        if warning=='' and not targeting then
+            local label,info=Classes.status(state,Game.player(state))
+            if label then warning=label;detail=info;color=PixelUI.colors.selected end
+        end
+        if warning=='' and not targeting and Game.player(state).duelist_riposte then
+            warning='RIPOSTE READY';detail='Next paid thrust +2 damage';color=PixelUI.colors.selected
         end
     end
     local item=reward_notice_time>0 and reward_notices[1] or nil

@@ -85,7 +85,9 @@ function U.class_nav_at(x,y)
 end
 function U.class_page_target(order,selected,delta)
     local first=U.class_page(order,selected)
-    return order[math.max(1,math.min(math.floor((#order-1)/9)*9+1,first+delta*9))]
+    local target=first+delta*9
+    if target<1 or target>#order then return selected end
+    return order[target]
 end
 function U.class_at(x,y,first,last)
     first,last=first or 1,last or 9

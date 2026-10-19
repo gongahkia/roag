@@ -14,6 +14,8 @@ return function(test,equal)
   assert(not U.class_nav_at(330,510) and not U.class_nav_at(360,540))
   local first=C.order[1];local next=U.class_page_target(C.order,first,1);assert(next==C.order[10])
   assert(U.class_page_target(C.order,next,-1)==first and U.class_page_target(C.order,next,1)==next)
+  assert(U.class_page_target(C.order,C.order[5],-1)==C.order[5])
+  assert(U.class_page_target(C.order,C.order[#C.order],1)==C.order[#C.order])
   for _,id in ipairs(C.order)do local a,b=U.class_page(C.order,id);assert(b-a<=8)end
  end)
  test('sentry commitment freezes with its floor and resumes at its rebased locked impact',function()
@@ -61,6 +63,36 @@ return function(test,equal)
   assert(other.hp==8 and hexer.hp==7);equal(a,c);equal(G.snapshot(s),G.snapshot(b))
   for _,e in ipairs(snap.entities)do if e.companion_kind=='sentry'then e.sentry_cells[2].x=10 end end
   assert(not pcall(G.restore,snap))
+ end)
+
+ test('stage handoff builds later chest offers for the actual class and carries a compatible saved run',function()
+  local Content=require('src.content');local Boons=require('src.boon_content');local Q=require('src.scheduler');local V=require('src.visibility')
+  for _,id in ipairs(C.order)do
+   -- Assisted transition fixture, not a claimed legal full-run win.
+   local s=G.new_stage(2,{class_id=id});s.meta.eligible=false
+   local p=G.player(s);local elite=G.entity(s,s.stage.elite_id)
+   for _,e in ipairs(s.entities)do if e.controller=='ai'then Q.remove_for_actor(s,e.id)end end
+   local aim
+   for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}})do
+    local x,y=elite.position.x+d[1],elite.position.y+d[2]
+    if Content.walkable(s.generated_map,x,y)then p.position.x,p.position.y=x,y;aim={-d[1],-d[2]};break end
+   end
+   assert(aim);p.damage=elite.hp+elite.defense+2;V.recompute(s)
+   assert(G.submit(s,{kind='basic_attack',dx=aim[1],dy=aim[2]}));local exit=assert(G.entity(s,s.stage.exit_id))
+   for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}})do
+    local x,y=exit.position.x+d[1],exit.position.y+d[2]
+    if Content.walkable(s.generated_map,x,y)then p.position.x,p.position.y=x,y;break end
+   end
+   assert(G.submit(s,{kind='choose_route',exit_id=exit.id,route_index=1}))
+   assert(G.player(s).definition_id==id and s.stage.index==2)
+   local n=0
+   for _,e in ipairs(s.entities)do if e.controller=='chest'then for _,offer in ipairs(e.offers)do
+    local eligible=Boons.get(offer.boon_id).eligible_classes
+    if eligible then local valid=false;for _,allowed in ipairs(eligible)do if allowed==id then valid=true end end;assert(valid,id..' got '..offer.boon_id)end
+    n=n+1
+   end end end
+   assert(n>0 and G.restore(G.snapshot(s)))
+  end
  end)
 
 end

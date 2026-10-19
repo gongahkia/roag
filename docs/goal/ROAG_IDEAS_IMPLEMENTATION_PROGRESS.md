@@ -366,10 +366,52 @@ a seed-2 Geomancer could receive Adventurer-only Longblade Geometry on stage 2
 because the fresh stage generated offers before restoring the chosen class.
 The release candidate passes the class ID into fresh stage/finale construction;
 a new assisted fixture checks later offers and compatible saves for all fifteen
-classes. Its **44/44** focus and all-class fresh-process checks pass. A full
-554-test release gate is running; its outcome is not presumed.
+classes. Its **44/44** focus and all-class fresh-process checks pass. The full
+release gate passed **554/554** at `/var/tmp/roag-five-classes-release-headless-20261019.log`
+from `/var/tmp/roag-five-classes-release-pu71oihc`. All established legal full-run
+Victories and seven miniboss routes remain passing with correct class offers.
 
 This user-requested batch is classes only. Items/rooms, three terrains,
 environment/presentation directions and 50+ additional boons remain pending.
 LÖVE windows, physical input, game-scale readability and human balance
 acceptance remain deferred. No later batch is started in this turn.
+
+### Class checkpoint — finished in code, GUI deferred
+
+The current requested five-class batch is finished in code and headless
+verification. All six approved class additions, including the earlier Duelist,
+are integrated; there are now **15 playable classes**. The Pilgrim ledger row
+is a boon redirect, not a seventh unfinished class.
+
+| Class task | Atomic commit |
+| --- | --- |
+| Geomancer | `6fecf05c` |
+| Spiritbinder | `9507efcb` |
+| Tinkerer | `0b084f9f` |
+| Stormcaller | `6857875b` |
+| Wayfinder / class integration | `30421894` |
+
+Final evidence: **510/510 baseline → 554/554 full release gate**, plus
+**44/44** final live focused checks, fifteen legal encounter/replay cases,
+five class-specific fresh-process saves, Duelist and thirteen enemy disk
+scenarios, original feedback/source-art checks and `git diff --check`.
+The last small UI-only correction makes disabled PREV/NEXT controls retain
+the current selection; two added assertions in the existing page case and
+the full live 44-case focus pass after it. The frozen full gate predates only
+that small pure UI boundary correction; authoritative game source matches
+the 554-test release tree. No LÖVE window, actual mouse/keyboard/tablet or
+native GPU was exercised. No claim of human balance/visual acceptance.
+
+The final shared fix preserves class eligibility on future stage/finale
+construction and lets urgent timing warnings precede class resource hints.
+Existing concrete saved chest offers are preserved. No schema migration,
+combat scheduler, enemy balance, PNG source or personal profile changes.
+The initial stress fixture needed correct observer recompute after its
+prepared player relocation, and an allowance for player + target + familiar;
+those failed fixture logs remain retained. Final 100-cycle checks pass for
+all five, with valid saves, bounded queues and unchanged RNG.
+
+Resume with **items and interactive rooms**, then the three terrains,
+environment/presentation work, 50+ new boons and final integration/visual
+acceptance. The user requested this checkpoint before proceeding. No later
+batch has been implemented in this turn. The full expansion stays incomplete.

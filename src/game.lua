@@ -1654,12 +1654,12 @@ function Game.submit(state, intent)
             (old_index>=3 and "finale:" or "stage:"..next_index..":")..route.id)
         local fresh
         if old_index>=3 then
-            fresh=Game.new_finale(next_seed,{root_seed=state.root_seed,
+            fresh=Game.new_finale(next_seed,{root_seed=state.root_seed,class_id=old_player.definition_id,
                 entity_id_base=state.next_entity_id-1,retired_stages=retired,
                 route_history=history,available_boons=state.available_boons,
                 meta=state.meta})
         else
-            fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
+            fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,class_id=old_player.definition_id,
                 entity_id_base=state.next_entity_id-1,retired_stages=retired,
                 available_boons=state.available_boons,meta=state.meta,
                 multifloor=state.floor_order~=nil,
