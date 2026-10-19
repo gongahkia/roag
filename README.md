@@ -46,24 +46,34 @@ on its right and saves when released. Arrow keys adjust the selected volume too.
 
 ## Controls
 
+On the title screen, choose **Continue** for the saved run or **New Run** to
+choose a class. A new run replaces the single active save after confirmation.
+
 | Key | Action |
 | --- | --- |
-| `W` / `A` / `S` / `D` | **Campaign:** cardinal movement only; the most recently pressed held direction wins. Movement sets facing. |
-| `E` | **Campaign:** attack with the active quick weapon in the facing direction. A carried tool in that slot strikes enemies or the faced material; empty ranged magazines reload instead of firing. |
-| `R` | **Campaign:** swap quick weapon; a successful field swap costs one turn |
-| `Q` | **Campaign:** use the active quick ability (Dash is a default ability binding) |
-| `B` | Arm a bomb |
-| `F` | Light a flare; it stuns enemies in its blast |
-| `X` | **Campaign:** swap quick ability; a successful field swap costs one turn |
-| `I` | Open carried inventory; press `Tab` in Campaign to assign weapon/ability quick slots while the world is paused. `Delete`/`Backspace` or the explicit drop target drops selected cargo at your feet. |
-| Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview. In Campaign corpse salvage, drag body parts and cargo from the fallen grid into your inventory grid. |
-| `C` | Open the campaign construction menu |
-| `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, loose cargo, or corpse salvage. Ordinary resource/ammo stacks are collected by walking over them. |
-| `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
-| `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
-| Enter or `E` | Confirm a menu choice or leave the shop for the boss |
-| `B` / `V` in the shop | Buy / sell the selected item |
-| Escape | Quit the game |
+| `W` / `A` / `S` / `D` or arrows | Move one cardinal tile; bump a hostile to attack or a chest/exit to inspect |
+| `F` / `R` / `X` | Aim the class's basic attack / special / movement skill |
+| Direction, then Enter | Choose aim and commit; `Q` / `E` / `Z` / `C` also aim diagonally |
+| `P` or controller LB while aiming | Toggle Pilgrim's Vow when owned; its HP price is paid only on a committed attack |
+| Space | Wait one action |
+| `I` / `V` | Open boons and character stats / advance the boon page |
+| `E` while exploring | Inspect nearby room objects and services |
+| `U` | Inspect or use the carried utility item |
+| `Tab` | Show or hide the minimap |
+| `F1` | Show contextual game help |
+| `F5` | Refresh artwork/audio without changing the run |
+| Escape | Cancel aiming, close a panel, or open Pause; Save & Quit and Settings are in Pause |
+| `W` / `S`, arrows, Enter | Select and confirm menu options |
+
+Attacks resolve immediately; committed recovery and enemy telegraphs still
+advance through the deterministic scheduler. During visual playback, wait for
+the input gate to clear before committing the next action.
+
+**Developer shortcut:** `B` changes the showcase loadout and makes the run
+ineligible for permanent achievements. It is not a bomb command. Use
+`make spectator` for disposable artwork inspection without using the active save.
+See the [additional boon guide](docs/ROAG_IDEA_BOONS.md) for the current pass and
+its verification limits.
 
 ## Reference
 
