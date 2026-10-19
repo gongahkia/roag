@@ -18,6 +18,7 @@ local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
 local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
+local IdeaSentinel = require('src.idea_sentinel')
 local IdeaWebs = require('src.idea_webs')
 local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
@@ -453,6 +454,7 @@ function Game.effective_ability(state, kind, dx, dy, explicit)
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
+    IdeaSentinel.interrupt(target)
     local pending = target.pending_attack
     if not pending then return false end
     Scheduler.remove_for_actor(state, target.id, "impact")
@@ -1168,6 +1170,7 @@ local function enemy_turn(state, item, output)
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
             damage=enemy.damage+(intent.damage_bonus or 0)+(Squads.rally_source(state,enemy) and 1 or 0), due=due,
             support=copy(intent.support),advance=copy(intent.advance),shove=copy(intent.shove),
+            sentinel_facing=intent.sentinel_facing,
             committed_time=state.clock,
         }
         if intent.support and intent.support.kind=='revive' then IdeaEnemies.prune_corpses(state)end
@@ -1178,6 +1181,8 @@ local function enemy_turn(state, item, output)
             target_cells=cells,
             shove=copy(intent.shove),
             support_kind=intent.support and intent.support.kind,
+            sentinel_facing=intent.sentinel_facing,
+            sentinel_strike=intent.sentinel_facing and enemy.ai_memory.sentinel_strikes,
         }, enemy.id, action_id)
         return
     end

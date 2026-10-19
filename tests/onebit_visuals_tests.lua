@@ -37,7 +37,7 @@ return function(test,equal)
             assert(h.source=='onebit' and h.width==16 and h.quad.x==index%49*16)
             assert(art:resolve(id..'/attack')==h and art:resolve(id..'/hurt')==h)
         end
-        assert(count==55)
+        assert(count==56)
         for id in pairs(O.objects)do assert(art:resolve(id) and Slots.bindings[id])end
         for _,id in ipairs(Boons.order)do
             local h=assert(art:resolve(id..'/icon'));assert(art:resolve(id..'/detail')==h)

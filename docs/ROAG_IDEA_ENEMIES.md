@@ -234,6 +234,28 @@ cover batch symmetry, mitigation, proc exclusion, simultaneous kills, breaks,
 malformed saves and a 100-stage natural paired-ownership corpus. A real disk
 save/reopen preserves both bodies, exact shared HP and their reciprocal IDs.
 
+## Rotating Sentinel
+
+An optional side-room champion, not an eighth biome miniboss. Seeded placement
+requires a room interior outside the critical route, away from the entrance.
+No room is carved and no mandatory elite is replaced. Its body is approved
+1-Bit 224 in both looks. HP 14, defense 1, raw damage 2, speed 80, base
+windup 160 and recovery 80; normal finite rewards remain 4 XP / 3 currency.
+It is marked as a special encounter for the requested future dice exemption.
+
+The champion holds position through four separately committed quarter-turn
+strikes. The first faces the player; the next three rotate clockwise. Each
+three-cell front arc locks when its own windup begins. A yellow arrow shows
+the next quarter, and the notice reports the current direction and step.
+After four commitments it returns to ordinary movement and adjacent strikes.
+Normal damage does not interrupt. Stun, displacement or death ends the sequence,
+including an interruption during the recovery gap between attacks.
+
+Eight focused cases cover strict timing, pure aiming, fixed cells, normal
+friendly fire, interruption gaps, exact saves and 100 naturally generated
+stages with optional placement. A separate-process disk save resolves the
+same pending quarter after reopening. Actual LÖVE readability is still pending.
+
 ## Verification
 
 ```sh
@@ -276,6 +298,11 @@ footprint with no safe adjacent step. The paired-floor melee Forge strategy
 uses Dash for its centered box; old single-floor and close-range Regent
 tactics remain unchanged. These are test strategies, not player input logic.
 Arcanist also considers its actual Fire Sigil before chasing an off-axis foe.
+Paired ranged combat breaks equal-distance escape ties laterally. On the stair
+route, only after a proven six-move, unchanged-HP cycle, the driver can ignore
+fully armored attacks. Damaging attacks and physical shoves still demand
+escape. This fixes two observed legal-strategy stalls without changing the
+game's controls, actor stats, damage, RNG or scheduler.
 The driver never assigns HP, positions or actor statistics. Recovery uses
 normal earned pickups and boons.
 

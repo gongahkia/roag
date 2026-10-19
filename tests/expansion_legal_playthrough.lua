@@ -52,7 +52,7 @@ local function fight_target(run,id,max_actions,stop_when)
         if not enemy then return true end
         if state.game_over then return false,'dead' end
         local p=Game.player(state).position
-        if Play.escape(run,enemy.position,nil,true) then
+        if Play.escape(run,enemy.position,nil,true,true) then
             -- Locked impact cells have priority over a shot.
         elseif Play.movement_cycle(run,first_trace)then
             -- Matching the target's movement can oscillate forever without
@@ -93,11 +93,14 @@ local function navigate_stair(run,max_actions)
     local prior=state.active_floor_id
     local stair=assert(state.generated_map.placements.stairs[1],
         'paired floor has no stair')
+    local first_trace=#run.trace
+    local armoured_stall=false
     for _=1,max_actions do
         if state.active_floor_id~=prior then return true end
         if state.game_over then return false,'dead on way to stair' end
         local player=Game.player(state)
-        if Play.escape(run,stair) or Play.attack_adjacent(run,state.stage.elite_id) then
+        if Play.movement_cycle(run,first_trace)then armoured_stall=true end
+        if Play.escape(run,stair,armoured_stall) or Play.attack_adjacent(run,state.stage.elite_id) then
             -- Replan around committed attacks and any ordinary opponent.
         else
             local step=Play.path(state,function(at)

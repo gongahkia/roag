@@ -90,17 +90,20 @@ local function threatened(state,x,y,ignore_armoured)
     return false
 end
 
-function Play.escape(run,goal,ignore_armoured,allow_dash)
+function Play.escape(run,goal,ignore_armoured,allow_dash,prefer_lateral)
     local state=run.state
     local p=Game.player(state).position
     if not threatened(state,p.x,p.y,ignore_armoured) then return false end
-    local best,score
+    local best,score,best_lateral
     for _,d in ipairs(dirs) do
         local x,y=p.x+d[1],p.y+d[2]
         local preview=Game.preview(state,'move',d[1],d[2])
         if preview.valid and preview.distance==1 and not threatened(state,x,y) then
             local value=goal and math.abs(x-goal.x)+math.abs(y-goal.y) or 0
-            if not best or value<score then best,score=d,value end
+            local lateral=goal and math.abs(d[1]*(goal.y-p.y)-d[2]*(goal.x-p.x)) or 0
+            if not best or value<score or value==score and prefer_lateral and lateral>best_lateral then
+                best,score,best_lateral=d,value,lateral
+            end
         end
     end
     if best then

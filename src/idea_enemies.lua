@@ -3,6 +3,7 @@ local RNG=require('src.rng')
 local Squads=require('src.enemy_squads')
 local Webs=require('src.idea_webs')
 local Oaths=require('src.idea_oaths')
+local Sentinel=require('src.idea_sentinel')
 local I={version='roag-idea-enemies/1'}
 I.enemies={
     -- id, name, HP, damage, defense, speed, windup, recovery, range
@@ -17,24 +18,27 @@ I.enemies={
     {'web_weaver','Web Weaver',7,1,0,90,140,140,4},
     {'oath_twin_a','Oath Twin — Pike',8,2,0,90,100,130,1},
     {'oath_twin_b','Oath Twin — Blade',8,1,0,100,110,130,1},
+    {'rotating_sentinel','Rotating Sentinel',14,2,1,80,160,80,1},
 }
+I.champions={[Sentinel.id]=true}
 I.secondary={bone_fragment=true,oath_twin_b=true}
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
     ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
     ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
     ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm',
     ['core:enemy/web_weaver']='web',['core:enemy/oath_twin_a']='oath',
-    ['core:enemy/oath_twin_b']='oath'}
+    ['core:enemy/oath_twin_b']='oath',[Sentinel.id]='sentinel'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
     ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90,
     ['core:enemy/web_weaver']=122,['core:enemy/oath_twin_a']=99,['core:enemy/oath_twin_b']=100}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
-    ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
+    ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,[Sentinel.id]=224}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
     ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
     ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,
-    ['core:enemy/web_weaver']=366,['core:enemy/oath_twin_a']=124,['core:enemy/oath_twin_b']=127}
+    ['core:enemy/web_weaver']=366,['core:enemy/oath_twin_a']=124,['core:enemy/oath_twin_b']=127,
+    [Sentinel.id]=224}
 I.objects={['core:object/idea_cache_dormant']=303}
 I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915,
     ['core:ui/idea_oath_effect']=574}
@@ -44,7 +48,8 @@ I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touc
     bone_strike='bone strike',fragment_stab='fragment stab',
     keeper_alarm='reinforcement alarm',keeper_touch='keeper touch',
     weaver_web='anchored web',weaver_bite='weaver bite',
-    oath_pike='oath pike',oath_blade='oath blade',oath_share='shared oath loss'}
+    oath_pike='oath pike',oath_blade='oath blade',oath_share='shared oath loss',
+    sentinel_quarter='sentinel quarter turn',sentinel_touch='sentinel strike'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -131,6 +136,7 @@ function I.corpse(state,id)
     for _,c in ipairs(state.idea_corpses or {})do if c.id==id then return c end end
 end
 function I.commit(state,enemy,intent)
+    Sentinel.commit(enemy,intent)
     if intent.support and intent.support.kind=='web'then
         assert((enemy.ai_memory.web_casts or 0)<2,'spent web budget')
         enemy.ai_memory.web_casts=(enemy.ai_memory.web_casts or 0)+1
@@ -186,6 +192,7 @@ function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
     local role=I.roles[enemy.definition_id]
+    if role=='sentinel'then return Sentinel.choose(state,enemy,player,h)end
     if role=='oath'then
         if math.abs(dx)+math.abs(dy)==1 then
             return {kind='windup',ability_id=enemy.definition_id==Oaths.a and
@@ -363,6 +370,7 @@ function I.populate(state,map,replace,spawn)
     for index=1,#choices do
         local candidate=choices[(offset+index-1)%#choices+1]
         local fits,point=true,nil
+        if definition[1]=='rotating_sentinel'then fits=Sentinel.optional_room(map,candidate.position)~=nil end
         if definition[1]=='grave_cantor' then fits,point=I.revival_company(state,map,candidate)end
         if definition[1]=='oath_twin_a'then
             point=I.companion_cell(state,map,candidate);fits=point~=nil
@@ -453,6 +461,7 @@ function I.validate_pending(enemy,pending)
 end
 
 function I.validate(state,maps,content)
+    Sentinel.validate(state,maps)
     Oaths.validate(state)
     Webs.validate(state,maps)
     local corpses=state.idea_corpses

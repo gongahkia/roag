@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "b16564af50e9e311",
+  "mapping_checksum": "9a929d301d86bf03",
   "packs": {
     "kenney": {
-      "actor_count": 55,
-      "actor_silhouettes": 46,
+      "actor_count": 56,
+      "actor_silhouettes": 47,
       "bindings": [
         {
           "height": 8,
@@ -2193,6 +2193,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel",
+          "index": 224,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/attack",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/hurt",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/ruin_skitter",
           "index": 25,
@@ -3330,7 +3357,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 110,
+      "static_pose_aliases": 112,
       "usage": {
         "caves": {
           "145": [
@@ -3743,6 +3770,9 @@
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
           ],
+          "224": [
+            "core:enemy/rotating_sentinel"
+          ],
           "230": [
             "core:boon/counterweight/icon + /detail"
           ],
@@ -4013,8 +4043,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 55,
-      "actor_silhouettes": 54,
+      "actor_count": 56,
+      "actor_silhouettes": 55,
       "bindings": [
         {
           "height": 16,
@@ -6205,6 +6235,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/rotating_sentinel",
+          "index": 224,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/attack",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/hurt",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/ruin_skitter",
           "index": 459,
           "motif": "",
@@ -7277,7 +7334,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 110,
+      "static_pose_aliases": 112,
       "usage": {
         "onebit": {
           "1010": [
@@ -7360,6 +7417,9 @@
           ],
           "221": [
             "core:enemy/snare_scribe"
+          ],
+          "224": [
+            "core:enemy/rotating_sentinel"
           ],
           "226": [
             "core:actor/berserker"
@@ -7817,14 +7877,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 67,
+      "kenney": 68,
       "nonempty": 1077,
-      "onebit": 161,
+      "onebit": 162,
       "sheet": "onebit",
-      "union": 161,
-      "unused_kenney": 1010,
-      "unused_onebit": 916,
-      "unused_union": 916
+      "union": 162,
+      "unused_kenney": 1009,
+      "unused_onebit": 915,
+      "unused_union": 915
     },
     {
       "empty": 63,
@@ -8095,6 +8155,9 @@
     "core:enemy/prism_curator",
     "core:enemy/prism_curator/attack",
     "core:enemy/prism_curator/hurt",
+    "core:enemy/rotating_sentinel",
+    "core:enemy/rotating_sentinel/attack",
+    "core:enemy/rotating_sentinel/hurt",
     "core:enemy/ruin_skitter",
     "core:enemy/ruin_skitter/attack",
     "core:enemy/ruin_skitter/hurt",

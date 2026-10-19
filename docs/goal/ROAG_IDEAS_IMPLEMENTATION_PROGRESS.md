@@ -36,7 +36,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
-| `rotating-sentinel` | Rotating Sentinel encounter | pending | — |
+| `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; this feature commit |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
 | `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | pending | — |
@@ -155,8 +155,13 @@ No feature is complete merely because a schema, fixture or metadata record exist
   says combined/focused, but this was the complete unfiltered suite). Nine
   focused cases, a 100-stage natural pair corpus and nine disk scenarios pass.
   The integrated runtime/tests match that verified source exactly.
-- Both Kenney choices now resolve **361/361** required bindings, 55 actor IDs and
-  110 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Rotating Sentinel: **463 passed, 0 failed**, frozen source
+  `/var/tmp/roag-sentinel-ol4fnv3b`, log
+  `/var/tmp/roag-sentinel-accepted-headless-20261019.log`. Runtime and tests
+  match the accepted tree. The final gate retains all original legal Victories,
+  seven miniboss routes, deterministic replay and generation corpora.
+- Both Kenney choices now resolve **364/364** required bindings, 56 actor IDs and
+  112 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -223,7 +228,7 @@ the stair route. After a proven six-move cycle, stair travel can ignore zero
 HP-loss attacks while still avoiding Rammer shoves and damaging footprints.
 The same legal run now wins at 36 HP / 1,242 actions. Four prepared driver
 fixtures pass. No actor stats, game input, RNG or scheduler were changed.
-Its full corrected gate is running; this slice is not yet integrated.
+Its corrected **463/463** full gate passes and this slice is integrated.
 
 Mirror Hexer is isolated at `/var/tmp/roag-mirrors-m1xoqczk`. Eleven focused
 checks cover one directional bounce, range preservation, pre-damage blocking,
@@ -234,13 +239,16 @@ including a third-process actual reflected shot, and the initial 95 combined
 checks pass. Charges and Hookrunner grapples are explicitly excluded from
 reflection to keep their displacement aligned with their damage. That adds
 one real-action regression; a full 474/474 gate passed. The final driver
-hardening is propagated and is under another broad gate before integration. All unused/held/rejected art constraints remain in force.
+hardening is propagated and the corrected full gate passes **475/475**;
+integration is next. All unused/held/rejected art constraints remain in force.
 
 Silt Worm is isolated at `/var/tmp/roag-worms-efcksv09`. Eleven focused
 cases, 108 combined checks and twelve fresh-process scenarios pass. Its two
 spent charges can leave only genuinely vacated plain floor as a finite bog
 overlay. Walking / Dash pay +40 / +20 per affected cell in the real preview
-and scheduler; underlying row bytes never change. Broad verification is running.
+and scheduler; underlying row bytes never change. The full **485/485** gate passes. Its gameplay code is unchanged by the
+subsequent fourth driver fixture; the combined current checks pass **109/109**.
+The complete all-enemy source is being verified before this slice is integrated.
 
 Ember Moth is isolated at `/var/tmp/roag-moths-c89j2ljy`. Twelve focused
 cases, 120 combined checks and thirteen disk scenarios pass, including a
@@ -257,3 +265,16 @@ are HTML inspection, not LÖVE rendering or physical input.
 
 All remaining ledger entries stay in scope. Goal ACTIVE; no full-goal
 completion claim is made. No LÖVE windows were opened.
+
+Native encounter cells were inspected in a headless HTML contact sheet:
+`/var/tmp/roag-approved-encounter-native-pixels.png`. This is not a game
+screenshot. The initial full Chromium screenshot command stalled and was
+stopped only for its dedicated test profile; its log is retained. The bounded
+headless-shell retry succeeded. No LÖVE window or physical input was used.
+
+The next approved class, Duelist, is prototyped separately in
+`/var/tmp/roag-duelist-y5_43u37`. Twelve focused cases pass after correcting
+two fixture assumptions (Guard cardinal reach and blocked-cell preview).
+Parry costs a normal action, blocks one eligible frontal melee impact during
+that recovery only, and funds one next paid thrust for +2 damage. It is not
+integrated or claimed complete; fresh-process/full/UI checks remain.

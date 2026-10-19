@@ -24,6 +24,7 @@ local Terrain = require("src.terrain")
 local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
+local IdeaSentinel = require('src.idea_sentinel')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -978,6 +979,11 @@ local function submit(intent)
             elseif event.kind=='WebAnchorCut' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Web anchor cut: line cleared'
+            elseif event.kind=='WindupStarted' and event.sentinel_facing
+                and event.floor_id==state.active_floor_id and visible_at(event.from_x,event.from_y)then
+                notice='Sentinel quarter strike: '..({'north','east','south','west'})[event.sentinel_facing]
+                    ..' ('..event.sentinel_strike..'/4)'
+                    ..(event.sentinel_strike<4 and '; next clockwise' or '; final quarter')
             elseif event.kind=='DamageTaken' and event.oath_given and
                 event.floor_id==state.active_floor_id and visible_at(event.x,event.y)then
                 notice='Oath shared '..event.oath_given..' damage: separate the twins or break their sight line'
@@ -1720,6 +1726,20 @@ local function draw_squad_cues()
             local x,y=Camera.tile_top_left(camera,p.x,p.y)
             local role=EnemySquads.roles[enemy.definition_id]
             local carried=enemy.carried_drop_id and IdeaEnemies.drop(state,enemy.carried_drop_id)
+            if enemy.definition_id==IdeaSentinel.id then
+                local m=enemy.ai_memory
+                if (m.sentinel_strikes or 0)>0 and not m.sentinel_finished then
+                    local d=IdeaSentinel.directions[m.sentinel_facing%4+1]
+                    love.graphics.setColor(1,.85,.35,.95)
+                    local cx,cy=x+TILE*.5,y+TILE*.5
+                    local ax,ay=cx+d[1]*TILE*.44,cy+d[2]*TILE*.44
+                    love.graphics.line(cx+d[1]*TILE*.2,cy+d[2]*TILE*.2,ax,ay)
+                    love.graphics.line(ax,ay,ax-d[1]*TILE*.12+d[2]*TILE*.10,
+                        ay-d[2]*TILE*.12-d[1]*TILE*.10)
+                    love.graphics.line(ax,ay,ax-d[1]*TILE*.12-d[2]*TILE*.10,
+                        ay-d[2]*TILE*.12+d[1]*TILE*.10)
+                end
+            end
             local oath=IdeaOaths.partner(state,enemy)
             if oath then
                 draw_visual(bound_visual('core:ui/idea_oath_effect'),

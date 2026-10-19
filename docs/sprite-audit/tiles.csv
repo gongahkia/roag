@@ -905,7 +905,7 @@ onebit,220,384,64,83,,
 onebit,221,400,64,76,,core:enemy/snare_scribe
 onebit,222,416,64,72,,
 onebit,223,432,64,74,,
-onebit,224,448,64,71,,
+onebit,224,448,64,71,core:enemy/rotating_sentinel,core:enemy/rotating_sentinel
 onebit,225,464,64,74,,
 onebit,226,480,64,68,,core:actor/berserker
 onebit,227,496,64,70,,core:enemy/prism_curator

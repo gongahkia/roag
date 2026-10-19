@@ -194,7 +194,8 @@ for _,row in ipairs(IdeaEnemies.enemies) do
     local id='core:enemy/'..row[1]
     enemies[id]={id=id,name=row[2],ai='idea_regular',hp=row[3],damage=row[4],
         defense=row[5],speed=row[6],windup=row[7],recovery=row[8],
-        move_cost=100,range=row[9],xp_reward=4,currency_drop=3}
+        move_cost=100,range=row[9],xp_reward=4,currency_drop=3,
+        special_encounter=IdeaEnemies.champions and IdeaEnemies.champions[id] or nil}
 end
 
 local demo_spawns = {

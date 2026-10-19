@@ -5,7 +5,7 @@ local mode,dir=arg[1],arg[2]
 local scenario=arg[3] or 'rammer'
 assert(scenario=='rammer' or scenario=='wraith' or scenario=='cantor' or scenario=='toad'
     or scenario=='cache' or scenario=='bones' or scenario=='alarm' or scenario=='web'
-    or scenario=='oath','unknown fixture scenario')
+    or scenario=='oath' or scenario=='sentinel','unknown fixture scenario')
 assert((mode=='write' or mode=='continue' or mode=='cross' and scenario=='web') and type(dir)=='string'
     and dir:match('^/var/tmp/roag%-idea%-disk%-[%w%-]+$'),'isolated fixture directory required')
 local allowed={['active-a.roag']=true,['active-b.roag']=true,
@@ -22,7 +22,7 @@ end
 local store=P.new(storage)
 local function advance(s)
     local events={}
-    for _=1,scenario=='alarm' and 3 or (scenario=='cache' or scenario=='web') and 2 or 1 do
+    for _=1,scenario=='alarm' and 3 or (scenario=='cache' or scenario=='web' or scenario=='sentinel') and 2 or 1 do
         local ok,_,list=Game.submit(s,{kind='wait'});assert(ok)
         for _,event in ipairs(list)do events[#events+1]=event end
     end
@@ -31,7 +31,10 @@ end
 if mode=='write' then
     local s=Game.new(37);local p=Game.player(s)
     local enemy
-    if scenario=='oath' then
+    if scenario=='sentinel'then
+        p.position.x,p.position.y=7,6
+        enemy=Game.spawn_enemy(s,'core:enemy/rotating_sentinel',8,6,50)
+    elseif scenario=='oath' then
         p.position.x,p.position.y=7,6
         enemy=Game.spawn_enemy(s,'core:enemy/oath_twin_a',8,6,100000)
         local other=Game.spawn_enemy(s,'core:enemy/oath_twin_b',9,6,100000)
@@ -74,7 +77,7 @@ if mode=='write' then
         assert(Game.submit(s,scenario=='cache' and {kind='move',dx=1,dy=0} or {kind='wait'}))
     end
     assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or 100)
-        and (scenario=='bones' or scenario=='oath' or enemy.pending_attack.due==(scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
+        and (scenario=='bones' or scenario=='oath' or enemy.pending_attack.due==(scenario=='sentinel' and 250 or scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
             or scenario=='toad' and 175 or 157)))
     assert(store:save(s));assert(store:inspect().record.seq==1)
     local expected=Game.restore(Game.snapshot(s))
@@ -88,9 +91,14 @@ elseif mode=='continue' then
     assert(P.encode(events)==storage:read('expected-events.roag-data'))
     assert(P.encode(Game.snapshot(s))==storage:read('expected.roag-data'))
     assert(Game.player(s).position.x==(scenario=='cache' and 9 or
-        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web' or scenario=='oath') and 7 or 8)
-        and s.clock==(scenario=='web' and 300 or (scenario=='cantor' or scenario=='cache' or scenario=='alarm') and 400 or 200))
-    if scenario=='oath' then
+        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web' or scenario=='oath' or scenario=='sentinel') and 7 or 8)
+        and s.clock==((scenario=='web' or scenario=='sentinel') and 300 or (scenario=='cantor' or scenario=='cache' or scenario=='alarm') and 400 or 200))
+    if scenario=='sentinel'then
+        local e
+        for _,v in ipairs(s.entities)do if v.definition_id=='core:enemy/rotating_sentinel'then e=v end end
+        assert(e and e.ai_memory.sentinel_facing==4 and e.ai_memory.sentinel_strikes==1
+            and not e.pending_attack and Game.player(s).hp==22)
+    elseif scenario=='oath' then
         local count=0
         for _,e in ipairs(s.entities)do if require('src.idea_oaths').is_twin(e)then
             assert(require('src.idea_oaths').partner(s,e) and e.hp==6);count=count+1
