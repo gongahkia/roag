@@ -12,10 +12,15 @@ A silly [roguelike](https://en.wikipedia.org/wiki/Roguelike) with some [secrets]
 
 ## Screenshots
 
-![](./asset/reference/1.png)
-![](./asset/reference/2.png)
-![](./asset/reference/3.png)
-![](./asset/reference/4.png)
+<div align="center">
+  <img src="./asset/reference/1.png" width="45%">
+  <img src="./asset/reference/2.png" width="45%">
+</div>
+
+<div align="center">
+  <img src="./asset/reference/3.png" width="45%">
+  <img src="./asset/reference/4.png" width="45%">
+</div>
 
 ## Usage
 
