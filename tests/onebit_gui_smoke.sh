@@ -25,6 +25,28 @@ local PNG=require('tools.art_png')
 local mode=assert(os.getenv('ROAG_ONEBIT_MODE'))
 local output=assert(os.getenv('ROAG_ONEBIT_OUTPUT'))
 local state,camera,enemies,target,playback
+local actor_ids,actor_page,actor_pages,checked_actors={},1,1,{}
+local gallery_rows={5,7,11,12}
+local boon_pages=math.ceil(#Boons.order/7)
+local function install_actor_page()
+    -- Keep 36 visible, walkable gallery slots, paging rather than truncating
+    -- the growing actor catalogue or spawning later actors at nil coordinates.
+    for n=#state.entities,1,-1 do
+        local e=state.entities[n]
+        if e.controller=='ai'then
+            require('src.scheduler').remove_for_actor(state,e.id)
+            table.remove(state.entities,n)
+        end
+    end
+    enemies={}
+    for slot=1,36 do
+        local id=actor_ids[(actor_page-1)*36+slot]
+        if id then
+            enemies[#enemies+1]=Game.spawn_enemy(state,id,4+(slot-1)%9*2,
+                gallery_rows[math.floor((slot-1)/9)+1])
+        end
+    end
+end
 local add=Playback.add
 function Playback.add(queue,...)playback=queue;return add(queue,...)end
 local new,restore=Game.new_stage,Game.restore
@@ -38,11 +60,9 @@ function Game.new_stage(...)
         end
         local map=Content.map_for(state)
         map.rows[9]=map.rows[9]:sub(1,2)..'bgiBmc'..map.rows[9]:sub(9)
-        local ids={};for id in pairs(O.actors)do if id:match('^core:enemy/')then ids[#ids+1]=id end end
-        table.sort(ids)
-        for i,id in ipairs(ids)do
-            enemies[#enemies+1]=Game.spawn_enemy(state,id,4+(i-1)%9*2,({5,7,11,13})[math.floor((i-1)/9)+1])
-        end
+        for id in pairs(O.actors)do if id:match('^core:enemy/')then actor_ids[#actor_ids+1]=id end end
+        table.sort(actor_ids);actor_pages=math.ceil(#actor_ids/36)
+        install_actor_page()
         Game.spawn_chest(state,'core:chest/standard',5,3)
         return state
     end
@@ -108,11 +128,11 @@ function love.load(...)
     if not ok then fail(why)end
 end
 function love.update()end
-local function compare(image,index,x,y,scale,max_y,ink)
+local function compare(image,index,x,y,scale,max_y,ink,occluded)
     local sx,sy=S.region(index);local count=0
     for yy=0,max_y or 15 do for xx=0,15 do
         local r,g,b,a=source:getPixel(sx+xx,sy+yy)
-        if a==1 then
+        if a==1 and not (occluded and occluded(x+(xx+.5)*scale,y+(yy+.5)*scale))then
             local actual={image:getPixel(math.floor(x+(xx+.5)*scale),math.floor(y+(yy+.5)*scale))}
             local gray=r*O.ink[1]*.2126+g*O.ink[2]*.7152+b*O.ink[3]*.0722
             for c=1,3 do
@@ -142,15 +162,27 @@ local function check(image)
                 local dormant=e.definition_id=='core:enemy/haunted_cache' and
                     not e.ai_memory.alerted and e.hp==e.max_hp
                 local palette=require('src.visual_palette')
+                local tile_x,tile_y=x,y
+                local size=require('src.visual_slots').enemy_size(e.definition_id,camera.tile)
+                local scale=size/16
+                x=x+(camera.tile-size)*.5;y=y+camera.tile-size
+                local max_y=math.min(12,math.ceil((tile_y+camera.tile*28/32-y)/scale-.5)-1)
                 compare(image,dormant and O.objects['core:object/idea_cache_dormant'] or
-                    O.actors[e.definition_id],x,y,camera.tile/16,12,
-                    dormant and palette.chest or palette.enemy)
+                    O.actors[e.definition_id],x,y,scale,max_y,
+                    dormant and palette.chest or palette.enemy,function(px,py)
+                        -- Real alarm/status/question badges may cover this
+                        -- corner. Check body pixels outside that overlay and
+                        -- above the HP bar rather than deleting the badge.
+                        return px>=tile_x+camera.tile*.68
+                            and py<=tile_y+camera.tile*.30
+                    end)
+                checked_actors[e.definition_id]=true
             end
             for i,mark in ipairs(Terrain.order)do
                 local x,y=Camera.tile_top_left(camera,i+2,9)
                 compare(image,S.terrain[Terrain.get(mark).id][1],x+4,y+4,2)
             end
-        elseif phase<=8 then
+        elseif phase<=boon_pages then
             for line=1,7 do
                 local id=Boons.order[(phase-1)*7+line]
                 if id then compare(image,S.boons[id][1],104,150+(line-1)*44,2,nil,require('src.visual_palette').gold)end
@@ -180,9 +212,18 @@ local function advance()
             before=snapshot()
         else love.event.quit();return end
     elseif mode=='gallery'then
-        if phase==0 then love.keypressed('i')
-        elseif phase<8 then love.keypressed('right')
-        else love.event.quit();return end
+        if phase==0 and actor_page<actor_pages then
+            actor_page=actor_page+1;install_actor_page();update(0)
+            before=snapshot();return
+        elseif phase==0 then
+            for _,id in ipairs(actor_ids)do assert(checked_actors[id],'unrendered actor '..id)end
+            love.keypressed('i')
+        elseif phase<boon_pages then love.keypressed('right')
+        else
+            print(('PASS gallery checked every actor (%d) and boon (%d) over %d actor / %d boon pages')
+                :format(#actor_ids,#Boons.order,actor_pages,boon_pages))
+            love.event.quit();return
+        end
     elseif mode~='normal'then love.event.quit();return
     elseif phase==0 then love.keypressed('escape');love.keypressed('escape');update(0)
     elseif phase==1 then
@@ -208,7 +249,8 @@ function love.draw()
         drawn={};draw();if pending then return end;pending=true
         love.graphics.captureScreenshot(function(image)
             local good,err=pcall(function()
-                PNG.write(output..'/'..mode..'-'..phase..'.png',image)
+                local page=mode=='gallery' and phase==0 and ('-actors-'..actor_page)or ''
+                PNG.write(output..'/'..mode..'-'..phase..page..'.png',image)
                 check(image);advance();pending=false
             end)
             if not good then fail(err)end
@@ -222,7 +264,9 @@ for mode in normal resume corrupt gallery effects;do
     ROAG_ONEBIT_MODE="$mode" ROAG_ONEBIT_OUTPUT="$output" ROAG_GUI_AUTOSTART="$autostart" \
       XDG_DATA_HOME="$output/data" \
       timeout -k 3s 40s love "$output/app" > "$output/$mode.log" 2>&1 || {
-        cat "$output/$mode.log";exit 1;
+        cat "$output/$mode.log"
+        printf 'Retained failed 1-Bit artifacts: %s\n' "$output"
+        exit 1
     }
     printf 'PASS standalone 1-Bit %s\n' "$mode"
 done

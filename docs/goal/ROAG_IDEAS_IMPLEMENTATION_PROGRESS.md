@@ -1344,3 +1344,29 @@ item-room review gates pass 6/6 and 7/7. Full **732-case** gate runs from frozen
 Environment is LÖVE 11.5 / Fedora WSL / Mesa26.2.4 llvmpipe, not physical input,
 human acceptance or native GPU performance. Production cleanup/Controls README
 and approval-only visual-juice proposals are queued after this full goal.
+
+
+## Existing native-art gallery repair (2026-10-19)
+
+A real existing 1-Bit smoke reproduced a fixture failure after its normal,
+fresh-process Continue and corrupt-source fallback processes passed. The
+actor grid included blocked cell (20,13), later actors exceeded its 36 slots,
+and eight hardcoded boon pages covered only 56 entries. The updated fixture
+uses verified walkable rows, pages every one of the 50 actor forms, uses the
+real smaller whole-pixel fragment size, and checks all 70 boons over ten pages.
+Body-pixel comparisons account for the actual alarm/status/question badge and
+HP-bar occlusion; badges remain present. No production renderer, gameplay,
+source sprite or test case was removed. Failed before/retry logs are retained:
+`/var/tmp/roag-pattern-existing-onebit-{before,retry,retry2}-20261019.log`.
+
+The corrected complete harness passes all five modes (normal, fresh-process
+Continue, corrupt fallback, gallery, effects), artifact
+`/var/tmp/roag-onebit-gui-2Crd9l`; gallery prints exact 50-actor / 70-boon counts.
+Two additional isolated rounds also pass: **15/15 mode processes** across three
+complete rounds, with logs `/var/tmp/roag-pattern-existing-onebit-round{2,3}-20261019.log`.
+This verified fixture repair does not establish a cause or fix for historical unexplained native
+crashes. All six current boon disk scenarios pass; the original pre-addition
+executable also writes a legacy save that continues under current pattern code
+with identical subsequent events/state, artifact `/var/tmp/roag-boons-disk-vsYm1G`.
+The first legacy retry directory contained an underscore rejected by the
+fixture's strict safe-path guard; no save was written, and its log is retained.
