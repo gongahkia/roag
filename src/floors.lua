@@ -73,6 +73,7 @@ function Floors.resume(state,floor_id)
         "floor was not paused")
     local delta=state.clock-pause.suspended_at
     assert(delta>=0,"stage clock moved backwards")
+    require('src.idea_terrain').rebase(state,floor_id,delta)
     for _,item in ipairs(pause.schedule) do
         item.due=item.due+delta
         state.schedule[#state.schedule+1]=item

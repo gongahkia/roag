@@ -2,6 +2,7 @@
 local Game=require('src.game')
 local Content=require('src.content')
 local Squads=require('src.enemy_squads')
+local TerrainIdeas=require('src.idea_terrain')
 
 local Play={}
 local dirs={{0,-1},{1,0},{0,1},{-1,0}}
@@ -39,6 +40,10 @@ end
 local function passable(state,x,y,avoid_guarded)
     local map=Content.map_for(state)
     if not Content.walkable(map,x,y) then return false end
+    -- Optional forced-move tiles have proven bypasses. Plan the ordinary
+    -- walking route around them instead of repeatedly walking into a shove.
+    local special=TerrainIdeas.at(state,state.active_floor_id,x,y)
+    if special and special.kind=='push_floor'then return false end
     for _,entity in ipairs(state.entities) do
         if avoid_guarded and entity.controller=='ai' and entity.position.floor_id==state.active_floor_id and
             entity.position.x==x and entity.position.y==y and
@@ -98,7 +103,8 @@ function Play.escape(run,goal,ignore_armoured,allow_dash,prefer_lateral)
     for _,d in ipairs(dirs) do
         local x,y=p.x+d[1],p.y+d[2]
         local preview=Game.preview(state,'move',d[1],d[2])
-        if preview.valid and preview.distance==1 and not threatened(state,x,y) then
+        local special=TerrainIdeas.at(state,state.active_floor_id,x,y)
+        if preview.valid and preview.distance==1 and not (special and special.kind=='push_floor') and not threatened(state,x,y) then
             local value=goal and math.abs(x-goal.x)+math.abs(y-goal.y) or 0
             local lateral=goal and math.abs(d[1]*(goal.y-p.y)-d[2]*(goal.x-p.x)) or 0
             if not best or value<score or value==score and prefer_lateral and lateral>best_lateral then
@@ -116,7 +122,8 @@ function Play.escape(run,goal,ignore_armoured,allow_dash,prefer_lateral)
     for _,d in ipairs(dirs)do
         local preview=Game.preview(state,'dash',d[1],d[2])
         local cell=preview.valid and preview.cells[preview.distance]
-        if cell and preview.distance>1 and not threatened(state,cell.x,cell.y)then
+        local special=cell and TerrainIdeas.at(state,state.active_floor_id,cell.x,cell.y)
+        if cell and preview.distance>1 and not (special and special.kind=='push_floor') and not threatened(state,cell.x,cell.y)then
             local value=goal and math.abs(cell.x-goal.x)+math.abs(cell.y-goal.y) or 0
             if not best or value<score then best,score=d,value end
         end

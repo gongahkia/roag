@@ -8,9 +8,9 @@ The live catalogue includes these bindings.
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
 game content is fifteen classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
-boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder and the fourteen finite item/room interactions.
-The live HTML/JSON/CSV reflect 415
+boss, seven two-floor biomes, six original mechanical terrains plus three optional terrain mechanics and **53 boons**.
+Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder and the fourteen finite item/room interactions and three optional terrain mechanics.
+The live HTML/JSON/CSV reflect 425
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -37,7 +37,7 @@ separate from visual acceptance.
 | --- | --- | --- |
 | Classic built-in | Code-drawn tokens and terrain | Intentional fallback; no external sprites |
 | Kenney pixel art (`kenney`) | Micro characters/props + Caves surfaces + 1-Bit symbols + approved Tiny Dungeon actors/fixtures and RPG keys/gates | Mixed Kenney option |
-| Kenney 1-Bit (`onebit`) | 1-Bit Pack only, with derived connected surfaces | New standalone third choice |
+| Kenney 1-Bit (`onebit`) | 1-Bit Pack with derived connected surfaces and explicitly approved monochrome Tiny vents | New standalone third choice |
 
 Thus there are **two Kenney presentation choices**, not two copies of the
 same pack. Five original sheets are present. Each remains unmodified and
@@ -49,7 +49,7 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **415/415 active sprite bindings resolve in each choice**:
+that happen to exist. **425/425 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
@@ -62,7 +62,8 @@ that happen to exist. **415/415 active sprite bindings resolve in each choice**:
 | Squad, corpse, alarm, oath, reflector and charge cues | 11 | Native 1-Bit art | Native 1-Bit art |
 | Class weapon symbols | 5 | Native Micro art | Native 1-Bit art |
 | 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
-| Mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
+| Original mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
+| Vent phases, cardinal arrows and fragile shortcut states | 10 | Approved Tiny/RPG/Caves + 1-Bit arrows | True monochrome Tiny vents + native arrows/ladder motifs |
 | Seven biomes × floor/wall/water bases | 21 | Caves native floor / composite surfaces | 1-Bit composite surfaces |
 
 Both terrain resolvers cover all **256 raw neighbor cases → 47 canonical
@@ -140,7 +141,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-415 binding requirements above. Decoy/snare markers are also still drawn
+425 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -153,16 +154,16 @@ shown intact. Transparent key/background is accounted for in Micro.
 | Original sheet | Grid cells | Nonempty | Mixed referenced / unused | Standalone referenced / unused | Unused by either |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Micro Roguelike 8px | 160 | 159 | 56 / **103** | Not loaded | **103** |
-| Caves & Dungeons 16px, 1px gutters | 522 | 522 | 69 / **453** | Not loaded | **453** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 77 / **1,000** | 187 / **890** | **890** |
-| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 18 / **1,686** | Not loaded | **1,686** |
-| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 27 / **105** | Not loaded | **105** |
+| Caves & Dungeons 16px, 1px gutters | 522 | 522 | 70 / **452** | Not loaded | **452** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 81 / **996** | 194 / **883** | **883** |
+| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 19 / **1,685** | Not loaded | **1,685** |
+| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 29 / **103** | 2 / **130** | **103** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **357 referenced by
-either choice**, **3,237 unreferenced**. Across just the original three sheets,
-there are **1,446** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **368 referenced by
+either choice**, **3,226 unreferenced**. Across just the original three sheets,
+there are **1,438** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,237 unique useful objects:
+These counts are grid occupancy, not a claim of 3,226 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the

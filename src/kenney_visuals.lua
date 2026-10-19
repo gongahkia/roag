@@ -11,6 +11,7 @@ local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
 local Interactions=require('src.idea_interaction_content')
+local TerrainIdeas=require('src.idea_terrain')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -127,6 +128,7 @@ function K.new(read,make_texture,make_quad)
     tiny_bindings[Comp.spirit_id]=85
     tiny_bindings[Comp.tinker_id]=109
     for kind,art in pairs(Interactions.art)do if art[1]=='tiny'then tiny_bindings[Interactions.binding(kind)]=art[2]end end
+    for name,art in pairs(TerrainIdeas.art)do if art[1]=='tiny'then tiny_bindings[TerrainIdeas.binding(name)]=art[2]end end
     approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',
         'd407b7ab694fa5d5',203,186,17,12,tiny_bindings)
     local rpg_bindings={
@@ -139,6 +141,7 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_plate_down']=961,
     }
     for kind,art in pairs(Interactions.art)do if art[1]=='rpg'then rpg_bindings[Interactions.binding(kind)]=art[2]end end
+    for name,art in pairs(TerrainIdeas.art)do if art[1]=='rpg'then rpg_bindings[TerrainIdeas.binding(name)]=art[2]end end
     approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png','a2cba6dbb9cac15d',968,526,17,57,rpg_bindings)
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
     local function cave_cell(index)
@@ -181,6 +184,14 @@ function K.new(read,make_texture,make_quad)
             width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=art[2]}
     end end
     handles['core:boon/ring_of_reversal/icon']=handle(89,true)
+    for name,art in pairs(TerrainIdeas.art)do
+        if art[1]=='caves'then handles[TerrainIdeas.binding(name)]=cave_cell(art[2])
+        elseif art[1]=='onebit'then
+            local x,y,w,h=Symbols.region(art[2])
+            handles[TerrainIdeas.binding(name)]={texture=symbols.texture,quad=make_quad(x,y,w,h,Symbols.width,Symbols.height),
+                width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=art[2]}
+        end
+    end
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
     for id,index in pairs(IdeaEnemies.caves_objects or {})do handles[id]=cave_cell(index)end

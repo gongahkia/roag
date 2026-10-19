@@ -28,6 +28,7 @@ local KenneyVisuals = require("src.kenney_visuals")
 local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
+local TerrainIdeas=require('src.idea_terrain')
 local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
@@ -357,6 +358,10 @@ local function load_native_visuals(read,mode)
                 local source=pixels
                 pixels=KenneyTerrain.surface_sheet(source)
                 source:release()
+            elseif transparent=='approved-monochrome'then
+                pixels:mapPixel(function(x,y,r,g,b,a)
+                    return require('src.visual_monochrome').pixel(r,g,b,a)
+                end)
             elseif transparent then
                 pixels:mapPixel(function(x,y,r,g,b,a)
                     if math.floor(r*255+.5)==34 and math.floor(g*255+.5)==35
@@ -1104,6 +1109,14 @@ local function submit(intent)
                 notice='Retired one '..event.rarity..' '..BoonContent.get(event.boon_id).name
             elseif event.kind=='FixtureLocked'then
                 notice='Fixture locked · impact at '..event.due..' · friendly fire'
+            elseif event.kind=='HeatVentWarned' and Visibility.can_see(state,event.floor_id,event.x,event.y)then
+                notice='Heat vent warning · impact at '..event.due..' · E inspect terrain'
+            elseif event.kind=='FragileArmed' and event.target_id==state.player_id then
+                notice='Fragile shortcut armed · closes after everyone leaves'
+            elseif event.kind=='FragileCollapsed' and Visibility.can_see(state,event.floor_id,event.x,event.y)then
+                notice='Fragile shortcut closed · alternate route remains'
+            elseif event.kind=='PushFloorBlocked' and event.target_id==state.player_id then
+                notice='Push floor stopped: '..(event.reason or 'blocked landing')
             end
         end
     else
@@ -1995,6 +2008,25 @@ local function begin_tile_token(x,y)
 end
 
 local function draw_rewards()
+    for _,n in ipairs(state.idea_terrain and state.idea_terrain.nodes or {})do
+        if n.floor_id==state.active_floor_id and explored_at(n.floor_id,n.x,n.y)then
+            local x,y=Camera.tile_top_left(camera,n.x,n.y)
+            local visible=visible_at(n.x,n.y)
+            local binding=TerrainIdeas.visual(n)
+            if not visible and n.kind=='heat_vent'then binding=TerrainIdeas.binding('heat_vent_cooldown')end
+            if not draw_visual(bound_visual(binding),x+TILE*.1,y+TILE*.1,TILE*.8,TILE*.8,visible and .95 or .3)then
+                love.graphics.setColor(.9,.75,.35,visible and .8 or .3)
+                if n.kind=='push_floor'then
+                    love.graphics.line(x+TILE*.5-n.dx*8,y+TILE*.5-n.dy*8,x+TILE*.5+n.dx*8,y+TILE*.5+n.dy*8)
+                    love.graphics.circle('fill',x+TILE*.5+n.dx*8,y+TILE*.5+n.dy*8,3)
+                else love.graphics.rectangle('line',x+TILE*.2,y+TILE*.2,TILE*.6,TILE*.6)end
+            end
+            if visible and n.kind=='fragile_crossing' and n.phase~='closed'then
+                love.graphics.setColor(n.phase=='armed' and 1 or .7,n.phase=='armed' and .7 or .6,.3)
+                love.graphics.line(x+TILE*.35,y+TILE*.25,x+TILE*.55,y+TILE*.5,x+TILE*.4,y+TILE*.75)
+            end
+        end
+    end
     for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
         if n.floor_id==state.active_floor_id and visible_at(n.x,n.y)then
             local x,y=Camera.tile_top_left(camera,n.x,n.y)
@@ -2296,7 +2328,15 @@ local function draw_history_event(event)
                 x+TILE*.22,y+TILE*.22,TILE*.56,TILE*.56,.95)
         end
     end
-    if event.kind == "WindupStarted" then
+    if event.kind=='HeatVentWarned'then
+        draw_cells(event.target_cells or {},1,.65,.2,.75,true)
+    elseif event.kind=='HeatVentBurst'then
+        draw_cells(event.target_cells or {},1,.45,.15,.85,true)
+        if event.floor_id==state.active_floor_id and visible_at(event.x,event.y)then
+            local x,y=Camera.tile_top_left(camera,event.x,event.y)
+            draw_visual(bound_visual(TerrainIdeas.binding('heat_vent_burst')),x+TILE*.15,y+TILE*.15,TILE*.7,TILE*.7)
+        end
+    elseif event.kind == "WindupStarted" then
         if event.support_kind then draw_cells(event.target_cells,.45,.88,.9,.7,true)
         else draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true) end
         if event.shove then

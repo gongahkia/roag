@@ -1,8 +1,8 @@
 # Approved idea implementation — sustained goal
 
-Status: **PAUSED at the user-requested items/rooms checkpoint — incomplete**.
-Every approved feature and explicit redirect remains in scope; wait for the user
-before starting the next batch.
+Status: **ACTIVE — terrain, then environment/art; stop before boons**.
+The user resumed these two batches explicitly and requested a terrain commit
+before environment work. The wider approved-ideas goal remains incomplete.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
 ## Authority and invariants
@@ -56,9 +56,9 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `travelling-trader` | One-visit supply trader | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `memorial-choice` | Memorial — retire a boon for recovery | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `bell-sequence` | Bell-order side room | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `heat-vents` | Clocked heat vents | pending | — |
-| `push-floor` | Push-floor strip | pending | — |
-| `fragile-crossing` | Fragile optional crossing | pending | — |
+| `heat-vents` | Clocked heat vents | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
+| `push-floor` | Push-floor strip | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
+| `fragile-crossing` | Fragile optional crossing | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
 | `falling-fixture` | Announced falling fixture | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `signposted-routes` | Pictorial route signposts | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `camp-choice` | One-use camp choice | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
@@ -609,3 +609,99 @@ implemented and headlessly verified; GUI/human readability acceptance remains
 pending. The next work is the four remaining packages listed above. In
 particular, do not automatically begin the three new terrains. The whole
 approved-ideas goal is not COMPLETE.
+
+## Resumed scope — terrain, then environment/presentation (2026-10-19)
+
+Explicit user instruction: implement the three terrains, make a commit, then do
+approved environment/art and presentation improvements, then stop. No 50+ boon
+batch, new biome, Oracle room, animation tooling or rejected UI skin is in this
+resume. The standing no-LÖVE-window restriction remains in force.
+
+Baseline is the immediately preceding **589/589** gate. Before editing, all 83
+runtime Lua files matched `/var/tmp/roag-items-release-e4duflb3` byte-for-byte and
+the working tree was clean. That existing full gate is used without claiming a
+second identical baseline run. Terrain's complete suite is run from a new frozen
+source tree; subsequent environment edits cannot contaminate it.
+
+### Terrain implementation
+
+See [rules, controls and reproduction](../ROAG_IDEA_TERRAINS.md). Actual generated
+nodes now provide visible clocked vents (100 warning, 300 cooldown, base 2 fire),
+cardinal legal pushes with a four-push bound, and occupied-safe one-use shortcuts.
+New optional version-1 data retains `roag-run/11` compatibility. E inspection is
+free, warning outlines use committed cells, and source PNG bytes are preserved.
+The ten new terrain phase/direction bindings bring both packs to 425/425.
+
+Seventeen focused checks and the combined prior item/terrain **52/52** pass.
+Three checked-store fresh-process scenarios pass exact events/state/RNG/scheduler
+through generations 1 and 2. A 56-floor corpus covers seven biomes, validates
+alternate routes and compares exact deterministic reopening. The private
+source-art contacts inspected all related Micro 112–115 forms; clear approved
+1-Bit 1003–1006 arrows are used. Tiny vent art uses a cached true two-tone
+monochrome derivative with alpha intact; native fallback/refresh signatures are
+checked. No raw source PNG changed.
+
+Retained failures led to a concrete placement fix: initial fragile fixtures
+exposed authored `protected_changed`, and a natural legal run exposed
+`corridor_blocked` on Continue. A valid geometric detour does not permit closure
+of a primary corridor's explicit saved cells. Placement and restore now exclude
+both protected authored cells and primary corridor cells, with full-component
+route checks. Generator/save validation was not relaxed. The first superseded
+full run was stopped after its verified failure; log
+`/var/tmp/roag-terrain-release-20261019.log` and focus diagnostics remain intact.
+That old placement also changed the seed-3 guided encounter so one expected
+Regent pattern was absent. With the placement fix, the unchanged legal strategy
+wins at **1,125 actions / 11 HP** and sees line, crown and sigil. No AI, stats,
+combat timing or driver tactic was changed to force it.
+
+Natural legal scenarios now pass exact event/snapshot replay and mid-trace
+Continue: heat seed 5 (218 actions, 33/33 HP, 42 gold), push seed 10 (30 actions,
+29/29 HP, 4 gold), fragile seed 7 (11 actions, 29/29 HP). The driver is map-aware
+but all state changes are public actions with ordinary Sentinel stats. One
+navigation limit and one occupied arrow landing remain logged; restore/replay
+errors are never silently treated as ordinary navigation failures.
+
+Logs: `/var/tmp/roag-terrain-combined-final-20261019.log`,
+`/var/tmp/roag-terrain-protected-final-20261019.log`,
+`/var/tmp/roag-terrain-disk-verified-20261019.log`,
+`/var/tmp/roag-terrain-legal-verified-20261019.log`,
+`/var/tmp/roag-terrain-seed3-legal-20261019.log`.
+Full frozen gate and terrain commit follow below when finished.
+
+### Terrain checkpoint — commit boundary before environment work
+
+Current mechanics pass **20 focused / 55 combined** interaction tests, three
+fresh-process saves and all three natural legal/replay scenarios. Cross-feature
+regressions additionally preserve collected-drop history on verified gaps, hold
+live supplies/placed class objects/revival commitments, prune invalid transient
+ground effects on closure, and reject orphan heat work when its store is missing.
+The checked save contract remains strict about live supplies and arbitrary holes.
+
+The previous frozen run completed at **603 passed / 3 failed**. Its failures
+identified a practical arrow chokepoint and driver assumptions: Ranger repeatedly
+shot a pushed target through a blocked diagonal; Sentinel could not route out;
+Arcanist's stair routing cycled into forced displacement. Generated arrows now
+require a clear local area and a proven bypass. The legal-only driver routes
+around optional arrows rather than treating them as ordinary standing cells.
+No enemy AI, HP, ranged limit, scheduler priority or reward value was changed.
+All **15** actual starting classes now pass their ordinary first encounter,
+including Ranger at 14 HP after 30 actions. The failed run/log remains intact;
+passing reruns are not presented as an engine crash fix.
+
+A complete **609-test** gate of the current terrain snapshot is running from
+`/var/tmp/roag-terrain-accepted-ansm7mto`, log
+`/var/tmp/roag-terrain-accepted-headless-20261019.log`. Its result is pending at
+this commit boundary; targeted fixes above are verified independently. It is
+isolated from later presentation edits. Final release evidence will include
+its actual result and the combined environment gate. The requested terrain
+commit is made before environment runtime implementation begins.
+
+Current logs: `/var/tmp/roag-terrain-hardened-focus-20261019.log` (55/55),
+`/var/tmp/roag-terrain-cross-feature-verified-20261019.log` (20/20),
+`/var/tmp/roag-terrain-final-disk-20261019.log`,
+`/var/tmp/roag-terrain-hardened-legal-20261019.log` (3/3), and
+`/var/tmp/roag-terrain-first-encounters-20261019.log` (15/15).
+The latest legal vent trace is seed 5 / 215 actions / 29 HP / 25 gold; push and
+fragile remain seed 10 / 30 actions and seed 7 / 11 actions. Source hashes,
+review archives, live catalogue and `git diff --check` pass. LÖVE GUI and physical
+input are still untested as requested. No boon batch has begun.

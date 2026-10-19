@@ -75,6 +75,10 @@ function A.collect()
                     motif=h.motif or '',pose_alias=id:match('/attack$')~=nil or id:match('/hurt$')~=nil}
             end
         end
+        for name in pairs(require('src.idea_terrain').art)do
+            local id='core:terrain/'..name;local h=assert(resolver:resolve(id))
+            use(h.approved_sheet or h.terrain_pack or 'onebit',h.tile_index or h.symbol_index,id)
+        end
         for _,id in ipairs(report.requirements) do
             if id:match('^core:actor/[^/]+$') or id:match('^core:enemy/[^/]+$') then
                 local h=assert(resolver:resolve(id))

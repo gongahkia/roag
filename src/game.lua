@@ -19,6 +19,7 @@ local Scheduler = require("src.scheduler")
 local Stage = require("src.stage")
 local Targeting = require("src.targeting")
 local Terrain = require("src.terrain")
+local TerrainIdeas=require('src.idea_terrain')
 local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
 local Interactions=require('src.idea_interactions')
@@ -265,6 +266,7 @@ function Game.new(seed, map_id, options)
                 end,Game.spawn_enemy)
             end
             Interactions.populate(state,active)
+            TerrainIdeas.populate(state,active)
         end
         populate_active(false)
         if generated_pair then
@@ -476,6 +478,7 @@ function Game.chest_options(state, chest_id)
     return Rewards.chest_options(state, chest)
 end
 function Game.interaction_options(state,id,selection)
+    if TerrainIdeas.find(state,id)then return TerrainIdeas.options(state,id)end
     local options,reason=Interactions.options(state,id,selection)
     if not options then return nil,reason end
     for _,e in ipairs(options.entries)do
@@ -495,7 +498,11 @@ function Game.interaction_options(state,id,selection)
     end
     return options
 end
-function Game.nearby_interactions(state)return Interactions.nearby(state)end
+function Game.nearby_interactions(state)
+    local out=Interactions.nearby(state)
+    for _,n in ipairs(TerrainIdeas.nearby(state))do out[#out+1]=n end
+    return out
+end
 function Game.utility_options(state)return Interactions.utility_options(state)end
 
 function Game.route_options(state,exit_id)
@@ -1025,7 +1032,7 @@ local function drain_effects(state, output)
                 source_faction=event.source_faction,
                 source_position=event.source_position,class_generated=event.class_generated,
             }
-            if event.kind=='Died' or event.kind=='WindupCancelled' then
+            if event.kind=='Died' or event.kind=='WindupCancelled' or event.kind=='FragileCollapsed' then
                 IdeaEnemies.prune_corpses(state)
                 IdeaEmbers.prune(state,Content.map_for(state))
                 IdeaSilt.prune(state,Content.map_for(state))
@@ -1115,6 +1122,11 @@ local function drain_effects(state, output)
                 return Game.spawn_chest(state,definition_id,x,y,stable_id)
             end)
             context.terrain_contact=context.terrain_contact or {}
+            TerrainIdeas.on_event(state,event,context.terrain_contact,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end,function(target,dx,dy)
+                return shove_actor(state,output,target,dx,dy,0,event.action_id)
+            end)
             Terrain.on_event(state,Content.map_for(state),event,
                 context.terrain_contact,function(id) return Game.entity(state,id) end,
                 function(kind,fields,source_id,action_id)
@@ -1616,6 +1628,12 @@ local function advance_to_player(state, output)
             Geo.expire(state,item,function(kind,fields,source_id,action_id)
                 emit(state,output,kind,fields,source_id,action_id)
             end)
+        elseif item.idea_terrain then
+            TerrainIdeas.resolve(state,item,function(kind,fields,source_id,action_id)
+                emit(state,output,kind,fields,source_id,action_id)
+            end,function(target,action_id,power)
+                terrain_damage(state,output,0,action_id,target,power,'fire','environment')
+            end)
         elseif item.idea_ember then
             IdeaEmbers.resolve(state,item,function(x,y)
                 return occupant(state,state.active_floor_id,x,y,nil,true)
@@ -2021,6 +2039,7 @@ function Game.submit(state, intent)
         player.pickup_ward_actions=player.pickup_ward_actions-1
     end
     Interactions.after_action(state,interaction_emit)
+    TerrainIdeas.after_action(state,action_id,interaction_emit)
     drain_effects(state,output)
     Visibility.recompute(state)
     Boons.prune_histories(state)
@@ -2082,6 +2101,13 @@ end
 
 function Game.pending_strikes(state)
     local result = {}
+    for _,n in ipairs(state.idea_terrain and state.idea_terrain.nodes or {})do
+        if n.kind=='heat_vent' and n.phase=='warning' and n.floor_id==state.active_floor_id then
+            result[#result+1]={sequence=n.schedule_id,schedule_id=n.schedule_id,source_id=0,
+                floor_id=n.floor_id,ability_id='core:ability/heat_vent',due=n.due,damage=2,
+                terrain_heat=true,target_cells={{floor_id=n.floor_id,x=n.x,y=n.y}}}
+        end
+    end
     for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
         if n.pending and n.floor_id==state.active_floor_id then
             result[#result+1]={sequence=n.pending.schedule_id,schedule_id=n.pending.schedule_id,
@@ -2306,6 +2332,7 @@ function Game.restore(snapshot)
     Storm.validate(state,maps)
     Way.validate(state,maps,player)
     Interactions.validate(state,maps)
+    TerrainIdeas.validate(state,maps)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
@@ -2502,7 +2529,8 @@ function Game.restore(snapshot)
             and (drop.kind=="currency" or
                 (drop.kind=="food" and drop.amount==4) or
                 (drop.kind=="health" and drop.amount==10))
-            and drop_map and Content.walkable(drop_map, drop.position.x, drop.position.y),
+            and drop_map and (Content.walkable(drop_map, drop.position.x, drop.position.y)
+                or (drop.collected or drop.carried_by) and TerrainIdeas.closed(state,drop.position.floor_id,drop.position.x,drop.position.y)),
             "invalid reward drop")
         drop_ids[drop.id] = true
     end

@@ -1,5 +1,5 @@
--- Standalone Kenney 1-Bit presentation. Only symbols.png is read; no Micro or
--- Caves artwork is required. Static poses and representative motifs are explicit.
+-- Kenney 1-Bit presentation. Native symbols remain the safe fallback; specific
+-- user-approved cross-pack motifs may use cached true monochrome derivatives.
 local Symbols=require('src.kenney_symbols')
 local Neighbors=require('src.kenney_terrain') -- pure canonical mask geometry
 local Biomes=require('src.biomes')
@@ -11,6 +11,7 @@ local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
 local Interactions=require('src.idea_interaction_content')
+local TerrainIdeas=require('src.idea_terrain')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -95,6 +96,7 @@ O.objects={
 }
 O.masks=Neighbors.masks
 for kind,art in pairs(Interactions.art)do O.objects[Interactions.binding(kind)]=art[3]end
+for name,art in pairs(TerrainIdeas.art)do O.objects[TerrainIdeas.binding(name)]=art[3]end
 for id,index in pairs(IdeaEnemies.objects or {})do O.objects[id]=index end
 O.canonical=Neighbors.canonical
 function O.surface_sheet(source)
@@ -165,6 +167,23 @@ function O.new(read,make_texture,make_quad)
         handles[id]=handle(index);handles[id..'/attack']=handles[id];handles[id..'/hurt']=handles[id]
     end
     for id,index in pairs(O.objects)do handles[id]=handle(index)end
+    -- The user explicitly approved a true monochrome Tiny vent derivative.
+    -- Failure affects this optional counterpart only, retaining native 565.
+    local extras={};local heat_ok,heat=pcall(function()
+        local path='assets/kenney/approved/tiny-dungeon.png';local raw=assert(read(path))
+        assert(require('src.studio_atlas').checksum(raw)=='d407b7ab694fa5d5','corrupt vent source')
+        local image=assert(make_texture(raw,path,'approved-monochrome'))
+        assert(image:getWidth()==203 and image:getHeight()==186,'wrong vent source size')
+        return image
+    end)
+    if heat_ok then
+        extras.vents={texture=heat}
+        for _,name in ipairs({'heat_vent_cooldown','heat_vent_warning','heat_vent_burst'})do
+            local index=TerrainIdeas.art[name][2];local x,y=index%12*17,math.floor(index/12)*17
+            handles[TerrainIdeas.binding(name)]={texture=heat,quad=make_quad(x,y,16,16,203,186),
+                width=16,height=16,offset_x=x,offset_y=y,source='onebit',approved_sheet='tiny',tile_index=index,monochrome=true}
+        end
+    end
     local walls,waters={},{}
     local function surface_handle(slot,mask,kind)
         local x,y=slot%49*16,math.floor(slot/49)*16
@@ -184,8 +203,8 @@ function O.new(read,make_texture,make_quad)
     end
     return setmetatable({handles=handles,walls=walls,waters=waters,floor=floor,
         terrain_renderer=true,terrain_mode='tiled',style='onebit',label='Kenney 1-Bit',
-        signature=O.checksum..':onebit-1',pages={symbols={texture=symbols.texture},
-            surfaces={texture=surface}}},{__index=O}),'loaded'
+        signature=O.checksum..':onebit-1'..(heat_ok and ':tiny-vents-1' or ':native-vents'),pages={symbols={texture=symbols.texture},
+            surfaces={texture=surface},vents=extras.vents},vent_status=heat_ok and 'monochrome Tiny' or 'native fallback'},{__index=O}),'loaded'
 end
 function O:resolve(id)return self.handles[id]end
 function O:terrain(map,x,y,kind,known)

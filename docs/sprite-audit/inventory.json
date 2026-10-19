@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "2c67a074153a8111",
+  "mapping_checksum": "7e87714a8fdd115d",
   "packs": {
     "kenney": {
       "actor_count": 65,
@@ -3346,6 +3346,33 @@
         },
         {
           "height": 16,
+          "id": "core:terrain/fragile_armed",
+          "index": 495,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_closed",
+          "index": 94,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_intact",
+          "index": 495,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:terrain/fungal_hollows/floor/base",
           "index": 212,
           "motif": "",
@@ -3409,6 +3436,33 @@
         },
         {
           "height": 16,
+          "id": "core:terrain/heat_vent_burst",
+          "index": 29,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_cooldown",
+          "index": 9,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_warning",
+          "index": 29,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:terrain/obscuring_mist",
           "index": 267,
           "motif": "layered wisps",
@@ -3441,6 +3495,42 @@
           "motif": "",
           "pose_alias": false,
           "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_east",
+          "index": 1004,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_north",
+          "index": 1003,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_south",
+          "index": 1005,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_west",
+          "index": 1006,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4039,6 +4129,9 @@
           "88": [
             "core:object/review_mushroom_2"
           ],
+          "94": [
+            "core:terrain/fragile_closed"
+          ],
           "95": [
             "core:object/review_secret_clue"
           ]
@@ -4226,6 +4319,18 @@
           ]
         },
         "onebit": {
+          "1003": [
+            "core:terrain/push_north"
+          ],
+          "1004": [
+            "core:terrain/push_east"
+          ],
+          "1005": [
+            "core:terrain/push_south"
+          ],
+          "1006": [
+            "core:terrain/push_west"
+          ],
           "1010": [
             "core:boon/pursuit_spark/icon + /detail"
           ],
@@ -4491,6 +4596,10 @@
           "475": [
             "core:object/interaction_falling_fixture"
           ],
+          "495": [
+            "core:terrain/fragile_armed",
+            "core:terrain/fragile_intact"
+          ],
           "564": [
             "core:object/interaction_memorial"
           ],
@@ -4554,6 +4663,10 @@
           "124": [
             "core:enemy/snare_scribe"
           ],
+          "29": [
+            "core:terrain/heat_vent_burst",
+            "core:terrain/heat_vent_warning"
+          ],
           "45": [
             "core:object/review_gate_tiny"
           ],
@@ -4583,6 +4696,9 @@
           ],
           "89": [
             "core:enemy/heavy_rammer"
+          ],
+          "9": [
+            "core:terrain/heat_vent_cooldown"
           ],
           "90": [
             "core:object/idea_cache_dormant"
@@ -7953,6 +8069,33 @@
         },
         {
           "height": 16,
+          "id": "core:terrain/fragile_armed",
+          "index": 600,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_closed",
+          "index": 600,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_intact",
+          "index": 70,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:terrain/fungal_hollows/floor/base",
           "index": -1,
           "motif": "",
@@ -8016,6 +8159,33 @@
         },
         {
           "height": 16,
+          "id": "core:terrain/heat_vent_burst",
+          "index": 29,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_cooldown",
+          "index": 9,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_warning",
+          "index": 29,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:terrain/obscuring_mist",
           "index": 267,
           "motif": "layered wisps",
@@ -8045,6 +8215,42 @@
           "height": 16,
           "id": "core:terrain/overgrown_ruins/water/base",
           "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_east",
+          "index": 1004,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_north",
+          "index": 1003,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_south",
+          "index": 1005,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_west",
+          "index": 1006,
           "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
@@ -8370,6 +8576,22 @@
       "static_pose_aliases": 130,
       "usage": {
         "onebit": {
+          "1003": [
+            "core:terrain/push_north",
+            "core:terrain/push_north"
+          ],
+          "1004": [
+            "core:terrain/push_east",
+            "core:terrain/push_east"
+          ],
+          "1005": [
+            "core:terrain/push_south",
+            "core:terrain/push_south"
+          ],
+          "1006": [
+            "core:terrain/push_west",
+            "core:terrain/push_west"
+          ],
           "1010": [
             "core:boon/pursuit_spark/icon + /detail"
           ],
@@ -8786,6 +9008,11 @@
           "564": [
             "core:boon/phantom_lunge/icon + /detail"
           ],
+          "565": [
+            "core:terrain/heat_vent_burst",
+            "core:terrain/heat_vent_cooldown",
+            "core:terrain/heat_vent_warning"
+          ],
           "566": [
             "core:boon/flashpoint/icon + /detail"
           ],
@@ -8818,6 +9045,12 @@
           ],
           "6": [
             "core:object/review_ore"
+          ],
+          "600": [
+            "core:terrain/fragile_armed",
+            "core:terrain/fragile_armed",
+            "core:terrain/fragile_closed",
+            "core:terrain/fragile_closed"
           ],
           "607": [
             "core:object/review_gate_bottom",
@@ -8880,6 +9113,10 @@
           ],
           "690": [
             "core:object/interaction_offering_font"
+          ],
+          "70": [
+            "core:terrain/fragile_intact",
+            "core:terrain/fragile_intact"
           ],
           "705": [
             "core:boon/pulse_step/icon + /detail"
@@ -8959,6 +9196,15 @@
           "915": [
             "core:ui/idea_alarm_effect"
           ]
+        },
+        "tiny": {
+          "29": [
+            "core:terrain/heat_vent_burst",
+            "core:terrain/heat_vent_warning"
+          ],
+          "9": [
+            "core:terrain/heat_vent_cooldown"
+          ]
         }
       },
       "wall_masks": 47,
@@ -8969,14 +9215,14 @@
     {
       "empty": 0,
       "grid": 522,
-      "kenney": 69,
+      "kenney": 70,
       "nonempty": 522,
       "onebit": 0,
       "sheet": "caves",
-      "union": 69,
-      "unused_kenney": 453,
+      "union": 70,
+      "unused_kenney": 452,
       "unused_onebit": 522,
-      "unused_union": 453
+      "unused_union": 452
     },
     {
       "empty": 1,
@@ -8993,38 +9239,38 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 77,
+      "kenney": 81,
       "nonempty": 1077,
-      "onebit": 187,
+      "onebit": 194,
       "sheet": "onebit",
-      "union": 187,
-      "unused_kenney": 1000,
-      "unused_onebit": 890,
-      "unused_union": 890
+      "union": 194,
+      "unused_kenney": 996,
+      "unused_onebit": 883,
+      "unused_union": 883
     },
     {
       "empty": 63,
       "grid": 1767,
-      "kenney": 18,
+      "kenney": 19,
       "nonempty": 1704,
       "onebit": 0,
       "sheet": "rpg",
-      "union": 18,
-      "unused_kenney": 1686,
+      "union": 19,
+      "unused_kenney": 1685,
       "unused_onebit": 1704,
-      "unused_union": 1686
+      "unused_union": 1685
     },
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 27,
+      "kenney": 29,
       "nonempty": 132,
-      "onebit": 0,
+      "onebit": 2,
       "sheet": "tiny",
-      "union": 27,
-      "unused_kenney": 105,
-      "unused_onebit": 132,
-      "unused_union": 105
+      "union": 29,
+      "unused_kenney": 103,
+      "unused_onebit": 130,
+      "unused_union": 103
     }
   ],
   "requirements": [
@@ -9399,6 +9645,9 @@
     "core:terrain/fractured_archive/floor/base",
     "core:terrain/fractured_archive/wall/base",
     "core:terrain/fractured_archive/water/base",
+    "core:terrain/fragile_armed",
+    "core:terrain/fragile_closed",
+    "core:terrain/fragile_intact",
     "core:terrain/fungal_hollows/floor/base",
     "core:terrain/fungal_hollows/wall/base",
     "core:terrain/fungal_hollows/water/base",
@@ -9406,10 +9655,17 @@
     "core:terrain/glacial_observatory/wall/base",
     "core:terrain/glacial_observatory/water/base",
     "core:terrain/glazed_ice",
+    "core:terrain/heat_vent_burst",
+    "core:terrain/heat_vent_cooldown",
+    "core:terrain/heat_vent_warning",
     "core:terrain/obscuring_mist",
     "core:terrain/overgrown_ruins/floor/base",
     "core:terrain/overgrown_ruins/wall/base",
     "core:terrain/overgrown_ruins/water/base",
+    "core:terrain/push_east",
+    "core:terrain/push_north",
+    "core:terrain/push_south",
+    "core:terrain/push_west",
     "core:terrain/resonant_crystal",
     "core:terrain/sticky_bog",
     "core:terrain/sundered_forge/floor/base",
