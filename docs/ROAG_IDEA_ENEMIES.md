@@ -284,6 +284,33 @@ third-process real bow shot through a previously saved reflector, comparing
 HP, full events, RNG and the third checked save generation. The full 475-test
 gate passes. No source PNGs or gameplay RNG are used by reflection preview.
 
+## Silt Worm
+
+HP 10, defense 0, raw damage 2, speed 85, base windup/recovery 140/140.
+Approved 1-Bit 371 supplies the body in both looks. It is the small native
+four-legged creature from the approved pool, not a newly drawn worm. Mixed
+silt uses Caves 64; monochrome reuses bog 268. Original images are untouched.
+
+At two to three clear cardinal tiles, a visible Worm can commit one of two
+short charges. The marked lane and direction lock. Its strike stops at the
+first creature, preserving friendly fire and pre-damage obstruction. The body
+then advances at most two genuinely free tiles. Stairs, exits and blocked or
+unwalkable lanes cannot be selected. Stun/displacement cancels that attempt;
+ordinary damage does not. After spending its charges it pursues and bites.
+
+Up to two actually vacated plain-floor cells receive a 300-time bog overlay.
+The landing itself is clear. Walking adds 40 recovery; Dash adds 20 per crossed
+cell, reflected in actual preview/costs for player and ordinary enemy movement.
+The overlay never rewrites terrain rows or source art. Expiry therefore cannot
+erase a painted tile, and inactive-floor lifetimes pause/rebase. Trails remain
+briefly after a Worm dies, cannot overlap or occupy protected cells, and are
+bounded to four per owner / twelve total. Preview never advances the clock.
+
+Eleven focused cases, genuine natural selection, fresh-process pending-charge
+continuation, a full 485-test gate and the later complete 498-test all-enemy
+gate verify these contracts. Four driver fixtures and all 109 current combined
+encounter checks pass after the unrelated final driver hardening.
+
 ## Verification
 
 ```sh

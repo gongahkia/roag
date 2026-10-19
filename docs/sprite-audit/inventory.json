@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "c1b9cbbf9784ef14",
+  "mapping_checksum": "c521507d079ccf42",
   "packs": {
     "kenney": {
-      "actor_count": 57,
-      "actor_silhouettes": 48,
+      "actor_count": 58,
+      "actor_silhouettes": 49,
       "bindings": [
         {
           "height": 8,
@@ -2356,6 +2356,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/silt_worm",
+          "index": 371,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/attack",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/hurt",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/snare_scribe",
           "index": 124,
           "motif": "",
@@ -2586,6 +2613,15 @@
           "motif": "",
           "pose_alias": false,
           "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_silt_trail",
+          "index": 64,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -3402,7 +3438,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 114,
+      "static_pose_aliases": 116,
       "usage": {
         "caves": {
           "145": [
@@ -3596,6 +3632,9 @@
           ],
           "507": [
             "core:object/review_brazier_lit"
+          ],
+          "64": [
+            "core:object/idea_silt_trail"
           ],
           "67": [
             "overgrown_ruins floor"
@@ -3855,6 +3894,9 @@
           "333": [
             "core:boon/recurve/icon + /detail"
           ],
+          "371": [
+            "core:enemy/silt_worm"
+          ],
           "378": [
             "core:boon/longblade_geometry/icon + /detail"
           ],
@@ -4097,8 +4139,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 57,
-      "actor_silhouettes": 56,
+      "actor_count": 58,
+      "actor_silhouettes": 57,
       "bindings": [
         {
           "height": 16,
@@ -6451,6 +6493,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/silt_worm",
+          "index": 371,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/attack",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/hurt",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/snare_scribe",
           "index": 221,
           "motif": "",
@@ -6678,6 +6747,15 @@
           "height": 16,
           "id": "core:object/idea_cache_dormant",
           "index": 303,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_silt_trail",
+          "index": 268,
           "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
@@ -7433,7 +7511,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 114,
+      "static_pose_aliases": 116,
       "usage": {
         "onebit": {
           "1010": [
@@ -7557,6 +7635,7 @@
           ],
           "268": [
             "composite terrain material: water",
+            "core:object/idea_silt_trail",
             "core:terrain/sticky_bog"
           ],
           "269": [
@@ -7667,6 +7746,9 @@
           ],
           "367": [
             "core:enemy/gloom_strider"
+          ],
+          "371": [
+            "core:enemy/silt_worm"
           ],
           "378": [
             "core:boon/longblade_geometry/icon + /detail"
@@ -7961,14 +8043,14 @@
     {
       "empty": 0,
       "grid": 522,
-      "kenney": 68,
+      "kenney": 69,
       "nonempty": 522,
       "onebit": 0,
       "sheet": "caves",
-      "union": 68,
-      "unused_kenney": 454,
+      "union": 69,
+      "unused_kenney": 453,
       "unused_onebit": 522,
-      "unused_union": 454
+      "unused_union": 453
     },
     {
       "empty": 1,
@@ -7985,14 +8067,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 71,
+      "kenney": 72,
       "nonempty": 1077,
-      "onebit": 165,
+      "onebit": 166,
       "sheet": "onebit",
-      "union": 165,
-      "unused_kenney": 1006,
-      "unused_onebit": 912,
-      "unused_union": 912
+      "union": 166,
+      "unused_kenney": 1005,
+      "unused_onebit": 911,
+      "unused_union": 911
     },
     {
       "empty": 63,
@@ -8281,6 +8363,9 @@
     "core:enemy/siege_wisp",
     "core:enemy/siege_wisp/attack",
     "core:enemy/siege_wisp/hurt",
+    "core:enemy/silt_worm",
+    "core:enemy/silt_worm/attack",
+    "core:enemy/silt_worm/hurt",
     "core:enemy/snare_scribe",
     "core:enemy/snare_scribe/attack",
     "core:enemy/snare_scribe/hurt",
@@ -8307,6 +8392,7 @@
     "core:object/door_open",
     "core:object/exit",
     "core:object/idea_cache_dormant",
+    "core:object/idea_silt_trail",
     "core:object/review_brazier_lit",
     "core:object/review_brazier_unlit",
     "core:object/review_gate_bottom",

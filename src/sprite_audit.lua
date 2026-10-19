@@ -105,7 +105,7 @@ function A.collect()
         if name=='kenney'then
             for _,id in ipairs(keys(IdeaEnemies.objects or {}))do
                 local h=assert(resolver:resolve(id))
-                use(h.approved_sheet or 'onebit',h.tile_index or h.symbol_index,id)
+                use(h.approved_sheet or h.terrain_pack or 'onebit',h.tile_index or h.symbol_index,id)
             end
         end
         if name=='kenney'then

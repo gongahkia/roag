@@ -63,7 +63,7 @@ caves,60,34,34,63,,
 caves,61,51,34,107,,
 caves,62,68,34,16,,
 caves,63,85,34,16,,
-caves,64,102,34,16,,
+caves,64,102,34,16,core:object/idea_silt_trail,
 caves,65,119,34,16,,
 caves,66,136,34,256,,
 caves,67,153,34,256,overgrown_ruins floor,
@@ -949,7 +949,7 @@ onebit,264,304,80,96,,
 onebit,265,320,80,126,,
 onebit,266,336,80,60,,
 onebit,267,352,80,66,core:terrain/obscuring_mist,core:terrain/obscuring_mist
-onebit,268,368,80,72,core:terrain/sticky_bog,composite terrain material: water; core:terrain/sticky_bog
+onebit,268,368,80,72,core:terrain/sticky_bog,composite terrain material: water; core:object/idea_silt_trail; core:terrain/sticky_bog
 onebit,269,384,80,82,,core:enemy/hollow_regent
 onebit,270,400,80,94,,core:enemy/bodyguard_brute
 onebit,271,416,80,70,,core:enemy/crystal_bombardier
@@ -1052,7 +1052,7 @@ onebit,367,384,112,74,,core:enemy/gloom_strider
 onebit,368,400,112,72,,
 onebit,369,416,112,72,,
 onebit,370,432,112,76,,
-onebit,371,448,112,89,,
+onebit,371,448,112,89,core:enemy/silt_worm,core:enemy/silt_worm
 onebit,372,464,112,92,,
 onebit,373,480,112,60,,
 onebit,374,496,112,77,,

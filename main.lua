@@ -26,6 +26,7 @@ local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
 local IdeaSentinel = require('src.idea_sentinel')
 local IdeaMirrors = require('src.idea_mirrors')
+local IdeaSilt = require('src.idea_silt')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -972,6 +973,9 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='SiltTrailCreated' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Silt trail: temporary bog, +40 walking / +20 per Dash cell; ground stays intact'
             elseif event.kind=='MirrorCreated' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y)then
                 notice='Mirror: incoming arrow turns a straight shot clockwise once; melee and side attacks bypass'
@@ -1692,6 +1696,18 @@ local function draw_enemies()
 end
 
 local function draw_squad_cues()
+    for _,silt in ipairs(state.idea_silt or {})do
+        if silt.floor_id==state.active_floor_id and silt.expires>state.clock and visible_at(silt.x,silt.y)then
+            local x,y=Camera.tile_top_left(camera,silt.x,silt.y)
+            if not draw_visual(bound_visual('core:object/idea_silt_trail'),x,y,TILE,TILE,.9)then
+                love.graphics.setColor(.43,.48,.24,.75)
+                love.graphics.line(x+TILE*.15,y+TILE*.4,x+TILE*.4,y+TILE*.48,
+                    x+TILE*.65,y+TILE*.4,x+TILE*.85,y+TILE*.48)
+                love.graphics.line(x+TILE*.15,y+TILE*.65,x+TILE*.4,y+TILE*.73,
+                    x+TILE*.65,y+TILE*.65,x+TILE*.85,y+TILE*.73)
+            end
+        end
+    end
     for _,mirror in ipairs(state.idea_mirrors or {})do
         if mirror.floor_id==state.active_floor_id and mirror.expires>state.clock
             and visible_at(mirror.x,mirror.y)then

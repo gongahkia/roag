@@ -20,6 +20,7 @@ local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaSentinel = require('src.idea_sentinel')
 local IdeaMirrors = require('src.idea_mirrors')
+local IdeaSilt = require('src.idea_silt')
 local IdeaWebs = require('src.idea_webs')
 local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
@@ -386,7 +387,7 @@ function Game.preview(state, kind, dx, dy)
             end
         end
         if distance>0 then
-            local extra=Terrain.move_extra(map,kind,cells)
+            local extra=Terrain.move_extra(map,kind,cells)+IdeaSilt.move_extra(state,kind,cells)
             if extra>0 then cost=Game.effective_cost(base_cost+extra,speed) end
         end
         if bump then
@@ -893,6 +894,7 @@ local function execute_effect(state, output, activation, effect)
 end
 
 local function drain_effects(state, output)
+    IdeaSilt.prune(state,Content.map_for(state))
     IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
     IdeaOaths.prune(state)
@@ -952,6 +954,7 @@ local function drain_effects(state, output)
             }
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
+                IdeaSilt.prune(state,Content.map_for(state))
                 IdeaMirrors.prune(state,Content.map_for(state))
                 IdeaWebs.prune(state,Content.map_for(state))
                 IdeaOaths.prune(state)
@@ -1061,6 +1064,7 @@ local function drain_effects(state, output)
             execute_effect(state, output, item.activation, item.effect)
         end
     end
+    IdeaSilt.prune(state,Content.map_for(state))
     IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
     IdeaOaths.prune(state)
@@ -1243,7 +1247,8 @@ local function enemy_turn(state, item, output)
     Scheduler.enqueue(state, {kind="actor_ready",
         due=state.clock + Game.effective_cost(definition.move_cost+
             (moved and Terrain.move_extra(Content.map_for(state),
-                "move",{{x=position.x,y=position.y,status="open"}}) or 0), enemy.speed),
+                "move",{{x=position.x,y=position.y,status="open"}})
+                +IdeaSilt.move_extra(state,"move",{{x=position.x,y=position.y,status="open"}}) or 0), enemy.speed),
         actor_id=enemy.id, is_player=false})
 end
 
@@ -1439,6 +1444,9 @@ local function resolve_impact(state, item, output)
             path[#path+1]={floor_id=enemy.position.floor_id,x=x,y=y}
         end
         if #path>0 then
+            IdeaSilt.leave(state,enemy,pending,from_x,from_y,path,Content.map_for(state),function(kind,fields)
+                emit(state,output,kind,fields,enemy.id,pending.action_id)
+            end)
             emit(state,output,"Moved",{floor_id=enemy.position.floor_id,
                 from_x=from_x,from_y=from_y,x=enemy.position.x,
                 y=enemy.position.y,path=path},enemy.id,pending.action_id)

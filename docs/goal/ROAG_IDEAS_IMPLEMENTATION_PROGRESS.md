@@ -30,8 +30,8 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `web-weaver` | Web Weaver + anchored webs | headless verified; GUI pending | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; `e6c911d7` |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
-| `mirror-hexer` | Mirror Hexer + reflected lane | headless verified; GUI pending | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; this feature commit |
-| `trail-worm` | Silt Worm + temporary bog trail | pending | — |
+| `mirror-hexer` | Mirror Hexer + reflected lane | headless verified; GUI pending | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; `54f13add` |
+| `trail-worm` | Silt Worm + temporary bog trail | headless verified; GUI pending | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; this feature commit |
 | `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
@@ -165,8 +165,14 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-mirror-accepted-headless-20261019.log`. Integrated runtime
   and tests exactly match that source. Twelve focused cases, eleven disk
   scenarios and generation-3 actual reflected fire pass.
-- Both Kenney choices now resolve **369/369** required bindings, 57 actor IDs and
-  114 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Silt Worm: full **485/485** at
+  `/var/tmp/roag-worm-final-headless-20261019.log`; current four driver cases
+  and combined **109/109** at `/var/tmp/roag-worm-accepted-combined-20261019.log`.
+  Only test-driver hardening changed after that first full gate. The same Worm
+  gameplay also passes in the complete all-enemy **498/498** gate. Twelve
+  fresh-process scenarios pass, including the concrete pending charge/trail.
+- Both Kenney choices now resolve **373/373** required bindings, 58 actor IDs and
+  116 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -253,7 +259,7 @@ spent charges can leave only genuinely vacated plain floor as a finite bog
 overlay. Walking / Dash pay +40 / +20 per affected cell in the real preview
 and scheduler; underlying row bytes never change. The full **485/485** gate passes. Its gameplay code is unchanged by the
 subsequent fourth driver fixture; the combined current checks pass **109/109**.
-The complete all-enemy source is being verified before this slice is integrated.
+The complete all-enemy **498/498** gate also passes; this slice is integrated.
 
 Ember Moth is isolated at `/var/tmp/roag-moths-c89j2ljy`. Twelve focused
 cases, 120 combined checks and thirteen disk scenarios pass, including a

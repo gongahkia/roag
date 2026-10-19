@@ -5,6 +5,7 @@ local Webs=require('src.idea_webs')
 local Oaths=require('src.idea_oaths')
 local Sentinel=require('src.idea_sentinel')
 local Mirrors=require('src.idea_mirrors')
+local Silt=require('src.idea_silt')
 local I={version='roag-idea-enemies/1'}
 I.enemies={
     -- id, name, HP, damage, defense, speed, windup, recovery, range
@@ -21,6 +22,7 @@ I.enemies={
     {'oath_twin_b','Oath Twin — Blade',8,1,0,100,110,130,1},
     {'rotating_sentinel','Rotating Sentinel',14,2,1,80,160,80,1},
     {'mirror_hexer','Mirror Hexer',7,2,0,85,150,140,4},
+    {'silt_worm','Silt Worm',10,2,0,85,140,140,3},
 }
 I.champions={[Sentinel.id]=true}
 I.secondary={bone_fragment=true,oath_twin_b=true}
@@ -29,19 +31,20 @@ I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wrai
     ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
     ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm',
     ['core:enemy/web_weaver']='web',['core:enemy/oath_twin_a']='oath',
-    ['core:enemy/oath_twin_b']='oath',[Sentinel.id]='sentinel',[Mirrors.id]='mirror'}
+    ['core:enemy/oath_twin_b']='oath',[Sentinel.id]='sentinel',[Mirrors.id]='mirror',[Silt.id]='silt'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
     ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90,
     ['core:enemy/web_weaver']=122,['core:enemy/oath_twin_a']=99,['core:enemy/oath_twin_b']=100}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
-    ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,[Sentinel.id]=224,[Mirrors.id]=320}
+    ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,[Sentinel.id]=224,[Mirrors.id]=320,[Silt.id]=371}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
     ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
     ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,
     ['core:enemy/web_weaver']=366,['core:enemy/oath_twin_a']=124,['core:enemy/oath_twin_b']=127,
-    [Sentinel.id]=224,[Mirrors.id]=320}
-I.objects={['core:object/idea_cache_dormant']=303}
+    [Sentinel.id]=224,[Mirrors.id]=320,[Silt.id]=371}
+I.objects={['core:object/idea_cache_dormant']=303,['core:object/idea_silt_trail']=268}
+I.caves_objects={['core:object/idea_silt_trail']=64}
 I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915,
     ['core:ui/idea_oath_effect']=574,
     ['core:ui/idea_mirror_effect']=493,['core:ui/idea_reflect_effect']=494}
@@ -53,7 +56,8 @@ I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touc
     weaver_web='anchored web',weaver_bite='weaver bite',
     oath_pike='oath pike',oath_blade='oath blade',oath_share='shared oath loss',
     sentinel_quarter='sentinel quarter turn',sentinel_touch='sentinel strike',
-    hexer_mirror='directional reflector',hexer_bolt='hexer bolt'}
+    hexer_mirror='directional reflector',hexer_bolt='hexer bolt',
+    worm_charge='silt charge',worm_touch='worm bite'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -141,6 +145,10 @@ function I.corpse(state,id)
 end
 function I.commit(state,enemy,intent)
     Sentinel.commit(enemy,intent)
+    if intent.ability_id=='core:ability/worm_charge'then
+        assert((enemy.ai_memory.silt_charges or 0)<2,'spent silt charge budget')
+        enemy.ai_memory.silt_charges=(enemy.ai_memory.silt_charges or 0)+1
+    end
     if intent.support and intent.support.kind=='mirror'then
         assert((enemy.ai_memory.mirror_casts or 0)<2,'spent mirror budget')
         enemy.ai_memory.mirror_casts=(enemy.ai_memory.mirror_casts or 0)+1
@@ -200,6 +208,7 @@ function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
     local role=I.roles[enemy.definition_id]
+    if role=='silt'then return Silt.choose(state,enemy,player,h)end
     if role=='mirror'then return Mirrors.choose(state,enemy,player,h)end
     if role=='sentinel'then return Sentinel.choose(state,enemy,player,h)end
     if role=='oath'then
@@ -351,8 +360,9 @@ function I.companion_cell(state,map,caster)
     return nil
 end
 
--- At most one idea replacement and, only for an isolated Cantor, one ordinary
--- companion. Existing saved floors are not repopulated; no combat RNG draw.
+-- At most one primary idea replacement. A Cantor can have one ordinary ally;
+-- Oath Twins require a paired body. Existing saves are not repopulated.
+-- Selection is read-only and consumes no combat RNG.
 function I.selection(root_seed,floor_id)
     local seed=RNG.derive(root_seed,'idea-enemies:'..floor_id)
     if seed%4~=0 then return nil,seed end
@@ -470,6 +480,7 @@ function I.validate_pending(enemy,pending)
 end
 
 function I.validate(state,maps,content)
+    Silt.validate(state,maps)
     Mirrors.validate(state,maps)
     Sentinel.validate(state,maps)
     Oaths.validate(state)

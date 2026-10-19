@@ -159,6 +159,7 @@ function K.new(read,make_texture,make_quad)
     handles['core:boon/ring_of_reversal/icon']=handle(89,true)
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
+    for id,index in pairs(IdeaEnemies.caves_objects or {})do handles[id]=cave_cell(index)end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
         style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature..
             ':d407b7ab694fa5d5:a2cba6dbb9cac15d',
