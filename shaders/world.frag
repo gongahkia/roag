@@ -5,6 +5,7 @@ uniform float worldTime;
 uniform int immersion;
 in vec2 uv;
 in float shade;
+in vec2 voxelLight;
 in float distanceToCamera;
 flat in int layer;
 flat in int material;
@@ -21,5 +22,13 @@ void main() {
     vec3 sky=immersion==1 ? vec3(0.07,0.22,0.39) : (immersion==2 ? vec3(0.60,0.13,0.015) : vec3(0.56,0.72,0.81));
     float fog=smoothstep(range*(immersion==0 ? 0.55 : 0.3),range,distanceToCamera);
     float alpha=material==16 ? 0.62 : (material==31 ? 0.78 : 1.0);
-    color=vec4(mix(tex*shade,sky,fog),alpha);
+    // Curved response gives readable outdoor shade and truly dark enclosed caves.
+    float sun=pow(voxelLight.x,1.65);
+    float warm=pow(voxelLight.y,1.65);
+    vec3 illumination=max(vec3(0.018)+sun*vec3(0.96,0.98,1.0)*shade,
+                          warm*vec3(1.0,0.76,0.46)*(0.8+0.2*shade));
+    if(material==17 || material==56) illumination=vec3(1.0);
+    // Bright distance fog must not make an enclosed, unlit cave glow.
+    vec3 fogColor=sky*(0.02+0.98*sun);
+    color=vec4(mix(tex*illumination,fogColor,fog),alpha);
 }

@@ -4,6 +4,7 @@ uniform mat4 vp;
 uniform vec3 offset;
 out vec2 uv;
 out float shade;
+out vec2 voxelLight;
 out float distanceToCamera;
 flat out int layer;
 flat out int material;
@@ -11,7 +12,9 @@ void main() {
     int face=int(voxel.w & 7u);
     int block=int((voxel.w >> 3u) & 63u);
     float ao=float((voxel.w >> 9u) & 3u);
-    vec3 p=vec3(voxel.xyz);
+    vec3 p=vec3(voxel.x & 63u, voxel.y, voxel.z);
+    uint light=(voxel.x >> 6u) & 255u;
+    voxelLight=vec2(float(light & 15u),float(light >> 4u))/15.0;
     if(block==16 || block==17) {
         float height=float((voxel.w >> 11u) & 15u)/8.0;
         p.y+=((voxel.w & (1u << 15u))!=0u ? height-1.0 : height);
@@ -32,7 +35,7 @@ void main() {
     if(block==52) layer=(face==2 ? 74 : (face==3 ? 2 : 52));
     float lighting[6]=float[6](0.82,0.66,1.0,0.46,0.88,0.72);
     shade=lighting[face]*(0.55+0.15*ao);
-    if(block==17) shade=1.0;
+    if(block==17 || block==56) shade=1.0;
     vec3 relative=p+offset;
     distanceToCamera=length(relative);
     gl_Position=vp*vec4(relative,1.0);

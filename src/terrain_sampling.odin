@@ -2,6 +2,7 @@ package sandbox
 
 // Job-local immutable descriptors are reused by all 34^3 samples. The 64-block
 // cave cells extend by at most four blocks; at most 2^3 touch a padded chunk.
+// Lighting requests all heights: up to 2*3*2 cave cells in one horizontal tile.
 Terrain_Features :: struct {
 	rivers:      River_Set,
 	islands:     [4]Island_Form,
@@ -11,14 +12,20 @@ Terrain_Features :: struct {
 	plant_count: int,
 	trees:       [64]Tree,
 	tree_count:  int,
-	caves:       [8]Cave_Cell,
+	caves:       [12]Cave_Cell,
 	cave_count:  int,
 }
 
-terrain_features :: proc(seed: u64, key: I3, generator: u32) -> Terrain_Features {
+terrain_features :: proc(
+	seed: u64,
+	key: I3,
+	generator: u32,
+	all_heights: bool = false,
+) -> Terrain_Features {
 	result: Terrain_Features
 	if generator >= 5 {result.rivers = river_set_for(seed, key)}
 	lo, hi := key * 32 - I3{1, 1, 1}, key * 32 + I3{32, 32, 32}
+	if all_heights {lo.y = 0; hi.y = HEIGHT - 1}
 	if generator >= 3 {
 		for z := floor_div(lo.z, 128); z <= floor_div(hi.z, 128); z += 1 {
 			for x := floor_div(lo.x, 128); x <= floor_div(hi.x, 128); x += 1 {

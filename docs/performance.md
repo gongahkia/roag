@@ -106,3 +106,26 @@ All twenty graphical surface/biome/drainage/cave stress scenes at 640×360, radi
 The 52-second repeated flight completes 2,479 chunk jobs. Its first and second cycles peak at 1.506 and 1.506 MiB sampled managed heap; the residency-growth check passes. The route is mainly ocean/lowland, so separate scenes cover the other landforms.
 
 Eight wider previews cover dunes, badlands, mountains, snowy peaks, taiga, rivers, lakes, and ocean shelves at 960×540, radius four, and 64 MiB graphics/CPU allowances. Images are `build/geography-v5-wide-{scene}.png`; small stress images are `build/geography-v5-stress-{scene}.png`. The [geography guide](geography.md) describes the landforms, approximate hydrology, physical limitations, and commands. Raw commands, binary/source fingerprints, driver output, and summaries are in `geography_v5` in [measurements](measurements.json). Physical low-memory GPU validation remains outstanding.
+
+## Voxel lighting validation — 2026-10-19
+
+The voxel skylight/block-light implementation passes **64 core tests** and the complete Linux graphical/input smoke suite. Tests cover attenuation, opaque occlusion, distant edited roofs, source removal, positive/negative chunk seams, all-height terrain descriptors, lazy versus exhaustive lighting, stale revisions, packed vertex coverage, maximum edit/checkerboard worker memory, material saves, and separate world-edit allocation tracking. Input smoke places and saves the new lamp. macOS arm64 checking and Windows amd64 object compilation pass; native runtime validation remains pending CI.
+
+The [lighting benchmark](../scripts/lighting_benchmark.py) alternates lit/unlit jobs over 35 matched chunk fixtures, including all 17 biomes and underground slices, after warmup, with three measured repeats. Mesh digests stay stable across repeats. These are CPU job timings; they do not measure display FPS or physical GPU performance.
+
+| Measurement | Unlit diagnostic | Voxel lighting |
+|---|---:|---:|
+| Mean generation | 1.723 ms | 1.781 ms |
+| Mean lighting | 0.000 ms | 7.347 ms |
+| Mean meshing | 2.078 ms | 2.132 ms |
+| Mean complete job | 3.805 ms | 11.262 ms |
+| Peak worker heap in matrix | 0.242 MiB | 2.226 MiB |
+| Mean output vertices | 3098 | 3225 |
+
+Lighting adds CPU work on asynchronous workers and can increase mesh count where light varies. Empty meshes skip the solver. Guaranteed empty sky and unreachable underground voxels avoid full-volume terrain regeneration. Lighting scratch is freed before meshing, vertices remain eight bytes, and the renderer adds no GPU light texture, framebuffer, or draw pass. The fixed 16 MiB worker reservation and existing graphics/upload admission remain in force.
+
+Twelve six-second graphical comparisons cover a lamp/skylight room, forest, caves, fluids, repeated editing, and sky islands, each lit and unlit. They run at 640×360, radius two, 16 MiB application graphics, 32 MiB managed CPU, and 64 KiB uploads. All retain radius two and pass the memory/upload checks, with no refused or overflowing fluid work. Automated room-image checks confirm warm lamp illumination and dark enclosed corners. Including the flight, lit scenes peak at **7.350 MiB** graphics reservations, **5.067 MiB** sampled managed heap, and **108.7 MiB** process RSS.
+
+The 52-second lit repeated flight completes 2,419 chunk jobs; both residency and managed-heap plateau checks pass. First/second cycle managed-heap peaks are 3.594/3.594 MiB. The route is mostly ocean/lowland. The separate pressure smoke reaches 15.500 MiB graphics reservations and reduces radius four to 2; fluid smoke completes 140 changes without refusing updates.
+
+These measurements use Mesa llvmpipe software OpenGL under WSL2. Graphics reservations estimate application storage, and process RSS includes driver/runtime allocations outside the managed heap. Physical low-memory GPU validation remains outstanding. [Lighting documentation](lighting.md) describes the vertical-sun model, finite scattering, asynchronous update delay, and other limits. Raw commands, driver output, source/binary fingerprints, and reports are preserved under `voxel_lighting` in [measurements](measurements.json). Local images are `build/lighting-{scene}-{lit,unlit}.png`.

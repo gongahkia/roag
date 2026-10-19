@@ -23,17 +23,31 @@ Mesh :: struct {
 Face :: struct {
 	material:       u8,
 	ao:             [4]u8,
+	light:          [4]u8,
 	height, bottom: u8,
 }
 
 face_equal :: proc(a, b: Face) -> bool {
-	return a.material == b.material && a.ao == b.ao && a.height == b.height && a.bottom == b.bottom
+	return(
+		a.material == b.material &&
+		a.ao == b.ao &&
+		a.light == b.light &&
+		a.height == b.height &&
+		a.bottom == b.bottom \
+	)
 }
 
 face_mergeable :: proc(a: Face) -> bool {
 	// Height/bottom compatibility preserves steps while allowing flat pools and
 	// full-height waterfalls to use the same greedy merging as solid terrain.
-	return a.ao[0] == a.ao[1] && a.ao[0] == a.ao[2] && a.ao[0] == a.ao[3]
+	return(
+		a.ao[0] == a.ao[1] &&
+		a.ao[0] == a.ao[2] &&
+		a.ao[0] == a.ao[3] &&
+		a.light[0] == a.light[1] &&
+		a.light[0] == a.light[2] &&
+		a.light[0] == a.light[3] \
+	)
 }
 NORMALS := [6]I3{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}
 U_AXIS := [6]int{1, 2, 2, 0, 0, 1}
@@ -98,9 +112,11 @@ mesh_destroy :: proc(m: ^Mesh) {
 	m^ = {}
 }
 
-mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
-	m: Mesh
-	// Reserve the exposed-face upper bound once; greedy merging only shrinks it.
+Mesh_Exposure :: struct {
+	faces:       int,
+	translucent: bool,
+}
+mesh_exposure :: proc(data: []u8) -> Mesh_Exposure {
 	face_count := 0
 	has_water := false
 	for z in 0 ..< CHUNK {
@@ -119,6 +135,19 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 			}
 		}
 	}
+	return {face_count, has_water}
+}
+
+mesh_build :: proc(
+	data: []u8,
+	greedy: bool = true,
+	light: []u8 = nil,
+	exposure: ^Mesh_Exposure = nil,
+) -> Mesh {
+	m: Mesh
+	counts: Mesh_Exposure
+	if exposure != nil {counts = exposure^} else {counts = mesh_exposure(data)}
+	face_count, has_water := counts.faces, counts.translucent
 	if face_count == 0 {
 		return m
 	}
@@ -149,6 +178,7 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 							f := Face {
 								material = b,
 								ao       = face_ao(data, p, dir),
+								light    = face_light(data, light, p, dir),
 							}
 							if is_fluid(Block(b)) {
 								f.material = u8(fluid_kind(Block(b))); f.ao = {3, 3, 3, 3}
@@ -224,7 +254,15 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 								packed |= u16(h) << VERTEX_HEIGHT_SHIFT
 								if top {packed |= 1 << VERTEX_TOP_BIT}
 							}
-							append(&m.vertices, Vertex{u16(q.x), u16(q.y), u16(q.z), packed})
+							append(
+								&m.vertices,
+								Vertex {
+									u16(q.x) | (u16(f.light[c]) << VERTEX_LIGHT_SHIFT),
+									u16(q.y),
+									u16(q.z),
+									packed,
+								},
+							)
 						}
 						if int(f.ao[0]) + int(f.ao[2]) > int(f.ao[1]) + int(f.ao[3]) {
 							append(

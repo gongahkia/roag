@@ -18,6 +18,7 @@ Config :: struct {
 	hidden, no_save, vsync, naive_mesh:              bool,
 	spectator:                                       bool,
 	no_hud:                                          bool,
+	no_lighting:                                     bool,
 }
 
 usage :: proc() {
@@ -27,7 +28,10 @@ Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3|4|5] [-
   --gpu-mb N --cpu-mb N --workers N --upload-kb N --width N --height N
   --save PATH --no-save --no-vsync --hidden --no-hud --frames N --seconds N --screenshot PATH
   --settings PATH --fps-limit display|unlimited|30|60|90|120|144|165|240|360
+  --no-lighting (diagnostic comparison, disables propagated light)
   --spectator (start with free flight and noclip)
+  --benchmark lighting --frames 3 (headless lighting cost comparison)
+  --benchmark light-room (enclosed lamp/roof demonstration)
   --benchmark generation --frames 3 (headless matched-coordinate v4/v5 comparison)
   --benchmark river|lake|ocean (generator 5 geography previews)
   --benchmark normal|flight|edit|dense|fluids|terrain|sky|caves --naive-mesh
@@ -93,6 +97,8 @@ config_parse :: proc() -> (Config, bool) {
 			os.exit(0)
 		case "--no-save":
 			c.no_save = true
+		case "--no-lighting":
+			c.no_lighting = true
 		case "--no-hud":
 			c.no_hud = true
 		case "--hidden":

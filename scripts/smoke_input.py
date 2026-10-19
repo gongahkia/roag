@@ -256,6 +256,9 @@ def interactive(binary, env, directory, collisions=False):
         key(ord('6')); click(3); key(0xffc2)
         biome_save = save.read_bytes()
         assert 55 in [biome_save[i + 12] for i in range(52, len(biome_save), 13)], 'Last palette page failed to place swamp grass'
+        click(1); key(ord('7')); click(3); key(0xffc2)  # Replace the target with a lamp.
+        lamp_save = save.read_bytes()
+        assert 56 in [lamp_save[i + 12] for i in range(52, len(lamp_save), 13)], 'Lamp slot did not place and save an emitter'
         key(0xff09)  # Wrap page five back to one.
         key(ord('q'))
         output = process.communicate(timeout=5)[0]
@@ -263,7 +266,7 @@ def interactive(binary, env, directory, collisions=False):
         assert 'OpenGL error' not in output, output
         assert cursor_is_visible(), 'Exit left the OS cursor hidden'
         print('PASS native cursor hiding during look, focus loss/regain, menus, resume, and exit', flush=True)
-        print('PASS editing, ore/water palette, settings input, persistence, paused controls, resize, and quit', flush=True)
+        print('PASS editing, ore/water/lamp palette, settings input, persistence, paused controls, resize, and quit', flush=True)
     finally:
         if process.poll() is None:
             process.kill(); process.communicate()

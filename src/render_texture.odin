@@ -65,7 +65,7 @@ renderer_texture_init :: proc(r: ^Renderer) {
 		{173, 168, 73},
 		{65, 164, 60},
 		{93, 120, 67},
-		{0, 0, 0},
+		{255, 213, 115},
 		{0, 0, 0},
 		{0, 0, 0},
 		{0, 0, 0},
@@ -106,6 +106,8 @@ renderer_texture_init :: proc(r: ^Renderer) {
 				if layer == 15 && (x % 8 == 0 || (y + (x / 8) * 3) % 8 == 0) {noise -= 30}
 				if layer == 17 &&
 				   hash3(921, i32(x / 2), 0, i32(y / 2)) % 3 == 0 {color = {255, 187, 32}}
+				if layer ==
+				   56 {noise /= 2; if x == 0 || y == 0 || x == 15 || y == 15 {noise -= 90}}
 				if layer == 30 {noise /= 3}
 				if layer == 31 {noise /= 2; if (x + y * 2) % 13 == 0 {noise += 24}}
 				if layer ==

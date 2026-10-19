@@ -7,6 +7,23 @@ import "core:testing"
 import "core:time"
 
 @(test)
+test_repeatedly_stale_chunks_wait_for_quiet :: proc(t: ^testing.T) {
+	now := time.tick_now()
+	c := Chunk_State {
+		last_edit      = now,
+		edit_pending   = true,
+		wait_for_quiet = true,
+	}
+	testing.expect(t, chunk_waiting_for_edits(&c, now))
+	c.wait_for_quiet = false
+	testing.expect(
+		t,
+		!chunk_waiting_for_edits(&c, now),
+		"Ordinary first edits must be scheduled immediately",
+	)
+}
+
+@(test)
 test_stale_jobs_and_corner_invalidation :: proc(t: ^testing.T) {
 	s: Stream
 	s.chunks = make(map[I3]^Chunk_State)

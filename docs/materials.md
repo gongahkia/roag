@@ -8,11 +8,11 @@
 | 2 | **1 Coal ore, 2 Iron ore, 3 Copper ore, 4 Gold ore, 5 Diamond ore, 6 Redstone ore**, 7 Cobblestone, 8 Snow, 9 Ice |
 | 3 | 1 Cactus, 2 Terracotta, 3 Red terracotta, 4 Yellow terracotta, 5 White terracotta, 6 Birch wood, 7 Birch leaves, 8 Spruce wood, 9 Spruce leaves |
 | 4 | 1 Acacia wood, 2 Acacia leaves, 3 Jungle wood, 4 Jungle leaves, 5 Cherry wood, 6 Cherry leaves, 7 Mushroom stem, 8 Red mushroom cap, 9 Brown mushroom cap |
-| 5 | 1 Mycelium, 2 Mud, 3 Podzol, 4 Dry grass, 5 Lush grass, 6 Swamp grass |
+| 5 | 1 Mycelium, 2 Mud, 3 Podzol, 4 Dry grass, 5 Lush grass, 6 Swamp grass, **7 Lamp** |
 
 Water and lava placements create persistent sources. They fall into open cells first, then spread across supported ground. Water spreads up to seven cells from a feed; lava spreads up to three and updates more slowly. Opening a channel redirects flow, placing solids blocks it, and removing a lone source lets its downstream flow drain. A supported gap between two water sources regenerates a water source. **Water + lava source → obsidian; water + flowing lava → cobblestone.**
 
-Water has transparent, stepped surfaces. Lava uses animated emissive textures. Fluid camera immersion adds tint and distance fog. Walking is the default, with solid block collisions, gravity, jumping, and sprinting. Fluids slow movement and allow swimming with Space/Ctrl. **F4** toggles spectator flight with noclip. Solid blocks cannot be placed inside the walking player's body. There is no health/damage system in this creative tranche.
+Water has transparent, stepped surfaces. Lava uses animated emissive textures and casts warm voxel light onto its surroundings. The placeable **Lamp** on page 5, slot 7 also emits light. See [lighting](lighting.md) for skylight, shadows, and update behavior. Fluid camera immersion adds tint and distance fog. Walking is the default, with solid block collisions, gravity, jumping, and sprinting. Fluids slow movement and allow swimming with Space/Ctrl. **F4** toggles spectator flight with noclip. Solid blocks cannot be placed inside the walking player's body. There is no health/damage system in this creative tranche.
 
 New worlds generate lowland lakes at level 52, underground lava in caves at heights 6–12, and clustered ores within stone:
 

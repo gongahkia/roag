@@ -9,6 +9,8 @@ benchmark_valid :: proc(scene: string) -> bool {
 		"",
 		"normal",
 		"generation",
+		"lighting",
+		"light-room",
 		"ocean",
 		"river",
 		"lake",
@@ -183,6 +185,7 @@ terrain_find_lake :: proc(seed: u64, generator: u32 = 3) -> (cell: Cave_Cell, ok
 
 benchmark_prepare :: proc(a: ^App) {
 	scene := a.config.benchmark
+	if scene == "light-room" {benchmark_light_room(a); return}
 	biome: Biome
 	landscape := true
 	switch scene {

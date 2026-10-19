@@ -57,13 +57,14 @@ Block :: enum u8 {
 	Dry_Grass,
 	Lush_Grass,
 	Swamp_Grass,
+	Lamp,
 }
 
 // Six material bits retain the eight-byte vertex. Serialized IDs 0..29 stay stable.
-BLOCK_COUNT :: int(Block.Swamp_Grass) + 1
+BLOCK_COUNT :: int(Block.Lamp) + 1
 #assert(BLOCK_COUNT <= 64 && int(Block.Water) == 16 && int(Block.Lava) == 17)
 
-block_valid :: proc(b: Block) -> bool {return u8(b) <= u8(Block.Swamp_Grass)}
+block_valid :: proc(b: Block) -> bool {return u8(b) <= u8(Block.Lamp)}
 fluid_kind :: proc(b: Block) -> Block {
 	if b == .Water || (b >= .Water_1 && b <= .Water_Falling) {return .Water}
 	if b == .Lava || (b >= .Lava_1 && b <= .Lava_Falling) {return .Lava}

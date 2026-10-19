@@ -3,11 +3,14 @@ package sandbox
 import "core:math"
 import "core:mem"
 import "core:sync"
+import "core:time"
 
 Chunk_State :: struct {
 	gpu:                                           GPU_Mesh,
 	revision, job_revision:                        u64,
 	running, complete, oversized, budget_deferred: bool,
+	edit_pending, wait_for_quiet:                  bool,
+	last_edit:                                     time.Tick,
 }
 
 Stream :: struct {
@@ -16,11 +19,13 @@ Stream :: struct {
 	worker_count:                                              int,
 	next_revision:                                             u64,
 	naive_mesh:                                                bool,
+	unlit:                                                     bool,
 	center:                                                    I3,
 	radius, configured_radius:                                 int,
 	mesh_budget, device_mesh_limit, cpu_budget, upload_budget: int,
 	pressure, stale, oversized, generated:                     int,
 	last_generation_ms, last_meshing_ms:                       f64,
+	last_lighting_ms, total_lighting_ms:                       f64,
 	total_generation_ms, total_meshing_ms, peak_generation_ms: f64,
 	last_upload_bytes, peak_upload_bytes:                      int,
 	tracker:                                                   ^mem.Tracking_Allocator,
@@ -198,9 +203,13 @@ stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
 		if !result_current(s, result.key, result.revision) {
 			s.stale += 1
 			mesh_release(r, &w.upload)
+			if exists &&
+			   c.job_revision == result.revision &&
+			   c.edit_pending {c.wait_for_quiet = true}
 		} else if result.mesh.overflow {
 			c.oversized = true
 			c.complete = true
+			c.edit_pending, c.wait_for_quiet = false, false
 			s.oversized += 1
 		} else {
 			if w.upload.vao == 0 && bytes > 0 {
@@ -253,9 +262,12 @@ stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
 			c.gpu = w.upload
 			w.upload = {}
 			c.complete = true
+			c.edit_pending, c.wait_for_quiet = false, false
 			s.generated += 1
 			s.last_generation_ms = result.generation_ms
 			s.last_meshing_ms = result.meshing_ms
+			s.last_lighting_ms = result.lighting_ms
+			s.total_lighting_ms += result.lighting_ms
 			s.total_generation_ms += result.generation_ms
 			s.total_meshing_ms += result.meshing_ms
 			s.peak_generation_ms = max(s.peak_generation_ms, result.generation_ms)
@@ -274,6 +286,7 @@ stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
 }
 
 stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
+	now := time.tick_now()
 	for i in 0 ..< s.worker_count {
 		worker := &s.workers[i]
 		sync.mutex_lock(&worker.mutex)
@@ -301,6 +314,7 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 			   distance2(k, s.center) > s.radius * s.radius {
 				continue
 			}
+			if chunk_waiting_for_edits(c, now) {continue}
 			delta := V3 {
 				f64(k.x) * 32 + 16 - pos.x,
 				f64(k.y) * 32 + 16 - pos.y,
@@ -324,9 +338,10 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 				best_key,
 				best.revision,
 				w.seed,
-				world_snapshot(w, best_key),
+				world_snapshot(w, best_key, !s.unlit),
 				s.naive_mesh,
 				w.generator,
+				s.unlit,
 			}
 			worker.busy = true
 			sync.sema_post(&worker.wake)
@@ -336,19 +351,31 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 }
 
 stream_invalidate :: proc(s: ^Stream, p: I3) {
-	// AO samples diagonally across borders, so invalidate every touching chunk.
-	for z in -1 ..= 1 {
-		for y in -1 ..= 1 {
-			for x in -1 ..= 1 {
-				k := chunk_of(p + I3{i32(x), i32(y), i32(z)})
-				if c, ok := s.chunks[k]; ok {
+	now := time.tick_now()
+	// A roof edit can change direct sunlight arbitrarily far below it. Sideways
+	// and upward light travels at most 14 cells; include the vertex/AO halo too.
+	margin := s.unlit ? 1 : LIGHT_HALO
+	lo, hi :=
+		chunk_of(p - I3{i32(margin), i32(margin), i32(margin)}),
+		chunk_of(p + I3{i32(margin), i32(margin), i32(margin)})
+	if !s.unlit {lo.y = 0}
+	for z := lo.z;
+	    z <= hi.z;
+	    z += 1 {for y := max(0, lo.y); y <= min(7, hi.y); y += 1 {for x := lo.x; x <= hi.x; x += 1 {
+				if c, ok := s.chunks[I3{x, y, z}]; ok {
 					s.next_revision += 1
 					c.revision = s.next_revision
 					c.complete = false
 					c.oversized = false
 					c.budget_deferred = false
+					c.edit_pending = true
+					c.last_edit = now
 				}
-			}
-		}
-	}
+			}}}
+}
+
+// An invalidated in-flight job must not repeatedly monopolize the nearest
+// worker slot. Keep its previous mesh and let unaffected chunks make progress.
+chunk_waiting_for_edits :: proc(c: ^Chunk_State, now: time.Tick) -> bool {
+	return c.wait_for_quiet && time.tick_diff(c.last_edit, now) < 50 * time.Millisecond
 }

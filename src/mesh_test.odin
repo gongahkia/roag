@@ -2,10 +2,15 @@ package sandbox
 
 import "core:testing"
 
+vertex_position_only :: proc(v: Vertex) -> Vertex {r := v; r.x &= VERTEX_POSITION_MASK; return r}
+
 mesh_area :: proc(m: Mesh) -> int {
 	area := 0
 	for q := 0; q < len(m.vertices); q += 4 {
-		a, b, c := m.vertices[q], m.vertices[q + 1], m.vertices[q + 3]
+		a, b, c :=
+			vertex_position_only(m.vertices[q]),
+			vertex_position_only(m.vertices[q + 1]),
+			vertex_position_only(m.vertices[q + 3])
 		u := abs(int(a.x) - int(b.x)) + abs(int(a.y) - int(b.y)) + abs(int(a.z) - int(b.z))
 		v := abs(int(a.x) - int(c.x)) + abs(int(a.y) - int(c.y)) + abs(int(a.z) - int(c.z))
 		area += u * v
@@ -35,7 +40,9 @@ reference_faces :: proc(data: []u8) -> int {
 check_winding :: proc(t: ^testing.T, m: Mesh) {
 	for i := 0; i < len(m.indices); i += 3 {
 		a, b, c :=
-			m.vertices[m.indices[i]], m.vertices[m.indices[i + 1]], m.vertices[m.indices[i + 2]]
+			vertex_position_only(m.vertices[m.indices[i]]),
+			vertex_position_only(m.vertices[m.indices[i + 1]]),
+			vertex_position_only(m.vertices[m.indices[i + 2]])
 		u := V3{f64(b.x) - f64(a.x), f64(b.y) - f64(a.y), f64(b.z) - f64(a.z)}
 		v := V3{f64(c.x) - f64(a.x), f64(c.y) - f64(a.y), f64(c.z) - f64(a.z)}
 		n := cross(u, v)
@@ -121,7 +128,10 @@ check_coverage :: proc(t: ^testing.T, data: []u8, m: Mesh) {
 	faces := make(map[[4]i32]bool)
 	defer delete(faces)
 	for q := 0; q < len(m.vertices); q += 4 {
-		a, b, c := m.vertices[q], m.vertices[q + 1], m.vertices[q + 3]
+		a, b, c :=
+			vertex_position_only(m.vertices[q]),
+			vertex_position_only(m.vertices[q + 1]),
+			vertex_position_only(m.vertices[q + 3])
 		dir := int(a.data & 7)
 		u, v := U_AXIS[dir], V_AXIS[dir]
 		origin := I3{i32(a.x), i32(a.y), i32(a.z)}

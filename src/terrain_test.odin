@@ -31,6 +31,7 @@ test_deterministic_terrain_and_padding :: proc(t: ^testing.T) {
 	world_init(&w, 42)
 	defer world_destroy(&w)
 	job := Mesh_Job {
+		unlit    = true,
 		key      = {-1, 2, 0},
 		revision = 9,
 		seed     = 42,
@@ -81,6 +82,7 @@ test_ore_depths_natural_fluids_and_worker_agreement :: proc(t: ^testing.T) {
 	for version: u32 = 1; version <= 2; version += 1 {
 		w: World; world_init(&w, 42); w.generator = version
 		job := Mesh_Job {
+			unlit     = true,
 			key       = {-1, 0, 0},
 			seed      = 42,
 			generator = version,

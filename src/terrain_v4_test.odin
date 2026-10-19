@@ -153,7 +153,7 @@ test_v4_six_bit_materials_ice_and_palette :: proc(t: ^testing.T) {
 	data[block_index(3, 2, 2)] = u8(Block.Stone)
 	n := mesh_build(data); defer mesh_destroy(&n)
 	testing.expect(t, n.water_indices == 30 && len(n.indices) - n.water_indices == 36)
-	testing.expect(t, CREATIVE_PAGES == 5 && len(CREATIVE_BLOCKS) == 42 && size_of(Vertex) == 8)
+	testing.expect(t, CREATIVE_PAGES == 5 && len(CREATIVE_BLOCKS) == 43 && size_of(Vertex) == 8)
 }
 
 @(test)

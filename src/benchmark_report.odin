@@ -19,7 +19,7 @@ benchmark_start :: proc(a: ^App) {
 		a.benchmark_file = handle
 		fmt.fprintln(
 			a.benchmark_file,
-			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes,fps,low_1pct_fps,process_cpu_percent,rss_bytes,rss_peak_bytes,cpu_sample_valid,ram_sample_valid,heap_peak_bytes,main_work_ms,chunks_per_second,queued_jobs,busy_workers,display_hz,frame_cap,swap_ms,pacing_wait_ms,software_renderer,fluid_queue,fluid_updates,fluid_changes,fluid_overflow,fluid_refused,fluid_ms,generator,generated_jobs,generation_total_ms,meshing_total_ms,generation_peak_ms",
+			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes,fps,low_1pct_fps,process_cpu_percent,rss_bytes,rss_peak_bytes,cpu_sample_valid,ram_sample_valid,heap_peak_bytes,main_work_ms,chunks_per_second,queued_jobs,busy_workers,display_hz,frame_cap,swap_ms,pacing_wait_ms,software_renderer,fluid_queue,fluid_updates,fluid_changes,fluid_overflow,fluid_refused,fluid_ms,generator,generated_jobs,generation_total_ms,meshing_total_ms,generation_peak_ms,lighting_ms,lighting_total_ms",
 		)
 		fmt.println("Benchmark:", path)
 	}
@@ -29,7 +29,7 @@ benchmark_record :: proc(a: ^App, ms: f64) {
 	if a.benchmark_file != nil {
 		fmt.fprintf(
 			a.benchmark_file,
-			"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%d,%d,%.4f,%.4f,%.4f\n",
+			"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f\n",
 			a.frame,
 			a.pacing.completed_at - a.start,
 			ms,
@@ -79,6 +79,8 @@ benchmark_record :: proc(a: ^App, ms: f64) {
 			a.stream.total_generation_ms,
 			a.stream.total_meshing_ms,
 			a.stream.peak_generation_ms,
+			a.stream.last_lighting_ms,
+			a.stream.total_lighting_ms,
 		)
 	}
 }

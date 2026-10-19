@@ -43,6 +43,7 @@ CREATIVE_BLOCKS := [?]Block {
 	.Dry_Grass,
 	.Lush_Grass,
 	.Swamp_Grass,
+	.Lamp,
 }
 CREATIVE_PAGES :: (len(CREATIVE_BLOCKS) + 8) / 9
 BLOCK_NAMES := [?]string {
@@ -102,6 +103,7 @@ BLOCK_NAMES := [?]string {
 	"DRY GRASS",
 	"LUSH GRASS",
 	"SWAMP GRASS",
+	"LAMP",
 }
 BLOCK_COLORS := [?]F4 {
 	{0, 0, 0, 0},
@@ -160,6 +162,7 @@ BLOCK_COLORS := [?]F4 {
 	{0.6784, 0.6588, 0.2863, 1},
 	{0.2549, 0.6431, 0.2353, 1},
 	{0.3647, 0.4706, 0.2627, 1},
+	{1.0, 0.83, 0.45, 1},
 }
 
 #assert(len(BLOCK_NAMES) == BLOCK_COUNT && len(BLOCK_COLORS) == BLOCK_COUNT)

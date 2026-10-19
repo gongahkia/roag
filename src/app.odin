@@ -45,8 +45,13 @@ app_run :: proc(config: Config) {
 	a := new(App)
 	defer free(a)
 	a.config = config
-	world_init(&a.world, a.config.seed)
-	a.world.tracker = &tracker
+	// World admission measures its own edit allocations. The parent tracker
+	// still includes these bytes and every worker for the total CPU ceiling.
+	world_tracker: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&world_tracker, context.allocator)
+	defer mem.tracking_allocator_destroy(&world_tracker)
+	world_init(&a.world, a.config.seed, mem.tracking_allocator(&world_tracker))
+	a.world.tracker = &world_tracker
 	a.world.allocation_limit = a.config.cpu_budget - cpu_reservation(a.config.workers)
 	defer world_destroy(&a.world)
 	session_load(a)
@@ -123,6 +128,7 @@ app_run :: proc(config: Config) {
 	)
 	defer delete(a.draw_items)
 	a.stream.naive_mesh = a.config.naive_mesh
+	a.stream.unlit = a.config.no_lighting
 	defer if a.stream.chunks != nil {stream_destroy(&a.stream, &a.renderer)}
 	app_sync_mouse_capture(a)
 	a.yaw, a.pitch = -0.8, -0.27

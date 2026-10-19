@@ -99,7 +99,7 @@ def summarize(path, warmup=3.0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'river', 'lake', 'ocean', 'dense', 'fluids', 'terrain', 'sky', 'caves', 'plains', 'forest', 'desert', 'coast', 'arch', 'overhang', 'spire', 'snowy-plains', 'taiga', 'savanna', 'jungle', 'swamp', 'badlands', 'birch', 'cherry', 'mushrooms', 'snowy-peaks'), default='normal')
+    parser.add_argument('--scene', choices=('light-room', 'normal', 'flight', 'edit', 'river', 'lake', 'ocean', 'dense', 'fluids', 'terrain', 'sky', 'caves', 'plains', 'forest', 'desert', 'coast', 'arch', 'overhang', 'spire', 'snowy-plains', 'taiga', 'savanna', 'jungle', 'swamp', 'badlands', 'birch', 'cherry', 'mushrooms', 'snowy-peaks'), default='normal')
     parser.add_argument('--generator', type=int, choices=(1, 2, 3, 4, 5))
     parser.add_argument('--seconds', type=int, default=12)
     parser.add_argument('--profile', choices=('tiny', 'low', 'standard'), default='tiny')

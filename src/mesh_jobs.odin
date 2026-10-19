@@ -9,6 +9,7 @@ Mesh_Job :: struct {
 	edits:     [dynamic]Edit_Command,
 	naive:     bool,
 	generator: u32,
+	unlit:     bool,
 }
 
 Mesh_Result :: struct {
@@ -16,6 +17,7 @@ Mesh_Result :: struct {
 	revision:                  u64,
 	mesh:                      Mesh,
 	generation_ms, meshing_ms: f64,
+	lighting_ms:               f64,
 }
 
 build_job :: proc(job: Mesh_Job) -> Mesh_Result {
@@ -26,16 +28,30 @@ build_job :: proc(job: Mesh_Job) -> Mesh_Result {
 	terrain_fill_chunk(job.seed, job.key, generator, data)
 	for e in job.edits {
 		p := e.position - job.key * 32 + I3{1, 1, 1}
-		data[block_index(int(p.x), int(p.y), int(p.z))] = u8(e.block)
+		if p.x >= 0 && p.x < PAD && p.y >= 0 && p.y < PAD && p.z >= 0 && p.z < PAD {
+			data[block_index(int(p.x), int(p.y), int(p.z))] = u8(e.block)
+		}
 	}
 	generated := time.tick_now()
-	mesh := mesh_build(data, !job.naive)
+	light: []u8
+	defer delete(light)
+	exposure := mesh_exposure(data)
+	lighting_started := time.tick_now()
+	if !job.unlit && exposure.faces > 0 {
+		light = make([]u8, PAD * PAD * PAD)
+		lighting_job := job; lighting_job.generator = generator
+		lighting_build(lighting_job, light)
+	}
+	lit := time.tick_now()
+	mesh := mesh_build(data, !job.naive, light, &exposure)
 	return {
 		job.key,
 		job.revision,
 		mesh,
 		time.duration_milliseconds(time.tick_diff(start, generated)),
-		time.duration_milliseconds(time.tick_since(generated)),
+		time.duration_milliseconds(time.tick_since(lit)) +
+		time.duration_milliseconds(time.tick_diff(generated, lighting_started)),
+		len(light) > 0 ? time.duration_milliseconds(time.tick_diff(lighting_started, lit)) : 0,
 	}
 }
 

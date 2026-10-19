@@ -102,7 +102,7 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 		return false
 	}
 	candidate: World
-	world_init(&candidate, seed)
+	world_init(&candidate, seed, w.allocator)
 	candidate.generator = generator
 	candidate.tracker = w.tracker
 	candidate.allocation_limit = w.allocation_limit

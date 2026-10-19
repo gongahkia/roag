@@ -11,5 +11,6 @@ main :: proc() {
 		os.exit(2)
 	}
 	if config.benchmark == "generation" {benchmark_generation(config); return}
+	if config.benchmark == "lighting" {benchmark_lighting(config); return}
 	app_run(config)
 }
