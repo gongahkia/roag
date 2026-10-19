@@ -189,4 +189,49 @@ return function(test,equal)
   assert(called['assets/kenney/approved/tiny-dungeon.png']=='approved-monochrome')
   assert(fallback:resolve(T.binding('heat_vent_warning')).symbol_index==565 and fallback.signature~=full.signature)
  end)
+ local function app_callbacks(s)
+  -- Real main.lua input/notice handler, with no love.load, window or disk writes.
+  assert(not _G.love and not _G.Visibility)
+  local fake={};local env=setmetatable({love=fake},{__index=_G})
+  local chunk=assert(loadfile('main.lua'));setfenv(chunk,env);chunk()
+  local function upvalue(name,value,write)
+   for i=1,200 do
+    local key,current=debug.getupvalue(fake.keypressed,i);if not key then break end
+    if key==name then
+     if write then debug.setupvalue(fake.keypressed,i,value);if jit then jit.flush()end end
+     return current
+    end
+   end
+   error('callback upvalue missing: '..name)
+  end
+  upvalue('state',s,true);upvalue('title',false,true);upvalue('spectator_enabled',false,true)
+  local playback=require('src.playback')
+  local function drain()
+   playback.update(upvalue('playback'),10)
+   assert(not fake.roagPlaybackPending())
+  end
+  return fake,function()return upvalue('notice')end,drain
+ end
+ test('real keyboard wait reports a visible heat vent and preserves exact simulation continuation',function()
+  local s,p,n=plain('heat_vent');local reference=G.restore(G.snapshot(s))
+  local app,notice,drain=app_callbacks(s)
+  submit(reference,{kind='wait'});app.keypressed('space')
+  assert(n.phase=='warning' and s.clock==100 and notice():find('Heat vent warning',1,true))
+  equal(G.snapshot(s),G.snapshot(reference));drain()
+  submit(reference,{kind='move',dx=-1,dy=0});app.keypressed('a')
+  assert(n.phase=='cooldown' and s.clock==200)
+  equal(G.snapshot(s),G.snapshot(reference))
+  equal(G.snapshot(G.restore(P.decode(P.encode(G.snapshot(s))))),G.snapshot(s))
+ end)
+ test('real keyboard crossing reports a fragile collapse without a global visibility dependency',function()
+  local s,p,map=room();local n=T.place(s,map,'fragile_crossing',p.position.x+1,p.position.y)
+  local reference=G.restore(G.snapshot(s));local app,notice,drain=app_callbacks(s)
+  submit(reference,{kind='move',dx=1,dy=0});app.keypressed('d')
+  assert(n.phase=='armed' and notice():find('Fragile shortcut armed',1,true))
+  equal(G.snapshot(s),G.snapshot(reference));drain()
+  submit(reference,{kind='move',dx=1,dy=0});app.keypressed('d')
+  assert(n.phase=='closed' and notice():find('Fragile shortcut closed',1,true))
+  equal(G.snapshot(s),G.snapshot(reference))
+  equal(G.snapshot(G.restore(P.decode(P.encode(G.snapshot(s))))),G.snapshot(s))
+ end)
 end

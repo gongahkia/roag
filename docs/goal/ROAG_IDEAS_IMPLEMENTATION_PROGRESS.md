@@ -1026,3 +1026,26 @@ checkpoint. Main.lua bytecode compilation, three shell/embedded-Lua fixture
 syntax checks and `git diff --check` pass. The previously recorded GUI gallery
 capacity issue/historical GUI instability remain unverified; no GUI fix or pass
 is claimed here. Stop after this requested presentation follow-up.
+
+### Reported terrain-notice crash — missing Visibility import
+
+The user reported `main.lua:1035: attempt to index global 'Visibility'` from a
+normal keyboard action. Both HeatVentWarned and FragileCollapsed notice branches
+referenced Visibility without importing it. Two new tests reproduce the exact
+nil-global error through the real main.lua keyboard/submit/notice handler,
+using genuine legal wait/move events: **20 passed / 2 failed** before the fix
+(`/var/tmp/roag-visibility-before-fix-20261019.log`). The earlier simulation-only
+terrain tests did not exercise these application notice branches.
+
+Added the local `src.visibility` import. Both reproductions now pass, including
+the entire **22/22 terrain module**. **96/96 focused terrain, motion, visual,
+environment, settings/footer and palette regressions pass**, with exact
+simulation continuation against direct Game.submit and codec save/reopen checks.
+Logs: `/var/tmp/roag-visibility-fixed-20261019.log` and
+`/var/tmp/roag-visibility-regression-20261019.log`. The runner registers 647 cases;
+96 is the focused result, not a full-suite claim. Bytecode compilation and an
+audit of all main.lua GGET instructions find only standard globals and LÖVE;
+Visibility is now a local dependency. `git diff --check` passes. No simulation,
+save schema, art/palette or profile change; no LÖVE GUI application was opened.
+This fixes the reproduced Lua error, without claiming a fix for historical
+unexplained engine/GUI instability. The broader goal remains paused.
