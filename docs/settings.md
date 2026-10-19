@@ -21,7 +21,7 @@ The renderer checks the current video mode of the monitor covering the largest p
 
 Refresh Hz is the display's configured scanout limit, not a prediction of GPU throughput. FPS counts completed application frames; it cannot verify which frames a desktop compositor actually scans out. Uncapped rendering can exceed display Hz. The program does not clamp or fabricate measurements to hide this distinction. Unknown display rates and driver overrides remain observable.
 
-For repeatable benchmarks, `--benchmark` skips saved settings and defaults to uncapped rendering with VSync off. Use `--fps-limit 30` to exercise pacing, or `--fps-limit display` for the detected display cap. Normal play also accepts these overrides and `--fps-limit unlimited`. `--no-vsync` disables VSync and defaults to uncapped rendering unless an explicit FPS limit is supplied.
+For repeatable benchmarks, `--benchmark` skips saved settings and defaults to uncapped rendering with VSync off. **Benchmark cameras are scripted: mouse look and WASD are disabled.** Launch without `--benchmark` for interactive play, for example `python3 scripts/build.py run -- --fps-limit 60`. Use `--fps-limit 30` to exercise pacing, or `--fps-limit display` for the detected display cap. Normal play also accepts these overrides and `--fps-limit unlimited`. `--no-vsync` disables VSync and defaults to uncapped rendering unless an explicit FPS limit is supplied.
 
 Benchmark CSVs include `display_hz`, `frame_cap` (zero if no software cap is known), `swap_ms`, `pacing_wait_ms`, and `software_renderer`. `frame_ms` covers the completed frame interval. The panel keeps a fixed 240-frame rolling history and refreshes statistical summaries four times per second.
 

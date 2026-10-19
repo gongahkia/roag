@@ -71,6 +71,11 @@ python3 scripts/lighting_benchmark.py --graphics --flight
 python3 scripts/build.py run -- --benchmark light-room --seconds 30
 ```
 
+The `light-room` benchmark is a fixed-camera visual check; it disables mouse
+look and WASD. For interactive play, launch without `--benchmark`, for example
+`python3 scripts/build.py run -- --fps-limit 60`. Lamps are available in the
+normal creative palette, including in existing worlds.
+
 The headless benchmark alternates lit/unlit jobs at identical coordinates, with
 warmup and repeated samples spanning all 17 biomes and underground slices. It
 checks deterministic mesh digests and the worker memory ceiling. Graphical

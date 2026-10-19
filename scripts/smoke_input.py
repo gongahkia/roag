@@ -2,6 +2,7 @@
 """Isolated X11 input fixtures for the native graphical smoke suite."""
 import ctypes
 import ctypes.util
+import math
 import struct
 import subprocess
 import time
@@ -49,6 +50,7 @@ def interactive(binary, env, directory, collisions=False):
     xtest.XTestFakeKeyEvent.argtypes = [ptr, uint, ctypes.c_int, ulong]
     xtest.XTestFakeButtonEvent.argtypes = [ptr, uint, ctypes.c_int, ulong]
     xtest.XTestFakeMotionEvent.argtypes = [ptr, ctypes.c_int, ctypes.c_int, ctypes.c_int, ulong]
+    xtest.XTestFakeRelativeMotionEvent.argtypes = [ptr, ctypes.c_int, ctypes.c_int, ulong]
     display = xlib.XOpenDisplay(env['DISPLAY'].encode())
     if not display:
         raise RuntimeError('Cannot connect input test to X server')
@@ -63,6 +65,7 @@ def interactive(binary, env, directory, collisions=False):
     command = [str(binary), '--save', str(save), '--settings', str(settings), '--radius', '2', '--seconds', '32', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360']
     if not collisions:
         command.append('--spectator')  # Existing free-flight/editing coverage.
+        command += ['--fps-limit', '60']  # Mouse look must work with the display-rate cap too.
     command += ['--generator', '2']  # Preserve the established input fixture's terrain.
     process = subprocess.Popen(command, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -173,6 +176,28 @@ def interactive(binary, env, directory, collisions=False):
 
         time.sleep(.2)
         assert not cursor_is_visible(), 'OS cursor is visible during gameplay'
+        # Verify camera rotation through actual movement, independently of
+        # cursor visibility and changing terrain/telemetry pixels. Fly forward
+        # and read its heading from saved positions, then return along it.
+        def movement_heading():
+            key(0xffc2)
+            before = struct.unpack_from('<ddd', save.read_bytes(), 20)
+            key(ord('w'), .2); key(0xffc2)
+            after = struct.unpack_from('<ddd', save.read_bytes(), 20)
+            key(ord('s'), .2)
+            dx, dz = after[0] - before[0], after[2] - before[2]
+            assert math.hypot(dx, dz) > .5, 'Camera probe could not move the player'
+            return math.atan2(dz, dx)
+
+        before_heading = movement_heading()
+        xtest.XTestFakeRelativeMotionEvent(display, 160, 0, 0); xlib.XSync(display, 0)
+        time.sleep(.15)
+        after_heading = movement_heading()
+        turn = math.remainder(after_heading - before_heading, 2 * math.pi)
+        assert .3 < turn < .5, f'Mouse motion did not turn the camera: {turn:.4f} radians'
+        xtest.XTestFakeRelativeMotionEvent(display, -160, 0, 0); xlib.XSync(display, 0)
+        time.sleep(.15)
+        print('PASS native mouse movement turns the camera and changes movement direction', flush=True)
         # Move in both directions while looking, allowing GLFW to recenter in
         # between. This keeps the existing editing fixture's view unchanged.
         for x, y in ((340, 190), (300, 170)):

@@ -5,6 +5,9 @@ import "core:os"
 
 benchmark_start :: proc(a: ^App) {
 	if a.config.benchmark != "" {
+		if !a.config.hidden {
+			fmt.println("Scripted benchmark camera: mouse look and WASD are disabled. Launch without --benchmark for normal play.")
+		}
 		os.make_directory("benchmarks")
 		path := fmt.tprintf(
 			"benchmarks/%s%s.csv",
