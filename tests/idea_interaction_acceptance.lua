@@ -6,7 +6,8 @@ local C=require('src.content')
 local P=require('src.persistence')
 local Play=require('tests.legal_playthrough')
 local wanted={'offering_font','ration_cache','cleanse_flask','escape_scroll',
-    'return_token','charm_well','bell','falling_fixture','route_sign','camp'}
+    'return_token','charm_well','bell','falling_fixture','route_sign','camp',
+    'attunement_forge','travelling_trader','memorial','archive_contract'}
 local candidates={}
 for _,kind in ipairs(wanted)do candidates[kind]={}end
 for seed=1,36 do
@@ -21,6 +22,21 @@ for seed=1,36 do
 end
 local function action(run,intent)
     local ok,why=Play.action(run,intent);assert(ok,why)
+end
+local function collect_kill(run)
+    local e=assert(Play.nearest(run.state,function(v)
+        return v.controller=='ai' and v.id~=run.state.stage.elite_id and not v.invulnerable and not v.reward_exempt
+    end),'no ordinary enemy to earn supplies')
+    local okay,why=Play.fight(run,e.id,160);assert(okay,why)
+    okay,why=Play.navigate(run,function(at)return at.x==e.position.x and at.y==e.position.y end,160)
+    assert(okay,why)
+end
+local function gain_boon(run)
+    for _ in pairs(G.player(run.state).boons)do return end
+    local chest=assert(Play.nearest(run.state,function(e)return e.controller=='chest' and not e.claimed end),'no chest')
+    for _=1,8 do if run.state.currency>=chest.price then break end;collect_kill(run)end
+    local okay,why=Play.navigate(run,function(at)return Play.cardinal(at,chest.position)end,240);assert(okay,why)
+    action(run,{kind='claim_chest',chest_id=chest.id,offer_index=1})
 end
 local function operate(run,n)
     local s=run.state
@@ -37,6 +53,30 @@ local function operate(run,n)
             assert(ok,why);action(run,{kind='interact',node_id=bell.id,choice_id='ring'})
         end
         assert(group.completed);return
+    end
+    if n.kind=='attunement_forge' or n.kind=='memorial'then
+        local view=assert(G.interaction_options(s,n.id));local entry=assert(view.entries[1],'no owned stack')
+        if n.kind=='attunement_forge'then
+            local alternatives=assert(G.interaction_options(s,n.id,entry.select));local chosen
+            for _,e in ipairs(alternatives.entries)do if e.enabled then chosen=e;break end end
+            assert(chosen,'no affordable compatible forge choice')
+            action(run,{kind='interact',node_id=n.id,choice_id=chosen.id,selection=entry.select})
+        else
+            assert(entry.enabled,'memorial correctly disabled at full HP')
+            action(run,{kind='interact',node_id=n.id,choice_id=entry.id})
+        end
+        assert(n.spent);return
+    elseif n.kind=='travelling_trader'then
+        local view=assert(G.interaction_options(s,n.id));local choice
+        for _,entry in ipairs(view.entries)do if entry.enabled then choice=entry;break end end
+        assert(choice,'no affordable trader service')
+        action(run,{kind='interact',node_id=n.id,choice_id=choice.id,replace=choice.replace_required or nil})
+        assert(n.spent);return
+    elseif n.kind=='archive_contract'then
+        action(run,{kind='interact',node_id=n.id,choice_id='accept'})
+        for _,id in ipairs(n.targets)do local okay,why=Play.fight(run,id,180);assert(okay,why)end
+        for _=1,12 do if n.status~='active'then break end;action(run,{kind='wait'})end
+        assert(n.status=='completed','contract '..n.status..': '..(n.failure or 'targets unsettled'));return
     end
     local choice=n.kind=='offering_font' and '1' or (n.kind=='ration_cache' or n.kind=='camp') and 'ward'
         or n.kind=='charm_well' and 'focus' or n.kind=='falling_fixture' and 'trigger' or 'take'
@@ -73,6 +113,7 @@ for _,kind in ipairs(wanted)do
         local run=Play.new(candidate.seed,{multifloor=true,class_id='core:actor/sentinel'})
         local initial=G.snapshot(run.state);local n=assert(I.node(run.state,candidate.id))
         local ok,why=pcall(function()
+            if kind=='attunement_forge' or kind=='memorial'then gain_boon(run)end
             local arrived,reason=Play.navigate(run,function(at)
                 if n.kind=='falling_fixture'then return at.x==n.x-1 and at.y==n.y end
                 return math.abs(at.x-n.x)+math.abs(at.y-n.y)<=1
@@ -100,4 +141,4 @@ for _,kind in ipairs(wanted)do
     end
     assert(passed,'no successful legal natural scenario for '..kind)
 end
-print('10 natural interaction scenarios passed; map-aware driver, no HP/position/reward assistance; no LÖVE initialized')
+print('14 natural interaction scenarios passed; map-aware driver, no HP/position/reward assistance; no LÖVE initialized')

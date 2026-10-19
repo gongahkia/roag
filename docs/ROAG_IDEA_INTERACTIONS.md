@@ -108,19 +108,23 @@ python3 tools/sprite_audit.py --check
 git diff --check
 ```
 
-The unmodified baseline is **554/554**. The new focused set is **35/35**;
+The unmodified baseline is **554/554**; the final full gate is **589/589**.
+The new focused set is **35/35**;
 seven write → fresh-process Continue scenarios compare complete future events,
 snapshots, RNG and scheduler state through two checked save generations. A
 70-floor corpus (seven biomes, five seeds, both floors) finds all 14 features,
 enforces placement budgets and compares exact regeneration/restoration.
-The natural-floor probe reaches ten interaction types through public legal
-actions, then compares every event and the final snapshot after exact replay
-with a mid-trace restore. Flask collection is covered there; real Burning
-cleansing, forge, trader, memorial and contract outcomes also have prepared
-focused/disk fixtures. Those prepared scenarios are not claimed as natural
-ordinary-action completions. Failed navigation attempts are logged, including
-action-limit exits and one unavailable west-side fixture approach; the probe
-tries another generated candidate rather than altering the world.
+The natural-floor probe reaches **all fourteen** interaction types through
+public legal actions, then compares every event and the final snapshot after
+exact replay with a mid-trace restore. Forge/memorial stacks come from earned
+ordinary chests, and the contract earns its actual completion reward. Flask
+collection is covered there; actual Burning cleansing also has focused/disk
+fixtures. Prepared fixtures are labelled separately from natural play.
+Failed attempts remain logged: navigation action limits, an unavailable west-side
+fixture approach, a correctly disabled full-health memorial, and contracts whose
+original targets had already left/died. The probe tries another generated
+candidate rather than altering the world. Contract availability is consequently
+a human pacing/usability follow-up, not a guarantee of a viable offer on arrival.
 The full final gate and legal-action probe results are recorded in the
 [progress log](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 

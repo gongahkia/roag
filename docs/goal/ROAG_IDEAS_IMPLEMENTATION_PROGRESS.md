@@ -1,6 +1,8 @@
 # Approved idea implementation — sustained goal
 
-Status: **ACTIVE — incomplete**. Every approved feature and explicit redirect remains in scope.
+Status: **PAUSED at the user-requested items/rooms checkpoint — incomplete**.
+Every approved feature and explicit redirect remains in scope; wait for the user
+before starting the next batch.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
 ## Authority and invariants
@@ -40,27 +42,27 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
 | `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
-| `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
+| `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | pending boon batch | Original explicit redirect; no Pilgrim class |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
 | `wayfinder-class` | Wayfinder — a visible return beacon | headless verified; GUI pending | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
-| `offering-font` | One-use HP offering font | pending | — |
-| `ration-cache` | Sealed ration cache | pending | — |
-| `cleanse-flask` | Single-use cleansing flask | pending | — |
-| `escape-scroll` | One-charge escape scroll | pending | — |
-| `return-token` | Room-bound return token | pending | — |
-| `charm-well` | Charm well — choose one short condition | pending | — |
-| `attunement-forge` | Attunement forge — trade one stack | pending | — |
-| `travelling-trader` | One-visit supply trader | pending | — |
-| `memorial-choice` | Memorial — retire a boon for recovery | pending | — |
-| `bell-sequence` | Bell-order side room | pending | — |
+| `offering-font` | One-use HP offering font | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `ration-cache` | Sealed ration cache | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `cleanse-flask` | Single-use cleansing flask | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `escape-scroll` | One-charge escape scroll | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `return-token` | Room-bound return token | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `charm-well` | Charm well — choose one short condition | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `attunement-forge` | Attunement forge — trade one stack | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `travelling-trader` | One-visit supply trader | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `memorial-choice` | Memorial — retire a boon for recovery | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `bell-sequence` | Bell-order side room | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `heat-vents` | Clocked heat vents | pending | — |
 | `push-floor` | Push-floor strip | pending | — |
 | `fragile-crossing` | Fragile optional crossing | pending | — |
-| `falling-fixture` | Announced falling fixture | pending | — |
-| `signposted-routes` | Pictorial route signposts | pending | — |
-| `camp-choice` | One-use camp choice | pending | — |
-| `archive-contract` | Archivist’s optional contract | pending | — |
+| `falling-fixture` | Announced falling fixture | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `signposted-routes` | Pictorial route signposts | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `camp-choice` | One-use camp choice | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `archive-contract` | Archivist’s optional contract | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `secret-mural` | Readable secret murals | pending | — |
 | `crypt-kit` | Ossuary / crypt environment kit | pending | — |
 | `sandstone-kit` | Pale sanctuary — ground and masonry | pending | — |
@@ -81,7 +83,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `status-icon-family` | Status, supplies and reward pictograms | pending | — |
 | `combat-bursts` | Static combat impact cue family | pending | — |
 | `trap-signals` | Switch, hazard and trap state markers | pending | — |
-| `oracle-choice` | Oracle — visible finite omen choice | pending | — |
+| `oracle-choice` | Oracle art redirect; no Oracle room | pending boon/presentation batch | Preserve the rejected room constraint |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | pending | — |
 | `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | pending | — |
@@ -460,3 +462,150 @@ its matching proposal snapshot, resolve exact comments and art ambiguities,
 then implement this batch in finite vertical slices with deterministic,
 legal-action and fresh-process save tests. No review fixture vote is user
 approval. Later terrain/environment/boon batches remain pending.
+
+## Items / rooms — approved implementation checkpoint (2026-10-19)
+
+The user explicitly approved **all fourteen** concrete proposals, then requested
+that work stop after this tranche with a remaining-work report. This checkpoint
+supersedes the earlier instruction to await a downloaded detail-feedback file.
+The [approval record](../sprite-audit/items-rooms-approval.json) quotes that
+message and hashes the frozen review, client, template, proposals and historical
+399-binding inventory. No browser feedback or preferred-art votes were invented.
+
+All fourteen now have finite authoritative behavior, genuine generated placement,
+E/click inspection, explicit two-step confirmation, carried utility controls and
+both Kenney mappings. The [implementation guide](../ROAG_IDEA_INTERACTIONS.md)
+records exact costs, effects, expiry, constraints, controls and art refinements.
+Two services, at most one bell/fixture assembly and one sign per floor keep this
+optional. Start/elite/exit rooms are excluded; no existing collision geometry,
+enemy placement, combat RNG, scheduler rule or normal reward value was changed.
+
+An optional version-1 plain-data store holds fixed offers/trades/targets, spent
+flags, bell progress and fixture commitments. The existing run/content/boon
+versions remain unchanged. Old saves without that store stay unpopulated; pending
+fixture time parks/rebases with its floor. A carried unplanted utility survives
+stage handoffs and finale entry. A planted token remains strictly room-bound.
+Committed Temporal Echo work survives retiring its boon. Camp/memorial recovery
+uses Healed rather than falsely incrementing food-pickup achievements.
+
+The mixed and standalone catalogues now resolve **415/415** required bindings,
+with no missing or empty source cells. Sixteen new object bindings include the
+plaque/marker aliases. Original sheets and archived decisions remain intact.
+The 1-Bit fixture is a labelled falling slab; bells use numbered gong motifs.
+Stormcaller's actual Grounding Dash moves, so it fails a movement-constrained
+contract; the review's hypothetical stationary example is not implemented as an
+incorrect exception.
+
+Verification and final release results are recorded below.
+No LÖVE windows or physical input were used. Actual main callbacks/draw calls
+have headless injected-table coverage; that is not rasterized visual acceptance.
+
+### Stop / resumption boundary
+
+**Stop after the items-and-rooms checkpoint**, as the user requested. Do not start
+terrain, environment or boons automatically. The approved expansion remains
+incomplete, with these remaining work packages:
+
+1. Three mechanical terrains: clocked heat vents, push-floor strips and optional
+   fragile crossings, with deterministic clocks, connectivity and save tests.
+2. Environment/art and presentation: approved biome/dressing kits and icon/cue
+   families; preserve rejected Oracle-room, bitmap/UI-skin and bulk-kit constraints.
+3. **50+ additional meaningful boons**, including the explicit Pilgrim, dice and
+   Cantor-art redirects; frozen offer pools, rarity stacks, chains, previews and
+   persistence. This remains the largest gameplay batch; current catalogue is 53.
+4. Final cross-feature integration, legal-run/save/seed regression and visual/human
+   verification. GUI/physical testing remains pending under the no-window request.
+
+Previously requested classes and approved enemy concepts are implemented with
+headless evidence; their human readability/balance acceptance is still pending.
+Do not describe this as completion of every approved idea or the whole game.
+
+### Current batch evidence
+
+- Baseline: **554 passed, 0 failed**, frozen source
+  `/var/tmp/roag-items-baseline-nuercz86`, log
+  `/var/tmp/roag-items-baseline-20261019.log`.
+- Focused mechanics/UI callback set: **35 passed, 0 failed**, command
+  `TMPDIR=/var/tmp ROAG_TEST_RANGE=555-589 luajit tests/run.lua`, log
+  `/var/tmp/roag-items-focused-final-20261019.log`.
+- Seven two-process checked-store scenarios pass: utility, Burning + committed
+  Echo, fixed forge choice, bell progress, planted token, pending fixture and
+  active contract. Command `sh tests/idea_interaction_disk_resume.sh`, log
+  `/var/tmp/roag-items-disk-20261019.log`; generation 1 → fresh-process exact
+  continuation → checked generation 2, isolated `/var/tmp` fixtures.
+- Existing thirteen enemy scenarios, their three third-process follow-ups,
+  five class scenarios and Duelist riposte all pass separate-process Continue.
+  Logs: `/var/tmp/roag-items-enemy-regression-disk-20261019.log`,
+  `/var/tmp/roag-items-class-regression-disk-20261019.log` and
+  `/var/tmp/roag-items-duelist-regression-disk-20261019.log`.
+- Natural procedural acceptance: **14/14** with normal Sentinel stats, actual
+  earned chest/currency/boon costs and public `Game.submit` only. Each successful
+  trace replays every exact event and final snapshot, including a mid-trace
+  restore. No HP/position assistance, enemy weakening or reward injection.
+  Command `TMPDIR=/var/tmp luajit tests/idea_interaction_acceptance.lua`, log
+  `/var/tmp/roag-items-legal-all-20261019.log`.
+
+| Natural interaction | Seed | Actions | World time | Final HP | Gold |
+| --- | ---: | ---: | ---: | --- | ---: |
+| `offering_font` | 27 | 233 | 25088 | 23/29 | 28 |
+| `ration_cache` | 3 | 33 | 3855 | 29/29 | 2 |
+| `cleanse_flask` | 25 | 187 | 20842 | 33/33 | 30 |
+| `escape_scroll` | 13 | 100 | 11688 | 33/33 | 16 |
+| `return_token` | 34 | 42 | 4940 | 29/29 | 2 |
+| `charm_well` | 22 | 54 | 6137 | 29/29 | 4 |
+| `bell` | 36 | 31 | 3609 | 29/29 | 7 |
+| `falling_fixture` | 25 | 50 | 5932 | 33/33 | 4 |
+| `route_sign` | 5 | 219 | 24015 | 29/29 | 25 |
+| `camp` | 29 | 233 | 26128 | 29/29 | 64 |
+| `attunement_forge` | 21 | 273 | 31688 | 33/33 | 55 |
+| `travelling_trader` | 19 | 70 | 8184 | 33/33 | 3 |
+| `memorial` | 8 | 277 | 32661 | 33/33 | 52 |
+| `archive_contract` | 17 | 188 | 22072 | 33/33 | 25 |
+
+The guided driver reads the generated map; these are automated scenarios, not
+human acceptance. They establish collection for the flask, not natural Burning
+exposure; that cleanse is separately exercised with real scheduled Burning in
+prepared fixtures. Ten earlier natural scenarios also passed before expanding
+the probe to forge/trader/memorial/contracts, log
+`/var/tmp/roag-items-legal-20261019.log`.
+
+All rejected attempts remain in the log: ten navigation action-limit exits,
+one west-side fixture approach with no path, one correctly disabled full-health
+memorial, and five contracts whose fixed targets had already left/died before
+inspection. These do not mutate the map or reroll the same run. The contract
+succeeds in seed 17, but availability/readability remains a human usability risk;
+no AI, geometry or timing rule was weakened to force it.
+
+Review/source checks pass: seven focused item-review state tests, six original
+idea-state tests, original/surplus/30-decision enemy archives, surplus source
+checks and live HTML/JSON/CSV freshness. Logs:
+`/var/tmp/roag-items-review-final-20261019.log`,
+`/var/tmp/roag-items-surplus-final-20261019.log`,
+`/var/tmp/roag-items-audit-final-20261019.log`.
+The runtime's 83 Lua files match the frozen full-release tree byte-for-byte.
+
+The implementation checkpoint `9f89fe19` is present in the checkout. No push,
+reset, clean or history rewrite was performed for this batch. Final full-suite
+result and stopping status follow below.
+
+### Final release gate and stop
+
+**589 passed, 0 failed**, exit 0: `TMPDIR=/var/tmp luajit tests/run.lua`
+from frozen `/var/tmp/roag-items-release-e4duflb3`, log
+`/var/tmp/roag-items-release-20261019.log`. This preserves all **554** baseline
+checks and adds **35** focused interaction checks. The complete gate includes
+legal six-floor/final-boss Victories for the six original classes, all seven
+miniboss route checks, enemy/class mechanics, deterministic generation/replay,
+save/profile behavior, native art resolution and fallback integration.
+The runtime's 83 Lua files and all existing suite files match the frozen tree;
+the separately passing 14-scenario natural probe was added after that freeze.
+The natural probe, disk scenarios and review checks are additional evidence,
+not inflated additions to the 589 suite total. Main Lua parsing and
+`git diff --check` pass. No LÖVE app, GPU render, physical keyboard/mouse/tablet
+or speaker was operated during this batch.
+
+**Stop here, as requested.** The six items/eight room interactions are
+implemented and headlessly verified; GUI/human readability acceptance remains
+pending. The next work is the four remaining packages listed above. In
+particular, do not automatically begin the three new terrains. The whole
+approved-ideas goal is not COMPLETE.
