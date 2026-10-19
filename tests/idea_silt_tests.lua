@@ -116,16 +116,16 @@ return function(test,equal)
             {{x=9,y=6},{x=8,y=6}},map,function()error('cap should emit nothing')end)
         equal(before,G.snapshot(s));assert(#s.idea_silt==12)
     end)
-    test('real generated Worms resolve their approved body and distinct mixed silt cue without missing bindings',function()
+    test('real generated Worms resolve their approved body and native silt cue without missing bindings',function()
         local s=require('tests.idea_seeds').find(T.id);assert(G.restore(G.snapshot(s)))
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             local body,trail=false,false;assert(#report.packs[pack].missing==0)
             for _,h in ipairs(report.packs[pack].bindings)do
                 if h.id==T.id then assert(h.sheet=='onebit' and h.index==371);body=true end
                 if h.id=='core:object/idea_silt_trail'then
-                    assert(h.sheet==(pack=='kenney' and 'caves' or 'onebit')
-                        and h.index==(pack=='kenney' and 64 or 268));trail=true
+                    assert(h.sheet=='onebit'
+                        and h.index==268);trail=true
                 end
             end
             assert(body and trail)

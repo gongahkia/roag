@@ -108,9 +108,9 @@ return function(test,equal)
         assert(found);for _=1,100 do Playback.update(pb,.02)end
         equal(before,Game.snapshot(s))
     end)
-    test('redirected Wraith art is exactly 416 in both packs and natural floors actually contain it',function()
+    test('redirected Wraith art is exactly 416 in the fixed 1-Bit renderer and natural floors actually contain it',function()
         local audit=require('src.sprite_audit').collect()
-        for _,name in ipairs({'kenney','onebit'})do
+        for _,name in ipairs({'onebit'})do
             local seen=0
             for _,h in ipairs(audit.packs[name].bindings)do
                 if h.id:match('^core:enemy/hollow_wraith')then

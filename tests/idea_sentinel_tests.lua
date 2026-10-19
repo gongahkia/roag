@@ -103,7 +103,7 @@ return function(test,equal)
         end
         assert(found>0,'optional champion never generated')
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             local found=false;assert(#report.packs[pack].missing==0)
             for _,h in ipairs(report.packs[pack].bindings)do if h.id==S.id then
                 assert(h.sheet=='onebit' and h.index==224);found=true

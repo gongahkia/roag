@@ -122,12 +122,12 @@ return function(test,equal)
         end end
         assert(found>0,'natural revival encounter never generated')
         local audit=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#audit.packs[pack].missing==0)
             local caster,grave=false,false
             for _,h in ipairs(audit.packs[pack].bindings)do
                 if h.id=='core:enemy/grave_cantor'then
-                    assert(h.index==(pack=='kenney' and 88 or 318));caster=true
+                    assert(h.index==318);caster=true
                 elseif h.id=='core:ui/idea_corpse_effect'then assert(h.index==539);grave=true end
             end
             assert(caster and grave)

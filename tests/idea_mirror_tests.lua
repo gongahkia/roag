@@ -151,10 +151,10 @@ return function(test,equal)
         assert(G.submit(s,{kind='sweeping_slash',dx=1,dy=0}))
         assert(#s.idea_mirrors==1 and e.position.x==8 and e.position.y==6)
     end)
-    test('a real generated Hexer has approved caster and reflector art in both packs',function()
+    test('a real generated Hexer has approved caster and reflector art in the fixed 1-Bit renderer',function()
         local s=require('tests.idea_seeds').find(M.id);assert(G.restore(G.snapshot(s)))
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             local found={};assert(#report.packs[pack].missing==0)
             for _,h in ipairs(report.packs[pack].bindings)do
                 if h.id==M.id then assert(h.sheet=='onebit' and h.index==320);found.body=true end

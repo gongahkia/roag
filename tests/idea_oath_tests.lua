@@ -95,12 +95,12 @@ return function(test,equal)
         end
         assert(found>0)
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#report.packs[pack].missing==0)
             local seen=0
             for _,h in ipairs(report.packs[pack].bindings)do
-                if h.id==O.a then assert(h.index==(pack=='kenney' and 99 or 124));seen=seen+1 end
-                if h.id==O.b then assert(h.index==(pack=='kenney' and 100 or 127));seen=seen+1 end
+                if h.id==O.a then assert(h.index==124);seen=seen+1 end
+                if h.id==O.b then assert(h.index==127);seen=seen+1 end
                 if h.id=='core:ui/idea_oath_effect'then assert(h.index==574);seen=seen+1 end
             end
             assert(seen==3)

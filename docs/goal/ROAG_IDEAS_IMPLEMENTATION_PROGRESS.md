@@ -868,3 +868,55 @@ The final unfiltered suite is running from frozen source
 `/var/tmp/roag-fixed-onebit-final-headless-20261019.log`. Its actual result will
 be appended before this follow-up is reported finished. No new enemy, class,
 boon, biome, collision, simulation, scheduler, profile or save-schema change.
+
+
+### Fixed-look regression follow-up
+
+The first full fixed-look run completed **622 passed / 13 failed** (exit 1),
+not a GUI crash. Every failure was an old art assertion indexing the deliberately
+removed `packs.kenney` entry in the live catalogue. The exact log is retained at
+`/var/tmp/roag-fixed-onebit-final-headless-20261019.log`. All other checks,
+including gameplay, legal Victories, saves, environments and six new fixed-look
+checks, passed in that attempt. Thirteen enemy/class art checks now assert the
+approved **current 1-Bit assignments**, retaining their actual generation,
+geometry, body-reuse, save and rejected-art assertions. No test was deleted.
+Seventeen targeted art/generation contracts pass at
+`/var/tmp/roag-fixed-onebit-art-contracts-20261019.log`.
+
+The final unfiltered rerun uses `/var/tmp/roag-fixed-onebit-accepted-sunixfxe`,
+with `/var/tmp/roag-fixed-onebit-accepted-headless-20261019.log`. It includes all
+635 registered cases. The old source snapshot remains intact; source/runtime
+and Lua-test equivalence are checked against this new final snapshot before
+reporting success. Live catalogue, review-source checks and fixed preview
+regeneration also pass. Original review decisions are never rewritten to make
+these checks pass.
+
+
+### Fixed-look final gate and stop
+
+**635 passed, 0 failed**, complete unfiltered `TMPDIR=/var/tmp luajit tests/run.lua`,
+exit **0**, at `/var/tmp/roag-fixed-onebit-accepted-headless-20261019.log`.
+Final frozen source: `/var/tmp/roag-fixed-onebit-accepted-sunixfxe`.
+This retains 629 existing registered cases (updating retired style-specific
+expectations) and adds six fixed-look cases. Runtime and Lua-test bytes match
+that accepted source exactly. Compared with the prior 629 baseline, **84 other
+runtime modules**, including Game, scheduler, AI, boons, generation and save
+logic, remain byte-identical. No simulation, class, reward or progression edit.
+
+The three stale-preference process checks, the fixed-look generation-1→2
+Continue/resource fixture, seventeen current art/generation contracts, review
+archives/source hashes, live 491/491 coverage, exact thirteen derivatives,
+nine unchanged pixel views and `git diff --check` pass. Current browser tooling
+uses a source-sheet filter, not an art-style selector. Historical comparison
+controls remain only in the frozen review archive; they cannot affect ROAG.
+
+No LÖVE GUI/hardware test was run. Source inspection also notes that the old
+unexecuted `onebit_gui_smoke.sh` gallery has a four-row actor fixture; the
+expanded 50-form roster will require pagination in the separate permitted GUI
+acceptance pass. That is a harness capacity issue, not a missing game sprite,
+and is not represented as a passing rendered-frame test here.
+
+This requested follow-up is implemented and headless verified. **Stop here**;
+the existing larger goal remains paused with all remaining additional-boon,
+redirect and final GUI/human integration work preserved above. There is no
+unrequested continuation into that backlog.

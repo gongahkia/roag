@@ -168,7 +168,7 @@ return function(test,equal)
   end end
   assert(seen.heat_vent and seen.push_floor and seen.fragile_crossing)
  end)
- test('both packs resolve all new terrain and the permitted vent derivative preserves neutral pixels and alpha',function()
+ test('the fixed renderer resolves all new terrain and the permitted vent derivative preserves neutral pixels and alpha',function()
   local Audit=require('src.sprite_audit');local report=Audit.collect()
   for _,pack in pairs(report.packs)do assert(#pack.missing==0)end
   for _,color in ipairs({{1,0,0,.5},{.2,.3,.8,1},{0,0,0,0},{1,1,1,.2}})do

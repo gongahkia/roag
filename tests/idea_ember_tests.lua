@@ -113,10 +113,10 @@ return function(test,equal)
         for _,v in ipairs(snap.entities)do if v.id==e.id then v.pending_attack.ember_landing.x=8 end end
         assert(not pcall(G.restore,snap))
     end)
-    test('a naturally selected Moth uses approved unused winged body 411 in both Kenney looks',function()
+    test('a naturally selected Moth uses approved unused winged body 411 in the fixed 1-Bit look',function()
         local s=require('tests.idea_seeds').find(E.id);assert(G.restore(G.snapshot(s)))
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             local found=false;assert(#report.packs[pack].missing==0)
             for _,h in ipairs(report.packs[pack].bindings)do if h.id==E.id then
                 assert(h.sheet=='onebit' and h.index==411);found=true

@@ -115,13 +115,13 @@ return function(test,equal)
         assert(Play.fight(run,enemy.id,180));assert(not G.entity(s,enemy.id) and #run.trace>0)
         assert(G.restore(G.snapshot(s)))
     end)
-    test('both sprite choices resolve the reviewed Duelist and report its deliberate Twin body reuse',function()
+    test('the fixed renderer resolves the reviewed Duelist and report its deliberate Twin body reuse',function()
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             local found=false;assert(#report.packs[pack].missing==0)
             for _,h in ipairs(report.packs[pack].bindings)do if h.id==D.id then
-                assert(h.sheet==(pack=='kenney' and 'tiny' or 'onebit')
-                    and h.index==(pack=='kenney' and 99 or 124));found=true
+                assert(h.sheet=='onebit'
+                    and h.index==124);found=true
             end end
             local shared=false
             for _,row in ipairs(report.packs[pack].shared_actors)do

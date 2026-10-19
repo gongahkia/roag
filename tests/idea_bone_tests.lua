@@ -92,7 +92,7 @@ return function(test,equal)
         end
         assert(found)
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#report.packs[pack].missing==0)
             local seen={}
             for _,h in ipairs(report.packs[pack].bindings)do

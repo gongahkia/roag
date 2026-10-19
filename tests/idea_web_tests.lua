@@ -92,7 +92,7 @@ return function(test,equal)
         assert(s.idea_webs[1].expires==1106 and s.idea_webs[1].expires-s.clock==306)
         assert(s.idea_webs[2].expires==900)
     end)
-    test('natural Weavers use Tiny 122 and a new native crawler, never the rejected mesh or bodies',function()
+    test('natural Weavers use approved native crawler 366, never the rejected mesh or bodies',function()
         local found=false
         for seed=1,100 do
             local s=G.new_stage(seed,{multifloor=true})
@@ -100,11 +100,11 @@ return function(test,equal)
         end
         assert(found)
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#report.packs[pack].missing==0)
             local seen=false
             for _,h in ipairs(report.packs[pack].bindings)do if h.id:match('^core:enemy/web_weaver')then
-                assert(h.index==(pack=='kenney' and 122 or 366))
+                assert(h.index==366)
                 assert(h.index~=414 and h.index~=463 and h.index~=60);seen=true
             end end
             assert(seen)

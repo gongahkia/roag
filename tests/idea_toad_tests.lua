@@ -72,7 +72,7 @@ return function(test,equal)
         snapshot=G.snapshot(s);snapshot.drops[1].carried_by=s.player_id;assert(not pcall(G.restore,snapshot))
         assert(G.restore(G.snapshot(s)))
     end)
-    test('two committed gulps cannot duplicate one drop and natural generation uses both reviewed bodies',function()
+    test('two committed gulps cannot duplicate one drop and natural generation uses the approved native body',function()
         local s,p,first,drop=trial('currency')
         local second=G.spawn_enemy(s,'core:enemy/gulp_toad',9,7,50)
         assert(G.submit(s,{kind='wait'}))
@@ -91,11 +91,11 @@ return function(test,equal)
         end
         assert(found)
         local audit=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#audit.packs[pack].missing==0)
             local bound=false
             for _,h in ipairs(audit.packs[pack].bindings)do if h.id=='core:enemy/gulp_toad'then
-                assert(h.index==(pack=='kenney' and 123 or 422));bound=true
+                assert(h.index==422);bound=true
             end end
             assert(bound)
         end

@@ -98,7 +98,7 @@ return function(test,equal)
         for _,v in ipairs(snap.entities)do if v.called_by then v.reward_exempt=false end end
         assert(not pcall(G.restore,snap))
     end)
-    test('real generated floors contain Alarm Keepers and the approved keeper and bell resolve in both packs',function()
+    test('real generated floors contain Alarm Keepers and the approved keeper and bell resolve in the fixed 1-Bit renderer',function()
         local found=false
         for seed=1,50 do
             local s=G.new_stage(seed,{multifloor=true})
@@ -106,7 +106,7 @@ return function(test,equal)
         end
         assert(found)
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#report.packs[pack].missing==0)
             local body,bell=false,false
             for _,h in ipairs(report.packs[pack].bindings)do

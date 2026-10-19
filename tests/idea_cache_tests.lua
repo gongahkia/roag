@@ -62,14 +62,14 @@ return function(test,equal)
         end
         assert(found)
         local report=require('src.sprite_audit').collect()
-        for _,pack in ipairs({'kenney','onebit'})do
+        for _,pack in ipairs({'onebit'})do
             assert(#report.packs[pack].missing==0)
             local count=0
             for _,h in ipairs(report.packs[pack].bindings)do
                 if h.id=='core:enemy/haunted_cache'then
-                    assert(h.index==(pack=='kenney' and 92 or 417));count=count+1
+                    assert(h.index==417);count=count+1
                 elseif h.id=='core:object/idea_cache_dormant'then
-                    assert(h.index==(pack=='kenney' and 90 or 303));count=count+1
+                    assert(h.index==303);count=count+1
                 end
             end
             assert(count==2)
