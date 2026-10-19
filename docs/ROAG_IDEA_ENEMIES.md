@@ -130,6 +130,35 @@ friendly fire retain their usual rules. An injured cache may approach through
 normal movement. It pays one ordinary 4 XP / 3 currency reward, with the normal
 seeded supply policy. Awake state, pending bites and rewards persist exactly.
 
+## Bone Splitter
+
+The skeleton has 8 HP, 2 damage, no defense, speed 80, base windup 100 and
+recovery 130. It approaches and commits ordinary adjacent strikes. After its
+first death, the complete primary HP batch and removals finish before up to
+two weak fragments appear on free nearby cells. Walls, occupied cells, stairs
+and exits are never overwritten or used to force two fragments to fit.
+
+Each fragment has 2 HP / 1 damage, speed 95, windup 100 and recovery 110. Its
+first scheduled action is one simulation unit after birth; it may already
+move or begin a normal windup during the killing action's recovery. There is
+no guaranteed reaction action. Fragments cannot split, revive or award extra
+XP, currency or supplies. The original skeleton pays one ordinary 4 XP / 3
+currency reward. Normal credited kill effects still observe actual finite
+deaths. A terminal simultaneous player death suppresses new fragments.
+
+Both choices use the approved skeleton **1-Bit 323**, with fragments rendered
+smaller in whole 16-pixel source increments (32px on a 48px tile). Native-pixel
+inspection found proposed cell 374 was a rat; it is not used for this enemy.
+The audit explicitly records this single shared silhouette instead of claiming
+every form has unique art. Base/attack/hurt remain static; no animation editor
+or new PNG is involved. Classic fragments use the same smaller placement.
+
+Focused tests cover full-batch deaths before fragmentation, normal fragment
+movement/attacks, one reward budget, cramped placement, exact saved pending
+attacks, invalid ownership and bounded fragment counts. The disk scenario
+continues two live fragments in a separate process with identical events,
+state and RNG, then writes the second checked generation.
+
 ## Verification
 
 ```sh

@@ -963,6 +963,9 @@ local function submit(intent)
             elseif event.kind=='EnemyRevived' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Grave Cantor: one weakened revival; no repeat rewards'
+            elseif event.kind=='BoneFragmented' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y) then
+                notice='Bone Splitter: finish the two weak fragments; no repeat rewards'
             elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Revival blocked: the Cantor has spent its only attempt'
@@ -1528,6 +1531,9 @@ local function draw_enemies()
                 position.floor_id,position.x,position.y,visible_at)
             if shown then
             local x, y = Camera.tile_top_left(camera, visual_x, visual_y)
+            local sprite_scale=VisualSlots.enemy_size(enemy.definition_id,TILE)/TILE
+            local sprite_x=x+TILE*(1-sprite_scale)*.5
+            local sprite_y=y+TILE*(1-sprite_scale)
             local enemy_art=actor_visual(enemy.definition_id,enemy.id) or
                 (visual_assets and visual_assets:resolve_id(enemy.definition_id))
             local dormant_cache=enemy.definition_id=='core:enemy/haunted_cache'
@@ -1540,7 +1546,7 @@ local function draw_enemies()
                 end
                 local facing=Playback.facing(playback,enemy.id,enemy.pending_attack,
                     enemy.ai_memory and enemy.ai_memory.last_dx)
-                draw_visual(enemy_art,x,y,TILE,TILE,nil,facing==-1)
+                draw_visual(enemy_art,sprite_x,sprite_y,TILE*sprite_scale,TILE*sprite_scale,nil,facing==-1)
                 if dormant_cache then
                     love.graphics.setColor(1,.75,.4,1)
                     love.graphics.print('?',x+TILE*.68,y)
@@ -1549,8 +1555,8 @@ local function draw_enemies()
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
             -- camera so fallback actors retain the same tile alignment.
             love.graphics.push()
-            love.graphics.translate(x,y)
-            love.graphics.scale(TILE/32)
+            love.graphics.translate(sprite_x,sprite_y)
+            love.graphics.scale(TILE/32*sprite_scale)
             local x,y=0,0
             if enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)

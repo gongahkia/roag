@@ -7,10 +7,10 @@ The live catalogue includes these bindings.
 
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
-game content is nine classes, 31 regular enemies, seven elites, pursuer/final
+game content is nine classes, 32 regular enemies and one finite fragment, seven elites, pursuer/final
 boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad and Haunted Cache.
-The live HTML/JSON/CSV reflect 341
+Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache and Bone Splitter.
+The live HTML/JSON/CSV reflect 347
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -42,11 +42,11 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **341/341 active sprite bindings resolve in each choice**:
+that happen to exist. **347/347 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
-| Nine classes + 40 enemies, base/attack/hurt | 147 | 41 distinct bodies for 49 actors | 49 distinct bodies |
+| Nine classes + 42 enemy forms, base/attack/hurt | 153 | 42 distinct bodies for 51 actor IDs | 50 bodies for 51 actor IDs |
 | Drops 3, chests 2, other objects 7 | 12 | Native Micro art | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
@@ -66,7 +66,7 @@ missing wall variant.
 
 ### Art reuse and semantic approximations
 
-Both choices have **98 static pose aliases**: attack/hurt reuse each actor's
+Both choices have **102 static pose aliases**: attack/hurt reuse each actor's
 base image. No animation is provided. Boon detail reuses its icon. Currency
 drop and HUD gold deliberately share a motif. Effect sprites are generic, not
 one custom visual for every boon/element/weapon.
@@ -84,7 +84,10 @@ The existing mix has these eight pairs sharing body images:
 | 15 | Cinder Bellkeeper / Ash Marshal |
 | 22 | Canal Lancer / Canal Lockmaster |
 
-The new pack avoids shared **actor** silhouettes, but many identities remain
+The 1-Bit choice shares only the new skeleton/fragment body (323), with the
+fragment rendered smaller. This explicit reuse is not an extra unique
+silhouette. The mixed choice has that pair in addition to the eight pairs
+above. Many identities remain
 representative motifs: a knight for a guard, wizard for a caster, plant/beast
 for a hostile. Distinct native art is not proof that a boss visually conveys
 its exact attack mechanics. Both packs use representative stair/gateway and
@@ -128,7 +131,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-341 binding requirements above. Decoy/snare markers are also still drawn
+347 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -142,15 +145,15 @@ shown intact. Transparent key/background is accounted for in Micro.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Micro Roguelike 8px | 160 | 159 | 52 / **107** | Not loaded | **107** |
 | Caves & Dungeons 16px, 1px gutters | 522 | 522 | 68 / **454** | Not loaded | **454** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 63 / **1,014** | 154 / **923** | **923** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 64 / **1,013** | 155 / **922** | **922** |
 | Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 7 / **1,697** | Not loaded | **1,697** |
 | Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 20 / **112** | Not loaded | **112** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **301 referenced by
-either choice**, **3,293 unreferenced**. Across just the original three sheets,
-there are **1,484** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **302 referenced by
+either choice**, **3,292 unreferenced**. Across just the original three sheets,
+there are **1,483** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,293 unique useful objects:
+These counts are grid occupancy, not a claim of 3,292 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the

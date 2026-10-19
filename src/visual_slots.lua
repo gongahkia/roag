@@ -97,6 +97,14 @@ function V.facing(current,dx)
     if dx==-1 or dx==1 then return dx end
     return current or 1
 end
+-- New fragments share the approved skeleton, at a smaller whole-pixel scale.
+function V.enemy_size(id,tile)
+    if id=='core:enemy/bone_fragment'then
+        return math.min(tile,math.max(16,math.floor(tile*2/3/16)*16))
+    end
+    return tile
+end
+
 function V.horizontal_draw(x,width,image_width,facing)
     local scale=width/image_width
     if facing==-1 then return x+width,-scale end

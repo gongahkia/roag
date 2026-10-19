@@ -9,21 +9,28 @@ I.enemies={
     {'grave_cantor','Grave Cantor',7,1,0,80,150,160,4},
     {'gulp_toad','Gulp Toad',14,2,1,80,100,140,1},
     {'haunted_cache','Haunted Cache',8,2,0,75,140,140,1},
+    {'bone_splitter','Bone Splitter',8,2,0,80,100,130,1},
+    {'bone_fragment','Bone Fragment',2,1,0,95,100,110,1},
 }
+I.secondary={bone_fragment=true}
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
     ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
-    ['core:enemy/haunted_cache']='cache'}
+    ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
+    ['core:enemy/bone_fragment']='fragment'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
     ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
-I.shared_onebit={['core:enemy/hollow_wraith']=416}
+I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
+    ['core:enemy/bone_fragment']=323}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
-    ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417}
+    ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
+    ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323}
 I.objects={['core:object/idea_cache_dormant']=303}
 I.symbols={['core:ui/idea_corpse_effect']=539}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
     cantor_revive='cantor revival',cantor_touch='cantor touch',
-    toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite'}
+    toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite',
+    bone_strike='bone strike',fragment_stab='fragment stab'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -43,6 +50,34 @@ function I.release_drop(state,target,emit)
     drop.position={floor_id=target.position.floor_id,x=target.position.x,y=target.position.y}
     emit('DropRegurgitated',{drop_id=drop.id,drop_kind=drop.kind,amount=drop.amount,
         floor_id=drop.position.floor_id,x=drop.position.x,y=drop.position.y})
+end
+-- Called only while draining the canonical death event, after the entire
+-- primary HP batch and removals. Fragments can never split or pay rewards.
+function I.split(state,event,map,free,spawn,emit)
+    if event.target_definition_id~='core:enemy/bone_splitter' or event.reward_exempt
+        or state.game_over or event.floor_id~=state.active_floor_id then return end
+    local points={{0,0},{0,-1},{1,0},{0,1},{-1,0}}
+    local count=0
+    for _,d in ipairs(points)do
+        local x,y=event.x+d[1],event.y+d[2]
+        local reserved=false
+        for _,stair in ipairs(map.placements and map.placements.stairs or {})do
+            if stair.x==x and stair.y==y then reserved=true end
+        end
+        if map.elite and map.elite.x==x and map.elite.y==y then reserved=true end
+        for _,e in ipairs(state.entities)do
+            if e.controller=='exit' and e.position.floor_id==event.floor_id
+                and e.position.x==x and e.position.y==y then reserved=true end
+        end
+        if not reserved and free(x,y)then
+            local fragment=spawn(state,'core:enemy/bone_fragment',x,y,state.clock+1)
+            fragment.reward_exempt=true;fragment.fragment_of=event.target_id
+            count=count+1
+            emit('BoneFragmented',{target_id=fragment.id,original_id=event.target_id,
+                floor_id=event.floor_id,x=x,y=y})
+            if count==2 then break end
+        end
+    end
 end
 function I.prune_corpses(state)
     for i=#(state.idea_corpses or {}),1,-1 do
@@ -112,6 +147,14 @@ end
 function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
+    local role=I.roles[enemy.definition_id]
+    if role=='bone' or role=='fragment' then
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id='core:ability/'..(role=='bone' and 'bone_strike' or 'fragment_stab'),
+                cells={{x=b.x,y=b.y}}}
+        end
+        return h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+    end
     if I.roles[enemy.definition_id]=='cache' then
         if math.abs(dx)+math.abs(dy)==1 then
             return {kind='windup',ability_id='core:ability/cache_bite',
@@ -240,7 +283,9 @@ function I.populate(state,map,replace,spawn)
     end
     table.sort(choices,function(a,b)return a.id<b.id end)
     if #choices==0 then return end
-    local definition=I.enemies[math.floor(seed/16)%#I.enemies+1]
+    local pool={}
+    for _,row in ipairs(I.enemies)do if not I.secondary[row[1]]then pool[#pool+1]=row end end
+    local definition=pool[math.floor(seed/16)%#pool+1]
     local offset=math.floor(seed/4)%#choices
     local target,companion
     for index=1,#choices do
@@ -330,6 +375,7 @@ function I.validate(state,maps,content)
     for _,e in ipairs(state.entities)do if e.carried_drop_id then
         assert(e.definition_id=='core:enemy/gulp_toad' and carriers[e.id],'missing swallowed drop')
     end end
+    local fragments={}
     for _,e in ipairs(state.entities)do
         if e.definition_id=='core:enemy/haunted_cache' then
             assert(e.ai_memory.alerted==nil or type(e.ai_memory.alerted)=='boolean','invalid cache wake state')
@@ -337,7 +383,14 @@ function I.validate(state,maps,content)
         if e.definition_id=='core:enemy/grave_cantor' then
             assert(e.ai_memory.revival_spent==nil or e.ai_memory.revival_spent==true,'invalid revival budget')
         end
-        if e.revival_of or e.revived_by or e.reward_exempt then
+        if e.fragment_of or e.definition_id=='core:enemy/bone_fragment' then
+            assert(e.controller=='ai' and e.definition_id=='core:enemy/bone_fragment'
+                and e.reward_exempt==true and type(e.fragment_of)=='number'
+                and e.fragment_of%1==0 and e.fragment_of>=1 and e.fragment_of<e.id
+                and not e.revival_of and not e.revived_by,'invalid bone fragment')
+            fragments[e.fragment_of]=(fragments[e.fragment_of] or 0)+1
+            assert(fragments[e.fragment_of]<=2,'fragment cap exceeded')
+        elseif e.revival_of or e.revived_by or e.reward_exempt then
             assert(e.controller=='ai' and I.revivable(e) and e.reward_exempt==true
                 and type(e.revival_of)=='number' and e.revival_of%1==0
                 and e.revival_of>=1 and e.revival_of<e.id

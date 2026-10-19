@@ -941,6 +941,12 @@ local function drain_effects(state, output)
                 IdeaEnemies.prune_corpses(state)
             end
             if event.kind=='Died' then
+                IdeaEnemies.split(state,event,Content.map_for(state),function(x,y)
+                    return Content.walkable(Content.map_for(state),x,y)
+                        and not occupant(state,state.active_floor_id,x,y,nil,false)
+                end,Game.spawn_enemy,function(kind,fields)
+                    emit(state,output,kind,fields,event.target_id,event.action_id)
+                end)
                 for i=#(state.enemy_snares or {}),1,-1 do
                     if state.enemy_snares[i].source_id==event.target_id then
                         table.remove(state.enemy_snares,i)

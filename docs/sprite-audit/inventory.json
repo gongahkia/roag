@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "2ae2750beaa99db9",
+  "mapping_checksum": "1868fc9bed14f82d",
   "packs": {
     "kenney": {
-      "actor_count": 49,
-      "actor_silhouettes": 41,
+      "actor_count": 51,
+      "actor_silhouettes": 42,
       "bindings": [
         {
           "height": 8,
@@ -1380,6 +1380,60 @@
           "motif": "",
           "pose_alias": true,
           "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/hurt",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/hurt",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -3140,9 +3194,17 @@
           ],
           "index": 9,
           "sheet": "micro"
+        },
+        {
+          "ids": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
+          ],
+          "index": 323,
+          "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 98,
+      "static_pose_aliases": 102,
       "usage": {
         "caves": {
           "145": [
@@ -3576,6 +3638,10 @@
           "282": [
             "core:boon/splitflight/icon + /detail"
           ],
+          "323": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
+          ],
           "326": [
             "core:boon/opening_cut/icon + /detail"
           ],
@@ -3803,8 +3869,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 49,
-      "actor_silhouettes": 49,
+      "actor_count": 51,
+      "actor_silhouettes": 50,
       "bindings": [
         {
           "height": 16,
@@ -5178,6 +5244,60 @@
           "height": 16,
           "id": "core:enemy/bodyguard_brute/hurt",
           "index": 270,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/hurt",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/hurt",
+          "index": 323,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -6877,8 +6997,17 @@
         }
       ],
       "missing": [],
-      "shared_actors": [],
-      "static_pose_aliases": 98,
+      "shared_actors": [
+        {
+          "ids": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
+          ],
+          "index": 323,
+          "sheet": "onebit"
+        }
+      ],
+      "static_pose_aliases": 102,
       "usage": {
         "onebit": {
           "1010": [
@@ -7054,6 +7183,10 @@
           ],
           "321": [
             "core:enemy/siege_wisp"
+          ],
+          "323": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
           ],
           "324": [
             "core:actor/sentinel"
@@ -7396,14 +7529,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 63,
+      "kenney": 64,
       "nonempty": 1077,
-      "onebit": 154,
+      "onebit": 155,
       "sheet": "onebit",
-      "union": 154,
-      "unused_kenney": 1014,
-      "unused_onebit": 923,
-      "unused_union": 923
+      "union": 155,
+      "unused_kenney": 1013,
+      "unused_onebit": 922,
+      "unused_union": 922
     },
     {
       "empty": 63,
@@ -7584,6 +7717,12 @@
     "core:enemy/bodyguard_brute",
     "core:enemy/bodyguard_brute/attack",
     "core:enemy/bodyguard_brute/hurt",
+    "core:enemy/bone_fragment",
+    "core:enemy/bone_fragment/attack",
+    "core:enemy/bone_fragment/hurt",
+    "core:enemy/bone_splitter",
+    "core:enemy/bone_splitter/attack",
+    "core:enemy/bone_splitter/hurt",
     "core:enemy/canal_lancer",
     "core:enemy/canal_lancer/attack",
     "core:enemy/canal_lancer/hurt",

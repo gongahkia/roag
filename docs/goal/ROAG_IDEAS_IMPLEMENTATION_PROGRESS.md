@@ -25,7 +25,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | ID | Approved direction | State | Evidence / task commit |
 | --- | --- | --- | --- |
 | `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
-| `haunted-cache` | Haunted cache / chest mimic | headless verified; GUI pending | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; this feature commit |
+| `haunted-cache` | Haunted cache / chest mimic | headless verified; GUI pending | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; `b73eeb4a` |
 | `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
@@ -35,7 +35,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `pain-linked-twins` | Oath Twins + breakable pain link | pending | — |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | pending | — |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
-| `bone-splitter` | Bone Splitter + reward-bounded fragments | pending | — |
+| `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; this feature commit |
 | `rotating-sentinel` | Rotating Sentinel encounter | pending | — |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
 | `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
@@ -131,8 +131,13 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-cache-final-verified-headless-20261019.log`. The copied live
   implementation matches those source/test bytes exactly. Five disk scenarios
   pass; the original review and all PNG bytes remain unchanged.
-- Both Kenney choices now resolve **341/341** required bindings, 49 actor IDs and
-  98 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Bone Splitter: **427 passed, 0 failed**, source
+  `/var/tmp/roag-bones-qj45lqig`, log
+  `/var/tmp/roag-bone-final-headless-20261019.log`. Six disk scenarios and native
+  art checks pass. The new fragment deliberately shares skeleton 323 with a
+  smaller whole-pixel render size; all other standalone actor bodies stay unique.
+- Both Kenney choices now resolve **347/347** required bindings, 51 actor IDs and
+  102 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -174,9 +179,13 @@ ally or adds one ordinary companion on free, unreserved adjacent floor; it
 skips an unfit formation and never changes geometry. Every Cantor in the same
 corpus now has company. Corpse caps and fog-clipped messages are also checked.
 
-Next: commit the verified Haunted Cache slice, then finish broad acceptance
-for Bone Splitter and Alarm Keeper separately. Their full gates are running
-from their isolated workspaces. The initial Bone full check was stopped before
+Next: commit the verified Bone Splitter slice, then finish Alarm Keeper and
+Web Weaver acceptance. Alarm Keeper
+finished 432/2: an outdated derived inventory checksum and a melee chase
+cycle on seed-21 stage-one Warden. The catalogue is rebuilt; the exact combat
+trace is `/var/tmp/roag-alarm-seed21-diagnosis-20261019.log`. Neither failure is
+reported as a passing gate. The staged Weaver passes nine focused cases and
+an actual third-process +50 crossing / save-generation-3 test. The initial Bone full check was stopped before
 broad acceptance because its copied ranged driver was outdated; its partial
 log is `/var/tmp/roag-bone-stale-strategy-aborted-20261019.log`. Future workspaces
 now all match the verified strategy files before starting a full gate. A Toad staging run exposed two obsolete pre-Wraith
@@ -223,12 +232,18 @@ of the existing rounded scheduler cost; it was corrected to 343. Broad
 acceptance remains pending. Its old ten-seed Wraith spawn fixture no longer
 contained a Wraith after the pool grew; expanding it to 100 actual generated
 seeds passes all nine Wraith tests without forcing a spawn.
-- Web Weaver staging `/var/tmp/roag-web-ty1eeyte`: eight focused tests pass.
+- Web Weaver staging `/var/tmp/roag-web-ty1eeyte`: nine focused tests pass.
 Tiny 122 remains the mixed body; inspected native 1-Bit 366 is the alternate
 crawler (414/463/60 remain excluded). Webs use drawn lines, two spent attempts,
 locked anchors, one +50 crossing delay, finite simulation lifetime and exact
 saves. Projectile cuts capture pre-damage blockers; killed blockers cannot
-allow the same shot to cut a hidden anchor. Broad/disk acceptance is pending.
+allow the same shot to cut a hidden anchor. Disk acceptance passes all eight scenarios, including a third-process crossing
+and save generation 3. Broad acceptance is pending.
 
 All remaining ledger entries stay in scope. Goal ACTIVE; no full-goal completion
 claim is made.
+
+Headless browser inspection of the current live catalogue also passes 12 pack/
+filter cases, mobile layout and search with no JS errors. Screenshots/logs:
+`/var/tmp/roag-ideas-current-catalogue-20261019`. This is HTML inspection, not a
+LÖVE GUI or physical-input test.

@@ -1004,7 +1004,7 @@ onebit,319,400,96,78,,core:enemy/ward_weaver
 onebit,320,416,96,82,,
 onebit,321,432,96,88,,core:enemy/siege_wisp
 onebit,322,448,96,98,,
-onebit,323,464,96,76,,
+onebit,323,464,96,76,core:enemy/bone_fragment; core:enemy/bone_splitter,core:enemy/bone_fragment; core:enemy/bone_splitter
 onebit,324,480,96,116,,core:actor/sentinel
 onebit,325,496,96,92,,core:enemy/mossbreaker
 onebit,326,512,96,26,core:boon/opening_cut/icon + /detail,core:boon/opening_cut/icon + /detail
