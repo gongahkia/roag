@@ -55,6 +55,20 @@ The disk script uses two separate LuaJIT processes and an isolated `/var/tmp`
 directory, comparing full snapshots and events, including RNG and scheduler.
 It does not open LÖVE or touch personal saves.
 
+The guided legal-action driver is separate from the game. New encounter timing
+exposed three automation errors: endlessly dodging between two safe cells,
+firing at a diagonal foe through a blocked projectile corner, and bumping a
+warded guard instead of using existing flank/lure/area-attack counterplay.
+The driver now checks actual attack cells, recognizes non-damaging support
+markers, and uses ordinary attacks or travel to break a proven stall. Close
+combat remains subject to normal damage and strict windup timing. The driver never assigns HP, positions or actor statistics. Recovery uses
+normal earned pickups and boons.
+
+Regression fixtures reproduce the old 60-action corridor loop (the corrected
+driver progresses in 10 legal actions), blocked-corner shots, an Alchemist
+area attack reaching a wizard behind its protected guard, and armor versus
+shove threat detection. Prepared fixtures are not full-run playthrough claims.
+
 Runtime art resolution and source pixels are checked headlessly. Actual LÖVE
 rendering, physical input and readability remain unverified under the user's
 instruction not to open app windows.

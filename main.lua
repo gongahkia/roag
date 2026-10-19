@@ -1574,6 +1574,14 @@ local function draw_enemies()
                 love.graphics.setColor(0.12,0.17,0.20)
                 love.graphics.print(Content.get_enemy(enemy.definition_id).name:sub(1,1),
                     x+12,y+8)
+            elseif enemy.ai_id=='idea_regular' then
+                love.graphics.setColor(.79,.70,.48)
+                love.graphics.polygon('fill',x+16,y+2,x+29,y+17,x+16,y+28,x+3,y+17)
+                love.graphics.setColor(.08,.12,.14)
+                local label=({['core:enemy/heavy_rammer']='R',['core:enemy/hollow_wraith']='W',
+                    ['core:enemy/grave_cantor']='C'})[enemy.definition_id]
+                    or Content.get_enemy(enemy.definition_id).name:sub(1,1)
+                love.graphics.print(label,x+12,y+8)
             elseif enemy.ai_id=='squad' then
                 love.graphics.setColor(.68,.72,.94)
                 love.graphics.polygon('fill',x+16,y+2,x+29,y+17,x+16,y+28,x+3,y+17)

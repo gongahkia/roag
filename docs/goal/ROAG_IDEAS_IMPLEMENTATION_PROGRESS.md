@@ -26,7 +26,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | --- | --- | --- | --- |
 | `reanimator` | Grave Cantor + finite resurrection | pending | — |
 | `haunted-cache` | Haunted cache / chest mimic | pending | — |
-| `heavy-rammer` | Heavy Rammer + positional shove | pending | — |
+| `heavy-rammer` | Heavy Rammer + positional shove | implemented; regression hardening | Source in `38c34a96`; 12 focused checks, real rotating-store Continue; complete legal corpus gate remains open |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
 | `hollow-wraith` | Hollow Wraith + announced phase step | pending | — |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | pending | — |
@@ -106,4 +106,46 @@ No feature is complete merely because a schema, fixture or metadata record exist
 
 ## Last verified action
 
-Task 0 complete: preserved original reviewed inventory and archive/source hashes; freshness tooling now validates the historical user-reviewed snapshot independently of future live assignments. Six feedback state tests, source checks and previous 30/30 squad acceptance passed. Gameplay baseline 377/377. Next: Heavy Rammer and safe player displacement. Goal remains active.
+Task 0 complete: preserved original reviewed inventory and archive/source hashes; freshness tooling validates the historical user-reviewed snapshot independently of live assignments. Six feedback state tests, source checks and previous 30/30 squad acceptance pass.
+
+Rammer integration is present; 12 focused checks cover strict locked shove timing,
+blocked landings, hazards/pickups/snares, friendly fire, interruptions, exact save
+continuation, presentation-only slides and a seven-biome paired-floor corpus.
+`sh tests/idea_enemy_disk_resume.sh` passes two separate LuaJIT processes with
+real checked save generations. GUI remains untested.
+
+The first expanded full run was **383 passed / 3 failed** (log
+`/var/tmp/roag-ideas-rammer-20261019.log`): one obsolete encounter-pool assertion,
+one invalid route-history fixture and one guided navigation limit. The two
+fixtures are corrected. Guided routes expose pre-existing automation errors:
+repeated safe-cell dodges, firing through blocked projectile corners, attacking
+protected brutes without luring/flanking, and dodging fully blocked damage.
+These are driver changes; actor stats, combat rules, RNG and map geometry are
+unchanged. Some attempted driver revisions changed routes adversely; their logs
+are preserved, and no green full-suite claim is made for those revisions.
+`/var/tmp/roag-rammer-focused-12.log` is **12/12**. The two remaining failures
+in frozen broad runs were the older single-floor seed-3 Victory/profile gates:
+the guide abandoned an earned chest and ten-HP supply, entering the finale at
+5 HP. It now claims the normal reward and collects the existing supply through
+legal actions. Seed 3 wins at 9 HP after 1,039 actions, with exact full snapshot
+replay (`/var/tmp/roag-seed3-earned-recovery.log`). Both actual failing gates
+pass in `/var/tmp/roag-seed3-gates-accepted.log`; the complete final rerun is
+live in `/var/tmp/roag-rammer-final-headless-20261019.log`.
+
+Wraith is staged in `/var/tmp/roag-idea-wraith-0_uo5rfw`: actual announced wall
+crossing, separate normal attacks, only 416 in both packs, protected/visible
+landings, Trapper contact and fresh-process continuation. Its focused checks
+pass; a frozen full run was **395 passed / 1 failed**, the remaining guided-run
+failure. Grave Cantor is staged in `/var/tmp/roag-idea-revival-kf0ggjgt`: eight
+focused tests and three fresh-process encounter scenarios pass. Neither staged
+feature is claimed live or complete yet. Wraith's revised full legal-run group
+passes **4/4**, including six class victories and all seven miniboss routes
+(`/var/tmp/roag-wraith-legal-accepted-latest.log`). Its complete rerun is live in
+`/var/tmp/roag-wraith-final-headless-20261019.log`. Gulp Toad is also staged in
+`/var/tmp/roag-idea-toad-wdfn7s52`: loose-drop interception, one original carried
+drop, death release, source references, save/replay and a seeded population/art
+corpus. It is not yet integrated. Keep these task-local workspaces until
+their reviewed changes are integrated; they are not personal project/save data.
+
+Next: finish verified legal-driver hardening, then integrate Wraith and Cantor
+in separate task commits. Every other ledger row remains pending. Goal ACTIVE.

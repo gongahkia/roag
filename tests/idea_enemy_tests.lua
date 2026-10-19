@@ -116,7 +116,10 @@ return function(test,equal)
     test('natural stage replacements are bounded, deterministic and preserved on restore',function()
         local seen=0
         for _,id in ipairs(Biomes.order) do for seed=1,5 do
-            local s=Game.new_stage(seed,{multifloor=true,stage_options={biome_id=id}})
+            local first=id==Biomes.order[1]
+            local s=Game.new_stage(seed,{multifloor=true,stage_options={biome_id=id,
+                index=first and 1 or 2,
+                route_history=first and {} or {(id:gsub('^core:biome/','core:route/'))}}})
             assert(s.generated_map.biome_id==id)
             local count={}
             for _,e in ipairs(s.entities) do if e.definition_id=='core:enemy/heavy_rammer' then
@@ -130,5 +133,59 @@ return function(test,equal)
         assert(seen>0,'Rammer was never consumed by actual stage population')
         equal(Game.snapshot(Game.new_stage(18,{multifloor=true})),
             Game.snapshot(Game.new_stage(18,{multifloor=true})))
+    end)
+    test('legal travel driver breaks opposed-lane dodge loops without assistance',function()
+        local Play=require('tests.legal_playthrough')
+        local s=Game.new(37,nil,{class_id='core:actor/arcanist'})
+        s.generated_map=copy(Content.map_for(s))
+        local map=s.generated_map
+        for y=1,map.height do map.rows[y]=string.rep('#',map.width)end
+        map.rows[6]='#.............#';map.rows[5]='######.########'
+        local p=Game.player(s);p.position.x,p.position.y=7,5
+        -- Faster opposed ranged fixtures reproduce a permanent greedy-dodge
+        -- loop (the previous driver reaches its 60-action limit at full HP).
+        Game.spawn_enemy(s,'core:enemy/thornspitter',3,6,20).speed=110
+        Game.spawn_enemy(s,'core:enemy/thornspitter',12,6,20).speed=110
+        local eligibility=s.meta.eligible
+        local run={state=s,trace={},events={}}
+        assert(Play.navigate(run,function(at)return at.x==11 and at.y==6 end,60))
+        local dashed=false
+        for _,v in ipairs(run.trace)do if v.intent.kind=='dash'then dashed=true end end
+        assert(dashed and p.hp<p.max_hp and p.hp>0 and s.meta.eligible==eligibility,
+            'driver must accept ordinary risk, without HP/position assistance')
+    end)
+    test('legal driver holds against fully armoured strikes but still dodges shove threats',function()
+        local Play=require('tests.legal_playthrough')
+        local s=Game.new(37);local p=Game.player(s);p.position.x,p.position.y=7,6;p.defense=10
+        Game.spawn_enemy(s,'core:enemy/mossbound_guard',6,6,50)
+        assert(Game.submit(s,{kind='wait'}));assert(Game.pending_strikes(s)[1])
+        local before=Game.snapshot(s)
+        assert(not Play.escape({state=s,trace={},events={}},nil,true));equal(before,Game.snapshot(s))
+        local rammer,player=trial();player.defense=10
+        assert(Game.submit(rammer,{kind='wait'}))
+        assert(Play.escape({state=rammer,trace={},events={}},nil,true))
+        assert(player.position.x~=7 or player.position.y~=6)
+    end)
+    test('legal driver respects projectile corners and uses an area attack against a protected formation',function()
+        local Play=require('tests.legal_playthrough')
+        local s=Game.new(37,nil,{class_id='core:actor/alchemist'})
+        local p=Game.player(s);p.position.x,p.position.y=6,6
+        local e=Game.spawn_enemy(s,'core:enemy/mossbound_guard',7,7,100000)
+        local run={state=s,trace={},events={}};local before=Game.snapshot(s)
+        assert(not Play.attack_adjacent(run));equal(before,Game.snapshot(s))
+        assert(Play.action(run,{kind='move',dx=1,dy=0}))
+        assert(Play.attack_adjacent(run) and e.hp<e.max_hp)
+
+        s=Game.new(37,nil,{class_id='core:actor/alchemist'});p=Game.player(s)
+        p.position.x,p.position.y=7,6
+        local caster=Game.spawn_enemy(s,'core:enemy/ward_weaver',10,6,100000)
+        local guard=Game.spawn_enemy(s,'core:enemy/bodyguard_brute',8,6,100000)
+        caster.squad_id=caster.id;caster.squad_kind='warded_bodyguards'
+        caster.ai_memory.ward_ready=true
+        guard.squad_id=caster.id;guard.squad_leader_id=caster.id;guard.squad_kind=caster.squad_kind
+        assert(require('src.enemy_squads').ward_source(s,guard)==caster)
+        assert(Play.attack_in_reach({state=s,trace={},events={}}))
+        assert(caster.hp==2 and guard.hp==guard.max_hp,
+            'area attack must reach caster while retaining the primary batch field rule')
     end)
 end

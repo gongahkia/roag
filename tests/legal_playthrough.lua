@@ -74,21 +74,26 @@ function Play.path(state,goal,avoid_guarded)
     end
 end
 
-local function threatened(state,x,y)
+local function threatened(state,x,y,ignore_armoured)
     for _,strike in ipairs(Game.pending_strikes(state)) do
-        for _,cell in ipairs(strike.target_cells) do
-            if cell.floor_id==state.active_floor_id and cell.x==x and cell.y==y then
-                return true
+        -- Support channels are not damaging strikes. In particular, occupying
+        -- a phase/revival destination counters it; dodging helps the caster.
+        if not strike.support and (not ignore_armoured or strike.shove or
+            (strike.damage or math.huge)>(Game.player(state).defense or 0)) then
+            for _,cell in ipairs(strike.target_cells) do
+                if cell.floor_id==state.active_floor_id and cell.x==x and cell.y==y then
+                    return true
+                end
             end
         end
     end
     return false
 end
 
-function Play.escape(run,goal)
+function Play.escape(run,goal,ignore_armoured)
     local state=run.state
     local p=Game.player(state).position
-    if not threatened(state,p.x,p.y) then return false end
+    if not threatened(state,p.x,p.y,ignore_armoured) then return false end
     local best,score
     for _,d in ipairs(dirs) do
         local x,y=p.x+d[1],p.y+d[2]
@@ -131,10 +136,19 @@ function Play.attack_adjacent(run,excluded_id)
     local state=run.state
     local p=Game.player(state).position
     local selected
+    local function reachable(target)
+        local dx,dy=target.position.x-p.x,target.position.y-p.y
+        local intent=Play.attack_intent(run,dx,dy)
+        local preview=Game.preview(state,intent.kind,dx,dy)
+        for _,cell in ipairs(preview.valid and preview.cells or {})do
+            if cell.x==target.position.x and cell.y==target.position.y then return true end
+        end
+        return false
+    end
     for _,entity in ipairs(state.entities) do
         if entity.controller=='ai' and entity.id~=excluded_id and not entity.invulnerable
             and entity.position.floor_id==state.active_floor_id
-            and adjacent(p,entity.position) and
+            and adjacent(p,entity.position) and reachable(entity) and
             (not selected or entity.hp<selected.hp or
                 (entity.hp==selected.hp and entity.id<selected.id)) then
             selected=entity
@@ -149,6 +163,23 @@ function Play.attack_adjacent(run,excluded_id)
                 {position={floor_id=state.active_floor_id,x=at.x,y=at.y}},true)
         end,true)
         if step and step[1] then return Play.action(run,{kind='move',dx=step[1],dy=step[2]}) end
+        if ward then
+            -- A moved bodyguard can seal a currently reachable flank even
+            -- though the original formation had counterplay. Lure it beyond
+            -- its caster's four-cell field instead of bumping it forever.
+            local retreat,score
+            local current=math.abs(p.x-ward.position.x)+math.abs(p.y-ward.position.y)
+            for _,d in ipairs(dirs)do
+                local preview=Game.preview(state,'move',d[1],d[2])
+                local x,y=p.x+d[1],p.y+d[2]
+                local distance=math.abs(x-ward.position.x)+math.abs(y-ward.position.y)
+                if preview.valid and preview.distance==1 and distance>current
+                    and not threatened(state,x,y) and (not score or distance>score)then
+                    retreat,score=d,distance
+                end
+            end
+            if retreat then return Play.action(run,{kind='move',dx=retreat[1],dy=retreat[2]})end
+        end
         if not ward then return Play.action(run,{kind='wait'}) end
         return false
     end
@@ -156,12 +187,82 @@ function Play.attack_adjacent(run,excluded_id)
     return ok
 end
 
+-- Only used after a demonstrated travel cycle. A ranged class must be able
+-- to shoot a reachable blocker instead of dodging forever outside bump range.
+function Play.attack_in_reach(run)
+    local state=run.state;local player=Game.player(state)
+    local best
+    for _,kind in ipairs({'basic_attack','sweeping_slash'})do
+        for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0},{1,-1},{1,1},{-1,1},{-1,-1}})do
+            local preview=Game.preview(state,kind,d[1],d[2])
+            if preview.valid then
+                local cells,damage,_,ranged=Game.effective_ability(state,kind,d[1],d[2],true)
+                for _,cell in ipairs(cells)do
+                    local occupied=false
+                    for _,e in ipairs(state.entities)do
+                        if e.hp and e.hp>0 and e.id~=player.id and e.position.floor_id==state.active_floor_id
+                            and e.position.x==cell.x and e.position.y==cell.y then
+                            occupied=true
+                            if e.controller=='ai' and not e.invulnerable and damage>(e.defense or 0)
+                                and not Squads.block(state,e,player,true)
+                                and (not best or e.hp<best.hp or e.hp==best.hp and e.id<best.id)then
+                                best={hp=e.hp,id=e.id,dx=d[1],dy=d[2],kind=kind}
+                            end
+                        end
+                    end
+                    if occupied and ranged==true then break end
+                end
+            end
+        end
+    end
+    if best then return Play.action(run,{kind=best.kind,dx=best.dx,dy=best.dy})end
+    return false
+end
+
 function Play.navigate(run,goal,max_actions)
+    local first_trace=#run.trace
     for _=1,max_actions do
         local state=run.state
-        if goal(Game.player(state).position) then return true end
+        local p=Game.player(state).position
+        if goal(p) then return true end
         if state.game_over then return false,'dead' end
-        if Play.escape(run) then
+        local n=#run.trace
+        local cycle=n-first_trace>=6
+        local a,b=run.trace[n],run.trace[n-1]
+        if cycle then
+            local stationary=p.x==a.from.x and p.y==a.from.y
+                and a.from.x==b.from.x and a.from.y==b.from.y
+            cycle=stationary or p.x==b.from.x and p.y==b.from.y
+            for offset=0,5 do
+                local record=run.trace[n-offset]
+                local expected=stationary and a.from or offset%2==0 and a.from or b.from
+                if not record.ok or record.from.x~=expected.x or record.from.y~=expected.y
+                    or record.from.hp~=record.hp
+                    or not stationary and record.intent.kind~='move' then cycle=false;break end
+            end
+        end
+        local near=false
+        if cycle then
+            for _,e in ipairs(state.entities)do
+                if e.controller=='ai' and e.hp>0 and e.position.floor_id==state.active_floor_id
+                    and math.abs(e.position.x-p.x)+math.abs(e.position.y-p.y)<=3 then near=true;break end
+            end
+        end
+        local step
+        if cycle and threatened(state,p.x,p.y) then step=Play.path(state,goal)end
+        if cycle and (Play.attack_in_reach(run) or
+            Play.attack_adjacent(run,state.stage and state.stage.elite_id)) then
+            -- Break a proven cycle with an ordinary immediate attack.
+        elseif step and step[1] then
+            -- A one-cell alcove between opposed ranged lanes can make greedy
+            -- safe-cell dodging repeat forever. Commit legal forward travel
+            -- after detecting that cycle, accepting ordinary damage risk.
+            -- No actor stats, positions, schedules or HP are assisted.
+            local dash=Game.preview(state,'dash',step[1],step[2])
+            local kind=not near and dash.valid and dash.distance>1 and 'dash' or 'move'
+            local ok,reason=Play.action(run,{kind=kind,dx=step[1],dy=step[2]})
+            if not ok then return false,reason end
+        elseif Play.escape(run) then
             -- A committed dodge consumes its normal recovery; replan afterward.
         elseif Play.attack_adjacent(run,state.stage and state.stage.elite_id) then
             -- Do not let a nearby normal enemy attack freely during travel.
@@ -382,6 +483,27 @@ function Play.complete_run(seed,options)
     ok,reason=Play.fight(run,elite.id,250)
     assert(ok,reason)
     checkpoint(run,'third_elite_defeated')
+    local reward=Game.entity(state,state.stage.elite_reward_id)
+    if reward and not reward.claimed then
+        ok,reason=Play.navigate(run,function(p)return cardinal(p,reward.position)end,30)
+        assert(ok,reason)
+        ok,reason=Play.action(run,{kind='claim_chest',chest_id=reward.id,offer_index=1})
+        assert(ok,reason)
+    end
+    -- The elite already dropped normal recovery supplies. Collect nearby health
+    -- by legal movement before leaving; do not carry five HP into the finale
+    -- while abandoning an available ten-HP pickup beside the defeated elite.
+    local player=Game.player(state)
+    for _,drop in ipairs(state.drops)do
+        local at=drop.position
+        if player.hp<player.max_hp and not drop.collected and not drop.carried_by
+            and (drop.kind=='health' or drop.kind=='food') and at.floor_id==state.active_floor_id
+            and math.abs(at.x-player.position.x)+math.abs(at.y-player.position.y)<=2 then
+            ok,reason=Play.navigate(run,function(p)return p.x==at.x and p.y==at.y end,30)
+            assert(ok,reason)
+        end
+    end
+    checkpoint(run,'third_elite_recovery_collected')
     local exit=assert(Game.entity(state,state.stage.exit_id))
     ok,reason=Play.navigate(run,function(p)
         return cardinal(p,exit.position)

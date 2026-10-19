@@ -1,4 +1,5 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
+io.stdout:setvbuf('line') -- preserve complete PASS/FAIL lines in redirected diagnostics
 assert(_G.love == nil, "headless tests must not initialize LÖVE")
 
 local Content = require("src.content")

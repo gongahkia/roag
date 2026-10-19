@@ -119,6 +119,8 @@ return function(test,equal)
                         end
                         assert(allowed and squads.roles[entity.definition_id],
                             'squad outside its approved biome pool')
+                    elseif require('src.idea_enemies').roles[entity.definition_id] then
+                        assert(entity.ai_id=='idea_regular','invalid approved encounter controller')
                     else assert(pool[entity.definition_id]) end
                     found=found+1
                 end
