@@ -2,7 +2,7 @@
 
 import subprocess
 
-from tools.build_room_review import room_data
+from tools.room_data import room_data
 
 
 def lua(value):

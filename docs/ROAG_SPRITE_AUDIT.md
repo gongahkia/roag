@@ -77,11 +77,11 @@ including partial composition inputs. They are not numbers of new mechanics.
 
 | Current source | Nonempty cells | Referenced | Unused |
 | --- | ---: | ---: | ---: |
-| 1-Bit packed 16px | 1,077 | 297 | 780 |
+| 1-Bit packed 16px | 1,077 | 296 | 781 |
 | Caves & Dungeons, 16px / 1px gutters | 522 | 10 | 512 |
 | Approved RPG, 16px / 1px gutters | 1,704 | 13 | 1,691 |
 | Approved Tiny Dungeon, 16px / 1px gutters | 132 | 2 | 130 |
-| **Total active source sheets** | **3,435** | **273** | **3,162** |
+| **Total active source sheets** | **3,435** | **321** | **3,114** |
 
 The full source sheets stay intact because their exact bytes/checksums are
 verified and their approved regions feed deterministic compositors. Unused
@@ -96,7 +96,7 @@ not offer a different game renderer.
 
 ## Intentional drawn presentation
 
-These are outside the 491 required sprite bindings:
+These are outside the 599 required sprite bindings:
 
 - UI frames, focus indicators, health/XP/phase bars and menu layout.
 - TTF text, numbers, boon descriptions and achievements.

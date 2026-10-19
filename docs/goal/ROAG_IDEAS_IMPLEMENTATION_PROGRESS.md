@@ -1,11 +1,11 @@
 # Approved idea implementation — sustained goal
 
-Status: **ENGINEERING ACCEPTANCE VERIFIED — production cleanup and researched proposals are the active follow-up**.
+Status: **ENGINEERING AND CLEANUP VERIFIED — optional visual-juice proposals await the user's decision**.
 The previous terrain/environment stop was honored. The user has now explicitly
 requested the remaining boon and final-integration passes, web research as
 needed, atomic commits, and LÖVE testing for final acceptance. Earlier paused
-notes below are historical checkpoints. The full goal remains incomplete until
-both passes are implemented and independently verified.
+notes below are historical checkpoints. Both requested engineering passes are
+implemented and independently verified; the cleanup follow-up is recorded below.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
 ## Follow-up requested after the active goal
@@ -21,7 +21,8 @@ After the remaining additional boons and combined acceptance are finished:
    discovery and selection. Present the ideas in chat for approval/rejection;
    do not implement these proposed additions before the user's decision.
 
-This is ordered follow-up, not a replacement for the unfinished active goal.
+This ordered follow-up was completed after the original engineering pass. New
+visual-juice implementation requires the user's decision on the chat proposals.
 
 ## Authority and invariants
 
@@ -44,65 +45,69 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 
 ## Work ledger
 
+The state column includes the final integrated acceptance; task evidence and
+commits retain their original checkpoint counts. Current gates are in
+[the acceptance guide](../ROAG_IDEA_ACCEPTANCE.md). Human play remains pending.
+
 | ID | Approved direction | State | Evidence / task commit |
 | --- | --- | --- | --- |
-| `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
-| `haunted-cache` | Haunted cache / chest mimic | headless verified; GUI pending | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; `b73eeb4a` |
-| `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
-| `web-weaver` | Web Weaver + anchored webs | headless verified; GUI pending | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; `e6c911d7` |
-| `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
-| `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
-| `mirror-hexer` | Mirror Hexer + reflected lane | headless verified; GUI pending | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; `54f13add` |
-| `trail-worm` | Silt Worm + temporary bog trail | headless verified; GUI pending | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; `caedcd77` |
-| `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
-| `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
-| `ember-moth` | Ember Moth + readable burning landing | headless verified; GUI pending | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; `401e0c28` |
-| `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
-| `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
-| `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
-| `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
-| `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
+| `reanimator` | Grave Cantor + finite resurrection | headless, native GUI/save verified | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
+| `haunted-cache` | Haunted cache / chest mimic | headless, native GUI/save verified | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; `b73eeb4a` |
+| `heavy-rammer` | Heavy Rammer + positional shove | headless, native GUI/save verified | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
+| `web-weaver` | Web Weaver + anchored webs | headless, native GUI/save verified | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; `e6c911d7` |
+| `hollow-wraith` | Hollow Wraith + announced phase step | headless, native GUI/save verified | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
+| `gulp-toad` | Gulp Toad + recoverable stolen drop | headless, native GUI/save verified | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
+| `mirror-hexer` | Mirror Hexer + reflected lane | headless, native GUI/save verified | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; `54f13add` |
+| `trail-worm` | Silt Worm + temporary bog trail | headless, native GUI/save verified | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; `caedcd77` |
+| `pain-linked-twins` | Oath Twins + breakable pain link | headless, native GUI/save verified | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
+| `alarm-keeper` | Alarm Keeper + one interruptible call | headless, native GUI/save verified | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
+| `ember-moth` | Ember Moth + readable burning landing | headless, native GUI/save verified | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; `401e0c28` |
+| `bone-splitter` | Bone Splitter + reward-bounded fragments | headless, native GUI/save verified | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
+| `rotating-sentinel` | Rotating Sentinel encounter | headless, native GUI/save verified | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
+| `duelist-class` | Duelist — precision and paid riposte | headless, native GUI/save verified | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
+| `geomancer-class` | Geomancer — one temporary bulwark | headless, native GUI/save verified | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
+| `spiritbinder-class` | Spiritbinder — one commanded familiar | headless, native GUI/save verified | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
 | `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | implemented; full 711/711, GUI/save verified | P / controller LB opt-in, 2 HP for one primary attack batch; 14 focused tests, all 15 basic attacks, 3 actual GUI processes + controller/native-art checks; no Pilgrim class |
-| `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
-| `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
-| `wayfinder-class` | Wayfinder — a visible return beacon | headless verified; GUI pending | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
-| `offering-font` | One-use HP offering font | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `ration-cache` | Sealed ration cache | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `cleanse-flask` | Single-use cleansing flask | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `escape-scroll` | One-charge escape scroll | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `return-token` | Room-bound return token | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `charm-well` | Charm well — choose one short condition | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `attunement-forge` | Attunement forge — trade one stack | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `travelling-trader` | One-visit supply trader | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `memorial-choice` | Memorial — retire a boon for recovery | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `bell-sequence` | Bell-order side room | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `heat-vents` | Clocked heat vents | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
-| `push-floor` | Push-floor strip | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
-| `fragile-crossing` | Fragile optional crossing | headless verified; GUI pending | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
-| `falling-fixture` | Announced falling fixture | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `signposted-routes` | Pictorial route signposts | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `camp-choice` | One-use camp choice | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `archive-contract` | Archivist’s optional contract | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `secret-mural` | Readable secret murals | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `crypt-kit` | Ossuary / crypt environment kit | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `sandstone-kit` | Pale sanctuary — ground and masonry | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `observatory-mosaic` | Observatory mosaic and cold stone | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `root-garden-kit` | Root garden and overgrown courts | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `drowned-sanctum` | Drowned sanctum water kit | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `forge-masonry` | Forge masonry and ironworks | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `library-carpet` | Archive carpets and patterned ground | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `broken-cavern-kit` | Broken cavern — rubble, damaged edges, cave mouths | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `ruin-masonry-kit` | Ruins masonry variants | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `camp-furniture` | Camp and inn furniture | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `workshop-fixtures` | Workshop fixtures and supplies | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `archive-shelves` | Archive bookshelves and empty shelf states | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `chapel-windows` | Chapel windows and alcoves | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `prison-dressing` | Prison cells, bars and grates | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `stone-column-kit` | Pillars, plinths and architectural supports | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `weapon-icon-families` | Weapon and attack icon families | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `status-icon-family` | Status, supplies and reward pictograms | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `tinkerer-class` | Tinkerer — one limited bolt sentry | headless, native GUI/save verified | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
+| `stormcaller-class` | Stormcaller — charge, ground, discharge | headless, native GUI/save verified | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
+| `wayfinder-class` | Wayfinder — a visible return beacon | headless, native GUI/save verified | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
+| `offering-font` | One-use HP offering font | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `ration-cache` | Sealed ration cache | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `cleanse-flask` | Single-use cleansing flask | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `escape-scroll` | One-charge escape scroll | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `return-token` | Room-bound return token | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `charm-well` | Charm well — choose one short condition | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `attunement-forge` | Attunement forge — trade one stack | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `travelling-trader` | One-visit supply trader | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `memorial-choice` | Memorial — retire a boon for recovery | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `bell-sequence` | Bell-order side room | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `heat-vents` | Clocked heat vents | headless, native GUI/save verified | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
+| `push-floor` | Push-floor strip | headless, native GUI/save verified | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
+| `fragile-crossing` | Fragile optional crossing | headless, native GUI/save verified | 20 focused, 56-floor route corpus, three natural legal scenarios and three fresh-process saves; see [terrain guide](../ROAG_IDEA_TERRAINS.md) |
+| `falling-fixture` | Announced falling fixture | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `signposted-routes` | Pictorial route signposts | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `camp-choice` | One-use camp choice | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `archive-contract` | Archivist’s optional contract | headless, native GUI/save verified | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
+| `secret-mural` | Readable secret murals | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `crypt-kit` | Ossuary / crypt environment kit | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `sandstone-kit` | Pale sanctuary — ground and masonry | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `observatory-mosaic` | Observatory mosaic and cold stone | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `root-garden-kit` | Root garden and overgrown courts | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `drowned-sanctum` | Drowned sanctum water kit | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `forge-masonry` | Forge masonry and ironworks | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `library-carpet` | Archive carpets and patterned ground | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `broken-cavern-kit` | Broken cavern — rubble, damaged edges, cave mouths | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `ruin-masonry-kit` | Ruins masonry variants | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `camp-furniture` | Camp and inn furniture | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `workshop-fixtures` | Workshop fixtures and supplies | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `archive-shelves` | Archive bookshelves and empty shelf states | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `chapel-windows` | Chapel windows and alcoves | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `prison-dressing` | Prison cells, bars and grates | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `stone-column-kit` | Pillars, plinths and architectural supports | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `weapon-icon-families` | Weapon and attack icon families | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `status-icon-family` | Status, supplies and reward pictograms | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `combat-bursts` | Static combat impact cue family | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `trap-signals` | Switch, hazard and trap state markers | headless/native GUI verified; human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | verified | 50 new boon icons + eight face bindings; all 15 original asset files byte-identical; live coverage 599/599 |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
@@ -1645,3 +1650,26 @@ notes remain historical evidence, not the current remaining-work list.
 Next: audit/remove confirmed obsolete intermediates, one cleanup commit with
 Controls-only README edits, then present researched visual-polish ideas for
 approval in chat. Do not implement those proposals automatically.
+
+
+## Production cleanup follow-up — 19 October 2026
+
+The original fifty-boon/final-integration engineering pass is verified in
+`ced53a1d`. The subsequent requested audit removed 76 obsolete artifacts and
+unreachable fixed-look theme branches; current tests, source PNGs, stable pack
+contracts and hashed approvals remain. The room compiler no longer reads HTML;
+all 105 compiled definitions remain byte-identical. A real rebuild, read-only
+staleness rejection, 700 floor-pair seed checks, live catalogue/gallery and all
+approval/archive checks pass. README changes are confined to Controls with the
+same table; outside-section SHA checks pass. Four current native captures fill
+its existing screenshot paths.
+
+Cleanup GUI gates pass; all 20 menu captures match the pre-cleanup RGBA pixels
+exactly. Research for optional movement/attack/discovery/selection feedback is
+complete; proposals are to be presented in chat and require approval before
+implementation. The final cleanup headless gate passes **837/837**, exit 0, **637.43 s**,
+**160832 KiB** peak RSS; log
+`/var/tmp/roag-production-cleanup-headless-20261019.log`. The requested single
+production-cleanup commit contains these changes and verification notes. The
+original goal and cleanup engineering work are done; human acceptance and the
+new visual-juice proposal decisions remain separate.

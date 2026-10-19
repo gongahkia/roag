@@ -11,24 +11,23 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test enemy-review enemy-review-check review-test room-expansion room-expansion-check environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with fixed Kenney 1-Bit artwork' \
 	 'make spectator        Inspect Kenney art without saves' \
-	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
+	 'make sprite-audit     Rebuild current coverage and unused-art catalogue' \
 	 'make sprite-audit-check Check saved catalogue freshness without writing' \
-	 'make surplus-audit    Rebuild the checked unused-art visual shortlist' \
-	 'make surplus-audit-check Check the shortlist against live mappings' \
-	 'make sprite-ideas     Build the full unused-art idea approval page' \
-	 'make sprite-ideas-test Check idea coverage, feedback and page freshness' \
-	 'make item-room-review Build the focused item/interactive-room voting page' \
-	 'make item-room-review-test Check the focused review and feedback safety' \
-	 'make sprite-review    Refresh embedded art in the review page' \
-	 'make enemy-review     Build the five-combination approval page' \
-	 'make review-test      Check the review data, client and generated page' \
-	 'make room-review      Refresh the offline room layout review page' \
+	 'make surplus-audit    Verify the frozen unused-art visual shortlist' \
+	 'make surplus-audit-check Check the archived shortlist and source hashes' \
+	 'make sprite-ideas     Verify the frozen idea approval archive' \
+	 'make sprite-ideas-test Check approved coverage, feedback and archive' \
+	 'make item-room-review Verify the frozen item/room approval archive' \
+	 'make item-room-review-test Check the approved review and feedback safety' \
+	 'make enemy-review     Verify the frozen enemy-combination archive' \
+	 'make review-test      Check the archived review data and client' \
 	 'make room-expansion   Compile the approved room layouts for the game' \
+	 'make room-expansion-check Verify compiled layouts without writing' \
 	 'make environment-preview Rebuild offline source-pixel room previews (no LÖVE)' \
 	 'make environment-preview-check Check exact generated preview pixels' \
 	 'make test             Run gameplay and runtime headless tests' \
@@ -39,8 +38,6 @@ game:
 	$(LOVE_RUN) .
 sprite-audit:
 	python3 tools/sprite_audit.py
-	python3 tools/build_sprite_review.py
-	python3 tools/build_enemy_review.py
 sprite-audit-check:
 	python3 tools/sprite_audit.py --check
 surplus-audit: sprite-audit-check
@@ -59,20 +56,16 @@ item-room-review-check: sprite-audit-check
 	python3 tools/build_item_room_review.py --check
 item-room-review-test: item-room-review-check
 	node tests/item_room_review_page_test.js
-sprite-review:
-	python3 tools/build_sprite_review.py
-	python3 tools/build_enemy_review.py
 enemy-review:
 	python3 tools/build_enemy_review.py
 enemy-review-check:
 	python3 tools/build_enemy_review.py --check
 review-test: enemy-review-check
 	node tests/enemy_review_page_test.js
-room-review:
-	python3 tools/build_room_review.py
-
 room-expansion:
 	python3 tools/write_room_expansion.py
+room-expansion-check:
+	python3 tools/write_room_expansion.py --check
 environment-preview:
 	python3 tools/environment_preview.py
 environment-preview-check:

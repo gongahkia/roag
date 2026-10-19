@@ -5,7 +5,7 @@ message. The [approval record](items-rooms-approval.json) hashes the reviewed
 files; the original vote UI remains a historical design/art record. For
 current controls, rules and verification limits, use the
 [implementation guide](../ROAG_IDEA_INTERACTIONS.md). The 399-binding review
-context below is intentionally historical; the live catalogue now has 415.
+context below is intentionally historical; use the [live catalogue](index.html) for current coverage.
 
 Open [the focused review](items-rooms.html). This is a **design/artwork vote**,
 not an implementation or publisher. The original 89-proposal review, its

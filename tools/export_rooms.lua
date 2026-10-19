@@ -1,4 +1,4 @@
--- Emit the actual authored room definitions for the offline review builder.
+-- Emit actual authored room definitions for the deterministic room compiler.
 local Rooms=require('src.rooms')
 local Biomes=require('src.biomes')
 local Finale=require('src.finale')
@@ -8,7 +8,7 @@ local function emit(...)
     local fields={...}
     for i,value in ipairs(fields) do
         fields[i]=tostring(value)
-        assert(not fields[i]:find('[\t\r\n]'),'invalid room review field')
+        assert(not fields[i]:find('[\t\r\n]'),'invalid room export field')
     end
     io.write(table.concat(fields,'\t'),'\n')
 end

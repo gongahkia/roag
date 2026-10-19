@@ -1,8 +1,9 @@
 # Approved idea encounters
 
 The [review decisions](sprite-audit/ideas-feedback-summary.md) remain the art
-and feature authority. This guide records implemented slices; the full
-[goal ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md) remains incomplete.
+and feature authority. These encounters now pass the integrated headless, native
+GUI and fresh-process save gates; see [current acceptance](ROAG_IDEA_ACCEPTANCE.md).
+The [goal ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md) retains each checkpoint.
 
 ## Heavy Rammer
 

@@ -28,7 +28,8 @@ luajit tests/run.lua
 luajit tests/finale_playthrough.lua 3 /tmp/roag-seed3.trace
 ```
 
-For the editor, use the sibling Paint checkout: `cd ../paint && make app`.
+Studio authoring belongs to the separate Paint project. It is not included in
+this checkout; ROAG has no `make studio` target or editor launch mode.
 
 For callback-driven GUI tests, put the opt-in wrappers first on `PATH` in the
 test shell. They accept only disposable app copies under macOS temporary
@@ -43,10 +44,6 @@ Linux scripts retain their normal `love` and GNU `timeout` behavior.
 ```sh
 export PATH="$PWD/tests/mac-bin:$PATH"
 sh tests/repeat_gui_smokes.sh 3
-for h in studio_gui_smoke studio_e01_gui_smoke studio_e03_gui_smoke \
-         studio_e04_gui_smoke studio_e05_gui_smoke studio_e06_gui_smoke; do
-    sh "tests/$h.sh"
-done
 sh tests/tranche15_gui_smoke.sh
 sh tests/tranche15_chain_gui_smoke.sh
 sh tests/biome_disk_resume.sh
@@ -54,38 +51,18 @@ sh tests/finale_disk_resume.sh
 sh tests/profile_gui.sh
 ```
 
-Studio and game fixtures write to their isolated LÖVE save identities. Use
-`love.filesystem.getSaveDirectory()` or the `save_dir.txt` files emitted by
-Studio fixtures to find their real macOS path; `XDG_DATA_HOME` does not move
-LÖVE's macOS save directory. The renamed game uses the `roag-foundation`
-identity, whose expected location on this Mac is
-`~/Library/Application Support/LOVE/roag-foundation`; Studio displays the
-actual path. Earlier game saves and Studio sources under the previous identity
-are not loaded by this version. No external save directory was deleted or
-merged during the name change. The separate `LOVE/roag` identity belongs to
-another application and remains untouched.
+Game fixtures use isolated LÖVE save identities. `XDG_DATA_HOME` does not move
+LÖVE's macOS save directory; the wrappers keep fixtures separate from the normal
+`roag-foundation` identity at `~/Library/Application Support/LOVE/roag-foundation`.
+No personal save directory is deleted or merged by these commands. ROAG keeps
+one active run and a separate permanent profile.
 
-The following publisher commands are **dry runs**. Supply the save directory
-reported by the Studio project, and review the plan. Only an explicit
-`--apply` writes a published pack into the checkout. Keep editable source
-projects and layers in the LÖVE save directory; published PNGs and atlases are
-derived copies.
+Publisher commands and editor GUI harnesses moved out of this game project.
+The fixed artwork, optional published world/audio readers and presentation-only
+F5 remain. See [current acceptance](ROAG_IDEA_ACCEPTANCE.md) for the full current
+verification and [audio runtime](ROAG_AUDIO_EXPANSION.md) for pack contracts.
 
-```sh
-luajit tools/studio_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my_project
-luajit tools/studio_world_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my_project
-luajit tools/studio_theme_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my_project
-luajit tools/studio_atlas_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my_project
-```
-
-The matching Makefile shortcut is `make publish-preview PROJECT=my_project`.
-Use `PUBLISHER=world`, `theme`, `audio`, or `atlas` for the other packs; compile
-an atlas candidate first with `make atlas-build`. Applying a reviewed plan
-requires `make publish-apply PROJECT=my_project APPLY=yes`, with
-`OVERWRITE=yes` only when the publisher requires it. Set `SAVE_DIR` explicitly
-if Studio shows a different location. Studio's own **P → D → A** flow publishes
-loose visual art without a shell command.
-
-These tests use synthetic GUI callbacks, screenshots, and temporary art. They
-do not establish physical keyboard, mouse, or Wacom feel. The renamed identity
-starts fresh; automated fixtures are not personal Studio projects.
+These tests use synthetic GUI callbacks and screenshots. They do not establish
+physical keyboard, mouse, controller, Wacom or listening acceptance. The latest
+integration measurements were made on Fedora WSL/llvmpipe; this guide describes
+how to run macOS checks, not a claim that the latest expansion was tested there.

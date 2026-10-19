@@ -144,3 +144,42 @@ Feedback: OS/native-or-WSLg; input device; class/seed/action if known; expected
 versus observed; screenshot/log; whether effects-off changes perceived stutter;
 whether target tiles, proc summaries, chest choices and death reasons are clear.
 Physical Paint/tablet checks belong to the separate editor project.
+
+## Production repository cleanup
+
+The follow-up audit removed 76 confirmed obsolete artifacts: retired ROAG Studio
+and multi-pack trial guides, old comparison/menu screenshots, disconnected E05/
+E06 wrappers, unused mixed-pack GUI scripts, the unconsumed theme renderer and
+obsolete HTML embedding builders. Unreachable theme branches were removed from
+`main.lua`; the fixed 1-Bit drawing path remains the same. World/audio readers,
+validated external pack contracts, current tests and original asset bytes stay.
+
+The surviving review HTML, raw feedback, templates and source inventories are
+intentional approval provenance, not unfinished production UI. Their hash
+contracts still pass. The live catalogue and pixel gallery remain useful tools.
+Older milestone reports are explicitly historical; current audio/Mac instructions
+no longer advertise editor/publisher commands absent from ROAG.
+
+Room compilation now uses `tools/room_data.py` / `tools/export_rooms.lua` rather
+than extracting JSON from review HTML. A real rebuild is byte-identical for all
+105 runtime definitions. `make room-expansion-check` is read-only; an isolated
+stale-output fixture fails without rewriting it. The 700 biome/seed pairs pass
+with all 105 templates sampled, zero fallback and zero repairs.
+
+Only README's Controls H2 text changed, retaining its Key/Action table. Prefix
+and suffix SHA-256 checks prove every byte outside that section is unchanged.
+Its four previously missing screenshot paths now contain actual native game
+captures (including prepared chest/build scenes, not a claim of legal travel).
+All retained Markdown/HTML file targets and static Lua imports resolve.
+
+The post-cleanup full gate passes **837/837**, **637.43 s**, peak RSS
+**160832 KiB**, exit 0. Log: `/var/tmp/roag-production-cleanup-headless-20261019.log`.
+These are verification records, not a matched performance comparison.
+
+Post-cleanup callback gates pass for menus, fixed-art native pixels, corrupt-art
+fallback, Save/Continue and dotted attack previews. **20/20 menu screenshots are
+exactly RGBA-identical** before and after theme-branch removal. Full logs and
+comparison results are `/var/tmp/roag-production-cleanup-*20261019*`.
+No extra visual-juice proposal is implemented by this cleanup; those await the
+user's decision in chat. The historical native crash/hang and physical/native
+acceptance limits above remain unchanged.

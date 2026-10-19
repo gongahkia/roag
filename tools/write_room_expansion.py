@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Compile reviewed room prototypes to plain Lua definitions for the game."""
 
+import argparse
 import json
 from pathlib import Path
-import re
 
-from room_prototypes import build_proposals
+from room_data import room_data
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,11 +29,11 @@ def lua(value):
 
 
 def main():
-    review_html = (ROOT / "docs/room-review/review.html").read_text()
-    match = re.search(r'<script id="room-data" type="application/json">(.*?)</script>',
-                      review_html, re.DOTALL)
-    assert match, "room review source data missing"
-    proposals = build_proposals(json.loads(match.group(1))["rooms"])["families"]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true',
+                        help='verify compiled definitions without writing')
+    args = parser.parse_args()
+    proposals = room_data()["proposals"]["families"]
     order = ["core:room/" + group["family"] for group in proposals]
     definitions = {}
     for group in proposals:
@@ -52,8 +52,13 @@ def main():
     for room_id, definition in definitions.items():
         lines.append("    [" + lua(room_id) + "]=" + lua(definition) + ",")
     lines.extend(("}", "return Expansion", ""))
-    OUTPUT.write_text("\n".join(lines))
-    print(f"Wrote {len(definitions)} approved rooms to {OUTPUT.relative_to(ROOT)}")
+    compiled = "\n".join(lines)
+    if args.check:
+        assert OUTPUT.read_text() == compiled, 'Stale room definitions; run make room-expansion'
+        print(f"PASS {len(definitions)} compiled rooms match live authored data")
+    else:
+        OUTPUT.write_text(compiled)
+        print(f"Wrote {len(definitions)} approved rooms to {OUTPUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

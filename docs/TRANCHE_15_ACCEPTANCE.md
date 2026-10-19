@@ -1,5 +1,10 @@
 # Tranche 15 gameplay acceptance and playtest handoff
 
+**Historical tranche report.** These measurements predate the later expansion,
+fixed 1-Bit artwork and Studio extraction. Use [current acceptance](ROAG_IDEA_ACCEPTANCE.md)
+for the active controls, test results and playback limits. Studio tooling now
+belongs to the separate Paint project.
+
 This tranche changes presentation pacing only. Consecutive committed enemy
 windups display their locked cells in one 550 ms beat. Consecutive cues of the
 same kind in a boon cascade share a beat capped at 360 ms. A `DamageTaken`
@@ -21,7 +26,6 @@ TMPDIR=/var/tmp luajit tests/profile_headless.lua 30
 TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-t15-game-gui
 TMPDIR=/var/tmp sh tests/tranche15_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/profile_gui.sh
-TMPDIR=/var/tmp sh tests/studio_e05_profile.sh
 ```
 
 `tranche15_probe.lua` uses generated floors for seeds 1–20 in each biome. Its

@@ -124,18 +124,18 @@ locks, canonical artillery friendly fire, trap bounds/cleanup, save bytes,
 old snapshots and seeded placement. The 210-floor corpus placed **209 squads**,
 all five types and every 2–5 follower count; one floor safely omitted a group.
 
-The GUI harness renders all five groups in all three packs, checks the actual
+The original GUI gate exercised the then-selectable packs. The current harness
+checks all five groups in the fixed 1-Bit look and checks the actual
 native actor/cue Quads drawn, and verifies a pending channel across two separate
 disk processes with identical future events. It also captures a native
-procedural Archive room (seed 2) in both Kenney looks. Each invocation uses
-**19 fresh processes**, with 19 screenshots. F5 is exercised twice in each
+procedural Archive room (seed 2). The current invocation uses **eight fresh
+processes**; earlier 19-process counts belong to the retired multi-pack gate. F5 is exercised twice in each
 process; snapshots must remain byte-identical through refresh and rendering.
 Artifacts/logs are retained under the supplied `/var/tmp` output directory.
 
 ### Rendered examples
 
-[Mixed Kenney generated room](sprite-audit/live-squads/wizard-kenney.png) ·
-[Standalone 1-Bit generated room](sprite-audit/live-squads/wizard-onebit.png).
+[Kenney 1-Bit generated room](sprite-audit/live-squads/wizard-onebit.png).
 These are actual game-renderer captures with the naturally placed squad and
 unaltered room geometry. The fixture positions the player near the group for
 the camera, then submits two ordinary waits to complete the wizard's channel.

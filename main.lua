@@ -102,7 +102,6 @@ local volume_slider={left=480,right=770,keys={'master','music','effects'}}
 local achievement_page=0
 local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
-local studio_theme,studio_theme_status
 local refresh_pending=false
 local refresh_result='not requested'
 local visual_refresh_message=''
@@ -334,11 +333,10 @@ local function reset_camera()
     camera_state = state
 end
 
-local function visual_fingerprint(visuals,theme,world)
+local function visual_fingerprint(visuals,world)
     local sum=require('src.studio_atlas').checksum
     local parts={visuals.status,visuals.atlas_status or '',
         visuals.generated and visuals.generated.signature or '',
-        theme and require('src.studio_theme').encode(theme.theme) or '',
         world and require('src.studio_world').encode(world) or ''}
     if visuals.read then
         parts[#parts+1]=sum(visuals.read('assets/studio/manifest.txt') or '')
@@ -426,14 +424,13 @@ function love.load(args)
     if generated_status~='loaded' then
         print('1-Bit artwork fallback: '..tostring(generated_status))
     end
-    studio_theme,studio_theme_status=nil,'disabled by fixed artwork'
     local world_pack
     world_pack,studio_world_status=StudioWorldRuntime.inspect(function(path)
         return love.filesystem.read(path)
     end)
     next_world_pack=world_pack
     visual_assets:check_atlas()
-    visual_signature=visual_fingerprint(visual_assets,studio_theme,world_pack)
+    visual_signature=visual_fingerprint(visual_assets,world_pack)
     Generation.install_studio_pack(world_pack)
     if spectator_enabled then
         title=false
@@ -475,15 +472,6 @@ function love.load(args)
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio world: '..studio_world_status
         end
-        if studio_theme_status~='absent' and studio_theme_status~='loaded' and
-            studio_theme_status~='disabled by fixed artwork' then
-            persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
-                'Studio theme: '..studio_theme_status
-        end
-        if studio_theme and studio_theme.warning then
-            persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
-                'Studio theme fallback: '..studio_theme.warning
-        end
     end
     sync_audio_scene()
 end
@@ -519,7 +507,7 @@ local function refresh_visuals()
         print('Visual refresh '..refresh_result)
         return false
     end
-    local signature=visual_fingerprint(candidate,nil,world)
+    local signature=visual_fingerprint(candidate,world)
     local same=signature==visual_signature
     visual_assets,art_status=candidate,generated_status
     studio_world_status=world_status
@@ -1615,9 +1603,7 @@ local function actor_visual(binding,id)
     return pose and bound_visual(binding..'/'..pose) or bound_visual(binding)
 end
 local function menu_frame(title,x,y,w,h)
-    if studio_theme and studio_theme:draw_panel(x,y,w,h)then
-        PixelUI.center(title,y-6,ui_display_font,PixelUI.colors.selected,x,w)
-    else PixelUI.frame(title,x,y,w,h,ui_display_font)end
+    PixelUI.frame(title,x,y,w,h,ui_display_font)
 end
 local expansion_enemy_colors={
     ["core:enemy/mossbreaker"]={0.42,0.69,0.34},
@@ -2854,11 +2840,7 @@ local function draw_world()
                 local key=event.kind..':'..event.x..':'..event.y
                 if not seen[key] then
                     seen[key]=true
-                    if studio_theme then
-                        studio_theme:draw_effect(event,playback,
-                            function(x,y) return Camera.tile_top_left(camera,x,y) end,
-                            visible_at)
-                    elseif visible_at(event.x,event.y) then
+                    if visible_at(event.x,event.y) then
                         local id=Presentation.effect(event)
                         local art=bound_visual(id)
                         if art then
@@ -2984,35 +2966,25 @@ local function draw_panel()
     local map=Content.map_for(state)
     local biome=state.finale and 'FINAL SANCTUM' or
         Biomes.get(map.biome_id or Biomes.order[1]).name:upper()
-    if not (studio_theme and studio_theme:draw_panel(16,544,992,80))then
-        g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
-        g.setColor(PixelUI.colors.edge);g.rectangle('fill',16,544,992,2)
-    end
+    g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
+    g.setColor(PixelUI.colors.edge);g.rectangle('fill',16,544,992,2)
     g.setFont(ui_body_font)
     g.setColor(PixelUI.colors.text);g.print('HEALTH',28,553)
     local hp=('%d/%d'):format(player.hp,player.max_hp)
-    if not (studio_theme and studio_theme:draw_icon('hp_icon',28,570,16))then
-        draw_visual(bound_visual('core:ui/hp_icon'),28,570,16,16)
-    end
-    if not (studio_theme and studio_theme:draw_text('HP '..hp,50,571,1))then
-        g.setColor(player.hp*4<=player.max_hp and {1,.4,.4} or PixelUI.colors.text)
-        g.print(hp,50,571)
-    end
+    draw_visual(bound_visual('core:ui/hp_icon'),28,570,16,16)
+    g.setColor(player.hp*4<=player.max_hp and {1,.4,.4} or PixelUI.colors.text)
+    g.print(hp,50,571)
     local low=player.hp*4<=player.max_hp
     hud_meter(125,571,135,12,player.hp,player.max_hp,low and .94 or .65,low and .31 or .8,low and .31 or .52)
     local level=state.progression.level
     local previous=level>1 and Rewards.next_threshold(level-1) or 0
     local earned=state.progression.xp_total-previous
     local needed=Game.next_level_xp(state)-previous
-    if not (studio_theme and studio_theme:draw_icon('xp_icon',282,570,16))then
-        draw_visual(bound_visual('core:ui/xp_icon'),282,570,16,16)
-    end
+    draw_visual(bound_visual('core:ui/xp_icon'),282,570,16,16)
     g.setColor(PixelUI.colors.text)
     g.print(('LV %d   XP %d/%d'):format(level,earned,needed),282,553)
     hud_meter(306,573,108,8,earned,needed,.55,.65,.92)
-    if not (studio_theme and studio_theme:draw_icon('currency_icon',442,570,16))then
-        draw_visual(bound_visual('core:ui/currency_icon'),442,570,16,16)
-    end
+    draw_visual(bound_visual('core:ui/currency_icon'),442,570,16,16)
     g.setColor(PixelUI.colors.selected);g.print('GOLD  '..state.currency,442,553)
     g.setColor(PixelUI.colors.text);g.print(biome,558,553)
     g.setColor(PixelUI.colors.muted)
@@ -3355,7 +3327,6 @@ end
 
 local function draw_title_page()
     local g=love.graphics
-    if studio_theme then studio_theme:draw_background('title_background',0,0,g.getDimensions())end
     if title_view=='home'then
         g.setFont(ui_display_font);g.setColor(PixelUI.colors.selected)
         g.print('ROAG',(g.getWidth()-ui_display_font:getWidth('ROAG')*3)/2,104,0,3,3)
@@ -3527,10 +3498,6 @@ function love.draw()
         PixelUI.dim(.6)
         if pause_settings then draw_settings()
         else
-            if studio_theme then
-                studio_theme:draw_background('pause_background',0,0,love.graphics.getDimensions())
-                PixelUI.dim(.35)
-            end
             menu_frame('PAUSED',288,184,448,264,ui_display_font)
             for i,label in ipairs({'RESUME','SAVE & QUIT','SETTINGS'})do
                 PixelUI.option(i..' '..label,306,252+(i-1)*44,412,pause_selection==i,ui_display_font)
@@ -3633,7 +3600,6 @@ function love.roagAudioDiagnostics()
         fallback_binding_count=audio_runtime.fallback_binding_count or 0}
 end
 function love.roagWorldPackStatus() return studio_world_status end
-function love.roagThemeStatus() return studio_theme_status or 'absent' end
 function love.roagAtlasStatus()
     return visual_assets and visual_assets.atlas_status or 'absent'
 end
@@ -3642,7 +3608,6 @@ function love.roagAssetBacking(id)
     return handle and handle.source or 'fallback'
 end
 function love.roagVisualPackMode() return VisualPacks.default end -- read-only diagnostic
-function love.roagThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
 function love.roagAssetResolved(binding)
     return visual_assets and visual_assets:resolve(binding)~=nil or false
 end

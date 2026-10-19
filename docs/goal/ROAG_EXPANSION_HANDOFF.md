@@ -1,5 +1,10 @@
 # ROAG expansion: Windows/WSL to Mac handback
 
+Current game/verification instructions are in [the integration guide](../ROAG_IDEA_ACCEPTANCE.md).
+Studio authoring and publishers have moved to the separate Paint project;
+this game checkout no longer launches an editor. The original milestone report
+remains historical evidence.
+
 This document is for the single autonomous expansion goal. It does not change
 Git history, active-run saves, permanent profiles or Studio projects.
 
@@ -29,7 +34,6 @@ From the ROAG checkout with LuaJIT and LÖVE 11.5:
 ```sh
 TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp bash tests/repeat_gui_smokes.sh 3 /var/tmp/roag-game-gui
-TMPDIR=/var/tmp bash tests/expansion_audio_gui_smoke.sh
 TMPDIR=/var/tmp bash tests/finale_disk_resume.sh
 luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roag-adventurer.trace adventurer
 luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roag-ranger.trace ranger
@@ -37,14 +41,12 @@ luajit tests/expansion_full_victory_trace.lua 45 /var/tmp/roag-arcanist.trace ar
 luajit tests/expansion_full_victory_trace.lua 28 /var/tmp/roag-berserker.trace berserker
 love --version
 love .
-love . --studio
 ```
 
 `tests/expansion_generation_profile.lua` validates and times 100 generated
 floor pairs per biome. `tests/expansion_profile.lua 9 adventurer` measures a
 legal full run; `tests/profile_headless.lua 12` measures a synthetic crowd and
-boon chains. `tests/profile_gui.sh` and `tests/studio_e05_profile.sh` sample
-the current renderer. Profiles are measurements, not pass/fail promises.
+boon chains. `tests/profile_gui.sh` samples the current renderer. Profiles are measurements, not pass/fail promises.
 
 The suite uses temporary LÖVE save directories for GUI/disk fixtures. Never
 point these commands at a personal Studio/save directory. GUI harnesses send
@@ -54,7 +56,7 @@ tablet or listening checks.
 ## Ten-to-twenty-minute physical playtest
 
 1. On the actual Mac or Windows desktop, launch `love .`, choose each class
-   with **1–4**, start a normal run with **N**, and verify move, eight-way aim,
+   through **New Run → class chooser**, start with **Enter**, and verify move, eight-way aim,
    special, Dash/step and 80-ms board-piece slides. If a controller is
    available, try shoulder-button class selection, Y New Run, D-pad menu
    choice, A confirm and B cancel; gamepad play aims cardinally while keyboard
@@ -67,7 +69,7 @@ tablet or listening checks.
    fight a biome miniboss, claim the free reward and make a route choice.
    Continue toward the Hollow Regent if time permits. Check that a defeat or
    Victory screen names the correct cause and route.
-4. Save & Quit, relaunch and Continue. In Studio, audition a WAV/Ogg sound,
+4. Save & Quit, relaunch and Continue. In the separate Paint editor, audition a WAV/Ogg sound,
    assign a cue, save/reopen, publish after reviewing its author/license, then
    press **F5** in a running game. Confirm audio balance on actual speakers.
    If using a Wacom pen, check ordinary mouse-emulation drawing separately;

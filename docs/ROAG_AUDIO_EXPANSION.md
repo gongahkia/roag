@@ -1,121 +1,65 @@
-# ROAG Studio audio authoring (M7)
+# Audio runtime and published packs
 
-Launch `love . --studio`. Open or create a Studio project, then press **Y Audio**
-on the project screen. **F8** opens the same contextual Cue Picker from a room
-or UI theme editor. The current authored room, or the UI category, is selected
-first. Audio never belongs to a game snapshot and never advances game time.
+ROAG contains audio playback and validated pack readers. Studio authoring,
+import, cue picking and publishers belong to the separate Paint project; this
+checkout has no `make studio`, `--studio` editor or audio-publish command.
+Do not run historical publisher commands from ROAG.
 
-The picker lists stable cue IDs for all six classes and their attacks, every
-regular enemy and biome elite, all 52 boons, six mechanical terrains, room
-templates, seven biomes, doors/rewards, UI actions, the finale, ambience and
-music. Press **F** and search by name, ID, class, enemy, boon or room. Press
-**C** to cycle categories. The left/right keys bind or unbind the selected
-audio clip. **A** adds an independent variant, **V** selects the next variant,
-and **W** edits its relative weight. The runtime cycles weighted variants on
-its own presentation counter; it never uses the simulation RNG.
+## Built-in playback
 
-## Sound Library controls
+`src/audio_cues.lua` derives stable contextual cue IDs from the current class,
+enemy, biome, boon and room registries. `src/studio_audio_runtime.lua` routes
+visible canonical events to those cues. Presentation counters choose variants;
+they never draw simulation RNG or advance world time.
 
-- **Tab** switches Library / Cue picker / Mixer. Up/down or a mouse click
-  selects an item. **F** filters library names, tags, authors and IDs.
-- Drop a **PCM WAV** or **Ogg Vorbis** file in the Audio view to import and
-  decode it. Studio rejects malformed and over-32-MiB data. Each **I** adds
-  the next original synthesized sample (step, hit, boon, menu, enemy,
-  terrain, music, ambience) if no sound file is available. **P**
-  auditions the selected clip or cue; **X** stops playback. `[` and `]` set
-  audition level; **M** mutes/unmutes the preview.
-- In Library, **N/T/A/L/U** edit display name, tags, author, license and
-  source URL. **R** arms a file drop to replace the selected sound while
-  retaining its stable ID. **Delete** asks before removing metadata and
-  refuses removal while any cue refers to the ID. Previous source bytes
-  remain intact for recoverable older generations.
-- In Cue picker, **E/G/L/W/J/K/D/H/T/O** edit volume, pitch, loop,
-  variant weight, priority, voice cap, cooldown, distance range, music
-  transition mode and transition duration. Values are validated before
-  acceptance. Transition modes are `instant`, `fade` and `crossfade`.
-  The audio view reached by **F8** from UI Theme or World Room uses exactly
-  these controls to edit scene and local-room music/ambience.
-- In Mixer, left/right changes the selected category's volume; **M** toggles
-  mute. **Ctrl+Z/Y** undo/redo metadata edits. **S** saves; **Esc** returns
-  after saving. Studio prevents an unsaved audio document from closing
-  silently, and an in-progress audio import never changes a player profile.
+`src/studio_audio_samples.lua` generates the original small placeholder sounds
+and looped motifs. They remain deliberately provisional, not a composed
+soundtrack. Music follows title, biome exploration, elite, final boss, Victory
+and Defeat. Compatible authored room music/ambience takes precedence while the
+player occupies that room. Voice caps, cooldowns, attenuation, fades and
+crossfades belong only to presentation.
 
-The current Studio project and audio document live under
-`love.filesystem.getSaveDirectory()/studio/projects/<project-id>/`.
-`audio-a.pack` and `audio-b.pack` are checked metadata generations. Original
-WAV/Ogg bytes live under `audio/` with stable-ID and checksum filenames.
-Replacing a sound writes new immutable bytes and keeps the older generation.
-For a verified personal save location, use the path shown on the Studio
-project screen; it varies by OS and LÖVE filesystem identity.
+In **Settings → Sound**, click or drag Master, Music & ambience, and Effects &
+UI sliders. Percentages appear on the right. Keyboard left/right adjusts the
+selected slider. These settings are stored separately from the active run and
+permanent profile.
 
-## Publish and play
+## Optional published audio
 
-Save the Studio project. From the ROAG checkout, inspect the proposed audio
-files and metadata record:
+The retained contracts are `src/studio_audio.lua` and
+`src/studio_audio_store.lua`. A compatible external publisher supplies checked
+`assets/studio/audio-a.pack` / `audio-b.pack` metadata and content-addressed
+clips under `assets/studio/audio/`. Separate world/audio/art publications are
+not one atomic transaction. Keep editable sources outside derived runtime packs.
 
-```sh
-luajit tools/studio_audio_publish.lua --save-dir "<LÖVE save directory>" --project <project-id>
-```
+A valid partial pack overrides its bound cues; unbound contexts retain built-in
+samples. Absent or corrupt checked metadata permits built-in fallback. Missing,
+corrupt or undecodable candidate clips reject replacement; refresh keeps the
+last good playing resources where possible. A fresh process still starts with
+safe built-in audio if optional content cannot load.
 
-Then apply deliberately:
-
-```sh
-luajit tools/studio_audio_publish.lua --save-dir "<LÖVE save directory>" --project <project-id> --apply
-```
-
-If the selected checked manifest slot is occupied, add `--overwrite` after
-reviewing the dry run. The publisher copies verified source clips to
-`assets/studio/audio/` first and writes `audio-a.pack` or `audio-b.pack` last.
-It never overwrites a changed content-addressed clip filename, an original
-Studio source, a run save or a profile. Source art, world, theme, atlas and
-audio publishes are separate, **not one cross-pack transaction**. Publish
-referenced rooms/visuals first when using their optional packs.
-
-The normal game loads the latest complete compatible audio generation. A
-**partial** published pack overrides only its bound cues; every unbound cue
-retains the original placeholder binding. When the pack is absent or corrupt,
-the game uses the complete set of small original synthesized placeholders
-for movement, hits, enemy telegraphs, terrain, boons, menu confirmation,
-seven-biome exploration/elite music, ambience and finale/title/end music.
-These are generated by `src/studio_audio_samples.lua`, contain no external
-licensed material, and are intentionally provisional. Imported files supplied
-by the player retain their author/license/source fields. No external
-OpenGameArt file was fetched or claimed as original.
-The tiny `tests/fixtures/original_test_tone.ogg` decoder fixture is a
-procedurally synthesized 440-Hz, 0.25-second stereo tone encoded as Ogg
-Vorbis for the fresh-process import/publish smoke. It contains no
-third-party recording; SHA-256 is
-`a44a9284c4d73c550a506f9a58313a74092ad751e0388a36b27fdf7abc4d7358`.
-
-In the running game, **F5** refreshes visuals and audio without modifying the
-current floor, RNG, scheduler or snapshot. Audio sources are validated before
-switching; an incompatible replacement keeps the previously playing audio
-where possible, and a fresh process with broken optional audio uses the
-original placeholders. Title and HUD notices report rejected/corrupt packs.
-Music follows title, biome exploration, biome elite, final boss, Victory and
-Defeat. Authored room music/ambient bindings take precedence while the
-player is inside that room. Floor, pause and Continue changes are handled
-from current presentation state. Sounds from canonical gameplay events pass
-through the game's existing visibility filter, so unseen enemy activity does
-not leak through sound playback.
-
-Sound playback uses LÖVE 11.5 `FileData` and `love.audio.newSource`: `static`
-for short effects and `stream` for music/long clips. Sources are cloned for
-bounded polyphony. The clock, variant counter, voice caps and transitions are
-presentation-only. WAV imports support mono/stereo PCM8 or PCM16 at
-8–96 kHz, with duration 0.01–1800 seconds; Ogg Vorbis is checked by the
-LÖVE decoder. The optional audio pack is independent of graphics atlases.
+Press **F5** in the game to refresh artwork/audio. Concise notices report the
+result. It does not modify the active geometry, scheduler, RNG, pending attacks,
+profile or run snapshot. Source handles use LÖVE 11.5 `FileData` and
+`love.audio.newSource` (`static` effects, `stream` music/long clips), with bounded
+cloned voices and retiring transitions.
 
 ## Verification and limits
 
-Run `TMPDIR=/var/tmp luajit tests/run.lua` and
-`TMPDIR=/var/tmp sh tests/expansion_audio_gui_smoke.sh`. The GUI smoke uses
-fresh isolated LÖVE save directories, imported WAV bytes, source replay,
-audition, dry-run/apply, actual movement and title→exploration music/crossfade
-in a game process, per-cue fallback and same-process F5 corruption recovery.
-It is callback-driven evidence of LÖVE
-source creation/play calls, **not a human listening test**. Built-in looped
-music is a short placeholder motif, not a composed soundtrack. Linux/WSL
-audio output and native Windows/macOS speakers still need human listening
-acceptance. Physical mouse, tablet and keyboard use were not claimed by the
-automated checks.
+```sh
+TMPDIR=/var/tmp luajit tests/run.lua
+sh tests/visual_packs_disk_smoke.sh
+sh tests/idea_environment_disk_resume.sh
+```
+
+The headless suite includes cue registry, format/store validation, placeholder
+coverage, transitions and last-good reload behavior through mocked audio
+sources. Native GUI refresh/persistence checks and their limits are recorded in
+[the current acceptance guide](ROAG_IDEA_ACCEPTANCE.md). No obsolete Studio audio
+GUI script is required in this game checkout.
+
+`tests/fixtures/original_test_tone.ogg` is a synthesized 440-Hz, 0.25-second
+stereo decoder fixture, not a third-party recording. Its SHA-256 remains
+`a44a9284c4d73c550a506f9a58313a74092ad751e0388a36b27fdf7abc4d7358`.
+Physical speakers, headphones and human listening remain separate acceptance
+work; callback/source-creation tests do not establish how the audio sounds.

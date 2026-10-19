@@ -1,5 +1,13 @@
 # ROAG autonomous expansion report (working)
 
+**Historical milestone report:** Studio and publishers subsequently moved to
+Paint; ROAG now has fixed 1-Bit art and the later approved content expansion.
+See [current integration acceptance](../ROAG_IDEA_ACCEPTANCE.md) and
+[the active idea ledger](ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md) for current
+results. Commands naming removed Studio scripts below record the original
+milestone environment, not commands to run in this game checkout.
+
+
 Status: **COMPLETE for implementation and automated acceptance**. The
 committed-source Git handoff and M0 baseline are verified in
 [`ROAG_EXPANSION_PROGRESS.md`](ROAG_EXPANSION_PROGRESS.md). Human play,

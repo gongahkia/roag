@@ -1,8 +1,10 @@
 # Approved environment and presentation batch
 
 This implements the approved room-art and presentation directions after the
-[three terrains](ROAG_IDEA_TERRAINS.md). **Stop here before the additional-boon
-batch.** There are still seven biomes, fifteen classes and 53 current boons.
+[three terrains](ROAG_IDEA_TERRAINS.md). The requested stop at this checkpoint
+was honored; the later approved boon/integration pass is now complete. There
+are seven biomes, fifteen classes and 103 current boons. See
+[current acceptance](ROAG_IDEA_ACCEPTANCE.md) for native GUI, F5 and save results.
 No crafting, durability, new biome, animation system or UI redesign is added.
 
 ## See the changes
@@ -159,8 +161,8 @@ Separate processes verify exact room plans/handles in the fixed look, 25 resolve
 replacements each, exact legal-action events/RNG and checked save generations
 1→2. These are headless resource tests, not live GPU F5 tests. The full-suite
 result and retained logs are recorded in the
-[progress ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md). Real LÖVE GUI,
-human contrast/readability, physical mouse/keyboard/Wacom and native GPU
+[progress ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md). Subsequent native LÖVE GUI and F5 gates passed as recorded in current acceptance.
+Human contrast/readability, physical mouse/keyboard/Wacom and native GPU
 performance remain outstanding. Do not infer a historical crash fix from
 these headless passes.
 

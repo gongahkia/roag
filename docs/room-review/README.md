@@ -1,9 +1,11 @@
-# Room expansion
+# Approved room-layout archive
 
-Open [review.html](review.html) directly, or serve this directory with
-`http-server docs/room-review` and visit `/review.html`. The page is
-self-contained, switches among all three sprite modes, and groups the 105
-expanded layouts into 15 families rather than requiring 105 separate votes.
+[review.html](review.html) preserves the approved layout diagrams and historical
+art comparisons. It is an offline design record, not the current game UI or an
+art-pack selector. No further vote is pending. The game has one fixed Kenney
+1-Bit look. Current authoring/build instructions are in [ROOMS.md](../ROOMS.md).
+The compiler reads validated Lua definitions and Python prototypes directly;
+it does not read or regenerate this HTML archive.
 
 ## Approval and implementation
 

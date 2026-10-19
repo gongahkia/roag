@@ -46,32 +46,45 @@ on its right and saves when released. Arrow keys adjust the selected volume too.
 
 ## Controls
 
-On the title screen, choose **Continue** for the saved run or **New Run** to
+On the title screen, select **Continue** for the saved run or **New Run** to
 choose a class. A new run replaces the single active save after confirmation.
+The camera has a fixed zoom.
 
 | Key | Action |
 | --- | --- |
+| `W` / `S` or arrows, then Enter | Select and confirm menu options |
+| Title: `C` / `N` / `U` | Continue the saved run / quick-start the selected class / view achievements |
+| Class chooser: arrows or `W` / `A` / `S` / `D` | Cycle all fifteen classes; `1`–`9` select the first nine, Enter starts the selected class |
 | `W` / `A` / `S` / `D` or arrows | Move one cardinal tile; bump a hostile to attack or a chest/exit to inspect |
-| `F` / `R` / `X` | Aim the class's basic attack / special / movement skill |
+| `F` / `R` / `X` | Aim the class's basic attack / special / movement skill; Wayfinder's `X` returns immediately when a beacon exists |
 | Direction, then Enter | Choose aim and commit; `Q` / `E` / `Z` / `C` also aim diagonally |
 | `P` or controller LB while aiming | Toggle Pilgrim's Vow when owned; its HP price is paid only on a committed attack |
-| Space | Wait one action |
-| `I` / `V` | Open boons and character stats / advance the boon page |
+| Space / `.` / keypad `5` | Wait one action |
+| `I` / `V` | Open boons and character stats / open or advance the boon page |
+| Boon panel: up/down, left/right or wheel, Enter | Select a boon, change pages, inspect it; `I` or Escape closes the panel |
 | `E` while exploring | Inspect nearby room objects and services |
-| `U` | Inspect or use the carried utility item |
+| `U` | Inspect or use the carried utility; when aiming an Escape Scroll, `1`–`3` choose distance |
+| Chest/route: `1`–`3` or arrows, then Enter | Select and confirm an offer/route; Escape cancels without spending |
+| Room service: arrows, then Enter | Select, inspect and confirm; Escape goes back |
 | `Tab` | Show or hide the minimap |
-| `F1` | Show contextual game help |
-| `F5` | Refresh artwork/audio without changing the run |
-| Escape | Cancel aiming, close a panel, or open Pause; Save & Quit and Settings are in Pause |
-| `W` / `S`, arrows, Enter | Select and confirm menu options |
+| `F1` / `F3` / `F5` | Contextual help / diagnostics / refresh artwork and audio without changing the run |
+| Escape | Cancel aiming, close a panel or open Pause |
+| Pause: `S` or `2` / `3` | Save & Quit / open Settings |
+| Settings: left/right, `Tab` or `]`, `[` | Adjust the selected option, next category, previous category |
+| Left click / drag | Select menu options and nearby objects / adjust volume sliders; double-click a boon to inspect it |
+| Controller D-pad, A / B, Start / Back | Move or aim; confirm / cancel; pause / minimap |
+| Controller X / Y / RB | Aim basic attack / special / movement skill |
+| Controller LB / left-stick click / right-stick click | Open/advance boons (toggle Vow when aiming) / nearby services / utility |
 
 Attacks resolve immediately; committed recovery and enemy telegraphs still
 advance through the deterministic scheduler. During visual playback, wait for
 the input gate to clear before committing the next action.
 
 **Developer shortcut:** `B` changes the showcase loadout and makes the run
-ineligible for permanent achievements. It is not a bomb command. Use
-`make spectator` for disposable artwork inspection without using the active save.
+ineligible for permanent achievements. It is not a bomb command.
+`make spectator` opens disposable artwork inspection without using the active
+save: `F6` toggles the free camera, `F7` cycles biomes, `F8` changes floors,
+`F9` changes classes, and movement keys pan the free camera (Shift pans faster).
 See the [additional boon guide](docs/ROAG_IDEA_BOONS.md) for the current pass and
 its verification limits.
 

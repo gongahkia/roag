@@ -2,7 +2,8 @@
 
 The [review feedback](sprite-audit/ideas-feedback-summary.md) is the feature
 and art authority. The [goal ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md)
-tracks the unfinished expansion. These additions use the existing class
+records the completed engineering expansion. Native GUI and exact save/replay
+results are in [current acceptance](ROAG_IDEA_ACCEPTANCE.md). These additions use the existing class
 selection, action scheduler, combat batches and checked run saves.
 
 ## Duelist

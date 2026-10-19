@@ -1,4 +1,10 @@
-# Review the next ROAG ideas
+# Preserved idea-review instructions
+
+**Historical approval archive:** the review is complete. Its original counts,
+comparison controls and feedback instructions below describe the reviewed
+snapshot. Current gameplay and verification are in [the acceptance guide](../ROAG_IDEA_ACCEPTANCE.md);
+current artwork coverage is in [the sprite guide](../ROAG_SPRITE_AUDIT.md).
+No new vote or art-pack selection is required.
 
 Open **[the interactive idea review](ideas.html)**. It is entirely offline,
 contains the original source PNGs, and cannot edit or publish the game.

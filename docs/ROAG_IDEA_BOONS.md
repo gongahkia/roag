@@ -346,7 +346,7 @@ Actual GUI verification uses LÖVE **11.5**, OpenGL 4.6 Mesa **26.2.4 llvmpipe**
 not human play, physical keyboard/mouse/Wacom input or native GPU performance.
 All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 
-### Still required for final acceptance
+### Historical acceptance checklist — completed by the final integration below
 
 Latest clean full gate for **17 additions**: **732/732**, 432.31 s,
 152,544 KiB peak LuaJIT RSS, log
@@ -464,7 +464,8 @@ eight dice histories and native source-pixel comparisons for every one of the
 later state/events. These are assisted fixtures, not earned full runs. Logs:
 `/var/tmp/roag-support-*20261019.log`, `roag-50-boons-combined-focus-20261019.log`,
 `roag-50-boon-icons-gui-20261019.log`, `roag-last-roll-gui-20261019.log`.
-The complete **832-case** regression and final integration matrix remain pending.
+At this slice checkpoint the complete regression was pending. The later
+**832/832**, then final **837/837** and integration matrix passed as recorded below.
 
 Initial support fixture failures used the wrong generated-biome entry point,
 looked for mist outside its Archive biome, placed a foe on the spirit instead
