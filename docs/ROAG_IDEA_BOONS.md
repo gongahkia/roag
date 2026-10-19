@@ -4,8 +4,8 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Twenty-three additions are implemented so far: 76 total, 72 in a normal unearned
-New Run pool, plus the four existing achievement unlocks. At least 27 more
+**Thirty additions are implemented so far: 83 total, 79 in the normal unearned
+New Run ID list, plus the four existing achievement unlocks. At least 20 more
 additions are still required.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
@@ -88,6 +88,37 @@ render timers, extra inputs or gameplay RNG draws.
 Owner-based pulls deliberately use the owner's alignment even when a commanded
 Spirit also owns strike-origin pattern boons; a regression checks that adding
 Linebreaker's Pawn cannot change Grasping Hand's eligibility.
+
+## Class weapon forms
+
+These seven use existing F/R controls and alter primary cells rather than adding
+an invisible follow-up. The class requirement applies to normal offers. The
+normal ID list is frozen into a run as before; each chest still filters offers
+for that run's actual class.
+
+| Boon / native icon | Class / input | Actual primary change | Bonus C/U/R/L |
+| --- | --- | --- | --- |
+| Pommel Return / 1026 | Adventurer / aimed F | Adds the clear cell directly behind the player; composes with Longblade; bump stays narrow | 1 / 2 / 3 / 4 |
+| Needle Flight / 1063 | Ranger / aimed F | Pierces the clear four-cell ray and keeps valid Splitflight branches; bump does not gain this piercing | 1 / 2 / 3 / 4 |
+| Hollow Sigil / 930 | Arcanist / R | A fully placed sigil spares its center; retains Expanding Sigil's existing outer cells and caster exclusion | 2 / 3 / 4 / 6 |
+| Backswing / 40 | Berserker / R | Adds three clear rear neighbors to the broad cleave; eight neighbors on open ground | 1 / 2 / 3 / 4 |
+| Distant Bastion / 585 | Sentinel / R | Replaces adjacent pulse with the four two-step cardinals and four diagonal neighbors; near cardinals are spared | 1 / 2 / 3 / 4 |
+| Volatile Vial / 194 | Alchemist / F | First creature contact splashes a cardinal cross; clear travel cells remain for normal contact handling | 1 / 2 / 3 / 4 |
+| Split Thrust / 1062 | Duelist / aimed F | Keeps the first stem cell and forks into two side endpoints instead of the straight second cell; bump stays narrow | 1 / 2 / 3 / 4 |
+
+Bonuses sum once per batch before criticals and defense. Base recovery/speed,
+default skills without ownership, P's single Vow cost, skull forcefields and
+primary HP batching remain. Door/stone-corner checks clip added cells. Hollow
+does not erase a short blocked cast's original travel cells. Needle keeps its
+blocked terminal contact so it can still break an ordinary barricade.
+
+Mirrors route Needle/Volatile before branch or splash construction, with the
+actual correct first-contact versus piercing mode. This preserves reflection
+even when a Needle strikes a creature before the mirror. A concealed body does
+not disclose a splash center or change the visible mirror preview; runtime
+still collides with the real body. Previewing/canceling consumes no RNG/time.
+Execution and preview share the same bounded geometry; green dotted outlines
+leave interiors and deliberately spared tiles unchanged.
 
 ## First group: supplies and rewards
 
@@ -240,6 +271,8 @@ TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh
 ROAG_DICE_REFRESHES=12 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh 4
 ROAG_PATTERN_CASE=backtrail_mantle TMPDIR=/var/tmp sh tests/idea_pattern_gui_smoke.sh
 ROAG_CONTROL_BOON_CASE=anchor_maul TMPDIR=/var/tmp sh tests/idea_control_boon_gui_smoke.sh
+TMPDIR=/var/tmp sh tests/idea_weapon_form_gui_smoke.sh
+sh tests/idea_weapon_form_disk_resume.sh
 python3 tools/sprite_audit.py --check
 git diff --check
 ```
@@ -330,7 +363,7 @@ fresh process. Their complete frozen **754-case** gate passes **754/754**, 519.5
 151,852 KiB peak LuaJIT RSS, log `/var/tmp/roag-idea-control-boons-full-20261019.log`. These are assisted
 callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
 
-- Finish the remaining 27+ boons and verify
+- Finish the remaining 20+ boons and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.
@@ -343,6 +376,23 @@ callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
   The last-roll badge also needs a clear history label and visibility when the
   character's existing three-status display is full.
 - Human gameplay and physical input acceptance remain explicitly outstanding.
+
+Class-form slice: **26/26** new cases, **133/133** combined new-boon cases,
+**21/21** actual form GUI processes across three rounds, seven wider-window
+processes, eight prior-pattern GUI processes and seven checked-store
+fresh-process continuations. Captured pixels verify primary green dotted
+outlines, clear/spared interiors and exact visible preview/committed-cell
+agreement. Original-source icon pixels pass over five pages after visual review
+changed an unsuitable boot-like icon to paired points. All 15 original asset
+files remain unchanged; native coverage **559/559**. The complete **780-case**
+full gate passes **780/780**, 557.62 s / 157,208 KiB peak LuaJIT RSS, log
+`/var/tmp/roag-idea-weapon-forms-full-20261019.log`.
+The real GUI Save & Quit -> new process -> Continue path also passes three
+rounds for every form: **21 paired scenarios / 42 processes**, with exact saved
+snapshots and every RGBA8 world-viewport pixel matching. Preview reconstruction
+and F5 retain the saved class/form without a new-run substitution. HUD notices
+are excluded from the world-image comparison because Continue reports its own
+status text.
 
 ## Primary references
 

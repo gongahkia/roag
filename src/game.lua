@@ -434,7 +434,7 @@ local function preview_action(state, kind, dx, dy, steps)
             stair=stair,landing=landing}
     end
     local position = player.position
-    local cells,_,_,_,_,reflection = Game.effective_ability(state,kind,dx,dy,true)
+    local cells,_,_,_,_,reflection,weapon_hint = Game.effective_ability(state,kind,dx,dy,true,true)
     if kind=="sweeping_slash" and (class.id=="core:actor/shade"
         or class.id=="core:actor/trapper") then
         local cell=cells[1]
@@ -462,7 +462,7 @@ local function preview_action(state, kind, dx, dy, steps)
         local valid,reason=Geo.preview(state,Content.map_for(state),cells[1].x,cells[1].y)
         return {valid=valid,reason=reason,cost=cost,cells=cells}
     end
-    return {valid=true, cost=cost, cells=cells,reflection=reflection}
+    return {valid=true, cost=cost, cells=cells,reflection=reflection,weapon_hint=weapon_hint}
 end
 
 function Game.preview(state,kind,dx,dy,steps,options)
@@ -482,7 +482,7 @@ function Game.preview(state,kind,dx,dy,steps,options)
         local ranged,origin
         if kind=='basic_attack' or kind=='sweeping_slash' or preview.bump then
             local _,_,_,r=Game.effective_ability(state,preview.bump and 'basic_attack' or kind,
-                dx,dy,not preview.bump)
+                dx,dy,not preview.bump,true)
             ranged=r
             if kind=='sweeping_slash' and preview.companion_mode=='strike' then
                 origin=Comp.owned(state,'spirit').position
@@ -500,7 +500,7 @@ function Game.preview(state,kind,dx,dy,steps,options)
         preview.valid=false;preview.reason=('vow costs %d HP and must leave 1 HP'):format(vow.hp_cost)
     else
         preview.vow=vow
-        local _,damage=Game.effective_ability(state,kind,dx,dy,true)
+        local _,damage=Game.effective_ability(state,kind,dx,dy,true,true)
         preview.damage=damage+vow.bonus
     end
     return preview
@@ -531,8 +531,8 @@ function Game.interaction_options(state,id,selection)
             if e.offer then local o=e.offer;Boons.set_stacks(p,o.boon_id,o.rarity,(p.boons[o.boon_id] and p.boons[o.boon_id][o.rarity] or 0)+1)end
             local changes={}
             for _,kind in ipairs({'basic_attack','sweeping_slash'})do
-                local a,ad=Game.effective_ability(state,kind,1,0,true)
-                local b,bd=Game.effective_ability(probe,kind,1,0,true)
+                local a,ad=Game.effective_ability(state,kind,1,0,true,true)
+                local b,bd=Game.effective_ability(probe,kind,1,0,true,true)
                 changes[#changes+1]=(kind=='basic_attack' and 'F' or 'R')..(' east: %d→%d cells, %d→%d damage'):format(#a,#b,ad,bd)
             end
             e.detail=(e.detail or '')..' '..table.concat(changes,'; ')..'. Automatic stats/HP and committed effects are preserved.'
@@ -556,20 +556,23 @@ function Game.next_level_xp(state)
     return Rewards.next_threshold(state.progression.level)
 end
 
-function Game.effective_ability(state, kind, dx, dy, explicit)
+function Game.effective_ability(state, kind, dx, dy, explicit,known_only)
     assert(kind == "basic_attack" or kind == "sweeping_slash", "unknown ability")
     local owner = Game.player(state)
     local base,ability_id,ranged,damage_type=Classes.attack(state,owner,
         kind,dx,dy,Content,explicit)
     assert(base, "invalid ability direction")
-    local cells,damage,modified_ranged=Boons.ability(state,owner,ability_id,base,
+    local reflection
+    local route_first=Boons.route_before_form(owner,ability_id,explicit)
+    if route_first then base,reflection=IdeaMirrors.route(state,owner,base,route_first,known_only)end
+    local cells,damage,modified_ranged,weapon_hint=Boons.ability(state,owner,ability_id,base,
         (kind == "basic_attack" and owner.damage or owner.slash_damage)+Duelist.bonus_for(owner,kind),
-        dx,dy,explicit,ranged)
-    local routed,reflection=cells,nil
-    if ability_id~='core:ability/hookrunner_hook' and ability_id~='core:ability/duelist_thrust'then
+        dx,dy,explicit,ranged,known_only)
+    local routed=cells
+    if not route_first and ability_id~='core:ability/hookrunner_hook' and ability_id~='core:ability/duelist_thrust'then
         routed,reflection=IdeaMirrors.route(state,owner,cells,modified_ranged)
     end
-    return routed,damage+Interactions.focus_bonus(owner),ability_id,modified_ranged,damage_type,reflection
+    return routed,damage+Interactions.focus_bonus(owner),ability_id,modified_ranged,damage_type,reflection,weapon_hint
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)

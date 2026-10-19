@@ -67,7 +67,7 @@ function M.create(state,enemy,pending,h)
     state.idea_mirrors[#state.idea_mirrors+1]=r
     return true,r
 end
-function M.route(state,source,cells,ranged)
+function M.route(state,source,cells,ranged,known_only)
     if #(state.idea_mirrors or {})==0 or ranged~=true and ranged~='piercing_line'
         or #cells<2 then return cells end
     local p=source.position;local dx,dy=cells[1].x-p.x,cells[1].y-p.y
@@ -77,8 +77,11 @@ function M.route(state,source,cells,ranged)
     end
     local Content=require('src.content');local map=Content.map_for(state)
     for i,c in ipairs(cells)do
+        local contact=ranged==true and occupant(state,source,c.x,c.y)
+        local known_contact=contact and (not known_only or
+            require('src.visibility').is_visible(state,contact.position.floor_id,c.x,c.y))
         if not Content.projectile_passable(map,c.x,c.y,state)
-            or ranged==true and occupant(state,source,c.x,c.y)then return cells end
+            or known_contact then return cells end
         for _,r in ipairs(state.idea_mirrors)do
             local owner=actor(state,r.source_id)
             if i<#cells and r.floor_id==p.floor_id and r.expires>state.clock

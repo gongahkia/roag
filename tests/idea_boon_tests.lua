@@ -69,12 +69,21 @@ return function(test,equal)
         assert(C.get('core:boon/beggars_cap').art.index==33)
         assert(C.get('core:boon/overflow_chalice').art.index==824)
     end)
-    test('all new supply boons occur in normal offers without entering the starter-only fixture pool',function()
+    test('all new boons occur in normal offers for an eligible class without entering the starter-only fixture pool',function()
         local found={}
-        for seed=1,320 do
-            local s=G.new(seed,nil,{available_boons=C.normal_order()})
-            for _,offer in ipairs(R.make_offers(s,Content.get_chest('core:chest/standard')))do
-                found[offer.boon_id]=true
+        local classes,seen={'core:actor/adventurer'},{['core:actor/adventurer']=true}
+        for _,id in ipairs(I.order)do
+            local eligible=C.get(id).eligible_classes
+            if eligible and not seen[eligible[1]]then
+                classes[#classes+1]=eligible[1];seen[eligible[1]]=true
+            end
+        end
+        for _,class in ipairs(classes)do
+            for seed=1,320 do
+                local s=G.new(seed,nil,{available_boons=C.normal_order(),class_id=class})
+                for _,offer in ipairs(R.make_offers(s,Content.get_chest('core:chest/standard')))do
+                    found[offer.boon_id]=true
+                end
             end
         end
         for _,id in ipairs(I.order)do assert(found[id],'never offered '..id)end

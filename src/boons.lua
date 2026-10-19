@@ -10,11 +10,20 @@ local Patterns=require('src.boon_patterns')
 local Boons = {}
 local PPM = 1000000
 local subscriptions = {}
+local routed_forms={}
 for _, id in ipairs(Catalog.order) do
     for _, kind in ipairs(Catalog.get(id).triggers) do
         local list = subscriptions[kind] or {}
         list[#list + 1] = id
         subscriptions[kind] = list
+    end
+    for _,m in ipairs(Catalog.get(id).modifiers or {})do
+        local f=m.kind=='weapon_form' and Patterns.weapon_forms[m.form]
+        if f and f.route_first then
+            local list=routed_forms[m.ability_id] or {}
+            list[#list+1]={boon_id=id,mode=f.route_first,explicit_only=f.explicit_only}
+            routed_forms[m.ability_id]=list
+        end
     end
 end
 
@@ -592,9 +601,18 @@ function Boons.ward_total(state,owner)
     return total
 end
 
+function Boons.route_before_form(owner,ability_id,explicit)
+    for _,f in ipairs(routed_forms[ability_id] or {})do
+        if owner.boons and owner.boons[f.boon_id]
+            and not(f.explicit_only and explicit==false)then
+            return f.mode
+        end
+    end
+end
+
 function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy,
-    explicit, ranged)
-    local cells, damage = {}, base_damage
+    explicit, ranged,known_only)
+    local cells, damage,weapon_hint = {}, base_damage,nil
     local map=Content.map_for(state)
     local function living_at(cell)
         for _,actor in ipairs(state.entities) do
@@ -622,7 +640,10 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
             local power = magnitude(def, stacks, "power")
             for _, modifier in ipairs(def.modifiers or {}) do
                 if modifier.ability_id == ability_id then
-                    if modifier.kind == "forward_cell" then
+                    if modifier.kind=='weapon_form' then
+                        cells,ranged,weapon_hint=Patterns.weapon_cells(state,modifier.form,
+                            owner,cells,base_cells,dx,dy,ranged,explicit,known_only)
+                    elseif modifier.kind == "forward_cell" then
                         local x = owner.position.x + dx * 2
                         local y = owner.position.y + dy * 2
                         local path_open = Content.walkable(map,
@@ -723,7 +744,7 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
             end
         end
     end
-    return cells, damage, ranged
+    return cells, damage, ranged,weapon_hint
 end
 
 local function chain_record(state, chain_id)

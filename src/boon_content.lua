@@ -468,7 +468,16 @@ function Catalog.validate(definitions, order)
             last_power, last_chance = p.power, p.chance
         end
         for _, modifier in ipairs(def.modifiers or {}) do
-            assert((modifier.ability_id == "core:ability/sweeping_slash"
+            local form=modifier.kind=='weapon_form' and
+                require('src.boon_patterns').weapon_forms[modifier.form]
+            local form_damage=false
+            if modifier.kind=='add_damage'then
+                for _,f in pairs(require('src.boon_patterns').weapon_forms)do
+                    if f.ability_id==modifier.ability_id then form_damage=true;break end
+                end
+            end
+            assert((form and modifier.ability_id==form.ability_id)
+                or form_damage or (modifier.ability_id == "core:ability/sweeping_slash"
                     and (modifier.kind == "forward_cell" or modifier.kind == "add_damage"))
                 or (modifier.ability_id == "core:ability/basic_attack"
                     and (modifier.kind == "line_second_cell" or modifier.kind == "add_damage"))
@@ -485,6 +494,10 @@ function Catalog.validate(definitions, order)
                 or (modifier.ability_id=="core:ability/berserker_crush"
                     and (modifier.kind=="shockwave" or modifier.kind=="add_damage")),
                 "invalid ability modifier")
+            if form then
+                assert(def.eligible_classes and #def.eligible_classes==1
+                    and def.eligible_classes[1]==form.class_id,'weapon form class mismatch')
+            end
         end
         if def.eligible_classes then
             local Classes=require("src.classes")

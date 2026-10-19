@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "127af4836d5132a5",
+  "mapping_checksum": "2eaead6003928855",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -466,6 +466,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/backswing/detail",
+          "index": 40,
+          "motif": "curved crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backswing/icon",
+          "index": 40,
+          "motif": "curved crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/backtrail_mantle/detail",
           "index": 87,
           "motif": "travelling mantle",
@@ -808,6 +826,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/distant_bastion/detail",
+          "index": 585,
+          "motif": "projecting round bastion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/distant_bastion/icon",
+          "index": 585,
+          "motif": "projecting round bastion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/earthshaker/detail",
           "index": 380,
           "motif": "war hammer",
@@ -1132,6 +1168,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/hollow_sigil/detail",
+          "index": 930,
+          "motif": "nested hollow square sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_sigil/icon",
+          "index": 930,
+          "motif": "nested hollow square sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/hourglass_clasp/detail",
           "index": 1072,
           "motif": "small hourglass",
@@ -1216,6 +1270,24 @@
           "id": "core:boon/mist_veil/icon",
           "index": 717,
           "motif": "drifting flecks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/needle_flight/detail",
+          "index": 1063,
+          "motif": "paired flight feathers",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/needle_flight/icon",
+          "index": 1063,
+          "motif": "paired flight feathers",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1360,6 +1432,24 @@
           "id": "core:boon/pilgrims_vow/icon",
           "index": 318,
           "motif": "hooded pilgrim",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pommel_return/detail",
+          "index": 1026,
+          "motif": "short chess pommel",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pommel_return/icon",
+          "index": 1026,
+          "motif": "short chess pommel",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1600,6 +1690,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/split_thrust/detail",
+          "index": 1062,
+          "motif": "paired pointed projectiles",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/split_thrust/icon",
+          "index": 1062,
+          "motif": "paired pointed projectiles",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/splitflight/detail",
           "index": 282,
           "motif": "drawn bow",
@@ -1738,6 +1846,24 @@
           "id": "core:boon/turncoat_spark/icon",
           "index": 617,
           "motif": "small spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/volatile_vial/detail",
+          "index": 194,
+          "motif": "stoppered square vial",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/volatile_vial/icon",
+          "index": 194,
+          "motif": "stoppered square vial",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -5080,6 +5206,9 @@
           "1024": [
             "core:boon/bishops_wake/icon + /detail"
           ],
+          "1026": [
+            "core:boon/pommel_return/icon + /detail"
+          ],
           "1027": [
             "core:boon/knights_gambit/icon + /detail"
           ],
@@ -5101,6 +5230,12 @@
           ],
           "1055": [
             "core:boon/anchor_maul/icon + /detail"
+          ],
+          "1062": [
+            "core:boon/split_thrust/icon + /detail"
+          ],
+          "1063": [
+            "core:boon/needle_flight/icon + /detail"
           ],
           "1072": [
             "core:boon/hourglass_clasp/icon + /detail"
@@ -5224,6 +5359,9 @@
             "environment observatory",
             "environment ruin",
             "environment ruin_carved"
+          ],
+          "194": [
+            "core:boon/volatile_vial/icon + /detail"
           ],
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
@@ -5474,6 +5612,9 @@
           "396": [
             "core:object/env_camp_table"
           ],
+          "40": [
+            "core:boon/backswing/icon + /detail"
+          ],
           "400": [
             "core:object/env_workshop_hearth",
             "core:object/interaction_attunement_forge"
@@ -5682,6 +5823,9 @@
           ],
           "584": [
             "core:boon/crosswind/icon + /detail"
+          ],
+          "585": [
+            "core:boon/distant_bastion/icon + /detail"
           ],
           "591": [
             "core:object/review_pillar_middle"
@@ -5922,6 +6066,9 @@
           "916": [
             "core:boon/cinder_stopper/icon + /detail"
           ],
+          "930": [
+            "core:boon/hollow_sigil/icon + /detail"
+          ],
           "965": [
             "core:boon/road_flask/icon + /detail"
           ],
@@ -6000,11 +6147,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 270,
+      "onebit": 277,
       "sheet": "onebit",
-      "union": 270,
-      "unused_onebit": 807,
-      "unused_union": 807
+      "union": 277,
+      "unused_onebit": 800,
+      "unused_union": 800
     },
     {
       "empty": 63,
@@ -6079,6 +6226,8 @@
     "core:boon/alchemical_flip/icon",
     "core:boon/anchor_maul/detail",
     "core:boon/anchor_maul/icon",
+    "core:boon/backswing/detail",
+    "core:boon/backswing/icon",
     "core:boon/backtrail_mantle/detail",
     "core:boon/backtrail_mantle/icon",
     "core:boon/battle_march/detail",
@@ -6117,6 +6266,8 @@
     "core:boon/crystal_harmony/icon",
     "core:boon/detonation_bloom/detail",
     "core:boon/detonation_bloom/icon",
+    "core:boon/distant_bastion/detail",
+    "core:boon/distant_bastion/icon",
     "core:boon/earthshaker/detail",
     "core:boon/earthshaker/icon",
     "core:boon/emberbrand/detail",
@@ -6153,6 +6304,8 @@
     "core:boon/harriers_response/icon",
     "core:boon/hollow_crown/detail",
     "core:boon/hollow_crown/icon",
+    "core:boon/hollow_sigil/detail",
+    "core:boon/hollow_sigil/icon",
     "core:boon/hourglass_clasp/detail",
     "core:boon/hourglass_clasp/icon",
     "core:boon/knights_gambit/detail",
@@ -6163,6 +6316,8 @@
     "core:boon/longblade_geometry/icon",
     "core:boon/mist_veil/detail",
     "core:boon/mist_veil/icon",
+    "core:boon/needle_flight/detail",
+    "core:boon/needle_flight/icon",
     "core:boon/opening_cut/detail",
     "core:boon/opening_cut/icon",
     "core:boon/ordered_ranks/detail",
@@ -6179,6 +6334,8 @@
     "core:boon/phantom_lunge/icon",
     "core:boon/pilgrims_vow/detail",
     "core:boon/pilgrims_vow/icon",
+    "core:boon/pommel_return/detail",
+    "core:boon/pommel_return/icon",
     "core:boon/prospectors_heart/detail",
     "core:boon/prospectors_heart/icon",
     "core:boon/pulse_step/detail",
@@ -6205,6 +6362,8 @@
     "core:boon/scavengers_hook/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
+    "core:boon/split_thrust/detail",
+    "core:boon/split_thrust/icon",
     "core:boon/splitflight/detail",
     "core:boon/splitflight/icon",
     "core:boon/static_footsteps/detail",
@@ -6221,6 +6380,8 @@
     "core:boon/thorn_mirror/icon",
     "core:boon/turncoat_spark/detail",
     "core:boon/turncoat_spark/icon",
+    "core:boon/volatile_vial/detail",
+    "core:boon/volatile_vial/icon",
     "core:boon/ward_ledger/detail",
     "core:boon/ward_ledger/icon",
     "core:boon/windup_hunter/detail",

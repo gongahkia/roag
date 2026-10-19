@@ -6,10 +6,12 @@ local P=require('src.persistence')
 local R=require('src.rewards')
 local Catalog=require('src.boon_content')
 local mode,dir,scenario=arg[1],arg[2],arg[3]
+local form_name=scenario and scenario:match('^form_([a-z_]+)$')
+local form=form_name and require('src.boon_patterns').weapon_forms[form_name]
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
 assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice'
-    or scenario=='handoff' or scenario=='patterns' or scenario=='controls')
+    or scenario=='handoff' or scenario=='patterns' or scenario=='controls' or form)
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -39,6 +41,23 @@ local function save_expected(s,plan,label)
     print('PASS '..scenario..': '..label..', generation 1')
 end
 if mode=='write' then
+    if form then
+        local s=G.new(37,'core:map/scrolling_room',{class_id=form.class_id})
+        local p=G.player(s);p.position.x,p.position.y=15,16
+        G.set_boon_stacks(s,p.id,'core:boon/'..form_name,'rare',1)
+        G.set_boon_stacks(s,p.id,'core:boon/temporal_echo','common',1)
+        G.set_boon_stacks(s,p.id,'core:boon/emberbrand','common',1)
+        local foe=G.spawn_enemy(s,'core:enemy/mossbound_guard',16,16,100000)
+        foe.hp=1000;foe.max_hp=1000
+        submit(s,{kind='basic_attack',dx=1,dy=0})
+        assert(next(s.delayed_effects)and foe.statuses.burning)
+        local kind=form.ability_id==require('src.classes').get(form.class_id).special_id
+            and 'sweeping_slash' or 'basic_attack'
+        save_expected(s,{{kind='wait'},{kind=kind,dx=1,dy=0},
+            {kind='wait'},{kind='move',dx=0,dy=-1},{kind='basic_attack',dx=1,dy=0}},
+            'saved class weapon form with pending Echo/Burning and later real transformed attack')
+        return
+    end
     if scenario=='controls'then
         local s=G.new(37);local p=G.player(s);p.hp=10
         for _,slug in ipairs({'hourglass_clasp','ward_ledger','scavengers_hook','cinder_stopper','emberbrand'})do

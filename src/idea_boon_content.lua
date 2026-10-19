@@ -161,4 +161,35 @@ add('scavengers_hook',"Scavenger's Hook",
     1053,'curved gathering hook',{'Waited'},owner,
     {{kind='gather_pickups'}},{1,2,3,4},'adjacent pickup tiles gathered per Wait, capped at four')
 
+local function weapon(slug,name,text,icon,motif,class,ability,powers)
+    add(slug,name,text,icon,motif,{},nil,{},powers or {1,2,3,4},
+        'bonus primary damage before criticals and defense')
+    local d=I.definitions['core:boon/'..slug]
+    d.tags={'ideas','transformation','offense'}
+    d.eligible_classes={'core:actor/'..class}
+    d.modifiers={{ability_id='core:ability/'..ability,kind='weapon_form',form=slug},
+        {ability_id='core:ability/'..ability,kind='add_damage'}}
+end
+weapon('pommel_return','Pommel Return',
+    'Adventurer: aimed F also strikes the clear cell directly behind you. Both sides share one primary batch. Bump remains forward-only; F gains bonus damage.',
+    1026,'short chess pommel','adventurer','basic_attack')
+weapon('needle_flight','Needle Flight',
+    'Ranger: aimed F pierces creatures along its four-cell clear line. Existing Splitflight branches still work. Bump keeps first-contact behavior; F gains bonus damage.',
+    1063,'paired flight feathers','ranger','ranger_shot')
+weapon('hollow_sigil','Hollow Sigil',
+    'Arcanist: a fully placed R fire sigil spares its center and strengthens the surrounding cells. Expanding Sigil keeps its outer ring. Short blocked casts retain their normal travel cells.',
+    930,'nested hollow square sigil','arcanist','arcanist_sigil',{2,3,4,6})
+weapon('backswing','Backswing',
+    'Berserker: R cleave also strikes its three clear rear neighbors, completing the surrounding arc on open ground. Normal deliberate recovery remains; R gains bonus damage.',
+    40,'curved crossed blades','berserker','berserker_cleave')
+weapon('distant_bastion','Distant Bastion',
+    'Sentinel: R instead strikes the four two-step cardinal tiles and four diagonal neighbors. Cardinal-adjacent tiles are spared. Walls and corners block the stronger pulse.',
+    585,'projecting round bastion','sentinel','sentinel_pulse')
+weapon('volatile_vial','Volatile Vial',
+    'Alchemist: F splashes a one-cell cardinal cross at its first creature contact. Empty shots keep the normal line. Clear travel cells and normal recovery remain; F gains bonus damage.',
+    194,'stoppered square vial','alchemist','alchemist_vial')
+weapon('split_thrust','Split Thrust',
+    'Duelist: aimed F keeps its first step, then forks into two clear side endpoints instead of the straight second cell. Walls and corners stop each branch. Bump stays narrow; F gains bonus damage.',
+    1062,'paired pointed projectiles','duelist','duelist_thrust')
+
 return I

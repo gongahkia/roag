@@ -289,6 +289,7 @@ local function action_hint(player,kind,preview)
 end
 function Classes.preview_hint(player,kind,preview)
     local hint=action_hint(player,kind,preview)
+    if preview.weapon_hint then hint=hint..' · '..preview.weapon_hint end
     return preview.boon_hint and hint..' · '..preview.boon_hint or hint
 end
 function Classes.status(state,player)

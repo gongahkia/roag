@@ -561,7 +561,7 @@ onebit,36,576,0,74,
 onebit,37,592,0,86,
 onebit,38,608,0,84,
 onebit,39,624,0,72,core:boon/fan_of_blades/icon + /detail
-onebit,40,640,0,70,
+onebit,40,640,0,70,core:boon/backswing/icon + /detail
 onebit,41,656,0,78,
 onebit,42,672,0,78,
 onebit,43,688,0,98,core:enemy/ash_marshal
@@ -715,7 +715,7 @@ onebit,190,688,48,40,
 onebit,191,704,48,44,
 onebit,192,720,48,68,
 onebit,193,736,48,66,
-onebit,194,752,48,68,
+onebit,194,752,48,68,core:boon/volatile_vial/icon + /detail
 onebit,195,768,48,57,
 onebit,196,0,64,53,
 onebit,197,16,64,72,
@@ -1106,7 +1106,7 @@ onebit,581,672,176,98,
 onebit,582,688,176,84,
 onebit,583,704,176,90,
 onebit,584,720,176,90,core:boon/crosswind/icon + /detail
-onebit,585,736,176,90,
+onebit,585,736,176,90,core:boon/distant_bastion/icon + /detail
 onebit,586,752,176,90,
 onebit,587,768,176,200,
 onebit,588,0,192,98,
@@ -1451,7 +1451,7 @@ onebit,926,704,288,36,
 onebit,927,720,288,48,
 onebit,928,736,288,32,
 onebit,929,752,288,58,
-onebit,930,768,288,100,
+onebit,930,768,288,100,core:boon/hollow_sigil/icon + /detail
 onebit,931,0,304,94,
 onebit,932,16,304,110,
 onebit,933,32,304,84,
@@ -1547,7 +1547,7 @@ onebit,1022,672,320,28,
 onebit,1023,688,320,62,core:boon/rooks_wake/icon + /detail
 onebit,1024,704,320,29,core:boon/bishops_wake/icon + /detail
 onebit,1025,720,320,30,
-onebit,1026,736,320,34,
+onebit,1026,736,320,34,core:boon/pommel_return/icon + /detail
 onebit,1027,752,320,55,core:boon/knights_gambit/icon + /detail
 onebit,1028,768,320,128,
 onebit,1029,0,336,88,
@@ -1583,8 +1583,8 @@ onebit,1058,464,336,86,
 onebit,1059,480,336,86,
 onebit,1060,496,336,86,
 onebit,1061,512,336,43,
-onebit,1062,528,336,77,
-onebit,1063,544,336,58,
+onebit,1062,528,336,77,core:boon/split_thrust/icon + /detail
+onebit,1063,544,336,58,core:boon/needle_flight/icon + /detail
 onebit,1064,560,336,80,
 onebit,1065,576,336,124,
 onebit,1066,592,336,108,

@@ -104,9 +104,9 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
-| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 23 new boon icons + eight face bindings; 30 unique native regions; original PNGs preserved |
+| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 30 new boon icons + eight face bindings; 37 unique native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 23 additions / 76 total | 17-addition full 732/732; current full 754/754, 107 focused, native GUI/save checks; at least 27 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 30 additions / 83 total | current full 780/780; 133 focused plus native GUI/save checks; at least 20 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1473,3 +1473,92 @@ Next: continue genuinely distinct class-weapon forms using existing inputs and
 shared primary execution/preview geometry. Twenty-seven or more additions,
 final combined acceptance, and the queued production cleanup/Controls README/
 approval-only visual proposals remain. Do not stop at this partial checkpoint.
+
+
+## Class weapon forms — thirty additions (2026-10-19)
+
+Seven class-filtered additions: Pommel Return, Needle Flight, Hollow Sigil,
+Backswing, Distant Bastion, Volatile Vial and Split Thrust. Current catalogue
+**83**, normal unearned ID list **79** (offers retain class filtering), additions
+**30/50+**; at least 20 more remain. They change actual primary geometry using
+existing F/R controls and unchanged recovery. Shapes and preview share one
+bounded helper; no extra animation/editor/renderer/input architecture was added.
+
+**26/26** new cases; **133/133** combined new-boon cases. Tests cover actual
+rear/piercing/ring/fan/splash/fork damage, spared cells, doors, barricade contact,
+old transformation composition, narrow bump behavior, batch HP/forcefields,
+one Vow/critical roll, real Dice misses, uncapped mixed stacks, fog, real mirrors
+and exact saved Echo/Burning continuation for all seven. Initial focus was
+23/25: a test offered a pool below the required immutable 20-starter prefix,
+and an expanded-ring fixture forgot the existing caster-cell exclusion. The
+fixtures now retain those contracts; neither validation nor geometry was weakened.
+Failure log `/var/tmp/roag-weapon-forms-focus-20261019.log` remains.
+
+A composition review identified routing order: changing a projectile to area
+before mirror routing would disable reflection. These forms now route first
+in their correct first-contact/piercing mode. Concealed contacts are ignored
+only by the derived preview query, never by actual collisions; a regression
+compares concealed-body versus empty previews and actual runtime impact. The
+routing index is bounded by the two relevant ability IDs; default attacks do
+not acquire an additional full-catalogue scan. All source IDs/schema remain.
+
+Actual GUI passes **21/21** isolated form processes (seven x three rounds), logs
+`/var/tmp/roag-weapon-forms-gui-round{1,2,3}-20261019.log`. The shared pattern
+harness now also checks class forms: original source pixels for green dotted
+primary outlines, clear interiors, fully unchanged deliberately spared tiles,
+cancel purity, exact preview/committed cell agreement, actual damage and F5.
+All seven checked-store saves pass fresh-process continuation with pending
+Echo/Burning and later transformed attacks; log
+`/var/tmp/roag-weapon-forms-disk-20261019.log`. These are assisted inventories,
+not earned legal-run claims. The original pre-boon runtime's legacy save still
+continues under this code with identical events/state, artifact
+`/var/tmp/roag-boons-disk-e44rjj`.
+
+The shared GUI harness additionally performs real Save & Quit, starts a new
+LÖVE process, presses Continue, compares the exact authoritative snapshot and
+every RGBA8 pixel of the 992x520 world viewport, reconstructs the class-form
+preview and checks pure F5. Three isolated rounds pass **21/21 paired cases /
+42 LÖVE processes**, logs
+`/var/tmp/roag-weapon-forms-gui-durable-round{1,2,3}-20261019.log`. HUD notice
+text is intentionally outside that world-pixel comparison. All seven saved
+class IDs and owned forms must match; this cannot pass by loading a new run.
+
+Inspected actual screenshots show the Hollow center hole, Distant Bastion's
+spared near cardinals, and the fork's spared straight endpoint at
+`/var/tmp/roag-pattern-gui-{UONOAq,WGduC0,SD0a32}/conditional-preview.png`.
+Visual review also caught a poor initial icon: 88 reads as boots, not a fork.
+Split Thrust now uses paired points 1062, and Hollow uses the literal nested
+hollow square 930. Original PNGs are untouched. The live audit is regenerated;
+required coverage **559/559**, no missing bindings, all 15 original asset files
+byte-identical. Seven wider-window form processes, all eight prior pattern
+processes and the complete five-mode native gallery also pass. The wider
+window retains the fixed content layout; this is not responsive-UI acceptance.
+The corrected final icon mappings pass all 30 new native-icon pixel checks over
+five pages at `/var/tmp/roag-idea-boon-gui-jYPanv`. Frozen idea/item review gates
+remain 6/6 and 7/7.
+
+Full **780-case** gate runs from complete frozen source
+`/var/tmp/roag-idea-weapon-forms-final-t6k1rf33`, log
+`/var/tmp/roag-idea-weapon-forms-full-20261019.log`, exec session **75900**,
+record `/var/tmp/roag-idea-weapon-forms-full-record.json`. Poll its real handle;
+do not restart on an observation timeout. Prior 754/754 covers the earlier 23
+additions, not these seven. All GUI input was callback-driven on LÖVE 11.5 /
+Mesa26.2.4 llvmpipe; no physical input, human or native-GPU acceptance is claimed.
+Production cleanup/Controls README/approval-only visual proposals remain queued
+behind the unfinished 50+ additions and final combined acceptance.
+
+
+## Class-form clean full gate (2026-10-19)
+
+**780/780**, terminal exit 0, **557.62 s**, peak LuaJIT RSS **157,208 KiB**.
+Frozen source `/var/tmp/roag-idea-weapon-forms-final-t6k1rf33`, log
+`/var/tmp/roag-idea-weapon-forms-full-20261019.log`. All 192 runtime/Lua-test
+files match this checkpoint. The later shell-only durable GUI extension also
+passes 21 paired scenarios / 42 processes with byte-exact RGBA8 world pixels.
+All original headless cases, current-pool natural Victories, strict scheduling,
+seed/replay, previous-floor freeze and save validation remain. No claim is
+made that different-size suites are matched performance comparisons.
+
+Next group: finite sustain/cadence, wall-position and Burning/cleanse synergies.
+The 50+ goal remains active; twenty or more additions and final combined
+acceptance still remain before production cleanup and approval-only juice ideas.
