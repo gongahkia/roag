@@ -97,7 +97,7 @@ dotnet test Regolith.sln --configuration Release --no-build
 
 Headless runs print JSON and never write saves. The graphical smoke run opens a real window, exercises tutorial navigation, direct rescue clicks, zoom, recruitment, build cancellation, and save/load, then exits without changing the player's save. `--screenshot PATH --frames 12` captures a normal view and exits; omit `--frames` for an interactive session.
 
-NuGet versions are pinned with lockfiles. CI builds and runs core/headless checks on Linux, Windows, and macOS; it does not certify native graphics on those platforms. To create a local distributable for the current machine:
+NuGet versions are pinned with lockfiles. The included CI workflow builds and runs core/headless checks on Linux, Windows, and macOS; it does not certify native graphics on those platforms. To create a local distributable for the current machine:
 
 ```sh
 dotnet publish src/Regolith.Client --configuration Release --self-contained false --output artifacts/game
