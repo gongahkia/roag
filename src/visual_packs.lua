@@ -1,110 +1,11 @@
--- Presentation-only sprite-pack choice. This record is separate from runs and
--- profiles; retired or bad settings fall back to the built-in shapes.
-local Atlas=require('src.studio_atlas')
+-- ROAG has one fixed appearance. Preferences and environment overrides from
+-- retired selectable packs are intentionally neither read nor written.
 local VisualAssets=require('src.visual_assets')
-local P={format='roag-visual-pack/1',files={
-    'visual-pack-a.roag','visual-pack-b.roag'},default='classic',
-    order={'classic','kenney','onebit'},
-    labels={classic='Classic built-in',
-        kenney='Kenney pixel art',onebit='Kenney 1-Bit'},
-    descriptions={
-        classic='Original game tokens and terrain',
-        kenney='Micro characters · Caves & Dungeons terrain · CC0',
-        onebit='Standalone monochrome actors, terrain and icons · CC0',
-    }}
-local retired={automatic=true,generated=true,published=true}
-
-function P.valid(mode) return P.labels[mode]~=nil end
-function P.index(mode)
-    for index,value in ipairs(P.order) do if value==mode then return index end end
-    return 1
-end
-
-local function encode(sequence,mode)
-    assert(P.valid(mode),'invalid sprite pack')
-    local body=table.concat({P.format,tostring(sequence),mode},'\n')..'\n'
-    return body..Atlas.checksum(body)..'\n'
-end
-
-local function decode(bytes)
-    assert(type(bytes)=='string' and #bytes<=128,'invalid sprite-pack record size')
-    local format,number,mode,hash=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n$')
-    assert(format and hash,'truncated sprite-pack record')
-    local sequence=tonumber(number)
-    assert(sequence and sequence%1==0 and sequence>=1 and
-        sequence<9007199254740991,'invalid sprite-pack generation')
-    assert(P.valid(mode) or retired[mode],'invalid sprite-pack choice')
-    assert(Atlas.checksum(table.concat({format,number,mode},'\n')..'\n')==hash,
-        'sprite-pack checksum mismatch')
-    return {format=format,sequence=sequence,mode=mode}
-end
-
-function P.inspect(storage)
-    assert(type(storage)=='table' and type(storage.read)=='function',
-        'invalid sprite-pack storage')
-    local records,invalid={},0
-    for slot,name in ipairs(P.files) do
-        local ok,bytes=pcall(storage.read,storage,name)
-        if not ok then invalid=invalid+1
-        elseif bytes~=nil then
-            local valid,record=pcall(decode,bytes)
-            if valid then record.slot=slot;records[#records+1]=record
-            else invalid=invalid+1 end
-        end
-    end
-    table.sort(records,function(a,b)
-        if a.sequence~=b.sequence then return a.sequence>b.sequence end
-        return a.slot>b.slot
-    end)
-    local latest=records[1]
-    if not latest then
-        return {mode=P.default,status=invalid>0 and 'corrupt' or 'absent'}
-    end
-    if latest.format~=P.format then
-        return {mode=P.default,status='incompatible',record=latest}
-    end
-    if retired[latest.mode] then
-        return {mode=P.default,status='retired',record=latest}
-    end
-    return {mode=latest.mode,status=invalid>0 and 'recovered' or 'loaded',
-        record=latest}
-end
-
-function P.save(storage,mode)
-    if not P.valid(mode) then return false,'invalid sprite pack' end
-    local found=P.inspect(storage)
-    if found.status=='incompatible' then
-        return false,'newer sprite-pack settings preserved'
-    end
-    local previous=found.record
-    local slot=previous and 3-previous.slot or 1
-    local sequence=previous and previous.sequence+1 or 1
-    local bytes=encode(sequence,mode)
-    local wrote,result=pcall(storage.write,storage,P.files[slot],bytes)
-    if not wrote or not result then return false,'settings write failed: '..tostring(result) end
-    local ok,readback=pcall(storage.read,storage,P.files[slot])
-    if not ok or readback~=bytes then return false,'settings read-back failed' end
-    local valid,record=pcall(decode,readback)
-    if not valid or record.sequence~=sequence or record.format~=P.format then
-        return false,'settings verification failed'
-    end
-    return true
-end
-
--- Only the selected renderer is handed a source. Missing assets still reach
--- the established built-in drawing path; no simulation data is involved.
-function P.build(mode,read,make_image,load_native)
-    assert(P.valid(mode),'invalid sprite pack')
-    local generated,status=nil,'disabled'
-    if mode=='kenney' or mode=='onebit' then
-        generated,status=load_native(read,mode)
-    end
-    -- None of the game choices reads Paint loose/atlas overrides.
+local P={default='onebit',label='Kenney 1-Bit'}
+function P.build(read,make_image,load_native)
+    local generated,status=load_native(read)
+    assert(not generated or generated.style=='onebit','unsupported game artwork')
+    -- Authored loose/atlas/theme content cannot select another visual style.
     return VisualAssets.new(function()return nil end,make_image,generated),status
 end
-
-function P.uses_published_theme(mode)
-    return false
-end
-
 return P

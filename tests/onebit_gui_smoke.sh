@@ -81,8 +81,6 @@ function love.load(...)
         if mode~='corrupt'then source=love.image.newImageData(O.path)end
         if mode=='normal'then
             before=snapshot();love.keypressed('escape');love.keypressed('3')
-            local row=UI.row(145,202,734,54,3,70)
-            love.mousepressed(row.x+12,row.y+12,1);update(0)
             assert(love.roagVisualPackMode()=='onebit')
             assert(love.roagAssetBacking(Game.player(state).definition_id)=='onebit')
         elseif mode=='gallery'then
@@ -154,7 +152,7 @@ local function check(image)
             end
         end
     elseif mode=='effects'then
-        assert(drawn[O.objects['core:ui/block_effect']], 'blocked-hit sprite was not drawn')
+        assert(drawn[require('src.idea_environment_content').symbols.cue_block_effect], 'blocked-hit sprite was not drawn')
         if phase==1 then
             assert(target.statuses.burning,'Emberbrand did not apply Burning')
             assert(drawn[O.objects['core:ui/burning_effect']], 'Burning sprite was not drawn')
@@ -216,12 +214,11 @@ end
 LUA
 for mode in normal resume corrupt gallery effects;do
     if [ "$mode" = normal ] || [ "$mode" = gallery ] || [ "$mode" = effects ];then autostart=1;else autostart=0;fi
-    if [ "$mode" = gallery ] || [ "$mode" = effects ];then pack=onebit;else pack=;fi
     ROAG_ONEBIT_MODE="$mode" ROAG_ONEBIT_OUTPUT="$output" ROAG_GUI_AUTOSTART="$autostart" \
-      ROAG_SPRITE_PACK="$pack" XDG_DATA_HOME="$output/data" \
+      XDG_DATA_HOME="$output/data" \
       timeout -k 3s 40s love "$output/app" > "$output/$mode.log" 2>&1 || {
         cat "$output/$mode.log";exit 1;
     }
     printf 'PASS standalone 1-Bit %s\n' "$mode"
 done
-printf '1-Bit native pixels, settings, save/Continue, corruption and gallery: %s\n' "$output"
+printf 'Fixed 1-Bit native pixels, settings, save/Continue, corruption and gallery: %s\n' "$output"

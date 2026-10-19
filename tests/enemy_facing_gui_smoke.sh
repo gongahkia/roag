@@ -16,7 +16,7 @@ local Playback=require('src.playback')
 local Camera=require('src.camera')
 local Codec=require('src.persistence')
 local PNG=require('tools.art_png')
-local Kenney=require('src.kenney_visuals')
+local Kenney=require('src.onebit_visuals');local Symbols=require('src.kenney_symbols')
 local tracked,enemy,queue,camera
 local new_queue=Playback.new
 function Playback.new(...) queue=new_queue(...);return queue end
@@ -45,7 +45,7 @@ local raw_draw=love.graphics.draw
 love.graphics.draw=function(texture,quad,x,y,rotation,sx,sy,...)
     if region and type(quad)=='userdata' and quad.typeOf and quad:typeOf('Quad') then
         local qx,qy,qw,qh=quad:getViewport()
-        if qx==region.x and qy==region.y and qw==8 and qh==8 then
+        if qx==region.x and qy==region.y and qw==16 and qh==16 then
             local px,py=love.graphics.transformPoint(x,y)
             drawn={x=px,y=py,sx=sx,sy=sy}
         end
@@ -61,8 +61,8 @@ function love.load(...)
     local ok,why=pcall(function()
         load(unpack(args))
         assert(enemy and enemy.id)
-        assert(love.roagAssetBacking(enemy.definition_id)=='kenney')
-        local x,y=Kenney.region(Kenney.actors[enemy.definition_id])
+        assert(love.roagAssetBacking(enemy.definition_id)=='onebit')
+        local x,y=Symbols.region(Kenney.actors[enemy.definition_id])
         region={x=x,y=y}
         source=love.image.newImageData(Kenney.path)
         before=snapshot()
@@ -78,17 +78,19 @@ local function check(image)
     elseif phase==2 or phase==3 then
         local facing=phase==2 and -1 or 1
         assert(drawn.sx*facing>0,'actual draw used the wrong horizontal scale')
-        local left=drawn.x+(facing==-1 and drawn.sx*8 or 0)
+        local left=drawn.x+(facing==-1 and drawn.sx*16 or 0)
         local matches=0
         -- Native body pixels above the health bar covering the lowest rows.
-        for y=0,5 do for x=0,7 do
+        for y=0,11 do for x=0,15 do
             local rgba={source:getPixel(region.x+x,region.y+y)}
             if rgba[4]==1 and not (math.floor(rgba[1]*255+.5)==34 and
                 math.floor(rgba[2]*255+.5)==35 and math.floor(rgba[3]*255+.5)==35) then
-                local screen_x=math.floor(left+((facing==-1 and 7-x or x)+.5)*math.abs(drawn.sx))
+                local screen_x=math.floor(left+((facing==-1 and 15-x or x)+.5)*math.abs(drawn.sx))
                 local screen_y=math.floor(drawn.y+(y+.5)*drawn.sy)
                 local actual={image:getPixel(screen_x,screen_y)}
-                assert(same(rgba,actual),('phase %d sprite %d,%d screen %d,%d scale %.3f expected %.2f %.2f %.2f actual %.2f %.2f %.2f'):format(phase,x,y,screen_x,screen_y,drawn.sx,rgba[1],rgba[2],rgba[3],actual[1],actual[2],actual[3]))
+                local gray=(rgba[1]*.2126+rgba[2]*.7152+rgba[3]*.0722)*Kenney.ink[1]
+                for channel=1,3 do assert(math.abs(actual[channel]-gray)<=2/255+1e-6,
+                    ('phase %d mirrored 1-Bit body pixel differs at %d,%d'):format(phase,x,y))end
                 matches=matches+1
             end
         end end
@@ -103,7 +105,8 @@ local function check(image)
             local rectangles=require('src.attack_outline').rectangles(camera.tile)
             local r=rectangles[1]
             local red,green,blue=image:getPixel(math.floor(tx+r[1]+1),math.floor(ty+r[2]))
-            assert(red>.8 and green>.4 and blue<.4,'dashed windup border was not rendered')
+            local gray=.2126+.64*.7152+.18*.0722
+            assert(math.abs(red-gray)<.04 and math.abs(red-green)<1/255 and math.abs(green-blue)<1/255,'monochrome dashed windup border was not rendered')
         end
     elseif phase==4 or phase==5 then assert(drawn.sx<0,'movement or vertical retention did not mirror')
     else
@@ -153,7 +156,7 @@ function love.draw()
     if not ok then fail(why)end
 end
 LUA
-ROAG_FACING_OUTPUT="$output_dir" ROAG_SPRITE_PACK=kenney ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data" \
+ROAG_FACING_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data" \
     timeout 30s love "$output_dir/app" > "$output_dir/run.log" 2>&1
 cat "$output_dir/result.txt"
 printf 'Enemy facing GUI smoke: 6 rendered frames in %s\n' "$output_dir"

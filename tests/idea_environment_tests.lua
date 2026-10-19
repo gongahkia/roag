@@ -143,9 +143,9 @@ return function(test,equal)
   local next=resolver('kenney');next:set_world(s);equal(next.plan,E.plan(s,s.generated_map));equal(G.snapshot(s),before)
  end)
  test('every playable class has compatible F/R/X art and weapon exclusions stay out of the new family',function()
-  local K=require('src.kenney_visuals').new(read,image,quad);local O=require('src.onebit_visuals').new(read,image,quad)
+  local O=require('src.onebit_visuals').new(read,image,quad)
   for _,id in ipairs(require('src.classes').order)do for _,kind in ipairs({'basic_attack','sweeping_slash','dash'})do
-   local binding=U.weapon(id,kind);assert(K:resolve(binding) and O:resolve(binding))
+   local binding=U.weapon(id,kind);assert(O:resolve(binding))
   end end
   for _,index in pairs(D.symbols)do assert(type(index)=='number' and index>=0 and index<1078)end
   for _,p in pairs(D.props)do assert(p[1]~='micro')end
@@ -169,7 +169,7 @@ return function(test,equal)
   local s=G.new(17);local p=G.player(s);p.position.x,p.position.y=7,6
   local enemy=G.spawn_enemy(s,'core:enemy/mossbound_guard',8,6,100000)
   local okay,why,events=G.submit(s,{kind='basic_attack',dx=1,dy=0});assert(okay,why)
-  local before=G.snapshot(s);local got=false;local k=require('src.kenney_visuals').new(read,image,quad)
+  local before=G.snapshot(s);local got=false;local k=require('src.onebit_visuals').new(read,image,quad)
   for _,e in ipairs(events)do if e.kind=='DamageTaken'then assert(e.target_id==enemy.id and k:resolve(U.effect(e)));got=true end end
   assert(got);local playback=require('src.playback');local b=playback.new();playback.add(b,events,p.id)
   for _=1,60 do playback.update(b,.05)end;equal(G.snapshot(s),before)
@@ -195,7 +195,7 @@ return function(test,equal)
   local world,hud
   visit({fake.draw},function(_,_,name,value)if name=='draw_world'then world=value elseif name=='draw_panel'then hud=value end end)
   assert(world and hud)
-  local s=G.new_stage(1,{multifloor=true});local k=require('src.kenney_visuals').new(read,image,quad)
+  local s=G.new_stage(1,{multifloor=true});local k=require('src.onebit_visuals').new(read,image,quad)
   local assets={generated=k,has_terrain=true,resolve=function(_,id)return k:resolve(id)end}
   local p=G.player(s);local camera=require('src.camera').new(s.generated_map,{x=16,y=16,width=992,height=520},40,p.position.x,p.position.y)
   local font={getWidth=function(_,text)return #text*7 end,getHeight=function()return 14 end}

@@ -33,6 +33,10 @@ $ git clone https://github.com/gongahkia/roag && cd roag
 $ make game
 ```
 
+Artwork is fixed to Kenney 1-Bit with the approved monochrome Kenney
+counterparts. Settings adjust sound, effects and accessibility; there is no art
+pack selector. `F5` refreshes artwork/audio. See the [sprite coverage guide](docs/ROAG_SPRITE_AUDIT.md).
+
 ## Controls
 
 | Key | Action |

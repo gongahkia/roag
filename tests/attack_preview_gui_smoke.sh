@@ -42,7 +42,7 @@ function love.load(...)
     local args={...}
     local ok,why=pcall(function()
         load(unpack(args));before=snapshot()
-        assert(love.roagVisualPackMode()=='kenney')
+        assert(love.roagVisualPackMode()=='onebit')
         assert(camera.tile==40,'fixed camera size changed')
         for _,key in ipairs({'=','+','kp+','-','kp-'})do love.keypressed(key)end
         love.wheelmoved(0,3);love.wheelmoved(0,-3)
@@ -72,7 +72,8 @@ local function check(image)
             c[3]=='sweeping_slash' and {1,.56,.17} or {1,.86,.30}
         local rect=Outline.rectangles(camera.tile)[1]
         local pixel={image:getPixel(math.floor(x+rect[1]+1),math.floor(y+rect[2]))}
-        for channel=1,3 do assert(math.abs(pixel[channel]-color[channel])<.04,
+        local gray=color[1]*.2126+color[2]*.7152+color[3]*.0722
+        for channel=1,3 do assert(math.abs(pixel[channel]-gray)<.04,
             c[1]..' dotted border/status color missing')end
         if cell.status=='wall' then blocked=true end
     end
@@ -107,6 +108,6 @@ function love.draw()
     if not ok then fail(why)end
 end
 LUA
-ROAG_PREVIEW_OUTPUT="$output" ROAG_SPRITE_PACK=kenney ROAG_GUI_AUTOSTART=1 \
+ROAG_PREVIEW_OUTPUT="$output" ROAG_GUI_AUTOSTART=1 \
     XDG_DATA_HOME="$output/data" timeout -k 3s 35s love "$output/app" > "$output/run.log" 2>&1
 printf 'PASS: dotted Sword/Sweep/Dash/blocked previews, clear interiors, exact snapshot, fixed camera: %s\n' "$output"

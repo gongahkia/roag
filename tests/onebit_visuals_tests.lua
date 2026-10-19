@@ -86,13 +86,12 @@ return function(test,equal)
             return {getWidth=function()return 783 end,getHeight=function()return 352 end}
         end,quad))
     end)
-    test('third sprite-pack setting persists and rejects torn replacement without touching the run',function()
-        local store={}
-        function store:read(path)return self[path]end
-        function store:write(path,bytes)self[path]=self.torn and bytes:sub(1,7) or bytes;return true end
-        assert(Packs.save(store,'onebit'))
-        assert(Packs.inspect(store).mode=='onebit')
-        store.torn=true;assert(not Packs.save(store,'kenney'))
-        assert(Packs.inspect(store).mode=='onebit')
+    test('fixed 1-Bit construction has no saved-choice dependency and leaves the run intact',function()
+        local state=Game.new_stage(13);local before=Game.snapshot(state)
+        local art=O.new(read,image,quad)
+        local visuals,status=Packs.build(read,image,function()return art,'loaded'end)
+        assert(status=='loaded' and visuals:resolve('core:actor/adventurer').source=='onebit')
+        assert(Packs.save==nil and Packs.inspect==nil)
+        equal(before,Game.snapshot(state))
     end)
 end

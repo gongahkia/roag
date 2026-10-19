@@ -1,3 +1,5 @@
+-- Historical mixed-look fixture for immutable review/source regression tests.
+-- Not imported by ROAG or its current preview/catalogue.
 -- Kenney Micro Roguelike characters/items, Caves & Dungeons terrain and
 -- 1-Bit boon/mechanic symbols. Presentation only; source PNGs stay intact.
 local Atlas=require('src.studio_atlas')

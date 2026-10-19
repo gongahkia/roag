@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--check',action='store_true')
     args=parser.parse_args()
     target=ROOT/'docs/visuals/environments'
-    paths=['assets/kenney/micro-roguelike/tiles.png','assets/kenney/caves-dungeons/terrain.png',
+    paths=['assets/kenney/caves-dungeons/terrain.png',
            'assets/kenney/1-bit-pack/symbols.png','assets/kenney/approved/tiny-dungeon.png',
            'assets/kenney/approved/roguelike-rpg.png']
     hashes={p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in paths}
@@ -49,7 +49,7 @@ def main():
 <style>body{background:#101716;color:#e5e9dc;font:16px system-ui;margin:28px;max-width:1100px}section{border-top:1px solid #50645c;margin:28px 0}img{image-rendering:pixelated;max-width:100%;background:#111}p{line-height:1.5}code{color:#fe9}</style>
 <h1>Approved environments — source-pixel verification</h1>
 <p>These images execute the real main.lua world draw pass, native image resolvers and derived material compositors using a CPU raster adapter. They are <strong>not LÖVE screenshots or a human playtest</strong>. Text is omitted, GPU antialiasing is not reproduced, and spectator visibility is enabled to inspect art. The original generated maps, entities, RNG and saves remain unchanged.</p>
-<p>In the game choose Settings → Sprite Pack → Kenney mix or Kenney 1-Bit. Classic keeps its original shapes. F5 refreshes presentation. No new biome or boon is introduced. Reproduce without windows: <code>python3 tools/environment_preview.py</code>; verify byte identity: add <code>--check</code>.</p>'''+cards+'</html>\n'
+<p>The game always uses the Kenney 1-Bit look with the approved monochrome derivatives. There is no art-style selector. F5 refreshes presentation. No new biome or boon is introduced. Reproduce without windows: <code>python3 tools/environment_preview.py</code>; verify byte identity: add <code>--check</code>.</p>'''+cards+'</html>\n'
         files['index.html']=page.encode()
         files['evidence.json']=(json.dumps({'method':'actual main.lua world pass; offline CPU raster; text omitted; spectator fixture',
             'source_sha256':hashes,'views':entries},sort_keys=True,indent=2)+'\n').encode()

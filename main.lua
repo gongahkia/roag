@@ -24,8 +24,6 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
-local KenneyVisuals = require("src.kenney_visuals")
-local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local TerrainIdeas=require('src.idea_terrain')
@@ -46,7 +44,6 @@ local Spectator = require("src.spectator")
 local TitleMenu = require("src.title_menu")
 local PixelUI = require("src.pixel_ui")
 local StudioWorldRuntime = require("src.studio_world_runtime")
-local StudioThemeRuntime = require("src.studio_theme_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
 local AudioCues = require("src.audio_cues")
 
@@ -94,10 +91,7 @@ local diagnostics = os.getenv("ROAG_DIAGNOSTICS")=="1" and
     require("src.diagnostics").new() or nil
 local diagnostics_update_ms=0
 local visual_assets
-local visual_pack_mode=VisualPacks.default
-local visual_pack_status='absent'
-local visual_pack_generated_status='disabled'
-local visual_pack_message=''
+local art_status='unloaded'
 local settings_message=''
 local pause_settings=false
 local settings_page=1
@@ -107,30 +101,17 @@ local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
 local studio_theme,studio_theme_status
 local refresh_pending=false
-local pending_pack_mode
 local refresh_result='not requested'
 local visual_refresh_message=''
 local next_world_pack
 local visual_signature
 local audio_runtime,audio_status
 -- Applied to every 1-Bit draw call, including built-in fallback effects and HUD.
--- Sprite pack selection remains a presentation setting; gameplay colors are intact.
-local onebit_grayscale_shader
-local onebit_grayscale_source=[[
-vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
-{
-    vec4 pixel = Texel(texture, texture_coords) * color;
-    float gray = dot(pixel.rgb, vec3(0.2126, 0.7152, 0.0722));
-    return vec4(gray, gray, gray, pixel.a);
-}
-]]
-local function set_visual_style(style)
-    PixelUI.set_style(style,presentation_settings.high_contrast)
-    if style=='onebit' then
-        love.graphics.setBackgroundColor(.055,.055,.055)
-    else
-        love.graphics.setBackgroundColor(.055,.075,.075)
-    end
+-- The appearance is fixed; this filter never changes gameplay state.
+local onebit_filter=require('src.onebit_shader').new()
+local function set_visual_style()
+    PixelUI.set_style('onebit',presentation_settings.high_contrast)
+    love.graphics.setBackgroundColor(.055,.055,.055)
 end
 local function apply_presentation_settings()
     ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
@@ -346,9 +327,8 @@ local function visual_fingerprint(visuals,theme,world)
     return sum(table.concat(parts,'|'))
 end
 
-local function load_native_visuals(read,mode)
-    local loader=mode=='onebit' and OneBitVisuals or KenneyVisuals
-    local ok,visuals,status=pcall(loader.new,read,
+local function load_native_visuals(read)
+    local ok,visuals,status=pcall(OneBitVisuals.new,read,
         function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
@@ -359,10 +339,6 @@ local function load_native_visuals(read,mode)
             elseif transparent=='onebit-surfaces' then
                 local source=pixels
                 pixels=OneBitVisuals.surface_sheet(source)
-                source:release()
-            elseif transparent=='caves-surfaces' then
-                local source=pixels
-                pixels=KenneyTerrain.surface_sheet(source)
                 source:release()
             elseif transparent=='approved-monochrome'then
                 pixels:mapPixel(function(x,y,r,g,b,a)
@@ -391,8 +367,8 @@ local function make_visual_image(bytes,asset)
     return image,pixels
 end
 
-local function build_selected_visuals(mode,read)
-    return VisualPacks.build(mode,read,make_visual_image,
+local function build_selected_visuals(read)
+    return VisualPacks.build(read,make_visual_image,
         load_native_visuals)
 end
 
@@ -416,26 +392,14 @@ function love.load(args)
         audio_runtime:set_user_mix(presentation_settings.music/100,
             presentation_settings.effects/100)
     end
-    local preference=VisualPacks.inspect(storage)
-    visual_pack_mode,visual_pack_status=preference.mode,preference.status
-    local preview_pack=os.getenv('ROAG_SPRITE_PACK')
-    if preview_pack and VisualPacks.valid(preview_pack) then
-        visual_pack_mode=preview_pack -- launch override, never writes settings
-    end
-    settings_selection=VisualPacks.index(visual_pack_mode)
     local read_visual=function(path)return love.filesystem.read(path)end
-    visual_assets,visual_pack_generated_status=
-        build_selected_visuals(visual_pack_mode,read_visual)
-    local generated,generated_status=visual_assets.generated,
-        visual_pack_generated_status
-    set_visual_style(generated and generated.style)
-    if generated_status:match('^rejected') then
-        print('Kenney art fallback: '..generated_status)
+    visual_assets,art_status=build_selected_visuals(read_visual)
+    local generated,generated_status=visual_assets.generated,art_status
+    set_visual_style()
+    if generated_status~='loaded' then
+        print('1-Bit artwork fallback: '..tostring(generated_status))
     end
-    if VisualPacks.uses_published_theme(visual_pack_mode) then
-        studio_theme,studio_theme_status=StudioThemeRuntime.inspect(read_visual,
-            visual_assets)
-    else studio_theme,studio_theme_status=nil,'disabled by sprite pack' end
+    studio_theme,studio_theme_status=nil,'disabled by fixed artwork'
     local world_pack
     world_pack,studio_world_status=StudioWorldRuntime.inspect(function(path)
         return love.filesystem.read(path)
@@ -448,7 +412,7 @@ function love.load(args)
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
             selected_class_id)
-        notice=generated and ('SPECTATOR · '..(generated.style=='kenney' and 'Kenney' or 'generated')..' art loaded · F6 camera') or
+        notice=generated and 'SPECTATOR · Kenney 1-Bit art loaded · F6 camera' or
             ('SPECTATOR · art fallback: '..tostring(generated_status))
         reset_camera()
     elseif os.getenv("ROAG_GUI_AUTOSTART") == "1" then
@@ -485,7 +449,7 @@ function love.load(args)
                 'Studio world: '..studio_world_status
         end
         if studio_theme_status~='absent' and studio_theme_status~='loaded' and
-            studio_theme_status~='disabled by sprite pack' then
+            studio_theme_status~='disabled by fixed artwork' then
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio theme: '..studio_theme_status
         end
@@ -499,134 +463,59 @@ end
 
 -- Build all replacement GPU handles before publishing any of them.  This is
 -- presentation state only; the active concrete floor is never regenerated.
-local function refresh_visuals(requested_mode)
-    local mode=requested_mode or visual_pack_mode
-    local switching=requested_mode~=nil
-    local read=function(path) return love.filesystem.read(path) end
-    local ok,candidate,theme,theme_status,world,world_status,
-        generated_status=pcall(function()
-        local visuals,generated_status=build_selected_visuals(mode,read)
-        assert(not generated_status:match('^rejected'),
-            'Kenney art: '..generated_status)
-        assert(visuals.status=='loaded' or visuals.status=='absent' or
-            visuals.status=='generated',
-            'visual manifest: '..visuals.status)
-        if visuals.status=='loaded' then
-            local ids={}
-            for id in pairs(visuals.by_id) do ids[#ids+1]=id end
-            table.sort(ids)
-            for _,id in ipairs(ids) do
-                assert(visuals:resolve_id(id),'missing or invalid visual '..id)
+local function refresh_visuals()
+    local read=function(path)return love.filesystem.read(path)end
+    local ok,candidate,world,world_status,generated_status=pcall(function()
+        local visuals,status=build_selected_visuals(read)
+        assert(status=='loaded' or (status=='absent' and not visual_assets.generated),
+            '1-Bit artwork: '..tostring(status))
+        local new_world,new_status=StudioWorldRuntime.inspect(read)
+        assert(new_status=='loaded' or new_status=='absent' or tostring(new_status):match('^recovered'),
+            'world: '..tostring(new_status))
+        if new_world then
+            local manifest=read('assets/studio/manifest.txt')
+            local published_assets={}
+            if manifest then
+                local decoded,project=pcall(StudioProject.decode,manifest)
+                assert(decoded,'world: published visual manifest invalid')
+                published_assets=project.assets
             end
+            local valid,why=pcall(require('src.studio_world').validate,new_world,published_assets)
+            assert(valid,'world: '..tostring(why))
         end
-        local new_theme,new_theme_status
-        if VisualPacks.uses_published_theme(mode) then
-            new_theme,new_theme_status=StudioThemeRuntime.inspect(read,visuals)
-        else new_theme,new_theme_status=nil,'disabled by sprite pack' end
-        if not (new_theme_status=='loaded' or new_theme_status=='absent' or
-            new_theme_status=='disabled by sprite pack' or
-            tostring(new_theme_status):match('^recovered')) then
-            if switching then
-                new_theme=nil
-                new_theme_status='fallback: '..tostring(new_theme_status)
-            else error('theme: '..tostring(new_theme_status)) end
-        end
-        local new_world,new_world_status=next_world_pack,studio_world_status
-        if not switching then
-            new_world,new_world_status=StudioWorldRuntime.inspect(read)
-            assert(new_world_status=='loaded' or new_world_status=='absent' or
-                tostring(new_world_status):match('^recovered'),
-                'world: '..tostring(new_world_status))
-            if new_world then
-                local manifest=read('assets/studio/manifest.txt')
-                local published_assets={}
-                if manifest then
-                    local decoded,project=pcall(StudioProject.decode,manifest)
-                    assert(decoded,'world: published visual manifest invalid')
-                    published_assets=project.assets
-                end
-                local valid,why=pcall(require('src.studio_world').validate,
-                    new_world,published_assets)
-                assert(valid,'world: '..tostring(why))
-            end
-        end
-        return visuals,new_theme,new_theme_status,new_world,new_world_status,
-            generated_status
+        return visuals,new_world,new_status,status
     end)
     if not ok then
         refresh_result='rejected: '..tostring(candidate)
-        local brief=tostring(candidate):find('theme:',1,true) and 'theme pack invalid' or
-            tostring(candidate):find('world:',1,true) and 'world pack invalid' or
-            tostring(candidate):find('visual manifest:',1,true) and 'visual manifest invalid' or
-            'missing/corrupt visual'
-        notice='F5 art rejected: '..brief
-        if switching then
-            visual_pack_message='Sprite pack unchanged: '..brief
-        else visual_pack_message='F5 rejected; previous visuals retained: '..brief
-        end
+        notice='F5 art rejected · previous visuals retained'
         visual_refresh_message=refresh_result
         print('Visual refresh '..refresh_result)
         return false
     end
-    local signature=visual_fingerprint(candidate,theme,world)
+    local signature=visual_fingerprint(candidate,nil,world)
     local same=signature==visual_signature
-    visual_assets,studio_theme,studio_theme_status=candidate,theme,theme_status
-    set_visual_style(candidate.generated and candidate.generated.style)
-    visual_pack_generated_status=generated_status
+    visual_assets,art_status=candidate,generated_status
     studio_world_status=world_status
-    -- A run owns concrete floor geometry. World templates are installed only
-    -- for a fresh run from the title, never into an existing run.
+    set_visual_style()
+    -- New templates apply only to a fresh run. Concrete active floors stay intact.
     next_world_pack=world
     visual_signature=signature
-    if title and not state then Generation.install_studio_pack(world) end
-    local backing=candidate.atlas_status
-    if candidate.status=='absent' then backing='built-in fallback'
-    elseif candidate.status=='generated' then
-        backing=VisualPacks.labels[mode]
-    elseif backing~='loaded' and backing~='recovered previous atlas generation' then
-        backing='published loose ('..tostring(backing)..')'
-    else backing='atlas' end
+    if title and not state then Generation.install_studio_pack(world)end
+    local backing=candidate.generated and VisualPacks.label or 'emergency fallback'
     refresh_result=(same and 'checked' or 'refreshed')..' · '..backing..
-        ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
-        (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
-    local brief=candidate.status=='absent' and 'built-in' or
-        (candidate.generated and backing or 'built-in')
-    notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
-        (theme and theme.warning and ' · theme fallback' or '')
-    if switching then
-        visual_pack_mode=mode
-        local saved,reason=VisualPacks.save(storage,mode)
-        if saved then
-            visual_pack_status='loaded'
-            visual_pack_message='Selected '..VisualPacks.labels[mode]..' · '..backing
-        else
-            visual_pack_message='Selected for this session; settings not saved: '..
-                tostring(reason)
-        end
-        local fallback
-        if (mode=='kenney' or mode=='onebit') and generated_status~='loaded' then
-            fallback=VisualPacks.labels[mode]..' sheet '..tostring(generated_status)..
-                '; using built-in fallback'
-        elseif tostring(theme_status):match('^fallback:') then
-            fallback=theme_status
-        end
-        if fallback then visual_pack_message=visual_pack_message..' · '..fallback end
-        notice=visual_pack_message
-    else visual_pack_message=''
-    end
+        ((state and world_status=='loaded') and ' · world geometry deferred' or '')
+    notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..backing
     visual_refresh_message=refresh_result
-    if not same then print('Visual refresh '..refresh_result) end
+    if not same then print('Visual refresh '..refresh_result)end
     collectgarbage('step',200)
     return true
 end
 
 function love.update(dt)
-    if refresh_pending or pending_pack_mode then
-        local requested=pending_pack_mode
-        local reload_audio=refresh_pending
+    if refresh_pending then
+        local reload_audio=true
         refresh_pending=false
-        pending_pack_mode=nil
-        refresh_visuals(requested)
+        refresh_visuals()
         if reload_audio and audio_runtime then
             local _,reason=audio_runtime:refresh();audio_status=reason
             if tostring(reason):match('^rejected') then
@@ -753,7 +642,7 @@ end
 
 local function settings_reset_focus()
     settings_page=1
-    settings_selection=VisualPacks.index(visual_pack_mode)
+    settings_selection=1
 end
 local function activate_title_selection()
     if title_view=='home' then
@@ -772,24 +661,14 @@ local function activate_title_selection()
     elseif title_view=='class' then request_new_run() end
 end
 
-local settings_tabs={'SPRITES','SOUND','EFFECTS','ACCESSIBILITY'}
-local settings_lengths={#VisualPacks.order,3,4,4}
+local settings_tabs={'SOUND','EFFECTS','ACCESSIBILITY'}
+local settings_lengths={3,4,4}
 local function settings_change(direction)
     if settings_page==1 then
-        if direction~=0 then
-            settings_selection=(settings_selection-1+direction+
-                #VisualPacks.order)%#VisualPacks.order+1
-        else
-            pending_pack_mode=VisualPacks.order[settings_selection]
-            visual_pack_message='Loading '..VisualPacks.labels[pending_pack_mode]..'…'
-        end
-        return
-    end
-    if settings_page==2 then
         local key=({'master','music','effects'})[settings_selection]
         presentation_settings[key]=math.max(0,math.min(100,
             presentation_settings[key]+(direction==0 and 1 or direction)*10))
-    elseif settings_page==3 then
+    elseif settings_page==2 then
         local key=({'shake','flash','combat_effects','damage_numbers'})[settings_selection]
         presentation_settings[key]=not presentation_settings[key]
     else
@@ -3247,7 +3126,7 @@ local function draw_help()
         {'E','Inspect nearby room objects · confirm a choice'},
         {'Tab','Show / hide map'},
         {'Esc','Pause · Save & Quit · Settings'},
-        {'F5','Refresh selected sprite pack'},
+        {'F5','Refresh artwork and audio'},
     }
     g.setFont(ui_menu_font)
     for i,row in ipairs(lines)do
@@ -3285,7 +3164,7 @@ end
 local function settings_tab_at(x,y)
     if y<91 or y>=139 then return nil end
     for i=1,#settings_tabs do
-        if x>=120+(i-1)*190 and x<300+(i-1)*190 then return i end
+        if x>=120+(i-1)*250 and x<360+(i-1)*250 then return i end
     end
 end
 local function settings_row_at(x,y)
@@ -3297,7 +3176,7 @@ local function settings_click(x,y)
     local row=settings_row_at(x,y)
     if row then
         settings_selection=row
-        if settings_page==2 then
+        if settings_page==1 then
             if x>=795 then settings_change(1)
             elseif x>=705 and x<765 then settings_change(-1) end
         else settings_change(0) end
@@ -3309,15 +3188,14 @@ local function draw_settings()
     local g=love.graphics
     menu_frame('SETTINGS',100,40,824,550,ui_display_font)
     for i,label in ipairs(settings_tabs) do
-        local x=120+(i-1)*190
+        local x=120+(i-1)*250
         g.setColor(i==settings_page and PixelUI.colors.edge or PixelUI.colors.panel)
-        g.rectangle('fill',x,91,180,48)
+        g.rectangle('fill',x,91,240,48)
         g.setFont(ui_menu_font)
         g.setColor(i==settings_page and PixelUI.colors.selected or PixelUI.colors.text)
-        g.printf(label,x,103,180,'center')
+        g.printf(label,x,103,240,'center')
     end
     local descriptions={
-        'Choose the art used for actors, terrain, and icons.',
         'Set overall volume and balance music against game sounds.',
         'Adjust motion and hit feedback without changing gameplay.',
         'Change menu and HUD text appearance and contrast.'}
@@ -3334,15 +3212,11 @@ local function draw_settings()
         end
         local label,value
         if settings_page==1 then
-            local mode=VisualPacks.order[index]
-            label=VisualPacks.labels[mode]
-            value=mode==visual_pack_mode and 'IN USE' or 'SELECT'
-        elseif settings_page==2 then
             local key=({'master','music','effects'})[index]
             label=({master='Master volume',music='Music & ambience',
                 effects='Effects & UI'})[key]
             value=presentation_settings[key]..'%'
-        elseif settings_page==3 then
+        elseif settings_page==2 then
             local key=({'shake','flash','combat_effects','damage_numbers'})[index]
             label=({shake='Screen shake',flash='Hit flash',
                 combat_effects='Combat effect sprites',
@@ -3358,20 +3232,13 @@ local function draw_settings()
         g.setColor(selected and PixelUI.colors.selected or PixelUI.colors.text)
         g.print(label,164,y+14)
         g.printf(value,695,y+14,164,'right')
-        if settings_page==2 then
+        if settings_page==1 then
             g.print('−',719,y+14)
             g.print('+',805,y+14)
         end
     end
-    local info=settings_message
-    if settings_page==1 then
-        info=visual_pack_message~='' and visual_pack_message or
-            VisualPacks.descriptions[VisualPacks.order[settings_selection]]
-        if visual_pack_message=='' and visual_pack_mode~='classic' and
-            visual_pack_generated_status~='loaded' then
-            info='Artwork unavailable · using built-in fallback'
-        end
-    end
+    local info=settings_message~='' and settings_message or
+        (art_status=='loaded' and 'Artwork: Kenney 1-Bit · fixed appearance' or 'Artwork unavailable · emergency fallback · F5 retry')
     PixelUI.center(info,501,ui_menu_font,PixelUI.colors.muted,130,764)
     PixelUI.center('Tab / click category · ↑↓ select · ←→ adjust · Enter apply · Esc back',
         545,ui_body_font,PixelUI.colors.selected,130,764)
@@ -3579,18 +3446,12 @@ function love.update(dt)
     diagnostics_update_ms=(love.timer.getTime()-start)*1000
 end
 function love.draw()
-    local onebit=visual_assets and visual_assets.generated and
-        visual_assets.generated.style=='onebit'
-    local previous_shader
-    if onebit then
-        onebit_grayscale_shader=onebit_grayscale_shader or
-            love.graphics.newShader(onebit_grayscale_source)
-        previous_shader=love.graphics.getShader()
-        love.graphics.setShader(onebit_grayscale_shader)
-    end
+    local previous_shader,shader_applied=onebit_filter:begin(love.graphics,function(reason)
+        print('Monochrome filter unavailable; safe unshaded rendering: '..tostring(reason))
+    end)
     if not diagnostics then
         ordinary_draw()
-        if onebit then love.graphics.setShader(previous_shader) end
+        onebit_filter:finish(love.graphics,previous_shader,shader_applied)
         return
     end
     local frame=love.timer.getTime()
@@ -3620,7 +3481,7 @@ function love.draw()
         summary.frame_p99_ms or 0),20,37)
     love.graphics.print(("update/draw CPU p95 %.1f / %.1f ms"):format(
         summary.update_p95_ms or 0,summary.draw_p95_ms or 0),20,56)
-    if onebit then love.graphics.setShader(previous_shader) end
+    onebit_filter:finish(love.graphics,previous_shader,shader_applied)
 end
 function love.roagDiagnostics()
     return diagnostics and require("src.diagnostics").summary(diagnostics) or nil
@@ -3671,7 +3532,7 @@ function love.roagAssetBacking(id)
     local handle=visual_assets and visual_assets:resolve_id(id)
     return handle and handle.source or 'fallback'
 end
-function love.roagVisualPackMode() return visual_pack_mode end
+function love.roagVisualPackMode() return VisualPacks.default end -- read-only diagnostic
 function love.roagThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
 function love.roagAssetResolved(binding)
     return visual_assets and visual_assets:resolve(binding)~=nil or false

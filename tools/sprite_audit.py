@@ -8,6 +8,7 @@ import argparse
 import base64
 import csv
 import html
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -94,7 +95,7 @@ def main():
         assert (width, height) == (sheet['width'], sheet['height'])
         columns, size, stride = sheet['columns'], sheet['tile'], sheet['stride']
         cells = []
-        totals = {'grid': 0, 'nonempty': 0, 'empty': 0, 'kenney': 0, 'onebit': 0, 'union': 0}
+        totals = {'grid': 0, 'nonempty': 0, 'empty': 0, 'onebit': 0, 'union': 0}
         for y in range(0, height-size+1, stride):
             for x in range(0, width-size+1, stride):
                 index = y//stride*columns+x//stride
@@ -114,21 +115,17 @@ def main():
                              **{pack: '; '.join(ids) for pack, ids in bindings.items()}})
                 labels = '\n'.join(pack+': '+', '.join(ids) for pack, ids in bindings.items() if ids)
                 state = 'used' if any(used.values()) else 'unused' if count else 'empty'
-                cells.append(f'<article id="cell-{name}-{index}" data-state="{state}" data-kenney="{str(used["kenney"]).lower()}" '
+                cells.append(f'<article id="cell-{name}-{index}" data-state="{state}" '
                              f'data-onebit="{str(used["onebit"]).lower()}" title="{html.escape(labels, quote=True)}">'
                              f'<i class="{name}" style="background-position:-{x*3}px -{y*3}px"></i>'
                              f'<span>{index} · {state}</span><small>{html.escape(labels)}</small></article>')
         summaries.append({'sheet': name, **totals,
                           'unused_union': totals['nonempty']-totals['union'],
-                          'unused_kenney': totals['nonempty']-totals['kenney'],
                           'unused_onebit': totals['nonempty']-totals['onebit']})
-        packs = 'kenney onebit' if name == 'onebit' else 'kenney'
-        standalone = str(totals['onebit']) if name == 'onebit' else 'not loaded'
-        sections.append(f'<section data-sheet="{name}" data-packs="{packs}"><h2>{html.escape(name)} — {totals["nonempty"]} nonempty / '
+        sections.append(f'<section data-sheet="{name}"><h2>{html.escape(name)} — {totals["nonempty"]} nonempty / '
                         f'{totals["grid"]} grid cells</h2><p>{html.escape(sheet["path"])} · '
-                        f'{size}px, stride {stride}. Mixed uses {totals["kenney"]}; '
-                        f'1-Bit: {standalone}. Numbering is zero-based.</p>'
-                        f'<div class="cells">{"".join(cells)}</div></section>')
+                        f'{size}px, stride {stride}. Fixed 1-Bit look references {totals["onebit"]}. '
+                        f'Numbering is zero-based.</p><div class="cells">{"".join(cells)}</div></section>')
     report['pixel_inventory'] = summaries
     outputs = {'inventory.json': json.dumps(report, sort_keys=True, indent=2)+'\n'}
     csv_text = io.StringIO(newline='')
@@ -142,6 +139,15 @@ def main():
         styles.append(f'i.{name}{{width:{sheet["tile"]*3}px;height:{sheet["tile"]*3}px;'
                       f'background-image:url(data:image/png;base64,{encoded});'
                       f'background-size:{sheet["width"]*3}px {sheet["height"]*3}px}}')
+    # Frozen review cards link to Micro source-cell anchors. Keep those links
+    # inspectable as archive evidence without advertising another game renderer.
+    old = json.loads((ROOT/'docs/sprite-audit/ideas.json').read_text())['sources']['micro']
+    raw = (ROOT/old['path']).read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == old['sha256']
+    styles.append('i.micro{width:24px;height:24px;background-image:url(data:image/png;base64,'+
+                  base64.b64encode(raw).decode()+');background-size:384px 240px}')
+    archived_cells = ''.join(f'<article id="cell-micro-{i}"><i class="micro" style="background-position:-{i%16*24}px -{i//16*24}px"></i><span>{i} · historical only</span></article>' for i in range(160))
+    archive_panel = '<details><summary>Historical Micro source art — review evidence only; never loaded by the game</summary><p>Original approval links are preserved. This is not a selectable art style.</p><div class="cells">'+archived_cells+'</div></details>'
     document = '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROAG sprite audit</title>
 <style>body{background:#151b18;color:#e5e3d1;font:16px system-ui;margin:24px}a{color:#8cd2c8}
 header{position:sticky;top:0;background:#151b18;padding:12px;z-index:2}select{padding:8px}
@@ -155,22 +161,23 @@ span{display:block;font-size:12px}small{display:block;max-height:60px;overflow:a
             f'{len(info["missing"])} missing' for pack, info in sorted(report['packs'].items())) +
         f' · Mapping checksum: {report["mapping_checksum"]}</p>') + '''<p>Read-only, generated from current mappings and decoded PNG pixels.
 Hover/scroll a cell for bindings. “Used” includes partial material sampling; unused art is not an implemented mechanic.</p>
-<label>Pack <select id="pack"><option value="union">Both</option><option value="kenney">Kenney mix</option>
-<option value="onebit">Standalone 1-Bit</option></select></label>
+<p>One fixed Kenney 1-Bit appearance, including the approved monochrome derivatives.</p>
+<label>Source <select id="sheet"><option value="all">All current sources</option><option value="onebit">1-Bit</option>
+<option value="caves">Caves derivatives</option><option value="rpg">RPG derivatives</option><option value="tiny">Tiny derivatives</option></select></label>
 <label>Show <select id="filter"><option value="all">All</option><option value="unused">Unused nonempty</option>
 <option value="used">Referenced</option><option value="empty">Empty</option></select></label>
 <a href="inventory.json">JSON</a> · <a href="tiles.csv">CSV</a> ·
 <a href="surplus.html">Reviewed surplus archive</a> ·
 <a href="ideas.html">Reviewed idea archive</a> ·
-<a href="enemy-review.html">Accepted enemy review archive</a> · <a href="../ROAG_ENEMY_SQUADS.md">Live squad rules and selected art</a><p id="count" role="status"></p></header>''' + ''.join(sections) + '''
-<script>function filter(){const p=document.querySelector('#pack').value,f=document.querySelector('#filter').value;
+<a href="enemy-review.html">Accepted enemy review archive</a> · <a href="../ROAG_ENEMY_SQUADS.md">Live squad rules and selected art</a><p id="count" role="status"></p></header>''' + ''.join(sections) + archive_panel + '''
+<script>function filter(){const p=document.querySelector('#sheet').value,f=document.querySelector('#filter').value;
 let count=0;
-document.querySelectorAll('section[data-sheet]').forEach(s=>{s.hidden=p!=='union'&&!s.dataset.packs.split(' ').includes(p);
+document.querySelectorAll('section[data-sheet]').forEach(s=>{s.hidden=p!=='all'&&s.dataset.sheet!==p;
 s.querySelectorAll('article').forEach(a=>{const empty=a.dataset.state==='empty',
-used=p==='union'?a.dataset.state==='used':a.dataset[p]==='true';
+used=a.dataset.state==='used';
 a.hidden=s.hidden||(f==='used'?!used:f==='unused'?(used||empty):f==='empty'?!empty:false);
 if(!a.hidden)count++;});});
-document.querySelector('#count').textContent=count.toLocaleString()+' source cells shown from this choice’s loaded sheets';}
+document.querySelector('#count').textContent=count.toLocaleString()+' source cells shown from the fixed look’s sources';}
 document.querySelectorAll('select').forEach(s=>s.addEventListener('change',filter));filter();</script></html>'''
     outputs['index.html'] = document
     output = args.output.resolve()

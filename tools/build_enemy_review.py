@@ -34,6 +34,10 @@ def accepted_archive():
     live = json.loads(subprocess.check_output(['luajit', 'tools/sprite_audit.lua'], cwd=ROOT))
     for role in approved['roles']:
         for pack, decision in role['art'].items():
+            # The mixed renderer was explicitly retired. Its original page,
+            # feedback and source hashes above remain immutable evidence.
+            if pack not in live['packs']:
+                continue
             sheet, index = decision['choice'].split(':')
             identity = 'core:enemy/'+role['id']
             actual = next(b for b in live['packs'][pack]['bindings'] if b['id'] == identity)

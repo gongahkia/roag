@@ -1,243 +1,146 @@
 # ROAG sprite coverage and unused-art audit
 
-**Enemy review accepted:** all 30 decisions were approved on 2026-10-18.
-The [original review](sprite-audit/enemy-review.html) is preserved as an archive;
-[the implementation guide](ROAG_ENEMY_SQUADS.md) records the exact selected art and behaviour.
-The live catalogue includes these bindings.
+## Current appearance
 
-Scope: **current** native renderer, classes, enemies, biome/terrain content,
-boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
-game content is fifteen classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
-boss, seven two-floor biomes, six original mechanical terrains plus three optional terrain mechanics and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder and the fourteen finite item/room interactions and three optional terrain mechanics.
-The live HTML/JSON/CSV reflect 491
-requirements; the original 324-binding review remains frozen with the user’s
-decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
-The audit itself does not modify gameplay mechanics.
+ROAG always uses **Kenney 1-Bit**, including the **13 explicitly approved
+monochrome derivatives**. There is no art selector in title/pause settings,
+launch environment or Make targets. `make game` and `make spectator` use the
+same renderer. Old visual-preference records are ignored without touching
+player saves. Automatic emergency shapes remain available only when artwork
+cannot load; they are not a selectable style. F5 refreshes the fixed resources.
 
-**Historical surplus discussion:** [visual shortlist](sprite-audit/surplus.html)
-and [reasoning/recommendations](sprite-audit/surplus.md), checked against the
-324-binding review snapshot. These reviewed pages are deliberately preserved;
-the live catalogue is the authority for what remains unused.
+Sound, effects, font readability, text size and contrast remain adjustable.
+The font choices are accessibility options, not alternate sprite packs.
 
-**Completed idea review:** [89 grouped proposals](sprite-audit/ideas.html),
-covering all unused cells with separate idea/art votes, preferences, comments
-and downloadable feedback. See the [review guide](sprite-audit/ideas-guide.md).
+Current content: fifteen classes, 39 regular enemies plus finite fragment and
+optional champion, seven elites, pursuer/final boss, seven two-floor biomes,
+six original terrain mechanics plus three optional mechanics, fourteen finite
+item/room interactions, and **53 boons**. The additional-boon batch remains
+paused in [the implementation ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 
-**Approved detail review:** [items and interactive rooms](sprite-audit/items-rooms.html)
-is preserved against its historical 399-binding snapshot. All fourteen were
-approved by explicit user message and now have finite gameplay interactions,
-menus and both Kenney mappings. See [actual rules and controls](ROAG_IDEA_INTERACTIONS.md).
-LÖVE GUI/human readability acceptance remains pending; headless checks are
-separate from visual acceptance.
+## Active coverage
 
-## The choices being compared
+The live catalogue inspects the actual fixed resolver, then independently
+checks source PNG bytes, dimensions, CRCs and nonempty sampled regions.
+**491/491 required bindings resolve; none are missing.**
 
-| Settings choice | Source artwork | Status |
-| --- | --- | --- |
-| Classic built-in | Code-drawn tokens and terrain | Intentional fallback; no external sprites |
-| Kenney pixel art (`kenney`) | Micro characters/props + Caves surfaces + 1-Bit symbols + approved Tiny Dungeon actors/fixtures and RPG keys/gates | Mixed Kenney option |
-| Kenney 1-Bit (`onebit`) | 1-Bit Pack with derived connected surfaces and explicitly approved monochrome Tiny vents | New standalone third choice |
+| Runtime category | Bindings | Artwork |
+| --- | ---: | --- |
+| Fifteen classes + 50 enemy forms, base/attack/hurt | 195 | Native 1-Bit; 63 body drawings for 65 identities |
+| Drops, chests and other objects | 17 | Native 1-Bit |
+| Reviewed scenery/objects | 29 | Native 1-Bit |
+| Finite item/room objects, plaque and token marker | 16 | Native 1-Bit representative motifs |
+| HP/XP/currency icons | 3 | Native 1-Bit |
+| Hit, boon, Burning, block, attack center/impact | 6 | Native 1-Bit |
+| Squad/corpse/alarm/oath/reflector/charge cues | 11 | Native 1-Bit |
+| Original class weapon symbols | 5 | Native 1-Bit |
+| 53 boon icons and detail aliases | 106 | Native 1-Bit |
+| Original terrain mechanic markers | 6 | Native 1-Bit symbols |
+| Vent phases, arrows and fragile shortcut states | 10 | Native symbols plus monochrome Tiny vents |
+| Approved room materials and props | 37 | Native counterparts and approved monochrome derivatives |
+| Contextual action/status/recovery/impact/state cues | 29 | Native 1-Bit |
+| Seven biome floor/wall/water bases | 21 | Derived native 1-Bit surfaces |
 
-Thus there are **two Kenney presentation choices**, not two copies of the
-same pack. Five original sheets are present. Each remains unmodified and
-CC0; provenance/checksums are in `assets/kenney/*/README.md` and
-[the approved-source record](sprite-audit/review-art/README.md).
+Walls and water cover **256 raw neighbor cases → 47 canonical masks**.
+Derived page coordinates are deployment details, never authored identities.
+There are **130 static attack/hurt aliases**, not animation frames. Boon detail
+reuses its icon. Duelist/Oath Pike share body 124; Bone Splitter/fragments share
+323, with fragments rendered smaller. Some objects also share representative
+motifs. A valid mapping is not a claim of a bespoke silhouette for every prop.
 
-## Active sprite coverage
+## The 13 retained counterparts
 
-The audit runs both actual native resolvers with headless texture/Quad handles,
-then independently decodes every source PNG cell and rejects referenced empty
-cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **491/491 active sprite bindings resolve in each choice**:
+| Artwork | Required bindings | Actual source |
+| --- | ---: | --- |
+| Vent cooldown/warning/burst | 3 | Tiny Dungeon 9/29, cached two-tone conversion |
+| Drowned room water material | 1 | RPG outer banks 2–4 / 59–61 / 116–118; native concave 115/114/57/58 |
+| Broken cavern wall material | 1 | Caves frame 38, center 39, accent 3 |
+| Rubble variants | 2 | Caves 3/5 |
+| Two column top/middle/base assemblies | 6 | Caves 146/175/204 and 147/176/205 |
 
-| Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
-| --- | ---: | --- | --- |
-| Fifteen classes + 50 enemy forms, base/attack/hurt | 195 | 54 distinct bodies for 65 actor IDs | 63 bodies for 65 actor IDs |
-| Drops 3, chests 2, other objects 12 | 17 | Micro art + 1-Bit familiar | Native 1-Bit art |
-| Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
-| Finite item/room objects, plaque and token marker | 16 | Reviewed Micro/RPG/Tiny/1-Bit motifs | Native 1-Bit art; labelled gong and falling slab |
-| HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
-| Hit, boon, Burning, block, attack center/impact | 6 | Native Micro art | Native 1-Bit art |
-| Squad, corpse, alarm, oath, reflector and charge cues | 11 | Native 1-Bit art | Native 1-Bit art |
-| Class weapon symbols | 5 | Native Micro art | Native 1-Bit art |
-| 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
-| Original mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
-| Vent phases, cardinal arrows and fragile shortcut states | 10 | Approved Tiny/RPG/Caves + 1-Bit arrows | True monochrome Tiny vents + native arrows/ladder motifs |
-| Approved room materials, wall dressing and columns | 37 | Ten materials + 27 props | Native counterparts and approved monochrome derivatives |
-| Contextual actions, status, recovery, impact and state cues | 29 | Native 1-Bit symbols | Same semantic native symbols |
-| Seven biomes × floor/wall/water bases | 21 | Caves native floor / composite surfaces | 1-Bit composite surfaces |
+All are neutral derivatives; original PNG bytes remain untouched. Native
+fallback motifs remain available for optional missing counterparts. Removing
+RPG/Caves would lose the two preferred environment material handles and cause
+generic terrain fallback, so those sources remain required for the chosen look.
+No Micro sprites are loaded by the game, spectator or current pixel preview.
 
-Both terrain resolvers cover all **256 raw neighbor cases → 47 canonical
-masks** for walls and water. The legacy 24 named directional authoring slots
-are not the native connectivity path; absent named-slot images therefore do
-**not** mean missing runtime corners. Dynamic Quads select connected surfaces.
-Barricades are mechanical markers over their ground/collision tile, not a
-missing wall variant.
+Source provenance/licensing is retained in `assets/kenney/*/README.md` and
+[the approved-source record](sprite-audit/review-art/README.md). All source art
+is Kenney CC0. The historical mixed resolver was moved out of `src` into
+`tests/legacy_kenney_visuals.lua` for archive/source regression assertions.
 
-### Art reuse and semantic approximations
+## Source inventory and remaining art
 
-Both choices have **130 static pose aliases**: attack/hurt reuse each actor's
-base image. No animation is provided. Boon detail reuses its icon. Currency
-drop and HUD gold deliberately share a motif. Some effects remain representative
-rather than bespoke art for every boon. The small semantic family distinguishes
-physical/fire/lightning/echo, blocked damage, recovery and boon activation.
+These are unique nonempty native cells sampled by the current renderer,
+including partial composition inputs. They are not numbers of new mechanics.
 
-The existing mix has these eight pairs sharing body images:
+| Current source | Nonempty cells | Referenced | Unused |
+| --- | ---: | ---: | ---: |
+| 1-Bit packed 16px | 1,077 | 248 | 829 |
+| Caves & Dungeons, 16px / 1px gutters | 522 | 10 | 512 |
+| Approved RPG, 16px / 1px gutters | 1,704 | 13 | 1,691 |
+| Approved Tiny Dungeon, 16px / 1px gutters | 132 | 2 | 130 |
+| **Total active source sheets** | **3,435** | **273** | **3,162** |
 
-| Micro cell | Shared identities |
-| ---: | --- |
-| 6 | Arcanist / Index Keeper |
-| 7 | Alchemist / Cinder Mender |
-| 9 | Thorn Warden / Hollow Regent |
-| 10 | Sentinel / Prism Curator |
-| 13 | Forge Conjurer / Ember Crucible |
-| 14 | Spore Herald / Mycelial Matriarch |
-| 15 | Cinder Bellkeeper / Ash Marshal |
-| 22 | Canal Lancer / Canal Lockmaster |
+The full source sheets stay intact because their exact bytes/checksums are
+verified and their approved regions feed deterministic compositors. Unused
+regions are not automatically suitable or approved for additional gameplay.
 
-Both choices also share the approved Duelist / Oath Pike body (Tiny 99 in the
-mixed choice, 1-Bit 124 in standalone). The 1-Bit choice shares that pair and
-the skeleton/fragment body (323), with the fragment rendered smaller. This
-explicit reuse is not an extra unique silhouette. The mixed choice has those
-two pairs in addition to the eight pairs above and the approved Geomancer / Oath Blade reuse (Tiny 100). The familiar uses 417, also the awake Haunted Cache motif. Stone/stand symbols are representative shared objects. Many identities remain
-representative motifs: a knight for a guard, wizard for a caster, plant/beast
-for a hostile. Distinct native art is not proof that a boss visually conveys
-its exact attack mechanics. Both packs use representative stair/gateway and
-effect motifs. Human readability acceptance remains a separate check.
+Micro Roguelike's unchanged 159 nonempty cells remain **historical evidence**:
+the original approved feedback and embedded review pages reference that PNG at
+its original path. Deleting it would break those source-verification contracts.
+It is excluded from current runtime inventory totals. The live catalogue has
+a clearly labelled archive foldout preserving old Micro cell links; it does
+not offer a different game renderer.
 
-Both choices retain their base terrain and add room-level materials,
-connected masonry, water banks, garden/carpet patches and contextual dressing.
-The crypt and pale sanctuary are one family inside existing biomes. See the
-[environment guide](ROAG_IDEA_ENVIRONMENTS.md) and its honestly labelled
-[source-pixel gallery](visuals/environments/index.html). Some monochrome
-families share native masonry; coverage does not imply unique biome art.
+## Intentional drawn presentation
 
-## Things still rendered without a pack sprite
+These are outside the 491 required sprite bindings:
 
-These are **real procedural visuals**, not silently counted as sprite coverage:
+- UI frames, focus indicators, health/XP/phase bars and menu layout.
+- TTF text, numbers, boon descriptions and achievements.
+- Minimap, fog, camera/screen feedback and dotted tactical attack outlines.
+- Player decoy/snare markers, some clue strokes and feedback rings.
+- Plain menu/title backdrops and developer overlays.
 
-| Rendered element | Current implementation / decision |
-| --- | --- |
-| Menu/HUD/chest/route/settings frames and focus indicators | `pixel_ui.lua` frames plus `main.lua` layout; palette changes, no sprite skin or nine-slice from these packs |
-| Text, boon descriptions, damage numbers, title/results/achievement labels | BigBlue Terminal TTF via `ui_fonts.lua`; no Kenney bitmap font/glyph mapping |
-| HP/XP bars, enemy HP, elite/final-boss status/phase bars | Drawn meters/text reflecting real state |
-| Minimap cells, fog/exploration dimming | Intentional code rendering; not missing floor art |
-| Dotted committed enemy attacks and player aiming | Intentional tactical outlines, preserve clear interiors |
-| Committed attack cells, status ticks, door/terrain/secret feedback | Tactical outlines/rings remain; small hit/fire/spark/echo/block/recovery/boon sprites replace duplicate broad impact fills |
-| Screen damage flash and camera shake | Presentation math/fullscreen overlay, not sprite resources |
-| Secret clue accents | Crack/spiral clues have native mural motifs plus their drawn strokes/circles |
-| Elite activation marker | Drawn concentric rings |
-| World/title/pause backdrops | Plain fields and frames, no native background illustrations |
-| Spectator cursor / debug diagnostics | Developer overlays, intentionally procedural |
-| Classic and missing-pack tokens | Explicit safe fallback primitives |
+The fixed monochrome filter covers the full rendered frame. Its compilation
+is cached and guarded; unsupported shaders warn once and allow safe unshaded
+rendering. There is no user setting that chooses an alternative art pack.
+Existing readability settings remain independent of gameplay.
 
-Before this change, Burning and blocked-hit had image bindings but unused
-render hooks. They now use their native sprites in both Kenney choices; the
-Classic fallback and gameplay events remain intact. Other colored effects
-listed above are still procedural; this is **not** a claim of complete
-sprite-only presentation.
+## Review history is preserved
 
-### Dormant contracts are not current game art gaps
+- [Original enemy review](sprite-audit/enemy-review.html): 30/30 decisions.
+- [Original idea review](sprite-audit/ideas.html): 55 approve / 30 reject / 4 redirects.
+- [Approved item/room detail review](sprite-audit/items-rooms.html).
+- [Reviewed surplus discussion](sprite-audit/surplus.html).
 
-The retained ID registry includes 95 printable ASCII glyph slots, optional
-HUD/title/pause/bitmap-font slots, biome backdrop slots, currency detail and
-legacy terrain shape names. The native game choices disable Paint theme/loose
-overrides. Those contracts are not automatically active sprites just because
-their IDs exist. In particular the game currently uses TTF text, not missing
-letter sprites. `core:drop/currency/detail` is an optional conditional detail
-image, not a required token render. The catalogue separates these from the
-491 binding requirements above. Decoy/snare markers are also still drawn
-geometry; the new class bodies are sprite-backed.
+These are frozen approval records, including their historical comparison
+controls and original source hashes. They cannot change the game's appearance.
+The original 324-binding and 399-binding review snapshots are not regenerated
+from the current 491-binding runtime. Archive verification checks current
+1-Bit assignments while retaining retired mixed-pack decisions as history.
 
-## Exact unused/excess inventory
+## Inspect and verify
 
-Counts are **unique native grid cells**, not binding counts, files, animated
-frames or new mechanics. “Referenced” includes a cell sampled partially as a
-wall/water composition material. This does not mean its whole artwork is
-shown intact. Transparent key/background is accounted for in Micro.
-
-| Original sheet | Grid cells | Nonempty | Mixed referenced / unused | Standalone referenced / unused | Unused by either |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Micro Roguelike 8px | 160 | 159 | 56 / **103** | Not loaded | **103** |
-| Caves & Dungeons 16px, 1px gutters | 522 | 522 | 83 / **439** | 10 / **512** | **439** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 111 / **966** | 248 / **829** | **829** |
-| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 88 / **1,616** | 13 / **1,691** | **1,616** |
-| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 29 / **103** | 2 / **130** | **103** |
-
-Across the five stored sheets: **3,594 nonempty cells**, **504 referenced by
-either choice**, **3,090 unreferenced**. Across just the original three sheets,
-there are **1,371** unreferenced cells. The additional source sheets increase
-the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,090 unique useful objects:
-borders, variants and multi-cell assemblies
-contribute to that number. For example, Caves' official “520 files” description
-is not the same measurement as its 522 nonempty packed-sheet regions; the
-audit counts decoded sheet cells, and does not count archive files.
-
-Explore **every cell** in the self-contained [visual catalogue](sprite-audit/index.html).
-Choose a pack and **Unused nonempty** to see its exact surplus. Hover/scroll
-cells for associated stable IDs. It works offline; PNGs are embedded, no
-browser network access needed. [CSV](sprite-audit/tiles.csv) includes index,
-source coordinates, alpha/key occupancy and bindings for each choice;
-[JSON](sprite-audit/inventory.json) includes resolver coverage and shared actors.
-
-## Earlier opportunity discussion (historical)
-
-Use the [current shortlist](sprite-audit/surplus.html) for checked unassigned
-candidates after the approved enemy teams. The broad suggestions below predate
-those implementations and include decisions already resolved by the review.
-
-| Source surplus | Potential next use | What still needs a design decision |
-| --- | --- | --- |
-| Caves pillars, supports, beams, rails, ladders, bridge sections | Room dressing and more readable connections | Decoration-only versus collision; multi-tile placement; avoid painting door frames onto floor |
-| Caves alternate floors, cracks, ore/crystals, foliage, water details | Biome identity and secret-clue art | Pure visual variants versus interactable objects; preserve fog and known clues |
-| 1-Bit shields, swords, bows, staves, axes, armor, potions, keys, jewels | More precise boon/prop identity or cosmetic options | Many current skills already have these motifs; art availability alone does not justify a new item system |
-| 1-Bit extra plants/beasts/characters and architectural pieces | Better enemy silhouettes, monochrome biome variants | Threat identification and motif suitability need review first |
-| 1-Bit panels, arrows, symbols, numerals/capital letters, card/dice motifs | Sprite-skinned UI and consistent visual vocabulary | Glyph coverage/fallback, layout, slicing and readability; no existing font automatically becomes complete |
-| Micro unused environment/props/creature/equipment cells | Additional small prop or actor alternatives | Micro environment was intentionally replaced by Caves; do not reintroduce mismatched floors blindly |
-| 1-Bit modern/industrial/vehicle/space imagery | Mostly outside the current setting | Surplus, not a recommendation to add unrelated mechanics |
-
-The approved review has since implemented several of these suggestions,
-including props, new classes and sidequests; see
-[the implementation/decision record](sprite-audit/review-feedback.md).
-The catalogue's unused filter is authoritative for present source usage;
-the opportunity table above remains a design discussion, not a claim that
-every pictured asset is still unused. This refresh changes audit files only.
-
-For current candidates supporting the **same idea in both selectable Kenney
-looks**, see the [unused-art shortlist](sprite-audit/surplus.html). The
-[cross-pack opportunity audit](sprite-audit/overlap.md) and
-[interactive sprite review](sprite-audit/review.html) preserve earlier proposals
-and feedback; they are not a fresh approval request. Serve the current page
-with `python3 -m http.server 8080` from the repository root and visit
-`http://127.0.0.1:8080/docs/sprite-audit/surplus.html`, or open its local HTML
-file directly. Its sprite images are embedded.
-
-## Reproduce and maintain the audit
+Open [the live catalogue](sprite-audit/index.html). Its **Source** filter
+inspects the four current sheets; it does not select a game style. The
+[CSV](sprite-audit/tiles.csv) and [JSON](sprite-audit/inventory.json) report
+current usage. The [pixel gallery](visuals/environments/index.html) provides
+nine offline source-pixel views, unchanged from the accepted 1-Bit look.
+They are not LÖVE/GPU screenshots or physical-input acceptance.
 
 ```sh
 make sprite-audit
-make sprite-audit-check  # read-only; rejects stale HTML/JSON/CSV
-make surplus-audit       # curate/rebuild current unused-art shortlist
-make surplus-audit-check # read-only shortlist and live usage checks
-# equivalent: Python stdlib + LuaJIT, no LÖVE window or player data access
-python3 tools/sprite_audit.py
-# inspect machine inventory only, no output files
-luajit tools/sprite_audit.lua
+make sprite-audit-check
+make environment-preview-check
+make item-room-review-test sprite-ideas-test enemy-review-check surplus-audit-check
+node tests/sprite_surplus_page_test.js
+sh tests/visual_packs_disk_smoke.sh
+sh tests/idea_environment_disk_resume.sh
+TMPDIR=/var/tmp luajit tests/run.lua
 ```
 
-`src/sprite_audit.lua` inspects real native resolvers and explicit material
-references, with sorted output. `tools/sprite_audit.py` verifies PNG CRCs,
-decodes RGBA8/indexed 1/2/4/8-bit data and PNG row filters, scans cells at
-each sheet's correct stride, rejects referenced empty cells, and writes only
-the three generated catalogue files. Stable IDs remain authored identities;
-native indices are presentation mappings. Regenerate after changing mappings
-or sheets. Procedural categories above require render-code review and are
-not inferred by counting registry placeholders.
-
-`make test` checks all three generated files before running Lua tests. Direct
-`luajit tests/run.lua` also checks the inventory's mapping checksum against
-the current resolvers. Previously only live resolver coverage was tested,
-which let an older catalogue remain unnoticed. These checks do not regenerate
-files or overwrite feedback; run `make sprite-audit` explicitly when needed.
+The catalogue's recorded mapping checksum is checked by the headless suite;
+stale generated pages fail rather than silently reporting old coverage.
+No LÖVE GUI application was launched during this fixed-look change.

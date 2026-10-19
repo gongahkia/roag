@@ -1,6 +1,5 @@
 -- Read-only inventory of the actual native resolvers, not every legacy authoring
 -- placeholder. No graphics, player saves or simulation/RNG are initialized.
-local K=require('src.kenney_visuals')
 local O=require('src.onebit_visuals')
 local S=require('src.kenney_symbols')
 local T=require('src.kenney_terrain')
@@ -31,7 +30,7 @@ end
 local function quad(x,y,w,h)return {x=x,y=y,w=w,h=h}end
 function A.collect()
     local report={version=1,sheets={},packs={},requirements=array()}
-    for name,def in pairs({micro=K,caves=T,onebit=S})do
+    for name,def in pairs({caves=T,onebit=S})do
         report.sheets[name]={path=def.path,width=def.width,height=def.height,
             tile=def.tile,stride=def.stride or def.tile,
             columns=def.columns or def.width/def.tile,checksum=def.checksum}
@@ -52,8 +51,8 @@ function A.collect()
             report.requirements[#report.requirements+1]=id
         end
     end
-    for _,name in ipairs({'kenney','onebit'})do
-        local definition=name=='kenney' and K or O
+    for _,name in ipairs({'onebit'})do
+        local definition=O
         local resolver=definition.new(read,image,quad)
         local p={bindings=array(),missing=array(),usage={},shared_actors=array(),actor_count=0,
             actor_silhouettes=0,static_pose_aliases=0,wall_masks=47,water_masks=47}
@@ -122,45 +121,9 @@ function A.collect()
         end
         for _,id in ipairs(keys(S.terrain))do use('onebit',S.terrain[id][1],id)end
         for _,cue in ipairs(keys(Squads.cues)) do use('onebit',Squads.cues[cue],'core:ui/'..cue) end
-        if name=='kenney'then
-            for _,kind in ipairs(keys(Interactions.art))do
-                local art=Interactions.art[kind]
-                if art[1]~='micro'then use(art[1],art[2],Interactions.binding(kind))end
-            end
-            for _,id in ipairs(keys(Comp.symbols))do use('onebit',Comp.symbols[id],id)end
-        end
         for _,id in ipairs(keys(IdeaEnemies.symbols or {}))do use('onebit',IdeaEnemies.symbols[id],id)end
-        if name=='kenney'then
-            for _,id in ipairs(keys(IdeaEnemies.objects or {}))do
-                local h=assert(resolver:resolve(id))
-                use(h.approved_sheet or h.terrain_pack or 'onebit',h.tile_index or h.symbol_index,id)
-            end
-        end
-        if name=='kenney'then
-            for _,id in ipairs(keys(Slots.bindings))do
-                if id:match('^core:object/review_') then
-                    local h=resolver:resolve(id)
-                    if h then use(h.approved_sheet or h.terrain_pack or 'micro',
-                        h.tile_index or h.symbol_index,id) end
-                end
-            end
-            for _,biome in ipairs(keys(T.styles))do
-                for _,index in ipairs(T.styles[biome].floor)do use('caves',index,biome..' floor')end
-            end
-            for _,family in ipairs(keys(T.wall_materials))do
-                for _,part in ipairs(keys(T.wall_materials[family]))do
-                    use('caves',T.wall_materials[family][part],family..' wall material: '..part)
-                end
-            end
-            for _,family in ipairs(keys(T.water_materials))do
-                for part,index in ipairs(T.water_materials[family])do
-                    use('caves',index,family..' water quadrant material '..part)
-                end
-            end
-        else
-            for _,part in ipairs({'floor','wall','water','frame'})do
-                use('onebit',O[part..'_index'],'composite terrain material: '..part)
-            end
+        for _,part in ipairs({'floor','wall','water','frame'})do
+            use('onebit',O[part..'_index'],'composite terrain material: '..part)
         end
         for _,sheet in pairs(p.usage)do for _,labels in pairs(sheet)do table.sort(labels)end end
     end

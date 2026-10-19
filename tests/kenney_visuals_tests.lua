@@ -1,4 +1,4 @@
-local Kenney=require('src.kenney_visuals')
+local Kenney=require('tests.legacy_kenney_visuals')
 local Packs=require('src.visual_packs')
 local Game=require('src.game')
 local Slots=require('src.visual_slots')
@@ -167,19 +167,13 @@ return function(test,equal)
         assert(x==768 and y==336 and w==16 and h==16)
         for _,bad in ipairs({-1,1078,1.5,'1'})do assert(not pcall(Symbols.region,bad))end
     end)
-    test('Kenney selection, persistence and refresh lookup leave simulation unchanged',function()
+    test('historical mixed fixture cannot be selected by the fixed game resolver',function()
         local state=Game.new_stage(7);local before=Game.snapshot(state)
-        local art=assert(Kenney.new(read,image,quad))
-        local visuals,status=Packs.build('kenney',function(path)
-            assert(path~='assets/studio/manifest.txt','Kenney must bypass published overrides')
-            return read(path)
-        end,image,function(_,mode)assert(mode=='kenney');return art,'loaded'end)
-        assert(status=='loaded' and visuals:resolve('core:actor/adventurer').source=='kenney')
-        assert(not Packs.uses_published_theme('kenney'))
-        local memory={}
-        function memory:read(path)return self[path]end
-        function memory:write(path,bytes)self[path]=bytes;return true end
-        assert(Packs.save(memory,'kenney') and Packs.inspect(memory).mode=='kenney')
+        local legacy=assert(Kenney.new(read,image,quad))
+        assert(not pcall(Packs.build,read,image,function()return legacy,'loaded'end))
+        local art=require('src.onebit_visuals').new(read,image,quad)
+        local visuals,status=Packs.build(read,image,function()return art,'loaded'end)
+        assert(status=='loaded' and visuals:resolve('core:actor/adventurer').source=='onebit')
         equal(before,Game.snapshot(state))
     end)
 end

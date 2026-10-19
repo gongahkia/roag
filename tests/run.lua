@@ -1579,6 +1579,7 @@ require('tests.idea_class_integration_tests')(test,equal)
 require('tests.idea_interaction_tests')(test,equal)
 require('tests.idea_terrain_tests')(test,equal)
 require('tests.idea_environment_tests')(test,equal)
+require('tests.fixed_visuals_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

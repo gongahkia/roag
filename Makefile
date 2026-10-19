@@ -11,12 +11,10 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
-	 'make game             Play ROAG with your selected sprite pack' \
-	 'make kenney           Try Kenney artwork without changing settings' \
-	 'make onebit           Try standalone Kenney 1-Bit artwork' \
+	 'make game             Play ROAG with fixed Kenney 1-Bit artwork' \
 	 'make spectator        Inspect Kenney art without saves' \
 	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
 	 'make sprite-audit-check Check saved catalogue freshness without writing' \
@@ -35,14 +33,10 @@ help:
 	 'make environment-preview-check Check exact generated preview pixels' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'make gui-enemy-squads  Check approved squads in all three sprite packs' \
-	 'Title Settings or Esc -> 3       Choose Classic, Kenney mix or Kenney 1-Bit'
+	 'make gui-enemy-squads  Check approved squads with the fixed 1-Bit artwork' \
+	 'Title Settings or Esc -> 3       Sound, effects and accessibility'
 game:
 	$(LOVE_RUN) .
-kenney:
-	env ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
-onebit:
-	env ROAG_SPRITE_PACK=onebit $(LOVE_RUN) .
 sprite-audit:
 	python3 tools/sprite_audit.py
 	python3 tools/build_sprite_review.py
@@ -84,7 +78,7 @@ environment-preview:
 environment-preview-check:
 	python3 tools/environment_preview.py --check
 spectator:
-	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
+	env ROAG_SPECTATOR=1 $(LOVE_RUN) .
 test: sprite-audit-check
 	$(LUAJIT) tests/run.lua
 gui: gui-game gui-expansion gui-enemy-squads
@@ -94,8 +88,6 @@ gui-game:
 	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
 	@$(GUI_RUN) sh tests/menu_gui_smoke.sh
 	@$(GUI_RUN) sh tests/attack_preview_gui_smoke.sh
-	@$(GUI_RUN) sh tests/kenney_symbols_gui_smoke.sh
-	@$(GUI_RUN) sh tests/kenney_terrain_gui_smoke.sh
 	@$(GUI_RUN) sh tests/onebit_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh

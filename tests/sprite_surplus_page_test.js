@@ -82,24 +82,23 @@ async function browser(binary,output) {
       await until(()=>evaluate(`document.readyState==='complete' && !!document.querySelector('#count')`));
     };
     await navigate('index.html');
-    const packCounts={};
-    for(const pack of ['union','kenney','onebit']){
-      const sheets=inventory.pixel_inventory.filter(s=>pack!=='onebit'||s.sheet==='onebit');
-      const all=sheets.reduce((n,s)=>n+s.grid,0),used=sheets.reduce((n,s)=>n+s[pack],0);
+    const sourceCounts={};
+    for(const source of ['all',...Object.keys(inventory.sheets)]){
+      const sheets=inventory.pixel_inventory.filter(s=>source==='all'||s.sheet===source);
+      const all=sheets.reduce((n,s)=>n+s.grid,0),used=sheets.reduce((n,s)=>n+s.onebit,0);
       const empty=sheets.reduce((n,s)=>n+s.empty,0);
-      packCounts[pack]={all,used,empty,unused:all-empty-used};
+      sourceCounts[source]={all,used,empty,unused:all-empty-used};
     }
-    for(const [pack,counts] of Object.entries(packCounts)) {
+    for(const [source,counts] of Object.entries(sourceCounts)) {
       for(const [show,count] of Object.entries(counts)) {
-        const visible=await evaluate(`(()=>{document.querySelector('#pack').value='${pack}';
+        const visible=await evaluate(`(()=>{document.querySelector('#sheet').value='${source}';
           const f=document.querySelector('#filter');f.value='${show}';f.dispatchEvent(new Event('change'));
-          return [...document.querySelectorAll('article')].filter(a=>!a.hidden).length})()`);
-        assert.equal(visible,count,`${pack} / ${show}`);
-        if(pack==='onebit')assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('section[data-sheet]')).filter(s=>!s.hidden).map(s=>s.dataset.sheet)`),['onebit']);
+          return [...document.querySelectorAll('section[data-sheet] article')].filter(a=>!a.hidden).length})()`);
+        assert.equal(visible,count,`${source} / ${show}`);
       }
     }
-    await evaluate(`document.querySelector('#filter').value='unused';filter()`);
-    await screenshot('standalone-unused');
+    await evaluate(`document.querySelector('#sheet').value='all';document.querySelector('#filter').value='unused';filter()`);
+    await screenshot('fixed-look-unused');
     await navigate('surplus.html');
     assert.equal(await evaluate(`document.querySelectorAll('article:not([hidden])').length`),10);
     await screenshot('surplus-overview');

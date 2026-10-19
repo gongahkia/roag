@@ -30,7 +30,7 @@ return function(test,equal)
         return out
     end
     test('approved squads have ten registered roles and exact reviewed sprite assignments',function()
-        local K=require('src.kenney_visuals');local O=require('src.onebit_visuals')
+        local K=require('tests.legacy_kenney_visuals');local O=require('src.onebit_visuals')
         assert(#S.enemies==10 and #S.order==5)
         for _,row in ipairs(S.enemies) do
             local id='core:enemy/'..row[1]

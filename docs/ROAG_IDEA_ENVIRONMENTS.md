@@ -7,16 +7,17 @@ No crafting, durability, new biome, animation system or UI redesign is added.
 
 ## See the changes
 
-When convenient, run `make game`, then choose **Settings → Sprite Pack → Kenney
-pixel art** or **Kenney 1-Bit**. The Classic choice retains its shape-based
-presentation. **F5** refreshes visual resources without replacing the current
-floor. **I** opens the existing stats/boon screen; the F/R/X bar has contextual
-ability icons. Existing E inspection, dotted attacks, visibility and controls
-remain in use. New dressing also applies when reopening an existing compatible
-generated floor; it is derived from that concrete map, never added to its save.
+Run `make game` when convenient. **Kenney 1-Bit is now the fixed and only
+appearance**, including the 13 approved monochrome counterparts. There is no
+artwork selector or launch override. Settings contain Sound, Effects and
+Accessibility. F5 refreshes resources; missing/corrupt required art uses the
+non-selectable emergency fallback or retains the previous good resources.
+I opens stats/boons; the F/R/X bar has contextual ability icons. Existing E
+inspection, dotted attacks, visibility and controls remain in use. Dressing
+also applies to existing compatible concrete maps without entering a save.
 
 Open [the offline pixel gallery](visuals/environments/index.html) for eight
-generated-room views in both Kenney looks and the small semantic icon family.
+generated-room views in the fixed look and the small semantic icon family.
 It executes the **actual `main.lua` world pass**, native resolver and image
 compositors with a CPU raster adapter and the original source pixels. This is
 **not a LÖVE screenshot**, GPU equivalence test or human playtest. Text is
@@ -55,9 +56,12 @@ overrides, and never places an invisible collision object. Material choices
 use a separate deterministic derived seed; they do not draw from `state.rng`.
 The plan is cached until floor/event identity changes, not rebuilt per tile.
 
-### Exact native sources
+### Source provenance and exact native regions
 
-All source PNG bytes and archived user reviews remain unchanged. Native cells
+All source PNG bytes and archived user reviews remain unchanged. The mixed
+RPG ground/carpet choices below are historical review evidence; current ground
+and masonry use the native monochrome alternatives. Only the specified water,
+rough wall, rubble, columns and vents retain cross-sheet counterparts. Native cells
 are zero-based, with the audited 17-pixel stride on RPG/Caves and 16 on 1-Bit.
 
 * Pale ground: RPG **8**; mosaic: Caves **512**.
@@ -106,7 +110,7 @@ they do not edit source pixels or repack authored asset IDs.
   stay drawn. This is not a claim that every rendered pixel has a pack sprite.
 
 Ten material identities, 27 prop identities and 29 semantic symbols add **66**
-stable bindings: both native choices now resolve **491/491**. The live
+stable bindings: the fixed native renderer resolves **491/491**. The live
 [catalogue](sprite-audit/index.html) audits each material's actual sampled
 cells; derived page coordinates are never mistaken for authored source cells.
 
@@ -144,7 +148,7 @@ in the minimap pass; they now render independently of minimap visibility.
 The diagnostic setter retires LuaJIT traces after changing closed fixture
 upvalues; ordinary gameplay does not use that injection mechanism.
 
-Separate processes verify exact room plans/handles in both looks, 25 resolver
+Separate processes verify exact room plans/handles in the fixed look, 25 resolver
 replacements each, exact legal-action events/RNG and checked save generations
 1→2. These are headless resource tests, not live GPU F5 tests. The full-suite
 result and retained logs are recorded in the
@@ -155,7 +159,7 @@ these headless passes.
 
 ## Human checks when convenient
 
-1. Choose each Kenney look in Settings. Verify existing character choice,
+1. Start the game. Verify the fixed 1-Bit look, existing character choice,
    room ground, connected walls, water banks and furnishings remain readable.
 2. Toggle **Tab**: pickups, terrain markers and wall dressing should stay in
    the world while only the minimap changes. Hidden dressing must stay hidden.
@@ -163,8 +167,8 @@ these headless passes.
    actor silhouettes and HP should remain clear through the smaller cues.
 4. Check **I** status labels against actual Burning/Ward/Focus/charge values.
    Visit an existing camp/forge/memorial and inspect the contextual art.
-5. Save & Quit, Continue, and use F5; the run/floor must stay intact. Try Classic
-   to confirm the original fallback remains usable.
+5. Save & Quit, Continue, and use F5; the run/floor must stay intact. Missing art must retain safe emergency drawing without exposing an alternate
+   selectable style.
 
 Report class, biome/floor, action context, sprite choice, screenshot and whether
 this ran under WSLg/software rendering or native hardware. These manual checks

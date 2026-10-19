@@ -1,43 +1,23 @@
 #!/bin/sh
-# Two separate LuaJIT processes, no LÖVE window or player save directory.
+# Separate LuaJIT processes; no LÖVE or live player data.
 set -eu
-project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-visual-pack-XXXXXX")
-cd "$project_dir"
-export ROAG_PACK_SMOKE_DIR="$output_dir"
-
-luajit - <<'LUA'
-local Packs=require('src.visual_packs')
-local root=assert(os.getenv('ROAG_PACK_SMOKE_DIR'))
-local store={}
-function store:read(name)
-    local file=io.open(root..'/'..name,'rb')
-    if not file then return nil end
-    local bytes=file:read('*a');file:close();return bytes
+cd "$(dirname "$0")/.."
+output_dir=$(mktemp -d /var/tmp/roag-fixed-look-disk-XXXXXX)
+printf '%s' 'retired classic preference' > "$output_dir/visual-pack-a.roag"
+printf '%s' 'retired mixed preference' > "$output_dir/visual-pack-b.roag"
+for requested in classic kenney onebit; do
+ ROAG_SPRITE_PACK="$requested" ROAG_FIXED_LOOK_DIR="$output_dir" luajit - <<'LUA'
+local P=require('src.visual_packs');local G=require('src.game');local C=require('src.persistence')
+local root=assert(os.getenv('ROAG_FIXED_LOOK_DIR'));local before=C.encode(G.snapshot(G.new_stage(17)))
+assert(P.default=='onebit' and not P.save and not P.inspect)
+local r=P.build(function()error('retired manifest access')end,function()error('loose art access')end,
+ function()return {style='onebit',resolve=function()return {source='onebit'}end},'loaded'end)
+assert(r:resolve('core:actor/adventurer').source=='onebit')
+assert(C.encode(G.snapshot(G.new_stage(17)))==before)
+for _,v in ipairs({{'a','retired classic preference'},{'b','retired mixed preference'}})do
+ local f=assert(io.open(root..'/visual-pack-'..v[1]..'.roag','rb'));assert(f:read('*a')==v[2]);f:close()
 end
-function store:write(name,bytes)
-    local file=assert(io.open(root..'/'..name,'wb'))
-    assert(file:write(bytes));assert(file:close());return true
-end
-assert(Packs.save(store,'kenney'))
-assert(Packs.save(store,'classic'))
-assert(Packs.inspect(store).mode=='classic')
+print('PASS fixed look ignores '..os.getenv('ROAG_SPRITE_PACK')..'; old preferences and deterministic run unchanged')
 LUA
-
-luajit - <<'LUA'
-local Packs=require('src.visual_packs')
-local root=assert(os.getenv('ROAG_PACK_SMOKE_DIR'))
-local store={}
-function store:read(name)
-    local file=io.open(root..'/'..name,'rb')
-    if not file then return nil end
-    local bytes=file:read('*a');file:close();return bytes
-end
-local found=Packs.inspect(store)
-assert(found.status=='loaded' and found.mode=='classic')
-local file=assert(io.open(root..'/'..Packs.files[2],'wb'))
-assert(file:write('interrupted write'));assert(file:close())
-found=Packs.inspect(store)
-assert(found.status=='recovered' and found.mode=='kenney')
-print('Sprite-pack fresh-process persistence PASS: '..root)
-LUA
+done
+printf 'Fixed-look process artifacts: %s\n' "$output_dir"

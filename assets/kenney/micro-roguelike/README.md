@@ -1,5 +1,11 @@
 # Kenney Micro Roguelike 1.4
 
+**Historical review source only.** ROAG now always renders the approved Kenney
+1-Bit look. This PNG is retained at its original path because frozen approval
+exports, source checksums and archive regression fixtures reference it. The
+game, spectator and current pixel preview never load it. The notes below
+describe the retired mixed renderer; they are not current selectable features.
+
 Original art by Kenney, **Creative Commons Zero / CC0**. The included
 `License.txt` preserves the distribution's license text (line endings and
 surrounding whitespace normalized). No AI artwork is used in this pack.
@@ -11,7 +17,7 @@ surrounding whitespace normalized). No AI artwork is used in this pack.
   `Tilesheet.txt` describes the alternate spaced sheet, not this packed PNG.
 - Runtime checksum (the project's checked-content checksum): `5407eab40dd3457c`.
 
-`src/kenney_visuals.lua` uses this sheet for characters, items and basic HUD
+The historical `tests/legacy_kenney_visuals.lua` uses this sheet for characters, items and basic HUD
 symbols. One sprite texture keys the native background `#222323` to transparent
 when loading. The original PNG is unchanged.
 

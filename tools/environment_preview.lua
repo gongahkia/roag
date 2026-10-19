@@ -24,14 +24,14 @@ function Image:setPixel(x,y,r,g,b,a)
 end
 function Image:mapPixel(fn)for y=0,self.h-1 do for x=0,self.w-1 do self:setPixel(x,y,fn(x,y,self:getPixel(x,y)))end end end
 local originals={}
-for i,v in ipairs({{'assets/kenney/micro-roguelike/tiles.png',128,80},{'assets/kenney/caves-dungeons/terrain.png',492,305},
+for i,v in ipairs({{'assets/kenney/caves-dungeons/terrain.png',492,305},
  {'assets/kenney/1-bit-pack/symbols.png',784,352},{'assets/kenney/approved/tiny-dungeon.png',203,186},
  {'assets/kenney/approved/roguelike-rpg.png',968,526}})do originals[v[1]]=Image.new(v[2],v[3],read(root..'/'..i..'.rgba'))end
 local function texture(_,path,mode)
  local source=assert(originals[path]):clone()
  if type(mode)=='table'then return E.surface_sheet(source,mode.sheet,mode.style)
  elseif mode=='onebit-surfaces'then return require('src.onebit_visuals').surface_sheet(source)
- elseif mode=='caves-surfaces'then return require('src.kenney_terrain').surface_sheet(source)
+
  elseif mode=='approved-monochrome'then source:mapPixel(function(x,y,r,g,b,a)return require('src.visual_monochrome').pixel(r,g,b,a)end)
  elseif mode then source:mapPixel(function(x,y,r,g,b,a)if math.floor(r*255+.5)==34 and math.floor(g*255+.5)==35 and math.floor(b*255+.5)==35 then return 0,0,0,0 end;return r,g,b,a end)end
  return source
@@ -124,8 +124,8 @@ for seed=1,5 do
   cases[#cases+1]={state=s,room=r,label='Crypt / Pale Sanctuary'};seen[r.family]=true
  end end
 end
-for _,style in ipairs({'kenney','onebit'})do
- local native=assert(require(style=='kenney' and 'src.kenney_visuals'or'src.onebit_visuals').new(read,texture,quad))
+for _,style in ipairs({'onebit'})do
+ local native=assert(require('src.onebit_visuals').new(read,texture,quad))
  assert(not next(native.environment.failures),'environment resource failure')
  local assets={generated=native,has_terrain=true,resolve=function(_,id)return native:resolve(id)end}
  for i,case in ipairs(cases)do

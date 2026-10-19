@@ -45,7 +45,7 @@ love.graphics.print=function(text,x,y,...)
     return print_text(text,x,y,...)
 end
 local sequences={
- normal={'title','help','class','class-ranger','settings','settings-kenney','hud','inventory','help-in-game','pause','pause-settings'},
+ normal={'title','help','class','class-ranger','settings','settings-sound','hud','inventory','help-in-game','pause','pause-settings'},
  resume={'continue-summary','continued-hud','continued-stats','replace-confirmation'},
  fixture={'chest','chest-selection','boons','boon-detail','defeat'},
 }
@@ -55,10 +55,11 @@ local function click(x,y,presses)love.mousepressed(x,y,1,false,presses or 1);upd
 local function fail(why)
     failed=true;io.stderr:write('MENU '..mode..' FAILED: '..tostring(why)..'\n');love.event.quit(1)
 end
-local function choose_pack()
-    local row=UI.row(145,202,734,54,2,70)
-    click(row.x+row.w/2,row.y+10)
-    assert(love.roagVisualPackMode()=='kenney')
+local function check_settings()
+    assert(love.roagVisualPackMode()=='onebit')
+    -- First category is Sound; this changes music volume, never artwork.
+    click(805,286)
+    assert(love.roagVisualPackMode()=='onebit')
 end
 function love.load(...)
     local args={...}
@@ -82,7 +83,7 @@ local function advance()
         elseif phase==2 then love.keypressed('space');love.keypressed('escape');click(500,286)
         elseif phase==3 then click(300,228)
         elseif phase==4 then love.keypressed('escape');click(500,375)
-        elseif phase==5 then choose_pack()
+        elseif phase==5 then check_settings()
         elseif phase==6 then
             love.keypressed('escape');click(500,286)
             local row=UI.row(190,150,290,32,5,36)
@@ -109,7 +110,7 @@ local function advance()
             local f=assert(io.open(output..'/expected-run.txt','rb'))
             assert(snapshot()==f:read('*a'),'fresh Continue changed the saved run');f:close()
             before=snapshot()
-            assert(love.roagVisualPackMode()=='kenney')
+            assert(love.roagVisualPackMode()=='onebit')
             -- Repeated open/close uses the same resources and no gameplay calls.
             local texture_memory=love.graphics.getStats().texturememory
             for _=1,100 do

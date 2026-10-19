@@ -1,5 +1,10 @@
 # Kenney Roguelike Caves & Dungeons
 
+**Current use:** only the approved monochrome broken-wall, rubble and column
+counterparts in the fixed 1-Bit look. There is no selectable Caves/mixed pack.
+The adapter description below records the retired colored renderer; its pure
+canonical-mask helper is still shared by the current surface compositor.
+
 - Source: <https://kenney.nl/assets/roguelike-caves-dungeons>
 - Official archive, downloaded 2026-10-17:
   <https://kenney.nl/media/pages/assets/roguelike-caves-dungeons/5195ceb8ca-1677694831/kenney_roguelike-caves-dungeons.zip>
@@ -8,7 +13,8 @@
 - `terrain.png` is the **unchanged** original
   `Spritesheet/roguelikeDungeon_transparent.png`, 31,160 bytes.
 - Sheet dimensions **492×305**, **29×18 cells**, native **16×16px**,
-  **1px gutters**, origin **0,0** and source stride **17**. Some cells are blank.
+  **1px gutters**, origin **0,0** and source stride **17**. The checked packed
+  sheet has 522 nonempty cells; most are not used by the fixed renderer.
 - Checked-content checksum: `974b7d14df86b1d7`.
 - SHA-256: `3abd8d294c523fe78078e2123146a2b9d2c0f2dd3cfbbd60dec8f508c3fe8c2c`.
 

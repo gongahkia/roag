@@ -15,7 +15,7 @@ local P=require('src.persistence')
 local V=require('src.visibility')
 local Scheduler=require('src.scheduler')
 local kind=assert(os.getenv('ROAG_SQUAD_KIND'))
-local pack=assert(os.getenv('ROAG_SPRITE_PACK'))
+local pack='onebit'
 local out=assert(os.getenv('ROAG_SQUAD_OUTPUT'))
 local phase=os.getenv('ROAG_SQUAD_PHASE') or 'render'
 local state,leader,seen,cue_seen
@@ -93,9 +93,8 @@ love.graphics.draw=function(image,quad,...)
         if iw==784 and ih==352 and w==16 and h==16 then
             cue_seen[math.floor(y/16)*49+math.floor(x/16)]=true
         end
-        if (pack=='kenney' and iw==203 and ih==186) or
-            (pack=='onebit' and iw==784 and ih==352) then
-            local stride,columns=pack=='kenney' and 17 or 16,pack=='kenney' and 12 or 49
+        if iw==784 and ih==352 then
+            local stride,columns=16,49
             if w==16 and h==16 then seen[math.floor(y/stride)*columns+math.floor(x/stride)]=true end
         end
     end
@@ -135,8 +134,8 @@ function love.draw(...)
         if (frames or 0)<3 then return end
         assert(P.encode(G.snapshot(state))==baseline,'render mutated run')
         local roster=S.groups[kind]
-        if pack~='classic' then
-            local assignments=pack=='kenney' and S.tiny or S.onebit
+        do
+            local assignments=S.onebit
             assert(seen[assignments[roster[1]]] and seen[assignments[roster[2]]],
                 'actual renderer did not draw both approved native actor cells')
             local cues={warded_bodyguards=636,healer_rushwings=535,snares_and_siege=715,
@@ -154,24 +153,24 @@ function love.draw(...)
     end)
 end
 LUA
-for pack in kenney onebit classic; do
+for pack in onebit; do
     for kind in warded_bodyguards healer_rushwings snares_and_siege shield_and_archer captain_and_followers; do
-        ROAG_GUI_AUTOSTART=1 ROAG_SPRITE_PACK="$pack" ROAG_SQUAD_KIND="$kind" \
+        ROAG_GUI_AUTOSTART=1 ROAG_SQUAD_KIND="$kind" \
             ROAG_SQUAD_OUTPUT="$output" XDG_DATA_HOME="$output/data/$pack-$kind" \
             timeout 25s love "$output/app" > "$output/$kind-$pack.log" 2>&1
         test -s "$output/$kind-$pack-render.ok"
     done
 done
 for phase in write read; do
-    ROAG_GUI_AUTOSTART=1 ROAG_SPRITE_PACK=onebit ROAG_SQUAD_KIND=healer_rushwings \
+    ROAG_GUI_AUTOSTART=1 ROAG_SQUAD_KIND=healer_rushwings \
         ROAG_SQUAD_PHASE="$phase" ROAG_SQUAD_OUTPUT="$output" XDG_DATA_HOME="$output/data/$phase" \
         timeout 25s love "$output/app" > "$output/persistence-$phase.log" 2>&1
     test -s "$output/healer_rushwings-onebit-$phase.ok"
 done
-for pack in kenney onebit; do
-    ROAG_GUI_AUTOSTART=1 ROAG_SPRITE_PACK="$pack" ROAG_SQUAD_KIND=warded_bodyguards \
+for pack in onebit; do
+    ROAG_GUI_AUTOSTART=1 ROAG_SQUAD_KIND=warded_bodyguards \
         ROAG_SQUAD_PHASE=generated ROAG_SQUAD_OUTPUT="$output" XDG_DATA_HOME="$output/data/generated-$pack" \
         timeout 25s love "$output/app" > "$output/generated-$pack.log" 2>&1
     test -s "$output/warded_bodyguards-$pack-generated.ok"
 done
-printf 'Squad GUI PASS: 15 pack/scenario + 2 disk + 2 natural generated-room processes; %s\n' "$output"
+printf 'Squad GUI PASS: 5 fixed-art/scenario + 2 disk + 1 natural generated-room processes; %s\n' "$output"

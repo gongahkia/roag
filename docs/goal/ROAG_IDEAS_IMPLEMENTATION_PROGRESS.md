@@ -803,3 +803,68 @@ symbol-library decisions), followed by final integration and permitted LÖVE/
 human visual acceptance. Do not start that work on an automatic continuation.
 The existing broad goal stays paused/incomplete; it is not marked COMPLETE.
 Resume only when the user asks, using the preserved feedback and ledger.
+
+
+## Approved fixed-art follow-up — 2026-10-19
+
+The user approved **the existing Kenney 1-Bit look, including all 13 monochrome
+derivatives**, as the only game appearance, and requested removal of every
+art-pack switching control. This follow-up does **not** resume the pending
+additional-boon batch. All prior features, feedback, redirects and remaining
+work above remain preserved. The broad goal remains paused at that boundary.
+
+Baseline: the current 177 runtime/test Lua files exactly matched the accepted
+629/629 snapshot before editing. The relevant baseline subset independently
+passed **32** checks. The fixed implementation removes the sprite settings
+tab, preference reads/writes and `ROAG_SPRITE_PACK` override, and removes the
+`make kenney`/`make onebit` launch targets. Settings now contain Sound, Effects
+and Accessibility. New Run, Continue and spectator all use the same artwork.
+F5 reloads only that artwork and rejects corrupt/missing required replacements
+while preserving previous good resources and the authoritative run.
+
+The game uses 1-Bit plus Tiny/Caves/RPG solely for the approved counterparts.
+Micro is no longer in production code or runtime inventory. Its original PNG
+and license are retained at their reviewed paths because frozen feedback/source
+hashes and historical tests still depend on them. The old renderer moved from
+`src` to `tests/legacy_kenney_visuals.lua`, and its three pack-specific GUI
+harnesses are preserved under `tests/legacy`, not counted as current passes.
+The current catalogue has no art-style selector; its source filter inspects
+four active sheets. A separately labelled Micro archive foldout preserves
+original review links. No frozen user review/export or original PNG changed.
+
+Six new focused checks pass: actual native loader ignores legacy overrides;
+real settings callbacks/render trace expose only the three remaining categories;
+actual refresh logic retains resources after corrupt and missing required art;
+all **491** bindings and exactly **13** derivative handles remain; one cached
+shader restores graphics state; unsupported shaders warn once and allow safe
+unshaded drawing. The existing relevant subset also passes **44** checks.
+Source-pixel regeneration produces **nine** fixed-look views, byte-identical
+to the previous accepted 1-Bit images. Current sources reference 273 of 3,435
+nonempty cells; the 159 historical Micro cells are outside that runtime total.
+
+Three independent LuaJIT processes verify that old classic/mixed choices are
+ignored without overwriting their records or changing deterministic snapshots.
+The fixed-look checked-store fixture passes fresh-process reopening, identical
+491 handles and room plan, 25 resource replacements, exact action events/RNG,
+and save generation 1→2. Current menu/facing/outline/squad smoke expectations
+were adjusted for the fixed artwork and grayscale output; five shell and five
+embedded-Lua syntax checks pass. They were **not** run in LÖVE, as requested.
+Historical GUI instability and physical/human/native-GPU acceptance remain open.
+
+Logs: `/var/tmp/roag-fixed-onebit-focus-verified-20261019.log`,
+`/var/tmp/roag-fixed-onebit-process-20261019.log`,
+`/var/tmp/roag-fixed-onebit-environment-disk-20261019.log`,
+`/var/tmp/roag-fixed-onebit-pixels-check-20261019.log`,
+`/var/tmp/roag-fixed-onebit-reviews-verified-20261019.log`.
+The initial new refresh fixture omitted a graphics stub; its retained failure
+log is `/var/tmp/roag-fixed-onebit-focus-20261019.log`. It was a headless
+fixture error, not a LÖVE crash. The prior two-pack archive checker also needed
+to separate retired choices from current runtime bindings; it continues to
+verify the frozen source/page/feedback hashes and all current approved 1-Bit
+assignments. No failed GUI run was hidden or claimed repaired.
+
+The final unfiltered suite is running from frozen source
+`/var/tmp/roag-fixed-onebit-final-kcuxbolx`, log
+`/var/tmp/roag-fixed-onebit-final-headless-20261019.log`. Its actual result will
+be appended before this follow-up is reported finished. No new enemy, class,
+boon, biome, collision, simulation, scheduler, profile or save-schema change.

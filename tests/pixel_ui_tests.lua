@@ -16,9 +16,9 @@ return function(test)
         for i=1,9 do assert(UI.class_at(300,150+(i-1)*36+10)==i)end
         assert(not UI.class_at(500,200) and not UI.class_at(300,185))
     end)
-    test('all sprite pack rows fit the shared title and pause panel layout',function()
-        local count=#require('src.visual_packs').order
-        assert(count==3)
+    test('sound, effects and accessibility rows fit the shared settings layout',function()
+        local count=4 -- largest remaining settings category
+        assert(require('src.visual_packs').order==nil)
         for i=1,count do
             local r=UI.settings_row(190,55,644,i)
             assert(r.y+r.h<55+422)
