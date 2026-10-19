@@ -32,7 +32,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
-| `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; this feature commit |
+| `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
@@ -216,14 +216,38 @@ scenarios pass. It is an optional champion in noncritical rooms, with four
 separately locked clockwise strikes. Stun/displacement ends the sequence even
 in the recovery gap. The first 6/2 focused result was fixture timing/map API
 assumptions, corrected against actual event traces and `Floors.map`. Its
-complete regression gate is running; this slice is not yet integrated.
+first full gate was 460/1: Arcanist seed 45 repeated axial corridor dodges.
+A safe lateral tie-break wins at 32 HP / 1,544 legal actions. The next gate
+reached 461/1: Berserker seed 21 repeated harmless, fully armored dodges on
+the stair route. After a proven six-move cycle, stair travel can ignore zero
+HP-loss attacks while still avoiding Rammer shoves and damaging footprints.
+The same legal run now wins at 36 HP / 1,242 actions. Four prepared driver
+fixtures pass. No actor stats, game input, RNG or scheduler were changed.
+Its full corrected gate is running; this slice is not yet integrated.
 
 Mirror Hexer is isolated at `/var/tmp/roag-mirrors-m1xoqczk`. Eleven focused
 checks cover one directional bounce, range preservation, pre-damage blocking,
 original shooter/friendly fire, fixed enemy windups and exact saves. Disk
 checking caught the missing new support kind in the pending-windup save
-allowlist. That integration is being corrected and reverified before any
-completion claim. All unused/held/rejected art constraints remain in force.
+allowlist. That missing allowlist entry is corrected. Eleven disk scenarios,
+including a third-process actual reflected shot, and the initial 95 combined
+checks pass. Charges and Hookrunner grapples are explicitly excluded from
+reflection to keep their displacement aligned with their damage. That adds
+one real-action regression; a full 474/474 gate passed. The final driver
+hardening is propagated and is under another broad gate before integration. All unused/held/rejected art constraints remain in force.
+
+Silt Worm is isolated at `/var/tmp/roag-worms-efcksv09`. Eleven focused
+cases, 108 combined checks and twelve fresh-process scenarios pass. Its two
+spent charges can leave only genuinely vacated plain floor as a finite bog
+overlay. Walking / Dash pay +40 / +20 per affected cell in the real preview
+and scheduler; underlying row bytes never change. Broad verification is running.
+
+Ember Moth is isolated at `/var/tmp/roag-moths-c89j2ljy`. Twelve focused
+cases, 120 combined checks and thirteen disk scenarios pass, including a
+third-process fire pulse. Fixed landings cannot overlap actors. Two separately
+scheduled fire pulses remain visible through the existing pending-threat query
+and expire after 200 world time. Burning and Temporal Echo continue exactly
+alongside them. Broad acceptance is still pending.
 
 Headless browser inspection of the catalogue passed 12 pack/filter cases,
 mobile layout and search without JS errors at the earlier 341-binding state:
