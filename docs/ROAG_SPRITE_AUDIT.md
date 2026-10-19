@@ -47,11 +47,11 @@ that happen to exist. **376/376 active sprite bindings resolve in each choice**:
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
 | Nine classes + 50 enemy forms, base/attack/hurt | 177 | 50 distinct bodies for 59 actor IDs | 58 bodies for 59 actor IDs |
-| Drops 3, chests 2, other objects 7 | 12 | Native Micro art | Native 1-Bit art |
+| Drops 3, chests 2, other objects 8 | 13 | Native Micro art | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
 | Hit, boon, Burning, block, attack center/impact | 6 | Native Micro art | Native 1-Bit art |
-| Squad field/heal/snare/shield/rally, corpse and alarm cues | 7 | Native 1-Bit art | Native 1-Bit art |
+| Squad, corpse, alarm, oath and reflector cues | 10 | Native 1-Bit art | Native 1-Bit art |
 | Class weapon symbols | 5 | Native Micro art | Native 1-Bit art |
 | 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
 | Mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |

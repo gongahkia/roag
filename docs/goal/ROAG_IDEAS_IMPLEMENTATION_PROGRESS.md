@@ -34,7 +34,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `trail-worm` | Silt Worm + temporary bog trail | headless verified; GUI pending | full 485/485, current combined 109/109 and all-enemy full 498/498; eleven focused cases and twelve disk scenarios; `caedcd77` |
 | `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
-| `ember-moth` | Ember Moth + readable burning landing | headless verified; GUI pending | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; this feature commit |
+| `ember-moth` | Ember Moth + readable burning landing | headless verified; GUI pending | 498/498 full, twelve focused cases, 120 combined and thirteen disk scenarios including third-process actual fire pulse; `401e0c28` |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
 | `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
@@ -297,5 +297,7 @@ Parry costs a normal action, blocks one eligible frontal melee impact during
 that recovery only, and funds one next paid thrust for +2 damage. It is not
 integrated or claimed complete. Its combined 133 checks pass and the full
 510-test gate is running. A persistent saved-riposte HUD cue was added before
-the final gate; the earlier unfinished log is retained. Fresh-process/UI
-checks remain. No class or boon ledger row is marked done yet.
+the final gate; the earlier unfinished log is retained. The real separate-process
+paid-parry/riposte Continue passes in `/var/tmp/roag-duelist-disk-JJl3b2`,
+including exact events, HP, RNG, schedule and checked save generation 2.
+Full/UI checks remain. No class or boon ledger row is marked done yet.
