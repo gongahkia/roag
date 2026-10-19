@@ -2,9 +2,9 @@ local Audit=require('src.sprite_audit')
 return function(test,equal)
     test('native sprite inventory checks runtime coverage and distinguishes shared/static poses',function()
         local report=Audit.collect()
-        assert(#report.requirements==425)
+        assert(#report.requirements==491)
         for _,pack in pairs(report.packs)do
-            assert(#pack.missing==0 and #pack.bindings==425)
+            assert(#pack.missing==0 and #pack.bindings==491)
             for kind in pairs(require('src.idea_interaction_content').art)do
                 local found=false
                 for _,b in ipairs(pack.bindings)do if b.id=='core:object/interaction_'..kind then found=true end end
@@ -16,7 +16,8 @@ return function(test,equal)
         assert(report.packs.onebit.actor_silhouettes==63)
         assert(report.packs.kenney.actor_silhouettes==54)
         assert(#report.packs.kenney.shared_actors>0)
-        assert(not report.packs.onebit.usage.micro and not report.packs.onebit.usage.caves)
+        assert(not report.packs.onebit.usage.micro)
+        assert(report.packs.onebit.usage.caves['146'] and report.packs.onebit.usage.rpg['60'])
         assert(report.packs.kenney.usage.caves['38'])
         assert(report.packs.kenney.usage.tiny['111'])
         assert(report.packs.kenney.usage.rpg['671'])

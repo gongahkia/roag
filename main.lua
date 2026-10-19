@@ -29,6 +29,8 @@ local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local TerrainIdeas=require('src.idea_terrain')
+local Environment=require('src.idea_environment')
+local Presentation=require('src.idea_presentation')
 local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
@@ -350,7 +352,11 @@ local function load_native_visuals(read,mode)
         function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
-            if transparent=='onebit-surfaces' then
+            if type(transparent)=='table' and transparent.environment then
+                local source=pixels
+                pixels=Environment.surface_sheet(source,transparent.sheet,transparent.style)
+                source:release()
+            elseif transparent=='onebit-surfaces' then
                 local source=pixels
                 pixels=OneBitVisuals.surface_sheet(source)
                 source:release()
@@ -2025,6 +2031,9 @@ local function draw_rewards()
                 love.graphics.setColor(n.phase=='armed' and 1 or .7,n.phase=='armed' and .7 or .6,.3)
                 love.graphics.line(x+TILE*.35,y+TILE*.25,x+TILE*.55,y+TILE*.5,x+TILE*.4,y+TILE*.75)
             end
+            if visible and n.kind~='push_floor'then
+                draw_visual(bound_visual(Presentation.signal(n.phase)),x+TILE*.68,y+TILE*.04,TILE*.27,TILE*.27,.9)
+            end
         end
     end
     for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
@@ -2122,6 +2131,12 @@ local function draw_rewards()
                     love.graphics.rectangle('fill',x+18,y+19,4,13)
                 end
             end
+            if kind=='plate' or kind=='quest_plate'then
+                local gate=kind=='plate' and Game.entity(state,feature.gate_id)
+                local active=feature.activated or gate and gate.open
+                draw_visual(bound_visual(Presentation.signal(active and 'safe' or 'armed')),
+                    x+TILE*.68,y+TILE*.04,TILE*.27,TILE*.27,.9)
+            end
             if kind=='quest_reward' and not feature.collected then
                 local chest=bound_visual('core:chest/standard')
                 if not draw_visual(chest,x,y,TILE,TILE,
@@ -2191,9 +2206,13 @@ local function draw_rewards()
                 visual_assets.generated.style=='onebit'
             local kind=entity.controller
             if kind=='review_pillar' then
-                local drawn=review_sprite('pillar_bottom',x,y)
-                review_sprite('pillar_middle',x,y-TILE)
-                review_sprite('pillar_top',x,y-2*TILE)
+                local variant=entity.id%2==0 and 'a' or 'b'
+                local function part(name,dy)
+                    if not visible_at(entity.position.x,entity.position.y+dy)then return false end
+                    local art=bound_visual('core:object/env_column_'..variant..'_'..name)
+                    return art and draw_visual(art,x,y+dy*TILE,TILE,TILE) or review_sprite('pillar_'..name,x,y+dy*TILE)
+                end
+                local drawn=part('bottom',0);part('middle',-1);part('top',-2)
                 if not drawn then
                     love.graphics.setColor(.62,.59,.51)
                     love.graphics.rectangle('fill',x+10,y+3,TILE-20,TILE-6)
@@ -2360,14 +2379,9 @@ local function draw_history_event(event)
                     love.graphics.line(x+TILE*.5,y+TILE*.38,x+TILE*.5,y+TILE*.62)
                 end
                 if attacker and attacker.controller=='player' then
-                    local id=attacker.definition_id
-                    local weapon=(Classes.get(id) or {}).weapon_icon or (id=='core:actor/ranger' and 'bow') or
-                        (id=='core:actor/arcanist' or id=='core:actor/alchemist') and 'spell' or
-                        (id=='core:actor/hookrunner' and
-                            event.ability_id=='core:ability/hookrunner_hook') and 'hook' or
-                        (id=='core:actor/shade' or id=='core:actor/trapper' or
-                            id=='core:actor/hookrunner') and 'dagger' or 'sword'
-                    draw_visual(bound_visual('core:ui/weapon_'..weapon..'_icon'),
+                    local class=Classes.for_player(attacker)
+                    local kind=event.ability_id==class.special_id and 'sweeping_slash' or 'basic_attack'
+                    draw_visual(bound_visual(Presentation.weapon(attacker.definition_id,kind)),
                         x+TILE*.64,y+TILE*.10,TILE*.27,TILE*.27,.95)
                 end
             end
@@ -2393,14 +2407,11 @@ local function draw_history_event(event)
         draw_cells({{x=event.x,y=event.y}},0.76,0.50,0.22,0.42)
     elseif event.kind == "TerrainBroken" then
         draw_cells({{x=event.x,y=event.y}},0.90,0.72,0.34,0.52)
+    elseif event.kind=='DamageTaken' or event.kind=='DamageBlocked' or event.kind=='BoonActivated'
+        or event.kind=='Healed' or event.kind=='SupplyCollected'then
+        -- Typed, bounded sprite cues below; keep committed tile interiors clear.
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
-    end
-    if event.kind=='DamageTaken' and event.x and event.y
-        and visible_at(event.x,event.y) then
-        local x,y=Camera.tile_top_left(camera,event.x,event.y)
-        draw_visual(bound_visual('core:ui/attack_impact_effect'),
-            x+TILE*.19,y+TILE*.19,TILE*.62,TILE*.62,.85)
     end
     if event.kind~='WindupStarted' and event.kind~='AttackPerformed'
         and event.kind~='WindupCancelled' and event.from_x and event.from_y
@@ -2518,6 +2529,15 @@ local function draw_minimap()
                 oy+(stair.y-1)*scale-1,4,4)
         end
     end
+    if native and native.environment then
+        for _,p in ipairs(native.environment.plan.props)do
+            if visible_at(p.x,p.y)then
+                local x,y=Camera.tile_top_left(camera,p.x,p.y)
+                draw_visual(bound_visual(p.id),x,y,TILE,TILE,.85)
+            end
+        end
+    end
+    draw_rewards()
     if map.elite and (not state.stage or
         state.stage.phase=="exploring" or state.stage.phase=="elite_active")
         and (not state.floor_order or state.active_floor_index==2)
@@ -2549,6 +2569,8 @@ end
 
 local function draw_world()
     local map = Content.map_for(state)
+    local native=visual_assets and visual_assets.generated
+    if native and native.set_world then native:set_world(state)end
     local clue=Biomes.get(map.biome_id or Biomes.order[1]).clue_color
     love.graphics.setScissor(VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
     love.graphics.setColor(0.09, 0.13, 0.11)
@@ -2725,7 +2747,7 @@ local function draw_world()
                 love.graphics.pop()
             end
             if not remembered and visual=="k" then
-                draw_visual(bound_visual('core:object/review_secret_clue'),
+                draw_visual(bound_visual(Presentation.mural(map,x,y)) or bound_visual('core:object/review_secret_clue'),
                     screen_x+TILE*.13,screen_y+TILE*.13,TILE*.74,TILE*.74,.76)
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.82)
                 love.graphics.setLineWidth(2)
@@ -2734,6 +2756,7 @@ local function draw_world()
                 love.graphics.line(screen_x+16,screen_y+14,screen_x+25,screen_y+10)
                 love.graphics.setLineWidth(1)
             elseif not remembered and visual=="p" then
+                draw_visual(bound_visual(Presentation.mural(map,x,y)),screen_x+TILE*.2,screen_y+TILE*.2,TILE*.6,TILE*.6,.65)
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.73)
                 love.graphics.circle("line",screen_x+16,screen_y+16,6)
                 love.graphics.circle("fill",screen_x+16,screen_y+16,2)
@@ -2794,7 +2817,6 @@ local function draw_world()
         end
     end
     draw_preview()
-    draw_rewards()
     for _,object in ipairs(state.entities)do
         local p=object.position
         if (object.controller==Geo.controller or object.controller==Comp.controller) and p.floor_id==state.active_floor_id and visible_at(p.x,p.y)then
@@ -2868,7 +2890,7 @@ local function draw_world()
             screen_y + TILE / 2 - TILE/32, 11*TILE/32)
     end
     if Game.player(state).definition_id==Storm.id and (Game.player(state).storm_charge or 0)>0 then
-        draw_visual(bound_visual('core:ui/storm_charge_effect'),screen_x+TILE*.70,screen_y,TILE*.28,TILE*.28,.9)
+        draw_visual(bound_visual('core:ui/status_charge_'..Game.player(state).storm_charge..'_icon') or bound_visual('core:ui/storm_charge_effect'),screen_x+TILE*.70,screen_y,TILE*.28,TILE*.28,.9)
     end
     local current_group=Playback.current_group(playback)
     if current_group then
@@ -2881,7 +2903,7 @@ local function draw_world()
         (not visual_event.floor_id or visual_event.floor_id==state.active_floor_id) then
         local seen,effects={},0
         for _,event in ipairs(current_group or {visual_event}) do
-            if (event.kind=='DamageTaken' or event.kind=='BoonActivated' or event.kind=='DamageBlocked')
+            if Presentation.effect(event)
                 and event.x and event.y and
                 (not event.floor_id or event.floor_id==state.active_floor_id) then
                 local key=event.kind..':'..event.x..':'..event.y
@@ -2892,13 +2914,14 @@ local function draw_world()
                             function(x,y) return Camera.tile_top_left(camera,x,y) end,
                             visible_at)
                     elseif visible_at(event.x,event.y) then
-                        local id=event.kind=='DamageTaken' and 'core:ui/hit_effect' or
-                            event.kind=='DamageBlocked' and 'core:ui/block_effect' or 'core:ui/boon_effect'
+                        local id=Presentation.effect(event)
                         local art=bound_visual(id)
                         if art then
                             local x,y=Camera.tile_top_left(camera,event.x,event.y)
-                            draw_visual(art,x+TILE*0.125,y+TILE*0.125,
-                                TILE*0.75,TILE*0.75,0.82)
+                            draw_visual(art,x+TILE*.30,y+TILE*.30,TILE*.4,TILE*.4,.86)
+                        else
+                            local x,y=Camera.tile_top_left(camera,event.x,event.y)
+                            love.graphics.setColor(.95,.85,.5,.8);love.graphics.circle('line',x+TILE/2,y+TILE/2,5)
                         end
                     end
                     effects=effects+1
@@ -3124,9 +3147,10 @@ local function draw_panel()
         end
     end
     g.setColor(PixelUI.colors.text)
-    g.print('F '..class.basic_name,28,605)
-    g.print('R '..class.special_name,250,605)
-    g.print('X '..class.dash_name,486,605)
+    for _,slot in ipairs({{'F',class.basic_name,'basic_attack',28},{'R',class.special_name,'sweeping_slash',250},{'X',class.dash_name,'dash',486}})do
+        local drawn=draw_visual(bound_visual(Presentation.weapon(player.definition_id,slot[3])),slot[4],602,16,16)
+        g.setColor(PixelUI.colors.text);g.print(slot[1]..' '..slot[2],slot[4]+(drawn and 20 or 0),605)
+    end
     g.setColor(PixelUI.colors.selected)
     g.print('I Boons / Stats',688,605)
     g.setColor(PixelUI.colors.muted);g.print('F1 Help',838,605);g.print('Esc Menu',930,605)
@@ -3194,6 +3218,13 @@ local function draw_inventory()
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.text)
     for i,line in ipairs(lines)do g.print(line,636,286+(i-1)*26)end
     local u=player.utility
+    for index,status in ipairs(Presentation.statuses(player))do
+        if index<=3 then
+            local x=636+(index-1)*96
+            draw_visual(bound_visual(status.id),x,410,16,16)
+            g.setFont(ui_body_font);g.setColor(PixelUI.colors.text);g.print(status.label,x+18,412)
+        end
+    end
     if u then draw_visual(bound_visual(Interactions.definitions.binding(u.kind)),636,432,32,32)end
     g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
     g.printf(Interactions.status(state)~='' and Interactions.status(state) or 'Utility slot empty',676,432,252)

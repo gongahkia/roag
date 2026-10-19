@@ -9,6 +9,7 @@ local Squads=require('src.enemy_squads')
 local IdeaEnemies=require('src.idea_enemies')
 local Comp=require('src.idea_companions')
 local Interactions=require('src.idea_interaction_content')
+local Environment=require('src.idea_environment')
 local Checksum=require('src.studio_atlas').checksum
 local A={}
 local function array()return setmetatable({},{audit_array=true})end
@@ -72,13 +73,27 @@ function A.collect()
                     sheet=h.approved_sheet or h.terrain_pack or
                         (h.symbol_index and 'onebit') or h.tile_index and 'micro' or
                         (name=='kenney' and 'caves-composite-or-floor' or 'onebit-composite'),
-                    motif=h.motif or '',pose_alias=id:match('/attack$')~=nil or id:match('/hurt$')~=nil}
+                    motif=h.motif or '',derived=h.derived or nil,monochrome=h.monochrome or nil,
+                    pose_alias=id:match('/attack$')~=nil or id:match('/hurt$')~=nil}
             end
         end
         for name in pairs(require('src.idea_terrain').art)do
             local id='core:terrain/'..name;local h=assert(resolver:resolve(id))
             use(h.approved_sheet or h.terrain_pack or 'onebit',h.tile_index or h.symbol_index,id)
         end
+        local env=Environment.content
+        for _,material in ipairs(env.material_order)do
+            local m=Environment.material(material,name)
+            for _,index in ipairs(m.grid or {m.center})do use(m.sheet,index,'environment '..material)end
+            for _,index in ipairs(m.inner or {})do use(m.sheet,index,'environment '..material..' concave corner')end
+            if m.frame then use(m.sheet,m.frame,'environment '..material..' frame')end
+            if m.accent then use(m.sheet,m.accent,'environment '..material..' accent')end
+        end
+        for prop in pairs(env.props)do
+            local id=env.prop_id(prop);local h=assert(resolver:resolve(id))
+            use(h.approved_sheet,h.tile_index,id)
+        end
+        for symbol,index in pairs(env.symbols)do use('onebit',index,env.symbol_id(symbol))end
         for _,id in ipairs(report.requirements) do
             if id:match('^core:actor/[^/]+$') or id:match('^core:enemy/[^/]+$') then
                 local h=assert(resolver:resolve(id))

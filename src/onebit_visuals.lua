@@ -12,6 +12,7 @@ local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
 local Interactions=require('src.idea_interaction_content')
 local TerrainIdeas=require('src.idea_terrain')
+local Environment=require('src.idea_environment')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -201,13 +202,18 @@ function O.new(read,make_texture,make_quad)
         handles[root..'floor/base']=floor;handles[root..'wall/base']=walls[255]
         handles[root..'water/base']=waters[255]
     end
+    local environment=Environment.new('onebit',read,make_texture,make_quad,{onebit=symbols.texture})
+    for id,h in pairs(environment.handles)do handles[id]=h end
     return setmetatable({handles=handles,walls=walls,waters=waters,floor=floor,
+        environment=environment,
         terrain_renderer=true,terrain_mode='tiled',style='onebit',label='Kenney 1-Bit',
-        signature=O.checksum..':onebit-1'..(heat_ok and ':tiny-vents-1' or ':native-vents'),pages={symbols={texture=symbols.texture},
+        signature=O.checksum..':onebit-1'..(heat_ok and ':tiny-vents-1' or ':native-vents')..':'..environment.signature,pages={symbols={texture=symbols.texture},
             surfaces={texture=surface},vents=extras.vents},vent_status=heat_ok and 'monochrome Tiny' or 'native fallback'},{__index=O}),'loaded'
 end
 function O:resolve(id)return self.handles[id]end
 function O:terrain(map,x,y,kind,known)
+    local environment=self.environment:resolve(map,x,y,kind,known)
+    if environment then return environment end
     if kind=='floor'then return self.floor end
     assert(kind=='wall' or kind=='water','invalid 1-Bit terrain kind')
     local mask=0
@@ -219,4 +225,5 @@ function O:terrain(map,x,y,kind,known)
     end
     return (kind=='wall' and self.walls or self.waters)[O.canonical(mask)]
 end
+function O:set_world(state)self.environment:set_world(state)end
 return O

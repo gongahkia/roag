@@ -9,6 +9,10 @@ local Interactions=require('src.idea_interaction_content')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 for name in pairs(require('src.idea_terrain').art)do add('core:terrain/'..name)end
+local Env=require('src.idea_environment_content')
+for _,name in ipairs(Env.material_order)do add(Env.material_id(name))end
+for name in pairs(Env.props)do add(Env.prop_id(name))end
+for name in pairs(Env.symbols)do add(Env.symbol_id(name))end
 for kind in pairs(Interactions.art)do add(Interactions.binding(kind))end
 add('core:object/geomancer_bulwark')
 add('core:object/bound_spirit')

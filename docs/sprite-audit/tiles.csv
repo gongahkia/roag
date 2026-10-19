@@ -2,9 +2,9 @@ sheet,index,x,y,nontransparent_pixels,kenney,onebit
 caves,0,0,0,105,,
 caves,1,17,0,105,,
 caves,2,34,0,105,,
-caves,3,51,0,82,,
+caves,3,51,0,82,core:object/env_rock_a; environment broken accent,core:object/env_rock_a; environment broken accent
 caves,4,68,0,82,,
-caves,5,85,0,82,,
+caves,5,85,0,82,core:object/env_rock_b,core:object/env_rock_b
 caves,6,102,0,82,,
 caves,7,119,0,22,,
 caves,8,136,0,246,,
@@ -37,8 +37,8 @@ caves,34,85,17,134,,
 caves,35,102,17,134,,
 caves,36,119,17,27,,
 caves,37,136,17,256,,
-caves,38,153,17,246,stone wall material: frame,
-caves,39,170,17,256,stone wall material: center,
+caves,38,153,17,246,environment broken frame; environment ironworks frame; stone wall material: frame,environment broken frame
+caves,39,170,17,256,environment broken; environment ironworks; stone wall material: center,environment broken
 caves,40,187,17,256,,
 caves,41,204,17,256,,
 caves,42,221,17,256,,
@@ -57,8 +57,8 @@ caves,54,425,17,224,,
 caves,55,442,17,224,,
 caves,56,459,17,224,,
 caves,57,476,17,224,,
-caves,58,0,34,42,,
-caves,59,17,34,21,,
+caves,58,0,34,42,core:object/env_bone_a,
+caves,59,17,34,21,core:object/env_bone_b,
 caves,60,34,34,63,,
 caves,61,51,34,107,,
 caves,62,68,34,16,,
@@ -78,7 +78,7 @@ caves,75,289,34,256,,
 caves,76,306,34,256,,
 caves,77,323,34,256,,
 caves,78,340,34,256,,
-caves,79,357,34,184,,
+caves,79,357,34,184,core:object/env_forge_panel; environment ironworks accent,
 caves,80,374,34,128,,
 caves,81,391,34,195,,
 caves,82,408,34,139,,
@@ -145,8 +145,8 @@ caves,142,442,68,241,,
 caves,143,459,68,241,,
 caves,144,476,68,224,,
 caves,145,0,85,234,core:object/review_pillar_top,
-caves,146,17,85,240,,
-caves,147,34,85,242,,
+caves,146,17,85,240,core:object/env_column_a_top,core:object/env_column_a_top
+caves,147,34,85,242,core:object/env_column_b_top,core:object/env_column_b_top
 caves,148,51,85,192,,
 caves,149,68,85,132,,
 caves,150,85,85,168,,
@@ -174,8 +174,8 @@ caves,171,442,85,195,,
 caves,172,459,85,128,,
 caves,173,476,85,184,,
 caves,174,0,102,234,core:object/review_pillar_bottom,
-caves,175,17,102,242,,
-caves,176,34,102,242,,
+caves,175,17,102,242,core:object/env_column_a_middle,core:object/env_column_a_middle
+caves,176,34,102,242,core:object/env_column_b_middle,core:object/env_column_b_middle
 caves,177,51,102,192,core:object/review_pillar_middle,
 caves,178,68,102,124,,
 caves,179,85,102,168,,
@@ -203,8 +203,8 @@ caves,200,442,102,224,,
 caves,201,459,102,224,,
 caves,202,476,102,224,,
 caves,203,0,119,192,,
-caves,204,17,119,184,,
-caves,205,34,119,96,,
+caves,204,17,119,184,core:object/env_column_a_bottom,core:object/env_column_a_bottom
+caves,205,34,119,96,core:object/env_column_b_bottom,core:object/env_column_b_bottom
 caves,206,51,119,92,,
 caves,207,68,119,106,,
 caves,208,85,119,48,,
@@ -261,7 +261,7 @@ caves,258,442,136,195,,
 caves,259,459,136,128,,
 caves,260,476,136,184,,
 caves,261,0,153,174,,
-caves,262,17,153,208,,
+caves,262,17,153,208,core:object/env_prison_bars,
 caves,263,34,153,87,,
 caves,264,51,153,136,,
 caves,265,68,153,64,,
@@ -511,7 +511,7 @@ caves,508,255,289,112,,
 caves,509,272,289,256,,
 caves,510,289,289,256,,
 caves,511,306,289,256,,
-caves,512,323,289,256,,
+caves,512,323,289,256,environment mosaic,
 caves,513,340,289,256,,
 caves,514,357,289,256,,
 caves,515,374,289,256,,
@@ -686,7 +686,7 @@ onebit,1,16,0,39,,
 onebit,2,32,0,63,core:boon/fracture_dividend/icon + /detail,core:boon/fracture_dividend/icon + /detail
 onebit,3,48,0,64,,core:object/review_secret_clue
 onebit,4,64,0,84,,
-onebit,5,80,0,28,,composite terrain material: floor
+onebit,5,80,0,28,,composite terrain material: floor; environment garden; environment pale
 onebit,6,96,0,38,,core:object/review_ore
 onebit,7,112,0,44,,
 onebit,8,128,0,168,,
@@ -699,13 +699,13 @@ onebit,14,224,0,26,,
 onebit,15,240,0,27,,
 onebit,16,256,0,120,,composite terrain material: wall
 onebit,17,272,0,108,,
-onebit,18,288,0,97,,
-onebit,19,304,0,73,,
-onebit,20,320,0,92,,
+onebit,18,288,0,97,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,19,304,0,73,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,20,320,0,92,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
 onebit,21,336,0,60,,
 onebit,22,352,0,60,,
 onebit,23,368,0,126,,
-onebit,24,384,0,84,,
+onebit,24,384,0,84,,core:object/env_grave_a
 onebit,25,400,0,82,,
 onebit,26,416,0,80,,core:enemy/canal_lancer
 onebit,27,432,0,81,,
@@ -732,7 +732,7 @@ onebit,47,752,0,84,,
 onebit,48,768,0,37,,
 onebit,49,0,16,80,,core:object/review_overgrowth_1
 onebit,50,16,16,62,,core:object/review_overgrowth_2
-onebit,51,32,16,72,,
+onebit,51,32,16,72,,core:object/env_plant_a
 onebit,52,48,16,107,,
 onebit,53,64,16,102,,
 onebit,54,80,16,110,,core:object/review_mushroom_2
@@ -748,12 +748,12 @@ onebit,63,224,16,19,,
 onebit,64,240,16,26,,
 onebit,65,256,16,36,,
 onebit,66,272,16,32,,
-onebit,67,288,16,72,,
-onebit,68,304,16,31,,
-onebit,69,320,16,63,,
+onebit,67,288,16,72,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,68,304,16,31,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,69,320,16,63,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
 onebit,70,336,16,112,,core:terrain/fragile_intact; core:terrain/fragile_intact
 onebit,71,352,16,80,,
-onebit,72,368,16,186,,core:object/interaction_memorial
+onebit,72,368,16,186,,core:object/env_grave_b; core:object/interaction_memorial
 onebit,73,384,16,94,,
 onebit,74,400,16,83,,
 onebit,75,416,16,73,,core:enemy/cinder_mender
@@ -779,7 +779,7 @@ onebit,94,720,16,74,,
 onebit,95,736,16,82,,
 onebit,96,752,16,105,,
 onebit,97,768,16,38,,
-onebit,98,0,32,36,,
+onebit,98,0,32,36,,core:object/env_plant_b; environment garden accent
 onebit,99,16,32,70,,
 onebit,100,32,32,58,,
 onebit,101,48,32,88,,
@@ -797,9 +797,9 @@ onebit,112,224,32,48,,core:object/review_plate_down; core:object/review_plate_ti
 onebit,113,240,32,48,,
 onebit,114,256,32,72,,
 onebit,115,272,32,60,,
-onebit,116,288,32,89,,
-onebit,117,304,32,65,,
-onebit,118,320,32,92,,
+onebit,116,288,32,89,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,117,304,32,65,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
+onebit,118,320,32,92,,environment ironworks; environment observatory; environment ruin; environment ruin_carved
 onebit,119,336,32,29,,
 onebit,120,352,32,111,,
 onebit,121,368,32,162,core:terrain/barricade,core:terrain/barricade
@@ -812,14 +812,14 @@ onebit,127,464,32,98,,core:enemy/oath_twin_b
 onebit,128,480,32,84,,core:enemy/canal_lockmaster
 onebit,129,496,32,79,,core:enemy/heavy_rammer
 onebit,130,512,32,46,,
-onebit,131,528,32,44,,
+onebit,131,528,32,44,core:ui/ability_knife_icon,core:ui/ability_knife_icon
 onebit,132,544,32,57,,
 onebit,133,560,32,29,,
-onebit,134,576,32,33,,
-onebit,135,592,32,108,,
+onebit,134,576,32,33,core:ui/ability_hook_icon,core:ui/ability_hook_icon
+onebit,135,592,32,108,core:object/env_mural_face,core:object/env_mural_face
 onebit,136,608,32,88,,
 onebit,137,624,32,102,,
-onebit,138,640,32,72,,
+onebit,138,640,32,72,core:object/env_mural_sigil,core:object/env_mural_sigil
 onebit,139,656,32,61,,core:object/interaction_escape_scroll
 onebit,140,672,32,66,,
 onebit,141,688,32,78,core:boon/crownfire/icon + /detail,core:boon/crownfire/icon + /detail
@@ -828,7 +828,7 @@ onebit,143,720,32,70,,
 onebit,144,736,32,80,,
 onebit,145,752,32,70,,
 onebit,146,768,32,68,,
-onebit,147,0,48,54,,
+onebit,147,0,48,54,,core:object/env_forge_panel
 onebit,148,16,48,116,,
 onebit,149,32,48,132,,
 onebit,150,48,48,150,,
@@ -864,12 +864,12 @@ onebit,179,512,48,22,,
 onebit,180,528,48,24,,
 onebit,181,544,48,19,,
 onebit,182,560,48,23,,
-onebit,183,576,48,21,,
+onebit,183,576,48,21,core:ui/ability_staff_icon,core:ui/ability_staff_icon
 onebit,184,592,48,98,core:boon/perfect_guard/icon + /detail,core:boon/perfect_guard/icon + /detail
 onebit,185,608,48,102,core:boon/betrayal_ward/icon + /detail,core:boon/betrayal_ward/icon + /detail
 onebit,186,624,48,102,,
 onebit,187,640,48,110,core:boon/ordered_ranks/icon + /detail,core:boon/ordered_ranks/icon + /detail
-onebit,188,656,48,68,,
+onebit,188,656,48,68,core:ui/ability_shield_icon,core:ui/ability_shield_icon
 onebit,189,672,48,34,,
 onebit,190,688,48,40,,
 onebit,191,704,48,44,,
@@ -882,7 +882,7 @@ onebit,197,16,64,72,,
 onebit,198,32,64,66,,
 onebit,199,48,64,130,,
 onebit,200,64,64,37,,
-onebit,201,80,64,86,,
+onebit,201,80,64,86,,core:object/env_prison_bars
 onebit,202,96,64,92,,
 onebit,203,112,64,102,,
 onebit,204,128,64,166,,
@@ -909,27 +909,27 @@ onebit,224,448,64,71,core:enemy/rotating_sentinel,core:enemy/rotating_sentinel
 onebit,225,464,64,74,,
 onebit,226,480,64,68,,core:actor/berserker
 onebit,227,496,64,70,,core:enemy/prism_curator
-onebit,228,512,64,22,,
+onebit,228,512,64,22,core:ui/ability_wand_icon,core:ui/ability_wand_icon
 onebit,229,528,64,28,,
 onebit,230,544,64,27,core:boon/counterweight/icon + /detail,core:boon/counterweight/icon + /detail
 onebit,231,560,64,25,,
 onebit,232,576,64,36,,
 onebit,233,592,64,100,core:boon/thorn_mirror/icon + /detail,core:boon/thorn_mirror/icon + /detail; core:ui/block_effect
-onebit,234,608,64,104,,
+onebit,234,608,64,104,core:object/env_mural_leaf,core:object/env_mural_leaf
 onebit,235,624,64,72,,
 onebit,236,640,64,106,core:boon/guardians_vow/icon + /detail,core:boon/guardians_vow/icon + /detail
 onebit,237,656,64,58,,
 onebit,238,672,64,79,,core:drop/food
 onebit,239,688,64,78,core:ui/squad_shield_effect,core:ui/squad_shield_effect
 onebit,240,704,64,58,,
-onebit,241,720,64,75,,
+onebit,241,720,64,75,core:ui/ability_vial_icon,core:ui/ability_vial_icon
 onebit,242,736,64,84,,
 onebit,243,752,64,78,,
 onebit,244,768,64,104,,
 onebit,245,0,80,92,,core:object/review_rail_top_left; core:object/review_rail_top_right
-onebit,246,16,80,87,,
+onebit,246,16,80,87,,core:object/env_chapel_window
 onebit,247,32,80,92,,
-onebit,248,48,80,64,,
+onebit,248,48,80,64,,core:object/env_chapel_alcove
 onebit,249,64,80,88,,
 onebit,250,80,80,84,,
 onebit,251,96,80,100,,
@@ -964,7 +964,7 @@ onebit,279,544,80,26,,
 onebit,280,560,80,31,,
 onebit,281,576,80,33,,
 onebit,282,592,80,48,core:boon/splitflight/icon + /detail,core:boon/splitflight/icon + /detail
-onebit,283,608,80,56,,
+onebit,283,608,80,56,core:ui/ability_bow_icon,core:ui/ability_bow_icon
 onebit,284,624,80,52,,
 onebit,285,640,80,15,,
 onebit,286,656,80,20,,
@@ -980,7 +980,7 @@ onebit,295,16,96,80,,core:object/stairs_down
 onebit,296,32,96,80,,core:object/stairs_up
 onebit,297,48,96,80,,
 onebit,298,64,96,108,,
-onebit,299,80,96,130,,
+onebit,299,80,96,130,,core:object/env_shelf_full
 onebit,300,96,96,74,,
 onebit,301,112,96,64,,core:chest/free_elite
 onebit,302,128,96,122,,core:chest/standard
@@ -1011,23 +1011,23 @@ onebit,326,512,96,26,core:boon/opening_cut/icon + /detail,core:boon/opening_cut/
 onebit,327,528,96,29,,core:ui/weapon_sword_icon
 onebit,328,544,96,27,,core:ui/weapon_bow_icon
 onebit,329,560,96,33,,core:ui/weapon_spell_icon
-onebit,330,576,96,34,,
+onebit,330,576,96,34,core:ui/ability_sword_icon,core:ui/ability_sword_icon
 onebit,331,592,96,39,,core:ui/weapon_dagger_icon
 onebit,332,608,96,37,,core:ui/weapon_hook_icon
 onebit,333,624,96,35,core:boon/recurve/icon + /detail,core:boon/recurve/icon + /detail
-onebit,334,640,96,35,,
+onebit,334,640,96,35,core:ui/ability_volley_icon,core:ui/ability_volley_icon
 onebit,335,656,96,34,,
 onebit,336,672,96,46,,
 onebit,337,688,96,38,,core:boon/ring_of_reversal/icon + /detail
 onebit,338,704,96,42,,
 onebit,339,720,96,34,,
 onebit,340,736,96,42,,
-onebit,341,752,96,120,,
+onebit,341,752,96,120,,environment mosaic
 onebit,342,768,96,87,,
 onebit,343,0,112,88,,
 onebit,344,16,112,72,,core:object/chest_open
 onebit,345,32,112,100,,
-onebit,346,48,112,130,,
+onebit,346,48,112,130,,core:object/env_shelf_empty
 onebit,347,64,112,94,,
 onebit,348,80,112,128,,
 onebit,349,96,112,88,,
@@ -1057,16 +1057,16 @@ onebit,372,464,112,92,,
 onebit,373,480,112,60,,
 onebit,374,496,112,77,,
 onebit,375,512,112,45,,
-onebit,376,528,112,46,,
+onebit,376,528,112,46,core:ui/ability_slash_icon,core:ui/ability_slash_icon
 onebit,377,544,112,47,,
 onebit,378,560,112,41,core:boon/longblade_geometry/icon + /detail,core:boon/longblade_geometry/icon + /detail
 onebit,379,576,112,44,,
 onebit,380,592,112,54,core:boon/earthshaker/icon + /detail,core:boon/earthshaker/icon + /detail
 onebit,381,608,112,48,core:boon/executioners_thread/icon + /detail,core:boon/executioners_thread/icon + /detail
-onebit,382,624,112,41,,
+onebit,382,624,112,41,core:ui/ability_mace_icon,core:ui/ability_mace_icon
 onebit,383,640,112,46,core:boon/sunderers_mark/icon + /detail,core:boon/sunderers_mark/icon + /detail
 onebit,384,656,112,57,core:boon/crowdbreaker/icon + /detail,core:boon/crowdbreaker/icon + /detail
-onebit,385,672,112,30,,
+onebit,385,672,112,30,core:ui/ability_axe_icon,core:ui/ability_axe_icon
 onebit,386,688,112,30,,
 onebit,387,704,112,28,,
 onebit,388,720,112,28,,
@@ -1077,16 +1077,16 @@ onebit,392,0,128,85,,core:object/interaction_archive_contract; core:object/inter
 onebit,393,16,128,46,,
 onebit,394,32,128,72,,
 onebit,395,48,128,64,,
-onebit,396,64,128,56,,
+onebit,396,64,128,56,,core:object/env_camp_table
 onebit,397,80,128,103,,
 onebit,398,96,128,88,,
 onebit,399,112,128,87,,
-onebit,400,128,128,84,,core:object/interaction_attunement_forge
+onebit,400,128,128,84,,core:object/env_workshop_hearth; core:object/interaction_attunement_forge
 onebit,401,144,128,100,,
 onebit,402,160,128,65,,
 onebit,403,176,128,116,,
 onebit,404,192,128,96,,
-onebit,405,208,128,72,,
+onebit,405,208,128,72,,core:object/env_workshop_supplies
 onebit,406,224,128,83,,
 onebit,407,240,128,85,,
 onebit,408,256,128,40,,core:object/return_beacon
@@ -1133,7 +1133,7 @@ onebit,448,112,144,118,,
 onebit,449,128,144,117,,
 onebit,450,144,144,40,,
 onebit,451,160,144,113,,core:object/exit
-onebit,452,176,144,49,,
+onebit,452,176,144,49,,core:object/env_camp_seat
 onebit,453,192,144,52,,
 onebit,454,208,144,72,,
 onebit,455,224,144,64,,
@@ -1214,12 +1214,12 @@ onebit,529,624,160,52,,
 onebit,530,640,160,56,,core:ui/hp_icon
 onebit,531,656,160,71,core:boon/shared_agony/icon + /detail,core:boon/shared_agony/icon + /detail
 onebit,532,672,160,86,core:boon/pain_dividend/icon + /detail,core:boon/pain_dividend/icon + /detail
-onebit,533,688,160,68,,
+onebit,533,688,160,68,core:ui/status_heal_icon,core:ui/status_heal_icon
 onebit,534,704,160,82,,
 onebit,535,720,160,82,core:ui/squad_heal_effect,core:ui/squad_heal_effect
 onebit,536,736,160,82,,
 onebit,537,752,160,82,,
-onebit,538,768,160,176,,
+onebit,538,768,160,176,core:ui/status_focus_icon,core:ui/status_focus_icon
 onebit,539,0,176,132,core:ui/idea_corpse_effect,core:ui/idea_corpse_effect
 onebit,540,16,176,75,,
 onebit,541,32,176,71,,
@@ -1246,10 +1246,10 @@ onebit,561,352,176,72,,
 onebit,562,368,176,114,,
 onebit,563,384,176,38,core:boon/crescent_reach/icon + /detail,core:boon/crescent_reach/icon + /detail
 onebit,564,400,176,40,core:boon/phantom_lunge/icon + /detail,core:boon/phantom_lunge/icon + /detail
-onebit,565,416,176,66,,core:terrain/heat_vent_burst; core:terrain/heat_vent_cooldown; core:terrain/heat_vent_warning
+onebit,565,416,176,66,core:ui/cue_slash_effect,core:terrain/heat_vent_burst; core:terrain/heat_vent_cooldown; core:terrain/heat_vent_warning; core:ui/cue_slash_effect
 onebit,566,432,176,92,core:boon/flashpoint/icon + /detail,core:boon/flashpoint/icon + /detail
 onebit,567,448,176,50,core:boon/emberbrand/icon + /detail,core:boon/emberbrand/icon + /detail; core:ui/burning_effect
-onebit,568,464,176,68,,
+onebit,568,464,176,68,core:ui/cue_fire_effect,core:ui/cue_fire_effect
 onebit,569,480,176,54,core:boon/crossfire_omen/icon + /detail,core:boon/crossfire_omen/icon + /detail
 onebit,570,496,176,54,,
 onebit,571,512,176,49,,core:object/review_key
@@ -1257,7 +1257,7 @@ onebit,572,528,176,58,,
 onebit,573,544,176,44,,
 onebit,574,560,176,40,core:object/interaction_return_marker; core:object/interaction_return_token; core:ui/idea_oath_effect,core:object/interaction_return_marker; core:object/interaction_return_token; core:ui/idea_oath_effect
 onebit,575,576,176,46,core:boon/circuit_chorus/icon + /detail,core:boon/circuit_chorus/icon + /detail
-onebit,576,592,176,80,,
+onebit,576,592,176,80,core:ui/status_ward_icon,core:ui/status_ward_icon
 onebit,577,608,176,70,,
 onebit,578,624,176,60,,core:object/review_ward
 onebit,579,640,176,52,,
@@ -1296,26 +1296,26 @@ onebit,611,368,192,112,,
 onebit,612,384,192,102,,
 onebit,613,400,192,156,,
 onebit,614,416,192,144,,
-onebit,615,432,192,58,core:ui/storm_charge_effect,core:ui/storm_charge_effect
+onebit,615,432,192,58,core:ui/cue_spark_effect; core:ui/storm_charge_effect,core:ui/cue_spark_effect; core:ui/storm_charge_effect
 onebit,616,448,192,68,core:boon/storm_conductor/icon + /detail; core:terrain/glazed_ice,core:boon/storm_conductor/icon + /detail; core:terrain/glazed_ice; core:ui/boon_effect
 onebit,617,464,192,36,core:boon/turncoat_spark/icon + /detail,core:boon/turncoat_spark/icon + /detail
 onebit,618,480,192,36,core:boon/detonation_bloom/icon + /detail,core:boon/detonation_bloom/icon + /detail; core:ui/hit_effect
 onebit,619,496,192,44,core:boon/final_spark/icon + /detail,core:boon/final_spark/icon + /detail
-onebit,620,512,192,38,,
-onebit,621,528,192,78,,
+onebit,620,512,192,38,,core:object/env_bone_a
+onebit,621,528,192,78,,core:object/env_bone_b
 onebit,622,544,192,88,core:boon/grave_dividend/icon + /detail,core:boon/grave_dividend/icon + /detail
 onebit,623,560,192,64,core:boon/harriers_response/icon + /detail,core:boon/harriers_response/icon + /detail
 onebit,624,576,192,20,core:boon/windup_hunter/icon + /detail,core:boon/windup_hunter/icon + /detail
 onebit,625,592,192,48,,core:ui/attack_center_effect
 onebit,626,608,192,28,,core:ui/attack_impact_effect
-onebit,627,624,192,56,,
-onebit,628,640,192,52,,
+onebit,627,624,192,56,core:ui/signal_spent_effect,core:ui/signal_spent_effect
+onebit,628,640,192,52,core:ui/signal_safe_effect,core:ui/signal_safe_effect
 onebit,629,656,192,64,core:boon/temporal_echo/icon + /detail,core:boon/temporal_echo/icon + /detail
-onebit,630,672,192,76,,
-onebit,631,688,192,84,,
-onebit,632,704,192,76,,
-onebit,633,720,192,76,,
-onebit,634,736,192,76,,
+onebit,630,672,192,76,core:ui/signal_armed_effect,core:ui/signal_armed_effect
+onebit,631,688,192,84,core:ui/status_charge_0_icon,core:ui/status_charge_0_icon
+onebit,632,704,192,76,core:ui/status_charge_1_icon,core:ui/status_charge_1_icon
+onebit,633,720,192,76,core:ui/status_charge_2_icon,core:ui/status_charge_2_icon
+onebit,634,736,192,76,core:ui/status_charge_3_icon,core:ui/status_charge_3_icon
 onebit,635,752,192,76,,
 onebit,636,768,192,172,core:ui/squad_ward_effect,core:ui/squad_ward_effect
 onebit,637,0,208,107,,
@@ -1391,10 +1391,10 @@ onebit,706,320,224,44,core:boon/aftershock/icon + /detail,core:boon/aftershock/i
 onebit,707,336,224,52,core:boon/froststep_catalyst/icon + /detail,core:boon/froststep_catalyst/icon + /detail
 onebit,708,352,224,60,core:boon/resonant_wounds/icon + /detail,core:boon/resonant_wounds/icon + /detail
 onebit,709,368,224,48,core:boon/expanding_sigil/icon + /detail,core:boon/expanding_sigil/icon + /detail
-onebit,710,384,224,40,,
-onebit,711,400,224,24,,
+onebit,710,384,224,40,core:ui/cue_echo_effect,core:ui/cue_echo_effect
+onebit,711,400,224,24,core:ui/cue_block_effect,core:ui/cue_block_effect
 onebit,712,416,224,48,,
-onebit,713,432,224,52,,
+onebit,713,432,224,52,core:ui/cue_boon_effect,core:ui/cue_boon_effect
 onebit,714,448,224,24,,
 onebit,715,464,224,40,core:ui/squad_snare_effect,core:ui/squad_snare_effect
 onebit,716,480,224,44,core:boon/reprisal_nova/icon + /detail,core:boon/reprisal_nova/icon + /detail
@@ -1533,7 +1533,7 @@ onebit,848,240,272,98,,
 onebit,849,256,272,35,,
 onebit,850,272,272,124,,
 onebit,851,288,272,35,,
-onebit,852,304,272,84,,
+onebit,852,304,272,84,,environment carpet
 onebit,853,320,272,69,,
 onebit,854,336,272,68,,
 onebit,855,352,272,68,,
@@ -1685,7 +1685,7 @@ onebit,1000,320,320,37,,
 onebit,1001,336,320,37,,
 onebit,1002,352,320,37,,
 onebit,1003,368,320,48,core:terrain/push_north,core:terrain/push_north; core:terrain/push_north
-onebit,1004,384,320,48,core:terrain/push_east,core:terrain/push_east; core:terrain/push_east
+onebit,1004,384,320,48,core:terrain/push_east; core:ui/ability_move_icon,core:terrain/push_east; core:terrain/push_east; core:ui/ability_move_icon
 onebit,1005,400,320,48,core:terrain/push_south,core:terrain/push_south; core:terrain/push_south
 onebit,1006,416,320,48,core:terrain/push_west,core:terrain/push_west; core:terrain/push_west
 onebit,1007,432,320,20,,
@@ -1761,13 +1761,13 @@ onebit,1076,752,336,109,,
 onebit,1077,768,336,100,,
 rpg,0,0,0,256,,
 rpg,1,17,0,256,,
-rpg,2,34,0,256,,
-rpg,3,51,0,256,,
-rpg,4,68,0,256,,
+rpg,2,34,0,256,environment drowned,environment drowned
+rpg,3,51,0,256,environment drowned,environment drowned
+rpg,4,68,0,256,environment drowned,environment drowned
 rpg,5,85,0,256,,
 rpg,6,102,0,256,,
 rpg,7,119,0,256,,
-rpg,8,136,0,256,,
+rpg,8,136,0,256,environment pale,
 rpg,9,153,0,256,,
 rpg,10,170,0,160,,
 rpg,11,187,0,160,,
@@ -1802,7 +1802,7 @@ rpg,39,663,0,202,,
 rpg,40,680,0,188,,
 rpg,41,697,0,188,,
 rpg,42,714,0,186,,
-rpg,43,731,0,186,,
+rpg,43,731,0,186,core:object/env_chapel_alcove,
 rpg,44,748,0,150,,
 rpg,45,765,0,150,,
 rpg,46,782,0,150,,
@@ -1816,11 +1816,11 @@ rpg,53,901,0,62,,
 rpg,54,918,0,180,,
 rpg,55,935,0,180,,
 rpg,56,952,0,180,,
-rpg,57,0,17,256,,
-rpg,58,17,17,256,,
-rpg,59,34,17,256,,
-rpg,60,51,17,256,,
-rpg,61,68,17,256,,
+rpg,57,0,17,256,environment drowned concave corner,environment drowned concave corner
+rpg,58,17,17,256,environment drowned concave corner,environment drowned concave corner
+rpg,59,34,17,256,environment drowned,environment drowned
+rpg,60,51,17,256,environment drowned,environment drowned
+rpg,61,68,17,256,environment drowned,environment drowned
 rpg,62,85,17,256,,
 rpg,63,102,17,256,,
 rpg,64,119,17,256,,
@@ -1828,9 +1828,9 @@ rpg,65,136,17,256,,
 rpg,66,153,17,256,,
 rpg,67,170,17,178,,
 rpg,68,187,17,178,,
-rpg,69,204,17,176,,
+rpg,69,204,17,176,core:object/env_camp_table,
 rpg,70,221,17,167,,
-rpg,71,238,17,178,,
+rpg,71,238,17,178,core:object/env_camp_seat,
 rpg,72,255,17,178,,
 rpg,73,272,17,178,,
 rpg,74,289,17,178,,
@@ -1862,7 +1862,7 @@ rpg,99,714,17,140,,
 rpg,100,731,17,140,,
 rpg,101,748,17,150,,
 rpg,102,765,17,150,,
-rpg,103,782,17,150,,
+rpg,103,782,17,150,core:object/env_chapel_window,
 rpg,104,799,17,196,,
 rpg,105,816,17,196,,
 rpg,106,833,17,224,,
@@ -1873,11 +1873,11 @@ rpg,110,901,17,88,,
 rpg,111,918,17,94,,
 rpg,112,935,17,94,,
 rpg,113,952,17,94,,
-rpg,114,0,34,256,,
-rpg,115,17,34,256,,
-rpg,116,34,34,256,,
-rpg,117,51,34,256,,
-rpg,118,68,34,256,,
+rpg,114,0,34,256,environment drowned concave corner,environment drowned concave corner
+rpg,115,17,34,256,environment drowned concave corner,environment drowned concave corner
+rpg,116,34,34,256,environment drowned,environment drowned
+rpg,117,51,34,256,environment drowned,environment drowned
+rpg,118,68,34,256,environment drowned,environment drowned
 rpg,119,85,34,256,,
 rpg,120,102,34,256,,
 rpg,121,119,34,256,,
@@ -2103,9 +2103,9 @@ rpg,340,935,85,186,,
 rpg,341,952,85,186,,
 rpg,342,0,102,256,,
 rpg,343,17,102,256,,
-rpg,344,34,102,228,,
-rpg,345,51,102,243,,
-rpg,346,68,102,225,,
+rpg,344,34,102,228,environment garden,
+rpg,345,51,102,243,environment garden,
+rpg,346,68,102,225,environment garden,
 rpg,347,85,102,0,,
 rpg,348,102,102,0,,
 rpg,349,119,102,0,,
@@ -2160,9 +2160,9 @@ rpg,397,935,102,78,,
 rpg,398,952,102,0,,
 rpg,399,0,119,255,,
 rpg,400,17,119,255,,
-rpg,401,34,119,240,,
-rpg,402,51,119,256,,
-rpg,403,68,119,240,,
+rpg,401,34,119,240,environment garden,
+rpg,402,51,119,256,environment garden,
+rpg,403,68,119,240,environment garden,
 rpg,404,85,119,226,,
 rpg,405,102,119,226,,
 rpg,406,119,119,186,,
@@ -2217,9 +2217,9 @@ rpg,454,935,119,118,,
 rpg,455,952,119,0,,
 rpg,456,0,136,0,,
 rpg,457,17,136,0,,
-rpg,458,34,136,240,,
-rpg,459,51,136,256,,
-rpg,460,68,136,240,,
+rpg,458,34,136,240,environment garden,
+rpg,459,51,136,256,environment garden,
+rpg,460,68,136,240,environment garden,
 rpg,461,85,136,227,,
 rpg,462,102,136,226,,
 rpg,463,119,136,186,,
@@ -2234,7 +2234,7 @@ rpg,471,255,136,120,,
 rpg,472,272,136,36,,
 rpg,473,289,136,49,,
 rpg,474,306,136,46,,
-rpg,475,323,136,83,core:object/interaction_falling_fixture,
+rpg,475,323,136,83,core:object/env_workshop_hearth; core:object/interaction_falling_fixture,
 rpg,476,340,136,87,,
 rpg,477,357,136,83,,
 rpg,478,374,136,87,,
@@ -2288,10 +2288,10 @@ rpg,525,204,153,193,,
 rpg,526,221,153,184,,
 rpg,527,238,153,184,,
 rpg,528,255,153,184,,
-rpg,529,272,153,129,,
+rpg,529,272,153,129,core:object/env_plant_a,
 rpg,530,289,153,129,,
 rpg,531,306,153,129,,
-rpg,532,323,153,168,,
+rpg,532,323,153,168,core:object/env_plant_b,
 rpg,533,340,153,168,,
 rpg,534,357,153,168,,
 rpg,535,374,153,134,,
@@ -2304,7 +2304,7 @@ rpg,541,476,153,50,,
 rpg,542,493,153,50,,
 rpg,543,510,153,50,,
 rpg,544,527,153,50,,
-rpg,545,544,153,68,,
+rpg,545,544,153,68,core:object/env_workshop_supplies,
 rpg,546,561,153,18,,
 rpg,547,578,153,18,,
 rpg,548,595,153,18,,
@@ -2323,7 +2323,7 @@ rpg,560,799,153,138,,
 rpg,561,816,153,126,,
 rpg,562,833,153,34,,
 rpg,563,850,153,149,,
-rpg,564,867,153,108,core:object/interaction_memorial,
+rpg,564,867,153,108,core:object/env_grave_a; core:object/interaction_memorial,
 rpg,565,884,153,124,,
 rpg,566,901,153,45,,
 rpg,567,918,153,140,,
@@ -2437,7 +2437,7 @@ rpg,674,799,187,248,,
 rpg,675,816,187,234,,
 rpg,676,833,187,248,,
 rpg,677,850,187,237,,
-rpg,678,867,187,159,,
+rpg,678,867,187,159,core:object/env_grave_b,
 rpg,679,884,187,163,,
 rpg,680,901,187,163,,
 rpg,681,918,187,57,core:object/interaction_bell,
@@ -2463,15 +2463,15 @@ rpg,700,272,204,256,,
 rpg,701,289,204,256,,
 rpg,702,306,204,256,,
 rpg,703,323,204,256,,
-rpg,704,340,204,256,,
-rpg,705,357,204,256,,
-rpg,706,374,204,256,,
-rpg,707,391,204,256,,
-rpg,708,408,204,256,,
-rpg,709,425,204,256,,
-rpg,710,442,204,256,,
-rpg,711,459,204,256,,
-rpg,712,476,204,256,,
+rpg,704,340,204,256,environment ruin,
+rpg,705,357,204,256,environment ruin,
+rpg,706,374,204,256,environment ruin,
+rpg,707,391,204,256,environment ruin_carved,
+rpg,708,408,204,256,environment ruin_carved,
+rpg,709,425,204,256,environment ruin_carved,
+rpg,710,442,204,256,environment observatory,
+rpg,711,459,204,256,environment observatory,
+rpg,712,476,204,256,environment observatory,
 rpg,713,493,204,256,,
 rpg,714,510,204,256,,
 rpg,715,527,204,256,,
@@ -2485,7 +2485,7 @@ rpg,722,646,204,256,,
 rpg,723,663,204,256,,
 rpg,724,680,204,256,,
 rpg,725,697,204,176,,
-rpg,726,714,204,198,,
+rpg,726,714,204,198,core:object/env_shelf_full,
 rpg,727,731,204,256,,
 rpg,728,748,204,246,,
 rpg,729,765,204,256,,
@@ -2520,15 +2520,15 @@ rpg,757,272,221,256,,
 rpg,758,289,221,256,,
 rpg,759,306,221,256,,
 rpg,760,323,221,256,,
-rpg,761,340,221,256,,
-rpg,762,357,221,256,,
-rpg,763,374,221,256,,
-rpg,764,391,221,256,,
-rpg,765,408,221,256,,
-rpg,766,425,221,256,,
-rpg,767,442,221,256,,
-rpg,768,459,221,256,,
-rpg,769,476,221,256,,
+rpg,761,340,221,256,environment ruin,
+rpg,762,357,221,256,environment ruin,
+rpg,763,374,221,256,environment ruin,
+rpg,764,391,221,256,environment ruin_carved,
+rpg,765,408,221,256,environment ruin_carved,
+rpg,766,425,221,256,environment ruin_carved,
+rpg,767,442,221,256,environment observatory,
+rpg,768,459,221,256,environment observatory,
+rpg,769,476,221,256,environment observatory,
 rpg,770,493,221,256,,
 rpg,771,510,221,256,,
 rpg,772,527,221,256,,
@@ -2542,7 +2542,7 @@ rpg,779,646,221,256,,
 rpg,780,663,221,256,,
 rpg,781,680,221,256,,
 rpg,782,697,221,176,,
-rpg,783,714,221,198,,
+rpg,783,714,221,198,core:object/env_shelf_empty,
 rpg,784,731,221,256,,
 rpg,785,748,221,246,,
 rpg,786,765,221,256,,
@@ -2577,15 +2577,15 @@ rpg,814,272,238,242,,
 rpg,815,289,238,242,,
 rpg,816,306,238,244,,
 rpg,817,323,238,242,,
-rpg,818,340,238,256,,
-rpg,819,357,238,242,,
-rpg,820,374,238,244,,
-rpg,821,391,238,242,,
-rpg,822,408,238,242,,
-rpg,823,425,238,244,,
-rpg,824,442,238,242,,
-rpg,825,459,238,256,,
-rpg,826,476,238,242,,
+rpg,818,340,238,256,environment ruin,
+rpg,819,357,238,242,environment ruin,
+rpg,820,374,238,244,environment ruin,
+rpg,821,391,238,242,environment ruin_carved,
+rpg,822,408,238,242,environment ruin_carved,
+rpg,823,425,238,244,environment ruin_carved,
+rpg,824,442,238,242,environment observatory,
+rpg,825,459,238,256,environment observatory,
+rpg,826,476,238,242,environment observatory,
 rpg,827,493,238,244,,
 rpg,828,510,238,242,,
 rpg,829,527,238,242,,
@@ -2683,9 +2683,9 @@ rpg,920,136,272,256,,
 rpg,921,153,272,232,,
 rpg,922,170,272,196,,
 rpg,923,187,272,224,,
-rpg,924,204,272,196,,
-rpg,925,221,272,256,,
-rpg,926,238,272,256,,
+rpg,924,204,272,196,environment carpet,
+rpg,925,221,272,256,environment carpet,
+rpg,926,238,272,256,environment carpet,
 rpg,927,255,272,256,,
 rpg,928,272,272,256,,
 rpg,929,289,272,256,,
@@ -2740,9 +2740,9 @@ rpg,977,136,289,232,,
 rpg,978,153,289,188,,
 rpg,979,170,289,224,,
 rpg,980,187,289,256,,
-rpg,981,204,289,224,,
-rpg,982,221,289,256,,
-rpg,983,238,289,256,,
+rpg,981,204,289,224,environment carpet,
+rpg,982,221,289,256,environment carpet,
+rpg,983,238,289,256,environment carpet,
 rpg,984,255,289,256,,
 rpg,985,272,289,256,,
 rpg,986,289,289,106,,
@@ -2797,9 +2797,9 @@ rpg,1034,136,306,176,,
 rpg,1035,153,306,0,,
 rpg,1036,170,306,196,,
 rpg,1037,187,306,224,,
-rpg,1038,204,306,196,,
-rpg,1039,221,306,212,,
-rpg,1040,238,306,212,,
+rpg,1038,204,306,196,environment carpet,
+rpg,1039,221,306,212,environment carpet,
+rpg,1040,238,306,212,environment carpet,
 rpg,1041,255,306,256,,
 rpg,1042,272,306,256,,
 rpg,1043,289,306,256,,

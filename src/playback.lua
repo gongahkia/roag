@@ -24,6 +24,8 @@ local durations = {
     HeatVentBurst = 0.16,
     FragileArmed = 0.10,
     FragileCollapsed = 0.12,
+    Healed = 0.08,
+    SupplyCollected = 0.08,
     ElitePhaseChanged = 0.50,
     EliteDefeated = 0.80,
     RegentPhaseChanged = 0.45,
@@ -40,6 +42,7 @@ local cascade = {
     EffectApplied=true, StatusApplied=true, StatusTick=true,
     DelayedEffectScheduled=true, DelayedEffectResolved=true,
     TerrainTriggered=true,
+    Healed=true,SupplyCollected=true,
 }
 Playback.max_cascade_seconds = 0.36
 

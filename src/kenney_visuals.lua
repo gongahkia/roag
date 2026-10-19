@@ -12,6 +12,7 @@ local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
 local Interactions=require('src.idea_interaction_content')
 local TerrainIdeas=require('src.idea_terrain')
+local Environment=require('src.idea_environment')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -195,9 +196,13 @@ function K.new(read,make_texture,make_quad)
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
     for id,index in pairs(IdeaEnemies.caves_objects or {})do handles[id]=cave_cell(index)end
+    local environment=Environment.new('kenney',read,make_texture,make_quad,
+        {rpg=review_pages.rpg.texture,caves=terrain.native,onebit=symbols.texture})
+    for id,h in pairs(environment.handles)do handles[id]=h end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
         style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature..
-            ':d407b7ab694fa5d5:a2cba6dbb9cac15d',
+            ':d407b7ab694fa5d5:a2cba6dbb9cac15d:'..environment.signature,
+        environment=environment,
         status='loaded',wall_regions=terrain.walls.stone,terrain_renderer=terrain,
         pages={sprites={texture=cutout},symbols={texture=symbols.texture},
             terrain={texture=terrain.native},surfaces={texture=terrain.surface},
@@ -205,6 +210,7 @@ function K.new(read,make_texture,make_quad)
 end
 function K:resolve(id)return self.handles[id]end
 function K:terrain(map,x,y,kind,known)
-    return self.terrain_renderer:resolve(map,x,y,kind,known)
+    return self.environment:resolve(map,x,y,kind,known) or self.terrain_renderer:resolve(map,x,y,kind,known)
 end
+function K:set_world(state)self.environment:set_world(state)end
 return K

@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "7e87714a8fdd115d",
+  "mapping_checksum": "b8dcde92ba60c7c7",
   "packs": {
     "kenney": {
       "actor_count": 65,
@@ -2805,6 +2805,249 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:object/env_bone_a",
+          "index": 58,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_bone_b",
+          "index": 59,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_seat",
+          "index": 71,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_table",
+          "index": 69,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_alcove",
+          "index": 43,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_window",
+          "index": 103,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_bottom",
+          "index": 204,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_middle",
+          "index": 175,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_top",
+          "index": 146,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_bottom",
+          "index": 205,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_middle",
+          "index": 176,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_top",
+          "index": 147,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_forge_panel",
+          "index": 79,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_a",
+          "index": 564,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_b",
+          "index": 678,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_face",
+          "index": 135,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_leaf",
+          "index": 234,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_sigil",
+          "index": 138,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_a",
+          "index": 529,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_b",
+          "index": 532,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_prison_bars",
+          "index": 262,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_a",
+          "index": 3,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_b",
+          "index": 5,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_empty",
+          "index": 783,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_full",
+          "index": 726,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_hearth",
+          "index": 475,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_supplies",
+          "index": 545,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:object/exit",
           "index": 138,
@@ -3318,6 +3561,106 @@
           "width": 16
         },
         {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_broken/wall/base",
+          "index": 39,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_carpet/floor/base",
+          "index": 982,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_drowned/water/base",
+          "index": 60,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_garden/floor/base",
+          "index": 402,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ironworks/wall/base",
+          "index": 39,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_mosaic/floor/base",
+          "index": 512,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_observatory/wall/base",
+          "index": 768,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_pale/floor/base",
+          "index": 8,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin/wall/base",
+          "index": 762,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin_carved/wall/base",
+          "index": 765,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
           "height": 16,
           "id": "core:terrain/fractured_archive/floor/base",
           "index": 422,
@@ -3606,6 +3949,123 @@
           "width": 16
         },
         {
+          "height": 16,
+          "id": "core:ui/ability_axe_icon",
+          "index": 385,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_bow_icon",
+          "index": 283,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_hook_icon",
+          "index": 134,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_knife_icon",
+          "index": 131,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_mace_icon",
+          "index": 382,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_move_icon",
+          "index": 1004,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_shield_icon",
+          "index": 188,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_slash_icon",
+          "index": 376,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_staff_icon",
+          "index": 183,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_sword_icon",
+          "index": 330,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_vial_icon",
+          "index": 241,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_volley_icon",
+          "index": 334,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_wand_icon",
+          "index": 228,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:ui/attack_center_effect",
           "index": 131,
@@ -3649,6 +4109,60 @@
           "pose_alias": false,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_block_effect",
+          "index": 711,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_boon_effect",
+          "index": 713,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_echo_effect",
+          "index": 710,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_fire_effect",
+          "index": 568,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_slash_effect",
+          "index": 565,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_spark_effect",
+          "index": 615,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
         },
         {
           "height": 8,
@@ -3724,6 +4238,33 @@
         },
         {
           "height": 16,
+          "id": "core:ui/signal_armed_effect",
+          "index": 630,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_safe_effect",
+          "index": 628,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_spent_effect",
+          "index": 627,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -3763,6 +4304,69 @@
           "id": "core:ui/squad_ward_effect",
           "index": 636,
           "motif": "squad_ward_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_0_icon",
+          "index": 631,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_1_icon",
+          "index": 632,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_2_icon",
+          "index": 633,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_3_icon",
+          "index": 634,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_focus_icon",
+          "index": 538,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_heal_icon",
+          "index": 533,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_ward_icon",
+          "index": 576,
+          "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -3928,8 +4532,20 @@
           "145": [
             "core:object/review_pillar_top"
           ],
+          "146": [
+            "core:object/env_column_a_top"
+          ],
+          "147": [
+            "core:object/env_column_b_top"
+          ],
           "174": [
             "core:object/review_pillar_bottom"
+          ],
+          "175": [
+            "core:object/env_column_a_middle"
+          ],
+          "176": [
+            "core:object/env_column_b_middle"
           ],
           "177": [
             "core:object/review_pillar_middle"
@@ -3940,8 +4556,17 @@
           "184": [
             "earth wall material: center"
           ],
+          "204": [
+            "core:object/env_column_a_bottom"
+          ],
+          "205": [
+            "core:object/env_column_b_bottom"
+          ],
           "212": [
             "fungal_hollows floor"
+          ],
+          "262": [
+            "core:object/env_prison_bars"
           ],
           "290": [
             "blue water quadrant material 1"
@@ -3972,6 +4597,10 @@
           ],
           "299": [
             "green water quadrant material 12"
+          ],
+          "3": [
+            "core:object/env_rock_a",
+            "environment broken accent"
           ],
           "306": [
             "glacial_observatory floor"
@@ -4064,9 +4693,13 @@
             "ashen_bastion floor"
           ],
           "38": [
+            "environment broken frame",
+            "environment ironworks frame",
             "stone wall material: frame"
           ],
           "39": [
+            "environment broken",
+            "environment ironworks",
             "stone wall material: center"
           ],
           "393": [
@@ -4105,6 +4738,9 @@
           "475": [
             "core:object/review_rail_middle_right"
           ],
+          "5": [
+            "core:object/env_rock_b"
+          ],
           "503": [
             "core:object/review_rail_bottom_left"
           ],
@@ -4117,11 +4753,24 @@
           "507": [
             "core:object/review_brazier_lit"
           ],
+          "512": [
+            "environment mosaic"
+          ],
+          "58": [
+            "core:object/env_bone_a"
+          ],
+          "59": [
+            "core:object/env_bone_b"
+          ],
           "64": [
             "core:object/idea_silt_trail"
           ],
           "67": [
             "overgrown_ruins floor"
+          ],
+          "79": [
+            "core:object/env_forge_panel",
+            "environment ironworks accent"
           ],
           "87": [
             "core:object/review_mushroom_1"
@@ -4323,7 +4972,8 @@
             "core:terrain/push_north"
           ],
           "1004": [
-            "core:terrain/push_east"
+            "core:terrain/push_east",
+            "core:ui/ability_move_icon"
           ],
           "1005": [
             "core:terrain/push_south"
@@ -4347,6 +4997,18 @@
           "121": [
             "core:terrain/barricade"
           ],
+          "131": [
+            "core:ui/ability_knife_icon"
+          ],
+          "134": [
+            "core:ui/ability_hook_icon"
+          ],
+          "135": [
+            "core:object/env_mural_face"
+          ],
+          "138": [
+            "core:object/env_mural_sigil"
+          ],
           "141": [
             "core:boon/crownfire/icon + /detail"
           ],
@@ -4355,6 +5017,9 @@
           ],
           "175": [
             "core:actor/stormcaller"
+          ],
+          "183": [
+            "core:ui/ability_staff_icon"
           ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
@@ -4365,11 +5030,17 @@
           "187": [
             "core:boon/ordered_ranks/icon + /detail"
           ],
+          "188": [
+            "core:ui/ability_shield_icon"
+          ],
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
           ],
           "224": [
             "core:enemy/rotating_sentinel"
+          ],
+          "228": [
+            "core:ui/ability_wand_icon"
           ],
           "230": [
             "core:boon/counterweight/icon + /detail"
@@ -4377,11 +5048,17 @@
           "233": [
             "core:boon/thorn_mirror/icon + /detail"
           ],
+          "234": [
+            "core:object/env_mural_leaf"
+          ],
           "236": [
             "core:boon/guardians_vow/icon + /detail"
           ],
           "239": [
             "core:ui/squad_shield_effect"
+          ],
+          "241": [
+            "core:ui/ability_vial_icon"
           ],
           "262": [
             "core:boon/stonewake/icon + /detail"
@@ -4395,6 +5072,9 @@
           "282": [
             "core:boon/splitflight/icon + /detail"
           ],
+          "283": [
+            "core:ui/ability_bow_icon"
+          ],
           "320": [
             "core:enemy/mirror_hexer"
           ],
@@ -4405,11 +5085,20 @@
           "326": [
             "core:boon/opening_cut/icon + /detail"
           ],
+          "330": [
+            "core:ui/ability_sword_icon"
+          ],
           "333": [
             "core:boon/recurve/icon + /detail"
           ],
+          "334": [
+            "core:ui/ability_volley_icon"
+          ],
           "371": [
             "core:enemy/silt_worm"
+          ],
+          "376": [
+            "core:ui/ability_slash_icon"
           ],
           "378": [
             "core:boon/longblade_geometry/icon + /detail"
@@ -4420,11 +5109,17 @@
           "381": [
             "core:boon/executioners_thread/icon + /detail"
           ],
+          "382": [
+            "core:ui/ability_mace_icon"
+          ],
           "383": [
             "core:boon/sunderers_mark/icon + /detail"
           ],
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
+          ],
+          "385": [
+            "core:ui/ability_axe_icon"
           ],
           "411": [
             "core:enemy/ember_moth"
@@ -4462,8 +5157,14 @@
           "532": [
             "core:boon/pain_dividend/icon + /detail"
           ],
+          "533": [
+            "core:ui/status_heal_icon"
+          ],
           "535": [
             "core:ui/squad_heal_effect"
+          ],
+          "538": [
+            "core:ui/status_focus_icon"
           ],
           "539": [
             "core:ui/idea_corpse_effect"
@@ -4474,11 +5175,17 @@
           "564": [
             "core:boon/phantom_lunge/icon + /detail"
           ],
+          "565": [
+            "core:ui/cue_slash_effect"
+          ],
           "566": [
             "core:boon/flashpoint/icon + /detail"
           ],
           "567": [
             "core:boon/emberbrand/icon + /detail"
+          ],
+          "568": [
+            "core:ui/cue_fire_effect"
           ],
           "569": [
             "core:boon/crossfire_omen/icon + /detail"
@@ -4491,7 +5198,11 @@
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
           ],
+          "576": [
+            "core:ui/status_ward_icon"
+          ],
           "615": [
+            "core:ui/cue_spark_effect",
             "core:ui/storm_charge_effect"
           ],
           "616": [
@@ -4516,8 +5227,29 @@
           "624": [
             "core:boon/windup_hunter/icon + /detail"
           ],
+          "627": [
+            "core:ui/signal_spent_effect"
+          ],
+          "628": [
+            "core:ui/signal_safe_effect"
+          ],
           "629": [
             "core:boon/temporal_echo/icon + /detail"
+          ],
+          "630": [
+            "core:ui/signal_armed_effect"
+          ],
+          "631": [
+            "core:ui/status_charge_0_icon"
+          ],
+          "632": [
+            "core:ui/status_charge_1_icon"
+          ],
+          "633": [
+            "core:ui/status_charge_2_icon"
+          ],
+          "634": [
+            "core:ui/status_charge_3_icon"
           ],
           "636": [
             "core:ui/squad_ward_effect"
@@ -4539,6 +5271,15 @@
           ],
           "709": [
             "core:boon/expanding_sigil/icon + /detail"
+          ],
+          "710": [
+            "core:ui/cue_echo_effect"
+          ],
+          "711": [
+            "core:ui/cue_block_effect"
+          ],
+          "713": [
+            "core:ui/cue_boon_effect"
           ],
           "715": [
             "core:ui/squad_snare_effect"
@@ -4569,6 +5310,33 @@
           ]
         },
         "rpg": {
+          "103": [
+            "core:object/env_chapel_window"
+          ],
+          "1038": [
+            "environment carpet"
+          ],
+          "1039": [
+            "environment carpet"
+          ],
+          "1040": [
+            "environment carpet"
+          ],
+          "114": [
+            "environment drowned concave corner"
+          ],
+          "115": [
+            "environment drowned concave corner"
+          ],
+          "116": [
+            "environment drowned"
+          ],
+          "117": [
+            "environment drowned"
+          ],
+          "118": [
+            "environment drowned"
+          ],
           "13": [
             "core:object/interaction_attunement_forge"
           ],
@@ -4580,6 +5348,9 @@
           ],
           "19": [
             "core:object/interaction_route_sign"
+          ],
+          "2": [
+            "environment drowned"
           ],
           "215": [
             "core:object/review_vault_bottom"
@@ -4593,21 +5364,182 @@
           "239": [
             "core:object/interaction_travelling_trader"
           ],
+          "3": [
+            "environment drowned"
+          ],
+          "344": [
+            "environment garden"
+          ],
+          "345": [
+            "environment garden"
+          ],
+          "346": [
+            "environment garden"
+          ],
+          "4": [
+            "environment drowned"
+          ],
+          "401": [
+            "environment garden"
+          ],
+          "402": [
+            "environment garden"
+          ],
+          "403": [
+            "environment garden"
+          ],
+          "43": [
+            "core:object/env_chapel_alcove"
+          ],
+          "458": [
+            "environment garden"
+          ],
+          "459": [
+            "environment garden"
+          ],
+          "460": [
+            "environment garden"
+          ],
           "475": [
+            "core:object/env_workshop_hearth",
             "core:object/interaction_falling_fixture"
           ],
           "495": [
             "core:terrain/fragile_armed",
             "core:terrain/fragile_intact"
           ],
+          "529": [
+            "core:object/env_plant_a"
+          ],
+          "532": [
+            "core:object/env_plant_b"
+          ],
+          "545": [
+            "core:object/env_workshop_supplies"
+          ],
           "564": [
+            "core:object/env_grave_a",
             "core:object/interaction_memorial"
+          ],
+          "57": [
+            "environment drowned concave corner"
+          ],
+          "58": [
+            "environment drowned concave corner"
+          ],
+          "59": [
+            "environment drowned"
+          ],
+          "60": [
+            "environment drowned"
+          ],
+          "61": [
+            "environment drowned"
           ],
           "671": [
             "core:object/review_key"
           ],
+          "678": [
+            "core:object/env_grave_b"
+          ],
           "681": [
             "core:object/interaction_bell"
+          ],
+          "69": [
+            "core:object/env_camp_table"
+          ],
+          "704": [
+            "environment ruin"
+          ],
+          "705": [
+            "environment ruin"
+          ],
+          "706": [
+            "environment ruin"
+          ],
+          "707": [
+            "environment ruin_carved"
+          ],
+          "708": [
+            "environment ruin_carved"
+          ],
+          "709": [
+            "environment ruin_carved"
+          ],
+          "71": [
+            "core:object/env_camp_seat"
+          ],
+          "710": [
+            "environment observatory"
+          ],
+          "711": [
+            "environment observatory"
+          ],
+          "712": [
+            "environment observatory"
+          ],
+          "726": [
+            "core:object/env_shelf_full"
+          ],
+          "761": [
+            "environment ruin"
+          ],
+          "762": [
+            "environment ruin"
+          ],
+          "763": [
+            "environment ruin"
+          ],
+          "764": [
+            "environment ruin_carved"
+          ],
+          "765": [
+            "environment ruin_carved"
+          ],
+          "766": [
+            "environment ruin_carved"
+          ],
+          "767": [
+            "environment observatory"
+          ],
+          "768": [
+            "environment observatory"
+          ],
+          "769": [
+            "environment observatory"
+          ],
+          "783": [
+            "core:object/env_shelf_empty"
+          ],
+          "8": [
+            "environment pale"
+          ],
+          "818": [
+            "environment ruin"
+          ],
+          "819": [
+            "environment ruin"
+          ],
+          "820": [
+            "environment ruin"
+          ],
+          "821": [
+            "environment ruin_carved"
+          ],
+          "822": [
+            "environment ruin_carved"
+          ],
+          "823": [
+            "environment ruin_carved"
+          ],
+          "824": [
+            "environment observatory"
+          ],
+          "825": [
+            "environment observatory"
+          ],
+          "826": [
+            "environment observatory"
           ],
           "853": [
             "core:object/interaction_charm_well"
@@ -4621,11 +5553,29 @@
           "901": [
             "core:object/interaction_archive_contract"
           ],
+          "924": [
+            "environment carpet"
+          ],
+          "925": [
+            "environment carpet"
+          ],
+          "926": [
+            "environment carpet"
+          ],
           "959": [
             "core:object/review_plate_up"
           ],
           "961": [
             "core:object/review_plate_down"
+          ],
+          "981": [
+            "environment carpet"
+          ],
+          "982": [
+            "environment carpet"
+          ],
+          "983": [
+            "environment carpet"
           ]
         },
         "tiny": {
@@ -7529,6 +8479,276 @@
         },
         {
           "height": 16,
+          "id": "core:object/env_bone_a",
+          "index": 620,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_bone_b",
+          "index": 621,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_seat",
+          "index": 452,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_table",
+          "index": 396,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_alcove",
+          "index": 248,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_window",
+          "index": 246,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_bottom",
+          "index": 204,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_middle",
+          "index": 175,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_top",
+          "index": 146,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_bottom",
+          "index": 205,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_middle",
+          "index": 176,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_top",
+          "index": 147,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_forge_panel",
+          "index": 147,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_a",
+          "index": 24,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_b",
+          "index": 72,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_face",
+          "index": 135,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_leaf",
+          "index": 234,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_sigil",
+          "index": 138,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_a",
+          "index": 51,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_b",
+          "index": 98,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_prison_bars",
+          "index": 201,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_a",
+          "index": 3,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_b",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_empty",
+          "index": 346,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_full",
+          "index": 299,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_hearth",
+          "index": 400,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_supplies",
+          "index": 405,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/exit",
           "index": 451,
           "motif": "",
@@ -8041,6 +9261,116 @@
           "width": 16
         },
         {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_broken/wall/base",
+          "index": 39,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_carpet/floor/base",
+          "index": 852,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_drowned/water/base",
+          "index": 60,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_garden/floor/base",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ironworks/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_mosaic/floor/base",
+          "index": 341,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_observatory/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_pale/floor/base",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin_carved/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 16,
           "id": "core:terrain/fractured_archive/floor/base",
           "index": -1,
@@ -8161,6 +9491,7 @@
           "height": 16,
           "id": "core:terrain/heat_vent_burst",
           "index": 29,
+          "monochrome": true,
           "motif": "",
           "pose_alias": false,
           "sheet": "tiny",
@@ -8170,6 +9501,7 @@
           "height": 16,
           "id": "core:terrain/heat_vent_cooldown",
           "index": 9,
+          "monochrome": true,
           "motif": "",
           "pose_alias": false,
           "sheet": "tiny",
@@ -8179,6 +9511,7 @@
           "height": 16,
           "id": "core:terrain/heat_vent_warning",
           "index": 29,
+          "monochrome": true,
           "motif": "",
           "pose_alias": false,
           "sheet": "tiny",
@@ -8330,6 +9663,136 @@
         },
         {
           "height": 16,
+          "id": "core:ui/ability_axe_icon",
+          "index": 385,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_bow_icon",
+          "index": 283,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_hook_icon",
+          "index": 134,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_knife_icon",
+          "index": 131,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_mace_icon",
+          "index": 382,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_move_icon",
+          "index": 1004,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_shield_icon",
+          "index": 188,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_slash_icon",
+          "index": 376,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_staff_icon",
+          "index": 183,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_sword_icon",
+          "index": 330,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_vial_icon",
+          "index": 241,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_volley_icon",
+          "index": 334,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_wand_icon",
+          "index": 228,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/attack_center_effect",
           "index": 625,
           "motif": "",
@@ -8368,6 +9831,66 @@
           "height": 16,
           "id": "core:ui/burning_effect",
           "index": 567,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_block_effect",
+          "index": 711,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_boon_effect",
+          "index": 713,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_echo_effect",
+          "index": 710,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_fire_effect",
+          "index": 568,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_slash_effect",
+          "index": 565,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_spark_effect",
+          "index": 615,
+          "monochrome": true,
           "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
@@ -8447,6 +9970,36 @@
         },
         {
           "height": 16,
+          "id": "core:ui/signal_armed_effect",
+          "index": 630,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_safe_effect",
+          "index": 628,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_spent_effect",
+          "index": 627,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -8486,6 +10039,76 @@
           "id": "core:ui/squad_ward_effect",
           "index": 636,
           "motif": "squad_ward_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_0_icon",
+          "index": 631,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_1_icon",
+          "index": 632,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_2_icon",
+          "index": 633,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_3_icon",
+          "index": 634,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_focus_icon",
+          "index": 538,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_heal_icon",
+          "index": 533,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_ward_icon",
+          "index": 576,
+          "monochrome": true,
+          "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -8575,6 +10198,39 @@
       ],
       "static_pose_aliases": 130,
       "usage": {
+        "caves": {
+          "146": [
+            "core:object/env_column_a_top"
+          ],
+          "147": [
+            "core:object/env_column_b_top"
+          ],
+          "175": [
+            "core:object/env_column_a_middle"
+          ],
+          "176": [
+            "core:object/env_column_b_middle"
+          ],
+          "204": [
+            "core:object/env_column_a_bottom"
+          ],
+          "205": [
+            "core:object/env_column_b_bottom"
+          ],
+          "3": [
+            "core:object/env_rock_a",
+            "environment broken accent"
+          ],
+          "38": [
+            "environment broken frame"
+          ],
+          "39": [
+            "environment broken"
+          ],
+          "5": [
+            "core:object/env_rock_b"
+          ]
+        },
         "onebit": {
           "1003": [
             "core:terrain/push_north",
@@ -8582,7 +10238,8 @@
           ],
           "1004": [
             "core:terrain/push_east",
-            "core:terrain/push_east"
+            "core:terrain/push_east",
+            "core:ui/ability_move_icon"
           ],
           "1005": [
             "core:terrain/push_south",
@@ -8616,6 +10273,24 @@
             "core:object/review_plate_down",
             "core:object/review_plate_tiny_down"
           ],
+          "116": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "117": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "118": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
           "121": [
             "core:terrain/barricade"
           ],
@@ -8641,11 +10316,26 @@
           "129": [
             "core:enemy/heavy_rammer"
           ],
+          "131": [
+            "core:ui/ability_knife_icon"
+          ],
+          "134": [
+            "core:ui/ability_hook_icon"
+          ],
+          "135": [
+            "core:object/env_mural_face"
+          ],
+          "138": [
+            "core:object/env_mural_sigil"
+          ],
           "139": [
             "core:object/interaction_escape_scroll"
           ],
           "141": [
             "core:boon/crownfire/icon + /detail"
+          ],
+          "147": [
+            "core:object/env_forge_panel"
           ],
           "16": [
             "composite terrain material: wall"
@@ -8668,6 +10358,15 @@
           "175": [
             "core:actor/stormcaller"
           ],
+          "18": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "183": [
+            "core:ui/ability_staff_icon"
+          ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
           ],
@@ -8677,8 +10376,26 @@
           "187": [
             "core:boon/ordered_ranks/icon + /detail"
           ],
+          "188": [
+            "core:ui/ability_shield_icon"
+          ],
+          "19": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
+          ],
+          "20": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "201": [
+            "core:object/env_prison_bars"
           ],
           "221": [
             "core:enemy/snare_scribe"
@@ -8695,12 +10412,18 @@
           "227": [
             "core:enemy/prism_curator"
           ],
+          "228": [
+            "core:ui/ability_wand_icon"
+          ],
           "230": [
             "core:boon/counterweight/icon + /detail"
           ],
           "233": [
             "core:boon/thorn_mirror/icon + /detail",
             "core:ui/block_effect"
+          ],
+          "234": [
+            "core:object/env_mural_leaf"
           ],
           "236": [
             "core:boon/guardians_vow/icon + /detail"
@@ -8711,9 +10434,21 @@
           "239": [
             "core:ui/squad_shield_effect"
           ],
+          "24": [
+            "core:object/env_grave_a"
+          ],
+          "241": [
+            "core:ui/ability_vial_icon"
+          ],
           "245": [
             "core:object/review_rail_top_left",
             "core:object/review_rail_top_right"
+          ],
+          "246": [
+            "core:object/env_chapel_window"
+          ],
+          "248": [
+            "core:object/env_chapel_alcove"
           ],
           "26": [
             "core:enemy/canal_lancer"
@@ -8755,6 +10490,9 @@
           "282": [
             "core:boon/splitflight/icon + /detail"
           ],
+          "283": [
+            "core:ui/ability_bow_icon"
+          ],
           "294": [
             "core:object/review_rail_bottom_left",
             "core:object/review_rail_bottom_right",
@@ -8766,6 +10504,9 @@
           ],
           "296": [
             "core:object/stairs_up"
+          ],
+          "299": [
+            "core:object/env_shelf_full"
           ],
           "3": [
             "core:object/review_secret_clue"
@@ -8819,6 +10560,9 @@
           "329": [
             "core:ui/weapon_spell_icon"
           ],
+          "330": [
+            "core:ui/ability_sword_icon"
+          ],
           "331": [
             "core:ui/weapon_dagger_icon"
           ],
@@ -8828,11 +10572,20 @@
           "333": [
             "core:boon/recurve/icon + /detail"
           ],
+          "334": [
+            "core:ui/ability_volley_icon"
+          ],
           "337": [
             "core:boon/ring_of_reversal/icon + /detail"
           ],
+          "341": [
+            "environment mosaic"
+          ],
           "344": [
             "core:object/chest_open"
+          ],
+          "346": [
+            "core:object/env_shelf_empty"
           ],
           "366": [
             "core:enemy/web_weaver"
@@ -8843,6 +10596,9 @@
           "371": [
             "core:enemy/silt_worm"
           ],
+          "376": [
+            "core:ui/ability_slash_icon"
+          ],
           "378": [
             "core:boon/longblade_geometry/icon + /detail"
           ],
@@ -8852,18 +10608,31 @@
           "381": [
             "core:boon/executioners_thread/icon + /detail"
           ],
+          "382": [
+            "core:ui/ability_mace_icon"
+          ],
           "383": [
             "core:boon/sunderers_mark/icon + /detail"
           ],
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
           ],
+          "385": [
+            "core:ui/ability_axe_icon"
+          ],
           "392": [
             "core:object/interaction_archive_contract",
             "core:object/interaction_bell_clue"
           ],
+          "396": [
+            "core:object/env_camp_table"
+          ],
           "400": [
+            "core:object/env_workshop_hearth",
             "core:object/interaction_attunement_forge"
+          ],
+          "405": [
+            "core:object/env_workshop_supplies"
           ],
           "408": [
             "core:object/return_beacon"
@@ -8911,6 +10680,9 @@
           "451": [
             "core:object/exit"
           ],
+          "452": [
+            "core:object/env_camp_seat"
+          ],
           "459": [
             "core:enemy/ruin_skitter"
           ],
@@ -8951,13 +10723,18 @@
             "core:ui/idea_reflect_effect"
           ],
           "5": [
-            "composite terrain material: floor"
+            "composite terrain material: floor",
+            "environment garden",
+            "environment pale"
           ],
           "50": [
             "core:object/review_overgrowth_2"
           ],
           "508": [
             "core:object/interaction_camp"
+          ],
+          "51": [
+            "core:object/env_plant_a"
           ],
           "522": [
             "core:boon/crystal_harmony/icon + /detail"
@@ -8980,8 +10757,14 @@
           "532": [
             "core:boon/pain_dividend/icon + /detail"
           ],
+          "533": [
+            "core:ui/status_heal_icon"
+          ],
           "535": [
             "core:ui/squad_heal_effect"
+          ],
+          "538": [
+            "core:ui/status_focus_icon"
           ],
           "539": [
             "core:ui/idea_corpse_effect"
@@ -9011,7 +10794,8 @@
           "565": [
             "core:terrain/heat_vent_burst",
             "core:terrain/heat_vent_cooldown",
-            "core:terrain/heat_vent_warning"
+            "core:terrain/heat_vent_warning",
+            "core:ui/cue_slash_effect"
           ],
           "566": [
             "core:boon/flashpoint/icon + /detail"
@@ -9019,6 +10803,9 @@
           "567": [
             "core:boon/emberbrand/icon + /detail",
             "core:ui/burning_effect"
+          ],
+          "568": [
+            "core:ui/cue_fire_effect"
           ],
           "569": [
             "core:boon/crossfire_omen/icon + /detail"
@@ -9033,6 +10820,9 @@
           ],
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
+          ],
+          "576": [
+            "core:ui/status_ward_icon"
           ],
           "578": [
             "core:object/review_ward"
@@ -9058,6 +10848,7 @@
             "core:object/review_gate_top"
           ],
           "615": [
+            "core:ui/cue_spark_effect",
             "core:ui/storm_charge_effect"
           ],
           "616": [
@@ -9075,6 +10866,12 @@
           "619": [
             "core:boon/final_spark/icon + /detail"
           ],
+          "620": [
+            "core:object/env_bone_a"
+          ],
+          "621": [
+            "core:object/env_bone_b"
+          ],
           "622": [
             "core:boon/grave_dividend/icon + /detail"
           ],
@@ -9090,8 +10887,29 @@
           "626": [
             "core:ui/attack_impact_effect"
           ],
+          "627": [
+            "core:ui/signal_spent_effect"
+          ],
+          "628": [
+            "core:ui/signal_safe_effect"
+          ],
           "629": [
             "core:boon/temporal_echo/icon + /detail"
+          ],
+          "630": [
+            "core:ui/signal_armed_effect"
+          ],
+          "631": [
+            "core:ui/status_charge_0_icon"
+          ],
+          "632": [
+            "core:ui/status_charge_1_icon"
+          ],
+          "633": [
+            "core:ui/status_charge_2_icon"
+          ],
+          "634": [
+            "core:ui/status_charge_3_icon"
           ],
           "636": [
             "core:ui/squad_ward_effect"
@@ -9105,11 +10923,29 @@
           "669": [
             "core:boon/alchemical_flip/icon + /detail"
           ],
+          "67": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
           "670": [
             "core:drop/health"
           ],
           "674": [
             "core:object/interaction_route_sign"
+          ],
+          "68": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "69": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
           ],
           "690": [
             "core:object/interaction_offering_font"
@@ -9134,6 +10970,15 @@
           "709": [
             "core:boon/expanding_sigil/icon + /detail"
           ],
+          "710": [
+            "core:ui/cue_echo_effect"
+          ],
+          "711": [
+            "core:ui/cue_block_effect"
+          ],
+          "713": [
+            "core:ui/cue_boon_effect"
+          ],
           "715": [
             "core:ui/squad_snare_effect"
           ],
@@ -9144,6 +10989,7 @@
             "core:boon/mist_veil/icon + /detail"
           ],
           "72": [
+            "core:object/env_grave_b",
             "core:object/interaction_memorial"
           ],
           "738": [
@@ -9187,6 +11033,9 @@
           "830": [
             "core:boon/cluster_rupture/icon + /detail"
           ],
+          "852": [
+            "environment carpet"
+          ],
           "867": [
             "core:object/interaction_bell"
           ],
@@ -9195,6 +11044,51 @@
           ],
           "915": [
             "core:ui/idea_alarm_effect"
+          ],
+          "98": [
+            "core:object/env_plant_b",
+            "environment garden accent"
+          ]
+        },
+        "rpg": {
+          "114": [
+            "environment drowned concave corner"
+          ],
+          "115": [
+            "environment drowned concave corner"
+          ],
+          "116": [
+            "environment drowned"
+          ],
+          "117": [
+            "environment drowned"
+          ],
+          "118": [
+            "environment drowned"
+          ],
+          "2": [
+            "environment drowned"
+          ],
+          "3": [
+            "environment drowned"
+          ],
+          "4": [
+            "environment drowned"
+          ],
+          "57": [
+            "environment drowned concave corner"
+          ],
+          "58": [
+            "environment drowned concave corner"
+          ],
+          "59": [
+            "environment drowned"
+          ],
+          "60": [
+            "environment drowned"
+          ],
+          "61": [
+            "environment drowned"
           ]
         },
         "tiny": {
@@ -9215,14 +11109,14 @@
     {
       "empty": 0,
       "grid": 522,
-      "kenney": 70,
+      "kenney": 83,
       "nonempty": 522,
-      "onebit": 0,
+      "onebit": 10,
       "sheet": "caves",
-      "union": 70,
-      "unused_kenney": 452,
-      "unused_onebit": 522,
-      "unused_union": 452
+      "union": 83,
+      "unused_kenney": 439,
+      "unused_onebit": 512,
+      "unused_union": 439
     },
     {
       "empty": 1,
@@ -9239,26 +11133,26 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 81,
+      "kenney": 111,
       "nonempty": 1077,
-      "onebit": 194,
+      "onebit": 248,
       "sheet": "onebit",
-      "union": 194,
-      "unused_kenney": 996,
-      "unused_onebit": 883,
-      "unused_union": 883
+      "union": 248,
+      "unused_kenney": 966,
+      "unused_onebit": 829,
+      "unused_union": 829
     },
     {
       "empty": 63,
       "grid": 1767,
-      "kenney": 19,
+      "kenney": 88,
       "nonempty": 1704,
-      "onebit": 0,
+      "onebit": 13,
       "sheet": "rpg",
-      "union": 19,
-      "unused_kenney": 1685,
-      "unused_onebit": 1704,
-      "unused_union": 1685
+      "union": 88,
+      "unused_kenney": 1616,
+      "unused_onebit": 1691,
+      "unused_union": 1616
     },
     {
       "empty": 0,
@@ -9585,6 +11479,33 @@
     "core:object/chest_open",
     "core:object/door_closed",
     "core:object/door_open",
+    "core:object/env_bone_a",
+    "core:object/env_bone_b",
+    "core:object/env_camp_seat",
+    "core:object/env_camp_table",
+    "core:object/env_chapel_alcove",
+    "core:object/env_chapel_window",
+    "core:object/env_column_a_bottom",
+    "core:object/env_column_a_middle",
+    "core:object/env_column_a_top",
+    "core:object/env_column_b_bottom",
+    "core:object/env_column_b_middle",
+    "core:object/env_column_b_top",
+    "core:object/env_forge_panel",
+    "core:object/env_grave_a",
+    "core:object/env_grave_b",
+    "core:object/env_mural_face",
+    "core:object/env_mural_leaf",
+    "core:object/env_mural_sigil",
+    "core:object/env_plant_a",
+    "core:object/env_plant_b",
+    "core:object/env_prison_bars",
+    "core:object/env_rock_a",
+    "core:object/env_rock_b",
+    "core:object/env_shelf_empty",
+    "core:object/env_shelf_full",
+    "core:object/env_workshop_hearth",
+    "core:object/env_workshop_supplies",
     "core:object/exit",
     "core:object/geomancer_bulwark",
     "core:object/idea_cache_dormant",
@@ -9642,6 +11563,16 @@
     "core:terrain/ashen_bastion/water/base",
     "core:terrain/barricade",
     "core:terrain/bramble_bed",
+    "core:terrain/env_broken/wall/base",
+    "core:terrain/env_carpet/floor/base",
+    "core:terrain/env_drowned/water/base",
+    "core:terrain/env_garden/floor/base",
+    "core:terrain/env_ironworks/wall/base",
+    "core:terrain/env_mosaic/floor/base",
+    "core:terrain/env_observatory/wall/base",
+    "core:terrain/env_pale/floor/base",
+    "core:terrain/env_ruin/wall/base",
+    "core:terrain/env_ruin_carved/wall/base",
     "core:terrain/fractured_archive/floor/base",
     "core:terrain/fractured_archive/wall/base",
     "core:terrain/fractured_archive/water/base",
@@ -9674,11 +11605,30 @@
     "core:terrain/sunken_aqueduct/floor/base",
     "core:terrain/sunken_aqueduct/wall/base",
     "core:terrain/sunken_aqueduct/water/base",
+    "core:ui/ability_axe_icon",
+    "core:ui/ability_bow_icon",
+    "core:ui/ability_hook_icon",
+    "core:ui/ability_knife_icon",
+    "core:ui/ability_mace_icon",
+    "core:ui/ability_move_icon",
+    "core:ui/ability_shield_icon",
+    "core:ui/ability_slash_icon",
+    "core:ui/ability_staff_icon",
+    "core:ui/ability_sword_icon",
+    "core:ui/ability_vial_icon",
+    "core:ui/ability_volley_icon",
+    "core:ui/ability_wand_icon",
     "core:ui/attack_center_effect",
     "core:ui/attack_impact_effect",
     "core:ui/block_effect",
     "core:ui/boon_effect",
     "core:ui/burning_effect",
+    "core:ui/cue_block_effect",
+    "core:ui/cue_boon_effect",
+    "core:ui/cue_echo_effect",
+    "core:ui/cue_fire_effect",
+    "core:ui/cue_slash_effect",
+    "core:ui/cue_spark_effect",
     "core:ui/currency_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
@@ -9687,11 +11637,21 @@
     "core:ui/idea_mirror_effect",
     "core:ui/idea_oath_effect",
     "core:ui/idea_reflect_effect",
+    "core:ui/signal_armed_effect",
+    "core:ui/signal_safe_effect",
+    "core:ui/signal_spent_effect",
     "core:ui/squad_heal_effect",
     "core:ui/squad_rally_effect",
     "core:ui/squad_shield_effect",
     "core:ui/squad_snare_effect",
     "core:ui/squad_ward_effect",
+    "core:ui/status_charge_0_icon",
+    "core:ui/status_charge_1_icon",
+    "core:ui/status_charge_2_icon",
+    "core:ui/status_charge_3_icon",
+    "core:ui/status_focus_icon",
+    "core:ui/status_heal_icon",
+    "core:ui/status_ward_icon",
     "core:ui/storm_charge_effect",
     "core:ui/weapon_bow_icon",
     "core:ui/weapon_dagger_icon",
