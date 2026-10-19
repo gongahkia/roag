@@ -2529,15 +2529,6 @@ local function draw_minimap()
                 oy+(stair.y-1)*scale-1,4,4)
         end
     end
-    if native and native.environment then
-        for _,p in ipairs(native.environment.plan.props)do
-            if visible_at(p.x,p.y)then
-                local x,y=Camera.tile_top_left(camera,p.x,p.y)
-                draw_visual(bound_visual(p.id),x,y,TILE,TILE,.85)
-            end
-        end
-    end
-    draw_rewards()
     if map.elite and (not state.stage or
         state.stage.phase=="exploring" or state.stage.phase=="elite_active")
         and (not state.floor_order or state.active_floor_index==2)
@@ -2800,6 +2791,17 @@ local function draw_world()
         love.graphics.circle("line",x+TILE/2,y+TILE/2,12)
         love.graphics.circle("line",x+TILE/2,y+TILE/2,8)
     end
+    -- World dressing belongs to the world pass, independently of minimap
+    -- visibility, and stays behind committed/preview tactical outlines.
+    if native and native.environment then
+        for _,p in ipairs(native.environment.plan.props)do
+            if visible_at(p.x,p.y)then
+                local x,y=Camera.tile_top_left(camera,p.x,p.y)
+                draw_visual(bound_visual(p.id),x,y,TILE,TILE,.85)
+            end
+        end
+    end
+    draw_rewards()
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
             if strike.ember_pulse then draw_cells(strike.target_cells,1,.58,.15,.7,true)

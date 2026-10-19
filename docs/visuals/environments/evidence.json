@@ -1,0 +1,138 @@
+{
+  "method": "actual main.lua world pass; offline CPU raster; text omitted; spectator fixture",
+  "source_sha256": {
+    "assets/kenney/1-bit-pack/symbols.png": "0d9abf9b812a441e1673bc166d61abb6236c0bc46b3775700bd4d4364ba170e0",
+    "assets/kenney/approved/roguelike-rpg.png": "808c8d734480bc949b284f3bcc252e87e1ee53b24178791a6838cce6a319c439",
+    "assets/kenney/approved/tiny-dungeon.png": "5653222ac495d89e942f9b636300759b3f38e85b26e9b888676f2e9ab834095a",
+    "assets/kenney/caves-dungeons/terrain.png": "3abd8d294c523fe78078e2123146a2b9d2c0f2dd3cfbbd60dec8f508c3fe8c2c",
+    "assets/kenney/micro-roguelike/tiles.png": "a3ef37b07dfee7367f17513d0d3ff1256e2cc208af76bd094666b61db69d3812"
+  },
+  "views": [
+    {
+      "detail": "Generated seed 1; root_garden; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Overgrown Ruins / kenney",
+      "name": "kenney-1",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; broken_cavern; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Fungal Hollows / kenney",
+      "name": "kenney-2",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; drowned_sanctum; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Sunken Aqueduct / kenney",
+      "name": "kenney-3",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; forge_masonry; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Ashen Bastion / kenney",
+      "name": "kenney-4",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; observatory; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Glacial Observatory / kenney",
+      "name": "kenney-5",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; archive_library; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Fractured Archive / kenney",
+      "name": "kenney-6",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; forge_masonry; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Sundered Forge / kenney",
+      "name": "kenney-7",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; crypt_sanctuary; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Crypt / Pale Sanctuary / kenney",
+      "name": "kenney-8",
+      "width": 1024
+    },
+    {
+      "detail": "Sorted semantic IDs; static 2\u00d7 source pixels. Names and gameplay meanings are documented in the environment guide.",
+      "height": 128,
+      "label": "Action, status, state and combat cues / kenney",
+      "name": "kenney-symbols",
+      "width": 800
+    },
+    {
+      "detail": "Generated seed 1; root_garden; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Overgrown Ruins / onebit",
+      "name": "onebit-1",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; broken_cavern; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Fungal Hollows / onebit",
+      "name": "onebit-2",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; drowned_sanctum; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Sunken Aqueduct / onebit",
+      "name": "onebit-3",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; forge_masonry; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Ashen Bastion / onebit",
+      "name": "onebit-4",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; observatory; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Glacial Observatory / onebit",
+      "name": "onebit-5",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; archive_library; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Fractured Archive / onebit",
+      "name": "onebit-6",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; forge_masonry; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Sundered Forge / onebit",
+      "name": "onebit-7",
+      "width": 1024
+    },
+    {
+      "detail": "Generated seed 1; crypt_sanctuary; actual world draw pass, spectator crop; text omitted.",
+      "height": 640,
+      "label": "Crypt / Pale Sanctuary / onebit",
+      "name": "onebit-8",
+      "width": 1024
+    },
+    {
+      "detail": "Sorted semantic IDs; static 2\u00d7 source pixels. Names and gameplay meanings are documented in the environment guide.",
+      "height": 128,
+      "label": "Action, status, state and combat cues / onebit",
+      "name": "onebit-symbols",
+      "width": 800
+    }
+  ]
+}
