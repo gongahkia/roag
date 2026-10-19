@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test sprite-review enemy-review enemy-review-check review-test room-review room-expansion environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -31,6 +31,8 @@ help:
 	 'make review-test      Check the review data, client and generated page' \
 	 'make room-review      Refresh the offline room layout review page' \
 	 'make room-expansion   Compile the approved room layouts for the game' \
+	 'make environment-preview Rebuild offline source-pixel room previews (no LÖVE)' \
+	 'make environment-preview-check Check exact generated preview pixels' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
 	 'make gui-enemy-squads  Check approved squads in all three sprite packs' \
@@ -77,6 +79,10 @@ room-review:
 
 room-expansion:
 	python3 tools/write_room_expansion.py
+environment-preview:
+	python3 tools/environment_preview.py
+environment-preview-check:
+	python3 tools/environment_preview.py --check
 spectator:
 	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 test: sprite-audit-check

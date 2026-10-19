@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "b8dcde92ba60c7c7",
+  "mapping_checksum": "3e80de900a14a326",
   "packs": {
     "kenney": {
       "actor_count": 65,
@@ -3574,7 +3574,7 @@
           "derived": true,
           "height": 16,
           "id": "core:terrain/env_carpet/floor/base",
-          "index": 982,
+          "index": 980,
           "motif": "",
           "pose_alias": false,
           "sheet": "rpg",
@@ -5313,13 +5313,13 @@
           "103": [
             "core:object/env_chapel_window"
           ],
+          "1036": [
+            "environment carpet"
+          ],
+          "1037": [
+            "environment carpet"
+          ],
           "1038": [
-            "environment carpet"
-          ],
-          "1039": [
-            "environment carpet"
-          ],
-          "1040": [
             "environment carpet"
           ],
           "114": [
@@ -5553,13 +5553,13 @@
           "901": [
             "core:object/interaction_archive_contract"
           ],
+          "922": [
+            "environment carpet"
+          ],
+          "923": [
+            "environment carpet"
+          ],
           "924": [
-            "environment carpet"
-          ],
-          "925": [
-            "environment carpet"
-          ],
-          "926": [
             "environment carpet"
           ],
           "959": [
@@ -5568,13 +5568,13 @@
           "961": [
             "core:object/review_plate_down"
           ],
+          "979": [
+            "environment carpet"
+          ],
+          "980": [
+            "environment carpet"
+          ],
           "981": [
-            "environment carpet"
-          ],
-          "982": [
-            "environment carpet"
-          ],
-          "983": [
             "environment carpet"
           ]
         },

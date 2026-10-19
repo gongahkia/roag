@@ -1,8 +1,10 @@
 # Approved idea implementation — sustained goal
 
-Status: **ACTIVE — terrain, then environment/art; stop before boons**.
+Status: **PAUSED — requested terrain/environment checkpoint reached; stop before boons**.
 The user resumed these two batches explicitly and requested a terrain commit
-before environment work. The wider approved-ideas goal remains incomplete.
+before environment work, then a stop. Both batches are headless verified; real
+LÖVE/human visual acceptance remains pending. The wider approved-ideas goal
+remains incomplete.
 No feature is complete merely because a schema, fixture or metadata record exists.
 
 ## Authority and invariants
@@ -63,26 +65,26 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `signposted-routes` | Pictorial route signposts | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `camp-choice` | One-use camp choice | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
 | `archive-contract` | Archivist’s optional contract | headless verified; GUI pending | 35 focused cases, 70 generated floors, seven fresh-process save scenarios; see [item/room guide](../ROAG_IDEA_INTERACTIONS.md) |
-| `secret-mural` | Readable secret murals | pending | — |
-| `crypt-kit` | Ossuary / crypt environment kit | pending | — |
-| `sandstone-kit` | Pale sanctuary — ground and masonry | pending | — |
-| `observatory-mosaic` | Observatory mosaic and cold stone | pending | — |
-| `root-garden-kit` | Root garden and overgrown courts | pending | — |
-| `drowned-sanctum` | Drowned sanctum water kit | pending | — |
-| `forge-masonry` | Forge masonry and ironworks | pending | — |
-| `library-carpet` | Archive carpets and patterned ground | pending | — |
-| `broken-cavern-kit` | Broken cavern — rubble, damaged edges, cave mouths | pending | — |
-| `ruin-masonry-kit` | Ruins masonry variants | pending | — |
-| `camp-furniture` | Camp and inn furniture | pending | — |
-| `workshop-fixtures` | Workshop fixtures and supplies | pending | — |
-| `archive-shelves` | Archive bookshelves and empty shelf states | pending | — |
-| `chapel-windows` | Chapel windows and alcoves | pending | — |
-| `prison-dressing` | Prison cells, bars and grates | pending | — |
-| `stone-column-kit` | Pillars, plinths and architectural supports | pending | — |
-| `weapon-icon-families` | Weapon and attack icon families | pending | — |
-| `status-icon-family` | Status, supplies and reward pictograms | pending | — |
-| `combat-bursts` | Static combat impact cue family | pending | — |
-| `trap-signals` | Switch, hazard and trap state markers | pending | — |
+| `secret-mural` | Readable secret murals | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `crypt-kit` | Ossuary / crypt environment kit | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `sandstone-kit` | Pale sanctuary — ground and masonry | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `observatory-mosaic` | Observatory mosaic and cold stone | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `root-garden-kit` | Root garden and overgrown courts | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `drowned-sanctum` | Drowned sanctum water kit | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `forge-masonry` | Forge masonry and ironworks | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `library-carpet` | Archive carpets and patterned ground | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `broken-cavern-kit` | Broken cavern — rubble, damaged edges, cave mouths | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `ruin-masonry-kit` | Ruins masonry variants | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `camp-furniture` | Camp and inn furniture | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `workshop-fixtures` | Workshop fixtures and supplies | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `archive-shelves` | Archive bookshelves and empty shelf states | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `chapel-windows` | Chapel windows and alcoves | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `prison-dressing` | Prison cells, bars and grates | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `stone-column-kit` | Pillars, plinths and architectural supports | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `weapon-icon-families` | Weapon and attack icon families | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `status-icon-family` | Status, supplies and reward pictograms | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
+| `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | pending boon/presentation batch | Preserve the rejected room constraint |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | pending | — |
@@ -705,3 +707,99 @@ The latest legal vent trace is seed 5 / 215 actions / 29 HP / 25 gold; push and
 fragile remain seed 10 / 30 actions and seed 7 / 11 actions. Source hashes,
 review archives, live catalogue and `git diff --check` pass. LÖVE GUI and physical
 input are still untested as requested. No boon batch has begun.
+
+
+### Terrain gate completed before environment release
+
+The frozen terrain snapshot completed **609 passed, 0 failed**; exact log
+`/var/tmp/roag-terrain-accepted-headless-20261019.log`, source
+`/var/tmp/roag-terrain-accepted-ansm7mto`. The requested terrain commit is
+**`40dce936` — Add clocked vents, safe push floors and finite shortcuts**.
+It preceded environment runtime work. The historical pending-result notes
+above describe that earlier commit boundary, not the final terrain verdict.
+
+### Environment and presentation — requested final batch
+
+Implemented the approved crypt/Sanctuary merge, existing-biome room materials,
+bounded wall dressing, furniture/workshop/shelf/window/bar/column artwork,
+secret mural variants, contextual F/R/X icons, actual status/state badges and
+small semantic combat/recovery cues. There is **no eighth biome**, crafting
+system, new class, boon, full UI skin or bitmap-text implementation. Both
+Kenney choices resolve **491/491** active IDs. Actual source-cell usage is
+**504** of 3,594 nonempty cells; the remainder is still excess, not missing
+mandatory art. Native image originals and the archived review exports remain
+byte-identical. See [the implementation guide](../ROAG_IDEA_ENVIRONMENTS.md).
+
+Twenty new focused checks pass, including 70 genuine generated floors across
+seven biomes, all 256 neighbor cases, exact sampled pixels, monochrome output,
+cache bounds, optional-source recovery, exact snapshot/RNG invariance, class
+icons, genuine DamageTaken cue lookup and real `main.lua` world/HUD draw traces
+with the minimap hidden. The new traces found dressing/rewards in the wrong
+minimap pass; they now render in the world pass behind tactical outlines. The
+closed-upvalue diagnostic initially reused JIT traces after changing its fixture;
+explicit trace retirement makes that injected test deterministic. This is a
+harness issue, not evidence of an engine crash or a physical-input fix.
+
+The source-pixel gallery executes the real world renderer and native surface
+compositors through a CPU adapter in a separate LuaJIT process. Eighteen views
+cover both looks, all seven biomes, the combined crypt and action/status cues.
+They were inspected offline and exact PNG regeneration passes. Inspection
+caught a two-column carpet offset that included adjacent masonry; corrected
+922–924 / 979–981 / 1036–1038 now forms complete carpet borders, with a center
+pixel assertion. These are **not LÖVE screenshots**, omit text and GPU edge
+antialiasing, and use spectator visibility for art inspection.
+
+Fresh-process checked-store tests pass for both Kenney choices, comparing all
+491 handle metadata records, exact room plans, snapshot and future legal wait
+events. Twenty-five resolver replacements per choice leave the run/RNG intact;
+checked generation 1→2 matches. The existing seven item/room and three terrain
+disk scenarios also pass again. No live player save/profile was touched.
+
+Logs: `/var/tmp/roag-environment-focus-accepted-20261019.log` (20/20),
+`/var/tmp/roag-environment-disk-verified-20261019.log` (2/2),
+`/var/tmp/roag-environment-items-disk-20261019.log` (7/7),
+`/var/tmp/roag-environment-terrain-disk-20261019.log` (3/3),
+`/var/tmp/roag-environment-pixels-check-20261019.log` (18 byte-identical views),
+`/var/tmp/roag-environment-reviews-20261019.log` (frozen review checks).
+The initial diagnostic/focus failures are retained separately; no failing
+LÖVE test was hidden or removed. No LÖVE process/window or GUI harness ran.
+The final frozen full-suite result follows when it completes.
+
+The first environment full attempt was stopped after its confirmed obsolete
+six-page cache assertion (`/var/tmp/roag-environment-release-headless-20261019.log`,
+controlled termination, exit 143). The actual renderer now needs two additional
+fixed derived material pages. The updated check requires **exactly eight**
+pages with their precise paths/modes, no optional resource failures, and no
+additional allocation across repeated lookups. All eight native-renderer
+tests pass independently (`/var/tmp/roag-environment-native-cache-20261019.log`).
+The complete rerun uses `/var/tmp/roag-environment-final-hbfbpwdc` and
+`/var/tmp/roag-environment-final-headless-20261019.log`; it is isolated from
+documentation edits. No test was removed or turned into a no-op.
+
+
+### Final requested stop — 2026-10-19
+
+**629 passed, 0 failed**, complete unfiltered `TMPDIR=/var/tmp luajit tests/run.lua`,
+exit **0**. Frozen source `/var/tmp/roag-environment-final-hbfbpwdc`, log
+`/var/tmp/roag-environment-final-headless-20261019.log`. This preserves the prior
+589 baseline, adds 20 terrain cases (609 checkpoint) and 20 environment cases.
+Every current runtime Lua and test Lua file matches the final frozen source;
+Game, Floors, terrain mechanics and legal-action driver also still match the
+accepted 609-test terrain snapshot exactly. Existing legal class Victories,
+seven-biome routes, deterministic replay, strict scheduling, room generation,
+rewards, profiles, corruption checks and persistence remain passing.
+
+Final separate checks: **12/12** fresh-process scenarios (seven items, three
+terrains, two environment looks); **18** byte-identical real-render-path CPU
+pixel views; source hashes and all frozen review checks; live **491/491**
+native bindings; `git diff --check`. No LÖVE GUI application or GUI harness was
+started. Real runtime contrast, text sizing, physical input and native GPU
+performance are not accepted by these tests. Historical GUI instability has
+not been reproduced or declared fixed.
+
+**Stop now as requested.** Remaining approved work is the 50+ additional-boon
+batch (including the Pilgrim/dice/Cantor-art/Oracle redirects and remaining
+symbol-library decisions), followed by final integration and permitted LÖVE/
+human visual acceptance. Do not start that work on an automatic continuation.
+The existing broad goal stays paused/incomplete; it is not marked COMPLETE.
+Resume only when the user asks, using the preserved feedback and ledger.

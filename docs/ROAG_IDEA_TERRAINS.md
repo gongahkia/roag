@@ -33,8 +33,10 @@ Expired ground overlays are pruned when the cell closes.
 ## Art and state
 
 Ten stable terrain image bindings cover the vent phases, four arrow directions
-and three shortcut states. Both Kenney choices resolve **425/425** required
-bindings. Mixed uses Tiny 9/29 for vents, RPG 495 planks and Caves 94 remnants.
+and three shortcut states. Both Kenney choices resolved **425/425** at the
+terrain checkpoint; the subsequent [environment batch](ROAG_IDEA_ENVIRONMENTS.md)
+brings the current catalogue to **491/491**. Mixed uses Tiny 9/29 for vents,
+RPG 495 planks and Caves 94 remnants.
 The 1-Bit choice uses a cached true two-tone Tiny vent derivative, preserving
 source alpha and original PNG bytes. Missing/corrupt optional Tiny art falls
 back to native 565; its resolver signature changes so F5 can activate a restored
@@ -80,5 +82,5 @@ No LÖVE window, rasterized game screenshot, physical input or native GPU test
 was run, following the user's standing restriction. Art contact sheets were
 inspected offline; visual readability and human tactical acceptance remain
 pending. No boon, class, enemy, scheduler priority or ordinary reward value was
-changed. Environment/art is the separately committed next batch; the 50+ boon
-batch remains deferred.
+changed. Environment/art follows as the separately recorded batch; the 50+
+boon batch remains deferred at the user's requested stopping point.

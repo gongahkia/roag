@@ -10,7 +10,7 @@ boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
 game content is fifteen classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
 boss, seven two-floor biomes, six original mechanical terrains plus three optional terrain mechanics and **53 boons**.
 Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder and the fourteen finite item/room interactions and three optional terrain mechanics.
-The live HTML/JSON/CSV reflect 425
+The live HTML/JSON/CSV reflect 491
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -49,7 +49,7 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **425/425 active sprite bindings resolve in each choice**:
+that happen to exist. **491/491 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
@@ -64,6 +64,8 @@ that happen to exist. **425/425 active sprite bindings resolve in each choice**:
 | 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
 | Original mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
 | Vent phases, cardinal arrows and fragile shortcut states | 10 | Approved Tiny/RPG/Caves + 1-Bit arrows | True monochrome Tiny vents + native arrows/ladder motifs |
+| Approved room materials, wall dressing and columns | 37 | Ten materials + 27 props | Native counterparts and approved monochrome derivatives |
+| Contextual actions, status, recovery, impact and state cues | 29 | Native 1-Bit symbols | Same semantic native symbols |
 | Seven biomes × floor/wall/water bases | 21 | Caves native floor / composite surfaces | 1-Bit composite surfaces |
 
 Both terrain resolvers cover all **256 raw neighbor cases → 47 canonical
@@ -77,8 +79,9 @@ missing wall variant.
 
 Both choices have **130 static pose aliases**: attack/hurt reuse each actor's
 base image. No animation is provided. Boon detail reuses its icon. Currency
-drop and HUD gold deliberately share a motif. Effect sprites are generic, not
-one custom visual for every boon/element/weapon.
+drop and HUD gold deliberately share a motif. Some effects remain representative
+rather than bespoke art for every boon. The small semantic family distinguishes
+physical/fire/lightning/echo, blocked damage, recovery and boon activation.
 
 The existing mix has these eight pairs sharing body images:
 
@@ -103,9 +106,12 @@ for a hostile. Distinct native art is not proof that a boss visually conveys
 its exact attack mechanics. Both packs use representative stair/gateway and
 effect motifs. Human readability acceptance remains a separate check.
 
-Mixed Kenney uses seven ground assignments, two wall and two water families.
-Standalone 1-Bit shares one base material set across all seven biomes; it
-covers them technically but lacks bespoke biome-specific environment art.
+Both choices retain their base terrain and add room-level materials,
+connected masonry, water banks, garden/carpet patches and contextual dressing.
+The crypt and pale sanctuary are one family inside existing biomes. See the
+[environment guide](ROAG_IDEA_ENVIRONMENTS.md) and its honestly labelled
+[source-pixel gallery](visuals/environments/index.html). Some monochrome
+families share native masonry; coverage does not imply unique biome art.
 
 ## Things still rendered without a pack sprite
 
@@ -118,9 +124,9 @@ These are **real procedural visuals**, not silently counted as sprite coverage:
 | HP/XP bars, enemy HP, elite/final-boss status/phase bars | Drawn meters/text reflecting real state |
 | Minimap cells, fog/exploration dimming | Intentional code rendering; not missing floor art |
 | Dotted committed enemy attacks and player aiming | Intentional tactical outlines, preserve clear interiors |
-| Fire/pulse/echo affected-cell flashes, status ticks, door/terrain/secret feedback | Colored cells/rings in `draw_history_event`, alongside generic hit/boon/block sprites; no individual elemental/boon effect sheets |
+| Committed attack cells, status ticks, door/terrain/secret feedback | Tactical outlines/rings remain; small hit/fire/spark/echo/block/recovery/boon sprites replace duplicate broad impact fills |
 | Screen damage flash and camera shake | Presentation math/fullscreen overlay, not sprite resources |
-| Secret clue accents | Crack clues now have a native sprite plus drawn crack strokes; spiral clues still use drawn circles |
+| Secret clue accents | Crack/spiral clues have native mural motifs plus their drawn strokes/circles |
 | Elite activation marker | Drawn concentric rings |
 | World/title/pause backdrops | Plain fields and frames, no native background illustrations |
 | Spectator cursor / debug diagnostics | Developer overlays, intentionally procedural |
@@ -141,7 +147,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-425 binding requirements above. Decoy/snare markers are also still drawn
+491 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -154,16 +160,16 @@ shown intact. Transparent key/background is accounted for in Micro.
 | Original sheet | Grid cells | Nonempty | Mixed referenced / unused | Standalone referenced / unused | Unused by either |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Micro Roguelike 8px | 160 | 159 | 56 / **103** | Not loaded | **103** |
-| Caves & Dungeons 16px, 1px gutters | 522 | 522 | 70 / **452** | Not loaded | **452** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 81 / **996** | 194 / **883** | **883** |
-| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 19 / **1,685** | Not loaded | **1,685** |
+| Caves & Dungeons 16px, 1px gutters | 522 | 522 | 83 / **439** | 10 / **512** | **439** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 111 / **966** | 248 / **829** | **829** |
+| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 88 / **1,616** | 13 / **1,691** | **1,616** |
 | Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 29 / **103** | 2 / **130** | **103** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **368 referenced by
-either choice**, **3,226 unreferenced**. Across just the original three sheets,
-there are **1,438** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **504 referenced by
+either choice**, **3,090 unreferenced**. Across just the original three sheets,
+there are **1,371** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,226 unique useful objects:
+These counts are grid occupancy, not a claim of 3,090 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the

@@ -45,15 +45,25 @@ return function(test,equal)
             return read(path)
         end,image,quad))
         local calls=0
-        Kenney.new(read,function(bytes,path,transparent)
+        local art=Kenney.new(read,function(bytes,path,transparent)
             calls=calls+1
             local terrain=require('src.kenney_terrain')
-            assert(path==({Kenney.path,require('src.kenney_symbols').path,terrain.path,terrain.path,
+            local paths={Kenney.path,require('src.kenney_symbols').path,terrain.path,terrain.path,
                 'assets/kenney/approved/tiny-dungeon.png',
-                'assets/kenney/approved/roguelike-rpg.png'})[calls])
-            assert(transparent==({true,false,false,'caves-surfaces',true,true})[calls]);return image(bytes,path,transparent)
+                'assets/kenney/approved/roguelike-rpg.png',
+                'assets/kenney/approved/roguelike-rpg.png',terrain.path}
+            assert(path==paths[calls],'unexpected uncached native texture')
+            if calls<=6 then assert(transparent==({true,false,false,'caves-surfaces',true,true})[calls])
+            else assert(type(transparent)=='table' and transparent.environment and transparent.style=='kenney'
+                and transparent.sheet==(calls==7 and 'rpg'or'caves'))end
+            return image(bytes,path,transparent)
         end,quad)
-        assert(calls==6,'textures are created per pack, not per sprite')
+        assert(calls==8 and not next(art.environment.failures),'six native pages plus two cached room-material pages')
+        for _=1,20 do
+            for id in pairs(art.handles)do assert(art:resolve(id))end
+            art:terrain({rows={'###','###','###'}},2,2,'wall')
+        end
+        assert(calls==8,'resolution must never allocate another texture')
     end)
     test('Kenney connected walls and water select native edges without revealing unknown cells',function()
         local art=assert(Kenney.new(read,image,quad))
