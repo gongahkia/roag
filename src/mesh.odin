@@ -7,12 +7,17 @@ Vertex :: struct #packed {
 
 #assert(size_of(Vertex) == 8)
 
+VERTEX_AO_SHIFT :: 9
+VERTEX_HEIGHT_SHIFT :: 11
+VERTEX_TOP_BIT :: 15
+VERTEX_MATERIAL_MASK :: 63
+
 Mesh :: struct {
 	vertices:      [dynamic]Vertex,
 	indices:       [dynamic]u32,
 	overflow:      bool,
 	faces:         int,
-	water_indices: int,
+	water_indices: int, // Blended water and solid ice indices, after opaque geometry.
 }
 
 Face :: struct {
@@ -48,7 +53,8 @@ face_visible :: proc(data: []u8, p: I3, dir: int) -> bool {
 	b := Block(sample(data, p))
 	n := Block(sample(data, p + NORMALS[dir]))
 	if b == .Air {return false}
-	if !is_fluid(b) {return n == .Air || is_fluid(n)}
+	if b == .Ice {return n == .Air || is_fluid(n)}
+	if !is_fluid(b) {return n == .Air || is_fluid(n) || n == .Ice}
 	if is_solid(n) {return false}
 	if fluid_kind(b) != fluid_kind(n) {return true}
 	if dir == 2 || dir == 3 {return false}
@@ -104,7 +110,7 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 				if sample(data, p) == 0 {
 					continue
 				}
-				if fluid_kind(Block(sample(data, p))) == .Water {has_water = true}
+				if is_translucent(Block(sample(data, p))) {has_water = true}
 				for dir in 0 ..< 6 {
 					if face_visible(data, p, dir) {
 						face_count += 1
@@ -138,7 +144,7 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 						p[u] = i32(i)
 						p[v] = i32(j)
 						b := sample(data, p)
-						if (fluid_kind(Block(b)) == .Water) != (pass == 1) {continue}
+						if is_translucent(Block(b)) != (pass == 1) {continue}
 						if face_visible(data, p, dir) {
 							f := Face {
 								material = b,
@@ -206,14 +212,17 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 							if c >= 2 {
 								q[v] += i32(height)
 							}
-							packed := u16(dir) | (u16(f.material) << 3) | (u16(f.ao[c]) << 8)
+							packed :=
+								u16(dir) |
+								(u16(f.material) << 3) |
+								(u16(f.ao[c]) << VERTEX_AO_SHIFT)
 							if is_fluid(Block(f.material)) {
 								top := q.y > i32(plane) && axis == 1
 								if axis !=
 								   1 {top = (u == 1 && (c == 1 || c == 2)) || (v == 1 && c >= 2)}
 								h := top ? f.height : f.bottom
-								packed |= u16(h) << 10
-								if top {packed |= 1 << 14}
+								packed |= u16(h) << VERTEX_HEIGHT_SHIFT
+								if top {packed |= 1 << VERTEX_TOP_BIT}
 							}
 							append(&m.vertices, Vertex{u16(q.x), u16(q.y), u16(q.z), packed})
 						}

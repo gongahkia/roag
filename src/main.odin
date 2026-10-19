@@ -10,5 +10,6 @@ main :: proc() {
 		fmt.eprintln("Invalid arguments or insufficient budget for resolution")
 		os.exit(2)
 	}
+	if config.benchmark == "generation" {benchmark_generation(config); return}
 	app_run(config)
 }

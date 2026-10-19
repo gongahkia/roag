@@ -101,7 +101,10 @@ test_save_generator_version_legacy_and_fluid_levels :: proc(t: ^testing.T) {
 	loaded: World; world_init(&loaded, 7); defer world_destroy(&loaded)
 	pos: V3
 	testing.expect(t, world_load(&loaded, &pos, path))
-	testing.expect(t, loaded.generator == GENERATOR_VERSION && world_get(&loaded, {0, 180, 0}) == .Water_5)
+	testing.expect(
+		t,
+		loaded.generator == GENERATOR_VERSION && world_get(&loaded, {0, 180, 0}) == .Water_5,
+	)
 	// A minimal genuine VOX1 file must keep its old terrain algorithm on re-save.
 	legacy := make([dynamic]u8); defer delete(legacy)
 	append(&legacy, ..([]u8{'V', 'O', 'X', '1'})); put64(&legacy, 42); put64(&legacy, 0)
@@ -112,4 +115,22 @@ test_save_generator_version_legacy_and_fluid_levels :: proc(t: ^testing.T) {
 	testing.expect(t, world_load(&loaded, &pos, path) && loaded.generator == 1)
 	testing.expect(t, world_save(&loaded, pos, path))
 	testing.expect(t, world_load(&loaded, &pos, path) && loaded.generator == 1)
+}
+
+@(test)
+test_biome_materials_roundtrip_in_all_supported_generators :: proc(t: ^testing.T) {
+	dir, err := os.make_directory_temp("", "voxel-biomes-*", context.allocator)
+	testing.expect(t, err == nil); if err != nil {return}
+	defer delete(dir); defer os.remove(dir)
+	path := fmt.tprintf("%s/materials.vox", dir); defer os.remove(path)
+	for version: u32 = 1; version <= GENERATOR_VERSION; version += 1 {
+		w: World; world_init(&w, 42); w.generator = version
+		loaded: World; world_init(&loaded, 7)
+		for b, i in CREATIVE_BLOCKS {testing.expect(t, world_apply(&w, {w.sequence + 1, {i32(i), 230, -33}, b}))}
+		testing.expect(t, world_save(&w, {0, 240, 0}, path))
+		pos: V3
+		testing.expect(t, world_load(&loaded, &pos, path) && loaded.generator == version)
+		for b, i in CREATIVE_BLOCKS {testing.expect(t, world_get(&loaded, {i32(i), 230, -33}) == b)}
+		world_destroy(&loaded); world_destroy(&w)
+	}
 }

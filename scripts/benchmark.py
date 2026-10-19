@@ -52,6 +52,12 @@ def summarize(path, warmup=3.0):
         'steady_mean_triangles': statistics.mean(int(row['triangles']) for row in steady),
         'budgets_passed': True,
     }
+    if 'generated_jobs' in rows[0]:
+        jobs = int(rows[-1]['generated_jobs'])
+        summary.update(generator=int(rows[-1]['generator']), generated_jobs=jobs,
+                       mean_generation_ms=float(rows[-1]['generation_total_ms']) / max(jobs, 1),
+                       mean_meshing_ms=float(rows[-1]['meshing_total_ms']) / max(jobs, 1),
+                       peak_generation_ms=float(rows[-1]['generation_peak_ms']))
     # OS working set is distinct from the engine's managed CPU allocation budget.
     if 'rss_bytes' in rows[0]:
         ram = [row for row in rows if int(row['ram_sample_valid'])]
@@ -93,8 +99,8 @@ def summarize(path, warmup=3.0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'dense', 'fluids', 'terrain', 'sky', 'caves'), default='normal')
-    parser.add_argument('--generator', type=int, choices=(1, 2, 3))
+    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'river', 'lake', 'ocean', 'dense', 'fluids', 'terrain', 'sky', 'caves', 'plains', 'forest', 'desert', 'coast', 'arch', 'overhang', 'spire', 'snowy-plains', 'taiga', 'savanna', 'jungle', 'swamp', 'badlands', 'birch', 'cherry', 'mushrooms', 'snowy-peaks'), default='normal')
+    parser.add_argument('--generator', type=int, choices=(1, 2, 3, 4, 5))
     parser.add_argument('--seconds', type=int, default=12)
     parser.add_argument('--profile', choices=('tiny', 'low', 'standard'), default='tiny')
     parser.add_argument('--radius', type=int)

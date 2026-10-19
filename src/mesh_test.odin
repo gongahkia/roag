@@ -173,9 +173,10 @@ test_fluid_mesh_levels_transparency_and_solid_boundaries :: proc(t: ^testing.T) 
 	testing.expect(t, m.water_indices == 5 * 6)
 	testing.expect(t, len(m.indices) - m.water_indices == 6 * 6)
 	for v in m.vertices {
-		material := Block((v.data >> 3) & 31)
+		material := Block((v.data >> 3) & VERTEX_MATERIAL_MASK)
 		if material == .Water &&
-		   v.data & (1 << 14) != 0 {testing.expect(t, ((v.data >> 10) & 15) == 4)}
+		   v.data & (1 << VERTEX_TOP_BIT) !=
+			   0 {testing.expect(t, ((v.data >> VERTEX_HEIGHT_SHIFT) & 15) == 4)}
 	}
 	data[block_index(2, 2, 2)] = u8(Block.Lava)
 	lava := mesh_build(data); defer mesh_destroy(&lava)

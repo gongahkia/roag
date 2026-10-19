@@ -9,12 +9,12 @@ flat out int layer;
 flat out int material;
 void main() {
     int face=int(voxel.w & 7u);
-    int block=int((voxel.w >> 3u) & 31u);
-    float ao=float((voxel.w >> 8u) & 3u);
+    int block=int((voxel.w >> 3u) & 63u);
+    float ao=float((voxel.w >> 9u) & 3u);
     vec3 p=vec3(voxel.xyz);
     if(block==16 || block==17) {
-        float height=float((voxel.w >> 10u) & 15u)/8.0;
-        p.y+=((voxel.w & (1u << 14u))!=0u ? height-1.0 : height);
+        float height=float((voxel.w >> 11u) & 15u)/8.0;
+        p.y+=((voxel.w & (1u << 15u))!=0u ? height-1.0 : height);
     }
     if(face<2) uv=p.zy;
     else if(face<4) uv=p.xz;
@@ -23,6 +23,13 @@ void main() {
     material=block;
     if(block==1) layer=(face==2 ? 18 : (face==3 ? 2 : 1));
     if(block==5 && face>=2 && face<=3) layer=19;
+    // Appended material IDs match blocks. Extra layers hold grass and log caps.
+    if(block==37 || block==39 || block==41 || block==43 || block==45) {
+        if(face==2 || face==3) layer=65+(block-37)/2;
+    }
+    if(block>=53 && block<=55) layer=(face==2 ? 70+block-53 : (face==3 ? 2 : block));
+    if(block==50) layer=(face==2 ? 73 : (face==3 ? 2 : 50));
+    if(block==52) layer=(face==2 ? 74 : (face==3 ? 2 : 52));
     float lighting[6]=float[6](0.82,0.66,1.0,0.46,0.88,0.72);
     shade=lighting[face]*(0.55+0.15*ao);
     if(block==17) shade=1.0;

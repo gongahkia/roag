@@ -13,7 +13,7 @@ Odin builds `src/` as one `sandbox` package. Files are organized by responsibili
 | Player movement, targeting, interactive edits, and simulation coordination | `gameplay.odin` |
 | Runtime loading and saving of the world/settings | `session.odin` |
 | Shared values, coordinates, materials, and creative selection | `types.odin`, `coordinates.odin`, `blocks.odin`, `creative_palette.odin` |
-| Procedural generation and immutable mesh jobs | `noise.odin`, `terrain.odin`, `mesh_jobs.odin` |
+| Legacy generation, fixed-point landscapes/formations/caves, and immutable jobs | `noise*.odin`, `terrain*.odin`, `mesh_jobs.odin`, `spawn.odin` |
 | Sparse world edits, binary save codec, and block picking | `world.odin`, `world_save.odin`, `raycast.odin` |
 | Player collision and source-fed fluid rules | `player.odin`, `fluids.odin` |
 | CPU meshing, chunk residency/uploads, and worker lifetime | `mesh.odin`, `stream.odin`, `workers.odin` |
@@ -29,7 +29,7 @@ Odin builds `src/` as one `sandbox` package. Files are organized by responsibili
 
 The frame loop polls events and samples time, processes controls, advances gameplay and fluid edits, admits framebuffer/chunk work, draws the world and UI, then swaps/paces and records the completed frame. Input history is committed after gameplay consumes its edges. Worker stop requests are sent to every worker before joining any of them; workers finish before renderer/window/world teardown. The allocator remains valid throughout that lifetime.
 
-Tests are grouped into matching `*_test.odin` files for world storage, generation, saves, raycasts, CPU/GPU meshes, streaming, player movement, fluids, settings, frame pacing, and telemetry. All 34 existing test cases and their assertions are retained. `scripts/smoke.py` runs the graphical/persistence/budget scenarios; `scripts/smoke_input.py` owns the isolated X11 interaction fixtures. `scripts/build.py` and the CI entry commands are unchanged.
+Tests are grouped into matching `*_test.odin` files for world storage, generation, saves, raycasts, CPU/GPU meshes, streaming, player movement, fluids, settings, frame pacing, and telemetry. Legacy terrain assertions explicitly select their original generator, and generators 3/4 have additional compatibility, geometry, determinism, and gameplay coverage. `scripts/smoke.py` runs the graphical/persistence/budget scenarios; `scripts/smoke_input.py` owns the isolated X11 interaction fixtures. `scripts/build.py` and the CI entry commands are unchanged.
 
 ## Player movement and collision
 
@@ -45,9 +45,9 @@ Manual solid placement is rejected when it intersects the walking player's body.
 
 World positions are signed integer block coordinates; floor division handles negative chunk coordinates. Chunks are 32³, the vertical range is eight chunks, and horizontal terrain is generated on demand. Camera-relative float rendering avoids losing local precision far from the origin. The camera is bounded to ±100 million blocks horizontally.
 
-Seeded interpolated height fields create hills and mountains; a continuous 3D value field carves underground caves. Tree positions come from seeded spatial cells. The worker shares terrain-height and tree calculations down a column. The random-access world query and the padded worker sampler must agree, including negative coordinates and chunk borders.
+New worlds use generator 5's biome geography and bounded downhill drainage, alongside generator 4's climate biomes and vegetation and generator 3's fixed-point regional landscapes, derivative-aware layered noise, floating-island biome, rare grounded formations, connected tunnel/cavern cells, and contained underground lakes. Worker sampling and direct block queries share the same rules and bounded descriptors. See [terrain generation](terrain.md) for algorithms, controls, spawning, and reproducible validation. Legacy generators 1/2 retain their original floating-point height/noise functions.
 
-Generator 2 adds deterministic ellipsoid ore veins, fills low terrain to water level 52, and fills caves at heights 6–12 with lava. Ores replace underground stone and use depth limits. Trees avoid submerged ground. Generator 1 remains available for existing saves; selecting a new save path creates a world with the new resources. See [materials and fluids](materials.md) for controls and flow rules.
+Generator 2 introduced deterministic ellipsoid ore veins, sea-level water, and deep lava; generator 3 retains these materials and ore depth rules. Generator 1 remains available for existing saves. See [materials and fluids](materials.md) for controls and flow rules.
 
 Untouched chunks have no persistent dense block allocation. The world stores only edited positions, bucketed by chunk. Each bucket also indexes its positions for bounded incremental fluid recovery. Reads overlay these edits on procedural terrain. A mesh job snapshots edits from the 27 touching buckets, restricted to its 34³ padded sampling region, and carries the generator version. Job generation needs no mutable access to the live world.
 
@@ -57,13 +57,13 @@ Untouched chunks have no persistent dense block allocation. The world stores onl
 
 ## Mesh generation
 
-Each worker samples one 34³ block buffer: a 32³ interior with a one-voxel halo. Solid faces bordering air or fluids render. Internal faces of matching fluids disappear; different flow heights expose only the higher cell's side strip. Face direction, material, fluid heights, and four vertex ambient-occlusion samples determine compatibility. Rectangular faces merge greedily when shading and heights are uniform and compatible. Nonuniform AO faces stay separate to preserve shading.
+Each worker samples one 34³ block buffer: a 32³ interior with a one-voxel halo. Opaque faces bordering air, fluids, or ice render. Shared ice faces are removed. Internal faces of matching fluids disappear; different flow heights expose only the higher cell's side strip. Face direction, material, fluid heights, and four vertex ambient-occlusion samples determine compatibility. Rectangular faces merge greedily when shading and heights are uniform and compatible. Nonuniform AO faces stay separate to preserve shading.
 
-Vertices remain eight bytes: three local `u16` positions and a packed field containing face (3 bits), material (5), AO (2), fluid height (4), and a top-vertex flag (1). Fluid tops and exposed side bottoms use eighth-block offsets in the vertex shader. Four vertices and six 32-bit indices form each quad. Triangle winding faces outward for all six directions, with AO-based diagonal selection. The shader computes repeated texture coordinates from local positions, so a merged face preserves block-scale pixel textures. Flat pools and full-height waterfalls merge into large quads.
+Vertices remain eight bytes: three local `u16` positions and a packed field containing face (3 bits), material (6), AO (2), fluid height (4), and a top-vertex flag (1). Fluid tops and exposed side bottoms use eighth-block offsets in the vertex shader. Four vertices and six 32-bit indices form each quad. Triangle winding faces outward for all six directions, with AO-based diagonal selection. The shader computes repeated texture coordinates from local positions, so a merged face preserves block-scale pixel textures. Flat pools and full-height waterfalls merge into large quads.
 
 A preliminary exposed-face count reserves a bounded output capacity once. No result grows its vertex/index arrays during generation. A checkerboard chunk has 98,304 quads and about 5.25 MiB of mesh data; the test suite verifies complete coverage. The general cap is six faces per interior voxel. A fixed 16 MiB allowance per admitted worker covers the padded buffer, output, and the maximum local edit snapshot, with conservative extra headroom.
 
-The texture array has twenty 16×16 RGBA layers with mipmaps, including six ore textures and animated water/lava. Grass and wood select different side/end layers. Rendering uses depth testing, back-face culling, chunk-frustum culling, near-to-far opaque chunk submission, and fog. Water indices occupy the tail of the same mesh buffers and draw afterward, sorted by chunk from far to near, with alpha blending and depth writes disabled. Water is visible from both sides. Lava is opaque with emissive shading. Underwater/lava camera positions use a tint and shorter fog range. No extra framebuffer, reflection map, shadow map, occlusion-query system, or terrain LOD is allocated. Transparent surfaces within a chunk are not sorted individually.
+The texture array has seventy-five 16×16 RGBA layers with mipmaps, including six ore textures and animated water/lava. Grass and wood select different side/end layers. Rendering uses depth testing, back-face culling, chunk-frustum culling, near-to-far opaque chunk submission, and fog. Water and ice indices occupy the tail of the same mesh buffers and draw afterward, sorted by chunk from far to near, with alpha blending and depth writes disabled. Water and ice are visible from both sides. Ice remains solid to gameplay and fluids. Lava is opaque with emissive shading. Underwater/lava camera positions use a tint and shorter fog range. No extra framebuffer, reflection map, shadow map, occlusion-query system, or terrain LOD is allocated. Transparent surfaces within a chunk are not sorted individually.
 
 ## Fluid simulation
 
@@ -106,9 +106,11 @@ CPU admission conservatively reserves worker scratch space before dispatch, incl
 | Latest edit sequence | 8 bytes |
 | Camera X/Y/Z as IEEE-754 doubles | 24 bytes |
 | Distinct edit count | 4 bytes |
-| Terrain generator version (1 or 2) | 4 bytes |
+| Terrain generator version (1, 2, 3, 4, or 5) | 4 bytes |
 | Each edit: signed X/Y/Z, block ID | 13 bytes |
 
 The loader checks file size before reading the payload, validates exact length/count, finite/bounded player coordinates, block IDs, and editable height. It constructs a candidate world and swaps it in only after validation succeeds. An existing invalid save stops application startup; it is never silently overwritten. Writes go through a sibling temporary file and rename over the destination. This protects against ordinary interrupted writes; full power-loss durability/fsync is not implemented.
 
-The header is 52 bytes. The loader also accepts original 48-byte-header `VOX1` saves with their original block IDs, assigns generator 1, and writes subsequent saves as `VOX2` with generator 1 retained. New resources can still be placed in legacy worlds. New worlds use generator 2. Unknown generator versions and invalid fluid states are rejected. Untouched generated terrain is not serialized. The new format is not readable by old binaries; keep a backup when sharing saves with an older build.
+The header is 52 bytes. The loader also accepts original 48-byte-header `VOX1` saves with their original block IDs, assigns generator 1, and writes subsequent saves as `VOX2` with generator 1 retained. Existing generator 2 worlds remain version 2. New worlds use generator 5, and `--generator` can explicitly choose a supported version when creating a world. An explicit mismatch against an existing save is rejected. Unknown generator versions and invalid fluid states are rejected. Untouched generated terrain is not serialized; older binaries cannot open newer generator worlds or saves containing unsupported material IDs. Existing generator-3 worlds retain their original samples.
+
+Generator 5 shares a prepared drainage set across padded terrain, plant anchors, formations, and caves. Its fixed-point profiles, strict downhill graph, protected beds, memory bounds, compatibility rules, and benchmarking entry points are documented in [geography](geography.md).

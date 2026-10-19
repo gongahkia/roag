@@ -60,7 +60,7 @@ hud_draw :: proc(a: ^App) {
 	}
 	name := BLOCK_NAMES[int(CREATIVE_BLOCKS[selected])]
 	text_draw(r, cx - f32(len(name)) * 4.5, f32(height) - 82, name, 1.5)
-	text_draw(r, cx - 42, f32(height) - 12, fmt.tprintf("TAB: PAGE %d/2", page + 1), 1)
+	text_draw(r, cx - 42, f32(height) - 12, fmt.tprintf("TAB: PAGE %d/%d", page + 1, CREATIVE_PAGES), 1)
 	text_draw(
 		r,
 		start + 4,

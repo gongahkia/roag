@@ -64,11 +64,20 @@ def main():
             output = run(binary, env, ['--hidden', '--save', str(save), '--settings', str(settings), '--seed', '999', '--radius', '1', '--frames', '10'])
             assert 'Loaded' in output
             assert struct.unpack_from('<Q', save.read_bytes(), 4)[0] == 42
+            original = save.read_bytes()
+            assert struct.unpack_from('<I', original, 48)[0] == 5
+            run(binary, env, ['--hidden', '--save', str(save), '--generator', '2', '--frames', '1'], expected=2)
+            assert save.read_bytes() == original, 'Generator mismatch changed an existing save'
+            for version in (1, 2, 3, 4):
+                legacy = directory / f'generator-{version}.vox'
+                run(binary, env, ['--hidden', '--save', str(legacy), '--generator', str(version), '--radius', '1', '--frames', '2'])
+                run(binary, env, ['--hidden', '--save', str(legacy), '--radius', '1', '--frames', '2'])
+                assert struct.unpack_from('<I', legacy.read_bytes(), 48)[0] == version
             save.write_bytes(b'invalid-existing-save')
             run(binary, env, ['--hidden', '--save', str(save), '--frames', '1'], expected=1)
             assert save.read_bytes() == b'invalid-existing-save'
             print('PASS save/reload and preservation of corrupt saves', flush=True)
-            for flags in (['--gpu-mb', '0'], ['--radius', '0'], ['--profile', 'invalid'], ['--workers', '99'], ['--frames', '-1'], ['--fps-limit', '999']):
+            for flags in (['--gpu-mb', '0'], ['--radius', '0'], ['--profile', 'invalid'], ['--workers', '99'], ['--frames', '-1'], ['--fps-limit', '999'], ['--generator', '0'], ['--generator', '6']):
                 run(binary, env, flags, expected=2)
             print('PASS invalid configuration rejection', flush=True)
             if sys.platform.startswith('linux') and not args.skip_input:
@@ -91,6 +100,29 @@ def main():
             assert all(0 < float(row['fps']) <= 30.1 for row in steady), 'HUD FPS was not measured at the cap'
             path.replace(path.with_name('smoke-frame-cap.csv'))
             print('PASS measured FPS, 30 FPS pacing, swap timing, and aligned CSV', flush=True)
+            for scene in ('terrain', 'sky', 'caves'):
+                ppm = directory / f'{scene}.ppm'
+                run(binary, env, ['--hidden', '--benchmark', scene, '--generator', '3', '--seconds', '5', '--radius', '2', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64', '--screenshot', str(ppm)])
+                path = ROOT / 'benchmarks' / f'{scene}.csv'
+                summary = benchmark.summarize(path, warmup=1)
+                assert summary['generator'] == 3 and summary['generated_jobs'] > 16, summary
+                assert summary['fluid_queue_overflow'] == 0 and summary['fluid_refused'] == 0, summary
+                target = path.with_name(f'smoke-v3-{scene}.csv'); path.replace(target)
+                target.with_suffix('.json').write_text(json.dumps(summary, indent=2) + '\n')
+                convert(ppm, ROOT / 'build' / f'terrain-v3-{scene}.png')
+            print('PASS v3 surface/island/cave scenes, natural lakes, and 16/32 MiB budgets', flush=True)
+            for scene in ('birch', 'cherry', 'mushrooms', 'snowy-peaks', 'snowy-plains', 'taiga', 'savanna', 'jungle', 'swamp', 'badlands'):
+                ppm = directory / f'{scene}.ppm'
+                output = run(binary, env, ['--hidden', '--benchmark', scene, '--generator', '4', '--seconds', '5', '--radius', '2', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64', '--screenshot', str(ppm)])
+                assert 'OpenGL error' not in output, output
+                path = ROOT / 'benchmarks' / f'{scene}.csv'
+                summary = benchmark.summarize(path, warmup=1)
+                assert summary['generator'] == 4 and summary['generated_jobs'] > 16, summary
+                assert summary['fluid_queue_overflow'] == 0 and summary['fluid_refused'] == 0, summary
+                target = path.with_name(f'smoke-v4-{scene}.csv'); path.replace(target)
+                target.with_suffix('.json').write_text(json.dumps(summary, indent=2) + '\n')
+                convert(ppm, ROOT / 'build' / f'biome-v4-{scene}.png')
+            print('PASS ten v4 biome scenes, six-bit materials, ice transparency, and 16/32 MiB budgets', flush=True)
             fluid_ppm = directory / 'fluids.ppm'
             run(binary, env, ['--hidden', '--benchmark', 'fluids', '--seconds', '6', '--radius', '2', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64', '--screenshot', str(fluid_ppm)])
             path = ROOT / 'benchmarks' / 'fluids.csv'
@@ -101,7 +133,7 @@ def main():
             target.with_suffix('.json').write_text(json.dumps(summary, indent=2) + '\n')
             convert(fluid_ppm, ROOT / 'build' / 'smoke-fluids.png')
             print('PASS water/lava rendering, flow updates, queue bounds, and 16 MiB graphics budget', flush=True)
-            run(binary, env, ['--hidden', '--benchmark', 'dense', '--seconds', '5', '--radius', '4', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64'])
+            run(binary, env, ['--hidden', '--benchmark', 'dense', '--generator', '2', '--seconds', '10', '--radius', '4', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64'])
             path = ROOT / 'benchmarks' / 'dense.csv'
             summary = benchmark.summarize(path, warmup=1)
             assert summary['pressure_events'] > 0, 'Pressure scenario never exercised eviction'

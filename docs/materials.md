@@ -1,11 +1,14 @@
 # Ores, water, and lava
 
-**1–9** select a hotbar slot. **Tab** switches between the two palette pages. Left click removes the targeted block; right click places the selected material. Placing into an existing fluid cell replaces that cell, so you can remove sources or plug a flow with a solid block.
+**1–9** select a hotbar slot. **Tab** switches through the five palette pages. Left click removes the targeted block; right click places the selected material. Placing into an existing fluid cell replaces that cell, so you can remove sources or plug a flow with a solid block.
 
 | Page | Slots |
 |---|---|
 | 1 | 1 Grass, 2 Dirt, 3 Stone, 4 Sand, 5 Wood, 6 Leaves, **7 Water**, **8 Lava**, 9 Obsidian |
-| 2 | **1 Coal ore, 2 Iron ore, 3 Copper ore, 4 Gold ore, 5 Diamond ore, 6 Redstone ore**, 7 Cobblestone |
+| 2 | **1 Coal ore, 2 Iron ore, 3 Copper ore, 4 Gold ore, 5 Diamond ore, 6 Redstone ore**, 7 Cobblestone, 8 Snow, 9 Ice |
+| 3 | 1 Cactus, 2 Terracotta, 3 Red terracotta, 4 Yellow terracotta, 5 White terracotta, 6 Birch wood, 7 Birch leaves, 8 Spruce wood, 9 Spruce leaves |
+| 4 | 1 Acacia wood, 2 Acacia leaves, 3 Jungle wood, 4 Jungle leaves, 5 Cherry wood, 6 Cherry leaves, 7 Mushroom stem, 8 Red mushroom cap, 9 Brown mushroom cap |
+| 5 | 1 Mycelium, 2 Mud, 3 Podzol, 4 Dry grass, 5 Lush grass, 6 Swamp grass |
 
 Water and lava placements create persistent sources. They fall into open cells first, then spread across supported ground. Water spreads up to seven cells from a feed; lava spreads up to three and updates more slowly. Opening a channel redirects flow, placing solids blocks it, and removing a lone source lets its downstream flow drain. A supported gap between two water sources regenerates a water source. **Water + lava source → obsidian; water + flowing lava → cobblestone.**
 
@@ -21,6 +24,10 @@ New worlds generate lowland lakes at level 52, underground lava in caves at heig
 | Gold | 1–40 |
 | Diamond | 1–24 |
 | Redstone | 1–32 |
+
+Generator 5 adds biome-specific landforms and surface drainage; see [geography](geography.md). Generator 4 adds climate biomes, snow and solid translucent ice, cacti, terracotta strata, species-specific trees, and giant mushrooms. Snow and plants are full voxel blocks. Freezing is static during generation; melting, weather, thin snow layers, slipperiness, and plant damage are not implemented.
+
+Generator 3 also adds contained underground lake chambers, varied surface biomes, and floating islands above normal ground. See [terrain generation](terrain.md) for details and new-world controls.
 
 Existing saves retain their original terrain. Every new material and fluid still works when placed there. To explore newly generated resources without replacing your existing world, use a new save path:
 

@@ -21,6 +21,7 @@ Stream :: struct {
 	mesh_budget, device_mesh_limit, cpu_budget, upload_budget: int,
 	pressure, stale, oversized, generated:                     int,
 	last_generation_ms, last_meshing_ms:                       f64,
+	total_generation_ms, total_meshing_ms, peak_generation_ms: f64,
 	last_upload_bytes, peak_upload_bytes:                      int,
 	tracker:                                                   ^mem.Tracking_Allocator,
 }
@@ -255,6 +256,9 @@ stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
 			s.generated += 1
 			s.last_generation_ms = result.generation_ms
 			s.last_meshing_ms = result.meshing_ms
+			s.total_generation_ms += result.generation_ms
+			s.total_meshing_ms += result.meshing_ms
+			s.peak_generation_ms = max(s.peak_generation_ms, result.generation_ms)
 		}
 		if exists && c.job_revision == result.revision {
 			c.running = false

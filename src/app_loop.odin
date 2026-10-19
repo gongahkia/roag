@@ -36,7 +36,7 @@ app_loop :: proc(a: ^App) {
 				draw_outline = !a.menu.open,
 			},
 		)
-		hud_draw(a)
+		if !a.config.no_hud {hud_draw(a)}
 		if app_present(a) {break}
 		free_all(context.temp_allocator)
 	}

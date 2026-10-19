@@ -3,7 +3,9 @@ package sandbox
 // Q16 arithmetic defines generator 3 independently of floating point codegen.
 // Products use i64; inputs are bounded to the game's +/-100 million coordinates.
 TQ :: i64(65536)
-Noise_D2 :: struct {value, dx, dz: i64}
+Noise_D2 :: struct {
+	value, dx, dz: i64,
+}
 
 qmul :: proc(a, b: i64) -> i64 {return a * b / TQ}
 qfloor :: proc(a, b: i64) -> i64 {
@@ -24,8 +26,11 @@ noise_d2 :: proc(seed: u64, x, z: i64) -> Noise_D2 {
 	b := i64(hash3(seed, i32(ix + 1), 0, i32(iz)) & 65535)
 	c := i64(hash3(seed, i32(ix), 0, i32(iz + 1)) & 65535)
 	d := i64(hash3(seed, i32(ix + 1), 0, i32(iz + 1)) & 65535)
-	return {qlerp(qlerp(a, b, u), qlerp(c, d, u), v),
-		qmul(qlerp(b - a, d - c, v), du), qmul(qlerp(c - a, d - b, u), dv)}
+	return {
+		qlerp(qlerp(a, b, u), qlerp(c, d, u), v),
+		qmul(qlerp(b - a, d - c, v), du),
+		qmul(qlerp(c - a, d - b, u), dv),
+	}
 }
 
 noise_scaled :: proc(seed: u64, x, z, scale: i32) -> i64 {
@@ -49,8 +54,8 @@ terrain_fbm :: proc(seed: u64, x, z, scale: i32, ridged := false) -> Noise_D2 {
 			n.dx *= 2 * sign; n.dz *= 2 * sign
 		}
 		weight := amplitude * (i64(1) << u32(octave))
-		result.dx += qmul(qmul(u, n.dx) - qmul(v, n.dz), weight)
-		result.dz += qmul(qmul(v, n.dx) + qmul(u, n.dz), weight)
+		result.dx += qmul(qmul(u, n.dx) + qmul(v, n.dz), weight)
+		result.dz += qmul(-qmul(v, n.dx) + qmul(u, n.dz), weight)
 		damping := TQ * TQ / (TQ + qmul(result.dx, result.dx) + qmul(result.dz, result.dz))
 		result.value += qmul(qmul(value, amplitude), damping)
 		px, pz = (8 * px - 6 * pz) / 5, (6 * px + 8 * pz) / 5

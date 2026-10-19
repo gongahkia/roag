@@ -109,7 +109,7 @@ renderer_world :: proc(
 		r.draw_calls += 1
 		r.triangles += int(count) / 3
 	}
-	// Opaque terrain/lava establish depth. Water blends back to front without
+	// Opaque terrain/lava establish depth. Water and ice blend back to front without
 	// writing depth, using the same compact buffers and no extra framebuffer.
 	gl.Enable(gl.BLEND); gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	gl.DepthMask(false); gl.Disable(gl.CULL_FACE)

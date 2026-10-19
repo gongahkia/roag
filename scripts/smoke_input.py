@@ -244,10 +244,19 @@ def interactive(binary, env, directory, collisions=False):
         ore_save = save.read_bytes()
         ore_blocks = [ore_save[i + 12] for i in range(52, len(ore_save), 13)]
         assert 8 in ore_blocks, 'The second palette page did not place coal ore'
-        key(0xff09); key(ord('7')); click(3); time.sleep(0.5); key(0xffc2)
+        for _ in range(4):
+            key(0xff09)
+        key(ord('7')); click(3); time.sleep(0.5); key(0xffc2)
         water_save = save.read_bytes()
         water_blocks = [water_save[i + 12] for i in range(52, len(water_save), 13)]
         assert 16 in water_blocks, 'The water slot did not place a persistent source'
+        # Reach page five and place material 55: exercises the sixth material bit.
+        for _ in range(4):
+            key(0xff09)
+        key(ord('6')); click(3); key(0xffc2)
+        biome_save = save.read_bytes()
+        assert 55 in [biome_save[i + 12] for i in range(52, len(biome_save), 13)], 'Last palette page failed to place swamp grass'
+        key(0xff09)  # Wrap page five back to one.
         key(ord('q'))
         output = process.communicate(timeout=5)[0]
         assert process.returncode == 0, output

@@ -17,17 +17,23 @@ Config :: struct {
 	frame_limit:                                     int,
 	hidden, no_save, vsync, naive_mesh:              bool,
 	spectator:                                       bool,
+	no_hud:                                          bool,
 }
 
 usage :: proc() {
 	fmt.println(
 		`VOXEL / creative sandbox
-Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3] [--radius N]
+Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3|4|5] [--radius N]
   --gpu-mb N --cpu-mb N --workers N --upload-kb N --width N --height N
-  --save PATH --no-save --no-vsync --hidden --frames N --seconds N --screenshot PATH
+  --save PATH --no-save --no-vsync --hidden --no-hud --frames N --seconds N --screenshot PATH
   --settings PATH --fps-limit display|unlimited|30|60|90|120|144|165|240|360
   --spectator (start with free flight and noclip)
+  --benchmark generation --frames 3 (headless matched-coordinate v4/v5 comparison)
+  --benchmark river|lake|ocean (generator 5 geography previews)
   --benchmark normal|flight|edit|dense|fluids|terrain|sky|caves --naive-mesh
+  Terrain previews: --benchmark plains|forest|desert|coast|arch|overhang|spire
+  Biome previews: --benchmark birch|cherry|mushrooms|snowy-peaks|snowy-plains
+    taiga|savanna|jungle|swamp|badlands (generators 4/5)
 WASD walk / SPACE jump or swim up / SHIFT sprint / F4 spectator
 Spectator: SPACE up / CTRL down / SHIFT fast / +/- movement speed
 Mouse look / ESC or F1 settings / Q quit
@@ -87,6 +93,8 @@ config_parse :: proc() -> (Config, bool) {
 			os.exit(0)
 		case "--no-save":
 			c.no_save = true
+		case "--no-hud":
+			c.no_hud = true
 		case "--hidden":
 			c.hidden = true
 		case "--no-vsync":
@@ -167,17 +175,7 @@ config_parse :: proc() -> (Config, bool) {
 		test_settings := settings_defaults(); test_settings.fps_limit = c.frame_limit
 		if !settings_valid(test_settings) {return c, false}
 	}
-	if c.benchmark != "" &&
-	   c.benchmark != "normal" &&
-	   c.benchmark != "flight" &&
-	   c.benchmark != "edit" &&
-	   c.benchmark != "fluids" &&
-	   c.benchmark != "terrain" &&
-	   c.benchmark != "sky" &&
-	   c.benchmark != "caves" &&
-	   c.benchmark != "dense" {
-		return c, false
-	}
+	if !benchmark_valid(c.benchmark) {return c, false}
 	if c.width < 320 ||
 	   c.width > 3840 ||
 	   c.height < 240 ||

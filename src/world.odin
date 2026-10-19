@@ -49,7 +49,7 @@ world_get :: proc(w: ^World, p: I3) -> Block {
 			return v
 		}
 	}
-	if w.generator >= 3 {return world_generated_v3(w, p)}
+	if w.generator >= 3 {return world_generated_cached(w, p)}
 	return generated_block(w.seed, p, w.generator)
 }
 

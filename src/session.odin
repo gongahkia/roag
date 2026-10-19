@@ -14,15 +14,19 @@ session_load :: proc(a: ^App) {
 			os.exit(1)
 		}
 		if a.config.generator != 0 && a.config.generator != a.world.generator {
-			fmt.eprintln("Requested generator conflicts with existing save; save preserved:", a.config.save_path)
+			fmt.eprintln(
+				"Requested generator conflicts with existing save; save preserved:",
+				a.config.save_path,
+			)
 			os.exit(2)
 		}
 		loaded_world = true
 		fmt.println("Loaded", a.config.save_path)
 	}
 	if !loaded_world {
-		if a.world.generator >= 3 && a.config.benchmark == "" {a.position = world_spawn(&a.world)}
-		else {a.position = {8, f64(terrain_height(a.world.seed, 8, 8, a.world.generator)) + 12, 8}}
+		if a.world.generator >= 3 &&
+		   a.config.benchmark ==
+			   "" {a.position = world_spawn(&a.world)} else {a.position = {8, f64(terrain_height(a.world.seed, 8, 8, a.world.generator)) + 12, 8}}
 	}
 	fmt.printf("Terrain generator %d / seed %d\n", a.world.generator, a.world.seed)
 	a.config.seed = a.world.seed

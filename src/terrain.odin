@@ -1,6 +1,6 @@
 package sandbox
 
-GENERATOR_VERSION :: 3
+GENERATOR_VERSION :: 5
 SEA_LEVEL :: 52
 
 // Small deterministic ellipsoid veins, including across negative chunk borders.
@@ -28,7 +28,8 @@ legacy_terrain_height :: proc(seed: u64, x, z: i32) -> i32 {
 }
 
 terrain_height :: proc(seed: u64, x, z: i32, generator: u32 = GENERATOR_VERSION) -> i32 {
-	if generator >= 3 {return terrain_column_v3(seed, x, z).height}
+	if generator >= 5 {return geography_column(seed, x, z).height}
+	if generator >= 3 {return terrain_base_for(seed, x, z, generator).height}
 	return legacy_terrain_height(seed, x, z)
 }
 
@@ -91,8 +92,10 @@ base_block :: proc(seed: u64, p: I3, h: i32, generator: u32 = GENERATOR_VERSION)
 
 generated_block :: proc(seed: u64, p: I3, generator: u32 = GENERATOR_VERSION) -> Block {
 	if generator >= 3 {
-		column := terrain_column_v3(seed, p.x, p.z)
+		column := terrain_column(seed, p.x, p.z, generator)
 		features := terrain_features(seed, chunk_of(p), generator)
+		if generator >= 5 {return terrain_block_v5(seed, p, column, &features)}
+		if generator >= 4 {return terrain_block_v4(seed, p, column, &features)}
 		return terrain_block_v3(seed, p, column, &features)
 	}
 	h := legacy_terrain_height(seed, p.x, p.z)

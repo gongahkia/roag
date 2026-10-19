@@ -47,14 +47,14 @@ terrain_fill_chunk :: proc(seed: u64, key: I3, generator: u32, data: []u8) {
 		for x in 0 ..< PAD {
 			wx, wz := key.x * 32 + i32(x) - 1, key.z * 32 + i32(z) - 1
 			column: Terrain_Column
-			if generator >= 3 {column = terrain_column_v3(seed, wx, wz)}
-			else {column.height = legacy_terrain_height(seed, wx, wz)}
+			if generator >=
+			   3 {column = terrain_column(seed, wx, wz, generator, &features)} else {column.height = legacy_terrain_height(seed, wx, wz)}
 			for y in 0 ..< PAD {
 				wy := key.y * 32 + i32(y) - 1
 				p := I3{wx, wy, wz}
 				b: Block
-				if generator >= 3 {b = terrain_block_v3(seed, p, column, &features)}
-				else {
+				if generator >=
+				   5 {b = terrain_block_v5(seed, p, column, &features)} else if generator >= 4 {b = terrain_block_v4(seed, p, column, &features)} else if generator == 3 {b = terrain_block_v3(seed, p, column, &features)} else {
 					b = base_block(seed, p, column.height, generator)
 					if b == .Air {b = terrain_tree_block(p, features.trees[:features.tree_count])}
 				}

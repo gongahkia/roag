@@ -72,10 +72,10 @@ test_ore_depths_natural_fluids_and_worker_agreement :: proc(t: ^testing.T) {
 	for count in counts {testing.expect(t, count > 0)}
 	water_found, lava_found := false, false
 	for z in -128 ..< 128 {for x in -128 ..< 128 {
-			h := terrain_height(42, i32(x), i32(z))
+			h := terrain_height(42, i32(x), i32(z), 3)
 			if h <
-			   SEA_LEVEL {water_found = water_found || generated_block(42, {i32(x), SEA_LEVEL, i32(z)}) == .Water}
-			lava_found = lava_found || generated_block(42, {i32(x), 8, i32(z)}) == .Lava
+			   SEA_LEVEL {water_found = water_found || generated_block(42, {i32(x), SEA_LEVEL, i32(z)}, 3) == .Water}
+			lava_found = lava_found || generated_block(42, {i32(x), 8, i32(z)}, 3) == .Lava
 		}}
 	testing.expect(t, water_found && lava_found)
 	for version: u32 = 1; version <= 2; version += 1 {

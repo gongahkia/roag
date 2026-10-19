@@ -94,7 +94,7 @@ app_controls :: proc(a: ^App) -> bool {
 		a.settings.move_speed = max(a.settings.move_speed / 1.5, 1)
 	}
 	if !a.menu.open && a.input.keys[glfw.KEY_TAB] && !a.input.old_keys[glfw.KEY_TAB] {
-		page := (a.selected / 9 + 1) % 2
+		page := (a.selected / 9 + 1) % CREATIVE_PAGES
 		a.selected = min(page * 9 + a.selected % 9, len(CREATIVE_BLOCKS) - 1)
 	}
 	for i in 1 ..= 9 {
