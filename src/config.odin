@@ -38,7 +38,7 @@ Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3|4|5] [-
   Terrain previews: --benchmark plains|forest|desert|coast|arch|overhang|spire
   Biome previews: --benchmark birch|cherry|mushrooms|snowy-peaks|snowy-plains
     taiga|savanna|jungle|swamp|badlands (generators 4/5)
-WASD walk / SPACE jump or swim up / SHIFT sprint / F4 spectator
+WASD walk / SPACE jump or swim up / SHIFT sprint / F spectator
 Spectator: SPACE up / CTRL down / SHIFT fast / +/- movement speed
 Mouse look / ESC or F1 settings / Q quit
 LMB break / RMB place / 1-9 select / TAB palette page / F3 stats / F5 save`,

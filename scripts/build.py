@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Build, test, check, or run the sandbox using the pinned Odin toolchain."""
 import argparse
-import json
 import os
 from pathlib import Path
 import platform
 import shutil
 import subprocess
 import sys
+
+import bootstrap
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,17 +32,7 @@ def environment():
 
 
 def odin():
-    if os.environ.get('ODIN_BIN'):
-        return os.environ['ODIN_BIN']
-    name = 'odin.exe' if os.name == 'nt' else 'odin'
-    candidates = [ROOT / '.tools' / 'odin' / name, *sorted((ROOT / '.tools').glob(f'odin-*/{name}'))]
-    for path in candidates:
-        if path.is_file():
-            return str(path)
-    installed = shutil.which('odin')
-    if installed:
-        return installed
-    raise SystemExit('Odin is missing. Run: python3 scripts/bootstrap.py')
+    return bootstrap.install_odin()
 
 
 def main():
@@ -55,10 +46,6 @@ def main():
     (ROOT / 'build').mkdir(exist_ok=True)
     binary = ROOT / 'build' / ('voxel.exe' if os.name == 'nt' else 'voxel')
     compiler = odin()
-    lock = json.loads((ROOT / 'toolchain.json').read_text())
-    version = subprocess.check_output([compiler, 'version'], text=True)
-    if lock['commit'][:7] not in version:
-        raise SystemExit(f'Expected Odin {lock["release"]} ({lock["commit"][:7]}), got {version.strip()}')
     env = environment()
     command = 'build' if args.action == 'run' else args.action
     flags = ['-vet-unused-imports', '-vet-unused-variables']

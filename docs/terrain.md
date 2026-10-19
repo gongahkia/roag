@@ -58,7 +58,7 @@ Within selected regions, 128-block cells can contain irregular ellipsoid-footpri
 
 Elsewhere, one in sixteen 128-block cells attempts an arch, overhang, or spire. Terrain height, water, and sky-region checks reject unsuitable locations; arches additionally check their two footings. These landmarks use bounded analytic shapes rather than region-scale erosion simulations or random walks. Everything is addressed by world coordinates, so formations can cross chunk borders without depending on generation order.
 
-Use the existing creative building controls or F4 spectator flight to reach floating islands. The island traversal controls are unchanged.
+Use the existing creative building controls or F spectator flight to reach floating islands. The island traversal controls are unchanged.
 
 ## Caves and lakes
 

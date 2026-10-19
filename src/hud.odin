@@ -65,7 +65,7 @@ hud_draw :: proc(a: ^App) {
 		r,
 		start + 4,
 		f32(height) - 12,
-		player.spectator ? "NOCLIP [F4]" : "WALK [F4]",
+		player.spectator ? "NOCLIP [F]" : "WALK [F]",
 		1,
 		FRAME_COLOR,
 	)

@@ -159,12 +159,12 @@ def interactive(binary, env, directory, collisions=False):
             time.sleep(.9)
             landed = saved_position()
             assert abs(landed[1] - 182.62) < .001, f'Landing failed: {landed}'
-            key(0xffc1)  # F4: spectator.
+            key(ord('f'))  # F: spectator (no function-key modifiers needed).
             key(0xffe3, .35)  # Ctrl passes down through the platform.
             below = saved_position()
             assert below[1] < 180, f'Spectator did not noclip: {below}'
             key(0x20, (180.7 - below[1]) / 14)  # Move into the platform, then leave spectator.
-            key(0xffc1)
+            key(ord('f'))
             recovered = saved_position()
             assert recovered[1] >= 182.619, f'Leaving spectator did not clear the solid floor: {recovered}'
             capture('collision-walk', 640, 360)

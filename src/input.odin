@@ -116,8 +116,8 @@ app_controls :: proc(a: ^App) -> bool {
 	if a.captured &&
 	   !a.menu.open &&
 	   a.config.benchmark == "" &&
-	   a.input.keys[glfw.KEY_F4] &&
-	   !a.input.old_keys[glfw.KEY_F4] {
+	   a.input.keys[glfw.KEY_F] &&
+	   !a.input.old_keys[glfw.KEY_F] {
 		player_set_spectator(&a.player, &a.world, &a.position, !a.player.spectator)
 	}
 
