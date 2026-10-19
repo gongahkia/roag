@@ -19,6 +19,7 @@ local Review = require("src.review_features")
 local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaSentinel = require('src.idea_sentinel')
+local IdeaMirrors = require('src.idea_mirrors')
 local IdeaWebs = require('src.idea_webs')
 local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
@@ -405,7 +406,7 @@ function Game.preview(state, kind, dx, dy)
             stair=stair,landing=landing}
     end
     local position = player.position
-    local cells = Game.effective_ability(state,kind,dx,dy,true)
+    local cells,_,_,_,_,reflection = Game.effective_ability(state,kind,dx,dy,true)
     if kind=="sweeping_slash" and (class.id=="core:actor/shade"
         or class.id=="core:actor/trapper") then
         local cell=cells[1]
@@ -415,7 +416,7 @@ function Game.preview(state, kind, dx, dy)
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
     end
-    return {valid=true, cost=cost, cells=cells}
+    return {valid=true, cost=cost, cells=cells,reflection=reflection}
 end
 
 function Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)
@@ -450,7 +451,11 @@ function Game.effective_ability(state, kind, dx, dy, explicit)
     local cells,damage,modified_ranged=Boons.ability(state,owner,ability_id,base,
         kind == "basic_attack" and owner.damage or owner.slash_damage,
         dx,dy,explicit,ranged)
-    return cells,damage,ability_id,modified_ranged,damage_type
+    local routed,reflection=cells,nil
+    if ability_id~='core:ability/hookrunner_hook'then
+        routed,reflection=IdeaMirrors.route(state,owner,cells,modified_ranged)
+    end
+    return routed,damage,ability_id,modified_ranged,damage_type,reflection
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
@@ -888,6 +893,7 @@ local function execute_effect(state, output, activation, effect)
 end
 
 local function drain_effects(state, output)
+    IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
     IdeaOaths.prune(state)
     local context = assert(contexts[output], "missing boon resolution context")
@@ -946,6 +952,7 @@ local function drain_effects(state, output)
             }
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
+                IdeaMirrors.prune(state,Content.map_for(state))
                 IdeaWebs.prune(state,Content.map_for(state))
                 IdeaOaths.prune(state)
             end
@@ -1054,6 +1061,7 @@ local function drain_effects(state, output)
             execute_effect(state, output, item.activation, item.effect)
         end
     end
+    IdeaMirrors.prune(state,Content.map_for(state))
     IdeaWebs.prune(state,Content.map_for(state))
     IdeaOaths.prune(state)
 end
@@ -1140,6 +1148,16 @@ local function enemy_turn(state, item, output)
     end
     if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then
+        local routed,reflection=intent.cells,nil
+        if not intent.advance and not intent.support then
+            routed,reflection=IdeaMirrors.route(state,enemy,intent.cells,intent.ranged)
+        end
+        intent.cells=routed
+        if reflection then
+            IdeaMirrors.consume(state,reflection)
+            emit(state,output,'MirrorReflected',{reflection=copy(reflection),target_cells=copy(routed),
+                floor_id=position.floor_id,x=reflection.x,y=reflection.y},enemy.id,action_id)
+        end
         IdeaEnemies.commit(state,enemy,intent)
         local decoy=state.class_special and state.class_special.decoy
         if decoy and decoy.floor_id==position.floor_id then
@@ -1170,7 +1188,7 @@ local function enemy_turn(state, item, output)
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
             damage=enemy.damage+(intent.damage_bonus or 0)+(Squads.rally_source(state,enemy) and 1 or 0), due=due,
             support=copy(intent.support),advance=copy(intent.advance),shove=copy(intent.shove),
-            sentinel_facing=intent.sentinel_facing,
+            reflection=copy(reflection),sentinel_facing=intent.sentinel_facing,
             committed_time=state.clock,
         }
         if intent.support and intent.support.kind=='revive' then IdeaEnemies.prune_corpses(state)end
@@ -1183,6 +1201,7 @@ local function enemy_turn(state, item, output)
             support_kind=intent.support and intent.support.kind,
             sentinel_facing=intent.sentinel_facing,
             sentinel_strike=intent.sentinel_facing and enemy.ai_memory.sentinel_strikes,
+            reflection=copy(reflection),
         }, enemy.id, action_id)
         return
     end
@@ -1254,6 +1273,15 @@ local function resolve_impact(state, item, output)
                     end
                 end
             end
+        elseif pending.support.kind=='mirror'then
+            local ok,r=IdeaMirrors.create(state,enemy,pending,{map=Content.map_for(state),
+                free=function(s,id,x,y)return Content.walkable(Content.map_for(s),x,y)
+                    and not occupant(s,enemy.position.floor_id,x,y,id,false)end,
+                visible=function(x,y)return Visibility.can_see(state,enemy.position.floor_id,x,y)end})
+            local p=pending.support
+            emit(state,output,ok and 'MirrorCreated' or 'MirrorBlocked',{
+                mirror_id=r and r.id,floor_id=enemy.position.floor_id,x=p.x,y=p.y,
+                in_dx=p.in_dx,in_dy=p.in_dy},enemy.id,pending.action_id)
         elseif pending.support.kind=='web' then
             local ok,w=IdeaWebs.create(state,enemy,pending,{map=Content.map_for(state),
                 free=function(s,id,x,y)return Content.walkable(Content.map_for(s),x,y)
@@ -1389,7 +1417,8 @@ local function resolve_impact(state, item, output)
     else
         attack(state, output, enemy, pending.action_id, pending.ability_id,
             pending.target_cells, pending.damage, pending.ranged,
-            {windup_id=pending.schedule_id, committed_time=pending.committed_time})
+            {windup_id=pending.schedule_id, committed_time=pending.committed_time,
+                reflection=copy(pending.reflection)})
         if pending.shove and not state.game_over then
             local s=pending.shove
             local target=occupant(state,s.floor_id,s.x,s.y,enemy.id,true)
@@ -1647,7 +1676,7 @@ function Game.submit(state, intent)
     elseif kind == "basic_attack" or kind == "sweeping_slash" then
         action.dx, action.dy = intent.dx, intent.dy
         local cells = {}
-        local target, damage, ability_id, ranged, damage_type = Game.effective_ability(state, kind, intent.dx, intent.dy,
+        local target, damage, ability_id, ranged, damage_type, reflection = Game.effective_ability(state, kind, intent.dx, intent.dy,
             not preview.bump)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
@@ -1663,6 +1692,11 @@ function Game.submit(state, intent)
             emit(state,output,"SnarePlaced",{floor_id=position.floor_id,
                 x=cells[1].x,y=cells[1].y},player.id,action_id)
         else
+            if reflection then
+                IdeaMirrors.consume(state,reflection)
+                emit(state,output,'MirrorReflected',{reflection=copy(reflection),target_cells=copy(cells),
+                    floor_id=position.floor_id,x=reflection.x,y=reflection.y},player.id,action_id)
+            end
             local hooked
             if ability_id=="core:ability/hookrunner_hook" then
                 for _,cell in ipairs(cells) do
@@ -1672,7 +1706,7 @@ function Game.submit(state, intent)
             end
             attack(state, output, player, action_id, ability_id,
                 cells, damage,ranged,
-                {bump=preview.bump or nil,damage_type=damage_type})
+                {bump=preview.bump or nil,damage_type=damage_type,reflection=copy(reflection)})
             if hooked and hooked.hp>0 and not hooked.invulnerable
                 and hooked.ai_id~="warden" and hooked.ai_id~="biome_elite"
                 and hooked.ai_id~="hollow_regent" then
@@ -2128,6 +2162,7 @@ function Game.restore(snapshot)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
                     and support.max_active<=3)
+                    or (support.kind=='mirror' and entity.definition_id=='core:enemy/mirror_hexer')
                     or (support.kind=='web' and entity.definition_id=='core:enemy/web_weaver')
                     or (support.kind=='alarm' and entity.definition_id=='core:enemy/alarm_keeper')
                     or (support.kind=='gulp' and entity.definition_id=='core:enemy/gulp_toad')

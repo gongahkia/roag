@@ -1560,6 +1560,7 @@ require('tests.idea_alarm_tests')(test,equal)
 require('tests.idea_web_tests')(test,equal)
 require('tests.idea_oath_tests')(test,equal)
 require('tests.idea_sentinel_tests')(test,equal)
+require('tests.idea_mirror_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

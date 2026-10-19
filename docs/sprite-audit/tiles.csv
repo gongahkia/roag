@@ -1001,7 +1001,7 @@ onebit,316,352,96,86,,
 onebit,317,368,96,60,,
 onebit,318,384,96,66,,core:enemy/grave_cantor
 onebit,319,400,96,78,,core:enemy/ward_weaver
-onebit,320,416,96,82,,
+onebit,320,416,96,82,core:enemy/mirror_hexer,core:enemy/mirror_hexer
 onebit,321,432,96,88,,core:enemy/siege_wisp
 onebit,322,448,96,98,,
 onebit,323,464,96,76,core:enemy/bone_fragment; core:enemy/bone_splitter,core:enemy/bone_fragment; core:enemy/bone_splitter
@@ -1174,8 +1174,8 @@ onebit,489,768,144,196,,
 onebit,490,0,160,96,,
 onebit,491,16,160,100,,
 onebit,492,32,160,90,,
-onebit,493,48,160,69,,
-onebit,494,64,160,69,,
+onebit,493,48,160,69,core:ui/idea_mirror_effect,core:ui/idea_mirror_effect
+onebit,494,64,160,69,core:ui/idea_reflect_effect,core:ui/idea_reflect_effect
 onebit,495,80,160,126,,
 onebit,496,96,160,144,,
 onebit,497,112,160,136,,

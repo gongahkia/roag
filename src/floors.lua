@@ -77,6 +77,9 @@ function Floors.resume(state,floor_id)
         item.due=item.due+delta
         state.schedule[#state.schedule+1]=item
     end
+    for _,mirror in ipairs(state.idea_mirrors or {})do
+        if mirror.floor_id==floor_id then mirror.expires=mirror.expires+delta end
+    end
     for _,web in ipairs(state.idea_webs or {})do
         if web.floor_id==floor_id then web.expires=web.expires+delta end
     end

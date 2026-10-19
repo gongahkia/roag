@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "9a929d301d86bf03",
+  "mapping_checksum": "c1b9cbbf9784ef14",
   "packs": {
     "kenney": {
-      "actor_count": 56,
-      "actor_silhouettes": 47,
+      "actor_count": 57,
+      "actor_silhouettes": 48,
       "bindings": [
         {
           "height": 8,
@@ -1977,6 +1977,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer",
+          "index": 320,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/attack",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/hurt",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/mossbound_guard",
           "index": 12,
@@ -3175,9 +3202,27 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_mirror_effect",
+          "index": 493,
+          "motif": "core:ui/idea_mirror_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/idea_oath_effect",
           "index": 574,
           "motif": "core:ui/idea_oath_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_reflect_effect",
+          "index": 494,
+          "motif": "core:ui/idea_reflect_effect",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -3357,7 +3402,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 112,
+      "static_pose_aliases": 114,
       "usage": {
         "caves": {
           "145": [
@@ -3797,6 +3842,9 @@
           "282": [
             "core:boon/splitflight/icon + /detail"
           ],
+          "320": [
+            "core:enemy/mirror_hexer"
+          ],
           "323": [
             "core:enemy/bone_fragment",
             "core:enemy/bone_splitter"
@@ -3827,6 +3875,12 @@
           ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
+          ],
+          "493": [
+            "core:ui/idea_mirror_effect"
+          ],
+          "494": [
+            "core:ui/idea_reflect_effect"
           ],
           "522": [
             "core:boon/crystal_harmony/icon + /detail"
@@ -4043,8 +4097,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 56,
-      "actor_silhouettes": 55,
+      "actor_count": 57,
+      "actor_silhouettes": 56,
       "bindings": [
         {
           "height": 16,
@@ -6019,6 +6073,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/mirror_hexer",
+          "index": 320,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/attack",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/hurt",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/mossbound_guard",
           "index": 275,
           "motif": "",
@@ -7216,9 +7297,27 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_mirror_effect",
+          "index": 493,
+          "motif": "core:ui/idea_mirror_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/idea_oath_effect",
           "index": 574,
           "motif": "core:ui/idea_oath_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_reflect_effect",
+          "index": 494,
+          "motif": "core:ui/idea_reflect_effect",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -7334,7 +7433,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 112,
+      "static_pose_aliases": 114,
       "usage": {
         "onebit": {
           "1010": [
@@ -7520,6 +7619,9 @@
           "32": [
             "core:enemy/cinder_bellkeeper"
           ],
+          "320": [
+            "core:enemy/mirror_hexer"
+          ],
           "321": [
             "core:enemy/siege_wisp"
           ],
@@ -7643,6 +7745,12 @@
           ],
           "49": [
             "core:object/review_overgrowth_1"
+          ],
+          "493": [
+            "core:ui/idea_mirror_effect"
+          ],
+          "494": [
+            "core:ui/idea_reflect_effect"
           ],
           "5": [
             "composite terrain material: floor"
@@ -7877,14 +7985,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 68,
+      "kenney": 71,
       "nonempty": 1077,
-      "onebit": 162,
+      "onebit": 165,
       "sheet": "onebit",
-      "union": 162,
-      "unused_kenney": 1009,
-      "unused_onebit": 915,
-      "unused_union": 915
+      "union": 165,
+      "unused_kenney": 1006,
+      "unused_onebit": 912,
+      "unused_union": 912
     },
     {
       "empty": 63,
@@ -8131,6 +8239,9 @@
     "core:enemy/mire_binder",
     "core:enemy/mire_binder/attack",
     "core:enemy/mire_binder/hurt",
+    "core:enemy/mirror_hexer",
+    "core:enemy/mirror_hexer/attack",
+    "core:enemy/mirror_hexer/hurt",
     "core:enemy/mossbound_guard",
     "core:enemy/mossbound_guard/attack",
     "core:enemy/mossbound_guard/hurt",
@@ -8264,7 +8375,9 @@
     "core:ui/hp_icon",
     "core:ui/idea_alarm_effect",
     "core:ui/idea_corpse_effect",
+    "core:ui/idea_mirror_effect",
     "core:ui/idea_oath_effect",
+    "core:ui/idea_reflect_effect",
     "core:ui/squad_heal_effect",
     "core:ui/squad_rally_effect",
     "core:ui/squad_shield_effect",

@@ -25,6 +25,7 @@ local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaOaths = require('src.idea_oaths')
 local IdeaSentinel = require('src.idea_sentinel')
+local IdeaMirrors = require('src.idea_mirrors')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -971,6 +972,15 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='MirrorCreated' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Mirror: incoming arrow turns a straight shot clockwise once; melee and side attacks bypass'
+            elseif event.kind=='MirrorReflected' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Reflected shot: one quarter turn, same shooter and remaining range'
+            elseif event.kind=='MirrorBlocked' and event.floor_id==state.active_floor_id
+                and visible_at(event.x,event.y)then
+                notice='Reflector placement blocked; cast spent'
             elseif event.kind=='WebCreated' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Web: crossing adds 50 recovery; strike either anchor to cut the line'
@@ -1682,6 +1692,23 @@ local function draw_enemies()
 end
 
 local function draw_squad_cues()
+    for _,mirror in ipairs(state.idea_mirrors or {})do
+        if mirror.floor_id==state.active_floor_id and mirror.expires>state.clock
+            and visible_at(mirror.x,mirror.y)then
+            local x,y=Camera.tile_top_left(camera,mirror.x,mirror.y)
+            draw_visual(bound_visual('core:ui/idea_mirror_effect'),
+                x+TILE*.22,y+TILE*.22,TILE*.56,TILE*.56,.95)
+            local dx,dy=mirror.in_dx,mirror.in_dy
+            local cx,cy=x+TILE*.5,y+TILE*.5
+            love.graphics.setColor(.72,.85,1,.95)
+            love.graphics.line(cx-dx*TILE*.4,cy-dy*TILE*.4,cx,cy,
+                cx-dy*TILE*.4,cy+dx*TILE*.4)
+            love.graphics.line(cx-dy*TILE*.4,cy+dx*TILE*.4,
+                cx-dy*TILE*.24+dx*TILE*.1,cy+dx*TILE*.24+dy*TILE*.1)
+            love.graphics.line(cx-dy*TILE*.4,cy+dx*TILE*.4,
+                cx-dy*TILE*.24-dx*TILE*.1,cy+dx*TILE*.24-dy*TILE*.1)
+        end
+    end
     for _,web in ipairs(state.idea_webs or {})do
         if web.floor_id==state.active_floor_id then
             love.graphics.setColor(.85,.83,.94,.85)
@@ -2072,6 +2099,14 @@ end
 local function draw_history_event(event)
     if not event then return end
     if event.kind=="Moved" or event.kind=="Displaced" then return end
+    if event.reflection and event.floor_id==state.active_floor_id then
+        local r=event.reflection
+        if visible_at(r.x,r.y)then
+            local x,y=Camera.tile_top_left(camera,r.x,r.y)
+            draw_visual(bound_visual('core:ui/idea_reflect_effect'),
+                x+TILE*.22,y+TILE*.22,TILE*.56,TILE*.56,.95)
+        end
+    end
     if event.kind == "WindupStarted" then
         if event.support_kind then draw_cells(event.target_cells,.45,.88,.9,.7,true)
         else draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true) end
@@ -2179,6 +2214,11 @@ end
 local function draw_preview()
     if not targeting or targeting.dx == nil then return end
     local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
+    if preview.reflection and visible_at(preview.reflection.x,preview.reflection.y)then
+        local x,y=Camera.tile_top_left(camera,preview.reflection.x,preview.reflection.y)
+        draw_visual(bound_visual('core:ui/idea_reflect_effect'),
+            x+TILE*.22,y+TILE*.22,TILE*.56,TILE*.56,.9)
+    end
     for _, cell in ipairs(preview.cells) do
         local r,g,b,a
         if targeting.kind == "dash" then

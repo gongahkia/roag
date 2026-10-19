@@ -256,6 +256,34 @@ friendly fire, interruption gaps, exact saves and 100 naturally generated
 stages with optional placement. A separate-process disk save resolves the
 same pending quarter after reopening. Actual LÖVE readability is still pending.
 
+## Mirror Hexer
+
+HP 7, defense 0, raw damage 2, speed 85, base windup 150 and recovery 140.
+The body uses approved 1-Bit 320 in both looks; 493/494 mark reflection.
+At range two to four on a clear cardinal line, a visible Hexer can spend one
+of two casts to lock an adjacent plain-floor reflector. Occupying that cell,
+interrupting the caster or protecting it as stairs/exit prevents placement;
+that cast stays spent. An active reflector lasts 400 world time or one use.
+It remains directional and cannot overlap another marker.
+
+A straight cardinal projectile entering along its arrow turns clockwise once.
+Its original shooter, damage and remaining range stay unchanged. Preview shows
+the incoming and outgoing legs; melee, area, diagonal and side shots bypass it.
+Charges and Hookrunner grapples keep their original movement-linked geometry.
+A creature or wall before the marker blocks use; killing that creature with
+the same shot cannot allow reflection through it. A second marker cannot
+bounce the same shot again. DOT and secondary boon effects are never routed.
+
+Enemy paths consume a reflector **when the windup commits**, so marker expiry
+or caster death cannot move an announced attack. The locked reflected path
+survives a save; normal friendly fire remains. After placement the Hexer uses
+ordinary locked bolts and movement. Fog clips all marker/path drawing.
+
+Twelve focused checks cover these contracts. Eleven disk scenarios include a
+third-process real bow shot through a previously saved reflector, comparing
+HP, full events, RNG and the third checked save generation. The full 475-test
+gate passes. No source PNGs or gameplay RNG are used by reflection preview.
+
 ## Verification
 
 ```sh

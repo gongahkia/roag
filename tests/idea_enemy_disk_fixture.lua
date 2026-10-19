@@ -5,8 +5,8 @@ local mode,dir=arg[1],arg[2]
 local scenario=arg[3] or 'rammer'
 assert(scenario=='rammer' or scenario=='wraith' or scenario=='cantor' or scenario=='toad'
     or scenario=='cache' or scenario=='bones' or scenario=='alarm' or scenario=='web'
-    or scenario=='oath' or scenario=='sentinel','unknown fixture scenario')
-assert((mode=='write' or mode=='continue' or mode=='cross' and scenario=='web') and type(dir)=='string'
+    or scenario=='oath' or scenario=='sentinel' or scenario=='mirror','unknown fixture scenario')
+assert((mode=='write' or mode=='continue' or mode=='cross' and (scenario=='web' or scenario=='mirror')) and type(dir)=='string'
     and dir:match('^/var/tmp/roag%-idea%-disk%-[%w%-]+$'),'isolated fixture directory required')
 local allowed={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.roag-data']=true,['expected-events.roag-data']=true}
@@ -22,16 +22,20 @@ end
 local store=P.new(storage)
 local function advance(s)
     local events={}
-    for _=1,scenario=='alarm' and 3 or (scenario=='cache' or scenario=='web' or scenario=='sentinel') and 2 or 1 do
+    for _=1,scenario=='alarm' and 3 or (scenario=='cache' or scenario=='web' or scenario=='sentinel' or scenario=='mirror') and 2 or 1 do
         local ok,_,list=Game.submit(s,{kind='wait'});assert(ok)
         for _,event in ipairs(list)do events[#events+1]=event end
     end
     return events
 end
 if mode=='write' then
-    local s=Game.new(37);local p=Game.player(s)
+    local s=Game.new(37,nil,{class_id=scenario=='mirror' and 'core:actor/ranger' or nil});local p=Game.player(s)
     local enemy
-    if scenario=='sentinel'then
+    if scenario=='mirror'then
+        p.position.x,p.position.y=7,6
+        enemy=Game.spawn_enemy(s,'core:enemy/mirror_hexer',10,6,50)
+        Game.spawn_enemy(s,'core:enemy/mossbound_guard',9,7,100000)
+    elseif scenario=='sentinel'then
         p.position.x,p.position.y=7,6
         enemy=Game.spawn_enemy(s,'core:enemy/rotating_sentinel',8,6,50)
     elseif scenario=='oath' then
@@ -76,8 +80,8 @@ if mode=='write' then
     if scenario~='bones' and scenario~='oath' then
         assert(Game.submit(s,scenario=='cache' and {kind='move',dx=1,dy=0} or {kind='wait'}))
     end
-    assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or 100)
-        and (scenario=='bones' or scenario=='oath' or enemy.pending_attack.due==(scenario=='sentinel' and 250 or scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
+    assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or scenario=='mirror' and 87 or 100)
+        and (scenario=='bones' or scenario=='oath' or enemy.pending_attack.due==(scenario=='mirror' and 226 or scenario=='sentinel' and 250 or scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
             or scenario=='toad' and 175 or 157)))
     assert(store:save(s));assert(store:inspect().record.seq==1)
     local expected=Game.restore(Game.snapshot(s))
@@ -86,14 +90,16 @@ if mode=='write' then
     storage:write('expected-events.roag-data',P.encode(events))
     print('PASS disk write: pending '..scenario..' saved in generation 1')
 elseif mode=='continue' then
-    local s=assert(store:load());assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or 100))
+    local s=assert(store:load());assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or scenario=='mirror' and 87 or 100))
     local events=advance(s)
     assert(P.encode(events)==storage:read('expected-events.roag-data'))
     assert(P.encode(Game.snapshot(s))==storage:read('expected.roag-data'))
     assert(Game.player(s).position.x==(scenario=='cache' and 9 or
-        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web' or scenario=='oath' or scenario=='sentinel') and 7 or 8)
-        and s.clock==((scenario=='web' or scenario=='sentinel') and 300 or (scenario=='cantor' or scenario=='cache' or scenario=='alarm') and 400 or 200))
-    if scenario=='sentinel'then
+        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web' or scenario=='oath' or scenario=='sentinel' or scenario=='mirror') and 7 or 8)
+        and s.clock==(scenario=='mirror' and 261 or (scenario=='web' or scenario=='sentinel') and 300 or (scenario=='cantor' or scenario=='cache' or scenario=='alarm') and 400 or 200))
+    if scenario=='mirror'then
+        assert(#s.idea_mirrors==1 and s.idea_mirrors[1].expires==626)
+    elseif scenario=='sentinel'then
         local e
         for _,v in ipairs(s.entities)do if v.definition_id=='core:enemy/rotating_sentinel'then e=v end end
         assert(e and e.ai_memory.sentinel_facing==4 and e.ai_memory.sentinel_strikes==1
@@ -142,18 +148,28 @@ elseif mode=='continue' then
     assert(store:save(s));assert(store:inspect().record.seq==2)
     assert(storage:read('active-a.roag') and storage:read('active-b.roag'))
     print('PASS fresh-process Continue: exact events, RNG/state and generation 2')
-    if scenario=='web'then
+    if scenario=='web' or scenario=='mirror'then
         local expected=Game.restore(Game.snapshot(s))
-        local ok,_,ev=Game.submit(expected,{kind='move',dx=1,dy=0});assert(ok)
+        local ok,_,ev=Game.submit(expected,{kind=scenario=='mirror' and 'basic_attack' or 'move',dx=1,dy=0});assert(ok)
         storage:write('expected.roag-data',P.encode(Game.snapshot(expected)))
         storage:write('expected-events.roag-data',P.encode(ev))
     end
 else
-    local s=assert(store:load());assert(s.clock==300 and #s.idea_webs==1)
-    local ok,_,ev=Game.submit(s,{kind='move',dx=1,dy=0});assert(ok)
-    assert(s.clock==450 and #s.idea_webs==0)
+    local s=assert(store:load())
+    assert(scenario=='mirror' and s.clock==261 and #s.idea_mirrors==1
+        or scenario=='web' and s.clock==300 and #s.idea_webs==1)
+    local ok,_,ev=Game.submit(s,{kind=scenario=='mirror' and 'basic_attack' or 'move',dx=1,dy=0});assert(ok)
+    if scenario=='mirror'then
+        assert(s.clock==348 and #s.idea_mirrors==0)
+        local hit=false
+        for _,v in ipairs(ev)do if v.kind=='DamageTaken'then
+            assert(v.source_id==s.player_id and v.x==9 and v.y==7 and v.actual_loss==2);hit=true
+        end end
+        assert(hit)
+    else assert(s.clock==450 and #s.idea_webs==0)end
     assert(P.encode(ev)==storage:read('expected-events.roag-data'))
     assert(P.encode(Game.snapshot(s))==storage:read('expected.roag-data'))
     assert(store:save(s));assert(store:inspect().record.seq==3)
-    print('PASS third-process web crossing: exact +50 recovery and checked generation 3')
+    print(scenario=='mirror' and 'PASS third-process reflected shot: exact original damage, RNG and checked generation 3'
+        or 'PASS third-process web crossing: exact +50 recovery and checked generation 3')
 end

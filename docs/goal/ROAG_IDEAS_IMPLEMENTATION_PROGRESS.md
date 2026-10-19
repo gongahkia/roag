@@ -30,13 +30,13 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `web-weaver` | Web Weaver + anchored webs | headless verified; GUI pending | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; `e6c911d7` |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
-| `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
+| `mirror-hexer` | Mirror Hexer + reflected lane | headless verified; GUI pending | 475/475 full, twelve focused cases and eleven disk scenarios including third-process reflected fire; this feature commit |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
 | `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; `23a8b7f8` |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
-| `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; this feature commit |
+| `rotating-sentinel` | Rotating Sentinel encounter | headless verified; GUI pending | 463/463 full, eight focused cases, 100-stage optional-room corpus, ten disk scenarios and four real-action driver fixtures; `199ddfd2` |
 | `duelist-class` | Duelist — precision and paid riposte | pending | — |
 | `geomancer-class` | Geomancer — one temporary bulwark | pending | — |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | pending | — |
@@ -160,8 +160,13 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-sentinel-accepted-headless-20261019.log`. Runtime and tests
   match the accepted tree. The final gate retains all original legal Victories,
   seven miniboss routes, deterministic replay and generation corpora.
-- Both Kenney choices now resolve **364/364** required bindings, 56 actor IDs and
-  112 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Mirror Hexer: **475 passed, 0 failed**, frozen source
+  `/var/tmp/roag-mirrors-m1xoqczk`, log
+  `/var/tmp/roag-mirror-accepted-headless-20261019.log`. Integrated runtime
+  and tests exactly match that source. Twelve focused cases, eleven disk
+  scenarios and generation-3 actual reflected fire pass.
+- Both Kenney choices now resolve **369/369** required bindings, 57 actor IDs and
+  114 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -240,7 +245,7 @@ checks pass. Charges and Hookrunner grapples are explicitly excluded from
 reflection to keep their displacement aligned with their damage. That adds
 one real-action regression; a full 474/474 gate passed. The final driver
 hardening is propagated and the corrected full gate passes **475/475**;
-integration is next. All unused/held/rejected art constraints remain in force.
+the slice is integrated. All unused/held/rejected art constraints remain in force.
 
 Silt Worm is isolated at `/var/tmp/roag-worms-efcksv09`. Eleven focused
 cases, 108 combined checks and twelve fresh-process scenarios pass. Its two
@@ -255,7 +260,8 @@ cases, 120 combined checks and thirteen disk scenarios pass, including a
 third-process fire pulse. Fixed landings cannot overlap actors. Two separately
 scheduled fire pulses remain visible through the existing pending-threat query
 and expire after 200 world time. Burning and Temporal Echo continue exactly
-alongside them. Broad acceptance is still pending.
+alongside them. The complete all-enemy source passes **498/498**, log
+`/var/tmp/roag-moth-final-headless-20261019.log`; integration is next.
 
 Headless browser inspection of the catalogue passed 12 pack/filter cases,
 mobile layout and search without JS errors at the earlier 341-binding state:
