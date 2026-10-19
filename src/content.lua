@@ -57,7 +57,9 @@ local ability_proc_coefficients = {
     ["core:ability/regent_sigil"] = 1,
     ["core:ability/pursuer_strike"] = 0,
 }
+ability_proc_coefficients['core:ability/tinkerer_sentry']=0
 local ability_names={
+    ['core:ability/tinkerer_sentry']='Sentry bolt',
     ["core:ability/regent_line"]="Regent's Line",
     ["core:ability/regent_crown"]="Broken Crown",
     ["core:ability/regent_sigil"]="Hollow Sigil",

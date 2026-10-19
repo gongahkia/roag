@@ -101,6 +101,8 @@ Classes.order[#Classes.order+1]=Geo.id
 Classes.definitions[Geo.id]=Geo.definition
 Classes.order[#Classes.order+1]=Comp.spirit_id
 Classes.definitions[Comp.spirit_id]=Comp.spirit
+Classes.order[#Classes.order+1]=Comp.tinker_id
+Classes.definitions[Comp.tinker_id]=Comp.tinker
 
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
@@ -149,7 +151,7 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==Comp.spirit_id then
+        if def.id==Comp.spirit_id or def.id==Comp.tinker_id then
             cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='spirit'
         elseif def.id==Geo.id then
             cells=line(state,content,p,dx,dy,3);ranged=true
@@ -170,7 +172,7 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
         end
     else
         ability_id=def.special_id
-        if def.id==Comp.spirit_id then
+        if def.id==Comp.spirit_id or def.id==Comp.tinker_id then
             cells=Comp.cells(state,player,dx,dy,content)
         elseif def.id==Geo.id then
             cells={{x=p.x+dx,y=p.y+dy}}
@@ -237,7 +239,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==12,"expected twelve starting classes")
+    assert(#Classes.order==13,"expected thirteen starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

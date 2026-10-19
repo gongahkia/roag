@@ -87,3 +87,15 @@ HP 20, attack/command 3, defense 0, speed 100. Base move/F/R/X costs: 100/110/14
 The spirit does not block movement, scout, act autonomously, draw attacks or award rewards. One paid strike uses the owner's existing damage/proc pipeline; deployment creates no attack/Echo. The same familiar ID survives repositioning. Saved ownership and exact subsequent commands are validated. Mixed body uses Tiny 85, standalone body 122; the approved familiar uses 1-Bit 417 in both choices (representative art also used by an awake Haunted Cache).
 
 Six focused tests pass; combined contracts and new-process Continue are recorded in the goal ledger. `sh tests/idea_class_disk_resume.sh spiritbinder` resumes an actual commanded strike after a checked save. No LÖVE window or physical input acceptance is claimed.
+
+## Tinkerer
+
+HP 23, attack 3, defense 0, speed 95. Base move/F/R/X costs: 100/100/160/120.
+
+- **F — Hand Bolt:** three-cell, first-body projectile.
+- **R — Deploy Sentry:** place one nonblocking stand on empty adjacent cardinal plain floor. Three finite attempts begin 100 world time after deployment. Each visible cardinal target within four tiles gets an 80-time locked bolt warning; a spent attempt is not refunded when no target is available. Replacing the stand cancels its old commitment and discards its charges.
+- **X — Utility Roll:** ordinary two-cell Dash.
+
+Shots deal fixed 3 raw damage with armor, first-body collision and **friendly fire**, including the owner. The owner's genuine enemy kills receive normal credit exactly once. Sentry-generated records explicitly suppress boon activation: a zero coefficient alone does not suppress guaranteed Echo. No free crit, Echo or proc chain is manufactured by a timed shot. Visibility is checked at commit and impact; there is no scouting or wall penetration. The stand is not a damageable actor or reward source. After three attempts, waiting cannot produce further shots. Frozen-floor work rebases exactly.
+
+Mixed art uses approved Tiny 109 and Micro 119 stand; standalone uses approved 1-Bit 222 and the existing 262 stone/stand motif. Seven focused checks and 59 combined contracts pass. `sh tests/idea_class_disk_resume.sh tinkerer` resumes an actual pending shot in a new process. Physical/GUI readability remains pending.

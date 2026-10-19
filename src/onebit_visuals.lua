@@ -36,7 +36,9 @@ for id,index in pairs(IdeaEnemies.onebit) do O.actors[id]=index end
 O.actors[Duelist.id]=Duelist.onebit
 O.actors[Geo.id]=Geo.onebit
 O.actors[Comp.spirit_id]=122
+O.actors[Comp.tinker_id]=222
 O.objects={
+    [Comp.sentry_object]=262,
     [Comp.spirit_object]=417,
     [Geo.block_id]=262,
     ['core:drop/currency']=818,['core:drop/food']=238,['core:drop/health']=670,

@@ -63,6 +63,7 @@ local function emit(state, output, kind, fields, source_id, action_id)
         source_position = source and copy(source.position) or (cause and copy(cause.source_position)),
         source_tags = source and {source.definition_id, source.faction, source.ai_id} or nil,
     }
+    if cause and cause.class_generated then event.class_generated=true end
     state.next_event_id = state.next_event_id + 1
     for key, value in pairs(fields or {}) do event[key] = copy(value) end
     output[#output + 1] = event
@@ -421,7 +422,7 @@ function Game.preview(state, kind, dx, dy)
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
     end
-    if kind=='sweeping_slash' and class.id==Comp.spirit_id then
+    if kind=='sweeping_slash' and (class.id==Comp.spirit_id or class.id==Comp.tinker_id) then
         local valid,reason,mode=Comp.preview(state,player,cells,Content,Visibility.can_see)
         return {valid=valid,reason=reason,cost=cost,cells=cells,companion_mode=mode}
     end
@@ -565,7 +566,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             Content.projectile_passable(map,cell.x,cell.y,state)
         if not passable and ranged~="area" then break end
         local target=passable and occupant(state,cell.floor_id,cell.x,cell.y,
-            source.id,true) or nil
+            source.collision_id or source.id,true) or nil
         if target then
             local adjacent_hostile_count,adjacent_burning_count=0,0
             for _,other in ipairs(state.entities) do
@@ -949,7 +950,7 @@ local function drain_effects(state, output)
                     end
                 end
             end
-            Boons.on_event(state, event,
+            if not event.class_generated then Boons.on_event(state, event,
                 function(activation, effect)
                     context.effects[#context.effects + 1] = {activation=activation, effect=effect}
                 end,
@@ -963,13 +964,13 @@ local function drain_effects(state, output)
                         pair_target_id=activation.pair_target_id,
                     }, activation.owner_id, activation.root_action_id)
                     context.cause = nil
-                end)
+                end) end
             context.cause = {
                 chain_id=event.chain_id, root_action_id=event.root_action_id,
                 parent_id=event.id, ancestry=event.ancestry,
                 proc_coefficient=event.proc_coefficient,
                 source_faction=event.source_faction,
-                source_position=event.source_position,
+                source_position=event.source_position,class_generated=event.class_generated,
             }
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
@@ -1096,7 +1097,8 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     local previous_cause = context and context.cause
     if context then
         context.cause = {chain_id=action_id, root_action_id=action_id, ancestry={},
-            proc_coefficient=Content.ability_proc_coefficient(ability_id)}
+            proc_coefficient=Content.ability_proc_coefficient(ability_id),
+            class_generated=extra and extra.class_generated}
     end
     local position = source.position
     local critical = false
@@ -1521,6 +1523,14 @@ local function advance_to_player(state, output)
             Stage.resolve_due(state,item,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,nil)
             end,Game.spawn_enemy)
+        elseif item.idea_sentry then
+            Comp.resolve(state,item,Content,Visibility.can_see,function(kind,fields)
+                emit(state,output,kind,fields,state.player_id,item.attack_id)
+            end,function(sentry,cells,action_id)
+                local source=copy(Game.player(state));source.position=copy(sentry.position)
+                source.collision_id=sentry.id;source.controller='construct'
+                attack(state,output,source,action_id,'core:ability/tinkerer_sentry',cells,3,true,{class_generated=true})
+            end)
         elseif item.idea_geomancer then
             Geo.expire(state,item,function(kind,fields,source_id,action_id)
                 emit(state,output,kind,fields,source_id,action_id)
@@ -1741,7 +1751,9 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id==Comp.spirit.special_id then
+        if ability_id==Comp.tinker.special_id then
+            Comp.deploy(state,player,cells[1],action_id,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
+        elseif ability_id==Comp.spirit.special_id then
             local _,_,mode,spirit=Comp.preview(state,player,cells,Content,Visibility.can_see)
             if mode=='strike'then
                 local source=copy(player);source.position=copy(spirit.position)
@@ -1960,6 +1972,14 @@ function Game.pending_strikes(state)
     for _, entity in ipairs(state.entities) do
         if entity.pending_attack and entity.position.floor_id==state.active_floor_id then
             result[#result + 1] = copy(entity.pending_attack)
+        end
+    end
+    for _,e in ipairs(state.entities)do
+        if e.sentry_phase=='impact' and e.position.floor_id==state.active_floor_id then
+            result[#result+1]={sequence=e.sentry_schedule_id,schedule_id=e.sentry_schedule_id,
+                source_id=e.owner_id,floor_id=e.position.floor_id,source_x=e.position.x,source_y=e.position.y,
+                ability_id='core:ability/tinkerer_sentry',target_cells=copy(e.sentry_cells),damage=3,
+                due=e.sentry_due,companion=true}
         end
     end
     for _,r in ipairs(state.idea_embers or {})do

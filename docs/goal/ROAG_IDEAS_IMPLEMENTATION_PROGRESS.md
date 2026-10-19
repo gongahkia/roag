@@ -41,7 +41,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
-| `tinkerer-class` | Tinkerer — one limited bolt sentry | pending | — |
+| `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | pending | — |
 | `wayfinder-class` | Wayfinder — a visible return beacon | pending | — |
 | `offering-font` | One-use HP offering font | pending | — |
@@ -316,3 +316,5 @@ item, room, terrain, environment, presentation and 50+ boon work stays in scope.
 Rechecked the unmodified baseline: **510/510**, log `/var/tmp/roag-five-classes-baseline-20261019.log`. Geomancer is integrated from `/var/tmp/roag-geomancer-ceeabc3f`: nine focused tests, 46 class/art/UI contracts and two-process expiry/save continuation pass. Its isolated full gate is running; no result is presumed. New blocks are entity overlays, cannot seal accessible routes, and expire after 300 simulation time. Character selection now uses bounded nine-row pages and matching mouse hitboxes; Classic fallback colors cover additional classes. No LÖVE windows opened.
 
 Spiritbinder is integrated: six final focused cases and two-process paid-command continuation pass; 52 combined class/art/UI contracts passed before the deployment-near-enemy usability correction, and final integration reruns remain required. Deployment now stops before an enemy rather than requiring the first familiar to be placed in a different direction. The initial disk assertion exposed that usability issue; its diagnostic was retained. Geomancer task commit: `6fecf05c`. LÖVE remains closed.
+
+Tinkerer is integrated: seven final focused cases, 59 combined contracts and new-process pending-shot continuation pass. A regression caught guaranteed Temporal Echo still activating at coefficient zero; the new sentry-generated event flag explicitly excludes these automatic records from boon activation. Existing attack/proc rules remain unchanged for untagged events. Failure logs are retained. The Geomancer frozen full gate has now passed **519/519** at `/var/tmp/roag-geomancer-full-20261019.log`; Spiritbinder commit `9507efcb`. No LÖVE windows opened.

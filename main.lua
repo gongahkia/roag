@@ -977,6 +977,10 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='SentryDeployed'then
+                notice='Sentry deployed: three finite attempts, locked bolts, friendly fire; replacement discards charges'
+            elseif event.kind=='SentryCommitted'then
+                notice='Sentry bolt committed: keep its dotted line clear'
             elseif event.kind=='SpiritPositioned'then
                 notice='Spirit placed: R toward an adjacent visible enemy to order a paid strike; no autonomous attacks'
             elseif event.kind=='GeomancerBlockRaised'then

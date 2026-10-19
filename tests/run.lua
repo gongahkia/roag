@@ -1569,5 +1569,7 @@ require('tests.idea_geomancer_tests')(test,equal)
 
 require('tests.idea_spiritbinder_tests')(test,equal)
 
+require('tests.idea_tinkerer_tests')(test,equal)
+
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end
