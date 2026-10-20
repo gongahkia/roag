@@ -208,6 +208,13 @@ class CatalogTests(unittest.TestCase):
         self.assertTrue(rows)
         self.assertTrue(all(r['asset']['type'] == 'glyph' for r in rows))
 
+    def test_reviewed_single_pixel_frame_corner_remains_a_fragment(self):
+        r = self.by_id['urizen-onebit-r42-c026']
+        self.assertEqual(r['foreground_pixels'], 1)
+        self.assertEqual(r['asset']['type'], 'fragment')
+        self.assertEqual(r['asset']['composition']['kind'], 'fragment_candidate')
+        self.assertTrue(any('neighboring assembly' in note for note in r['asset']['evidence']['uncertainties']))
+
     def test_qualified_visual_names_do_not_assert_exact_species(self):
         claims = named_visual_subjects('A gray snake-like creature', 'medium', 'fixture')
         self.assertTrue(any(c['term'] == 'snake_like' and c['confidence'] == 'low' for c in claims))

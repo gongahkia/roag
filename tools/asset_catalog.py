@@ -386,9 +386,12 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
             if subject['term'] not in {s['term'] for s in subjects}:
                 subjects.append(subject)
         uncertainties += override.get('uncertainties', [])
-    if record['kind'] == 'sprite' and measured['foreground_pixels'] <= 2 and not publisher:
+    contextual_fragment = bool(override and override.get('type') == 'fragment' and override.get('composition') == 'fragment_candidate')
+    if record['kind'] == 'sprite' and measured['foreground_pixels'] <= 2 and not publisher and not contextual_fragment:
         asset_type, layers, composition = 'unresolved', ['unresolved'], 'sparse_mark'
         uncertainties.append('Only one or two foreground pixels; may be a fragment or atlas residue.')
+    elif contextual_fragment and measured['foreground_pixels'] <= 2:
+        uncertainties.append('Only one or two foreground pixels; the fragment description depends on the reviewed neighboring assembly, not a standalone identity.')
     if not subjects and record['kind'] == 'sprite':
         subjects = [claim(asset_type, 'low', 'category_inference', 'asset.type')]
     tags = sorted(set([asset_type, *layers, *measured['color_names'], *(c['term'] for c in subjects)]))

@@ -66,6 +66,12 @@ Executed validation: **22 generic tests passed**, full regeneration and `--check
 
 Executed validation: **25 generic tests passed**; deterministic regeneration/`--check`, all original source/crop hashes, and JSON Schema validation of all **11,887** generic objects passed. Added cases check qualified visual subject claims, footprint classification and portable-object grouping. Current/preview gameplay selections remain 166 / 75, with 6,874 wholly unused crops. Further art sections and atlas presentation remain in progress.
 
+## Neutral visual authoring: structures, equipment and ornamental assemblies
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected the five one-bit coordinate sheets for columns 26–50 and added 323 individual observations. Current totals are 951 individual observations and 27 sheets covering 4,433 occupied crops. Descriptions distinguish portable equipment, columns, gates, hanging banners, frames and heraldic fragments. Multi-cell motifs retain fragment status without invented faction identities or assembly sockets. Reviewed one-pixel frame corners remain contextual fragments with an explicit uncertainty note.
+
+Executed validation: **26 generic tests passed**, deterministic catalog freshness/original-file and crop-hash checks passed, and all **11,887** generic objects passed Draft 2020-12 schema validation. Original identities and 166 current / 75 preview-only / 6,874 unused selections are unchanged. Further art sections and atlas controls remain in progress.
+
 ## Reproduction
 
 ```sh
