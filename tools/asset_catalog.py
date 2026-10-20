@@ -21,6 +21,7 @@ TYPES = ['actor', 'terrain', 'structure', 'vegetation', 'item', 'prop', 'vehicle
          'ui_icon', 'input_prompt', 'glyph', 'fragment', 'unresolved', 'non_asset']
 LAYERS = ['ground', 'structure', 'object', 'actor', 'effect', 'interface', 'text', 'unresolved', 'reference']
 CONFIDENCE = ['low', 'medium', 'high']
+COMPOSITIONS = ['non_asset', 'standalone_candidate', 'tile_candidate', 'fragment_candidate', 'uncertain', 'sparse_mark']
 VISUAL_NOUNS = '''humanoid animal creature insect snail moth beetle spider snake cat dog bat frog fish lizard
 reptile bird rodent wing cape ghost skeleton horn hood robe
 sword blade knife axe bow spear staff shovel pickaxe hoe saw tool shield hammer fork spade rod scoop
@@ -435,6 +436,8 @@ def build_assets(records, assets_dir):
             raise ValueError('Invalid generic type/layers: ' + sid)
         if entry.get('confidence', 'medium') not in CONFIDENCE:
             raise ValueError('Invalid visual confidence: ' + sid)
+        if entry.get('composition', 'uncertain') not in COMPOSITIONS:
+            raise ValueError('Invalid artwork composition: ' + sid)
         for value in entry.get('subjects', []):
             if isinstance(value, dict) and (not value.get('term') or value.get('confidence', 'medium') not in CONFIDENCE):
                 raise ValueError('Invalid subject claim: ' + sid)

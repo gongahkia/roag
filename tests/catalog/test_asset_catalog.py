@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects
+from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects
 from query_assets import facets, matches, parser, sort_key
 
 
@@ -111,6 +111,7 @@ class CatalogTests(unittest.TestCase):
             a = r['asset']
             self.assertIn(a['type'], TYPES)
             self.assertIn(a['classification_confidence'], CONFIDENCE)
+            self.assertIn(a['composition']['kind'], COMPOSITIONS)
             self.assertTrue(a['name'])
             self.assertTrue(a['description'])
             self.assertTrue(set(a['suggested_layers']) <= set(LAYERS))

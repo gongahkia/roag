@@ -72,6 +72,12 @@ Executed validation: **25 generic tests passed**; deterministic regeneration/`--
 
 Executed validation: **26 generic tests passed**, deterministic catalog freshness/original-file and crop-hash checks passed, and all **11,887** generic objects passed Draft 2020-12 schema validation. Original identities and 166 current / 75 preview-only / 6,874 unused selections are unchanged. Further art sections and atlas controls remain in progress.
 
+## Neutral visual authoring: machinery and technology
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected the five one-bit sheets for columns 52–76 and added 273 individual descriptions, including modular machine panels/supports, conduit fragments, building/vehicle silhouettes, handheld devices, colored cards and banknote-like markings. Current totals are 1,224 individual observations and 32 sheets covering 5,080 occupied crops. Currency-like glyphs do not establish denominations; modular shapes do not supply functional connections.
+
+Executed validation: **26 generic tests passed**, all **11,887** metadata objects passed Draft 2020-12 schema validation, and regeneration/freshness plus original PNG/archive/crop hashes passed. The builder now rejects invalid authored composition values, and the full-record contract checks their vocabulary. No game bindings or source images changed. Remaining art sections and atlas controls are still in progress.
+
 ## Reproduction
 
 ```sh
