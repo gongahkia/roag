@@ -9,7 +9,7 @@ public sealed partial class Campaign
     private sealed class SaveData
     {
         public string Format { get; set; } = "lantern-rpg";
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = 2;
         public int Seed
         {
             get; set;
@@ -70,6 +70,7 @@ public sealed partial class Campaign
         public List<Hero> Party { get; set; } = [];
         public HashSet<string> Completed { get; set; } = [];
         public List<bool[]> Seen { get; set; } = [];
+        public List<ZoneData>? Zones { get; set; }
         public Battle? Battle
         {
             get; set;
@@ -77,7 +78,61 @@ public sealed partial class Campaign
         public List<JournalEntry> Journal { get; set; } = [];
         public List<CombatEvent> CombatEvents { get; set; } = [];
     }
-    private SaveData Snapshot() => new() { Seed = Seed, RandomState = Random.State, ZoneId = ZoneId, Position = Position, PreviousPosition = PreviousPosition, Gold = Gold, Potions = Potions, Torches = Torches, Rations = Rations, Light = Light, Steps = Steps, HasKey = HasKey, HasRelic = HasRelic, Victory = Victory, Sequence = _sequence, Party = Party, Completed = Completed, Seen = Zones.Select(z => z.Seen).ToList(), Battle = Battle, Journal = Journal, CombatEvents = CombatEvents };
+    private sealed class ZoneData
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Subtitle { get; set; } = "";
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public Ground[] Tiles { get; set; } = [];
+        public string?[] GroundSprites { get; set; } = [];
+        public bool[] Safe { get; set; } = [];
+        public List<WorldObject> Objects { get; set; } = [];
+        public GenerationReport Generation { get; set; } = new();
+        public HazardKind[] Hazards { get; set; } = [];
+        public HazardKind[] Sources { get; set; } = [];
+        public byte[] Age { get; set; } = [];
+        public byte[] Fuel { get; set; } = [];
+        public byte[] Suppressed { get; set; } = [];
+        public int Turns { get; set; }
+        public int Ticks { get; set; }
+        public static ZoneData From(Zone z) => new()
+        {
+            Id = z.Id, Name = z.Name, Subtitle = z.Subtitle, Width = z.Width, Height = z.Height,
+            Tiles = z.Tiles, GroundSprites = z.GroundSprites, Safe = z.Safe, Objects = z.Objects, Generation = z.Generation,
+            Hazards = z.Environment.Cells, Sources = z.Environment.Sources, Age = z.Environment.Age,
+            Fuel = z.Environment.Fuel, Suppressed = z.Environment.Suppressed, Turns = z.Environment.Turns, Ticks = z.Environment.Ticks
+        };
+        public Zone Restore()
+        {
+            long count = Width * (long)Height;
+            if (Width is < 8 or > 256 || Height is < 8 or > 256 || Tiles is null || Tiles.Length != count
+                || GroundSprites is null || GroundSprites.Length != count || Safe is null || Safe.Length != count
+                || Hazards is null || Hazards.Length != count || Sources is null || Sources.Length != count
+                || Age is null || Age.Length != count || Fuel is null || Fuel.Length != count || Suppressed is null || Suppressed.Length != count
+                || Objects is null || Objects.Count > count || Objects.Any(o => o is null || !Enum.IsDefined(o.Kind)) || Generation is null
+                || Tiles.Any(g => !Enum.IsDefined(g)) || Hazards.Any(h => !Enum.IsDefined(h)) || Sources.Any(h => !Enum.IsDefined(h))
+                || Turns < 0 || Ticks < 0 || Ticks > Turns / GenerationRules.Default.Hazards.StepsPerTick)
+                throw new InvalidDataException("Invalid generated map or environment data.");
+            var z = new Zone(Id, Name, Subtitle, Width, Height, Ground.Void) { Generation = Generation };
+            Array.Copy(Tiles, z.Tiles, Tiles.Length);
+            Array.Copy(GroundSprites, z.GroundSprites, Tiles.Length);
+            Array.Copy(Safe, z.Safe, Tiles.Length);
+            z.Objects.AddRange(Objects);
+            Array.Copy(Hazards, z.Environment.Cells, Tiles.Length);
+            Array.Copy(Sources, z.Environment.Sources, Tiles.Length);
+            Array.Copy(Age, z.Environment.Age, Tiles.Length);
+            Array.Copy(Fuel, z.Environment.Fuel, Tiles.Length);
+            Array.Copy(Suppressed, z.Environment.Suppressed, Tiles.Length);
+            z.Environment.Turns = Turns;
+            z.Environment.Ticks = Ticks;
+            if (Enumerable.Range(0, Tiles.Length).Any(i => Safe[i] && (Hazards[i] != HazardKind.None || Sources[i] != HazardKind.None)))
+                throw new InvalidDataException("Hazard on a protected route.");
+            return z;
+        }
+    }
+    private SaveData Snapshot() => new() { Seed = Seed, RandomState = Random.State, ZoneId = ZoneId, Position = Position, PreviousPosition = PreviousPosition, Gold = Gold, Potions = Potions, Torches = Torches, Rations = Rations, Light = Light, Steps = Steps, HasKey = HasKey, HasRelic = HasRelic, Victory = Victory, Sequence = _sequence, Party = Party, Completed = Completed, Seen = Zones.Select(z => z.Seen).ToList(), Zones = Zones.Select(ZoneData.From).ToList(), Battle = Battle, Journal = Journal, CombatEvents = CombatEvents };
     public string StateJson() => JsonSerializer.Serialize(Snapshot(), JsonOptions);
     public void Save(string? path = null)
     {
@@ -105,12 +160,22 @@ public sealed partial class Campaign
     public static Campaign FromJson(string json)
     {
         var d = JsonSerializer.Deserialize<SaveData>(json, JsonOptions) ?? throw new InvalidDataException("Empty RPG save.");
-        if (d.Format != "lantern-rpg" || d.Version != 1 || d.Party is null || d.Party.Count != 4 || d.Completed is null || d.Seen is null || d.Seen.Count != 3 || d.Gold < 0 || d.Potions < 0 || d.Torches < 0 || d.Rations < 0 || d.Light is < 0 or > 100 || d.Steps < 0 || d.RandomState == 0 || d.Journal is null || d.CombatEvents is null)
+        if (d.Format != "lantern-rpg" || d.Version is not (1 or 2) || d.Party is null || d.Party.Count != 4 || d.Completed is null || d.Seen is null || d.Seen.Count != 3 || d.Gold < 0 || d.Potions < 0 || d.Torches < 0 || d.Rations < 0 || d.Light is < 0 or > 100 || d.Steps < 0 || d.RandomState == 0 || d.Journal is null || d.CombatEvents is null)
         {
             throw new InvalidDataException("Invalid RPG save. Colony saves use a different format.");
         }
 
-        var c = new Campaign(d.Seed);
+        var c = new Campaign(d.Seed, d.Version == 1);
+        if (d.Version == 2)
+        {
+            if (d.Zones is null || d.Zones.Count != 3 || d.Zones.Any(z => z is null)
+                || !d.Zones.Select(z => z.Id).SequenceEqual(new[] { "hearth", "wilds", "crypt" }))
+                throw new InvalidDataException("Missing generated maps.");
+            c.Zones.Clear();
+            c.Zones.AddRange(d.Zones.Select(z => z.Restore()));
+            var validation = WorldBuilder.Validate(c.Zones);
+            if (!validation.Valid) throw new InvalidDataException("Invalid saved quest: " + string.Join("; ", validation.Errors));
+        }
         if (!c.Zones.Any(z => z.Id == d.ZoneId))
         {
             throw new InvalidDataException("Unknown RPG area.");
@@ -180,7 +245,8 @@ public sealed partial class Campaign
         c.Reveal();
         return c;
     }
-    public object Summary() => new { Seed, Zone = ZoneId, Position, Gold, Potions, Torches, Rations, Light, Steps, HasKey, HasRelic, Victory, Party, Completed = Completed.Order().ToArray(), Encounter = Battle?.Name, Objective, Journal = Journal.TakeLast(5) };
+    public object GenerationSummary() => new { Seed, Validation = WorldBuilder.Validate(Zones), Zones = Zones.Select(z => new { z.Id, z.Width, z.Height, z.Generation, Terrain = z.Tiles.GroupBy(g => g).ToDictionary(g => g.Key.ToString(), g => g.Count()), HazardTiles = z.Environment.Cells.Count(h => h != HazardKind.None), z.Environment.Turns, z.Environment.Ticks }) };
+    public object Summary() => new { Seed, Zone = ZoneId, Position, Gold, Potions, Torches, Rations, Light, Steps, HasKey, HasRelic, Victory, Party, Completed = Completed.Order().ToArray(), Encounter = Battle?.Name, Objective, Generation = GenerationSummary(), Journal = Journal.TakeLast(5) };
     public ActionResult TravelTo(string objectId)
     {
         var o = Zone.Objects.FirstOrDefault(o => o.Id == objectId && Present(o));
@@ -215,6 +281,9 @@ public sealed partial class Campaign
     {
         void Go(string id)
         {
+            if (Light < 65 && Torches > 0) UseTorch();
+            foreach (var h in Party.Where(h => h.Health < h.MaxHealth / 2))
+                if (Potions > 0) UsePotion(h.Id);
             var result = TravelTo(id);
             if (!result.Success)
             {
@@ -235,6 +304,7 @@ public sealed partial class Campaign
         Go("to-crypt");
         Go("abbey-hollows");
         Go("abbey-chest");
+        Go("crypt-camp");
         Go("abbey-slimes");
         Go("crypt-camp");
         Go("iron-gate");

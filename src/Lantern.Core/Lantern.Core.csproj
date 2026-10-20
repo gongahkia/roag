@@ -1,1 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <EmbeddedResource Include="../../assets/lantern-generation.json" LogicalName="Lantern.Generation.json" />
+  </ItemGroup>
+</Project>

@@ -49,11 +49,18 @@ public sealed partial class Campaign
     public List<CombatEvent> CombatEvents { get; private set; } = [];
     private int _sequence;
     public string Objective => Victory ? "The ember has a home. Explore, recover, and inspect the art." : HasRelic ? "Bring the ember relic to Warden Elowen in Hearth." : Completed.Contains("iron-gate") ? "Defeat the Hollow Abbot and recover the ember relic." : HasKey ? "Take the iron key to the sealed chamber beneath the abbey." : "Find the iron key in Ashwood's abandoned chest.";
-    public Campaign(int seed = 42)
+    public Campaign(int seed = 42) : this(seed, false) { }
+    private Campaign(int seed, bool legacy)
     {
         Seed = seed;
         Random = new(unchecked((uint)seed));
-        Zones = WorldBuilder.Create(seed);
+        Zones = legacy ? LegacyWorldBuilder.Create(seed) : WorldBuilder.Create(seed);
+        if (legacy)
+            foreach (var zone in Zones)
+            {
+                zone.Generation = new() { Version = 1, Algorithm = "Authored version-one map" };
+                Array.Fill(zone.Safe, true);
+            }
         string[] names = ["Rowan", "Vesper", "Iris", "Sable"];
         for (int i = 0; i < 4; i++)
         {
@@ -110,6 +117,24 @@ public sealed partial class Campaign
         }
         PreviousPosition = Position;
         Position = next;
+        AdvanceExploration();
+        Reveal();
+        if (ObjectAt(next) is { } o)
+        {
+            if (o.Kind == ObjectKind.Encounter)
+            {
+                StartEncounter(o);
+                return new(true, "Ambush / " + o.Name);
+            }
+            if (o.Kind == ObjectKind.Portal)
+            {
+                return Interact(o.Id);
+            }
+        }
+        return new(true, "");
+    }
+    private void AdvanceExploration()
+    {
         Steps++;
         if (ZoneId != "hearth")
         {
@@ -131,26 +156,40 @@ public sealed partial class Campaign
             Light = 100;
         }
 
-        Reveal();
-        if (ObjectAt(next) is { } o)
+        if (ZoneId != "hearth" && Zone.Generation.Version > 1)
         {
-            if (o.Kind == ObjectKind.Encounter)
+            Zone.Environment.Advance(Zone, Seed);
+            var hazard = Zone.Environment.Cells[Zone.Index(Position)];
+            if (hazard != HazardKind.None)
             {
-                StartEncounter(o);
-                return new(true, "Ambush / " + o.Name);
-            }
-            if (o.Kind == ObjectKind.Portal)
-            {
-                return Interact(o.Id);
+                foreach (var h in Party.Where(h => h.Health > 0))
+                {
+                    h.Stress = Math.Min(100, h.Stress + (hazard == HazardKind.Corruption ? 3 : 1));
+                    if (hazard != HazardKind.Corruption) h.Health = Math.Max(1, h.Health - 1);
+                }
+                Note(hazard switch
+                {
+                    HazardKind.Fire => "Scorching ground: each conscious companion loses 1 health and gains 1 stress. T clears nearby hazards.",
+                    HazardKind.Spores => "Bitter spores: each conscious companion loses 1 health and gains 1 stress. T clears nearby hazards.",
+                    _ => "The blight whispers: each conscious companion gains 3 stress. T clears nearby hazards."
+                });
             }
         }
-        return new(true, "");
+    }
+    public ActionResult Wait()
+    {
+        if (Battle is not null) return new(false, "Choose a battle action first.");
+        AdvanceExploration();
+        Reveal();
+        return new(true, "You wait and watch the shadows.");
     }
     public List<Cell> Route(Cell destination)
     {
         var o = ObjectAt(destination);
         IEnumerable<Cell> goals = o is { Blocks: true } && !Walkable(destination) ? Zone.Neighbors(destination).Where(Walkable) : [destination];
-        return Zone.FindPath(Position, goals, p => Walkable(p) && (o?.Position == p || ObjectAt(p)?.Kind != ObjectKind.Encounter));
+        bool Allowed(Cell p) => Walkable(p) && (o?.Position == p || ObjectAt(p)?.Kind != ObjectKind.Encounter);
+        var path = Zone.FindPath(Position, goals, p => Allowed(p) && (p == destination || Zone.Environment.Cells[Zone.Index(p)] == HazardKind.None));
+        return path.Count > 0 ? path : Zone.FindPath(Position, goals, Allowed);
     }
     public ActionResult Interact(string? id = null)
     {
@@ -300,15 +339,18 @@ public sealed partial class Campaign
             return new(false, "Relight the lantern outside combat.");
         }
 
-        if (Torches <= 0 || Light == 100)
+        var rules = GenerationRules.Default.Hazards;
+        bool hazardNearby = Zone.Environment.Nearby(Zone, Position, rules.TorchRadius);
+        if (Torches <= 0 || Light == 100 && !hazardNearby)
         {
             return new(false, Torches <= 0 ? "No torches left." : "The lantern is already bright.");
         }
 
         Torches--;
+        int cleared = Zone.Environment.ClearNear(Zone, Position, rules.TorchRadius);
         Light = Math.Min(100, Light + 45);
         Reveal();
-        return Result(true, "A fresh torch. The shadows recede.");
+        return Result(true, cleared > 0 ? $"A fresh torch drives back {cleared} hazard tiles and restores 45 light." : "A fresh torch. The shadows recede.");
     }
     public ActionResult UsePotion(int heroId)
     {

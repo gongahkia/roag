@@ -11,6 +11,10 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
     public bool[] Seen { get; set; } = new bool[width * height];
     public bool[] Visible { get; } = new bool[width * height];
     public List<WorldObject> Objects { get; } = [];
+    public string?[] GroundSprites { get; } = new string?[width * height];
+    public bool[] Safe { get; } = new bool[width * height];
+    public HazardField Environment { get; } = new(width, height);
+    public GenerationReport Generation { get; set; } = new();
     public int Index(Cell p) => p.Y * Width + p.X;
     public bool Inside(Cell p) => p.X >= 0 && p.Y >= 0 && p.X < Width && p.Y < Height;
     public Ground At(Cell p) => Inside(p) ? Tiles[Index(p)] : Ground.Void;
@@ -114,7 +118,8 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
         return true;
     }
 }
-public static class WorldBuilder
+// Retained verbatim for version-one save compatibility and deterministic fallback.
+internal static class LegacyWorldBuilder
 {
     public static List<Zone> Create(int seed)
     {

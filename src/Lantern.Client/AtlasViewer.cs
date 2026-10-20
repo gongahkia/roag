@@ -12,7 +12,8 @@ public sealed partial class LanternGame
         public int[] Rect { get; set; } = []; public string Category { get; set; } = ""; public string Family { get; set; } = ""; public string Layer { get; set; } = "";
         public string Confidence { get; set; } = ""; public string Basis { get; set; } = ""; public string Role { get; set; } = ""; public string Adaptation { get; set; } = "";
         public List<string> Ideas { get; set; } = []; public Dictionary<string, List<string>> Usage { get; set; } = [];
-        public string Search => Id + " " + Name + " " + Category + " " + Family + " " + Role + " " + Adaptation + " " + string.Join(" ", Ideas) + " " + string.Join(" ", Usage.Values.SelectMany(x => x));
+        public string GenerationNotes { get; set; } = "";
+        public string Search => Id + " " + Name + " " + Category + " " + Family + " " + Role + " " + Adaptation + " " + GenerationNotes + " " + string.Join(" ", Ideas) + " " + string.Join(" ", Usage.Values.SelectMany(x => x));
     }
     private List<AtlasEntry> _entries = [], _filtered = [];
     private string _search = "";
@@ -183,6 +184,9 @@ public sealed partial class LanternGame
         Text("ADAPTATION / LIMITS", x, y, Gold);
         y += 23;
         y += Wrap(entry.Adaptation, x, y, w, Muted) + 18;
+        Text("GENERATION / CROP REVIEW", x, y, Gold);
+        y += 24;
+        y += Wrap(entry.GenerationNotes, x, y, w, Muted) + 18;
         Text("FUTURE IDEAS", x, y, Gold);
         y += 23;
         y += Wrap(string.Join("\n\n", entry.Ideas), x, y, w, Muted);

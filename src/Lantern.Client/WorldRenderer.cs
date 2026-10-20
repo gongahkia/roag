@@ -99,6 +99,7 @@ public sealed partial class LanternGame
                         sprite = hash % 3 == 0 ? "stone-alt" : "stone";
                         break;
                 }
+                if (g != Ground.Tree) sprite = zone.GroundSprites[i] ?? sprite;
                 Fill(r, bg * alpha);
                 if (g != Ground.Grass || hash % 3 == 0)
                 {
@@ -112,22 +113,26 @@ public sealed partial class LanternGame
                 if (g == Ground.Tree)
                 {
                     Fill(new(r.X + 3, r.Y + 4, r.Width - 4, r.Height - 2), Color.Black * .25f);
-                    Tile(zone.Id == "wilds" && hash % 8 == 0 ? "dead-tree" : hash % 3 == 0 ? "pine" : "tree", r, new Color(86, 116, 75) * alpha);
+                    Tile(zone.GroundSprites[i] ?? (hash % 3 == 0 ? "pine" : "tree"), r, new Color(86, 116, 75) * alpha);
                 }
                 else if (g == Ground.Grass && hash < 3 && _campaign.ObjectAt(p) is null)
                 {
                     Tile(hash == 0 ? "flower" : hash == 1 ? "shrub" : "mushroom", r, (hash == 0 ? Gold : Green) * alpha * .75f);
                 }
+                if (bright && zone.Environment.Cells[i] is var hazard && hazard != HazardKind.None)
+                {
+                    var rules = GenerationRules.Default.Hazards;
+                    Color color = hazard == HazardKind.Fire ? Red : hazard == HazardKind.Spores ? Green : Purple;
+                    string icon = hazard == HazardKind.Fire ? rules.FireSprite : hazard == HazardKind.Spores ? rules.SporesSprite : rules.CorruptionSprite;
+                    Fill(r, color * .19f);
+                    Outline(new(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2), color * .55f);
+                    Tile(icon, r, color);
+                    if (r.Contains(_mouse.Position))
+                        _hover = hazard + " / " + (hazard == HazardKind.Corruption ? "+3 stress per step." : "1 health and +1 stress per step.") + " Spreads every 4 exploration turns. T clears nearby hazards; . waits. Roads and room crosses are safe.";
+                }
             }
         }
 
-        if (zone.Id == "hearth")
-        {
-            foreach (var (p, sprite) in new[] { (new Cell(5, 5), "bed"), (new Cell(10, 5), "bed"), (new Cell(7, 6), "table"), (new Cell(25, 5), "barrel"), (new Cell(30, 5), "bookcase"), (new Cell(5, 19), "anvil"), (new Cell(27, 19), "table"), (new Cell(30, 21), "barrel") })
-            {
-                Tile(sprite, CellRect(p), new(165, 128, 80));
-            }
-        }
         for (int n = _routeCursor; n < _route.Count; n++)
         {
             var s = _camera.WorldToScreen(Point(_route[n]));

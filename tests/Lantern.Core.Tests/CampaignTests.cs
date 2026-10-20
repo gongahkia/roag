@@ -78,15 +78,16 @@ public sealed class CampaignTests
         c.TravelTo("to-crypt");
         var result = c.TravelTo("iron-gate");
         Assert.False(result.Success);
-        Assert.False(c.Walkable(new(34, 16)));
+        var gate = c.Zone.Objects.Single(o => o.Id == "iron-gate").Position;
+        Assert.False(c.Walkable(gate));
         c.TravelTo("to-forest");
         c.TravelTo("iron-cache");
         c.TravelTo("to-crypt");
         Assert.True(c.TravelTo("iron-gate").Success);
         Assert.False(c.HasKey);
-        Assert.True(c.Walkable(new(34, 16)));
+        Assert.True(c.Walkable(gate));
         var loaded = Campaign.FromJson(c.StateJson());
-        Assert.True(loaded.Walkable(new(34, 16)));
+        Assert.True(loaded.Walkable(gate));
     }
     [Fact]
     public void InvalidActionsSpendNoManaPotionsOrTurns()
@@ -123,7 +124,7 @@ public sealed class CampaignTests
         Assert.Null(c.Battle);
         Assert.Contains("wilds-hounds", c.Completed);
         Assert.True(c.Gold > gold);
-        Assert.Null(c.ObjectAt(new(11, 16)));
+        Assert.Null(c.ObjectAt(c.Zone.Objects.Single(o => o.Id == "wilds-hounds").Position));
         Assert.All(c.Party, h => Assert.True(h.Experience > 0));
     }
     [Fact]
@@ -198,7 +199,7 @@ public sealed class CampaignTests
         Assert.Null(c.Battle);
         Assert.DoesNotContain("wilds-hounds", c.Completed);
         Assert.All(c.Party, h => Assert.Equal(5, h.Stress));
-        Assert.NotEqual(new Cell(11, 16), c.Position);
+        Assert.NotEqual(c.Zone.Objects.Single(o => o.Id == "wilds-hounds").Position, c.Position);
     }
     [Fact]
     public void DefeatReturnsPartyToTownWithoutErasingProgress()
@@ -263,6 +264,9 @@ public sealed class CampaignTests
     [InlineData(42)]
     [InlineData(7)]
     [InlineData(1337)]
+    [InlineData(0)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
     public void FullExpeditionCanReturnTheEmberThroughRealMovementAndCombat(int seed)
     {
         var c = new Campaign(seed);

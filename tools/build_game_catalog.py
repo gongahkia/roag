@@ -99,6 +99,27 @@ def main():
     colony = read("runtime-sprites.json")
     rpg = read("lantern-bindings.json")
     bindings = rpg["bindings"]
+    generation = read("lantern-generation.json")
+    visual_review = read("reference/urizen-generation-review.json")
+    reviewed = {r["id"]: r for r in visual_review["entries"]}
+    if len(reviewed) != len(visual_review["entries"]) or any(sid not in sprites for sid in reviewed):
+        raise ValueError("Invalid or duplicate Urizen generation review ID")
+    rule_refs = collections.defaultdict(list)
+    def visit_rules(value, path=""):
+        if isinstance(value, dict):
+            for key, child in value.items(): visit_rules(child, path + "." + key if path else key)
+        elif isinstance(value, list):
+            for i, child in enumerate(value): visit_rules(child, path + f"[{i}]")
+        elif isinstance(value, str) and value in bindings:
+            rule_refs[bindings[value]].append(path + " = " + value)
+    visit_rules(generation)
+    expected = [*generation["forest"]["props"], *generation["hearth"]["furniture"],
+                generation["hazards"]["fireSprite"], generation["hazards"]["sporesSprite"], generation["hazards"]["corruptionSprite"]]
+    expected += [s for m in generation["materials"].values() for s in m["sprites"]]
+    for variant in generation["abbey"]["variants"]:
+        expected += variant["floorSprites"] + variant["props"] + [variant["wallSprite"]]
+        if variant["weight"] <= 0: raise ValueError("Room weight must be positive")
+    if any(alias not in bindings for alias in expected): raise ValueError("Unbound sprite in generation rules")
     for key, sprite in bindings.items():
         if sprite not in sprites: raise ValueError(f"Missing RPG binding {key}: {sprite}")
     runtime = {"schemaVersion": 1, "sourceCatalog": "catalog.json", "notes": rpg["notes"], "bindings": bindings,
@@ -115,6 +136,24 @@ def main():
         e["usage"] = usages[r["id"]]
         e["runtime_status"] = "used" if any(e["usage"].values()) else "unused" if r["kind"] == "sprite" else "not_applicable"
         e["assessment"] = assessment(r)
+        family = e["assessment"]["family"]
+        candidate = family in {"environment", "vegetation", "props", "effects", "technology", "symbols-and-assemblies"}
+        status = "runtime_rule" if r["id"] in rule_refs else "candidate_requires_rules" if candidate and r["kind"] == "sprite" else "not_world_generation"
+        if r["kind"] != "sprite": status = "not_applicable"
+        e["generation"] = {"status": status, "rule_refs": rule_refs.get(r["id"], []),
+            "role": {"environment": "Ground/structure/landmark; review joints and scale before choosing topology.",
+                     "vegetation": "Biome or hazard-source dressing; assign collision, fuel and safe-route exclusions explicitly.",
+                     "props": "Room/biome decoration; reserve quest footprints and decide blocking separately.",
+                     "effects": "Hazard or effect overlay; visual crop does not define spreading or animation.",
+                     "actors": "Encounter/NPC appearance chosen after the quest graph; never use body variants as room sockets.",
+                     "technology": "Future alternate-theme assembly after joint/footprint review.",
+                     "symbols-and-assemblies": "Future ornament/socket marker only after complete-assembly review."}.get(family, "UI/item/reference artwork; no automatic terrain placement."),
+            "adjacency_basis": "Game-authored sockets and masks in lantern-generation.json; artwork indices are not inferred adjacency.",
+            "visual_review": reviewed.get(r["id"]),
+            "required_before_new_use": [] if status == "runtime_rule" else ["Review identity, layer, apparent scale, footprint and joins.", "Author biome, weight, collision and safe-route exclusions; validate reachability."] if candidate else []}
+        if r["id"] in reviewed:
+            note = reviewed[r["id"]]
+            e["assessment"]["ideas"] = [note["future_use"], *e["assessment"]["ideas"]]
         e["tags"] = sorted({r["pack"], e["assessment"]["family"], e["assessment"]["layer"], r.get("category", "unclassified")})
         e["review"] = {"identity_basis": r.get("identity", {}).get("basis", "not_applicable"),
                        "confidence": r.get("identity", {}).get("confidence", "not_applicable"),
@@ -122,16 +161,20 @@ def main():
                        "game_role_is_interpretation": bool(e["usage"]["rpg"]),
                        "needs_visual_review": r["kind"] == "sprite" and r.get("identity", {}).get("confidence") != "high"}
         e["review"]["assessment_basis"] = "Evidence-scoped category/region rules plus preserved crop observations; curated runtime casting is separate from publisher identity. Not a new manual identification of every motif."
+        e["review"]["generation_crop_visually_inspected"] = r["id"] in reviewed
         enriched.append(e)
     # Retain every original inventory field; replace only generated v2 enrichments.
-    inventory.update(schema_version=2,
+    inventory.update(schema_version=3,
         catalog_scope="Original image/archive inventory plus every sprite/slot from all three packs, with live per-game usage and evidence-scoped RPG proposals.",
         source_audit="sprites.json", generator="tools/build_game_catalog.py",
         catalog_summary={"images": len(inventory["images"]), "records": len(enriched), "occupied_sprites": len(sprites),
                          "used_colony": sum(bool(e["usage"]["colony"]) for e in enriched), "used_rpg": sum(bool(e["usage"]["rpg"]) for e in enriched),
                          "used_either": sum(e["runtime_status"] == "used" for e in enriched),
+                         "generation_rule_sprites": len(rule_refs), "generation_visually_reviewed": len(reviewed),
                          "unused_sprites": sum(e["runtime_status"] == "unused" for e in enriched),
                          "families": dict(sorted(collections.Counter(e["assessment"]["family"] for e in enriched if e["kind"] == "sprite").items()))},
+        generation_rules={"source": "lantern-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
+                          "visual_review": "reference/urizen-generation-review.json", "notes": generation["notes"]},
         game_bindings={"colony": colony["bindings"], "rpg": bindings}, sprites=enriched,
         catalog_limits=["Every crop has a usage/affordance assessment; that is not individual verified identification of all 7,115 motifs.",
                         "Historical exact-RGB matches and filename/control labels retain their original evidence. Uncertain figures and fragments remain uncertain.",
@@ -141,7 +184,9 @@ def main():
     index = [{"id": e["id"], "name": e["name"], "pack": e["pack"], "source": e["source"], "rect": e["rect"],
               "category": e.get("category", "unclassified"), "family": e["assessment"]["family"], "layer": e["assessment"]["layer"],
               "confidence": e["review"]["confidence"], "basis": e["review"]["identity_basis"], "role": e["assessment"]["rpg_role"],
-              "ideas": e["assessment"]["ideas"], "adaptation": e["assessment"]["adaptation"], "usage": e["usage"]}
+              "ideas": e["assessment"]["ideas"], "adaptation": e["assessment"]["adaptation"], "usage": e["usage"],
+              "generationNotes": e["generation"]["status"] + ". " + e["generation"]["role"] + " " + "; ".join(e["generation"]["rule_refs"])
+                  + (" Visual review: " + reviewed[e["id"]]["visual_observation"] + " " + reviewed[e["id"]]["future_use"] if e["id"] in reviewed else "")}
              for e in enriched if e["kind"] == "sprite"]
     write("atlas-index.json", index, args.check, compact=True)
     casting={
@@ -174,6 +219,20 @@ def main():
     if args.check:
         if not md_path.exists() or md_path.read_text()!=md:raise SystemExit("Stale rpg-bindings.md")
     else:md_path.write_text(md)
+    review_lines = ["# Urizen: generation crop review", "", visual_review["scope"], "",
+        "This supplements the exhaustive per-sprite catalog. Observations below were checked against the exact source crops; uncertain publisher identities stay uncertain. Source pixels, IDs, rectangles, original audit labels and identity confidence are preserved.", "",
+        "The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [lantern-generation.json](../lantern-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.", "",
+        "Fire, spores and corruption use explicit overlay rules. Button mushrooms represent spores and a leaf silhouette represents magical corruption; these are game interpretations, not publisher identities. Existing campfires remain rest locations, not fire sources.", "",
+        f"**{len(reviewed)} individually inspected crops; {len(rule_refs)} distinct sprite IDs referenced by generation rules across all packs.**", "",
+        "| Stable ID | Preserved identity / evidence | Visual observation | Generation status / rule references | Future use / limitations |", "|---|---|---|---|---|"]
+    for note in visual_review["entries"]:
+        r=sprites[note["id"]]
+        refs="; ".join(rule_refs.get(note["id"], [])) or "Not used by generation; " + note["decision"]
+        review_lines.append("| " + " | ".join(cell(v) for v in [r["id"], r["name"] + " / " + r["identity"]["confidence"], note["visual_observation"], refs, note["future_use"]]) + " |")
+    review_path=ASSETS/"reference"/"urizen-generation.md"; review_md="\n".join(review_lines)+"\n"
+    if args.check:
+        if not review_path.exists() or review_path.read_text()!=review_md: raise SystemExit("Stale urizen-generation.md")
+    else:review_path.write_text(review_md)
     template = (ASSETS / "reference" / "atlas-template.html").read_text()
     image_data={item["path"]:"data:image/png;base64,"+base64.b64encode((ASSETS/item["path"]).read_bytes()).decode("ascii") for item in inventory["images"]}
     html = template.replace("CATALOG_DATA", json.dumps(index, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")).replace("CATALOG_IMAGES",json.dumps(image_data,separators=(",", ":")))

@@ -98,9 +98,21 @@ public sealed partial class LanternGame
                 tx += 46;
             }
         }
-        string hint = _campaign.Battle is null ? "WASD / ARROWS   E INTERACT   G FOLLOW" : "1-6 ACTION   CLICK TARGET   ENTER CONFIRM";
+        string hint = _campaign.Battle is null ? "WASD / ARROWS   E INTERACT   . WAIT   G FOLLOW" : "1-6 ACTION   CLICK TARGET   ENTER CONFIRM";
         Fill(new(_map.X + 10, _map.Bottom - 30, Math.Min(_map.Width - 20, hint.Length * 8 + 20), 23), Background * .9f);
         Text(hint, _map.X + 20, _map.Bottom - 25, Muted);
+        if (_campaign.ZoneId != "hearth" && _campaign.Battle is null)
+        {
+            int hx = _map.Right - 215, hy = _map.Y + 10;
+            Fill(new(hx, hy, 205, 44), Background * .92f);
+            Text("OFF-ROAD / T CLEARS", hx + 10, hy + 6, Muted);
+            foreach (var (icon, label, color) in new[] { ("hazard-fire", "FIRE", Red), ("hazard-spores", "SPORE", Green), ("hazard-corruption", "BLIGHT", Purple) })
+            {
+                Tile(icon, new(hx + 8, hy + 23, 14, 14), color);
+                Text(label, hx + 26, hy + 25, color, .65f);
+                hx += 65;
+            }
+        }
         DrawParty(height);
         DrawActions(height);
         DrawSidebar();

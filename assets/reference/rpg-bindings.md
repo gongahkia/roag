@@ -4,11 +4,12 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
 
-**77 semantic aliases, 94 font glyphs, 171 distinct runtime-bound IDs.**
+**101 semantic aliases, 94 font glyphs, 192 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
 | abbot | urizen-onebit-r17-c203 | enemy / monk / prayer | author_metadata_visible_rgb_match / high | Author-matched monk/prayer figure cast as the Hollow Abbot boss. |
+| animal-bones | urizen-onebit-r38-c003 | bones / animal | author_metadata_visible_rgb_match / high | Render as animal bones; preserve the source identity and keep mechanics in game data. |
 | anvil | urizen-onebit-r25-c028 | anvil | author_metadata_visible_rgb_match / high | Render as anvil; preserve the source identity and keep mechanics in game data. |
 | arc | godot-white-thunder | thunder | publisher_filename / high | Render as arc; preserve the source identity and keep mechanics in game data. |
 | atlas | godot-white-grid | grid | publisher_filename / high | Render as atlas; preserve the source identity and keep mechanics in game data. |
@@ -19,33 +20,47 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | bones | urizen-onebit-r38-c002 | bones / remains | author_metadata_visible_rgb_match / high | Render as bones; preserve the source identity and keep mechanics in game data. |
 | book | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as book; preserve the source identity and keep mechanics in game data. |
 | bookcase | urizen-onebit-r36-c002 | furniture / bookcase | author_metadata_visible_rgb_match / high | Render as bookcase; preserve the source identity and keep mechanics in game data. |
+| boulder | urizen-onebit-r05-c020 | floor / boulders | author_metadata_visible_rgb_match / high | Render as boulder; preserve the source identity and keep mechanics in game data. |
 | bow | urizen-onebit-r10-c026 | weapon / bow | author_metadata_visible_rgb_match / high | Author-confirmed bow used for arrow/volley ability icons. |
 | brazier | urizen-onebit-r22-c027 | light / brazier | author_metadata_visible_rgb_match / high | Render as brazier; preserve the source identity and keep mechanics in game data. |
 | bridge | urizen-onebit-r40-c012 | bridge; orientation=H | author_metadata_visible_rgb_match / high | Render as bridge; preserve the source identity and keep mechanics in game data. |
+| broken-column | urizen-onebit-r03-c027 | column / antique / broken | author_metadata_visible_rgb_match / high | Render as broken column; preserve the source identity and keep mechanics in game data. |
+| button-mushroom | urizen-onebit-r10-c003 | flora / mushroom / button | author_metadata_visible_rgb_match / high | Render as button mushroom; preserve the source identity and keep mechanics in game data. |
 | campfire | urizen-onebit-r42-c000 | bonfire | author_metadata_visible_rgb_match / high | Render as campfire; preserve the source identity and keep mechanics in game data. |
 | candle | urizen-onebit-r42-c007 | light / candle | author_metadata_visible_rgb_match / high | Render as candle; preserve the source identity and keep mechanics in game data. |
+| cave-mouth | urizen-onebit-r03-c030 | cave | author_metadata_visible_rgb_match / high | Render as cave mouth; preserve the source identity and keep mechanics in game data. |
 | chest | urizen-onebit-r19-c026 | furniture / chest | author_metadata_visible_rgb_match / high | Render as chest; preserve the source identity and keep mechanics in game data. |
 | chest-open | urizen-onebit-r19-c027 | furniture / chest / open | author_metadata_visible_rgb_match / high | Render as chest open; preserve the source identity and keep mechanics in game data. |
 | coffin | urizen-onebit-r19-c029 | Chests, bows, siege and workshop parts R19 C029 | visual_region_and_silhouette / low | Unconfirmed chest/workshop silhouette used as a coffin-shaped crypt prop; this is not an author label. |
 | coin | urizen-onebit-r46-c001 | money / coin | author_metadata_visible_rgb_match / high | Render as coin; preserve the source identity and keep mechanics in game data. |
 | column | urizen-onebit-r03-c026 | column / antique | author_metadata_visible_rgb_match / high | Render as column; preserve the source identity and keep mechanics in game data. |
+| cracked-wall | urizen-onebit-r02-c001 | Structural tile R02 C001 | visual_region_and_silhouette / low | Render as cracked wall; preserve the source identity and keep mechanics in game data. |
 | cross | urizen-onebit-r25-c032 | chapel / cross | author_metadata_visible_rgb_match / high | Render as cross; preserve the source identity and keep mechanics in game data. |
+| crystal | urizen-onebit-r22-c002 | mineral / crystal; index=0 | author_metadata_visible_rgb_match / high | Render as crystal; preserve the source identity and keep mechanics in game data. |
 | dead-tree | urizen-onebit-r10-c005 | flora / tree / dead | author_metadata_visible_rgb_match / high | Render as dead tree; preserve the source identity and keep mechanics in game data. |
 | elder | urizen-onebit-r01-c187 | Figure row 01, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as elder; preserve the source identity and keep mechanics in game data. |
 | ember | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Render as ember; preserve the source identity and keep mechanics in game data. |
 | exit | godot-white-door | door | publisher_filename / high | Render as exit; preserve the source identity and keep mechanics in game data. |
+| flagstone | urizen-onebit-r05-c004 | floor / flagged; index=0 | author_metadata_visible_rgb_match / high | Render as flagstone; preserve the source identity and keep mechanics in game data. |
 | flower | urizen-onebit-r10-c001 | flora / flower; index=1 | author_metadata_visible_rgb_match / high | Render as flower; preserve the source identity and keep mechanics in game data. |
 | gate | urizen-onebit-r01-c012 | door / closed / bars | author_metadata_visible_rgb_match / high | Render as gate; preserve the source identity and keep mechanics in game data. |
 | gate-open | urizen-onebit-r01-c000 | door / open | author_metadata_visible_rgb_match / high | Render as gate open; preserve the source identity and keep mechanics in game data. |
 | grass | urizen-onebit-r05-c015 | floor / grass; index=0 | author_metadata_visible_rgb_match / high | Render as grass; preserve the source identity and keep mechanics in game data. |
 | grass-alt | urizen-onebit-r05-c016 | floor / grass; index=1 | author_metadata_visible_rgb_match / high | Render as grass alt; preserve the source identity and keep mechanics in game data. |
 | grave | urizen-onebit-r39-c008 | gravestone / cross | author_metadata_visible_rgb_match / high | Render as grave; preserve the source identity and keep mechanics in game data. |
+| grave-obelisk | urizen-onebit-r25-c035 | gravestone / obelisk | author_metadata_visible_rgb_match / high | Render as grave obelisk; preserve the source identity and keep mechanics in game data. |
+| grave-slab | urizen-onebit-r39-c007 | gravestone | author_metadata_visible_rgb_match / high | Render as grave slab; preserve the source identity and keep mechanics in game data. |
+| grit | urizen-onebit-r05-c017 | floor / grit | author_metadata_visible_rgb_match / high | Render as grit; preserve the source identity and keep mechanics in game data. |
+| hazard-corruption | urizen-onebit-r09-c001 | flora / leafs | author_metadata_visible_rgb_match / high | Render as hazard corruption; preserve the source identity and keep mechanics in game data. |
+| hazard-fire | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Render as hazard fire; preserve the source identity and keep mechanics in game data. |
+| hazard-spores | urizen-onebit-r10-c003 | flora / mushroom / button | author_metadata_visible_rgb_match / high | Render as hazard spores; preserve the source identity and keep mechanics in game data. |
 | healer | urizen-onebit-r01-c175 | Figure row 01, profession column 71: cross-shaped prop | visual_region_and_silhouette / low | Cross-shaped held prop; Sable's class is a game interpretation. |
 | heart | godot-white-heart | heart | publisher_filename / high | Render as heart; preserve the source identity and keep mechanics in game data. |
 | innkeeper | urizen-onebit-r01-c176 | Figure row 01, profession column 72: raised goblet-like prop | visual_region_and_silhouette / low | Render as innkeeper; preserve the source identity and keep mechanics in game data. |
 | journal | godot-white-scroll | scroll | publisher_filename / high | Render as journal; preserve the source identity and keep mechanics in game data. |
 | key | urizen-onebit-r45-c007 | key | author_metadata_visible_rgb_match / high | Render as key; preserve the source identity and keep mechanics in game data. |
 | lantern | urizen-onebit-r42-c005 | light / lantern | author_metadata_visible_rgb_match / high | Render as lantern; preserve the source identity and keep mechanics in game data. |
+| leaf | urizen-onebit-r09-c001 | flora / leafs | author_metadata_visible_rgb_match / high | Render as leaf; preserve the source identity and keep mechanics in game data. |
 | mage | urizen-onebit-r00-c187 | Figure row 00, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Staff-like held prop; no walking/casting animation sequence is assumed. |
 | mana | urizen-onebit-r04-c032 | potion / mana | author_metadata_visible_rgb_match / high | Render as mana; preserve the source identity and keep mechanics in game data. |
 | mark | godot-white-target | target | publisher_filename / high | Render as mark; preserve the source identity and keep mechanics in game data. |
@@ -53,18 +68,23 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | mushroom | urizen-onebit-r10-c002 | flora / mushroom / toadstool | author_metadata_visible_rgb_match / high | Render as mushroom; preserve the source identity and keep mechanics in game data. |
 | path | urizen-onebit-r05-c001 | floor / dirt | author_metadata_visible_rgb_match / high | Render as path; preserve the source identity and keep mechanics in game data. |
 | pine | urizen-onebit-r08-c003 | flora / tree / spruce | author_metadata_visible_rgb_match / high | Render as pine; preserve the source identity and keep mechanics in game data. |
+| poplar | urizen-onebit-r08-c004 | flora / tree / poplar | author_metadata_visible_rgb_match / high | Render as poplar; preserve the source identity and keep mechanics in game data. |
 | potion | urizen-onebit-r04-c030 | potion / health | author_metadata_visible_rgb_match / high | Render as potion; preserve the source identity and keep mechanics in game data. |
 | ranger | urizen-onebit-r01-c119 | Figure row 01, profession column 15: curved bow-like prop | visual_region_and_silhouette / low | Bow-like held prop; Vesper's role and abilities are game data. |
 | ration | urizen-onebit-r17-c000 | food / mushroom | author_metadata_visible_rgb_match / high | Render as ration; preserve the source identity and keep mechanics in game data. |
 | reed | urizen-onebit-r09-c006 | flora / cane | author_metadata_visible_rgb_match / high | Render as reed; preserve the source identity and keep mechanics in game data. |
 | relic | urizen-onebit-r13-c027 | magic / orb | author_metadata_visible_rgb_match / high | Render as relic; preserve the source identity and keep mechanics in game data. |
 | resolve | godot-white-brain | brain | publisher_filename / high | Render as resolve; preserve the source identity and keep mechanics in game data. |
+| rock-floor | urizen-onebit-r05-c009 | floor / rocks | author_metadata_visible_rgb_match / high | Render as rock floor; preserve the source identity and keep mechanics in game data. |
+| ruin-wall | urizen-onebit-r02-c000 | wall / stone | author_metadata_visible_rgb_match / high | Render as ruin wall; preserve the source identity and keep mechanics in game data. |
+| sand | urizen-onebit-r05-c002 | floor / sand | author_metadata_visible_rgb_match / high | Render as sand; preserve the source identity and keep mechanics in game data. |
 | save | godot-white-save | save | publisher_filename / high | Render as save; preserve the source identity and keep mechanics in game data. |
 | shield | urizen-onebit-r12-c026 | shield | author_metadata_visible_rgb_match / high | Render as shield; preserve the source identity and keep mechanics in game data. |
 | shrine | urizen-onebit-r24-c027 | furniture / statue | author_metadata_visible_rgb_match / high | Render as shrine; preserve the source identity and keep mechanics in game data. |
 | shrub | urizen-onebit-r10-c004 | flora / shrub | author_metadata_visible_rgb_match / high | Render as shrub; preserve the source identity and keep mechanics in game data. |
 | sign | urizen-onebit-r37-c001 | book | author_metadata_visible_rgb_match / high | Render as sign; preserve the source identity and keep mechanics in game data. |
 | skeleton | urizen-onebit-r02-c125 | Figure row 02, profession column 21: raised blade-like tool | visual_region_and_silhouette / low | Gray figure variant cast as an oathless guard; source species remains unconfirmed. |
+| skull | urizen-onebit-r38-c001 | bones / skull | author_metadata_visible_rgb_match / high | Render as skull; preserve the source identity and keep mechanics in game data. |
 | slash | urizen-onebit-r25-c002 | effect / cleave | author_metadata_visible_rgb_match / high | Render as slash; preserve the source identity and keep mechanics in game data. |
 | slime | urizen-onebit-r42-c108 | enemy / slime | author_metadata_visible_rgb_match / high | Render as slime; preserve the source identity and keep mechanics in game data. |
 | smith | urizen-onebit-r00-c174 | Figure row 00, profession column 70: large hammer-like tool | visual_region_and_silhouette / low | Render as smith; preserve the source identity and keep mechanics in game data. |
@@ -77,11 +97,15 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | sword | urizen-onebit-r06-c030 | weapon / sword; index=0 | author_metadata_visible_rgb_match / high | Render as sword; preserve the source identity and keep mechanics in game data. |
 | table | urizen-onebit-r36-c019 | furniture / table | author_metadata_visible_rgb_match / high | Render as table; preserve the source identity and keep mechanics in game data. |
 | tree | urizen-onebit-r08-c001 | flora / tree / oak | author_metadata_visible_rgb_match / high | Render as tree; preserve the source identity and keep mechanics in game data. |
+| tuft | urizen-onebit-r09-c004 | flora / grass; index=1 | author_metadata_visible_rgb_match / high | Render as tuft; preserve the source identity and keep mechanics in game data. |
 | urn | urizen-onebit-r47-c003 | urn | author_metadata_visible_rgb_match / high | Render as urn; preserve the source identity and keep mechanics in game data. |
 | wall | urizen-onebit-r02-c002 | wall / stone / window | author_metadata_visible_rgb_match / high | Author's wall motif; repeated full cells rather than an inferred autotile bitmask. |
 | warden | urizen-onebit-r00-c125 | Figure row 00, profession column 21: raised blade-like tool | visual_region_and_silhouette / low | Raised blade-like prop; Rowan's role is casting, not a confirmed publisher profession. |
 | water | urizen-onebit-r12-c004 | river; orientation=RD | author_metadata_visible_rgb_match / high | A source water motif repeated over blue backing; collision is explicit map data. |
+| waterlily | urizen-onebit-r09-c002 | flora / waterlily | author_metadata_visible_rgb_match / high | Render as waterlily; preserve the source identity and keep mechanics in game data. |
+| web | urizen-onebit-r39-c004 | web | author_metadata_visible_rgb_match / high | Render as web; preserve the source identity and keep mechanics in game data. |
 | well | urizen-onebit-r25-c031 | well | author_metadata_visible_rgb_match / high | Render as well; preserve the source identity and keep mechanics in game data. |
+| willow | urizen-onebit-r08-c002 | flora / tree / willow | author_metadata_visible_rgb_match / high | Render as willow; preserve the source identity and keep mechanics in game data. |
 | wisp | urizen-onebit-r42-c110 | enemy / ghost | author_metadata_visible_rgb_match / high | Render as wisp; preserve the source identity and keep mechanics in game data. |
 | wolf | urizen-onebit-r14-c000 | animal / dog | author_metadata_visible_rgb_match / high | The author's dog becomes a Briar hound; enemy name/faction are game data. |
 | wood | urizen-onebit-r05-c003 | floor / plank | author_metadata_visible_rgb_match / high | Render as wood; preserve the source identity and keep mechanics in game data. |

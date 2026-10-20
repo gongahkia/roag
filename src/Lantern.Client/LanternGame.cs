@@ -101,7 +101,7 @@ public sealed partial class LanternGame : Game
         _pixel.SetData([Color.White]);
         string root = Path.Combine(AppContext.BaseDirectory, "assets");
         _sprites = new(GraphicsDevice, root, "lantern-sprites.json");
-        foreach (var sprite in _campaign.Zones.SelectMany(z => z.Objects).Select(o => o.Sprite).Concat(_campaign.Party.Select(h => h.Sprite)).Concat(Skills.ByRole.SelectMany(s => s).Select(s => s.Icon)).Concat(new[] { Skills.Guard.Icon, Skills.Potion.Icon, Skills.Flee.Icon }))
+        foreach (var sprite in _campaign.Zones.SelectMany(z => z.Objects).Select(o => o.Sprite).Concat(GenerationRules.Default.SpriteAliases).Concat(_campaign.Party.Select(h => h.Sprite)).Concat(Skills.ByRole.SelectMany(s => s).Select(s => s.Icon)).Concat(new[] { Skills.Guard.Icon, Skills.Potion.Icon, Skills.Flee.Icon }))
         {
             if (!_sprites.HasBinding(sprite))
             {
@@ -405,6 +405,11 @@ public sealed partial class LanternGame : Game
         if (Pressed(Keys.E) || Pressed(Keys.Enter))
         {
             Apply(_campaign.Interact());
+        }
+        if (Pressed(Keys.OemPeriod) || Pressed(Keys.Space))
+        {
+            _route.Clear();
+            Apply(_campaign.Wait());
         }
 
         if (Pressed(Keys.T))

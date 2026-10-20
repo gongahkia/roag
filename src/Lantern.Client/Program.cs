@@ -7,7 +7,27 @@ try
     var options = Options.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("LANTERN BELOW / top-down party RPG\n./rpg.sh [--seed N] [--load] [--save PATH] [--skip-intro]\n  --scene town|forest|crypt|battle|victory|atlas\n  --headless (plays a deterministic complete expedition without graphics)\n  --smoke-test --screenshot PATH --frames N --window-size WIDTHxHEIGHT");
+        Console.WriteLine("LANTERN BELOW / top-down party RPG\n./rpg.sh [--seed N] [--load] [--save PATH] [--skip-intro]\n  --scene town|forest|crypt|battle|victory|atlas\n  --headless (plays a deterministic complete expedition without graphics)\n  --generation-report (map, WFC, terrain and quest diagnostics)\n  --validate-seeds N (check consecutive seeds from --seed, no window/save)\n  --smoke-test --screenshot PATH --frames N --window-size WIDTHxHEIGHT");
+        return 0;
+    }
+    if (options.ValidateSeeds > 0)
+    {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        int fallbackZones = 0;
+        for (int i = 0; i < options.ValidateSeeds; i++)
+        {
+            int seed = unchecked(options.Seed + i);
+            var zones = WorldBuilder.Create(seed);
+            var validation = WorldBuilder.Validate(zones);
+            if (!validation.Valid) throw new InvalidDataException($"Seed {seed}: {string.Join("; ", validation.Errors)}");
+            fallbackZones += zones.Count(z => z.Generation.UsedFallback);
+        }
+        Console.WriteLine(JsonSerializer.Serialize(new { validatedSeeds = options.ValidateSeeds, firstSeed = options.Seed, fallbackZones, elapsedMs = timer.Elapsed.TotalMilliseconds }));
+        return 0;
+    }
+    if (options.GenerationReport)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new Campaign(options.Seed).GenerationSummary(), new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
     if (options.Headless)
@@ -48,6 +68,8 @@ namespace Lantern.Client
         {
             get; private set;
         }
+        public bool GenerationReport { get; private set; }
+        public int ValidateSeeds { get; private set; }
         public bool Help
         {
             get; private set;
@@ -86,6 +108,13 @@ namespace Lantern.Client
                         break;
                     case "--headless":
                         o.Headless = true;
+                        break;
+                    case "--generation-report":
+                        o.GenerationReport = true;
+                        break;
+                    case "--validate-seeds":
+                        o.ValidateSeeds = int.Parse(Value());
+                        if (o.ValidateSeeds is < 1 or > 10000) throw new ArgumentException("Validate 1..10000 seeds.");
                         break;
                     case "--smoke-test":
                         o.SmokeTest = true;
