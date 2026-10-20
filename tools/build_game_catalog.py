@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from asset_catalog import build_assets, COLOR_ORDER, TYPES, LAYERS
+from asset_catalog import build_assets, COLOR_ORDER, TYPES, LAYERS, Png, encode_rgba_png
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
@@ -300,7 +300,19 @@ def main():
     else:review_path.write_text(review_md)
     template = (ASSETS / "reference" / "atlas-template.html").read_text()
     image_data={item["path"]:"data:image/png;base64,"+base64.b64encode((ASSETS/item["path"]).read_bytes()).decode("ascii") for item in inventory["images"]}
-    html = template.replace("CATALOG_DATA", json.dumps(index, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")).replace("CATALOG_IMAGES",json.dumps(image_data,separators=(",", ":")))
+    crop_data, decoded = {}, {}
+    for record in sprites.values():
+        source = record["source"]
+        if source not in decoded:
+            decoded[source] = Png(ASSETS / source)
+        image, (x, y, width, height) = decoded[source], record["rect"]
+        if x == 0 and y == 0 and width == image.width and height == image.height:
+            crop_data[record["id"]] = image_data[source].split(",", 1)[1]
+        else:
+            crop_data[record["id"]] = base64.b64encode(encode_rgba_png(width, height, image.crop(record["rect"]))).decode("ascii")
+    html = (template.replace("CATALOG_DATA", json.dumps(index, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c"))
+            .replace("CATALOG_IMAGES", json.dumps(image_data, separators=(",", ":")))
+            .replace("CATALOG_CROPS", json.dumps(crop_data, separators=(",", ":"))))
     html_path = ASSETS / "atlas.html"
     if args.check:
         if not html_path.exists() or html_path.read_text() != html: raise SystemExit("Stale atlas.html")

@@ -1,5 +1,6 @@
 """Meaningful contracts for the canonical artwork metadata and neutral query path."""
 import copy
+import base64
 import hashlib
 import json
 import struct
@@ -258,6 +259,15 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual({r['id'] for r in index}, {r['id'] for r in self.records if r['kind'] == 'sprite'})
         for r in index:
             self.assertEqual(neutral_record(r), neutral_record(self.by_id[r['id']]), r['id'])
+
+    def test_every_downloadable_png_preserves_frozen_rgba(self):
+        html = (ROOT / 'assets/atlas.html').read_text()
+        embedded = json.loads(html.split('<script id="crops" type="application/json">', 1)[1].split('</script>', 1)[0])
+        self.assertEqual(set(embedded), {r['id'] for r in self.records if r['kind'] == 'sprite'})
+        for sid, encoded in embedded.items():
+            image = Png(base64.b64decode(encoded))
+            self.assertEqual([image.width, image.height], self.by_id[sid]['rect'][2:], sid)
+            self.assertEqual(hashlib.sha256(image.rgba).hexdigest(), self.by_id[sid]['rgba_sha256'], sid)
 
     def test_qualified_visual_names_do_not_assert_exact_species(self):
         claims = named_visual_subjects('A gray snake-like creature', 'medium', 'fixture')

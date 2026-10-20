@@ -1,28 +1,419 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ithica — Sprite Atlas</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Artwork Atlas · Ithica repository</title>
 <style>
-:root{color-scheme:dark;--bg:#12151a;--panel:#1a2027;--ink:#e6dfcf;--muted:#a3abae;--line:#ffffff1c;--accent:#d8b77c;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}header{padding:24px 28px;border-bottom:1px solid var(--line)}h1{margin:0;font:600 25px/1.2 system-ui}p{color:var(--muted);max-width:100ch}a{color:var(--accent)}button,input,select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:5px;min-height:42px;padding:8px 12px}button{cursor:pointer}button:hover{background:#303a43}button:active{transform:scale(.96)}button.active{border-color:var(--accent);color:var(--accent)}input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.filters{display:flex;flex-wrap:wrap;gap:10px;padding:16px 28px;position:sticky;top:0;background:#12151af5;z-index:2}.filters input{flex:1;min-width:240px}.body{display:grid;grid-template-columns:minmax(400px,1fr) 350px;gap:24px;padding:0 28px 28px}#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}.tile{height:120px;display:flex;align-items:center;flex-direction:column;justify-content:center;overflow:hidden}.tile canvas{width:48px;height:48px;image-rendering:pixelated;object-fit:contain}.tile small{color:var(--muted);font-size:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}aside{position:sticky;top:86px;align-self:start;background:var(--panel);padding:20px;border:1px solid var(--line);max-height:calc(100vh - 105px);overflow:auto;border-radius:8px}#preview{width:144px;height:144px;display:block;image-rendering:pixelated;margin:10px auto;background:#101216}h2{font-size:16px;overflow-wrap:anywhere}code{color:var(--accent);overflow-wrap:anywhere}dl{font-size:12px}dt{color:var(--muted);margin-top:12px}dd{margin:2px 0;overflow-wrap:anywhere}#pager{display:flex;gap:12px;align-items:center;justify-content:center;margin:20px}#count{color:var(--muted);padding:0 28px 14px}.tag{font-size:11px;background:#ffffff0b;border-radius:4px;padding:3px 6px;margin:3px;display:inline-block}#scene{display:none;grid-column:1/-1;background:var(--panel);padding:20px;border-radius:8px}.scene-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}#board{width:min(100%,768px);height:auto;image-rendering:pixelated;border:1px solid var(--line);touch-action:none}#tray{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}#tray button{width:64px;height:64px;padding:8px}#tray canvas{width:40px;height:40px;image-rendering:pixelated}.hint{font-size:12px;color:var(--muted)}@media(max-width:850px){.body{grid-template-columns:1fr}aside{position:static;max-height:none}.filters{position:static}header,.filters,.body{padding-left:16px;padding-right:16px}}
+:root{color-scheme:dark;--bg:#12151a;--panel:#1b222b;--ink:#e6dfcf;--muted:#b0b8ba;--line:#ffffff28;--accent:#d8b77c;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
+header,.controls{padding:20px 28px;border-bottom:1px solid var(--line)}
+h1{margin:0;font:600 26px/1.2 system-ui}h2{font-size:17px;overflow-wrap:anywhere}h3{font-size:14px}
+p{color:var(--muted);max-width:100ch}a{color:var(--accent)}code{color:var(--accent);overflow-wrap:anywhere}
+button,input,select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:4px;min-height:42px;padding:8px 10px}
+button{cursor:pointer}button:hover{background:#303a43}button:active{transform:translateY(1px)}button:disabled{cursor:default;opacity:.4}
+button.active{border-color:var(--accent);color:var(--accent)}:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px;min-width:0}
+label input,label select{width:100%;color:var(--ink)}label.check{flex-direction:row;align-items:center;gap:8px;min-height:42px}
+input[type=checkbox]{width:18px;min-height:18px;accent-color:var(--accent)}input[type=number]{max-width:160px}
+.filter-row{display:grid;grid-template-columns:2fr repeat(4,minmax(120px,1fr));gap:12px;margin-bottom:12px}
+.filter-row.secondary{grid-template-columns:2fr repeat(4,minmax(120px,1fr))}
+details{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}summary{cursor:pointer;color:var(--accent);min-height:28px}
+.advanced{display:flex;flex-wrap:wrap;gap:16px;margin:12px 0}.advanced label{min-width:150px;flex:1}.advanced label.check{flex:initial}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.hint{font-size:12px;color:var(--muted)}#status{color:var(--accent);margin:8px 0 0;min-height:0}
+#result-summary{padding:14px 28px;color:var(--muted)}#facets{font-size:12px;margin-top:4px}
+.body{display:grid;grid-template-columns:minmax(320px,1fr) 370px;gap:24px;padding:0 28px 28px}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:8px}
+.tile{min-height:126px;display:flex;align-items:center;flex-direction:column;justify-content:center;overflow:hidden;padding:8px}
+.tile canvas{width:48px;height:48px;image-rendering:pixelated}.tile small{font-size:10px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .label{color:var(--ink);margin-top:6px}#pager{display:flex;gap:12px;align-items:center;justify-content:center;margin:20px 0}
+aside{position:sticky;top:16px;align-self:start;background:var(--panel);padding:18px;border:1px solid var(--line);max-height:calc(100vh - 32px);overflow:auto;border-radius:6px}
+#preview{width:144px;height:144px;display:block;image-rendering:pixelated;margin:0 auto 12px;background:#101216}
+#description{font-size:13px}.tag{font-size:11px;background:#ffffff0c;border-radius:3px;padding:3px 6px;margin:3px;display:inline-block}
+dl{font-size:12px}dt{color:var(--muted);margin-top:12px}dd{margin:3px 0;overflow-wrap:anywhere;white-space:pre-wrap}
+.subject{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}.subject button{min-height:32px;padding:3px 6px;font-size:12px}.subject small{color:var(--muted);font-size:11px}
+.palette{display:flex;flex-wrap:wrap;gap:6px}.swatch{display:flex;gap:7px;align-items:center;padding:5px 7px;min-height:36px;font-size:11px}
+.swatch i{width:20px;height:20px;display:block;border:1px solid #ffffff70}.export-actions button{font-size:12px;flex:1}
+pre{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}ul{padding-left:20px;font-size:12px}li{margin:7px 0}
+#scene{grid-column:1/-1;background:var(--panel);padding:20px;border-radius:6px}
+[hidden]{display:none!important}.scene-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+#board{width:min(100%,768px);height:auto;image-rendering:pixelated;border:1px solid var(--line);touch-action:none}
+#tray{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}#tray button{width:64px;height:64px;padding:8px}#tray canvas{width:40px;height:40px;image-rendering:pixelated}
+@media(max-width:1050px){.filter-row,.filter-row.secondary{grid-template-columns:repeat(3,minmax(120px,1fr))}.filter-row label:first-child{grid-column:span 2}.body{grid-template-columns:minmax(280px,1fr) 340px}}
+@media(max-width:800px){header,.controls{padding:18px 16px}.body{grid-template-columns:1fr;padding:0 16px 20px}#result-summary{padding:12px 16px}aside{position:static;max-height:none}.filter-row,.filter-row.secondary{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-row label:first-child{grid-column:span 2}.advanced label{min-width:120px}}
 </style>
-<header><h1>THE SPRITE ATLAS</h1><p>Three art packs. Every occupied region, original crop and source identity. Schema 5 adds game-independent descriptions, subject evidence and measured colors to the catalog. Unconfirmed motifs remain unconfirmed. Current game casting is separate from the artwork's identity.</p><a href="reference/CATALOG_V2.md">Guide</a> · <a href="catalog.json">Complete catalog v5</a> · <a href="sprites.html">Original import audit</a></header>
-<div class="filters"><input id="search" aria-label="Search sprites" placeholder="Search name, ID, category, role, idea, or binding…"><select id="pack" aria-label="Art pack"><option value="">All packs</option></select><select id="family" aria-label="Art family"><option value="">All families</option></select><select id="usage" aria-label="Runtime usage"><option value="">Any usage</option><option value="ithica">Bound in Ithica</option><option value="colony">Colony bindings</option><option value="rpg">Preview RPG bindings</option><option value="unused">Unbound</option></select><select id="certainty" aria-label="Identity confidence"><option value="">Any confidence</option><option>high</option><option>medium</option><option>low</option></select><button id="mode">Open scene lab</button></div>
-<div id="count"></div><main class="body"><section id="gallery"><div id="grid"></div><div id="pager"><button id="prev">Previous</button><span id="page"></span><button id="next">Next</button></div></section><aside id="details"><canvas id="preview" width="144" height="144"></canvas><h2 id="name">Choose a sprite</h2><code id="sprite-id"></code><div id="tags"></div><dl id="facts"></dl><button id="pin">Pin to scene palette</button><button id="tint">Preview: original</button></aside>
-<section id="scene"><h2>SCENE LAB / exact sprite IDs, editable layers</h2><p class="hint">Pin sprites from the gallery, select a palette entry, and paint. Right-click erases the active layer. Export a recipe to turn this experiment into a future game map. The source PNGs stay untouched.</p><div class="scene-tools"><select id="layer" aria-label="Paint layer"><option value="0">Ground</option><option value="1">Props</option><option value="2">Actors</option></select><button id="clear">Clear layer</button><button id="recipe">Export map JSON</button><button id="png">Export PNG</button></div><div id="tray"></div><canvas id="board" width="768" height="384"></canvas></section></main>
+</head>
+<body>
+<header>
+<h1>THE ARTWORK ATLAS</h1>
+<p>Every occupied sprite in this repository, described independently of any game. Search visible subjects, colors, types and composition. Original pixels, IDs, crop coordinates and publisher evidence stay attached. Uncertain identities remain explicit.</p>
+<a href="reference/CATALOG_V2.md">Catalogue guide</a> · <a href="catalog.json">Complete schema-5 JSON</a> · <a href="sprites.html">Original import audit</a> · <a href="CREDITS.txt">Credits</a>
+</header>
+<section class="controls" aria-label="Artwork filters">
+<div class="filter-row">
+<label>Search artwork<input id="search" type="search" placeholder="ghost, green humanoid, envelope, ID…" autocomplete="off"></label>
+<label>Pack<select id="pack"><option value="">All packs</option></select></label>
+<label>Type<select id="type"><option value="">All types</option></select></label>
+<label>Color<select id="color"><option value="">Any color</option></select></label>
+<label>Sort<select id="sort"><option value="id">Stable ID</option><option value="name">Name</option><option value="type">Type</option><option value="color">Primary color</option><option value="width">Width</option><option value="height">Height</option><option value="confidence">Visual confidence</option></select></label>
+</div>
+<div class="filter-row secondary">
+<label>Subject term<input id="subject" list="subjects" placeholder="Exact term; separate multiple terms with commas" autocomplete="off"><datalist id="subjects"></datalist></label>
+<label>Subject confidence<select id="subject-confidence"><option value="low">Include uncertain</option><option value="medium">Medium or high</option><option value="high">High only</option></select></label>
+<label>Suggested layer<select id="layer"><option value="">Any layer</option></select></label>
+<label>Composition<select id="composition"><option value="">Any composition</option></select></label>
+<label class="check"><input id="descending" type="checkbox">Descending order</label>
+</div>
+<details id="advanced-filters">
+<summary>Color thresholds, source identity and optional game relationships</summary>
+<div class="advanced">
+<label>Minimum color coverage (%)<input id="coverage" type="number" min="0" max="100" step="1" value="5"></label>
+<label class="check"><input id="primary" type="checkbox">Match primary color only</label>
+<label>Exact foreground RGB<input id="hex" placeholder="#00ff00" pattern="#[0-9a-fA-F]{6}" maxlength="7"></label>
+<label>Source identity confidence<select id="certainty"><option value="">Any source confidence</option><option>high</option><option>medium</option><option>low</option></select></label>
+<label>Game relationship<select id="usage"><option value="">Any usage</option><option value="ithica">Ithica bound</option><option value="colony">Colony bound</option><option value="rpg">Retained preview bound</option><option value="unused">Unbound by either selection</option></select></label>
+<label class="check"><input id="game-search" type="checkbox">Include game notes in text search</label>
+</div>
+<p class="hint">Color coverage counts foreground pixels after excluding transparent/near-black background. Source identity confidence and visual subject confidence are separate. Game relationships do not establish the artwork's identity.</p>
+</details>
+<div class="actions"><button id="reset">Reset filters</button><button id="export-results">Export matching metadata JSON</button><button id="mode" aria-expanded="false">Open scene lab</button></div>
+<p id="status" role="status" aria-live="polite"></p>
+</section>
+<div id="result-summary"><div id="count" aria-live="polite"></div><div id="facets"></div></div>
+<main class="body">
+<section id="gallery" aria-label="Matching artwork">
+<div id="grid"></div>
+<div id="pager"><button id="prev">Previous</button><span id="page"></span><button id="next">Next</button></div>
+</section>
+<aside id="details" aria-label="Selected artwork">
+<canvas id="preview" width="144" height="144" aria-label="Sprite preview"></canvas>
+<h2 id="name">Choose a sprite</h2><code id="sprite-id"></code><p id="description"></p><div id="tags"></div>
+<div class="actions export-actions"><button id="metadata">Metadata JSON</button><button id="crop-png">Original crop PNG</button></div>
+<div class="actions export-actions" style="margin-top:8px"><button id="pin">Pin to scene palette</button><button id="tint">Preview: original</button></div>
+<p><a id="permalink" href="#">Link to this selection</a></p>
+<dl id="facts"></dl>
+<h3>Subjects and evidence</h3><div id="claims"></div>
+<details id="palette-details"><summary>Exact foreground palette</summary><div id="palette" class="palette"></div></details>
+<details><summary>Observations and uncertainty</summary><div id="observations"></div><ul id="uncertainties"></ul><dl id="evidence"></dl></details>
+<details><summary>Preserved original identity</summary><pre id="source-identity"></pre></details>
+<details id="game-details"><summary>Game casting and proposals (optional)</summary><dl id="game-facts"></dl></details>
+</aside>
+<section id="scene" hidden>
+<h2>Scene lab</h2>
+<p class="hint">Pin artwork, choose a palette entry, then paint. Right-click erases the active layer. Exported recipes reference exact IDs; runtime recipe import is not implemented. Original source files stay unchanged.</p>
+<div class="scene-tools"><label>Paint layer<select id="paint-layer"><option value="0">Ground</option><option value="1">Props</option><option value="2">Actors</option></select></label><button id="clear">Clear layer</button><button id="recipe">Export scene JSON</button><button id="png">Export scene PNG</button></div>
+<p id="brush" class="hint">No brush selected</p><div id="tray"></div><canvas id="board" width="768" height="384" aria-label="24 by 12 cell scene canvas"></canvas>
+</section>
+</main>
 <script id="catalog" type="application/json">CATALOG_DATA</script>
 <script id="images" type="application/json">CATALOG_IMAGES</script>
+<script id="crops" type="application/json">CATALOG_CROPS</script>
 <script>
-'use strict';const data=JSON.parse(document.querySelector('#catalog').textContent),byId=new Map(data.map(r=>[r.id,r])),q=s=>document.querySelector(s);let filtered=data,page=0,selected=data[0],tinted=false,scene=false,brush=null,pins=[];const images=new Map(),size=96,layers=Array.from({length:3},()=>Array(24*12).fill(null));
-const imageData=JSON.parse(document.querySelector('#images').textContent);function image(source){if(!images.has(source)){const im=new Image();images.set(source,new Promise((ok,no)=>{im.onload=()=>ok(im);im.onerror=no}));im.src=imageData[source]}return images.get(source)}
-async function crop(ctx,r,x,y,w,h,mask=false){const im=await image(r.source),[sx,sy,sw,sh]=r.rect;const temp=document.createElement('canvas');temp.width=sw;temp.height=sh;const tc=temp.getContext('2d');tc.drawImage(im,sx,sy,sw,sh,0,0,sw,sh);const p=tc.getImageData(0,0,sw,sh);for(let i=0;i<p.data.length;i+=4){if(Math.max(p.data[i],p.data[i+1],p.data[i+2])<=8)p.data[i+3]=0;else if(mask){p.data[i]=216;p.data[i+1]=183;p.data[i+2]=124}}tc.putImageData(p,0,0);ctx.imageSmoothingEnabled=false;const k=Math.min(w/sw,h/sh);ctx.drawImage(temp,x+(w-sw*k)/2,y+(h-sh*k)/2,sw*k,sh*k)}
-for(const [id,field]of[['pack','pack'],['family','family']])for(const value of [...new Set(data.map(r=>r[field]))].sort()){const o=document.createElement('option');o.value=o.textContent=value;q('#'+id).append(o)}
-function filters(){const term=q('#search').value.toLowerCase();filtered=data.filter(r=>(!q('#pack').value||r.pack===q('#pack').value)&&(!q('#family').value||r.family===q('#family').value)&&(!q('#certainty').value||r.confidence===q('#certainty').value)&&(!q('#usage').value||(q('#usage').value==='ithica'?r.ithicaStatus==='bound':q('#usage').value==='unused'?!r.usage.colony.length&&!r.usage.rpg.length:r.usage[q('#usage').value].length))&&(!term||JSON.stringify(r).toLowerCase().includes(term)));page=0;if(filtered.length&&!filtered.some(r=>r.id===selected?.id))choose(filtered[0]);draw()}
-function draw(){q('#grid').replaceChildren();q('#count').textContent=`${filtered.length.toLocaleString()} / ${data.length.toLocaleString()} occupied sprites · Original images and stable IDs preserved`;q('#page').textContent=`${page+1} / ${Math.max(1,Math.ceil(filtered.length/size))}`;q('#prev').disabled=page===0;q('#next').disabled=(page+1)*size>=filtered.length;for(const r of filtered.slice(page*size,(page+1)*size)){const b=document.createElement('button');b.className='tile'+(selected?.id===r.id?' active':'');b.title=r.name;const c=document.createElement('canvas');c.width=c.height=48;const label=document.createElement('small');label.textContent=r.name;const id=document.createElement('small');id.textContent=r.id;b.append(c,label,id);b.onclick=()=>choose(r);q('#grid').append(b);crop(c.getContext('2d'),r,0,0,48,48)}}
-function fact(label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;q('#facts').append(dt,dd)}
-function choose(r){selected=r;brush=r.id;const c=q('#preview'),ctx=c.getContext('2d');ctx.clearRect(0,0,144,144);crop(ctx,r,0,0,144,144,tinted);q('#name').textContent=r.name;q('#sprite-id').textContent=r.id;q('#facts').replaceChildren();q('#tags').replaceChildren();for(const s of[r.pack,r.family,r.layer,r.confidence]){const t=document.createElement('span');t.className='tag';t.textContent=s;q('#tags').append(t)}fact('Identity evidence',r.basis+' / '+r.confidence);fact('Original source / crop',r.source+' / ['+r.rect.join(', ')+']');fact('Colony runtime',r.usage.colony.join(', ')||'Unused');fact('Ithica status',r.ithicaStatus);fact('Ithica lunar casting',r.lunarRole);fact('Ithica field bindings',r.ithicaUsage.expedition.join(', ')||'No field binding');fact('Lunar limits',r.lunarLimits||'Candidate only');fact('Lunar future ideas',r.lunarIdeas.join(' '));fact('Preview RPG bindings',r.usage.rpg.join(', ')||'Unused');fact('RPG interpretation',r.role);fact('Generation / crop review',r.generationNotes||'No generation rules');fact('Future ideas',r.ideas.join(' '));fact('Adaptation / uncertainty',r.adaptation)}
-for(const id of ['search','pack','family','usage','certainty'])q('#'+id).addEventListener('input',filters);q('#prev').onclick=()=>{page--;draw()};q('#next').onclick=()=>{page++;draw()};q('#tint').onclick=()=>{tinted=!tinted;q('#tint').textContent='Preview: '+(tinted?'warm palette mask':'original');choose(selected)};
-q('#pin').onclick=()=>{if(!pins.includes(selected.id))pins.push(selected.id);tray()};function tray(){q('#tray').replaceChildren();for(const id of pins){const r=byId.get(id),b=document.createElement('button'),c=document.createElement('canvas');c.width=c.height=40;b.title=r.name;b.append(c);b.onclick=()=>{brush=id;choose(r)};q('#tray').append(b);crop(c.getContext('2d'),r,0,0,40,40)}}
-q('#mode').onclick=()=>{scene=!scene;q('#scene').style.display=scene?'block':'none';q('#mode').textContent=scene?'Close scene lab':'Open scene lab';if(scene)q('#scene').scrollIntoView({behavior:'smooth',block:'start'})};
-let drawing=false,erase=false,revision=0;const board=q('#board'),bc=board.getContext('2d');async function redraw(){const rev=++revision;bc.fillStyle='#252a31';bc.fillRect(0,0,768,384);for(const layer of layers)for(let i=0;i<layer.length;i++){if(rev!==revision)return;if(layer[i])await crop(bc,byId.get(layer[i]),i%24*32,Math.floor(i/24)*32,32,32)}if(rev!==revision)return;bc.strokeStyle='#ffffff0e';for(let x=0;x<=768;x+=32){bc.beginPath();bc.moveTo(x,0);bc.lineTo(x,384);bc.stroke()}for(let y=0;y<=384;y+=32){bc.beginPath();bc.moveTo(0,y);bc.lineTo(768,y);bc.stroke()}}
-function paint(e){const r=board.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/r.width*24),y=Math.floor((e.clientY-r.top)/r.height*12);if(x<0||y<0||x>=24||y>=12)return;if(!brush&&!erase)return;layers[+q('#layer').value][y*24+x]=erase?null:brush;redraw()};board.oncontextmenu=e=>e.preventDefault();board.onpointerdown=e=>{drawing=true;erase=e.button===2;board.setPointerCapture(e.pointerId);paint(e)};board.onpointermove=e=>{if(drawing)paint(e)};board.onpointerup=()=>drawing=false;board.onpointercancel=()=>drawing=false;q('#clear').onclick=()=>{layers[+q('#layer').value].fill(null);redraw()};function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}q('#recipe').onclick=()=>download(new Blob([JSON.stringify({format:'ithica-sprite-scene',version:1,width:24,height:12,layers:['ground','props','actors'].map((name,i)=>({name,cells:layers[i]}))},null,2)],{type:'application/json'}),'sprite-scene.json');q('#png').onclick=()=>board.toBlob(blob=>download(blob,'sprite-scene.png'));
-draw();choose(selected);redraw();
-</script></html>
+'use strict';
+const q = s => document.querySelector(s);
+const data = JSON.parse(q('#catalog').textContent);
+const byId = new Map(data.map(r => [r.id, r]));
+const imageData = JSON.parse(q('#images').textContent);
+const cropPngs = JSON.parse(q('#crops').textContent);
+const colors = ['black','gray','white','brown','red','orange','yellow','green','cyan','blue','purple','pink'];
+const confidence = ['low','medium','high'];
+const neutralFields = ['id','pack','source','rect','kind','rgba_sha256','identity','asset'];
+const imageCache = new Map(), cropCache = new Map();
+const pageSize = 96;
+let filtered = [], page = 0, selected = null, tinted = false, scene = false, brush = null, pins = [];
+let sceneRevision = 0;
+const layers = Array.from({length:3}, () => Array(24*12).fill(null));
+const filterIds = ['search','pack','type','color','sort','subject','subject-confidence','layer','composition','descending','coverage','primary','hex','certainty','usage','game-search'];
+const defaults = {sort:'id','subject-confidence':'low',coverage:'5'};
+const neutral = r => Object.fromEntries(neutralFields.map(k => [k,r[k]]));
+function status(message) { q('#status').textContent = message; }
+function fillOptions(id, values) {
+  for (const value of values) {
+    const option = document.createElement('option');
+    option.value = value; option.textContent = value;
+    q('#'+id).append(option);
+  }
+}
+fillOptions('pack', [...new Set(data.map(r => r.pack))].sort());
+fillOptions('type', [...new Set(data.map(r => r.asset.type))].sort());
+fillOptions('color', colors);
+fillOptions('layer', [...new Set(data.flatMap(r => r.asset.suggested_layers))].sort());
+fillOptions('composition', [...new Set(data.map(r => r.asset.composition.kind))].sort());
+fillOptions('subjects', [...new Set(data.flatMap(r => r.asset.subjects.map(s => s.term)))].sort());
+const neutralText = new Map(data.map(r => [r.id, [r.id,r.source,r.pack,r.asset.name,r.asset.description,...r.asset.tags,...r.asset.evidence.observations.map(o => o.description)].join(' ').toLowerCase()]));
+const gameText = new Map(data.map(r => [r.id, [r.lunarRole,r.lunarLimits,...r.lunarIdeas,r.role,r.adaptation,r.generationNotes,...r.ideas,...Object.values(r.usage).flat(),...Object.values(r.ithicaUsage).flat()].join(' ').toLowerCase()]));
+function image(source) {
+  if (!imageCache.has(source)) {
+    imageCache.set(source, new Promise((resolve,reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('Unable to load embedded image: '+source));
+      im.src = imageData[source];
+    }));
+  }
+  return imageCache.get(source);
+}
+async function rawCrop(r) {
+  const im = await image(r.source), [x,y,w,h] = r.rect;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(im,x,y,w,h,0,0,w,h);
+  return canvas;
+}
+function displayCrop(r, mask=false) {
+  const key = r.id+(mask?':mask':'');
+  if (!cropCache.has(key)) cropCache.set(key, (async () => {
+    const canvas = await rawCrop(r), ctx = canvas.getContext('2d');
+    const p = ctx.getImageData(0,0,canvas.width,canvas.height);
+    for (let i=0;i<p.data.length;i+=4) {
+      if (Math.max(p.data[i],p.data[i+1],p.data[i+2])<=8) p.data[i+3]=0;
+      else if (mask) { p.data[i]=216;p.data[i+1]=183;p.data[i+2]=124; }
+    }
+    ctx.putImageData(p,0,0);
+    return canvas;
+  })());
+  return cropCache.get(key);
+}
+async function crop(ctx,r,x,y,w,h,mask=false) {
+  const source = await displayCrop(r,mask), scale = Math.min(w/source.width,h/source.height);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source,x+(w-source.width*scale)/2,y+(h-source.height*scale)/2,source.width*scale,source.height*scale);
+}
+function state() {
+  return Object.fromEntries(filterIds.map(id => {
+    const el = q('#'+id);
+    return [id,el.type==='checkbox'?el.checked:el.value];
+  }));
+}
+function writeHash() {
+  const values = state(), params = new URLSearchParams();
+  for (const id of filterIds) if (values[id] && String(values[id]) !== (defaults[id]||'')) params.set(id,String(values[id]));
+  if (selected) params.set('id',selected.id);
+  if (page) params.set('page',String(page+1));
+  const hash = '#'+params.toString();
+  history.replaceState(null,'',hash);
+  q('#permalink').href = hash;
+}
+function readHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  for (const id of filterIds) {
+    const el = q('#'+id);
+    if (el.type==='checkbox') el.checked = params.get(id)==='true';
+    else el.value = params.get(id) ?? defaults[id] ?? '';
+  }
+  selected = byId.get(params.get('id')) || null;
+  filters(false);
+  const selectedPage = selected ? Math.floor(filtered.indexOf(selected)/pageSize) : 0;
+  page = Math.max(0,Math.min(Math.ceil(filtered.length/pageSize)-1,Math.floor(Number(params.get('page')||selectedPage+1))-1));
+  if (!Number.isFinite(page)) page=0;
+  draw(); choose(selected || filtered[0] || null,false);
+  writeHash();
+  if (params.has('id')&&!byId.has(params.get('id'))) status('Unknown sprite ID: '+params.get('id'));
+}
+function filters(updateHash=true) {
+  const f = state(), terms = f.search.toLowerCase().split(/\s+/).filter(Boolean);
+  const subjects = f.subject.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+  const threshold = confidence.indexOf(f['subject-confidence']);
+  const minCoverage = Math.max(0,Math.min(100,Number(f.coverage)||0))/100;
+  const rgb = f.hex.trim().toLowerCase();
+  filtered = data.filter(r => {
+    const a = r.asset;
+    if (f.pack && r.pack!==f.pack || f.type && a.type!==f.type || f.layer && !a.suggested_layers.includes(f.layer)) return false;
+    if (f.color && (f.primary ? a.appearance.primary_color!==f.color : !a.appearance.color_names.includes(f.color)||a.appearance.color_coverage[f.color]<minCoverage)) return false;
+    if (rgb && !a.appearance.palette.some(p=>p.hex===rgb)) return false;
+    if (f.composition && a.composition.kind!==f.composition || f.certainty && r.confidence!==f.certainty) return false;
+    if (subjects.length && !subjects.every(term=>a.subjects.some(s=>s.term===term&&confidence.indexOf(s.confidence)>=threshold))) return false;
+    if (f.usage && !(f.usage==='ithica'?r.ithicaStatus==='bound':f.usage==='unused'?!r.usage.colony.length&&!r.usage.rpg.length:r.usage[f.usage]?.length)) return false;
+    const text = neutralText.get(r.id)+(f['game-search']?' '+gameText.get(r.id):'');
+    return terms.every(term=>text.includes(term));
+  });
+  const key = r => {
+    const a=r.asset;
+    return f.sort==='name'?a.name.toLowerCase():f.sort==='type'?a.type:f.sort==='color'?colors.indexOf(a.appearance.primary_color):f.sort==='width'?a.appearance.width:f.sort==='height'?a.appearance.height:f.sort==='confidence'?confidence.indexOf(a.classification_confidence):r.id;
+  };
+  const compare = (a,b) => a<b?-1:a>b?1:0;
+  filtered.sort((a,b)=>(compare(key(a),key(b))||compare(a.id,b.id))*(f.descending?-1:1));
+  page=0;
+  if (!selected || !filtered.includes(selected)) selected=filtered[0]||null;
+  draw(); choose(selected,false);
+  if (updateHash) writeHash();
+}
+function draw() {
+  q('#grid').replaceChildren();
+  q('#count').textContent = filtered.length.toLocaleString()+' / '+data.length.toLocaleString()+' occupied sprites';
+  const types = new Map();
+  for (const r of filtered) types.set(r.asset.type,(types.get(r.asset.type)||0)+1);
+  q('#facets').textContent = [...types].sort((a,b)=>b[1]-a[1]||(a[0]<b[0]?-1:1)).map(([type,count])=>type+': '+count).join(' · ');
+  q('#page').textContent = (page+1)+' / '+Math.max(1,Math.ceil(filtered.length/pageSize));
+  q('#prev').disabled=page===0;
+  q('#next').disabled=(page+1)*pageSize>=filtered.length;
+  q('#export-results').disabled=!filtered.length;
+  if (!filtered.length) {
+    const empty=document.createElement('p');
+    empty.textContent='No matching artwork. Change a filter or reset the search.';
+    q('#grid').append(empty);
+  }
+  for (const r of filtered.slice(page*pageSize,(page+1)*pageSize)) {
+    const button=document.createElement('button'), canvas=document.createElement('canvas');
+    const label=document.createElement('small'), id=document.createElement('small'), meta=document.createElement('small');
+    button.className='tile'+(selected?.id===r.id?' active':'');button.dataset.id=r.id;
+    button.title=r.asset.name+'\n'+r.id;button.setAttribute('aria-pressed',String(selected?.id===r.id));
+    canvas.width=canvas.height=48;canvas.setAttribute('aria-hidden','true');
+    label.className='label';label.textContent=r.asset.name;id.textContent=r.id;
+    meta.textContent=r.asset.type+' · '+r.asset.appearance.primary_color;
+    button.append(canvas,label,id,meta);button.onclick=()=>{choose(r);if(innerWidth<=800)q('#details').scrollIntoView({block:'start'});};
+    q('#grid').append(button);
+    crop(canvas.getContext('2d'),r,0,0,48,48).catch(error=>status(error.message));
+  }
+}
+function fact(target,label,value) {
+  const dt=document.createElement('dt'),dd=document.createElement('dd');
+  dt.textContent=label;dd.textContent=String(value??'');
+  q(target).append(dt,dd);
+}
+function paragraph(target,text) {
+  const p=document.createElement('p');p.className='hint';p.textContent=text;q(target).append(p);
+}
+function choose(r,updateHash=true) {
+  selected=r;
+  for (const el of document.querySelectorAll('.tile')) {
+    const active=el.dataset.id===r?.id;el.classList.toggle('active',active);el.setAttribute('aria-pressed',String(active));
+  }
+  for (const id of ['facts','claims','tags','palette','observations','uncertainties','evidence','game-facts']) q('#'+id).replaceChildren();
+  const preview=q('#preview'),ctx=preview.getContext('2d');
+  ctx.clearRect(0,0,144,144);
+  q('#name').textContent=r?r.asset.name:'No sprite selected';q('#sprite-id').textContent=r?r.id:'';
+  q('#description').textContent=r?r.asset.description:'';
+  q('#source-identity').textContent=r?JSON.stringify(r.identity,null,2):'';
+  for (const id of ['metadata','crop-png','pin','tint']) q('#'+id).disabled=!r;
+  if (!r) { if(updateHash)writeHash();return; }
+  const a=r.asset,p=a.appearance;
+  displayCrop(r,tinted).then(canvas=>{if(selected===r){ctx.clearRect(0,0,144,144);ctx.imageSmoothingEnabled=false;const k=Math.min(144/canvas.width,144/canvas.height);ctx.drawImage(canvas,(144-canvas.width*k)/2,(144-canvas.height*k)/2,canvas.width*k,canvas.height*k);}}).catch(error=>status(error.message));
+  preview.setAttribute('aria-label',a.name);
+  for (const value of [r.pack,a.type,p.primary_color,a.composition.kind]) {
+    const tag=document.createElement('span');tag.className='tag';tag.textContent=value;q('#tags').append(tag);
+  }
+  fact('#facts','Visual classification confidence',a.classification_confidence);
+  fact('#facts','Suggested layers',a.suggested_layers.join(', '));
+  fact('#facts','Composition',a.composition.kind);
+  fact('#facts','Source identity',r.basis+' / '+r.confidence);
+  fact('#facts','Original source and crop',r.source+'\n['+r.rect.join(', ')+']');
+  fact('#facts','RGBA crop SHA-256',r.rgba_sha256);
+  fact('#facts','Foreground',p.foreground_pixels+' pixels / '+Math.round(p.foreground_fraction*10000)/100+'% of crop');
+  fact('#facts','Measured color families',Object.entries(p.color_coverage).map(([name,coverage])=>name+' '+(coverage*100).toFixed(1)+'%').join(', '));
+  fact('#facts','Animation / directions / sockets',a.composition.animation+' / '+a.composition.directions+' / '+a.composition.sockets);
+  fact('#facts','Collision',a.composition.collision);
+  if (a.relations.input_prompt) fact('#facts','Input artwork labels',Object.entries(a.relations.input_prompt).map(([k,v])=>k+': '+v).join('\n'));
+  if (a.relations.glyph) fact('#facts','Font glyph',JSON.stringify(a.relations.glyph,null,2));
+  if (a.relations.named_variant_group) fact('#facts','Named variant group',a.relations.named_variant_group);
+  if (a.relations.character_matrix) fact('#facts','Observed character matrix',JSON.stringify(a.relations.character_matrix,null,2));
+  for (const duplicate of a.relations.exact_rgba_duplicates) {
+    const button=document.createElement('button');button.textContent='Exact duplicate: '+duplicate;button.onclick=()=>jump(duplicate);q('#facts').append(button);
+  }
+  for (const claim of a.subjects) {
+    const row=document.createElement('div'),button=document.createElement('button'),note=document.createElement('small');
+    row.className='subject';button.textContent=claim.term;button.title='Filter by this subject';
+    button.onclick=()=>{q('#subject').value=claim.term;filters();};
+    note.textContent=claim.confidence+' · '+claim.basis;note.title=claim.evidence;
+    row.append(button,note);q('#claims').append(row);
+  }
+  for (const color of p.palette) {
+    const button=document.createElement('button'),swatch=document.createElement('i'),label=document.createElement('span');
+    button.className='swatch';swatch.style.backgroundColor=color.hex;
+    label.textContent=color.hex+' '+(color.coverage*100).toFixed(1)+'%';
+    button.title=color.name+' / '+color.pixels+' pixels / alpha '+color.alpha+'; filter exact RGB';
+    button.append(swatch,label);button.onclick=()=>{q('#hex').value=color.hex;q('#advanced-filters').open=true;filters();};
+    q('#palette').append(button);
+  }
+  for (const o of a.evidence.observations) paragraph('#observations',o.scope+': '+o.description+(o.origin?' ('+o.origin+')':''));
+  for (const text of a.evidence.uncertainties) { const li=document.createElement('li');li.textContent=text;q('#uncertainties').append(li); }
+  if (!a.evidence.uncertainties.length) {const li=document.createElement('li');li.textContent='No additional uncertainty recorded. Source and subject confidence still apply.';q('#uncertainties').append(li);}
+  fact('#evidence','Review status',a.evidence.review_status);
+  fact('#evidence','Evidence references',a.evidence.references.join('\n'));
+  fact('#evidence','Recorded inspection',a.evidence.inspection_refs.join('\n'));
+  fact('#game-facts','Current Ithica status',r.ithicaStatus);
+  fact('#game-facts','Lunar casting',r.lunarRole);
+  fact('#game-facts','Colony bindings',r.usage.colony.join(', ')||'None');
+  fact('#game-facts','Current field bindings',r.ithicaUsage.expedition.join(', ')||'None');
+  fact('#game-facts','Lunar limits',r.lunarLimits);
+  fact('#game-facts','Lunar proposals',r.lunarIdeas.join('\n'));
+  fact('#game-facts','Retained preview bindings',r.usage.rpg.join(', ')||'None');
+  fact('#game-facts','Preview interpretation',r.role);
+  fact('#game-facts','Prior generation notes',r.generationNotes);
+  fact('#game-facts','Prior proposals and adaptation',r.ideas.join('\n')+'\n'+r.adaptation);
+  if (updateHash) writeHash();
+}
+function jump(id) {
+  for (const filter of filterIds) {const el=q('#'+filter);if(el.type==='checkbox')el.checked=false;else el.value=defaults[filter]||'';}
+  filters(false);selected=byId.get(id)||filtered[0]||null;
+  page=Math.max(0,Math.floor(filtered.indexOf(selected)/pageSize));draw();choose(selected);
+}
+for (const id of filterIds) q('#'+id).addEventListener('input',()=>{status('');filters();});
+q('#reset').onclick=()=>{status('');jump(data[0].id);};
+q('#prev').onclick=()=>{page--;draw();writeHash();};
+q('#next').onclick=()=>{page++;draw();writeHash();};
+q('#tint').onclick=()=>{tinted=!tinted;q('#tint').textContent='Preview: '+(tinted?'warm mask':'original');choose(selected);};
+function download(blob,name) {
+  if (!blob) {status('Unable to create download.');return;}
+  const url=URL.createObjectURL(blob),anchor=document.createElement('a');
+  anchor.href=url;anchor.download=name;document.body.append(anchor);anchor.click();anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function jsonDownload(value,name) {download(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}),name);}
+q('#metadata').onclick=()=>{if(selected)jsonDownload(neutral(selected),selected.id+'.json');};
+q('#export-results').onclick=()=>jsonDownload({format:'sprite-asset-selection',version:1,catalog_schema:5,total:filtered.length,filters:state(),matches:filtered.map(neutral)},'sprite-selection.json');
+q('#crop-png').onclick=()=>{
+  const r=selected;if(!r)return;
+  // Frozen RGBA crops are encoded by the standard-library generator, avoiding
+  // browser canvas normalization of hidden RGB values and partial alpha.
+  const bytes=Uint8Array.from(atob(cropPngs[r.id]),ch=>ch.charCodeAt(0));
+  download(new Blob([bytes],{type:'image/png'}),r.id+'.png');
+};
+q('#pin').onclick=()=>{if(!selected)return;if(!pins.includes(selected.id))pins.push(selected.id);brush=selected.id;tray();};
+function tray() {
+  q('#tray').replaceChildren();
+  q('#brush').textContent=brush?'Brush: '+byId.get(brush).asset.name+' / '+brush:'No brush selected';
+  for (const id of pins) {
+    const r=byId.get(id),button=document.createElement('button'),canvas=document.createElement('canvas');
+    button.className=brush===id?'active':'';button.title=r.asset.name;button.setAttribute('aria-label',r.asset.name);
+    canvas.width=canvas.height=40;button.append(canvas);button.onclick=()=>{brush=id;jump(id);tray();};q('#tray').append(button);
+    crop(canvas.getContext('2d'),r,0,0,40,40).catch(error=>status(error.message));
+  }
+}
+q('#mode').onclick=()=>{scene=!scene;q('#scene').hidden=!scene;q('#mode').textContent=scene?'Close scene lab':'Open scene lab';q('#mode').setAttribute('aria-expanded',String(scene));if(scene)q('#scene').scrollIntoView({block:'start'});};
+const board=q('#board'),bc=board.getContext('2d');
+async function sceneCanvas(grid=true) {
+  const canvas=document.createElement('canvas');canvas.width=768;canvas.height=384;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#252a31';ctx.fillRect(0,0,768,384);
+  const snapshot=layers.map(layer=>layer.slice());
+  for (const layer of snapshot) for(let i=0;i<layer.length;i++) if(layer[i]) await crop(ctx,byId.get(layer[i]),i%24*32,Math.floor(i/24)*32,32,32);
+  if (grid) {
+    ctx.strokeStyle='#ffffff0e';
+    for(let x=0;x<=768;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,384);ctx.stroke();}
+    for(let y=0;y<=384;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(768,y);ctx.stroke();}
+  }
+  return canvas;
+}
+async function redraw() {
+  const revision=++sceneRevision,canvas=await sceneCanvas();
+  if (revision===sceneRevision) bc.drawImage(canvas,0,0);
+}
+let drawing=false,erase=false;
+function paint(e) {
+  const rect=board.getBoundingClientRect(),x=Math.floor((e.clientX-rect.left)/rect.width*24),y=Math.floor((e.clientY-rect.top)/rect.height*12);
+  if(x<0||y<0||x>=24||y>=12||!brush&&!erase)return;
+  layers[+q('#paint-layer').value][y*24+x]=erase?null:brush;
+  redraw().catch(error=>status(error.message));
+}
+board.oncontextmenu=e=>e.preventDefault();
+board.onpointerdown=e=>{drawing=true;erase=e.button===2;board.setPointerCapture(e.pointerId);paint(e);};
+board.onpointermove=e=>{if(drawing)paint(e);};
+board.onpointerup=()=>drawing=false;board.onpointercancel=()=>drawing=false;
+q('#clear').onclick=()=>{layers[+q('#paint-layer').value].fill(null);redraw().catch(error=>status(error.message));};
+q('#recipe').onclick=()=>jsonDownload({format:'ithica-sprite-scene',version:1,width:24,height:12,layers:['ground','props','actors'].map((name,i)=>({name,cells:layers[i].slice()}))},'sprite-scene.json');
+q('#png').onclick=async()=>{(await sceneCanvas(false)).toBlob(blob=>download(blob,'sprite-scene.png'));};
+addEventListener('hashchange',readHash);
+readHash();redraw().catch(error=>status(error.message));
+</script>
+</body>
+</html>

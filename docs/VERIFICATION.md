@@ -98,6 +98,14 @@ Executed validation: **27 generic tests passed** after correcting a new test's m
 
 Executed validation: **32 generic tests passed**. They cover all occupied inspection/useful-description evidence, neutral icon shape queries, prompt device/state separation, glyph code points and full canonical/viewer metadata/export agreement. All **11,887** generic objects passed schema validation. Regeneration and `--check` passed, preserving all source PNG/archive/crop hashes and current/preview selections. Runtime font regeneration selected the same 154 IDs / 60 bindings / 94 glyphs. Neutral JSON and CSV exports retain original identity evidence and subject-level confidence. Atlas interface implementation/interaction verification remains in progress.
 
+## Neutral offline artwork atlas
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** The offline atlas now defaults to artwork metadata and supports type, subject/claim confidence, measured color/coverage, primary color, exact RGB, layer, composition and sorting. Game casting is folded and excluded from ordinary search. URLs retain selection/filter/page state. Neutral metadata exports preserve original identity evidence, while every crop has an exact PNG download. The scene lab retains layered stable-ID JSON and rendered PNG export.
+
+Executed validation: **33 generic tests passed**, including decoding and frozen-RGBA verification of every one of the **7,115** downloadable crops. `uv run --with playwright python tools/verify_asset_atlas.py --browser <existing Chromium headless shell>` passed **73 browser assertions** using Playwright 1.64.0. Checks exercised actual filters/sorts/pagination/URL reloads, subject thresholds, exact RGB and coverage, game-search opt-in, empty selection, real metadata/crop/scene downloads, scene painting/erasing, every embedded crop hash, original whole-image bytes for sensitive icons, 390px mobile overflow and zero script/network errors. Desktop/mobile screenshots in ignored `artifacts/atlas-verification/` were inspected. Source sheets also contain hidden RGB/partial-alpha values; PNG downloads now use generator-encoded frozen crops rather than a lossy canvas round trip.
+
+Catalog regeneration/`--check` passed with original PNG/archive/crop hashes and game selections intact. Linux CI now configures the persistent browser check with pinned Playwright; no remote CI run is claimed here. Native atlas controls and final acceptance remain in progress.
+
 ## Reproduction
 
 ```sh

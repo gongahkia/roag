@@ -91,7 +91,8 @@ def color_name(rgb):
 
 class Png:
     def __init__(self, path):
-        data = Path(path).read_bytes()
+        data = path if isinstance(path, bytes) else Path(path).read_bytes()
+        path = '<PNG bytes>' if isinstance(path, bytes) else path
         if data[:8] != b'\x89PNG\r\n\x1a\n':
             raise ValueError(f'Not a PNG: {path}')
         offset, compressed, header = 8, [], None
@@ -149,6 +150,20 @@ class Png:
             raise ValueError(f'Crop outside PNG: {rect}')
         stride = self.width * 4
         return b''.join(self.rgba[row * stride + x * 4:row * stride + (x + width) * 4] for row in range(y, y + height))
+
+
+def encode_rgba_png(width, height, rgba):
+    """Lossless crop exports, including hidden RGB at alpha zero and partial alpha."""
+    if width <= 0 or height <= 0 or len(rgba) != width * height * 4:
+        raise ValueError('RGBA dimensions and byte length differ')
+
+    def chunk(kind, payload):
+        return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload))
+
+    stride = width * 4
+    scanlines = b''.join(b'\x00' + rgba[y * stride:(y + 1) * stride] for y in range(height))
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(scanlines, 9)) + chunk(b'IEND', b''))
 
 
 def appearance(image, record):

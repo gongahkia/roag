@@ -50,7 +50,7 @@ Individual neutral names also supply conservative subject terms. Explicit “-li
 
 Coordinate review sheets are reproducible with `uv run --with pillow python tools/make_asset_review.py`. The generated manifest covers every one of the 7,115 occupied crops; its existence is not evidence that a page was inspected. Only pages explicitly recorded in the semantic input count as inspected. Original pixels are displayed at nearest-neighbor scale with coordinates. The optional historical comparison tool is `uv run --with pillow python tools/match_upstream_silhouettes.py --download`; downloading is explicit, cached under ignored `artifacts/`, and never required for normal catalog regeneration.
 
-The full generic-catalog work remains active. Art coverage now includes explicit descriptions for uncertain motifs, 137 neutral icon-family descriptions, 786 structured prompt labels/states/sizes, and characters/code points for 146 publisher-labelled glyphs. The remaining completion work is matching generic search/filter/sort controls in the atlas and their verification. The final checks must exercise canonical JSON and viewer agreement; type/subject/color/layer/composition queries with confidence; original-file, ID, crop and evidence preservation; deterministic regeneration; actual browser interaction/exports; and the native atlas. Game-specific roles must remain optional relationships rather than the basis of neutral classification. Each checkpoint records its actual scope in VERIFICATION.md and preserves a separate rollback commit.
+The full generic-catalog work remains active. Art coverage now includes explicit descriptions for uncertain motifs, 137 neutral icon-family descriptions, 786 structured prompt labels/states/sizes, and characters/code points for 146 publisher-labelled glyphs. The offline atlas now exposes those generic queries and exact exports; remaining completion work is the native atlas and final acceptance audit. The final checks must exercise canonical JSON and viewer agreement; type/subject/color/layer/composition queries with confidence; original-file, ID, crop and evidence preservation; deterministic regeneration; actual browser interaction/exports; and the native atlas. Game-specific roles must remain optional relationships rather than the basis of neutral classification. Each checkpoint records its actual scope in VERIFICATION.md and preserves a separate rollback commit.
 
 Agent-friendly queries use the same catalog and exclude game-specific interpretations by default:
 
@@ -78,6 +78,25 @@ Each record preserves source, crop, original identity/confidence, exact-match ev
 | `review` | Identity evidence/confidence and the actual extent of visual inspection |
 
 Every occupied crop has future-use proposals; non-gameplay regions remain marked as such. The new lunar proposals use evidence-scoped family/category rules and existing observations. **This is exhaustive per-entry coverage, not a new manual identification of all 7,115 motifs.**
+
+## Offline artwork atlas
+
+Open [atlas.html](../atlas.html) directly as a file. It embeds the original images and metadata and makes no network requests. The main controls filter by pack, generic type, color, exact subject terms with minimum claim confidence, suggested layer and composition. Text search requires all space-separated words; comma-separated subject terms must all match. Sort by ID, name, type, primary color, dimensions or visual confidence, with descending order available.
+
+Advanced controls offer minimum foreground color coverage (5% by default), primary-color-only matching, exact foreground RGB, original source identity confidence and optional game relationships/search. Clicking a palette swatch applies exact RGB. Game casting/proposals start folded and stay out of neutral text search unless explicitly enabled. Source identity confidence and per-subject confidence are separate.
+
+Selection URLs preserve filters, sort, page and stable ID. Each sprite exports neutral metadata with source identity/crop hashes and an original crop PNG; filtered selections export all matching records, not merely the visible page. Downloads preserve every crop's frozen RGBA, including invisible RGB and partial transparency that browser canvas round trips can normalize. Whole-image icons retain the original PNG bytes. The generator encodes cropped-sheet PNG downloads with Python's standard library; original files are never rewritten.
+
+The scene lab retains exact-ID layer recipes and rendered PNG export. Palette tinting only changes the preview; crop downloads retain source pixels. An empty query clears the selection and disables its exports.
+
+Optional real-browser verification is separate from standard-library regeneration:
+
+```sh
+uv run --with playwright==1.64.0 playwright install chromium
+uv run --with playwright==1.64.0 python tools/verify_asset_atlas.py
+```
+
+An existing Chromium can be selected with `--browser /path/to/chromium`. Reports, downloads and desktop/mobile screenshots go to ignored `artifacts/atlas-verification/`. The persistent generic unit suite also decodes every embedded crop PNG and verifies all 7,115 frozen RGBA hashes. Linux CI configures both that suite and the browser check; actual executed results are recorded in [VERIFICATION.md](../../docs/VERIFICATION.md).
 
 ## Current lunar use and retained preview use
 

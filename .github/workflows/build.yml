@@ -38,3 +38,9 @@ jobs:
       - name: Check generic artwork metadata and queries
         if: matrix.os == 'ubuntu-latest'
         run: python3 -m unittest discover -s tests/catalog -v
+      - name: Check offline artwork atlas interactions and exports
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python3 -m pip install playwright==1.64.0
+          python3 -m playwright install --with-deps chromium
+          python3 tools/verify_asset_atlas.py
