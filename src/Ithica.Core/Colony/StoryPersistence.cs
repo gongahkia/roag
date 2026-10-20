@@ -37,7 +37,7 @@ public sealed partial class Simulation
             || story.Pending.Any(i => story.History.Any(h => h.Id == i.Id))
             || story.Followups.Any(f => f is null || f.Kind is not ("pump" or "harvest" or "cache") || f.IncidentId <= 0 || f.IncidentId >= story.NextId || f.DueAt <= tick || !Cell(f.Cell) || f.MachineId is < 0
                 || f.Kind != "cache" && f.MachineId is null))
-            throw new InvalidDataException("Invalid incident director state.");
+            throw new InvalidDataException("Invalid saved station state.");
         foreach (var i in story.Pending)
         {
             bool module = i.DefinitionId is "pump" or "relay" or "seed";

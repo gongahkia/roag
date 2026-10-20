@@ -2,7 +2,7 @@
 
 **A small life on the Moon.** Build a salvage colony from the people you rescue, then take those same residents into the wasteland. Recover something useful, bring it home, and leave some questions unanswered.
 
-A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases. Machines wear and need real worker repairs; crew remember danger, work and how disputes were handled. A saved event director mixes pressure with opportunities and recovery.
+A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases. Machines wear and need real worker repairs; crew remember danger, work and how disputes were handled. Unexpected faults, encounters and opportunities give each colony its own history. New games choose a fresh seed; `--seed` keeps a run reproducible.
 
 **Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) is the master source of truth. [AGENTS.md](AGENTS.md) defines repository guidance. [Verification](docs/VERIFICATION.md) records actual checks and implementation checkpoints.
 
@@ -54,7 +54,7 @@ F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the compl
 ./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
 ```
 
-I opens station incidents and the pressure forecast. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust.
+I opens station messages, warnings and work reports. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust.
 
 Scenes use real commands to reach a fresh state and do not autosave on exit. `--headless` completes rescue, recovery, salvage combat, returned cargo and a constructed upgrade without opening a window or writing a player save.
 

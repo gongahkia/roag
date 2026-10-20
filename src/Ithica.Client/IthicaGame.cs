@@ -609,7 +609,7 @@ public sealed partial class IthicaGame : Game
     }
     private void NewColony()
     {
-        _campaign = new Ithica.Core.Campaign(_options.Seed, _options.Width, _options.Height);
+        _campaign = new Ithica.Core.Campaign(_options.NextCampaignSeed(), _options.Width, _options.Height);
         _paused = true;
         _modal = "tutorial";
         _lesson = 0;
@@ -682,6 +682,10 @@ public sealed partial class IthicaGame : Game
             if (!ok) throw new InvalidOperationException("Graphical smoke test failed: " + message);
             _smokeChecks.Add(message);
         }
+        var seeded = ClientOptions.Parse(["--seed", "-7"]);
+        Check(seeded.SeedSpecified && seeded.Seed == -7 && seeded.NextCampaignSeed() == -7, "explicit signed seeds remain reproducible");
+        Check(Enumerable.Range(0, 16).Select(_ => ClientOptions.Parse([]).Seed).Distinct().Count() >= 15, "normal new games choose fresh seeds");
+        Check(ClientOptions.Parse(["--scene", "surface"]).Seed == 42 && ClientOptions.Parse(["--smoke-test"]).Seed == 42, "diagnostic scene and smoke defaults remain reproducible");
         Check(_modal == "tutorial", "sectioned tutorial opens"); NextLesson(); Check(_lesson == 1, "tutorial navigation"); _modal = "";
         var contact = _sim.Survivors[0]; var stock = _sim.Resources;
         SelectTool(Tool.Dig); ClickMap(_camera.WorldToScreen(CellCenter(contact.Cell)));
@@ -727,7 +731,7 @@ public sealed partial class IthicaGame : Game
         Check(_campaign.StateJson() == artworkState, "atlas filtering preserves exact campaign state");
         CenterHabitat(); _selectedSurvivor = null; _selectedCrew = 0; _paused = true; _modal = ""; SelectTool(Tool.Inspect);
         _previousKeyboard = new(); _keyboard = new(Keys.I); HandleInput(); _keyboard = new();
-        Check(_modal == "incidents", "incident keyboard opens station decisions and forecast");
+        Check(_modal == "incidents", "report keyboard opens station messages and warnings");
         long tickForPanels = _campaign.CampaignTick; string panelsState = _campaign.StateJson();
         Check(_sim.Story is not null && _sim.Crew.All(c => c.Disposition is not null), "director and resident preferences are present");
         _modal = "resident";

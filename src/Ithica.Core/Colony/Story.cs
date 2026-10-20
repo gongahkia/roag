@@ -264,7 +264,7 @@ public sealed partial class Simulation
         }
         if (harmful) story.RecoveryUntil = Math.Max(story.RecoveryUntil, Tick + 240);
         UpdatePower();
-        Record(i, (expired ? "No response; " : "") + response + (response == "service" ? " / crew must finish before the deadline" : ""));
+        Record(i, (expired ? "No response; " : "") + IncidentLibrary.Single(d => d.Id == i.DefinitionId).Choices.Single(c => c.Id == response).Label + (response == "service" ? " / crew must finish before the deadline" : ""));
     }
 
     private void FollowupOutcome(StoryFollowup f, string text, NoticeLevel level)
@@ -335,7 +335,7 @@ public sealed partial class Simulation
             if (d.Id is "pump" or "relay") MachineAt(i.Cell!.Value)!.Condition = Math.Min(90, MachineAt(i.Cell.Value)!.Condition);
             s.Pending.Add(i); s.Cooldowns[d.Id] = Tick + d.Cooldown; s.Budget -= d.Severity;
             s.LastSeverity = d.Severity; s.HostileStreak = d.Severity > 0 ? s.HostileStreak + 1 : 0;
-            Event(d.Title + $" / decision #{i.Id}, {d.Warning} ticks to respond. Open incidents [I].", d.Severity > 0 ? NoticeLevel.Warning : NoticeLevel.Good);
+            Event(d.Title + $". Response window: {d.Warning} ticks. Reports [I].", d.Severity > 0 ? NoticeLevel.Warning : NoticeLevel.Good);
         }
         s.NextBeat = Tick + rng.Next(144, 241) + (forecast.Recovering ? 96 : 0);
         s.RandomState = rng.State;

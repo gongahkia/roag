@@ -176,9 +176,9 @@ public sealed partial class IthicaGame
             if (f.Battle is not null) { _fieldRoute.Clear(); _fieldRouteObject = null; }
         }
         else { _fieldRoute.Clear(); _fieldRouteObject = null; }
-        if (_campaign.ActiveField is not null && _sim.Log.LastOrDefault(n => (n.Level == NoticeLevel.Danger || n.Level == NoticeLevel.Warning && n.Text.Contains("Open incidents [I]")) && n.Tick > _fieldNoticeTick) is { } notice)
+        if (_campaign.ActiveField is not null && _sim.Log.LastOrDefault(n => (n.Level == NoticeLevel.Danger || n.Level == NoticeLevel.Warning && n.Text.Contains("[I]")) && n.Tick > _fieldNoticeTick) is { } notice)
         {
-            _fieldNotice = notice.Text; _fieldNoticeTick = notice.Tick;
+            _fieldNotice = StationReports.Notice(notice.Text); _fieldNoticeTick = notice.Tick;
             _fieldRoute.Clear(); _fieldRouteObject = null;
         }
         SyncCampaignUI();
@@ -244,7 +244,7 @@ public sealed partial class IthicaGame
         if (Button(new(width - 262, 8, 76, 40), "SAVE")) QueueUI(SaveColony);
         if (Button(new(width - 178, 8, 76, 40), "ATLAS")) _atlas = true;
         if (Button(new(width - 94, 8, 76, 40), "GUIDE")) { _modal = "tutorial"; _lesson = 0; }
-        if (Button(new(76, 114, 180, 40), $"INCIDENTS ({_sim.Story?.Pending.Count ?? 0})")) { _fieldRoute.Clear(); _modal = "incidents"; _incidentIndex = 0; }
+        if (Button(new(76, 114, 180, 40), $"REPORTS ({_sim.Story?.Pending.Count ?? 0})")) { _fieldRoute.Clear(); _modal = "incidents"; _incidentIndex = 0; }
         var side = _sidebar; Fill(side, Surface); float y = side.Y + 14, x = side.X + 12; int w = side.Width - 24;
         Text($"PACK / {_campaign.Pack.Food} FOOD  {_campaign.Pack.Water} WATER", x, y, Amber, .85f); y += 22;
         Text($"{_campaign.Pack.Medicine} MEDICAL  {_campaign.Pack.Filters} FILTERS", x, y, Muted, .8f); y += 26;

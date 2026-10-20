@@ -8,7 +8,7 @@ try
     var options = ClientOptions.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\n--scene colony|preparation|surface|battle|structure|arrival|atlas|incidents|resident\n  --import-colony PATH (writes only to the new Ithica save)\nHeadless: ./ithica.sh --headless or ./ithica.sh --benchmark.");
+        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\n--scene colony|preparation|surface|battle|structure|arrival|atlas|incidents|resident\n  --import-colony PATH (writes only to the new Ithica save)\nNew games choose a fresh seed unless --seed is supplied.\nHeadless: ./ithica.sh --headless or ./ithica.sh --benchmark.");
         return 0;
     }
     using var game = new IthicaGame(options);
@@ -26,6 +26,9 @@ namespace Ithica.Client
     public sealed class ClientOptions
     {
         public int Seed { get; private set; } = 42;
+        public bool SeedSpecified { get; private set; }
+        private static int FreshSeed() => System.Security.Cryptography.RandomNumberGenerator.GetInt32(int.MaxValue);
+        public int NextCampaignSeed() => SeedSpecified ? Seed : FreshSeed();
         public int Width { get; private set; } = 96;
         public int Height { get; private set; } = 64;
         public string SavePath { get; private set; } = Ithica.Core.Campaign.DefaultSave;
@@ -79,7 +82,7 @@ namespace Ithica.Client
                 switch (args[i])
                 {
                     case "--seed":
-                        result.Seed = Number();
+                        result.Seed = Number(); result.SeedSpecified = true;
                         break;
                     case "--width":
                         result.Width = Number();
@@ -141,6 +144,8 @@ namespace Ithica.Client
                 throw new ArgumentException("Window size must be between 1024x720 and 4096x2160.");
             }
 
+            if (!result.SeedSpecified && !result.SmokeTest && result.Frames == 0 && result.Scene == "colony"
+                && !result.Load && result.ImportPath is null && !result.Help) result.Seed = FreshSeed();
             return result;
         }
     }

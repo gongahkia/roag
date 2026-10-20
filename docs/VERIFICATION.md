@@ -233,3 +233,9 @@ Executed checks:
 Reports/captures are local and ignored under `artifacts/station-pressure/`. Diagnostic scenes, headless tools and smoke runs did not write player saves. The root `ithica` and nested historical `regolith-csharp` identities remain readable; additive story state uses its own version 1, and new saves retain exact service reservations, memories/trust, director RNG/pacing, pending decisions, cooldowns and follow-ups. Older application builds are not guaranteed to understand new service orders.
 
 This is a bounded initial event library and explicit difficulty heuristics. It does not implement drones, z-levels, colony raids, full politics/families or RimWorld-scale breadth. Balance values and long-campaign content density still need playtesting; the checks establish causal behavior, deterministic continuation and usable current UI.
+
+## Player reports and hidden pacing
+
+**Recorded: 2026-10-21, Fedora 44 / WSLg.** The event director remains internal tooling/save terminology. Removed player-facing strain/exposure, recovery windows, event families and numbered director decisions. The I panel now presents observed air, power, water/food, station messages, response windows and ongoing work. Logs use response labels; legacy handler IDs/decision notices are translated at presentation time without modifying saved records. No director persona, selector or difficulty-pacing display is exposed.
+
+Normal interactive new games now choose fresh seeds; explicit signed seeds remain pinned, including retries. Scene/frame/smoke/headless defaults remain reproducible. Native checks exercise fresh defaults, explicit seeds and diagnostic defaults without writing player saves. **35 native checks passed at 1024×720**; the minimum-size report capture was inspected for text and bounds. The combined procedural follow-up below records the final rule/native/compatibility scope.

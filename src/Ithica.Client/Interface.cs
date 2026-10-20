@@ -194,7 +194,7 @@ public sealed partial class IthicaGame
     {
         Fill(_eventArea, Surface);
         Text("MISSION LOG", _eventArea.X + 14, _eventArea.Y + 10, Muted, .8f);
-        if (Button(new(_eventArea.X + 132, _eventArea.Y + 4, 160, 32), $"INCIDENTS ({_sim.Story?.Pending.Count ?? 0})", tooltip: "Station incidents and pressure forecast [I]")) { _modal = "incidents"; _incidentIndex = 0; }
+        if (Button(new(_eventArea.X + 132, _eventArea.Y + 4, 160, 32), $"REPORTS ({_sim.Story?.Pending.Count ?? 0})", tooltip: "Read station messages, warnings and work reports [I]")) { _modal = "incidents"; _incidentIndex = 0; }
         if (Button(new(_eventArea.Right - 110, _eventArea.Y + 4, 102, 40), "OPEN LOG", tooltip: "Open the full event log [E]"))
         {
             _panel = "log";
@@ -205,7 +205,7 @@ public sealed partial class IthicaGame
             var entry = _sim.Log[_sim.Log.Count - 1 - n];
             int y = _eventArea.Y + 38 + n * 22;
             Text($"{entry.Tick / Simulation.TicksPerCycle + 1:00}:{entry.Tick % Simulation.TicksPerCycle:000}", _eventArea.X + 14, y, Muted, .8f);
-            Text(Short(entry.Text, Math.Max(10, (_eventArea.Width - 112) / 8)), _eventArea.X + 94, y, LevelColor(entry.Level), .9f);
+            Text(Short(StationReports.Notice(entry.Text), Math.Max(10, (_eventArea.Width - 112) / 8)), _eventArea.X + 94, y, LevelColor(entry.Level), .9f);
         }
     }
     private void DrawSidebar()
@@ -261,7 +261,7 @@ public sealed partial class IthicaGame
                 var entry = _sim.Log[_sim.Log.Count - 1 - n];
                 Text($"CYCLE {entry.Tick / 480 + 1:00} / {entry.Tick % 480:000}", x, y, LevelColor(entry.Level), .75f);
                 y += 20;
-                y += Wrap(entry.Text, x, y, w, Ink, .9f) + 14;
+                y += Wrap(StationReports.Notice(entry.Text), x, y, w, Ink, .9f) + 14;
                 Fill(new((int)x, (int)y - 6, (int)w, 1), Color.White * .06f);
             }
             return;
@@ -445,7 +445,7 @@ public sealed partial class IthicaGame
             "Recover a component from the salvage site and return it. B opens ordinary blueprints; U selects suit service. Build it on connected deck for 24 metal, 4 crystal and 1 component. Powered service equips more efficient suits and reveals another signal.",
             "Hull holds air; deck connects power. O shows pressure, heat and power.", "key-b"),
         new("LEAVE SOME QUESTIONS OPEN", "There are marks below the dust. You do not yet know who left them.",
-            "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. I opens incidents and the pressure forecast; M queues service on a selected machine. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
+            "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. I opens station messages and warnings; M queues service on a selected machine. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
             "T reopens this guide at home; F1 outside. Q saves and quits.", "key-s")
     ];
     private void DrawModal(int width, int height)
@@ -524,7 +524,7 @@ public sealed partial class IthicaGame
             Text("THE SIMULATION IS PAUSED WHILE THIS PANEL IS OPEN", r.X + 30, r.Y + 69, Muted, .8f);
             (string Key, string Action)[] controls = [("ARROWS / HJKL","Move cursor"),("SPACE / 1 2 3","Pause / speed"),("CLICK CONTACT","Prepare an outing"),("R / C / G","Distress / crew / home"),
                 ("D / B / P / X","Mine / build / survey / cancel"),("V / ENTER / ESC","Region / confirm / inspect"),("WHEEL / + - / 0","Zoom at pointer / cursor / reset"),("RIGHT DRAG","Pan map"),
-                ("O / F / E","Overlays / follow / log"),("F5 / F9 / F2","Save / load / atlas"),("I / M","Incidents / service selected module"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
+                ("O / F / E","Overlays / follow / log"),("F5 / F9 / F2","Save / load / atlas"),("I / M","Reports / service selected module"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
             float y = r.Y + 115;
             foreach (var (key, action) in controls)
             {
