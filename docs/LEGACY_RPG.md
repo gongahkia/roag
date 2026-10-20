@@ -25,7 +25,7 @@ On Windows: `dotnet run --project src/Ithica.Client --configuration Release -- -
 
 The four-page field guide opens before play. F1 reopens it. Closing the window or Q saves to `~/.regolith/lantern.json`. `--save PATH` selects another file. This format is separate from colony and archived Python saves.
 
-Preview scenes (`--demo` and non-town `--scene` values) save only when you explicitly press F5/Ctrl+S, so browsing the atlas or a combat example preserves your existing expedition. Loading a save with F9 resumes normal autosaving.
+Preview scenes (`--demo` and non-town `--scene` values) save only when you explicitly press F5/Ctrl+S, so browsing the atlas or a combat example preserves your existing expedition. Outside the atlas, loading a save with F9 resumes normal autosaving.
 
 ## Controls
 

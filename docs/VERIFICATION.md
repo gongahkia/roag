@@ -106,6 +106,14 @@ Executed validation: **33 generic tests passed**, including decoding and frozen-
 
 Catalog regeneration/`--check` passed with original PNG/archive/crop hashes and game selections intact. Linux CI now configures the persistent browser check with pinned Playwright; no remote CI run is claimed here. Native atlas controls and final acceptance remain in progress.
 
+## Neutral native artwork atlas
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Both normal and retained-preview atlases now use the shared `ArtworkCatalog.cs` metadata/query reader. The interface exposes pack/type/color/layer/composition/usage filters and sorting, subject/confidence/exact-RGB query tokens, exact palette/evidence details and optional game notes. F1 shows query syntax; F9 resets filters. Preview typing Q while the atlas is open now remains a search input, consistent with the normal client.
+
+Executed validation: a clean Release build passed with zero warnings/errors and **131 core tests passed**. Actual WSLg smoke runs at 1024×720 passed **26 checks in Ithica** and **25 in the preview**, including loading all metadata/palettes/inspection references, high-confidence ghost lookup, default neutral versus optional game search, type/color/sort controls, invalid-query feedback and unchanged exact campaign JSON after filtering. `python3 tools/verify_native_atlas.py artifacts/native-atlas/current.json artifacts/native-atlas/preview.json` matched **15 native queries per client** against complete canonical Python result lists/order, including all 7,115 IDs and malformed color/hex/confidence/coverage cases.
+
+Inspected keyboard-driven atlas captures at 1024×720 (ghost subject) and 1440×900 (513 green actors). Both accepted typed queries; the preview remained open while typing Q. The first normal-client input harness attempted focus before the window was viewable; its final captured query was verified, and subsequent targeted input waited for a visible window and checked focus before typing. Captures/reports live under ignored `artifacts/native-atlas/`; no player saves were written. The integrated headless rescue/salvage/construction loop and retained fantasy headless quest also completed. Catalog `--check` and all **33** generic tests passed. Final content/requirement audit continues separately.
+
 ## Reproduction
 
 ```sh
