@@ -48,9 +48,11 @@ WASD/arrows or click move; E/Enter interacts; Space/period waits; T uses a torch
 
 ## Projects and ownership
 
-`Vagabonds.sln` contains four projects: `Vagabonds.Core` owns graphics-free expedition rules, generation, combat and persistence; `Vagabonds.Graphics` owns sprites, text, masks and camera; `Vagabonds.Client` owns the normal RPG window/input/interface/atlas; `Vagabonds.Core.Tests` owns RPG, extraction compatibility and graphics-free client startup tests. All project and asset paths resolve within this checkout.
+`Vagabonds.sln` contains four projects: `Vagabonds.Core` owns graphics-free expedition rules, generation, combat and persistence; `Vagabonds.Graphics` owns sprites, text, masks and camera; `Vagabonds.Client` owns the normal RPG window/input/interface/atlas; `Vagabonds.Core.Tests` owns RPG, extraction compatibility and graphics-free client startup/reload tests. All project and asset paths resolve within this checkout.
 
 The original colony simulation, colony client, combined campaign and colony tests are not part of this solution. Inherited expedition field helpers and the lunar validation adapter remain as source compatibility code; they are not a playable lunar colony mode. Normal client loading/import rejects lunar field sessions.
+
+Startup, F9 and legacy import share `Campaign.LoadRpg`, which validates and rejects lunar field sessions before returning a replacement campaign. Failed F9 loads report an error and preserve the current campaign, pending route and autosave mode. The generic Core `Campaign.Load` remains available for retained field-session compatibility.
 
 ## Saves and compatibility
 

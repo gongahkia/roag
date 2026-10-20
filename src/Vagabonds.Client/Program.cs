@@ -53,7 +53,7 @@ try
     game.Run();
     return 0;
 }
-catch (Exception e) when (e is ArgumentException or IOException or JsonException or FormatException or OverflowException)
+catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or JsonException or FormatException or OverflowException)
 {
     Console.Error.WriteLine("Vagabonds: " + e.Message);
     return 1;

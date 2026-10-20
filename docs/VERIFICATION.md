@@ -43,3 +43,11 @@ A freshly published client launched from `/tmp` with temporary fixtures. Ordinar
 ## Audit fixes: discovered routing (2026-10-21)
 
 Release build passed with zero warnings/errors and all 83 tests passed. Eight routing regressions cover a discovered destination with an unknown shortcut, no discovered path, unknown/out-of-bounds destinations, hidden hazard changes, visible hazard avoidance, hazardous-only routes, blocking object approaches and the original seed-42 destination `(11, 10)`. Planning leaves saved state and RNG unchanged. The existing complete-expedition tests and actual headless quest passed with the verification driver's full-map planning retained.
+
+## Audit fixes: RPG-only reloads (2026-10-21)
+
+Release build passed with zero warnings/errors and all 96 tests passed. Thirteen additional cases cover shared RPG-only loading, both startup load modes, exact battle continuation, generic field-session compatibility and the actual F9 handler. The handler is invoked without constructing a graphics window: lunar, invalid, malformed and missing saves preserve the active battle, RNG, pending route and both enabled/disabled autosave settings; a valid save restores exact battle continuation and enables autosaving.
+
+A fresh published client launched from `/tmp` passed eight acceptance scenarios: automatic/explicit startup rejected lunar fixtures with exit 1 and unchanged bytes; invalid/malformed startup data produced handled errors without overwriting files; actual F9 input rejected lunar data while F5 still saved the active RPG; valid F9 input restored the saved key/seed and Q autosaved that campaign; the headless quest completed; and all 25 native smoke checks passed at 1024×720 without changing the selected save. Reports/capture are ignored under `artifacts/fixes/final-*` and `reload-*`. All fixtures were temporary test data, with no player saves read or modified.
+
+Final repository checks also passed: 1,000 consecutive seeds −500 through 499 with zero fallback zones, catalog freshness/original artwork hashes and all 38 catalog tests. Native results remain local WSLg checks, not evidence of a new remote CI or macOS/Windows run.

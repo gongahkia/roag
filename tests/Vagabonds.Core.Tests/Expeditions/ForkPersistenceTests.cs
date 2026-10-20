@@ -77,4 +77,40 @@ public sealed class ForkPersistenceTests
         }
         finally { File.Delete(source); File.Delete(target); }
     }
+
+    [Fact]
+    public void RpgLoaderRejectsLunarSessionsWhileTheGenericLoaderRemainsCompatible()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "vagabonds-field-load-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var field = Campaign.CreateField(42, LunarGenerator.Create("salvage", 42, false, false));
+            field.Save(file);
+            byte[] before = File.ReadAllBytes(file);
+            var error = Assert.Throws<InvalidDataException>(() => Campaign.LoadRpg(file));
+            Assert.Contains("lunar field session", error.Message);
+            Assert.Equal(before, File.ReadAllBytes(file));
+            Assert.Equal(field.StateJson(), Campaign.Load(file).StateJson());
+        }
+        finally { File.Delete(file); }
+    }
+
+    [Fact]
+    public void RpgLoaderPreservesExactBattleContinuation()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "vagabonds-rpg-load-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var campaign = new Campaign(1337);
+            campaign.TravelTo("to-wilds");
+            campaign.TravelTo("wilds-hounds");
+            campaign.Save(file);
+            var loaded = Campaign.LoadRpg(file);
+            Assert.Equal(campaign.StateJson(), loaded.StateJson());
+            campaign.AutoBattle();
+            loaded.AutoBattle();
+            Assert.Equal(campaign.StateJson(), loaded.StateJson());
+        }
+        finally { File.Delete(file); }
+    }
 }

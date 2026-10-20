@@ -160,13 +160,18 @@ public sealed partial class Campaign
         }
     }
     public static Campaign Load(string? path = null) => FromJson(File.ReadAllText(path ?? DefaultSave));
+    public static Campaign LoadRpg(string? path = null)
+    {
+        var campaign = Load(path);
+        if (campaign.FieldMode) throw new InvalidDataException("A lunar field session is not a Vagabonds RPG campaign.");
+        return campaign;
+    }
     public static Campaign ImportLegacy(string source, string? destination = null)
     {
         string input = Path.GetFullPath(source), output = Path.GetFullPath(destination ?? DefaultSave);
         if (string.Equals(input, output, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             throw new ArgumentException("Import destination must differ from the original RPG save.");
-        var campaign = Load(input);
-        if (campaign.FieldMode) throw new InvalidDataException("A lunar field session is not a Vagabonds RPG campaign.");
+        var campaign = LoadRpg(input);
         campaign.Save(output);
         return campaign;
     }

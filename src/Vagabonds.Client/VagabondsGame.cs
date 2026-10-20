@@ -49,7 +49,6 @@ public sealed partial class VagabondsGame : Game
         _autoSave = !options.Preview;
         var startup = CampaignStartup.Open(options);
         _campaign = startup.Campaign;
-        if (_campaign.FieldMode) throw new InvalidDataException("A lunar field session is not a Vagabonds RPG campaign.");
         _intro = !options.SkipIntro && !startup.Resumed;
         if (!startup.Resumed)
         {
@@ -561,7 +560,7 @@ public sealed partial class VagabondsGame : Game
     {
         try
         {
-            _campaign = Campaign.Load(_options.Save);
+            _campaign = Campaign.LoadRpg(_options.Save);
             _autoSave = true;
             _route.Clear();
             _routeObject = null;
@@ -572,7 +571,7 @@ public sealed partial class VagabondsGame : Game
             Recenter(true);
             Toast("Expedition restored.");
         }
-        catch (Exception e) when (e is IOException or JsonException or ArgumentException) { Toast("Load failed: " + e.Message); }
+        catch (Exception e) when (e is IOException or InvalidDataException or JsonException or ArgumentException) { Toast("Load failed: " + e.Message); }
     }
     protected override void Draw(GameTime gameTime)
     {

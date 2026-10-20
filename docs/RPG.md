@@ -27,6 +27,8 @@ Normal launch resumes `~/.vagabonds/campaign.json` if it exists, or starts a new
 
 Preview scenes (`--demo` and all explicit `--scene` values, including town) and frame-limited captures do not automatically load or save your expedition. Use `--load --frames N` to capture existing progress. F5/Ctrl+S still saves explicitly; outside the atlas, loading a save with F9 resumes normal autosaving. Frame limits and smoke checks always suppress exit autosaves.
 
+F9 accepts only a valid fantasy RPG save. A missing, corrupt or lunar field-session save reports a load error and leaves your current expedition and autosave mode intact.
+
 ## Controls
 
 | Input | Action |

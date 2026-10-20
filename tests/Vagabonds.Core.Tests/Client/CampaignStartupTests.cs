@@ -1,5 +1,6 @@
 using Vagabonds.Client;
 using Vagabonds.Core.Expeditions;
+using Vagabonds.Core.Generation;
 using Xunit;
 
 namespace Vagabonds.Tests.Client;
@@ -108,6 +109,19 @@ public sealed class CampaignStartupTests : IDisposable
     [InlineData("--new", "--load")]
     public void ConflictingLaunchModesAreRejected(string first, string second) =>
         Assert.Throws<ArgumentException>(() => Options.Parse([first, second]));
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StartupRejectsLunarSessionsWithoutChangingTheSave(bool explicitLoad)
+    {
+        Campaign.CreateField(42, LunarGenerator.Create("salvage", 42, false, false)).Save(Save);
+        byte[] before = File.ReadAllBytes(Save);
+        var options = Options.Parse(explicitLoad ? ["--save", Save, "--load"] : ["--save", Save]);
+        var error = Assert.Throws<InvalidDataException>(() => CampaignStartup.Open(options));
+        Assert.Contains("lunar field session", error.Message);
+        Assert.Equal(before, File.ReadAllBytes(Save));
+    }
 
     public void Dispose()
     {
