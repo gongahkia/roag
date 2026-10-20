@@ -102,6 +102,30 @@ public sealed class AcceptanceTests : IDisposable
         File.WriteAllText(Slot, json.ToJsonString());
         Assert.Throws<InvalidDataException>(() => WorldSession.Load(Slot));
     }
+    [Theory]
+    [InlineData("caravan")]
+    [InlineData("stock")]
+    [InlineData("dead-party")]
+    public void InternallyInconsistentSavesCannotInstallAnUnplayableSession(string kind)
+    {
+        var s = WorldSession.Create(42); s.Save(Slot); var json = JsonNode.Parse(File.ReadAllText(Slot))!;
+        if (kind == "caravan") json["state"]!["actors"]!.AsArray().First(a => a!["kind"]!.GetValue<int>() == (int)ActorKind.Caravan)!["destinationTown"] = null;
+        else if (kind == "stock") json["state"]!["towns"]![0]!["stocks"]!["unknown"] = 5;
+        else { long id = s.State.Party[0]; json["state"]!["actors"]!.AsArray().First(a => a!["id"]!.GetValue<long>() == id)!["life"] = (int)LifeState.Dead; }
+        File.WriteAllText(Slot, json.ToJsonString());
+        Assert.Throws<InvalidDataException>(() => WorldSession.Load(Slot));
+    }
+    [Theory]
+    [InlineData("plan", "version")]
+    [InlineData("plan", "sampleHash")]
+    [InlineData("state", "tick")]
+    [InlineData("state", "inventory")]
+    public void MissingRequiredFieldsCannotRefillSuppliesOrUnpinGeneration(string section, string field)
+    {
+        var s = WorldSession.Create(42); s.Save(Slot); var json = JsonNode.Parse(File.ReadAllText(Slot))!;
+        json[section]!.AsObject().Remove(field); File.WriteAllText(Slot, json.ToJsonString());
+        Assert.Throws<JsonException>(() => WorldSession.Load(Slot));
+    }
     [Fact]
     public void FailedStorageTakeDoesNotCreateOrMutateAStack()
     {

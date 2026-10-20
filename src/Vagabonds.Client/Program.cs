@@ -14,7 +14,23 @@ try
     var options = Options.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("VAGABONDS / top-down party RPG\n./vagabonds.sh [--seed N] [--load | --new] [--save PATH] [--skip-intro]\n  Normal launch resumes the selected save when it exists.\n  --new (start over; saving or quitting replaces the selected save)\n  --load (require and resume the selected save)\n  --import-legacy PATH (copies an old RPG save to the selected Vagabonds save and exits)\n  --scene town|forest|crypt|battle|victory|atlas (preview without autosaving)\n  --headless (plays a deterministic complete expedition without graphics)\n  --generation-report (map, WFC, terrain and quest diagnostics)\n  --validate-seeds N (check consecutive seeds from --seed, no window/save)\n  --smoke-test --screenshot PATH --frames N --window-size WIDTHxHEIGHT");
+        Console.WriteLine("""
+            VAGABONDS / a finite procedural fantasy world
+            ./vagabonds.sh [--seed N] [--load | --new] [--save PATH]
+              Normal launch resumes the selected world or legacy campaign; absent slots start a world.
+              --new (start over; normal saving/quitting replaces the selected slot)
+              --load (require and resume the selected slot)
+              --import-legacy PATH (validate/copy an old RPG save and exit)
+              --scene world|world-site|world-battle|world-inspector (preview without autosaving)
+              --scene town|forest|crypt|battle|victory|atlas (legacy previews)
+              --world-headless (recruit, construct, trade and verify simulation)
+              --world-report (macro plan and all town/site WFC diagnostics)
+              --validate-worlds N (macro checks for consecutive seeds from --seed)
+              --world-smoke (native render/cache/material checks and measured timings)
+              --headless | --generation-report | --validate-seeds N | --smoke-test (legacy checks)
+              --screenshot PATH --frames N --window-size WIDTHxHEIGHT
+            Space pauses/resumes. E speaks/takes stairs. B builds. X digs. F1 opens the guide.
+            """);
         return 0;
     }
     if (options.ImportLegacy is { } legacy)
@@ -56,11 +72,19 @@ try
         Console.WriteLine(JsonSerializer.Serialize(campaign.Summary(), new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
-    using var game = new VagabondsGame(options);
-    game.Run();
+    if (options.LegacyScene || options.SmokeTest && !options.WorldSmoke)
+    {
+        using var legacyGame = new VagabondsGame(options); legacyGame.Run();
+    }
+    else
+    {
+        var (session, _) = WorldStartup.Open(options);
+        if (session is WorldSession world) { using var game = new WorldGame(options, world); game.Run(); }
+        else { using var game = new VagabondsGame(options); game.Run(); }
+    }
     return 0;
 }
-catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or JsonException or FormatException or OverflowException)
+catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or FormatException or OverflowException)
 {
     Console.Error.WriteLine("Vagabonds: " + e.Message);
     return 1;
@@ -78,6 +102,8 @@ catch (Exception e) when (e is ArgumentException or IOException or InvalidDataEx
         }
         public bool NewGame { get; private set; }
         public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest;
+        public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
+        public bool WorldSmoke { get; private set; }
         private bool _sceneSpecified;
         public bool SkipIntro
         {
@@ -122,6 +148,7 @@ catch (Exception e) when (e is ArgumentException or IOException or InvalidDataEx
                 switch (args[i])
                 {
                     case "--world-report": o.WorldReport = true; break;
+                    case "--world-smoke": o.WorldSmoke = true; o.SmokeTest = true; break;
                     case "--world-headless": o.WorldHeadless = true; break;
                     case "--validate-worlds":
                         o.ValidateWorlds = int.Parse(Value());
@@ -200,7 +227,7 @@ catch (Exception e) when (e is ArgumentException or IOException or InvalidDataEx
                 throw new ArgumentException("Minimum window is 1024x720; maximum 4096x2160.");
             }
 
-            if (o.Scene is not ("town" or "forest" or "crypt" or "battle" or "victory" or "atlas"))
+            if (o.Scene is not ("world" or "world-site" or "world-battle" or "world-inspector" or "town" or "forest" or "crypt" or "battle" or "victory" or "atlas"))
             {
                 throw new ArgumentException("Unknown scene.");
             }

@@ -1,4 +1,18 @@
-# Vagabonds extraction verification
+# Vagabonds verification
+
+## Playable finite world and published acceptance (2026-10-21)
+
+Executed locally on Fedora 44 x64 under WSL2/WSLg, SDK 10.0.402 / runtime 10.0.13, Release. Locked restore, build (zero warnings/errors), publish and **150 tests** passed: the retained 96 plus 54 generation/world/client regressions. Catalog freshness/source hashes and all **38 catalog tests** passed. The legacy headless quest completed and its 1,000-seed validation retained zero fallback zones. World macro validation passed 1,000 consecutive seeds; tests additionally cover both signed extremes and the seed whose mixed combat hash is zero.
+
+An actual Core journey began alone at seed 42, recruited Lumi Hearth, followed generated roads and local terrain through **5,722 successful movement commands**, fought a naturally contacted encounter, took generated stairs to recover evidence, returned to Hollowwick 14, resolved the generated blight arc, advanced 300 more ticks and saved/restored the result. It ended at tick 6,022 with two surviving companions and 25 resident chunks. The verification driver planned known macro roads and local terrain while movement, discovery, encounters, combat, recruitment, shopping and resolution used ordinary Core commands. No actor teleport or campaign-state fixture supplied its progress. Separate tests cover digging/building and blocked-road recovery.
+
+Actual native input at 1024×720 exercised pause/movement, conversation/recruitment, camp construction/rest, explicit save, inspector stage changes, ordinary resume and rejected F9 loading of an inherited field fixture. The selected temporary world retained its two companions, inventory and clock. Native captures of the inspector and a four-person battle were visually inspected; all four battle cards and abilities fit the minimum window.
+
+A published-client keyboard check also opened the pack during combat: a number press consumed neither a turn nor random state, while closing the menu and pressing an ability performed the expected action. The generated-site preview passed its seven native checks at minimum size, with 18 resident chunks after prefetching the remote site.
+
+The published output was copied outside this checkout to a temporary application directory and executed from `/tmp`. Its world render smoke passed all seven checks for 360 frames at 1440×900; its four-person battle passed all seven at 1024×720, and the original client passed all 25 legacy graphical checks. Headless world simulation, 1,000 macro seeds and source-preserving legacy import passed from that isolated distribution. All native fixtures/captures live under ignored `artifacts/world/`. No real player save was read or modified.
+
+Fresh measured baseline: the published paused world rendered at **90.2 FPS average**, **13.31 ms p95 frame interval**, with **0.029 ms p95 client update** and nine resident chunks. A separate active 600-tick Core scenario measured **0.031 ms p95 / 3.70 ms maximum simulation tick**, conserved regional stocks/cargo and stayed at nine chunks. These measurements meet the 60 FPS / 8 ms simulation targets in these scenarios; they are not a guarantee for every seed, edit density or streaming transition. Chunk generation is synchronous behind prefetch and may hitch. Earlier warm-up captures varied with the host compositor. CI now includes world headless/macro/full-generation commands on the three configured operating systems; no new remote CI or native macOS/Windows execution is claimed.
 
 ## Finite world generation (2026-10-21)
 

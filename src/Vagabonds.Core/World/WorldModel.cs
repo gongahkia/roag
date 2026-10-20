@@ -63,14 +63,23 @@ public sealed class WorldPlan
     public const int ChunksAcross = 64;
     public const int Size = ChunkSize * ChunksAcross;
     public const int Floors = 4;
+    [JsonRequired]
     public int Seed { get; init; }
+    [JsonRequired]
     public int Version { get; init; } = GenerationVersion;
+    [JsonRequired]
     public string SampleHash { get; init; } = SampleLibrary.Default.Hash;
+    [JsonRequired]
     public string Id { get; init; } = "";
+    [JsonRequired]
     public List<TownPlan> Towns { get; init; } = [];
+    [JsonRequired]
     public List<SitePlan> Sites { get; init; } = [];
+    [JsonRequired]
     public List<RoadPlan> Roads { get; init; } = [];
+    [JsonRequired]
     public List<BiomeRegion> BiomeRegions { get; init; } = [];
+    [JsonRequired]
     public List<string> History { get; init; } = [];
     public bool Contains(WorldPosition p) => p.X >= 0 && p.Y >= 0 && p.X < Size && p.Y < Size && p.Floor is >= 0 and < Floors;
     public Biome BiomeAt(int x, int y)
@@ -124,9 +133,11 @@ public sealed class WorldPlan
         if (Towns == null || Sites == null || Roads == null || History == null || BiomeRegions == null || Towns.Any(t => t == null) || Sites.Any(t => t == null) || Roads.Any(r => r == null) || BiomeRegions.Any(r => r == null)) return ["Missing world plan data."];
         if (BiomeRegions.Count != 6 || BiomeRegions.Select(b => b.Biome).Distinct().Count() != 6 || BiomeRegions.Any(b => !Enum.IsDefined(b.Biome) || !Contains(new(b.X, b.Y)))) errors.Add("Invalid biome geography.");
         if (Towns.Count != 24 || Sites.Count != 48) errors.Add("World requires 24 towns and 48 sites.");
-        if (Towns.Any(t => !Contains(t.Center)) || Sites.Any(t => !Contains(t.Center))) errors.Add("Settlement/site outside world.");
+        if (Towns.Any(t => !Contains(t.Center) || t.Center.Floor != 0) || Sites.Any(t => !Contains(t.Center) || t.Center.Floor != 0)) errors.Add("Settlement/site outside surface world.");
         if (Towns.Any(t => t.Culture is < 0 or >= 6 || t.FactionId is < 0 or >= 6 || t.Name == null) || Sites.Any(s => s.Culture is < 0 or >= 6 || s.Name == null || s.Purpose is not ("ruin" or "mine" or "shrine" or "fort"))) errors.Add("Invalid culture/site purpose.");
         if (Roads.Count > 100 || Roads.Any(r => r.FromTown is < 0 or >= 24 || r.ToTown is < 0 or >= 24)) errors.Add("Invalid roads.");
+        if (Roads.Any(r => !Contains(r.A) || !Contains(r.B) || r.A.Floor != 0 || r.B.Floor != 0)) errors.Add("Road endpoints outside surface.");
+        if (Towns.Count == 24 && Roads.All(r => r.FromTown is >= 0 and < 24 && r.ToTown is >= 0 and < 24) && Roads.Any(r => r.A != Towns[r.FromTown].Center || r.B != Towns[r.ToTown].Center)) errors.Add("Road endpoints miss their towns.");
         var reached = new HashSet<int> { 0 };
         for (int i = 0; i < Towns.Count; i++) foreach (var road in Roads)
             if (reached.Contains(road.FromTown) || reached.Contains(road.ToTown)) { reached.Add(road.FromTown); reached.Add(road.ToTown); }
@@ -138,31 +149,57 @@ public sealed class WorldPlan
 
 public sealed class Actor
 {
+    [JsonRequired]
     public long Id { get; set; }
+    [JsonRequired]
     public string Name { get; set; } = "";
+    [JsonRequired]
     public ActorKind Kind { get; set; }
+    [JsonRequired]
     public WorldPosition Position { get; set; }
+    [JsonRequired]
     public int HomeTown { get; set; }
+    [JsonRequired]
     public int FactionId { get; set; }
+    [JsonRequired]
     public int Culture { get; set; }
+    [JsonRequired]
     public string Background { get; set; } = "";
+    [JsonRequired]
     public string Trait { get; set; } = "";
+    [JsonRequired]
     public string Motivation { get; set; } = "";
+    [JsonRequired]
     public string Job { get; set; } = "";
+    [JsonRequired]
     public long FriendId { get; set; }
+    [JsonRequired]
     public int Role { get; set; }
+    [JsonRequired]
     public int Level { get; set; } = 1;
+    [JsonRequired]
     public int Experience { get; set; }
+    [JsonRequired]
     public int Health { get; set; }
+    [JsonRequired]
     public int Mana { get; set; }
+    [JsonRequired]
     public int Stress { get; set; }
+    [JsonRequired]
     public LifeState Life { get; set; }
+    [JsonRequired]
     public bool Recruited { get; set; }
+    [JsonRequired]
     public Dictionary<string, int> Cargo { get; set; } = [];
+    [JsonRequired]
     public int? DestinationTown { get; set; }
+    [JsonRequired]
     public long NextTravelTick { get; set; }
+    [JsonRequired]
     public long DepartureTick { get; set; }
+    [JsonRequired]
     public bool Traveling { get; set; }
+    [JsonRequired]
     public List<int> Route { get; set; } = [];
     public int MaxHealth => Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30;
     public int MaxMana => new Hero { Role = Role, Level = Level }.MaxMana;
@@ -171,76 +208,127 @@ public sealed class Actor
 
 public sealed class TownState
 {
+    [JsonRequired]
     public int Id { get; set; }
+    [JsonRequired]
     public Dictionary<string, int> Stocks { get; set; } = new() { ["food"] = 100, ["wood"] = 100, ["stone"] = 100, ["medicine"] = 25 };
+    [JsonRequired]
     public int Vacancies { get; set; }
+    [JsonRequired]
     public int Shortage { get; set; }
+    [JsonRequired]
     public int RaidLosses { get; set; }
     public int Price(string item) => 2 + Math.Max(0, 100 - Stocks.GetValueOrDefault(item)) / 10;
 }
 public sealed class FactionState
 {
+    [JsonRequired]
     public int Id { get; set; }
+    [JsonRequired]
     public string Name { get; set; } = "";
+    [JsonRequired]
     public int[] Relations { get; set; } = new int[6];
 }
 public sealed class WorldArc
 {
+    [JsonRequired]
     public ArcKind Kind { get; set; }
+    [JsonRequired]
     public ArcStatus Status { get; set; }
+    [JsonRequired]
     public int TownId { get; set; }
+    [JsonRequired]
     public int SiteId { get; set; }
+    [JsonRequired]
     public long PatronId { get; set; }
+    [JsonRequired]
     public int Progress { get; set; }
+    [JsonRequired]
     public string Objective { get; set; } = "";
+    [JsonRequired]
     public string Outcome { get; set; } = "";
 }
 public sealed class RegionalTask
 {
+    [JsonRequired]
     public string Id { get; set; } = "";
+    [JsonRequired]
     public int TownId { get; set; }
+    [JsonRequired]
     public int? RoadId { get; set; }
+    [JsonRequired]
     public string Description { get; set; } = "";
+    [JsonRequired]
     public bool Complete { get; set; }
 }
 public sealed class ChunkDelta
 {
+    [JsonRequired]
     public ChunkKey Key { get; set; }
+    [JsonRequired]
     public Dictionary<int, Material> Edits { get; set; } = [];
+    [JsonRequired]
     public HashSet<int> Discovered { get; set; } = [];
+    [JsonRequired]
     public Dictionary<int, Dictionary<string, int>> Storage { get; set; } = [];
 }
 public sealed class WorldState
 {
+    [JsonRequired]
     public long Tick { get; set; }
+    [JsonRequired]
     public uint CombatRandom { get; set; }
+    [JsonRequired]
     public int PartyOrdinal { get; set; }
+    [JsonRequired]
     public long NextActorId { get; set; } = 100000;
+    [JsonRequired]
     public List<Actor> Actors { get; set; } = [];
+    [JsonRequired]
     public List<long> Party { get; set; } = [];
+    [JsonRequired]
     public WorldPosition Position { get; set; }
+    [JsonRequired]
     public Dictionary<string, int> Inventory { get; set; } = new() { ["food"] = 8, ["wood"] = 20, ["stone"] = 12, ["medicine"] = 3, ["gold"] = 25 };
+    [JsonRequired]
     public List<TownState> Towns { get; set; } = [];
+    [JsonRequired]
     public List<FactionState> Factions { get; set; } = [];
+    // Manifest state omits this list; immutable chunk references restore it separately.
     public List<ChunkDelta> Chunks { get; set; } = [];
+    [JsonRequired]
     public List<string> Journal { get; set; } = [];
+    [JsonRequired]
     public HashSet<int> VisitedSites { get; set; } = [];
+    [JsonRequired]
     public WorldArc Arc { get; set; } = new();
+    [JsonRequired]
     public List<RegionalTask> Tasks { get; set; } = [];
+    [JsonRequired]
     public WorldBattle? Battle { get; set; }
+    [JsonRequired]
     public bool AwaitingContinuation { get; set; }
+    [JsonRequired]
     public long NavigationRevision { get; set; }
+    [JsonRequired]
     public long ResourcesProduced { get; set; }
+    [JsonRequired]
     public long ResourcesConsumed { get; set; }
+    [JsonRequired]
     public long ResourcesLost { get; set; }
 }
 
 public sealed class WorldBattle
 {
+    [JsonRequired]
     public List<CombatUnit> Units { get; set; } = [];
+    [JsonRequired]
     public List<long> ActorIds { get; set; } = [];
+    [JsonRequired]
     public List<int> Order { get; set; } = [];
+    [JsonRequired]
     public int TurnIndex { get; set; }
+    [JsonRequired]
     public int Round { get; set; } = 1;
     [JsonIgnore] public CombatUnit Active => Units[Order[TurnIndex]];
 }

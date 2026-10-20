@@ -8,6 +8,15 @@ public sealed class SessionTests
 {
     private static WorldSession Open(int seed = 42) => WorldSession.Create(seed);
     [Fact]
+    public void PlayersCanDismantleTheirWallsWithoutFoodOrDuplicatingMaterials()
+    {
+        var s = Open(); var p = s.State.Position.Offset(1, 0); int stone = s.Count("stone");
+        s.Chunks.Edit(p, Material.Floor); Assert.True(s.Submit(new(WorldCommandKind.Build, p, Material: Material.Wall)).Success);
+        s.State.Inventory["food"] = 0;
+        Assert.True(s.Submit(new(WorldCommandKind.Dig, p)).Success);
+        Assert.Equal(stone, s.Count("stone")); Assert.True(Materials.Walkable(s.Chunks.At(p)));
+    }
+    [Fact]
     public void GeneratedTravellerStartsAloneAndRecruitmentRemovesAWorker()
     {
         var s = Open(); var first = Assert.Single(s.Party);

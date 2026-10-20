@@ -20,7 +20,7 @@ public sealed partial class WorldSession
 {
     private sealed record ChunkReference(ChunkKey Key, string Hash);
     private sealed record Manifest(string Format, int Version, WorldPlan Plan, JsonObject State, List<ChunkReference> Chunks);
-    private static readonly JsonSerializerOptions SaveOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = false };
+    private static readonly JsonSerializerOptions SaveOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = false, RespectRequiredConstructorParameters = true };
     public void Save(string path)
     {
         path = Path.GetFullPath(path);
@@ -76,10 +76,26 @@ public sealed partial class WorldSession
         if (s.Actors.Count is < 1 or > 10000 || s.Actors.Any(a => a == null) || s.Actors.Select(a => a.Id).Distinct().Count() != s.Actors.Count || s.NextActorId <= s.Actors.Max(a => a.Id) || s.Party.Count is < 1 or > 4 || s.Party.Distinct().Count() != s.Party.Count || s.CombatRandom == 0) throw new InvalidDataException("Invalid actor identities.");
         foreach (var a in s.Actors)
             if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
+        foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
+        {
+            if (caravan.DestinationTown == null || caravan.DestinationTown == caravan.HomeTown || caravan.Traveling && caravan.Route.Count == 0) throw new InvalidDataException("Invalid caravan destination/route.");
+            int current = caravan.HomeTown;
+            foreach (int id in caravan.Route)
+            {
+                var road = plan.Roads[id];
+                if (road.FromTown != current && road.ToTown != current) throw new InvalidDataException("Disconnected caravan route.");
+                current = road.FromTown == current ? road.ToTown : road.FromTown;
+            }
+            if (caravan.Traveling && current != caravan.DestinationTown) throw new InvalidDataException("Caravan route misses destination.");
+        }
         if (s.Party.Any(id => !s.Actors.Any(a => a.Id == id && a.Recruited && a.Kind == ActorKind.Person)) || s.Towns.Count != 24 || s.Towns.Where((t, i) => t == null || t.Id != i || t.Stocks == null || new[] { "food", "wood", "stone", "medicine" }.Any(k => !t.Stocks.ContainsKey(k)) || t.Stocks.Any(e => e.Value < 0)).Any() || s.Factions.Count != 6 || s.Factions.Any(f => f == null || f.Relations == null || f.Relations.Length != 6) || s.Inventory.Any(e => e.Value < 0) || s.Arc.TownId is < 0 or >= 24 || s.Arc.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Arc.PatronId) || !Enum.IsDefined(s.Arc.Kind) || !Enum.IsDefined(s.Arc.Status) || s.Tasks.Any(t => t == null || t.TownId is < 0 or >= 24 || t.RoadId < 0 || t.RoadId >= plan.Roads.Count)) throw new InvalidDataException("Invalid party, economy or arc.");
+        if (s.Towns.Any(t => t.Stocks.Count != 4) || s.Factions.Where((f, i) => f.Id != i || f.Relations.Any(r => r is < -100 or > 100)).Any() || s.Journal.Any(j => j == null) || s.VisitedSites.Any(id => id is < 0 or >= 48)) throw new InvalidDataException("Invalid economy/history.");
+        var party = s.Party.Select(id => s.Actors.Single(a => a.Id == id));
+        if (s.AwaitingContinuation ? party.Any(a => a.Life != LifeState.Dead) : !party.Any(a => a.Life == LifeState.Alive)) throw new InvalidDataException("Invalid party life state.");
         if (s.Battle is { } b)
         {
             if (s.AwaitingContinuation || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
+            if (b.Round is < 1 or > 100000 || b.Units.Any(u => u.MaxHealth is < 1 or > 10000 || u.MaxMana is < 0 or > 10000 || u.Stress is < 0 or > 100 || u.Armor is < 0 or > 1000 || u.Speed is < 0 or > 1000 || u.Power is < 0 or > 1000 || u.Burn is < 0 or > 1000 || u.Bleed is < 0 or > 1000 || u.Mark is < 0 or > 1000 || u.Stun is < 0 or > 1000 || !Enum.IsDefined(u.Intent))) throw new InvalidDataException("Invalid combat statistics.");
         }
     }
 }

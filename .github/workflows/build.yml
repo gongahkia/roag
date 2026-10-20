@@ -24,6 +24,12 @@ jobs:
       - run: dotnet restore Vagabonds.sln --locked-mode
       - run: dotnet build Vagabonds.sln --configuration Release --no-restore
       - run: dotnet test Vagabonds.sln --configuration Release --no-build
+      - name: Exercise generated companions construction trade and fixed simulation
+        run: dotnet run --project src/Vagabonds.Client --configuration Release --no-build -- --world-headless
+      - name: Validate finite world macro geography
+        run: dotnet run --project src/Vagabonds.Client --configuration Release --no-build -- --validate-worlds 1000 --seed -500
+      - name: Report all procedural town and dungeon footprints
+        run: dotnet run --project src/Vagabonds.Client --configuration Release --no-build -- --world-report
       - name: Complete the actual RPG quest without graphics
         run: dotnet run --project src/Vagabonds.Client --configuration Release --no-build -- --headless
       - name: Validate procedural quest routes

@@ -31,7 +31,7 @@ public sealed partial class WorldSession : IGameSession
     public static WorldSession Create(int seed)
     {
         var plan = WorldPlan.Generate(seed);
-        var s = new WorldState { CombatRandom = WorldRandom.Hash(seed, 0, salt: 600), Position = plan.Towns[0].Center };
+        var s = new WorldState { CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center };
         for (int f = 0; f < 6; f++)
             s.Factions.Add(new() { Id = f, Name = SampleLibrary.Default.Cultures[f].Name + " compact", Relations = Enumerable.Range(0, 6).Select(i => i == f ? 100 : (int)(WorldRandom.Hash(seed, f, i, 180) % 81) - 40).ToArray() });
         foreach (var town in plan.Towns)
@@ -141,12 +141,18 @@ public sealed partial class WorldSession : IGameSession
                 target.Recruited = true; target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
             case WorldCommandKind.Dig:
-                if (!near || Chunks.At(command.Target) is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage)) return new(false, "Choose adjacent rock, wall, tree, door or storage.");
+                if (!near || Chunks.At(command.Target) is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose adjacent rock, wall, tree, door, empty storage or camp.");
                 var old = Chunks.At(command.Target);
                 if (old == Material.Storage && Chunks.Delta(command.Target.Chunk).Storage.GetValueOrDefault(command.Target.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
-                if (Count("food") < Materials.Hardness(old)) return new(false, $"Excavation needs {Materials.Hardness(old)} food for the work.");
-                Add("food", -Materials.Hardness(old)); Add(Materials.Yield(old), Materials.Hardness(old) + 1);
-                Chunks.Edit(command.Target, command.Target.Floor == 0 ? Material.Earth : Material.Floor); Reveal();
+                bool built = old is Material.Wall or Material.Door or Material.Storage or Material.Camp &&
+                    State.Chunks.FirstOrDefault(c => c.Key == command.Target.Chunk)?.Edits.GetValueOrDefault(command.Target.LocalIndex) == old &&
+                    Chunks.Get(command.Target.Chunk).Tiles[command.Target.LocalIndex] != old;
+                int work = built ? 0 : Materials.Hardness(old);
+                if (Count("food") < work) return new(false, $"Excavation needs {work} food for the work.");
+                Add("food", -work); Add(Materials.Yield(old), built ? old is Material.Storage or Material.Camp ? 4 : 2 : Materials.Hardness(old) + 1);
+                var cleared = command.Target.Floor == 0 ? Material.Earth : Material.Floor;
+                if (built && Chunks.Get(command.Target.Chunk).Tiles[command.Target.LocalIndex] == Material.Water) cleared = Material.Water;
+                Chunks.Edit(command.Target, cleared); Reveal();
                 return new(true, "Excavated. Materials recovered; routes have changed.");
             case WorldCommandKind.Build:
                 if (!near || !Materials.Walkable(Chunks.At(command.Target)) && Chunks.At(command.Target) != Material.Water || Chunks.At(command.Target) is Material.StairsDown or Material.StairsUp) return new(false, "Build on adjacent clear ground or water; preserve stairs.");
@@ -263,9 +269,32 @@ public sealed partial class WorldSession : IGameSession
             }
             else destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);
             var next = rng.Next(2) == 0 ? a.Position.Offset(Math.Sign(destination.X - a.Position.X), 0) : a.Position.Offset(0, Math.Sign(destination.Y - a.Position.Y));
+            if (next == a.Position || !Materials.Walkable(Chunks.At(next))) next = LocalStep(a.Position, destination);
             if (Plan.Contains(next) && Materials.Walkable(Chunks.At(next))) a.Position = next;
         }
         Contact();
+    }
+    private WorldPosition LocalStep(WorldPosition start, WorldPosition destination)
+    {
+        var open = new PriorityQueue<WorldPosition, (int Score, int Tie)>();
+        var previous = new Dictionary<WorldPosition, WorldPosition> { [start] = start };
+        var costs = new Dictionary<WorldPosition, int> { [start] = 0 };
+        WorldPosition best = start; int tie = 0;
+        open.Enqueue(start, (start.Distance(destination), tie++));
+        while (open.TryDequeue(out var current, out _) && previous.Count < 256)
+        {
+            if (current.Distance(destination) < best.Distance(destination)) best = current;
+            if (current == destination) break;
+            foreach (var (x, y) in Directions)
+            {
+                var next = current.Offset(x, y); int cost = costs[current] + 1;
+                if (!Plan.Contains(next) || next.Distance(start) > 24 || !Materials.Walkable(Chunks.At(next)) || costs.TryGetValue(next, out int old) && old <= cost) continue;
+                costs[next] = cost; previous[next] = current; open.Enqueue(next, (cost + next.Distance(destination), tie++));
+            }
+        }
+        if (best == start) return start;
+        while (previous[best] != start) best = previous[best];
+        return best;
     }
     private void CheckArc()
     {

@@ -10,6 +10,14 @@ public sealed class PersistenceTests : IDisposable
     private string Slot => Path.Combine(_directory, "campaign.json");
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
     [Fact]
+    public void SeedWhoseMixedCombatHashIsZeroStillHasAValidRandomStream()
+    {
+        int seed = unchecked((int)(600u * 0xc2b2ae35u));
+        Assert.Equal(0u, WorldRandom.Hash(seed, 0, salt: 600));
+        var s = WorldSession.Create(seed); s.Save(Slot);
+        Assert.NotEqual(0u, WorldSession.Load(Slot).State.CombatRandom);
+    }
+    [Fact]
     public void AtomicManifestRestoresTerrainDiscoveryActorsClockAndExactRandomContinuation()
     {
         var s = WorldSession.Create(1337); s.Chunks.Edit(s.State.Position.Offset(1, 0), Material.Camp);

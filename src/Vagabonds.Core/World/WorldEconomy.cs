@@ -4,7 +4,15 @@ namespace Vagabonds.Core.World;
 
 public sealed partial class WorldSession
 {
+    private long _roadBlockRevision = -1;
+    private readonly Dictionary<int, bool> _roadBlocks = [];
     public bool RoadBlocked(RoadPlan road)
+    {
+        if (_roadBlockRevision != State.NavigationRevision) { _roadBlocks.Clear(); _roadBlockRevision = State.NavigationRevision; }
+        if (_roadBlocks.TryGetValue(road.Id, out bool blocked)) return blocked;
+        return _roadBlocks[road.Id] = CalculateRoadBlocked(road);
+    }
+    private bool CalculateRoadBlocked(RoadPlan road)
     {
         foreach (var delta in State.Chunks.Where(c => c.Key.Floor == 0)) foreach (var (index, material) in delta.Edits)
         {
