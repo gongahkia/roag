@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": 2,
+  "notes": [
+    "All sockets, collision, fuel, weights and biome roles are authored game rules, not publisher metadata.",
+    "Room sockets are north/east/south/west; 0=sealed masonry, 1=centered one-cell arch. Adjacent chunks must agree.",
+    "Original artwork, IDs and rectangles are unchanged."
+  ],
+  "forest": {
+    "initialTreesPercent": 47,
+    "passes": 4,
+    "birth": 5,
+    "survive": 4,
+    "props": [
+      "shrub",
+      "flower",
+      "mushroom",
+      "button-mushroom",
+      "tuft",
+      "leaf",
+      "boulder",
+      "cave-mouth"
+    ],
+    "pondPercent": 42,
+    "pondPasses": 3
+  },
+  "materials": {
+    "Grass": {
+      "sprites": [
+        "grass",
+        "grass-alt"
+      ],
+      "fuel": 6
+    },
+    "Tree": {
+      "sprites": [
+        "tree",
+        "pine",
+        "willow",
+        "poplar",
+        "dead-tree"
+      ],
+      "fuel": 9
+    },
+    "Path": {
+      "sprites": [
+        "path"
+      ],
+      "fuel": 0
+    },
+    "Stone": {
+      "sprites": [
+        "stone",
+        "stone-alt",
+        "flagstone",
+        "rock-floor"
+      ],
+      "fuel": 0
+    },
+    "Wall": {
+      "sprites": [
+        "ruin-wall",
+        "cracked-wall"
+      ],
+      "fuel": 0
+    },
+    "Wood": {
+      "sprites": [
+        "wood"
+      ],
+      "fuel": 7
+    },
+    "Bridge": {
+      "sprites": [
+        "bridge"
+      ],
+      "fuel": 0
+    },
+    "Water": {
+      "sprites": [
+        "water"
+      ],
+      "fuel": 0
+    },
+    "Void": {
+      "sprites": [],
+      "fuel": 0
+    }
+  },
+  "abbey": {
+    "columns": 7,
+    "rows": 5,
+    "chunkSize": 7,
+    "maxAttempts": 8,
+    "variants": [
+      {
+        "id": "cloister",
+        "weight": 5,
+        "shape": "square",
+        "floorSprites": [
+          "flagstone",
+          "stone-alt"
+        ],
+        "wallSprite": "ruin-wall",
+        "props": [
+          "column",
+          "candle",
+          "urn",
+          "grave-slab",
+          "web"
+        ]
+      },
+      {
+        "id": "cistern",
+        "weight": 3,
+        "shape": "cistern",
+        "floorSprites": [
+          "stone",
+          "stone-alt"
+        ],
+        "wallSprite": "ruin-wall",
+        "props": [
+          "mushroom",
+          "button-mushroom",
+          "animal-bones",
+          "urn",
+          "crystal"
+        ]
+      },
+      {
+        "id": "collapsed",
+        "weight": 2,
+        "shape": "eroded",
+        "floorSprites": [
+          "rock-floor",
+          "grit"
+        ],
+        "wallSprite": "cracked-wall",
+        "props": [
+          "broken-column",
+          "bones",
+          "skull",
+          "grave-obelisk",
+          "boulder"
+        ]
+      }
+    ]
+  },
+  "hazards": {
+    "stepsPerTick": 4,
+    "fireSprite": "hazard-fire",
+    "sporesSprite": "hazard-spores",
+    "corruptionSprite": "hazard-corruption",
+    "safeRadius": 2,
+    "torchRadius": 3,
+    "suppressionTicks": 8
+  },
+  "hearth": {
+    "furniture": [
+      "bed",
+      "table",
+      "barrel",
+      "bookcase",
+      "anvil"
+    ]
+  }
+}
