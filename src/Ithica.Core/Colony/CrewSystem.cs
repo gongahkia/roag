@@ -347,7 +347,7 @@ public sealed partial class Simulation
             j.RetryAfter = Tick + 30;
         }
     }
-    private static bool Specialist(Colonist c, WorkOrder j) => (j.Kind == WorkKind.Dig && c.Role == "Miner") || (j.Kind == WorkKind.Build && c.Role == "Engineer");
+    private static bool Specialist(Colonist c, WorkOrder j) => (j.Kind == WorkKind.Dig && c.Role == "Miner") || (j.Kind is WorkKind.Build or WorkKind.Maintain && c.Role == "Engineer");
 
     private void Complete(Colonist c, WorkOrder job)
     {
@@ -355,7 +355,25 @@ public sealed partial class Simulation
         if (job.Kind == WorkKind.Survey)
         {
             World.Reveal(cell, 7);
+            SurveyStoryReward(cell);
+            if (StoryEnabled && c.Disposition?.Likes == CrewValue.Discovery) Remember(c, "discovery", "I mapped ground nobody here knew.", 7);
             Event(c.Name + " surveyed a new sector.", NoticeLevel.Good);
+        }
+        else if (job.Kind == WorkKind.Maintain)
+        {
+            var target = MachineAt(cell);
+            if (target is null) { Cancel(job); return; }
+            if (MaintenancePrice(target).Crystal > 0 && job.MaintenanceCost.Crystal == 0)
+            {
+                var extra = new Stock(4, 0, 0, 1);
+                if (!Resources.Covers(extra)) { c.Activity = "Repair waiting for 4 metal + 1 crystal"; return; }
+                Resources -= extra; job.MaintenanceCost += extra;
+            }
+            target.Condition = target.Health = 100; target.Fault = MachineFault.None;
+            // Extinguish the serviced module, while neighboring fires remain physical hazards.
+            World.Fire[cell] = 0;
+            if (StoryEnabled) Remember(c, "repair", "I helped keep the shelter running.", c.Disposition?.Likes == CrewValue.Craft ? 10 : 6);
+            Event(c.Name + " serviced " + Blueprint.Get(target.Kind).Name.ToLowerInvariant() + ".", NoticeLevel.Good);
         }
         else if (job.Kind is WorkKind.Dig or WorkKind.Salvage)
         {
@@ -510,12 +528,14 @@ public sealed partial class Simulation
                 EndExpedition(c, Expeditions[id], c.Name + "'s rescue expedition was lost.");
             }
 
+            if (Story is { } story) story.RecoveryUntil = Math.Max(story.RecoveryUntil, Tick + 320);
             Event(c.Name + " has died. The outpost falls silent for a moment.", NoticeLevel.Danger);
             foreach (var other in Crew)
             {
                 if (other.Alive)
                 {
                     other.Morale = Math.Max(0, other.Morale - 18);
+                    if (StoryEnabled) Remember(other, "loss", c.Name + " did not come home.", -12, 960, c.Id);
                 }
             }
 
@@ -545,6 +565,7 @@ public sealed partial class Simulation
             c.Rest = true;
             Release(c);
         }
+        if (c.BreakUntil > Tick) c.Rest = true;
         if (c.Rest)
         {
             RefreshSafety();
@@ -555,7 +576,7 @@ public sealed partial class Simulation
                 c.Health = Math.Min(100, c.Health + (HasMedicalCare(c.Cell) ? .24f : .04f));
                 c.Charge = Math.Min(40, c.Charge + 1);
                 c.Morale = Math.Min(100, c.Morale + .025f);
-                if (c.Energy >= 94)
+                if (c.Energy >= 94 && c.BreakUntil <= Tick)
                 {
                     c.Rest = false;
                 }
@@ -582,12 +603,16 @@ public sealed partial class Simulation
             {
                 c.Path.Clear();
                 c.PathCursor = 0;
-                job.Progress += (Specialist(c, job) ? .56f : .34f) * (.7f + c.Morale / 200);
+                if (StoryEnabled) c.WorkTicks = Math.Min(1000000, c.WorkTicks + 1);
+                bool preferred = StoryEnabled && (c.Disposition?.Likes == CrewValue.Craft && job.Kind is WorkKind.Build or WorkKind.Maintain
+                    || c.Disposition?.Likes == CrewValue.Discovery && job.Kind is WorkKind.Dig or WorkKind.Survey);
+                job.Progress += (Specialist(c, job) ? .56f : .34f) * (.7f + c.Morale / 200) * (preferred ? 1.08f : 1);
                 c.Activity = job.Kind switch
                 {
                     WorkKind.Dig => MiningActivities[(int)World.Tiles[job.Cell]],
                     WorkKind.Build => BuildingActivities[(int)job.Blueprint],
                     WorkKind.Salvage => "Salvaging",
+                    WorkKind.Maintain => "Servicing " + Blueprint.Get(job.Blueprint).Name.ToLowerInvariant(),
                     _ => "Surveying"
                 };
                 if (job.Progress >= job.Required)
@@ -739,22 +764,22 @@ public sealed partial class Simulation
 
                 _nextSignal = Tick + 240;
             }
-            if (Tick == 280)
+            if (!StoryEnabled && Tick == 280)
             {
                 Event("Long-range radar: debris cloud approaching next cycle.", NoticeLevel.Warning);
             }
 
-            if (Tick >= 540 && (Tick - 540) % 640 == 0)
+            if (!StoryEnabled && Tick >= 540 && (Tick - 540) % 640 == 0)
             {
                 Meteor();
             }
 
-            if (Tick > 700 && Tick % 710 == 0)
+            if (!StoryEnabled && Tick > 700 && Tick % 710 == 0)
             {
                 StormUntil = Tick + 90;
                 Event("Solar particle storm. Solar output drops; EVA consumes extra oxygen.", NoticeLevel.Warning);
             }
-            if (Tick > 800 && Tick % 977 == 0 && _machines.Count > 0)
+            if (!StoryEnabled && Tick > 800 && Tick % 977 == 0 && _machines.Count > 0)
             {
                 var m = _machines[Random.Next(0, _machines.Count)];
                 World.Fire[m.Cell] = .5f;

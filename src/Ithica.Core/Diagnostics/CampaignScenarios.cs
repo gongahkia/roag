@@ -76,6 +76,15 @@ public static class CampaignScenarios
     public static void OpenScene(Campaign game, string scene)
     {
         if (scene is "colony" or "atlas") return;
+        if (scene == "incidents") { Require(game.StepColony(120)); return; }
+        if (scene == "resident")
+        {
+            FirstLoop(game);
+            var pump = game.Home.Machines.Single(m => m.Kind == ModuleKind.Oxygen);
+            Require(game.OrderMaintenance(pump.Cell));
+            for (int n = 0; game.Home.JobAt(pump.Cell) is not null && n < 160; n++) Require(game.StepColony());
+            return;
+        }
         if (scene == "arrival") { Rescue(game, false); return; }
         if (scene is "preparation" or "surface")
         { Require(game.Prepare("rescue-0")); if (scene == "surface") Require(game.Depart([0])); return; }

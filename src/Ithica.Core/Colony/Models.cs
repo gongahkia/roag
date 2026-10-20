@@ -14,7 +14,7 @@ public enum ResidentLocation : byte { Home, Field }
 
 public enum WorkKind : byte
 {
-    Dig, Build, Salvage, Survey
+    Dig, Build, Salvage, Survey, Maintain
 }
 public enum Tool : byte
 {
@@ -66,6 +66,8 @@ public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float W
 
 public sealed class Machine
 {
+    public float Condition { get; set; } = 100;
+    public MachineFault Fault { get; set; }
     public int Id
     {
         get; set;
@@ -95,6 +97,7 @@ public sealed class Machine
 
 public sealed class WorkOrder
 {
+    public Stock MaintenanceCost { get; set; }
     public int Id
     {
         get; set;
@@ -135,6 +138,11 @@ public sealed class WorkOrder
 
 public sealed class Colonist
 {
+    public CrewDisposition? Disposition { get; set; }
+    public List<CrewMemory> Memories { get; set; } = [];
+    public List<CrewBond> Bonds { get; set; } = [];
+    public long BreakUntil { get; set; }
+    public int WorkTicks { get; set; }
     public ResidentLocation Location { get; set; }
     public string? SiteId { get; set; }
     public int FieldRole { get; set; }

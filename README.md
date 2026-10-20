@@ -2,7 +2,7 @@
 
 **A small life on the Moon.** Build a salvage colony from the people you rescue, then take those same residents into the wasteland. Recover something useful, bring it home, and leave some questions unanswered.
 
-A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases.
+A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases. Machines wear and need real worker repairs; crew remember danger, work and how disputes were handled. A saved event director mixes pressure with opportunities and recovery.
 
 **Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) is the master source of truth. [AGENTS.md](AGENTS.md) defines repository guidance. [Verification](docs/VERIFICATION.md) records actual checks and implementation checkpoints.
 
@@ -46,10 +46,15 @@ F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the compl
 ./ithica.sh --scene battle
 ./ithica.sh --scene structure
 ./ithica.sh --scene atlas
+./ithica.sh --scene incidents --seed 2
+./ithica.sh --scene resident
+./ithica.sh --story-check
 ./ithica.sh --headless
 ./ithica.sh --validate-seeds 1000 --seed -500
 ./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
 ```
+
+I opens station incidents and the pressure forecast. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust.
 
 Scenes use real commands to reach a fresh state and do not autosave on exit. `--headless` completes rescue, recovery, salvage combat, returned cargo and a constructed upgrade without opening a window or writing a player save.
 

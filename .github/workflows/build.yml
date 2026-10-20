@@ -28,6 +28,8 @@ jobs:
         run: dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --legacy-colony --headless 700 --demo --seed 42
       - name: Complete integrated rescue salvage construction loop
         run: dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --headless
+      - name: Check station fault repair and social recovery
+        run: dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --story-check
       - name: Complete RPG expedition without graphics
         run: dotnet run --project src/Ithica.Client --configuration Release --no-build -- --preview --headless
       - name: Validate procedural quest routes across seeds

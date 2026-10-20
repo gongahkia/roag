@@ -13,7 +13,7 @@ try
     for (int i = 0; i < args.Length; i++)
     {
         string key = args[i];
-        if (key is "--demo" or "--load" or "--benchmark" or "--help" or "--campaign-benchmark" or "--generation-report" or "--legacy-colony"
+        if (key is "--demo" or "--load" or "--benchmark" or "--help" or "--campaign-benchmark" or "--generation-report" or "--legacy-colony" or "--story-check"
             || key == "--headless" && (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal)))
         {
             switches.Add(key);
@@ -29,7 +29,7 @@ try
     int Number(string key, int fallback) => values.TryGetValue(key, out string? value) ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
     if (switches.Contains("--help"))
     {
-        Console.WriteLine("Ithica simulation tools\n  --headless [TICKS] [--demo] (without TICKS, completes the integrated loop)\n  --validate-seeds N --generation-report --campaign-benchmark [--samples N]\n  --legacy-colony --headless TICKS [--demo] [--seed N] [--width N --height N]\n  --benchmark [--agents N] [--ticks N] [--width N --height N]\n  --load --save PATH\nThe simulation tools never open a graphics window or write a save.");
+        Console.WriteLine("Ithica simulation tools\n  --headless [TICKS] [--demo] (without TICKS, completes the integrated loop)\n  --story-check (ordinary-command fault, repair, workload and recovery walkthrough)\n  --validate-seeds N --generation-report --campaign-benchmark [--samples N]\n  --legacy-colony --headless TICKS [--demo] [--seed N] [--width N --height N]\n  --benchmark [--agents N] [--ticks N] [--width N --height N]\n  --load --save PATH\nThe simulation tools never open a graphics window or write a save.");
         return 0;
     }
     if (switches.Contains("--benchmark"))
@@ -158,6 +158,11 @@ try
             elapsedMilliseconds = watch.Elapsed.TotalMilliseconds, allocatedBytes = GC.GetTotalAllocatedBytes(true) - bytes,
             completedRescues = count, constructedUpgrades = count, runtime = RuntimeInformation.FrameworkDescription,
             os = RuntimeInformation.OSDescription, architecture = RuntimeInformation.ProcessArchitecture.ToString() }, new JsonSerializerOptions { WriteIndented = true }));
+        return 0;
+    }
+    if (switches.Contains("--story-check"))
+    {
+        Console.WriteLine(JsonSerializer.Serialize(StationScenario.Run().Summary(), new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
     int steps = Number("--headless", Number("--ticks", 0));

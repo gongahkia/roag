@@ -59,6 +59,7 @@ public sealed partial class Simulation
         public float[] Heat { get; set; } = [];
         public float[] Fire { get; set; } = [];
         public byte[] Discovered { get; set; } = [];
+        public StoryState? Story { get; set; }
         public List<Colonist> Crew { get; set; } = [];
         public List<Machine> Machines { get; set; } = [];
         public List<WorkOrder> Jobs { get; set; } = [];
@@ -84,6 +85,7 @@ public sealed partial class Simulation
         Heat = World.Heat,
         Fire = World.Fire,
         Discovered = World.Discovered,
+        Story = Story,
         Crew = Crew,
         Machines = _machines,
         Jobs = _jobs,
@@ -208,6 +210,7 @@ public sealed partial class Simulation
                 throw new InvalidDataException("Invalid crew rescue assignment.");
             }
         }
+        ValidateStory(data.Story, data.Crew, data.Machines, data.Jobs, data.Tick, size);
         var sim = new Simulation(data.Seed, data.Width, data.Height, false)
         {
             Tick = data.Tick,
@@ -216,7 +219,8 @@ public sealed partial class Simulation
             _nextSignal = data.NextSignal,
             Victory = data.Victory,
             GameOver = data.GameOver,
-            IncidentsEnabled = data.IncidentsEnabled
+            IncidentsEnabled = data.IncidentsEnabled,
+            Story = data.Story
         };
         data.Tiles.CopyTo(sim.World.Tiles, 0);
         data.Oxygen.CopyTo(sim.World.Oxygen, 0);
@@ -258,6 +262,10 @@ public sealed partial class Simulation
         Jobs = _jobs.Count,
         Rescued = RescuedCount,
         Distress = Survivors.Where(s => s.Active).Select(s => new { s.Id, s.Name, s.Role, X = World.X(s.Cell), Y = World.Y(s.Cell), s.State, s.Health, s.Suit, s.TimeLeft }),
+        Community = !StoryEnabled ? null : Crew.Select(c => new { c.Id, c.Name, c.Location, c.Activity, c.Health, c.Energy, c.Hunger,
+            c.Suit, c.Morale, c.WorkTicks, c.BreakUntil, c.Disposition, c.Memories, c.Bonds }).ToArray(),
+        Maintenance = _machines.Where(m => StoryEnabled && Serviceable(m)).Select(m => new { m.Id, m.Kind, m.Cell, m.Condition, m.Fault }),
+        Story = Story is null ? null : new { Forecast, Story.NextBeat, Story.RecoveryUntil, Story.Pending, Story.Followups, Story.History },
         Charter = Victory,
         GameOver,
         Events = Log.TakeLast(6)

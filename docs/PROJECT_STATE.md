@@ -1,6 +1,6 @@
 # Ithica: project state and agent reference
 
-**Last reconciled: 2026-10-20.** This is the master source of truth for the implemented game, its rules and limits, data ownership and verification. Read it before changing the project. Update this document alongside affected behavior, content, formats or tooling. Source code and authored configuration implement behavior; catalog ideas remain proposals.
+**Last reconciled: 2026-10-21.** This is the master source of truth for the implemented game, its rules and limits, data ownership and verification. Read it before changing the project. Update this document alongside affected behavior, content, formats or tooling. Source code and authored configuration implement behavior; catalog ideas remain proposals.
 
 **Ithica is one playable C# / MonoGame lunar salvage colony game.** Start with one colonist, rescue people through controlled expeditions, bring the same residents home, recover useful components and build improvements that change later trips. The Moon remains recognizable; names and explanations stay sparse. The old fantasy RPG and Python prototypes remain explicit compatibility/regression references.
 
@@ -14,6 +14,7 @@
 - [Time contract](#time-contract)
 - [People supplies and recovery](#people-supplies-and-recovery)
 - [Colony systems](#colony-systems)
+- [Station pressure and community](#station-pressure-and-community)
 - [Sites generation and hazards](#sites-generation-and-hazards)
 - [Field roles and encounters](#field-roles-and-encounters)
 - [Controls](#controls)
@@ -40,6 +41,9 @@
 | Enemies | 3 lunar stat/name variants using 2 appearances; 2 encounter templates |
 | Field abilities | 4 roles × 3 skills, plus guard, medical kit and retreat |
 | Colony modules | 12 definitions, 11 buildable; RTG is starter-only; suit service needs a recovered component |
+| Station pressure | Usage/exposure wear, three repairable fault types, paid resident service jobs and prevention deadlines |
+| Community | Persistent preferences, bounded memories, directional trust, unequal-work disputes, protected breaks and reconciliation |
+| Incidents | 12 authored definitions / 24 responses across 8 families; independent saved director, warnings, cooldowns and follow-ups |
 | Generation | CA terrain, WFC room connections, cellular damage/exposure, protected approaches and global seal validation |
 | Assets | 7,115 occupied regions / 11,887 total records, across 3 original packs |
 | Current sprite selection | 166 IDs including font/UI; 14 explicit field aliases/IDs; 75 additional preview-only IDs |
@@ -152,6 +156,41 @@ The home retains seeded geology, mining/salvage/survey and rectangular orders; r
 
 The optional retained charter requires 3 rescues, cycle 3, 4 living crew, 20 food and a powered pressurized uplink. It is not the combined game's first-loop objective or a required ending. Stock includes metal, water, food, crystal and components. Delivery is abstract; there is no hauling or collision reservation, and people may share cells.
 
+## Station pressure and community
+
+The first pressure/community milestone is implemented in graphics-free Core: [Maintenance.cs](../src/Ithica.Core/Colony/Maintenance.cs), [Community.cs](../src/Ithica.Core/Colony/Community.cs), [Story.cs](../src/Ithica.Core/Colony/Story.cs) and the embedded authored [event library](../src/Ithica.Core/Story/events.json). This is an initial society and director, not RimWorld/Dwarf Fortress feature parity.
+
+**Maintenance.** Every non-bunk module has condition separate from fire-damaged structural health. Powered use loses .008 condition/tick, idle use .002; vacuum/low pressure, heat above 45 C or a storm doubles wear. Below 50 condition, generator/solar output, oxygen output and crop progress run at 60%; at 15 condition the module stops. Offline faults stop a module; a leaking pump wastes .035 water/tick and loses local air; an overheating relay adds heat and wear and can ignite its module. Existing atmosphere, fire, battery islands and worker safety resolve the consequences.
+
+Service reserves **2 metal** for upkeep or **6 metal + 1 crystal** for a major fault, condition below 50, or structural health below 60. A `Maintain` job takes 9/18 work, requires an adjacent resident, and restores condition/health and clears the module fault/local fire when completed. Engineering specialization and work preferences affect progress. Cancel returns the exact reservation once, including after a target is destroyed. If a fault worsens while cheap upkeep is queued, completion needs the extra 4 metal + 1 crystal and waits when parts are unavailable. Queueing alone does not fix a machine. Neighboring fires remain dangerous after repair.
+
+**Residents.** Stable trait/role profiles determine one preference (craft, discovery, fellowship or security) and one aversion (overwork, confinement, conflict or danger), without consuming simulation RNG. Craft/discovery preferences improve matching work by 8%; fellowship improves shared-meal memories; relevant aversions deepen stress reactions. Actual work increments workload. Danger, hunger, overwork, repairs, surveying, deaths, shared watches, meals and the player's responses create memories (at most 12 per resident). Memories expire in logical time and influence morale; normal duration is 480 ticks, grief 960. Trust is directional, clamped -100..100, and persists. Safe nearby idle residents can build trust at home; absent residents receive no home conversation, treatment, rest or work. Protected 24/72-tick breaks release jobs and hold a resident off duty, trading staffing for recovery. Preferences, memories and trust are modest rules, not detailed schedules, families, factions or autonomous politics.
+
+**Director.** A separate warmed PCG stream makes adjacent seeds vary their first incident without consuming home/layout/combat randomness. The first consideration is 120 ticks after initialization; later gaps are 144–240 ticks, plus 96 in recovery. Up to 3 decisions can remain open, with one per family. Authored definitions provide family, weight, severity, earliest tick, warning interval, cooldown, free expiry response, response labels/costs and explanation. Typed Core handlers test real eligible targets and resolve effects; adding an arbitrary JSON ID does not add a new mechanic.
+
+A bounded 0–3 budget, at most two consecutive hostile selections, per-definition cooldowns (480–1,000 ticks) and recovery windows constrain pressure. Strain uses air, reserves, injuries/morale, existing faults, low power/storage and away staffing; exposure uses modules, population and queued expansion. New hostile incidents stop during recovery or severe strain; positive opportunities remain eligible. Major debris threats require enough exposure and tick 650. Harmful responses give at least 240 ticks of recovery; wear shutdowns give 180 and resident losses 320. Physical wear, current faults and existing deadlines continue during recovery. Preparedness improves outcomes instead of merely raising an unlimited threat multiplier. These are explicit heuristics, not a learned difficulty model or a completed balance pass.
+
+| Definition | Actual consequence / response |
+| --- | --- |
+| Pump vibration | 96-tick warning; finish real preventive service or face a water/air leak and major repair |
+| Hot relay | Finish direct preventive service during the warning, isolate pending major repair, or accept heat/wear and eventual fire risk |
+| Dust front | Spend 1 crystal for a 36-tick storm, or endure 120 ticks of weaker solar and increased EVA oxygen use |
+| Debris | Spend 8 metal to shield a marked hull tile, or accept a breach sealed with normal hull construction |
+| Unequal shifts | Requires actual unequal work and fatigue/overwork; mediate with a 72-tick break and trust, or retain labor with resentment |
+| Rest request | Requires fatigue/overwork; protect rest or dismiss it with a persistent negative memory |
+| Shared meal | Spend 4 food and two 24-tick breaks to improve mutual trust and mood; decline without penalty |
+| Passing hauler | Limited offer: 12 metal for 24 water, transferred once |
+| Seed culture | Spend 3 water; after 72 ticks receive 8 food only if the same farm remains powered and habitable |
+| Supply locker | Ordinary reachable survey work recovers 8 metal and 6 water once, within 480 ticks |
+| Repeating signal | Queue an ordinary survey at the coordinates or archive the unexplained recording |
+| Repair remembered | Requires a real repair memory and two home residents; recognition improves mutual trust |
+
+All deadlines, wear, memories, follow-ups and staffing use the existing shared logical clock. Player deliberation outside freezes both sides. Station decisions and service orders use no immediate ticks; workers, production and deadlines advance on subsequent ticks. Invalid/duplicate/stale/unaffordable commands consume no time, RNG or stock. The normal campaign replaces fixed disaster thresholds with this director while retaining the distress contact schedule, low-supply warnings and charter checks. A bare legacy `Simulation` keeps its original incident behavior until story mode is explicitly enabled.
+
+Open **I** for pending decisions, exact deadlines, targets, pressure forecast, follow-ups and recent outcomes. The panel holds time; responses require being home, while field inspection is read-only. LOCATE focuses the affected module, survey location or resident at home. New dangerous notices and incident warnings stop field click-to-walk. Select a module and use **M** or **QUEUE SERVICE**; X cancels its work order. Select a resident and open **PERSONAL FILE / MEMORIES** for preferences, morale, work, trust and memories. The existing log remains the physical station timeline.
+
+`./ithica.sh --story-check` replays ordinary commands with seed 2: actual leak, resource loss, paid worker repair, rescue, three useful solar construction orders, later unequal-shift dispute, mediated rest/trust and exact saved continuation. It uses no debug recruits, stat edits, teleports or stock grants. `--scene incidents --seed 2` opens the first real pump warning; `--scene resident` shows a personal file after the real first loop and preventive service. All diagnostic scenes avoid player autosaves.
+
 ## Sites generation and hazards
 
 [LunarGenerator](../src/Ithica.Core/Generation/LunarGenerator.cs) reuses the tested CA/WFC algorithms, then explicitly changes ground/collision, art, objects and progression. Old forest, pond, shrine and relic objects do not enter the lunar site.
@@ -165,7 +204,7 @@ The WFC solver uses authored opposing sockets, bounded attempts and a valid stru
 
 Each discovered site's seed/version is fixed. Generation happens once when first prepared; generated arrays, seen cells, cleared encounters, recovered loot, repairs, seal state and exposure are saved. Revisits do not reroll. Seeds for layout/dressing, site combat and colony simulation remain independent, preserving the legacy stream algorithms where required.
 
-Home and the current site are active. Inactive site cellular fields freeze; known distress survival still follows campaign time through the home contact schedule. The current site advances its exposure automaton every four logical ticks, including combat, rest and repair costs. Protected approaches remain excluded. The symbolic exposure/interference overlay can affect health/stress and be suppressed nearby with a kit; source removal persists. No ordinary outdoor fire or spores are initialized in lunar sites. Colony fire consumes oxygen. Vegetation remains a future enclosed-habitat casting idea.
+Home and the current site are active. Inactive site cellular fields freeze; known distress survival still follows campaign time through the home contact schedule. The current site advances its exposure automaton every four logical ticks, including combat, rest and repair costs. Protected approaches remain excluded. The symbolic exposure/interference overlay can affect health/stress and be suppressed nearby with a kit; source removal persists. No ordinary outdoor fire or spores are initialized in lunar sites. Colony fire consumes oxygen. Service faults can reduce or stop the actual power/life-support/farm systems; they are not separate event-only resource bars. Vegetation remains a future enclosed-habitat casting idea.
 
 A secured pump provides one home water per 32 campaign ticks. Remote autonomous colonies, streamed regions and a fully simulated distant ecology are not implemented.
 
@@ -197,6 +236,7 @@ The retained preview has four fixed fantasy companions, 12 class skills plus 3 s
 | Colony | Click/Enter inspect, order or prepare a map contact/site; R locates distress |
 | Colony time | Space pause; 1/2/3 speed; period advances one paused tick |
 | Colony work | D mine/salvage, B ordinary construction, U suit service, P survey, X cancel; V rectangle |
+| Station pressure | I incidents/forecast (also readable outside); M service selected module; personal file button after selecting a resident |
 | Colony inspection | Arrows/HJKL cursor, Shift stride; C manifest, E log, O overlays, G home, F follow |
 | Expedition movement | WASD/arrows; click seen terrain or an object to route/approach; Esc stops |
 | Expedition interactions | E/Enter interact, Space/period wait, R return at the return approach |
@@ -237,7 +277,7 @@ Worlds use contiguous row-major arrays and reusable diffusion/BFS buffers. Work 
 | Legacy fantasy preview | `~/.regolith/lantern.json`, `lantern-rpg`, versions 1/2 |
 | Archived Python | `~/.regolith/colony.json`, separate Python format |
 
-Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
+Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Additive nested-home fields retain machine condition/faults, exact service reservations, resident disposition/work/breaks/memories/trust, and version-1 director RNG/budget/pacing, pending targets/deadlines, bounded 64-entry history, cooldowns and outstanding follow-ups. Historical saves without these fields initialize healthy condition and deterministic profiles/director without advancing time or consuming the original RNG. Current saves validate all new ranges, references and target shapes. Older application builds are not promised to understand new service orders. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
 
 `./ithica.sh --import-colony PATH` imports an inactive legacy colony into a new campaign; finish its automated legacy rescues first. It preserves source world, people, resources, clock and RNG, reads without changing the source, and writes only the selected Ithica save. It does not merge an unrelated fantasy campaign. Original save identifiers, historical SDK lookup and `LegacyWorldBuilder` remain intentional compatibility code.
 
@@ -294,7 +334,9 @@ The acceptance record and commands are maintained in [VERIFICATION.md](VERIFICAT
 
 `--headless` without a tick count completes the real integrated loop. `--headless N` advances the unified colony; `--demo` first completes the loop. `--legacy-colony --headless N --demo` preserves the old automated-rescue regression. Tools never write player saves. Generation validation covers 1–10,000 consecutive signed seeds, wrapping deterministically.
 
-CI runs locked restore/build/tests, the legacy colony check, integrated loop, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. Linux also configures the generic metadata/export suite and Playwright offline-atlas interaction check; see VERIFICATION.md for executed local scope. It does not certify native rendering on all platforms. Actual graphical checks cover macOS Intel and Fedora 44 x64 under WSLg. The Fedora local setup passed locked restore, a clean Release build, all 131 tests, the integrated headless loop and the initial 18 graphical smoke checks at 1024×720 using SDK 10.0.402 / runtime 10.0.13. Later generic-atlas verification passed 26 current-client / 25 preview graphical checks and complete canonical/native query-order comparisons; the offline browser passed 73 assertions. The compressed-storage follow-up passed 38 catalog tests, 74 browser assertions including the compressed catalog download, catalog freshness with/without the local JSON export, and a clean Release build. Native Windows and standalone Linux desktop sessions still need smoke checks; see the scoped record in [VERIFICATION.md](VERIFICATION.md).
+CI configures locked restore/build/tests, the legacy colony check, integrated loop, station fault/repair/social walkthrough, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. Linux also configures the generic metadata/export suite and Playwright offline-atlas interaction check; see VERIFICATION.md for executed local scope. It does not certify native rendering on all platforms. Actual graphical checks cover macOS Intel and Fedora 44 x64 under WSLg. The Fedora local setup passed locked restore, a clean Release build, all 131 tests, the integrated headless loop and the initial 18 graphical smoke checks at 1024×720 using SDK 10.0.402 / runtime 10.0.13. Later generic-atlas verification passed 26 current-client / 25 preview graphical checks and complete canonical/native query-order comparisons; the offline browser passed 73 assertions. The compressed-storage follow-up passed 38 catalog tests, 74 browser assertions including the compressed catalog download, catalog freshness with/without the local JSON export, and a clean Release build. Native Windows and standalone Linux desktop sessions still need smoke checks; see the scoped record in [VERIFICATION.md](VERIFICATION.md).
+
+The 2026-10-21 station milestone passed 186 core cases, the ordinary-command station walkthrough, normal and retained-preview headless loops, 256 generated seeds without fallback, and native WSLg UI checks; the dated record below distinguishes new runs from prior platform evidence.
 
 Current and historical measurements are distinguished in [PERFORMANCE.md](PERFORMANCE.md). The historical dense-world samples do not prove Dwarf Fortress/Songs of Syx scale. Combined samples measure the actual small home-plus-expedition workload and useful completed work. Root arrays/caches remain a foundation, not a promise of arbitrary simulation scale.
 
@@ -305,8 +347,8 @@ Current and historical measurements are distinguished in [PERFORMANCE.md](PERFOR
 | World | Finite persistent sites and authored opportunity types; no streamed endless world or autonomous distant colonies |
 | Time | Atomic synchronous commands; inactive site fields freeze; important deadlines follow campaign time |
 | Tactics | Intent/ability combat in a top-down view; no tactical walking, range, cover or flanking |
-| Economy | Aggregate stock/cargo and fixed recipes; no hauling, per-item gear swapping, detailed crafting or shops in the lunar loop |
-| People | Needs, jobs, field roles, stress and recovery; no rich relationships, diplomacy or generational simulation |
+| Economy | Aggregate stock/cargo and fixed recipes, plus one limited hauler event; no hauling, per-item gear swapping, detailed crafting or full shops |
+| People | Needs, preferences, jobs, memories, directional trust and initial disputes/reconciliation; no rich society, diplomacy or generations |
 | Navigation | Overlapping people, request-limited BFS; no crowd reservations or hierarchical regions |
 | Assets | Original crops and masks; no inferred animation/direction sets, automatic fragment assembly or sprite-derived sockets |
 | Input | Mouse/keyboard; controller artwork exists but gamepad input is absent |
@@ -316,9 +358,9 @@ Balance values are current implementation choices. New biomes/enemies, permanent
 
 ## Design direction (planned)
 
-**User direction recorded: 2026-10-20. These are future requirements, not implemented systems.** Ithica should become a lunar colony survival simulation with stronger operational pressure and a detailed internal society. Expansion, deeper mining, drones and attacks should interact with residents' preferences, relationships and disputes. The name's kingdom/community association is an intent to make governing the people matter alongside keeping the station alive. The independent fantasy party RPG belongs to Vagabonds.
+**User direction recorded: 2026-10-20; first milestone implemented 2026-10-21 above. The wider requirements below remain a roadmap.** Ithica should become a lunar colony survival simulation with stronger operational pressure and a detailed internal society. Expansion, deeper mining, drones and attacks should interact with residents' preferences, relationships and disputes. The name's kingdom/community association is an intent to make governing the people matter alongside keeping the station alive. The independent fantasy party RPG belongs to Vagabonds.
 
-The current foundations are pressure/temperature/fire, power networks, construction/mining, needs, jobs, recovery and field hazards. Machines have health and can be destroyed by fire, but there is no general wear/maintenance loop. Colony incidents mostly use fixed tick thresholds; a role, trait label and morale do not amount to a persistent social simulation. Deep strata, deployable drones, colony attacks, adaptive incident pacing and detailed relationships remain unimplemented.
+The implemented foundation now includes pressure/temperature/fire, power networks, construction/mining, needs, field hazards, usage/exposure wear, paid service jobs, an adaptive incident director and initial persistent preferences/memories/trust/disputes. Deep strata, deployable drones, colony raids/defenses, detailed relationships and a large event library remain unimplemented.
 
 ### Coupled systems to build
 
@@ -342,15 +384,15 @@ An illustrative future chain: a deep extraction project consumes the station's p
 
 External chance events such as impacts or unexpected signals can introduce surprises; internal events such as disputes and breakdowns should also emerge from actual conditions and history. The director governs eligible incident selection, timing, frequency and severity while the simulation resolves the physical and social consequences. Existing wear, damage or relationship conditions must remain causally meaningful; directing an incident should not erase the benefits of prevention.
 
-Example planned categories are technical/environmental incidents (faults, leaks, storms), crew incidents (arguments, cooperation, grief, reconciliation), contacts (distress calls or aid requests), discoveries/opportunities (a deposit, salvage window or recoverable drone), and unusual signals whose explanation remains unresolved. These examples do not establish new current content, trade systems or supernatural lore. Outcomes can create injuries, memories, obligations, new opportunities and follow-up events rather than ending at a notification.
+Example planned categories are technical/environmental incidents (faults, leaks, storms), crew incidents (arguments, cooperation, grief, reconciliation), contacts (distress calls or aid requests), discoveries/opportunities (a deposit, salvage window or recoverable drone), and unusual signals whose explanation remains unresolved. The implemented table above identifies current examples; recoverable drones and wider contact/trade systems remain future work. These ideas establish no supernatural lore. Outcomes can create injuries, memories, obligations, new opportunities and follow-up events rather than ending at a notification.
 
 Use data-driven event definitions with prerequisites, weighted selection, eligible targets, severity/cost bounds, warnings where appropriate, player responses, cooldowns, repetition limits and follow-up conditions. Save the director's independent RNG state, pending events, targets and history so load resumes the same situation. Follow the existing campaign clock and decision-pause contract. Progression, exposure, colony capacity and recent outcomes should shape pacing without making every event predictable or every campaign uniformly hostile.
 
-The first milestone should include the director foundation and a small representative set of technical, social and opportunity events alongside maintenance and initial crew memories. Validate causal outcomes, choice/resolution, nonrepetition, recovery pacing and exact saved continuation before scaling the content library. RimWorld-scale breadth remains a long-term content target.
+The first milestone now includes the director foundation and 12 representative technical, social, environmental and opportunity definitions alongside maintenance and initial crew memories. Its tests cover every response, causal outcomes, cooldowns/streak bounds, recovery pacing and exact continuation; expand from this verified baseline. RimWorld-scale breadth remains a long-term content target.
 
 ### First milestone and sequencing
 
-The recommended first playable increment pairs **maintenance and repair with the first persistent crew preferences, memories and disputes**, using the current station, jobs and needs. Add legible incident pacing and ways to recover. Acceptance should demonstrate a real equipment fault, physical station consequences, an actual paid repair job, resident workload/recovery consequences, a causally explained social reaction and a player response that changes the outcome. Invalid commands must still cost nothing, and saving/loading must preserve the fault, job, memories, relationships and incident pacing exactly.
+The delivered first playable increment pairs **maintenance and repair with the first persistent crew preferences, memories and disputes**, using the current station, jobs and needs. It adds incident pacing and ways to recover. The ordinary-command walkthrough demonstrates a real equipment fault, physical station consequences, an actual paid repair job, resident workload/recovery consequences, a causally explained social reaction and a player response that changes the outcome. Invalid commands must still cost nothing, and saving/loading must preserve the fault, job, memories, relationships and incident pacing exactly.
 
 Follow with deeper extraction and drone logistics; then station attacks/defense and broader collective politics. These are incremental milestones, not a promise that every listed system ships together. Dwarf Fortress and Songs of Syx are depth references; comparable individual detail should be pursued for a manageable lunar crew before claiming their population scale or full feature breadth.
 

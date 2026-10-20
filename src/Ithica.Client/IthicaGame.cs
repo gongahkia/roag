@@ -64,6 +64,9 @@ public sealed partial class IthicaGame : Game
             _modal = "";
         }
 
+        if (options.Scene == "incidents") _modal = "incidents";
+        if (options.Scene == "resident") { _modal = "resident"; _selectedCrew = 0; }
+
         _graphics = new GraphicsDeviceManager(this) { PreferredBackBufferWidth = options.WindowWidth, PreferredBackBufferHeight = options.WindowHeight, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Ithica";
         Window.TextInput += (_, e) => { if (_atlas && !char.IsControl(e.Character) && e.Character < 127) { _search += e.Character; FilterAtlas(); } };
@@ -238,6 +241,8 @@ public sealed partial class IthicaGame : Game
             }
             return;
         }
+        if (Pressed(Keys.I)) { _modal = "incidents"; _incidentIndex = 0; return; }
+        if (Pressed(Keys.M)) Message(_campaign.OrderMaintenance(_cursor));
         if (Pressed(Keys.Space))
         {
             _paused = !_paused;
@@ -632,6 +637,7 @@ public sealed partial class IthicaGame : Game
         if (_atlas) DrawAtlas(w, h);
         else if (_campaign.Phase == CampaignPhase.Expedition) DrawFieldInterface(w, h);
         else { DrawInterface(w, h); if (_campaign.Phase == CampaignPhase.Preparation) DrawDeparture(w, h); else if (_campaign.Phase == CampaignPhase.Arrival) DrawArrival(w, h); }
+        if (_modal is "incidents" or "resident" && !_atlas) DrawStationModal(w, h);
         if (_modal is "tutorial" or "build" or "help" && !_atlas)
         {
             DrawModal(w, h);
@@ -720,6 +726,20 @@ public sealed partial class IthicaGame : Game
         CheckArtworkAtlas(Check);
         Check(_campaign.StateJson() == artworkState, "atlas filtering preserves exact campaign state");
         CenterHabitat(); _selectedSurvivor = null; _selectedCrew = 0; _paused = true; _modal = ""; SelectTool(Tool.Inspect);
+        _previousKeyboard = new(); _keyboard = new(Keys.I); HandleInput(); _keyboard = new();
+        Check(_modal == "incidents", "incident keyboard opens station decisions and forecast");
+        long tickForPanels = _campaign.CampaignTick; string panelsState = _campaign.StateJson();
+        Check(_sim.Story is not null && _sim.Crew.All(c => c.Disposition is not null), "director and resident preferences are present");
+        _modal = "resident";
+        Check(_campaign.StateJson() == panelsState, "opening station and personal panels preserves exact campaign state");
+        _modal = "";
+        var pump = _sim.Machines.Single(m => m.Kind == ModuleKind.Oxygen); _cursor = pump.Cell;
+        _previousKeyboard = new(); _keyboard = new(Keys.M); HandleInput(); _keyboard = new();
+        Check(_sim.JobAt(pump.Cell)?.Kind == WorkKind.Maintain, "service keyboard queues paid resident work");
+        _modal = "resident";
+        Check(_selectedCrew == 0 && _sim.Crew[0].Memories is not null, "resident personal file has persistent memories");
+        Check(_campaign.CampaignTick == tickForPanels, "opening station and personal panels consumes no logical time");
+        _modal = "";
     }
     protected override void UnloadContent()
     {

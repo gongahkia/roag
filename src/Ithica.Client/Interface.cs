@@ -194,6 +194,7 @@ public sealed partial class IthicaGame
     {
         Fill(_eventArea, Surface);
         Text("MISSION LOG", _eventArea.X + 14, _eventArea.Y + 10, Muted, .8f);
+        if (Button(new(_eventArea.X + 132, _eventArea.Y + 4, 160, 32), $"INCIDENTS ({_sim.Story?.Pending.Count ?? 0})", tooltip: "Station incidents and pressure forecast [I]")) { _modal = "incidents"; _incidentIndex = 0; }
         if (Button(new(_eventArea.Right - 110, _eventArea.Y + 4, 102, 40), "OPEN LOG", tooltip: "Open the full event log [E]"))
         {
             _panel = "log";
@@ -333,7 +334,9 @@ public sealed partial class IthicaGame
                 _follow = _follow == c.Id ? null : c.Id;
             }
 
-            y += 60;
+            y += 50;
+            if (Button(new((int)x, (int)y, (int)w, 42), "PERSONAL FILE / MEMORIES")) _modal = "resident";
+            y += 50;
         }
         else
         {
@@ -353,6 +356,11 @@ public sealed partial class IthicaGame
                 {
                     Text(m.Powered ? "POWER / CONNECTED" : "POWER / DISCONNECTED", x, y, m.Powered ? Accent : Danger, .85f);
                     y += 25;
+                    Bar("CONDITION / " + m.Fault.ToString().ToUpperInvariant(), m.Condition / 100, x, y, w, m.Fault == MachineFault.None ? Accent : Danger);
+                    y += 34;
+                    if (Simulation.Serviceable(m) && Button(new((int)x, (int)y, (int)w, 40), "QUEUE SERVICE [M]", enabled: _sim.JobAt(cell) is null && (m.Condition < 99 || m.Health < 99 || m.Fault != MachineFault.None), tooltip: "2 metal for upkeep; 6 metal + 1 crystal for a major repair. A resident must finish the work."))
+                        QueueUI(() => Message(_campaign.OrderMaintenance(cell)));
+                    y += 50;
                     y += Wrap(Blueprint.Get(m.Kind).Description, x, y, w, Ink, .9f) + 12;
                 }
                 if (_sim.JobAt(cell) is { } job)
@@ -437,7 +445,7 @@ public sealed partial class IthicaGame
             "Recover a component from the salvage site and return it. B opens ordinary blueprints; U selects suit service. Build it on connected deck for 24 metal, 4 crystal and 1 component. Powered service equips more efficient suits and reveals another signal.",
             "Hull holds air; deck connects power. O shows pressure, heat and power.", "key-b"),
         new("LEAVE SOME QUESTIONS OPEN", "There are marks below the dust. You do not yet know who left them.",
-            "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
+            "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. I opens incidents and the pressure forecast; M queues service on a selected machine. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
             "T reopens this guide at home; F1 outside. Q saves and quits.", "key-s")
     ];
     private void DrawModal(int width, int height)
@@ -516,13 +524,13 @@ public sealed partial class IthicaGame
             Text("THE SIMULATION IS PAUSED WHILE THIS PANEL IS OPEN", r.X + 30, r.Y + 69, Muted, .8f);
             (string Key, string Action)[] controls = [("ARROWS / HJKL","Move cursor"),("SPACE / 1 2 3","Pause / speed"),("CLICK CONTACT","Prepare an outing"),("R / C / G","Distress / crew / home"),
                 ("D / B / P / X","Mine / build / survey / cancel"),("V / ENTER / ESC","Region / confirm / inspect"),("WHEEL / + - / 0","Zoom at pointer / cursor / reset"),("RIGHT DRAG","Pan map"),
-                ("O / F / E","Overlays / follow / log"),("F5 / F9 / F2","Save / load / atlas"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
+                ("O / F / E","Overlays / follow / log"),("F5 / F9 / F2","Save / load / atlas"),("I / M","Incidents / service selected module"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
             float y = r.Y + 115;
             foreach (var (key, action) in controls)
             {
                 Text(key, r.X + 30, y, Accent, .9f);
                 Text(action, r.X + 238, y, Ink, .9f);
-                y += 29;
+                y += 27;
             }
             if (Button(new(r.Right - 174, r.Bottom - 62, 144, 42), "BACK TO OUTPOST", selected: true, modal: true))
             {

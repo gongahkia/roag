@@ -255,6 +255,7 @@ public sealed partial class Simulation
 
         var c = new Colonist { Id = Crew.Count, Name = name, Role = role, Trait = trait, Cell = cell, FieldRole = role switch { "Miner" => 1, "Botanist" => 2, "Medic" => 3, _ => 0 } };
         Crew.Add(c);
+        if (StoryEnabled) InitializeDisposition(c);
         return c;
     }
     public Machine AddMachine(ModuleKind kind, int cell, float energy = 0)
@@ -416,12 +417,12 @@ public sealed partial class Simulation
 
         if (job.Reserved)
         {
-            Resources += Blueprint.Get(job.Blueprint).Cost;
+            Resources += job.Kind == WorkKind.Maintain ? job.MaintenanceCost : Blueprint.Get(job.Blueprint).Cost;
         }
 
         if (job.Assigned is int id)
         {
-            Release(Crew[id]);
+            Release(Crew.Single(c => c.Id == id));
         }
 
         RemoveJob(job);
@@ -602,25 +603,29 @@ public sealed partial class Simulation
         foreach (var group in _groups)
         {
             float supply = 0, stored = 0, used = 0;
+            int banks = 0;
             foreach (var m in group.Members)
             {
-                m.Powered = m.Kind is ModuleKind.Rtg or ModuleKind.Solar or ModuleKind.Battery or ModuleKind.Bunk;
+                m.Powered = Operational(m) && m.Kind is (ModuleKind.Rtg or ModuleKind.Solar or ModuleKind.Battery or ModuleKind.Bunk);
+                if (!Operational(m)) continue;
                 if (m.Kind == ModuleKind.Rtg)
                 {
-                    supply += 12;
+                    supply += 12 * Efficiency(m);
                 }
                 else if (m.Kind == ModuleKind.Solar)
                 {
-                    supply += 12 * Daylight * (Storm ? .15f : 1);
+                    supply += 12 * Efficiency(m) * Daylight * (Storm ? .15f : 1);
                 }
                 else if (m.Kind == ModuleKind.Battery)
                 {
                     stored += m.Energy;
+                    banks++;
                 }
             }
             float available = supply + Math.Min(16, stored / .05f);
             foreach (var m in group.Consumers)
             {
+                if (!Operational(m)) { m.Powered = false; continue; }
                 float draw = Blueprint.Get(m.Kind).Power;
                 Demand += draw;
                 m.Powered = used + draw <= available + .00001f;
@@ -629,19 +634,19 @@ public sealed partial class Simulation
                     used += draw;
                 }
             }
-            if (advance && group.Banks.Count > 0)
+            if (advance && banks > 0)
             {
-                float energy = Math.Clamp(stored + Math.Min(16, supply - used) * .05f, 0, 240 * group.Banks.Count);
+                float energy = Math.Clamp(stored + Math.Min(16, supply - used) * .05f, 0, 240 * banks);
                 foreach (var m in group.Banks)
                 {
-                    m.Energy = energy / group.Banks.Count;
+                    if (Operational(m)) m.Energy = energy / banks;
                 }
             }
             Generated += supply;
         }
         foreach (var m in _machines)
         {
-            if (m.Kind == ModuleKind.Battery)
+            if (m.Kind == ModuleKind.Battery && Operational(m))
             {
                 Capacity += 240;
                 Charge += m.Energy;
@@ -678,7 +683,7 @@ public sealed partial class Simulation
             else if (m.Kind == ModuleKind.Oxygen && Resources.Water >= .014f)
             {
                 Resources -= new Stock(0, .014f, 0, 0);
-                World.Oxygen[i] = Math.Min(1, World.Oxygen[i] + .24f);
+                World.Oxygen[i] = Math.Min(1, World.Oxygen[i] + .24f * Efficiency(m));
                 World.Heat[i] += Math.Max(0, (26 - World.Heat[i]) * .12f);
             }
             else if (m.Kind == ModuleKind.Farm && World.Oxygen[i] >= .38f && World.Heat[i] is >= 0 and < 46 && Resources.Water >= .008f)
@@ -693,7 +698,7 @@ public sealed partial class Simulation
                     }
                 }
 
-                m.Progress += tended ? 1.8f : 1;
+                m.Progress += (tended ? 1.8f : 1) * Efficiency(m);
                 Resources -= new Stock(0, .008f, 0, 0);
                 if (m.Progress >= 160)
                 {
@@ -733,6 +738,8 @@ public sealed partial class Simulation
                 }
                 UpdatePower();
                 World.Environment(Random, Daylight);
+                StoryTick();
+                if (StoryEnabled) UpdatePower();
                 Events();
             }
         }

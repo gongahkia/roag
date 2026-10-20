@@ -1,3 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup><EmbeddedResource Include="../../assets/ithica-generation.json" LogicalName="Ithica.Generation.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Story/events.json" LogicalName="Ithica.Story.json" /></ItemGroup>
 </Project>

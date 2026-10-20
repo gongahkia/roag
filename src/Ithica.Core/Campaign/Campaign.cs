@@ -58,6 +58,7 @@ public sealed partial class Campaign
     private Campaign(Simulation home)
     {
         Home = home;
+        Home.EnableStory();
         DiscoverSites();
     }
 
@@ -75,6 +76,12 @@ public sealed partial class Campaign
         for (int i = 0; i < count; i++) Tick();
         return new(true, "");
     }
+
+    public Result RespondToIncident(int id, string choice) => Phase == CampaignPhase.Colony
+        ? Home.RespondToIncident(id, choice) : new(false, "Return to the shelter before making station decisions.");
+
+    public Result OrderMaintenance(int cell) => Phase == CampaignPhase.Colony
+        ? Home.OrderMaintenance(cell) : new(false, "Queue station service from the shelter.");
 
     private void DiscoverSites()
     {

@@ -147,6 +147,7 @@ public sealed partial class IthicaGame
                 _ => Amber
             };
             _sprites.Draw(_batch, Blueprint.Get(m.Kind).Sprite, icon, m.Powered ? color : Muted * .45f);
+            if (_sim.StoryEnabled && m.Fault != MachineFault.None) Outline(r, Danger);
             if (_camera.CellSize >= 18)
             {
                 Fill(new(r.Right - 5, r.Bottom - 5, 3, 3), m.Powered ? Accent : Danger);
@@ -169,6 +170,7 @@ public sealed partial class IthicaGame
                 {
                     WorkKind.Build => Blueprint.Get(job.Blueprint).Sprite,
                     WorkKind.Survey => "icon-survey",
+                    WorkKind.Maintain => "icon-build",
                     _ => "icon-mine"
                 };
                 var inset = r;

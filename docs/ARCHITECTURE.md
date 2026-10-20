@@ -30,6 +30,12 @@ At each field command, encounter health/stress deltas commit to residents; fract
 
 Packed food/water, manufactured medical kits and filters are deducted once; field use consumes carried supplies. Cargo and unused supplies return once. Construction reserves component stock through the same `Stock` arithmetic as metal/crystal, including cancel refunds. Failed returns leave undeposited salvage recoverable at its persistent site, retaining cleared encounters.
 
+## Station pressure and crew community
+
+`Colony/Maintenance.cs` resolves condition, physical faults and reserved `Maintain` jobs through existing machines/workers. `Community.cs` owns deterministic resident profiles, bounded expiring memories and directional trust; local conversation/rest never applies to away residents. `Story.cs` selects eligible targets with an independent warmed PCG stream and bounded budget, cooldowns, streak caps and recovery windows. Authored `Story/events.json` is embedded in Core and supplies 12 definitions/24 responses; typed handlers own eligibility and physical/social effects. Core has no UI/runtime file dependency for event loading.
+
+The normal Campaign enables story mode, replacing old fixed disasters but retaining distress and safety notices. The bare legacy Simulation retains its old behavior. Every effect follows the shared logical clock, including during accepted field actions. Campaign commands gate station responses/service to the home phase. UI incident and personal-file panels hold time; response callbacks are queued for Update. Outstanding deadlines/follow-ups, RNG, service reservations, resident memories/trust and pacing state are in the nested home snapshot with validation and deterministic defaults for older saves.
+
 ## World representation and performance
 
 Cells use row-major contiguous arrays. Atmosphere/heat/fire use old-state/new-state buffers; hull blocks exchange and exterior vacuum drains breached rooms. Only active floors participate. Fire requires oxygen. Deck/airlock topology defines local electrical islands; topology and machine changes invalidate caches. Connected batteries and prioritized consumers avoid one global power pool.
@@ -48,7 +54,7 @@ The nested home retains the `regolith-csharp` identity and old reader. Field ses
 
 Original source images/IDs/crops remain stable. Home and field aliases use separate contexts; combining their dictionaries by overwrite would corrupt mappings. Source pixels are not edited; black removal and palette masks happen in texture copies. Native atlas textures load lazily.
 
-Schema 4 distinguishes current Ithica phase use from preview-only bindings and proposals. Edit the documented authoring inputs and regenerate derived manifests/catalogs/tables. See the [catalog guide](../assets/reference/CATALOG_V2.md).
+Schema 5 distinguishes current Ithica phase use from preview-only bindings and proposals. Edit the documented authoring inputs and regenerate derived manifests/catalogs/tables. See the [catalog guide](../assets/reference/CATALOG_V2.md).
 
 ## Verification boundaries
 
