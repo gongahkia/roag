@@ -99,6 +99,9 @@ def main():
     colony = read("ithica-colony-sprites.json")
     rpg = read("ithica-expedition-bindings.json")
     bindings = rpg["bindings"]
+    lunar = read("ithica-casting.json")
+    if lunar["schemaVersion"] != 1 or any(a not in bindings for a in lunar["field"]):
+        raise ValueError("Invalid Ithica casting aliases")
     generation = read("ithica-generation.json")
     visual_review = read("reference/urizen-generation-review.json")
     reviewed = {r["id"]: r for r in visual_review["entries"]}
@@ -129,6 +132,8 @@ def main():
     for game, manifest in [("colony", colony), ("rpg", runtime)]:
         for alias, sid in manifest["bindings"].items(): usages[sid][game].append(alias)
         for glyph, sid in manifest["font"].items(): usages[sid][game].append("font:" + glyph)
+    field_usage = collections.defaultdict(list)
+    for alias in lunar["field"]: field_usage[bindings[alias]].append(alias)
     enriched = []
     for r in records:
         e = dict(r)
@@ -137,6 +142,17 @@ def main():
         e["runtime_status"] = "used" if any(e["usage"].values()) else "unused" if r["kind"] == "sprite" else "not_applicable"
         e["assessment"] = assessment(r)
         family = e["assessment"]["family"]
+        field_aliases = field_usage.get(r["id"], [])
+        lunar_bound = bool(e["usage"]["colony"] or field_aliases)
+        e["ithica"] = {
+            "status": "not_applicable" if r["kind"] != "sprite" else "bound" if lunar_bound else "preview_only" if e["usage"]["rpg"] else "unused",
+            "usage": {"colony": e["usage"]["colony"], "expedition": field_aliases},
+            "roles": [lunar["field"][a]["role"] for a in field_aliases],
+            "limits": [lunar["field"][a]["limits"] for a in field_aliases],
+            "generation": sorted({lunar["field"][a]["generation"] for a in field_aliases}),
+            "future_ideas": lunar["familyIdeas"].get(family, ["Inspect the crop before proposing a lunar role."]) if r["kind"] == "sprite" else [],
+            "evidence": "Game casting, not a new publisher identity or individual visual review. Existing source observations and uncertainty remain authoritative."
+        }
         candidate = family in {"environment", "vegetation", "props", "effects", "technology", "symbols-and-assemblies"}
         status = "runtime_rule" if r["id"] in rule_refs else "candidate_requires_rules" if candidate and r["kind"] == "sprite" else "not_world_generation"
         if r["kind"] != "sprite": status = "not_applicable"
@@ -164,18 +180,24 @@ def main():
         e["review"]["generation_crop_visually_inspected"] = r["id"] in reviewed
         enriched.append(e)
     # Retain every original inventory field; replace only generated v2 enrichments.
-    inventory.update(schema_version=3,
-        catalog_scope="Original image/archive inventory plus every sprite/slot from all three packs, with live per-game usage and evidence-scoped RPG proposals.",
+    inventory.update(schema_version=4,
+        catalog_scope="Original inventory and every region from all three packs; current Ithica phase bindings, retained RPG preview usage, identity evidence and lunar future ideas.",
         source_audit="sprites.json", generator="tools/build_game_catalog.py",
         catalog_summary={"images": len(inventory["images"]), "records": len(enriched), "occupied_sprites": len(sprites),
                          "used_colony": sum(bool(e["usage"]["colony"]) for e in enriched), "used_rpg": sum(bool(e["usage"]["rpg"]) for e in enriched),
                          "used_either": sum(e["runtime_status"] == "used" for e in enriched),
                          "generation_rule_sprites": len(rule_refs), "generation_visually_reviewed": len(reviewed),
+                         "used_ithica": sum(e["ithica"]["status"] == "bound" for e in enriched),
+                         "ithica_field_aliases": len(lunar["field"]), "ithica_field_sprites": len(field_usage),
+                         "preview_only": sum(e["ithica"]["status"] == "preview_only" for e in enriched),
                          "unused_sprites": sum(e["runtime_status"] == "unused" for e in enriched),
                          "families": dict(sorted(collections.Counter(e["assessment"]["family"] for e in enriched if e["kind"] == "sprite").items()))},
         generation_rules={"source": "ithica-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
                           "visual_review": "reference/urizen-generation-review.json", "notes": generation["notes"]},
-        game_bindings={"colony": colony["bindings"], "rpg": bindings}, sprites=enriched,
+        game_bindings={"colony": colony["bindings"], "rpg": bindings},
+        ithica_casting={"source": "ithica-casting.json", "scope": lunar["scope"], "field": lunar["field"],
+                        "lunar_generator": "src/Ithica.Core/Generation/LunarGenerator.cs",
+                        "legacy_rules": "generation_rules and usage.rpg retain preview/intermediate-generation meaning; use sprites[].ithica for the current game."}, sprites=enriched,
         catalog_limits=["Every crop has a usage/affordance assessment; that is not individual verified identification of all 7,115 motifs.",
                         "Historical exact-RGB matches and filename/control labels retain their original evidence. Uncertain figures and fragments remain uncertain.",
                         "No inferred animation timing, direction set, species, collision mask, or autotile bitmask is presented as publisher metadata.",
@@ -185,6 +207,8 @@ def main():
               "category": e.get("category", "unclassified"), "family": e["assessment"]["family"], "layer": e["assessment"]["layer"],
               "confidence": e["review"]["confidence"], "basis": e["review"]["identity_basis"], "role": e["assessment"]["rpg_role"],
               "ideas": e["assessment"]["ideas"], "adaptation": e["assessment"]["adaptation"], "usage": e["usage"],
+              "ithicaStatus": e["ithica"]["status"], "ithicaUsage": e["ithica"]["usage"], "lunarRole": "; ".join(e["ithica"]["roles"]) or "Candidate only; no current field casting.",
+              "lunarIdeas": e["ithica"]["future_ideas"], "lunarLimits": "; ".join(e["ithica"]["limits"]),
               "generationNotes": e["generation"]["status"] + ". " + e["generation"]["role"] + " " + "; ".join(e["generation"]["rule_refs"])
                   + (" Visual review: " + reviewed[e["id"]]["visual_observation"] + " " + reviewed[e["id"]]["future_use"] if e["id"] in reviewed else "")}
              for e in enriched if e["kind"] == "sprite"]
@@ -218,6 +242,7 @@ def main():
     }
     def cell(text):return str(text).replace("|","\\|").replace("\n"," ")
     lines=["# Ithica expedition: curated runtime bindings","",
+           "This table includes retained fantasy-preview aliases. Current lunar use is listed separately in [ithica-sprites.md](ithica-sprites.md) and `catalog.json` → `sprites[].ithica`. A preview binding does not imply current lunar use.", "",
            "Every RPG semantic alias below references an unchanged ID/crop in the source audit. Casting and palette are game decisions, not new author identities. The native viewer additionally registers all 7,115 occupied sprites; registration alone does not make them gameplay bindings.","",
            "Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).","",
            f"**{len(bindings)} semantic aliases, {len(colony['font'])} font glyphs, {len(set(bindings.values())|set(colony['font'].values()))} distinct runtime-bound IDs.**","",
@@ -231,10 +256,22 @@ def main():
     if args.check:
         if not md_path.exists() or md_path.read_text()!=md:raise SystemExit("Stale rpg-bindings.md")
     else:md_path.write_text(md)
+    lunar_lines = ["# Ithica: current sprite casting", "", lunar["scope"], "",
+        "The colony selection remains in `ithica-colony-sprites.json`; its bitmap font is shared. The table below covers current expedition aliases, including terrain, residents, encounters, objects and the exposure overlay. Preview-only aliases and every unused sprite retain explicit status and future ideas in catalog schema 4.", "",
+        "Edit `assets/ithica-casting.json` for roles/limits and `assets/ithica-expedition-bindings.json` for existing-ID selections, then regenerate. Source PNGs, IDs, rectangles and identity confidence are preserved.", "",
+        f"**{inventory['catalog_summary']['used_ithica']} distinct IDs selected by Ithica, including font/UI; {len(lunar['field'])} field aliases.**", "",
+        "| Alias | Stable ID | Source evidence | Current role | Limits / use |", "|---|---|---|---|---|"]
+    for alias, role in sorted(lunar["field"].items()):
+        r = sprites[bindings[alias]]
+        lunar_lines.append("| " + " | ".join(cell(v) for v in [alias, r["id"], r["name"] + " / " + r["identity"]["confidence"], role["role"], role["limits"]]) + " |")
+    lunar_path = ASSETS / "reference" / "ithica-sprites.md"; lunar_md = "\n".join(lunar_lines) + "\n"
+    if args.check:
+        if not lunar_path.exists() or lunar_path.read_text() != lunar_md: raise SystemExit("Stale ithica-sprites.md")
+    else: lunar_path.write_text(lunar_md)
     review_lines = ["# Urizen: generation crop review", "", visual_review["scope"], "",
         "This supplements the exhaustive per-sprite catalog. Observations below were checked against the exact source crops; uncertain publisher identities stay uncertain. Source pixels, IDs, rectangles, original audit labels and identity confidence are preserved.", "",
-        "The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [ithica-generation.json](../ithica-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.", "",
-        "Fire, spores and corruption use explicit overlay rules. Button mushrooms represent spores and a leaf silhouette represents magical corruption; these are game interpretations, not publisher identities. Existing campfires remain rest locations, not fire sources.", "",
+        "The retained generator uses authored north/east/south/west sockets on **7 x 7 room chunks**, not arbitrary sprite numbers. The rules and table below record the preview/intermediate generator and preserved crop observations. [Current lunar casting](ithica-sprites.md) distinguishes actual Ithica use: blocking rubble, lunar deck/rock, recoverable components and symbolic exposure. Source appearance does not establish collision or lore.", "",
+        "The legacy preview retains fire, spores and magical corruption. Ithica does not spread ordinary outdoor fire or grow outdoor forests: its site overlay is exposure/interference, and colony fire requires oxygen. The original visual observations below remain evidence, not claims of newly implemented lunar uses.", "",
         f"**{len(reviewed)} individually inspected crops; {len(rule_refs)} distinct sprite IDs referenced by generation rules across all packs.**", "",
         "| Stable ID | Preserved identity / evidence | Visual observation | Generation status / rule references | Future use / limitations |", "|---|---|---|---|---|"]
     for note in visual_review["entries"]:

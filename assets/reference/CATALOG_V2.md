@@ -1,90 +1,100 @@
-# Catalog v3: coverage, meaning, and regeneration
+# Ithica catalog: schema 4, coverage and regeneration
 
-[catalog.json](../catalog.json) now combines the original file inventory with the full sprite audit and current usage in **both** games. Every original inventory key is retained. The source images, archive hashes, stable sprite IDs, crop rectangles, and frozen [sprites.json](../sprites.json) audit are unchanged.
+[catalog.json](../catalog.json) retains the original inventory and every region from all three packs. Schema 4 adds explicit **current Ithica casting and phase usage**, separately from retained RPG preview bindings. Source pixels, original IDs, crop rectangles, hashes and publisher-identity confidence are preserved. This guide retains its historical filename for existing links.
 
 ## Coverage
 
 | Scope | Count |
 | --- | ---: |
-| Original PNG files | 664 |
-| Original ZIP archives | 3 |
+| Original PNGs / ZIP archives | 664 / 3 |
 | Total indexed regions | 11,887 |
 | Occupied sprite regions | 7,115 |
-| Non-gameplay slots, separators, annotations | 4,772 |
-| Colony-bound sprites, including glyphs | 154 |
-| RPG-bound sprites, including glyphs | 190 |
-| Bound by either game | 241 |
-| Occupied sprites unused by both games | 6,874 |
+| Non-gameplay slots, separators and annotations | 4,772 |
+| Ithica-selected IDs, including shared font/UI | 166 |
+| Colony-selected IDs, including font/UI | 154 |
+| Current field aliases / distinct IDs | 14 / 14 |
+| Retained preview-selected IDs, including font | 191 |
+| Preview-only IDs, outside current Ithica selection | 75 |
+| Union of current and preview selections | 241 |
+| Occupied regions unbound by either selection | 6,874 |
 
-The occupied regions comprise **5,676 Urizen cells** (main sheet plus 2-bit sample), **653 Godot icon variants**, and **786 keyboard/controller prompt regions**. Registration in the atlas viewer does not mark a sprite as used in gameplay. Counts include per-variant crops, not a claim that every region is a unique standalone object. Multi-cell images, repeated art, tiny marks, and source credit regions retain their original audit notes.
+Occupied regions comprise **5,676 Urizen cells**, **653 Godot icon variants**, and **786 input-prompt regions**. Counts refer to crops/variants, including repeated art and fragments, rather than guaranteed unique standalone objects. Registering all 7,115 crops in the atlas does not make them gameplay bindings.
 
-## Structure
+## Schema and compatibility
 
 | Field | Meaning |
 | --- | --- |
-| `schema_version` | `3` |
-| `images`, `archives`, `packs`, `summary` | Original file inventory and provenance, retained for compatibility |
-| `catalog_summary` | Current coverage, live usage, and broad affordance-family counts |
-| `game_bindings` | Current semantic aliases to stable IDs, independently for colony and RPG |
-| `sprites` | Every one of the 11,887 original region records, enriched below |
-| `catalog_limits` | Explicit limits on identification, assemblies, animation, and review |
+| `schema_version` | `4` |
+| `images`, `archives`, `packs`, `summary` | Original inventory and provenance retained |
+| `catalog_summary` | Coverage and selection counts, including current Ithica and preview-only counts |
+| `game_bindings` | Preserved colony and RPG-preview alias maps; their keys retain compatibility meaning |
+| `ithica_casting` | Authored current lunar casting source, limits and generator ownership |
+| `sprites` | All 11,887 original region records, enriched without changing their source identity |
+| `generation_rules` | Retained preview/intermediate-generation rule metadata |
+| `catalog_limits` | Identification, animation, assembly and review limits |
 
-Each `sprites[]` entry preserves the audit's ID, source, crop, category, identity basis/confidence, historical matches, visual metrics, crop hash, existing colony proposals, future ideas, and any character-matrix/duplicate/fragment metadata. It adds:
+Schema 4 is additive to schema 3. Existing `usage.colony` and `usage.rpg` are retained; `rpg` refers to the preview selection, not a claim that every fantasy binding appears in the lunar game. New consumers should use `sprites[].ithica` for current game usage. The original import audit remains frozen in [sprites.json](../sprites.json).
 
-| Per-entry field | Meaning |
+Each record preserves source, crop, original identity/confidence, exact-match evidence, visual observations, duplicate/fragment metadata and import-time proposals. It also carries:
+
+| Per-record field | Meaning |
 | --- | --- |
-| `import_audit` | Original `runtime_status` and `mapping_status` at import time |
-| `usage.colony`, `usage.rpg` | Active aliases; `font:X` denotes a glyph. Empty lists mean no gameplay binding |
-| `runtime_status` | `used` when either game binds it, `unused` for an unbound occupied sprite, `not_applicable` for non-gameplay regions |
-| `assessment.family`, `assessment.layer` | Broad scene/UI/equipment/effect grouping and possible drawing layer |
-| `assessment.rpg_role` | A game-use interpretation, rather than a new publisher identity |
-| `assessment.ideas` | Possible implementations for unused/unmapped artwork as well as bound sprites |
-| `assessment.adaptation` | Recoloring, assembly, scale, setting, or mechanics work needed; uncertainties remain visible |
-| `tags` | Pack, broad family, layer, and original category for filtering |
-| `review` | Identity evidence, confidence, explicit-label status, visual-review requirement, and scope of the generated assessment |
+| `ithica.status` | `bound`, `preview_only`, `unused`, or `not_applicable` |
+| `ithica.usage.colony`, `.expedition` | Context-specific alias lists; `font:X` means a bitmap glyph |
+| `ithica.roles`, `.limits`, `.generation` | Current lunar interpretation, adaptation limits and placement category |
+| `ithica.future_ideas` | Lunar possibilities for occupied crops, including unused and preview-only art |
+| `ithica.evidence` | Explicit separation between game casting and publisher identity/review |
+| `usage`, `runtime_status` | Historical combined-selection view retained for compatibility |
+| `assessment` | Broad family/layer, retained RPG possibilities, ideas and adaptation limits |
+| `generation` | Rule references, candidate status, adjacency basis and optional focused visual review |
+| `review` | Identity evidence/confidence and the actual extent of visual inspection |
 
-The proposed families include actors, equipment, consumables, environment, vegetation, props, effects, technology, symbols/assemblies, typography, interface icons, input art, and unresolved sparse regions. The proposals use category/region rules and preserved visual observations. **This is exhaustive per-entry coverage, not a claim that every motif has received a new confirmed individual name.**
+Every occupied crop has future-use proposals; non-gameplay regions remain marked as such. The new lunar proposals use evidence-scoped family/category rules and existing observations. **This is exhaustive per-entry coverage, not a new manual identification of all 7,115 motifs.**
 
-## Generation metadata and focused visual review
+## Current lunar use and retained preview use
 
-Schema 3 is an additive extension of schema 2; this document retains its original filename for existing links. Every region now has `generation.status`, `role`, `rule_refs`, `adjacency_basis`, `required_before_new_use` and an optional `visual_review`. Status distinguishes `runtime_rule`, `candidate_requires_rules`, `not_world_generation` and `not_applicable`. Runtime rule references point into [lantern-generation.json](../lantern-generation.json); 43 distinct IDs currently participate. This is separate from general RPG bindings and atlas registration.
+[ithica-sprites.md](ithica-sprites.md) lists all 14 current field aliases and their limits. [ithica-casting.json](../ithica-casting.json) is the authored source. Examples:
 
-[urizen-generation-review.json](urizen-generation-review.json) holds 104 per-crop visual observations, decisions and future uses from a focused inspection of the largest Urizen sheet. [The generated Markdown table](urizen-generation.md) shows source identities alongside those observations and actual rule references. These observations supplement preserved identities and never upgrade uncertain publisher labels. The native and offline atlas show/search generation and visual-review notes.
+- The boulder crop is blocking surface rubble in Ithica; the legacy preview can use the same crop as nonblocking scenery. Collision belongs to the map's explicit ground/object data.
+- A crystal crop marks actual recoverable components. Rewards enter carried cargo and reach home inventory on return.
+- A leaf-like crop is a symbolic interference/exposure overlay; it does not establish outdoor lunar vegetation or supernatural lore.
+- Resident and unidentified figures retain their existing source evidence. Field roles, suit protection and enemy behavior are game data.
+- Ordinary vegetation belongs only in a suitable enclosed habitat. Ordinary spreading fire requires oxygen; lunar sites do not inherit the fantasy preview's outdoor fire or spores.
 
-Room sockets, fuel, safe-route masks, collision and hazard behavior are authored game data. Material indices in a sprite sheet are never interpreted as WFC sockets. Unused/unmapped sprites retain explicit future-use work and limitations.
+[rpg-bindings.md](rpg-bindings.md) retains the full preview binding inventory. Fantasy companions, monsters and scenery there are identified as preview casting. Their descriptions do not create lunar mechanics or proper names.
 
-## Identity versus casting
+The generator preserves authored WFC sockets on 7×7 room chunks, CA terrain rules and global route/quest checks. Its intermediate/preview rules reference **43 IDs**. The current lunar generator recasts terrain, objects and constraints explicitly; atlas indices never imply sockets, animation or collision.
 
-Historical Urizen identities retain their exact visible-RGB matching evidence. Godot icons retain filename identities. Input labels retain visual-reading confidence. Unknown figures, profession columns, body variants, and machinery fragments stay uncertain; being chosen for a game role does not upgrade their identity confidence.
+[urizen-generation-review.json](urizen-generation-review.json) retains **104 individually inspected crop observations**, shown in [urizen-generation.md](urizen-generation.md). Observations do not upgrade uncertain publisher identities. Current lunar roles are listed separately from those retained preview decisions.
 
-For example, the RPG casts the author's **dog** sprite as a Briar hound; its author identity stays `animal / dog`. A figure with a cross-like held prop becomes Sable's appearance, without declaring that the publisher called it a vestal. A low-confidence chest/workshop fragment serves as a coffin-shaped crypt prop; that is a scene interpretation, not a recovered author label. The author-confirmed bow is used for the ranger's ability icon rather than silently relabeling an axe.
-
-No column is treated as a confirmed animation frame, no row/color as a confirmed species, and no structural index as a connectivity bitmask. Bitmap glyphs are only added to the font when identified. Color variants do not imply gameplay rarity or faction. All such meanings belong in game data.
-
-## Files to use
+## Authoring and derived files
 
 | Task | File |
 | --- | --- |
-| Complete current data | [catalog.json](../catalog.json), `sprites[]` |
-| Search/preview/paint offline | [atlas.html](../atlas.html) |
-| Lightweight native viewer metadata | [atlas-index.json](../atlas-index.json) |
-| Colony selection | [runtime-sprites.json](../runtime-sprites.json) |
-| Edit RPG selection | [lantern-bindings.json](../lantern-bindings.json) |
-| Generated RPG runtime definition | [lantern-sprites.json](../lantern-sprites.json) |
-| Review curated RPG aliases | [rpg-bindings.md](rpg-bindings.md) |
-| Frozen import-time proposals and visual evidence | [sprites.json](../sprites.json), [original browser](../sprites.html), original per-pack Markdown tables |
+| Complete source of truth | [catalog.json](../catalog.json), `sprites[].ithica` and preserved evidence |
+| Current lunar casting and family ideas | [ithica-casting.json](../ithica-casting.json) |
+| Field/preview alias-to-ID selection | [ithica-expedition-bindings.json](../ithica-expedition-bindings.json) |
+| Preview/intermediate generation rules | [ithica-generation.json](../ithica-generation.json) |
+| Colony selection | [ithica-colony-sprites.json](../ithica-colony-sprites.json), generated by the colony builder |
+| Generated field/viewer manifest | [ithica-expedition-sprites.json](../ithica-expedition-sprites.json) |
+| Current field casting table | [ithica-sprites.md](ithica-sprites.md) |
+| Native viewer metadata / offline browser | [atlas-index.json](../atlas-index.json) / [atlas.html](../atlas.html) |
+| Frozen import audit / original browser | [sprites.json](../sprites.json) / [sprites.html](../sprites.html) |
 
-The native runtime registers every occupied crop for the viewer but loads its image texture lazily. The offline HTML embeds metadata and original PNG bytes to support file-based canvas inspection/export without networking. Exported scene recipes store exact IDs by layer, and do not change the source sheets.
+Colony and field aliases are separate contexts and can intentionally refer to different crops, such as `wall`. Combining dictionaries by overwrite would corrupt those mappings. Original publisher filenames and credits remain intact during the Ithica rebrand.
 
-## Regenerate and check
+The native viewer loads source textures lazily. The offline atlas embeds original PNG bytes for file-based inspection and scene-lab export without networking. Exported recipes contain exact IDs by layer; runtime recipe import is not implemented.
 
-Python 3 standard library only; the games do not require Python:
+## Regenerate and verify
+
+Python 3 standard library only; Python is not a game runtime dependency:
 
 ```sh
+python3 tools/build_runtime_assets.py
 python3 tools/build_game_catalog.py
 python3 tools/build_game_catalog.py --check
 ```
 
-The generator reads the frozen audit, existing colony manifest, hand-curated RPG aliases, generation rules, and focused visual-review JSON. It updates catalog v3, the lightweight index, RPG manifest, binding table, and self-contained atlas HTML deterministically. `--check` verifies generated content and the original 664 PNG / 3 archive hashes. CI runs this check on Linux.
+The catalog builder reads the frozen audit, original inventory retained in the existing catalog, colony manifest, field/preview bindings, current casting, generation rules, focused review and HTML template. It deterministically regenerates schema 4, the viewer index, field manifest, Markdown tables and offline HTML. **Keep the existing catalog's original inventory; it is also an input.** `--check` verifies freshness and all 664 original PNG / 3 archive hashes. CI runs it on Linux.
 
-If the frozen import audit ever intentionally changes, its development-only Pillow generator remains `tools/build_sprite_reference.py`; afterward regenerate the colony selection with `tools/build_runtime_assets.py`, then this v2 layer. Re-review semantic choices after a changed sheet instead of transferring old atlas coordinates blindly. Current source PNGs are never recolored or repacked by these generators.
+Edit authoring inputs, then regenerate derived files. Do not hand-edit generated records/tables or transfer coordinates blindly after an intentional sheet change. The optional original-audit development tool uses Pillow; its use would require a deliberate audit migration. No generator recolors or repacks source PNGs.

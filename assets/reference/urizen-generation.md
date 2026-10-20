@@ -4,9 +4,9 @@
 
 This supplements the exhaustive per-sprite catalog. Observations below were checked against the exact source crops; uncertain publisher identities stay uncertain. Source pixels, IDs, rectangles, original audit labels and identity confidence are preserved.
 
-The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [ithica-generation.json](../ithica-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.
+The retained generator uses authored north/east/south/west sockets on **7 x 7 room chunks**, not arbitrary sprite numbers. The rules and table below record the preview/intermediate generator and preserved crop observations. [Current lunar casting](ithica-sprites.md) distinguishes actual Ithica use: blocking rubble, lunar deck/rock, recoverable components and symbolic exposure. Source appearance does not establish collision or lore.
 
-Fire, spores and corruption use explicit overlay rules. Button mushrooms represent spores and a leaf silhouette represents magical corruption; these are game interpretations, not publisher identities. Existing campfires remain rest locations, not fire sources.
+The legacy preview retains fire, spores and magical corruption. Ithica does not spread ordinary outdoor fire or grow outdoor forests: its site overlay is exposure/interference, and colony fire requires oxygen. The original visual observations below remain evidence, not claims of newly implemented lunar uses.
 
 **104 individually inspected crops; 43 distinct sprite IDs referenced by generation rules across all packs.**
 

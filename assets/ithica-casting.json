@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "scope": "Current Ithica lunar bindings, distinct from retained RPG preview selections. Original source IDs, crops and identity confidence remain unchanged.",
+  "field": {
+    "grit": {
+      "role": "Surface ground",
+      "limits": "CA terrain; explicit walkability. Author grit reused as lunar dust.",
+      "generation": "terrain"
+    },
+    "rock-floor": {
+      "role": "Exposed rock",
+      "limits": "CA terrain variation. No inferred terrain animation.",
+      "generation": "terrain"
+    },
+    "flagstone": {
+      "role": "Compartment deck",
+      "limits": "WFC room floors; an observed constructed surface, with no claimed origin.",
+      "generation": "terrain"
+    },
+    "cracked-wall": {
+      "role": "Damaged compartment boundary",
+      "limits": "WFC structural boundary. Collision and sockets come from code.",
+      "generation": "terrain"
+    },
+    "boulder": {
+      "role": "Blocking surface rubble",
+      "limits": "Ground.Wall in Ithica; the legacy preview also uses this crop as nonblocking scenery.",
+      "generation": "terrain"
+    },
+    "stairs-up": {
+      "role": "Return approach",
+      "limits": "A readable exit marker. Travel has an explicit time cost.",
+      "generation": "site_object"
+    },
+    "resident": {
+      "role": "Suited resident or stranded person",
+      "limits": "Reuses the exact colony engineer crop. Profession, suit protection and field role are game data, not publisher identity.",
+      "generation": "encounter"
+    },
+    "bandit": {
+      "role": "Observed movement",
+      "limits": "An uncertain humanoid silhouette. No faction, species, origin or animation is claimed.",
+      "generation": "encounter"
+    },
+    "wisp": {
+      "role": "Interference",
+      "limits": "An uncertain effect-like silhouette. Distinct intent and stats; no supernatural explanation is asserted.",
+      "generation": "encounter"
+    },
+    "crystal": {
+      "role": "Recoverable component",
+      "limits": "A readable salvage marker. Recovery yields actual carried stock, deposited only on return.",
+      "generation": "site_object"
+    },
+    "well": {
+      "role": "Damaged pump",
+      "limits": "An equipment-like marker requiring a paid repair. Original source identity is retained separately.",
+      "generation": "site_object"
+    },
+    "gate": {
+      "role": "Sealed passage",
+      "limits": "Blocking object until a restored pump permits cycling the seal; global route validation prevents bypass.",
+      "generation": "site_object"
+    },
+    "gate-open": {
+      "role": "Open passage",
+      "limits": "Same source mapping as the preview; switches presentation after the seal is opened.",
+      "generation": "site_object"
+    },
+    "hazard-corruption": {
+      "role": "Interference or exposure field",
+      "limits": "The publisher leaf motif is a symbolic overlay, not a claim of lunar plants. Only eligible unprotected cells spread it; no outdoor ordinary fire.",
+      "generation": "overlay"
+    }
+  },
+  "familyIdeas": {
+    "actors": [
+      "Candidate for a rescued person, field specialist or unidentified movement after silhouette and suit-fit review."
+    ],
+    "consumables": [
+      "Possible medical, food, water or protective-supply icon; new items need explicit costs and use rules."
+    ],
+    "effects": [
+      "Possible pressure loss, impact, scanning or interference overlay; individual crops do not establish an animation sequence."
+    ],
+    "environment": [
+      "Possible habitat deck, hull, rubble or enclosed structure; author sockets, collision and protected approaches explicitly."
+    ],
+    "equipment": [
+      "Possible field tool, repair equipment or supply icon after checking the held shape; no weapon family is inferred."
+    ],
+    "input": [
+      "Use for a real contextual control prompt. Controller art remains a future idea while gamepad input is absent."
+    ],
+    "interface": [
+      "Possible resident condition, work order, stock or site status icon; only implemented states should be labeled active."
+    ],
+    "needs-review": [
+      "Unmapped motif: inspect the crop before assigning a lunar prop or UI role; keep publisher identity uncertain."
+    ],
+    "props": [
+      "Possible shelter storage, discarded equipment or compartment dressing after scale review; reserve interaction approaches."
+    ],
+    "symbols-and-assemblies": [
+      "Possible observed marking or damaged panel; review complete fragments before assembly and avoid inventing a named faction."
+    ],
+    "technology": [
+      "Possible life support, power, pump or diagnostic equipment after footprint review; mechanics and animation require code."
+    ],
+    "typography": [
+      "Possible alternate display font or observations log; unknown glyphs are not automatically an invented language."
+    ],
+    "vegetation": [
+      "Possible enclosed hydroponics or a contained abandoned habitat; exclude ordinary vegetation from outdoor lunar vacuum."
+    ]
+  }
+}

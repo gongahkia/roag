@@ -13,7 +13,12 @@ public sealed partial class IthicaGame
         public string Confidence { get; set; } = ""; public string Basis { get; set; } = ""; public string Role { get; set; } = ""; public string Adaptation { get; set; } = "";
         public List<string> Ideas { get; set; } = []; public Dictionary<string, List<string>> Usage { get; set; } = [];
         public string GenerationNotes { get; set; } = "";
-        public string Search => Id + " " + Name + " " + Category + " " + Family + " " + Role + " " + Adaptation + " " + GenerationNotes + " " + string.Join(" ", Ideas) + " " + string.Join(" ", Usage.Values.SelectMany(x => x));
+        public string IthicaStatus { get; set; } = "";
+        public string LunarRole { get; set; } = "";
+        public string LunarLimits { get; set; } = "";
+        public List<string> LunarIdeas { get; set; } = [];
+        public Dictionary<string, List<string>> IthicaUsage { get; set; } = [];
+        public string Search => LunarRole + " " + LunarLimits + " " + string.Join(" ", LunarIdeas) + " " + Id + " " + Name + " " + Category + " " + Family + " " + Role + " " + Adaptation + " " + GenerationNotes + " " + string.Join(" ", Ideas) + " " + string.Join(" ", Usage.Values.SelectMany(x => x));
     }
     private List<AtlasEntry> _entries = [], _filtered = [];
     private string _search = "";
@@ -21,12 +26,12 @@ public sealed partial class IthicaGame
     private bool _atlasMask;
     private static readonly string[] Packs = ["ALL PACKS", "urizen", "godot-node-icons", "input-prompts"];
     private string[] Families => new[] { "ALL FAMILIES" }.Concat(_entries.Select(e => e.Family).Distinct().Order()).ToArray();
-    private static readonly string[] Usages = ["ANY USAGE", "RPG BOUND", "COLONY BOUND", "UNUSED IN BOTH"];
+    private static readonly string[] Usages = ["ANY USAGE", "ITHICA BOUND", "PREVIEW BOUND", "COLONY BOUND", "UNBOUND"];
     private void FilterAtlas()
     {
         var families = Families;
         string family = families[Math.Min(_familyFilter, families.Length - 1)];
-        _filtered = _entries.Where(e => (_packFilter == 0 || e.Pack == Packs[_packFilter]) && (_familyFilter == 0 || e.Family == family) && (_usageFilter switch { 1 => e.Usage["rpg"].Count > 0, 2 => e.Usage["colony"].Count > 0, 3 => e.Usage.Values.All(v => v.Count == 0), _ => true }) && (_search.Length == 0 || e.Search.Contains(_search, StringComparison.OrdinalIgnoreCase))).ToList();
+        _filtered = _entries.Where(e => (_packFilter == 0 || e.Pack == Packs[_packFilter]) && (_familyFilter == 0 || e.Family == family) && (_usageFilter switch { 1 => e.IthicaStatus == "bound", 2 => e.Usage["rpg"].Count > 0, 3 => e.Usage["colony"].Count > 0, 4 => e.Usage.Values.All(v => v.Count == 0), _ => true }) && (_search.Length == 0 || e.Search.Contains(_search, StringComparison.OrdinalIgnoreCase))).ToList();
         _atlasSelected = 0;
         _detailScroll = 0;
     }
@@ -178,7 +183,11 @@ public sealed partial class IthicaGame
             y += 23;
             y += Wrap(entry.Usage[game].Count > 0 ? string.Join(", ", entry.Usage[game]) : "Unused by this game.", x, y, w, Muted) + 16;
         }
-        Text("RPG INTERPRETATION", x, y, Amber);
+        Text("ITHICA / CURRENT CASTING", x, y, Amber); y += 24;
+        y += Wrap(entry.IthicaStatus + ": " + entry.LunarRole, x, y, w, Ink) + 16;
+        y += Wrap(entry.LunarLimits, x, y, w, Muted) + 16;
+        y += Wrap(string.Join("\n", entry.LunarIdeas), x, y, w, Muted) + 18;
+        Text("PREVIEW INTERPRETATION", x, y, Amber);
         y += 23;
         y += Wrap(entry.Role, x, y, w, Ink) + 16;
         Text("ADAPTATION / LIMITS", x, y, Amber);
