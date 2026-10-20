@@ -13,6 +13,7 @@ public sealed partial class Campaign
             return best;
         }
         foreach (var h in Party)
+        {
             battle.Units.Add(new()
             {
                 Id = battle.Units.Count,
@@ -29,6 +30,8 @@ public sealed partial class Campaign
                 Speed = h.Speed,
                 Power = h.Level - 1
             });
+        }
+
         (string Name, string Sprite, int Health, int Power, int Speed, int Armor)[] enemies = encounter.Id switch
         {
             "wilds-hounds" => [("Briar hound", "wolf", 23, 6, 7, 0), ("Briar hound", "wolf", 23, 6, 6, 0)],
@@ -66,7 +69,10 @@ public sealed partial class Campaign
         {
             var targets = b.Units.Where(u => u.Friendly && u.Alive).ToArray();
             if (targets.Length == 0)
+            {
                 break;
+            }
+
             enemy.IntentTarget = targets[Random.Next(targets.Length)].Id;
             enemy.Intent = enemy.Sprite switch
             {
@@ -82,7 +88,10 @@ public sealed partial class Campaign
     private void BeginTurn()
     {
         if (Battle is not { } b)
+        {
             return;
+        }
+
         var active = b.Active;
         if (!active.Alive)
         {
@@ -101,14 +110,20 @@ public sealed partial class Campaign
             Damage(active, 3, "bleed", false);
         }
         if (CheckEnd())
+        {
             return;
+        }
+
         if (!active.Alive)
         {
             Advance();
             return;
         }
         if (active.Mark > 0)
+        {
             active.Mark--;
+        }
+
         if (active.Stun > 0)
         {
             active.Stun--;
@@ -119,7 +134,10 @@ public sealed partial class Campaign
     private void Advance()
     {
         if (CheckEnd() || Battle is not { } b)
+        {
             return;
+        }
+
         b.TurnIndex++;
         if (b.TurnIndex >= b.Order.Count)
         {
@@ -127,34 +145,49 @@ public sealed partial class Campaign
             NewRound();
         }
         else
+        {
             BeginTurn();
+        }
     }
     private void Emit(CombatUnit target, int amount, string kind, string text)
     {
         CombatEvents.Add(new(++_sequence, target.Id, amount, kind, text));
         if (CombatEvents.Count > 24)
+        {
             CombatEvents.RemoveAt(0);
+        }
+
         Note(text);
     }
     private void Damage(CombatUnit target, int amount, string source, bool armor = true)
     {
         int value = Math.Max(1, amount - (armor ? target.Armor : 0));
         if (target.Guarding)
+        {
             value = Math.Max(1, (value + 1) / 2);
+        }
+
         target.Health = Math.Max(0, target.Health - value);
         Emit(target, value, "damage", target.Name + " takes " + value + " " + source + " damage.");
         if (!target.Alive)
         {
             target.Burn = target.Bleed = target.Stun = 0;
             if (target.Friendly)
-            foreach (var u in Battle!.Units.Where(u => u.Friendly && u.Alive))
-                u.Stress = Math.Min(100, u.Stress + 10);
+            {
+                foreach (var u in Battle!.Units.Where(u => u.Friendly && u.Alive))
+                {
+                    u.Stress = Math.Min(100, u.Stress + 10);
+                }
+            }
         }
     }
     public string IntentText(CombatUnit enemy)
     {
         if (Battle is null)
+        {
             return "";
+        }
+
         string target = Battle.Units[enemy.IntentTarget].Name;
         return enemy.Intent switch
         {
@@ -169,26 +202,47 @@ public sealed partial class Campaign
     public ActionResult Act(int skillIndex, int? targetId = null)
     {
         if (Battle is not { } b || !b.Active.Friendly)
+        {
             return new(false, "Wait for your companion's turn.");
+        }
+
         if (skillIndex < 0 || skillIndex > 5)
+        {
             return new(false, "Unknown action.");
+        }
+
         var actor = b.Active;
         var hero = Party[actor.HeroId];
         var skill = Skills.Get(hero.Role, skillIndex);
         if (actor.Mana < skill.Mana)
+        {
             return new(false, "Not enough mana for " + skill.Name + ".");
+        }
+
         if (skill.Effect == "potion" && Potions <= 0)
+        {
             return new(false, "The party has no potions left.");
+        }
+
         var target = targetId is int id && id >= 0 && id < b.Units.Count ? b.Units[id] : null;
         if (skill.Target == TargetKind.Enemy && (target is null || target.Friendly || !target.Alive))
+        {
             return new(false, "Choose a living enemy on the map or in the enemy list.");
+        }
+
         if (skill.Target == TargetKind.Ally && (target is null || !target.Friendly))
+        {
             return new(false, "Choose a companion on the map or a party card.");
+        }
+
         actor.Mana -= skill.Mana;
         if (skill.Effect == "flee")
         {
             foreach (var u in b.Units.Where(u => u.Friendly))
+            {
                 u.Stress = Math.Min(100, u.Stress + 5);
+            }
+
             SyncParty();
             Battle = null;
             Position = PreviousPosition;
@@ -203,7 +257,10 @@ public sealed partial class Campaign
             _ => [target!]
         };
         if (skill.Effect == "potion")
+        {
             Potions--;
+        }
+
         Note(actor.Name + " uses " + skill.Name + ".");
         foreach (var victim in targets.ToArray())
         {
@@ -222,15 +279,21 @@ public sealed partial class Campaign
             else if (skill.Effect is "guard" or "rally")
             {
                 if (victim.Alive)
+                {
                     victim.Guarding = true;
+                }
+
                 if (skill.Effect == "rally")
+                {
                     victim.Stress = Math.Max(0, victim.Stress - 8);
+                }
             }
             else
             {
                 int power = skill.Power + actor.Power + Random.Next(4) + (victim.Mark > 0 ? 4 : 0) - (actor.Stress >= 80 ? 2 : 0);
                 Damage(victim, power, skill.Effect == "burn" ? "fire" : "strike");
                 if (victim.Alive)
+                {
                     switch (skill.Effect)
                     {
                         case "burn":
@@ -243,6 +306,7 @@ public sealed partial class Campaign
                             victim.Stun = 1;
                             break;
                     }
+                }
             }
         }
         Advance();
@@ -251,14 +315,22 @@ public sealed partial class Campaign
     public ActionResult AdvanceEnemy()
     {
         if (Battle is not { } b || b.Active.Friendly)
+        {
             return new(false, "A companion is ready.");
+        }
+
         var actor = b.Active;
         var target = b.Units[actor.IntentTarget];
         if (!target.Alive)
+        {
             target = b.Units.First(u => u.Friendly && u.Alive);
+        }
+
         Note(actor.Name + " / " + IntentText(actor));
         if (actor.Intent == IntentKind.Guard)
+        {
             actor.Guarding = true;
+        }
         else if (actor.Intent == IntentKind.Heal)
         {
             foreach (var ally in b.Units.Where(u => !u.Friendly && u.Alive))
@@ -276,7 +348,9 @@ public sealed partial class Campaign
                 Damage(victim, (actor.Intent == IntentKind.Sweep ? 9 : actor.Power) + Random.Next(3), actor.Intent == IntentKind.Dread ? "dread" : "strike");
                 victim.Stress = Math.Min(100, victim.Stress + (actor.Intent == IntentKind.Dread ? 12 : actor.Intent == IntentKind.Sweep ? 10 : 3) + (Light < 25 ? 3 : 0));
                 if (victim.Alive && actor.Intent == IntentKind.Bleed)
+                {
                     victim.Bleed = 2;
+                }
             }
         }
         Advance();
@@ -295,7 +369,10 @@ public sealed partial class Campaign
     private bool CheckEnd()
     {
         if (Battle is not { } b)
+        {
             return true;
+        }
+
         if (!b.Units.Any(u => u.Friendly && u.Alive))
         {
             SyncParty();
@@ -374,6 +451,8 @@ public sealed partial class Campaign
             Act(skill, b.Units.First(u => !u.Friendly && u.Alive).Id);
         }
         if (Battle is not null)
+        {
             throw new InvalidOperationException("Battle exceeded its verification turn limit.");
+        }
     }
 }

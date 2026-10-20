@@ -2,7 +2,7 @@
 
 This reference describes **every occupied sprite region in all three downloaded packs**, including every icon variant, both generations of input prompts, the main Urizen atlas, and its free 2-bit sample. It gives each region a stable ID, source rectangle, identification basis, current-game proposal where appropriate, and an idea for future use.
 
-**The tables and JSON preserve the original import-time audit.** Their `unused` / `proposed` statuses describe the archived terminal prototype in `legacy/python/`, which loads no PNGs. The MonoGame client now uses [runtime-sprites.json](runtime-sprites.json): **154 existing sprite IDs**, covering **60 semantic bindings and 94 font glyphs**. That manifest is the source of truth for current usage. Source images, catalog IDs, rectangles, and proposed mappings remain unchanged; an audit entry marked unused may now be selected by the runtime manifest.
+**The tables and sprites.json preserve the original import-time audit.** Their `unused` / `proposed` statuses describe the archived terminal prototype in `legacy/python/`, which loads no PNGs. Current bindings are separate: the colony selects **154 IDs** in [runtime-sprites.json](runtime-sprites.json), and the RPG selects **171 IDs** through [lantern-bindings.json](lantern-bindings.json) plus the shared glyph map. See catalog v2's `usage` for both games. Source images, stable IDs, crop rectangles, and original proposals remain unchanged; an audit entry marked unused may now be bound in either game.
 
 The current [catalog.json](catalog.json) is **schema 2**: it retains the original file inventory and now includes all **11,887 sprite/slot records**, live colony/RPG usage, RPG role proposals, adaptation limits, tags, and review status. [sprites.json](sprites.json) remains the frozen import-time audit. See [the schema guide](reference/CATALOG_V2.md) for the distinction.
 
@@ -41,7 +41,7 @@ There are **11,887 total records**. At import, **1,885 sprite records had a prop
 
 | Field / value | Meaning |
 |---|---|
-| `runtime_status: unused` | No game code currently loads or displays this bitmap. Applies even when the sprite depicts something already simulated. |
+| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog v2's live usage may now differ. |
 | `mapping_status: proposed` | A suggested use for a feature that exists in Regolith today. It is not an active binding. |
 | `mapping_status: unmapped` | No specific existing feature is assigned. Read `future_ideas` for a possible use and any mechanics/art changes it would need. |
 | `not_applicable` | Empty space, separator art, or a source credit, rather than a gameplay sprite. |

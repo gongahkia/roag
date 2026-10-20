@@ -46,15 +46,25 @@ public sealed class SpriteLibrary : IDisposable
 
         _definitions = manifest.Sprites;
         foreach (var (name, id) in manifest.Bindings)
+        {
             _bindings[name] = Resolve(id);
+        }
+
         foreach (var (character, id) in manifest.Font)
+        {
             if (character.Length == 1)
+            {
                 _font[character[0]] = Resolve(id);
+            }
+        }
     }
     private Frame Resolve(string id)
     {
         if (_frames.TryGetValue(id, out var cached))
+        {
             return cached;
+        }
+
         var data = _definitions[id];
         if (!_textures.TryGetValue(data.Source, out var texture))
         {
@@ -100,6 +110,13 @@ public sealed class SpriteLibrary : IDisposable
     {
         var frame = Resolve(id);
         batch.Draw(original ? frame.Texture.Original : frame.Texture.Mask, target, frame.Source, color);
+    }
+    public void FitSprite(SpriteBatch batch, string id, Rectangle bounds, Color color, bool original = false)
+    {
+        var frame = Resolve(id);
+        float scale = Math.Min(bounds.Width / (float)frame.Source.Width, bounds.Height / (float)frame.Source.Height);
+        int w = (int)(frame.Source.Width * scale), h = (int)(frame.Source.Height * scale);
+        DrawSprite(batch, id, new(bounds.Center.X - w / 2, bounds.Center.Y - h / 2, w, h), color, original);
     }
     public void Draw(SpriteBatch batch, string binding, Rectangle target, Color color, bool original = false)
     {

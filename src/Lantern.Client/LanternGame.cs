@@ -23,6 +23,7 @@ public sealed partial class LanternGame : Game
     private MouseState _mouse, _oldMouse;
     private bool _click, _atlas, _original, _resizing;
     private bool _follow = true;
+    private bool _autoSave;
     private double _time, _moveAt, _enemyAt;
     private int _draws, _selectedHero, _skill, _target = -1, _lastActive = -1, _lesson;
     private string _dialogTitle = "", _dialogText = "", _toast = "", _hover = "";
@@ -36,15 +37,19 @@ public sealed partial class LanternGame : Game
     private sealed record Popup(Cell Cell, string Text, Color Color, double Until);
     private readonly List<Popup> _popups = [];
     private int _eventWatermark;
+    private int _dialogScroll;
+    private string _lastDialogKey = "";
     private static readonly Color Background = new(18, 21, 25), Panel = new(28, 32, 37), Raised = new(37, 42, 46), Ink = new(229, 221, 199), Muted = new(154, 160, 155), Gold = new(218, 181, 117), Green = new(132, 183, 151), Blue = new(136, 165, 202), Red = new(218, 122, 111), Purple = new(177, 146, 193);
     private static readonly Color[] HeroColors = [Gold, Green, Blue, Purple];
 
     public LanternGame(Options options)
     {
         _options = options;
+        _autoSave = options.Load || options.Scene == "town";
         _campaign = options.Load ? Campaign.Load(options.Save) : new Campaign(options.Seed);
         _intro = !options.SkipIntro && !options.Load;
         if (!options.Load)
+        {
             switch (options.Scene)
             {
                 case "forest":
@@ -66,6 +71,8 @@ public sealed partial class LanternGame : Game
                     _atlas = true;
                     break;
             }
+        }
+
         _eventWatermark = _campaign.CombatEvents.LastOrDefault()?.Sequence ?? 0;
         _graphics = new(this)
         {
@@ -77,9 +84,15 @@ public sealed partial class LanternGame : Game
         Window.AllowUserResizing = true;
         IsMouseVisible = true;
         IsFixedTimeStep = false;
-        Window.ClientSizeChanged += (_, _) => { if (_resizing) return; var b = Window.ClientBounds; if (b.Width < 1024 || b.Height < 720) { _resizing = true; _graphics.PreferredBackBufferWidth = Math.Max(1024, b.Width); _graphics.PreferredBackBufferHeight = Math.Max(720, b.Height); _graphics.ApplyChanges(); _resizing = false; } };
+        Window.ClientSizeChanged += (_, _) => { if (_resizing) { return; } var b = Window.ClientBounds; if (b.Width < 1024 || b.Height < 720) { _resizing = true; _graphics.PreferredBackBufferWidth = Math.Max(1024, b.Width); _graphics.PreferredBackBufferHeight = Math.Max(720, b.Height); _graphics.ApplyChanges(); _resizing = false; } };
         Window.TextInput += (_, e) => { if (_atlas && !char.IsControl(e.Character) && e.Character < 127) { _search += e.Character; FilterAtlas(); } };
-        Exiting += (_, _) => { if (options.Frames == 0 && !options.SmokeTest) Save(); };
+        Exiting += (_, _) =>
+        {
+            if (_autoSave && options.Frames == 0 && !options.SmokeTest)
+            {
+                Save();
+            }
+        };
     }
     protected override void LoadContent()
     {
@@ -89,8 +102,13 @@ public sealed partial class LanternGame : Game
         string root = Path.Combine(AppContext.BaseDirectory, "assets");
         _sprites = new(GraphicsDevice, root, "lantern-sprites.json");
         foreach (var sprite in _campaign.Zones.SelectMany(z => z.Objects).Select(o => o.Sprite).Concat(_campaign.Party.Select(h => h.Sprite)).Concat(Skills.ByRole.SelectMany(s => s).Select(s => s.Icon)).Concat(new[] { Skills.Guard.Icon, Skills.Potion.Icon, Skills.Flee.Icon }))
+        {
             if (!_sprites.HasBinding(sprite))
+            {
                 throw new InvalidDataException("Unbound game sprite: " + sprite);
+            }
+        }
+
         _entries = JsonSerializer.Deserialize<List<AtlasEntry>>(File.ReadAllText(Path.Combine(root, "atlas-index.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
         FilterAtlas();
         _camera.Reset(32);
@@ -101,7 +119,10 @@ public sealed partial class LanternGame : Game
     private void Toast(string text)
     {
         if (text.Length == 0)
+        {
             return;
+        }
+
         _toast = text;
         _toastUntil = _time + 5;
     }
@@ -110,11 +131,14 @@ public sealed partial class LanternGame : Game
         Toast(r.Message);
         if (r.Title is not null)
         {
+            _dialogScroll = 0;
             _dialogTitle = r.Title;
             _dialogText = r.Message;
         }
         if (_campaign.Battle is not null)
+        {
             _route.Clear();
+        }
     }
     private void Layout()
     {
@@ -126,10 +150,17 @@ public sealed partial class LanternGame : Game
     private void Recenter(bool snap = false)
     {
         Vector2 center = _campaign.Battle is { } b ? Point(_campaign.Zone.Objects.Single(o => o.Id == b.EncounterId).Position) : Point(_campaign.Position) + new Vector2(0, -1.5f);
+        Vector2 half = new(_camera.Viewport.Width / _camera.CellSize / 2, _camera.Viewport.Height / _camera.CellSize / 2);
+        center.X = half.X * 2 >= _campaign.Zone.Width ? _campaign.Zone.Width / 2f : Math.Clamp(center.X, half.X, _campaign.Zone.Width - half.X);
+        center.Y = half.Y * 2 >= _campaign.Zone.Height ? _campaign.Zone.Height / 2f : Math.Clamp(center.Y, half.Y, _campaign.Zone.Height - half.Y);
         if (snap)
+        {
             _camera.Center = center;
+        }
         else if (_follow)
+        {
             _camera.Center = Vector2.Lerp(_camera.Center, center, .16f);
+        }
     }
     protected override void Update(GameTime gameTime)
     {
@@ -140,7 +171,10 @@ public sealed partial class LanternGame : Game
         _mouse = Mouse.GetState();
         _click = _mouse.LeftButton == ButtonState.Pressed && _oldMouse.LeftButton == ButtonState.Released;
         if (IsActive && !_options.SmokeTest)
+        {
             Input();
+        }
+
         if (!_atlas && !_intro && _dialogTitle.Length == 0)
         {
             if (_campaign.Battle is { } battle)
@@ -167,7 +201,9 @@ public sealed partial class LanternGame : Game
                 {
                     _routeObject = null;
                     if (_campaign.Battle is null)
+                    {
                         Apply(_campaign.Interact(id));
+                    }
                 }
             }
         }
@@ -176,19 +212,28 @@ public sealed partial class LanternGame : Game
         {
             _eventWatermark = e.Sequence;
             if (_campaign.Battle is { } active && e.Target >= 0 && e.Target < active.Units.Count)
+            {
                 _popups.Add(new(active.Units[e.Target].Position, (e.Kind == "damage" ? "-" : "+") + e.Amount, e.Kind == "damage" ? Red : Green, _time + .8));
+            }
         }
         _popups.RemoveAll(p => p.Until <= _time);
         for (int i = 0; i < 4; i++)
         {
             var p = Point(_campaign.Position) + new Vector2(-i % 2, i / 2);
             if (_positions[i] == Vector2.Zero || Vector2.Distance(_positions[i], p) > 6)
+            {
                 _positions[i] = p;
+            }
             else
+            {
                 _positions[i] = Vector2.Lerp(_positions[i], p, (float)Math.Min(1, delta * 16));
+            }
         }
         if (_options.SmokeTest && _draws == 2)
+        {
             Smoke();
+        }
+
         _oldMouse = _mouse;
         _oldKeys = _keys;
         base.Update(gameTime);
@@ -221,22 +266,42 @@ public sealed partial class LanternGame : Game
         if (_intro)
         {
             if (Pressed(Keys.Escape))
+            {
                 _intro = false;
+            }
+
             if (Pressed(Keys.Left))
+            {
                 _lesson = Math.Max(0, _lesson - 1);
+            }
+
             if (Pressed(Keys.Enter) || Pressed(Keys.Space) || Pressed(Keys.Right))
             {
                 if (_lesson < 2)
+                {
                     _lesson++;
+                }
                 else
+                {
                     _intro = false;
+                }
             }
             return;
         }
         if (_dialogTitle.Length > 0)
         {
+            int dialogWheel = _mouse.ScrollWheelValue - _oldMouse.ScrollWheelValue;
+            if (dialogWheel != 0)
+                _dialogScroll = Math.Max(0, _dialogScroll - Math.Sign(dialogWheel) * 48);
+            if (Pressed(Keys.PageDown) || Pressed(Keys.Down))
+                _dialogScroll += 96;
+            if (Pressed(Keys.PageUp) || Pressed(Keys.Up))
+                _dialogScroll = Math.Max(0, _dialogScroll - 96);
             if (Pressed(Keys.Escape) || Pressed(Keys.Enter) || Pressed(Keys.Space))
+            {
                 _dialogTitle = "";
+            }
+
             return;
         }
         if (Pressed(Keys.F1))
@@ -245,16 +310,25 @@ public sealed partial class LanternGame : Game
             _lesson = 0;
         }
         if (Pressed(Keys.F4))
+        {
             _original = !_original;
+        }
+
         if (Pressed(Keys.S) && (_keys.IsKeyDown(Keys.LeftControl) || _keys.IsKeyDown(Keys.RightControl)))
         {
             Save();
             return;
         }
         if (Pressed(Keys.F5))
+        {
             Save();
+        }
+
         if (Pressed(Keys.F9))
+        {
             Load();
+        }
+
         if (Pressed(Keys.J))
         {
             _dialogTitle = "EXPEDITION JOURNAL";
@@ -279,7 +353,9 @@ public sealed partial class LanternGame : Game
                 _follow = false;
             }
             if (_click)
+            {
                 ClickMap(_mouse.Position.ToVector2());
+            }
         }
         if (Pressed(Keys.G))
         {
@@ -304,37 +380,68 @@ public sealed partial class LanternGame : Game
         if (_campaign.Battle is { } b)
         {
             for (int i = 0; i < 6; i++)
-            if (Pressed(Keys.D1 + i))
-                ChooseSkill(i);
+            {
+                if (Pressed(Keys.D1 + i))
+                {
+                    ChooseSkill(i);
+                }
+            }
+
             if (Pressed(Keys.Tab) || Pressed(Keys.Right))
             {
                 var ids = b.Units.Where(u => Skills.Get(_campaign.Party[b.Active.HeroId >= 0 ? b.Active.HeroId : 0].Role, _skill).Target == TargetKind.Ally ? u.Friendly : !u.Friendly && u.Alive).Select(u => u.Id).ToArray();
                 if (ids.Length > 0)
+                {
                     _target = ids[(Array.IndexOf(ids, _target) + 1) % ids.Length];
+                }
             }
             if (Pressed(Keys.Enter) || Pressed(Keys.Space))
+            {
                 DoSkill(_target);
+            }
+
             return;
         }
         if (Pressed(Keys.E) || Pressed(Keys.Enter))
+        {
             Apply(_campaign.Interact());
+        }
+
         if (Pressed(Keys.T))
+        {
             Apply(_campaign.UseTorch());
+        }
+
         if (Pressed(Keys.R))
+        {
             Apply(_campaign.Camp());
+        }
+
         if (Pressed(Keys.H))
+        {
             Apply(_campaign.UsePotion(_selectedHero));
+        }
+
         if (_time >= _moveAt)
         {
             int dx = 0, dy = 0;
             if (_keys.IsKeyDown(Keys.Left) || _keys.IsKeyDown(Keys.A))
+            {
                 dx = -1;
+            }
             else if (_keys.IsKeyDown(Keys.Right) || _keys.IsKeyDown(Keys.D))
+            {
                 dx = 1;
+            }
             else if (_keys.IsKeyDown(Keys.Up) || _keys.IsKeyDown(Keys.W))
+            {
                 dy = -1;
+            }
             else if (_keys.IsKeyDown(Keys.Down) || _keys.IsKeyDown(Keys.S))
+            {
                 dy = 1;
+            }
+
             if (dx != 0 || dy != 0)
             {
                 _route.Clear();
@@ -349,7 +456,10 @@ public sealed partial class LanternGame : Game
         string zone = _campaign.ZoneId;
         var r = _campaign.Move(dx, dy);
         if (r.Message.Length > 0)
+        {
             Apply(r);
+        }
+
         if (_campaign.Battle is not null || _campaign.ZoneId != zone)
         {
             _follow = true;
@@ -374,7 +484,10 @@ public sealed partial class LanternGame : Game
         var p = _camera.ScreenToWorld(point);
         Cell cell = new((int)Math.Floor(p.X), (int)Math.Floor(p.Y));
         if (!_campaign.Zone.Inside(cell) || !_campaign.Zone.Seen[_campaign.Zone.Index(cell)])
+        {
             return;
+        }
+
         var o = _campaign.ObjectAt(cell);
         if (o is not null && cell.Distance(_campaign.Position) <= 1)
         {
@@ -386,25 +499,39 @@ public sealed partial class LanternGame : Game
         _routeCursor = 0;
         _routeObject = o?.Kind is ObjectKind.Portal or ObjectKind.Encounter ? null : o?.Id;
         if (_route.Count == 0)
+        {
             Toast("No visible route. Use WASD or approach from another side.");
+        }
     }
     private void ChooseSkill(int skill)
     {
         if (_campaign.Battle is not { } b || !b.Active.Friendly)
+        {
             return;
+        }
+
         _skill = skill;
         var definition = Skills.Get(_campaign.Party[b.Active.HeroId].Role, skill);
         if (definition.Target is TargetKind.AllEnemies or TargetKind.AllAllies or TargetKind.Self)
+        {
             DoSkill(null);
+        }
         else if (definition.Target == TargetKind.Ally)
+        {
             _target = b.Units.Where(u => u.Friendly).OrderBy(u => u.Health / (float)u.MaxHealth).First().Id;
+        }
         else
+        {
             _target = b.Units.First(u => !u.Friendly && u.Alive).Id;
+        }
     }
     private void DoSkill(int? target)
     {
         if (_campaign.Battle is not { } b || !b.Active.Friendly)
+        {
             return;
+        }
+
         var result = _campaign.Act(_skill, target);
         Apply(result);
         if (result.Success)
@@ -427,6 +554,7 @@ public sealed partial class LanternGame : Game
         try
         {
             _campaign = Campaign.Load(_options.Save);
+            _autoSave = true;
             _route.Clear();
             _routeObject = null;
             _positions = new Vector2[4];
@@ -464,7 +592,10 @@ public sealed partial class LanternGame : Game
             _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
             DrawInterface(w, h);
             if (_intro || _dialogTitle.Length > 0)
+            {
                 DrawDialog(w, h);
+            }
+
             _batch.End();
         }
         GraphicsDevice.SetRenderTarget(null);
@@ -482,12 +613,15 @@ public sealed partial class LanternGame : Game
                 _frame.SaveAsPng(stream, w, h);
             }
             if (_options.SmokeTest)
+            {
                 Console.WriteLine(JsonSerializer.Serialize(new
                 {
                     graphicalSmokeTest = "passed",
                     checks = _checks,
                     sprites = _entries.Count
                 }));
+            }
+
             Exit();
         }
         base.Draw(gameTime);
@@ -506,7 +640,10 @@ public sealed partial class LanternGame : Game
         void Check(bool ok, string name)
         {
             if (!ok)
+            {
                 throw new InvalidOperationException("RPG smoke: " + name);
+            }
+
             _checks.Add(name);
         }
         Check(_entries.Count == 7115, "all occupied sprites available in viewer");

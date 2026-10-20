@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Lantern.Core;
 using Lantern.Client;
+using Lantern.Core;
 
 try
 {
@@ -110,7 +110,10 @@ namespace Lantern.Client
                     case "--window-size":
                         var parts = Value().Split('x');
                         if (parts.Length != 2)
+                        {
                             throw new ArgumentException("Use WIDTHxHEIGHT.");
+                        }
+
                         o.Width = int.Parse(parts[0]);
                         o.Height = int.Parse(parts[1]);
                         break;
@@ -119,9 +122,15 @@ namespace Lantern.Client
                 }
             }
             if (o.Width < 1024 || o.Height < 720 || o.Width > 4096 || o.Height > 2160 || o.Frames < 0)
+            {
                 throw new ArgumentException("Minimum window is 1024x720; maximum 4096x2160.");
+            }
+
             if (o.Scene is not ("town" or "forest" or "crypt" or "battle" or "victory" or "atlas"))
+            {
                 throw new ArgumentException("Unknown scene.");
+            }
+
             return o;
         }
     }

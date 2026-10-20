@@ -19,11 +19,20 @@ public sealed partial class LanternGame
         Outline(surface, selected ? Gold * .8f : Color.White * (hot ? .22f : .08f));
         Color color = !enabled ? Muted * .4f : selected ? Gold : Ink;
         if (icon is not null)
+        {
             _sprites.Fit(_batch, icon, new(r.X + 10, r.Center.Y - 10, 20, 20), color);
+        }
+
         if (label.Length > 0)
+        {
             Text(label, icon is null ? r.Center.X - SpriteLibrary.Measure(label) / 2 : r.X + 40, r.Center.Y - 6, color);
+        }
+
         if (hot && tip is not null)
+        {
             _hover = tip;
+        }
+
         if (hot && enabled && _click)
         {
             _click = false;
@@ -50,7 +59,10 @@ public sealed partial class LanternGame
             sx += 122;
         }
         if (Button(new(width - 154, 17, 42, 42), "", "save", tip: "Save [F5 / Ctrl+S]"))
+        {
             Save();
+        }
+
         if (Button(new(width - 104, 17, 42, 42), "", "atlas", tip: "Open the complete sprite atlas [F2]"))
         {
             _atlas = true;
@@ -72,11 +84,17 @@ public sealed partial class LanternGame
             {
                 var u = battle.Units[battle.Order[n]];
                 if (!u.Alive)
+                {
                     continue;
+                }
+
                 Fill(new(tx, ty, 40, 40), Background * .92f);
                 Tile(u.Sprite, new(tx + 6, ty + 5, 28, 28), u.Friendly ? HeroColors[u.HeroId] : Red);
                 if (n == battle.TurnIndex)
+                {
                     Outline(new(tx, ty, 40, 40), Gold);
+                }
+
                 tx += 46;
             }
         }
@@ -91,7 +109,10 @@ public sealed partial class LanternGame
             Text(Short(_toast, Math.Max(20, (width - 390) / 8)), 20, height - 18, Gold);
         }
         else
+        {
             Text("F2 ATLAS  /  F4 ORIGINAL COLORS  /  F5 SAVE  /  F9 LOAD", 20, height - 18, Muted);
+        }
+
         if (_hover.Length > 0 && _map.Contains(_mouse.Position) && !_intro && _dialogTitle.Length == 0)
         {
             int w = Math.Min(420, _map.Width - 30), x = Math.Clamp(_mouse.X + 18, _map.X + 8, _map.Right - w - 8), y = Math.Min(_mouse.Y + 24, _map.Bottom - 110);
@@ -146,12 +167,17 @@ public sealed partial class LanternGame
                 var r = new Rectangle(_map.X + i * (w + 6), y, w, 65);
                 bool enabled = active.Friendly && active.Mana >= skill.Mana && (i != 4 || _campaign.Potions > 0);
                 if (Button(r, "", selected: _skill == i && active.Friendly, enabled: enabled, tip: skill.Description))
+                {
                     ChooseSkill(i);
+                }
+
                 Tile(skill.Icon, new(r.X + 9, r.Y + 7, 22, 22), enabled ? Gold : Muted * .4f);
                 Text((i + 1).ToString(), r.Right - 17, r.Y + 10, Muted);
                 Text(Short(skill.Name.ToUpperInvariant(), Math.Max(5, (w - 12) / 8)), r.X + 8, r.Y + 37, enabled ? Ink : Muted * .4f);
                 if (skill.Mana > 0)
+                {
                     Text(skill.Mana + "MP", r.X + 38, r.Y + 12, Blue);
+                }
             }
         }
         else
@@ -163,7 +189,10 @@ public sealed partial class LanternGame
                 var a = actions[i];
                 var r = new Rectangle(_map.X + i * (w + 6), y, w, 65);
                 if (Button(r, "", tip: a.Name + " [" + a.Key + "]"))
+                {
                     a.Action();
+                }
+
                 Tile(a.Icon, new(r.X + 10, r.Y + 8, 22, 22), Gold);
                 Text(a.Key, r.Right - 8 - SpriteLibrary.Measure(a.Key), r.Y + 12, Muted);
                 Text(a.Name, r.X + 10, r.Y + 39, Ink);
@@ -201,7 +230,10 @@ public sealed partial class LanternGame
             foreach (var enemy in b.Units.Where(u => !u.Friendly))
             {
                 if (y > _side.Bottom - 168)
+                {
                     break;
+                }
+
                 var r = new Rectangle(x, y, w, 92);
                 if (Button(r, "", selected: enemy.Id == _target, enabled: enemy.Alive, tip: enemy.Conditions))
                 {
@@ -252,8 +284,14 @@ public sealed partial class LanternGame
             foreach (var entry in _campaign.Journal.TakeLast(3).Reverse())
             {
                 if (bottom > _side.Bottom - 45)
+                {
                     break;
-                bottom += (int)Wrap(Short(entry.Text, 110), x, bottom, w, Muted) + 12;
+                }
+
+                int lines = (_side.Bottom - bottom - 12) / 19;
+                if (lines < 1)
+                    break;
+                bottom += (int)Wrap(Short(entry.Text, Math.Min(110, lines * (w / 8 - 5))), x, bottom, w, Muted) + 12;
             }
         }
     }
@@ -275,24 +313,56 @@ public sealed partial class LanternGame
             Text($"FIELD GUIDE / {_lesson + 1:00} OF 03", r.X + 28, r.Y + 24, Gold);
         }
         else
+        {
             Text("A TALE FROM THE ROAD", r.X + 28, r.Y + 24, Gold);
+        }
+
         Wrap(title, r.X + 28, r.Y + 66, w - 56, Ink, 1.5f);
-        Wrap(body, r.X + 28, r.Y + 123, w - 56, Muted);
+        string dialogKey = title + body;
+        if (dialogKey != _lastDialogKey)
+        {
+            _dialogScroll = 0;
+            _lastDialogKey = dialogKey;
+        }
+        var clip = new Rectangle(r.X + 28, r.Y + 123, w - 56, r.Height - 214);
+        _batch.End();
+        GraphicsDevice.ScissorRectangle = clip;
+        _batch.Begin(Microsoft.Xna.Framework.Graphics.SpriteSortMode.Deferred, Microsoft.Xna.Framework.Graphics.BlendState.AlphaBlend, Microsoft.Xna.Framework.Graphics.SamplerState.PointClamp, null, _scissor);
+        float bodyHeight = Wrap(body, clip.X, clip.Y - _dialogScroll, clip.Width, Muted);
+        int maxScroll = Math.Max(0, (int)bodyHeight - clip.Height);
+        _dialogScroll = Math.Min(_dialogScroll, maxScroll);
+        _batch.End();
+        GraphicsDevice.ScissorRectangle = new(0, 0, width, height);
+        _batch.Begin(Microsoft.Xna.Framework.Graphics.SpriteSortMode.Deferred, Microsoft.Xna.Framework.Graphics.BlendState.AlphaBlend, Microsoft.Xna.Framework.Graphics.SamplerState.PointClamp);
+        if (maxScroll > 0)
+            Text("SCROLL OR PAGE DOWN TO READ MORE", r.X + 28, r.Bottom - 88, Muted);
         if (_intro)
         {
             if (Button(new(r.X + 28, r.Bottom - 69, 125, 44), "PREVIOUS", enabled: _lesson > 0, modal: true))
+            {
                 _lesson--;
+            }
+
             if (Button(new(r.Center.X - 75, r.Bottom - 69, 150, 44), "SKIP GUIDE", modal: true))
+            {
                 _intro = false;
+            }
+
             if (Button(new(r.Right - 193, r.Bottom - 69, 165, 44), _lesson == 2 ? "BEGIN" : "CONTINUE", selected: true, modal: true))
             {
                 if (_lesson < 2)
+                {
                     _lesson++;
+                }
                 else
+                {
                     _intro = false;
+                }
             }
         }
         else if (Button(new(r.Right - 193, r.Bottom - 69, 165, 44), "CONTINUE", selected: true, modal: true))
+        {
             _dialogTitle = "";
+        }
     }
 }

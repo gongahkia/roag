@@ -4,6 +4,8 @@ A playable fantasy party RPG used to explore the same artwork as Regolith. Explo
 
 ![Turn-based encounter in Ashwood](images/lantern-battle.png)
 
+![Fog and environmental props in the Sunken Abbey](images/lantern-crypt.png)
+
 ## Run
 
 Requires the same .NET 10 SDK as Regolith. From the repository:
@@ -20,6 +22,8 @@ Requires the same .NET 10 SDK as Regolith. From the repository:
 On Windows: `dotnet run --project src/Lantern.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
 
 The three-page field guide opens before play. F1 reopens it. Closing the window or Q saves to `~/.regolith/lantern.json`. `--save PATH` selects another file. This format is separate from colony and archived Python saves.
+
+Preview scenes (`--demo` and non-town `--scene` values) save only when you explicitly press F5/Ctrl+S, so browsing the atlas or a combat example preserves your existing expedition. Loading a save with F9 resumes normal autosaving.
 
 ## Controls
 

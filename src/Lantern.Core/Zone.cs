@@ -17,15 +17,21 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
     public void Set(Cell p, Ground tile)
     {
         if (Inside(p))
+        {
             Tiles[Index(p)] = tile;
+        }
     }
     public static bool Solid(Ground g) => g is Ground.Wall or Ground.Tree or Ground.Water or Ground.Void;
     public bool Walkable(Cell p) => Inside(p) && !Solid(At(p));
     public void Rect(int x, int y, int w, int h, Ground tile)
     {
         for (int yy = y; yy < y + h; yy++)
-        for (int xx = x; xx < x + w; xx++)
-            Set(new(xx, yy), tile);
+        {
+            for (int xx = x; xx < x + w; xx++)
+            {
+                Set(new(xx, yy), tile);
+            }
+        }
     }
     public IEnumerable<Cell> Neighbors(Cell p)
     {
@@ -54,8 +60,12 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
                 return path;
             }
             foreach (var n in Neighbors(p))
-            if (Walkable(n) && (allowed?.Invoke(n) ?? true) && parents.TryAdd(n, p))
-                queue.Enqueue(n);
+            {
+                if (Walkable(n) && (allowed?.Invoke(n) ?? true) && parents.TryAdd(n, p))
+                {
+                    queue.Enqueue(n);
+                }
+            }
         }
         return [];
     }
@@ -63,14 +73,21 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
     {
         Array.Clear(Visible);
         for (int y = Math.Max(0, origin.Y - radius); y <= Math.Min(Height - 1, origin.Y + radius); y++)
+        {
             for (int x = Math.Max(0, origin.X - radius); x <= Math.Min(Width - 1, origin.X + radius); x++)
             {
                 var p = new Cell(x, y);
                 if ((x - origin.X) * (x - origin.X) + (y - origin.Y) * (y - origin.Y) > radius * radius)
+                {
                     continue;
+                }
+
                 if (LineOfSight(origin, p))
+                {
                     Visible[Index(p)] = Seen[Index(p)] = true;
+                }
             }
+        }
     }
     private bool LineOfSight(Cell a, Cell b)
     {
@@ -78,7 +95,10 @@ public sealed class Zone(string id, string name, string subtitle, int width, int
         while (x != b.X || y != b.Y)
         {
             if ((x != a.X || y != a.Y) && Solid(At(new(x, y))))
+            {
                 return false;
+            }
+
             int e = error * 2;
             if (e >= dy)
             {
@@ -118,13 +138,18 @@ public static class WorldBuilder
         town.Objects.Add(new("to-wilds", "Road to Ashwood", ObjectKind.Portal, new(34, 13), "sign", false, "Enter Ashwood.", "wilds", new(3, 16)));
         var wilds = new Zone("wilds", "ASHWOOD / THE OLD ROAD", "The trees remember the sun", 48, 32, Ground.Grass);
         for (int y = 0; y < wilds.Height; y++)
-        for (int x = 0; x < wilds.Width; x++)
         {
-            uint hash = unchecked((uint)(x * 374761393 + y * 668265263 + seed * 31));
-            hash = (hash ^ (hash >> 13)) * 1274126177;
-            if (x < 2 || y < 2 || x >= 46 || y >= 30 || hash % 7 < 2)
-                wilds.Set(new(x, y), Ground.Tree);
+            for (int x = 0; x < wilds.Width; x++)
+            {
+                uint hash = unchecked((uint)(x * 374761393 + y * 668265263 + seed * 31));
+                hash = (hash ^ (hash >> 13)) * 1274126177;
+                if (x < 2 || y < 2 || x >= 46 || y >= 30 || hash % 7 < 2)
+                {
+                    wilds.Set(new(x, y), Ground.Tree);
+                }
+            }
         }
+
         wilds.Rect(18, 2, 3, 28, Ground.Water);
         wilds.Rect(2, 14, 44, 5, Ground.Grass);
         wilds.Rect(2, 16, 44, 1, Ground.Path);
@@ -159,12 +184,21 @@ public static class WorldBuilder
         Add(crypt, "crypt-camp", "An abandoned brazier", ObjectKind.Camp, 24, 29, "brazier", false, "Camp: spend 2 rations. Restore the party before the final chamber.");
         crypt.Objects.Add(new("to-forest", "Steps to the surface", ObjectKind.Portal, new(3, 16), "stairs-up", false, "Return to Ashwood.", "wilds", new(43, 16)));
         foreach (var (x, y, sprite) in new[] { (6, 11, "grave"), (10, 11, "grave"), (6, 21, "bones"), (11, 21, "urn"), (20, 4, "coffin"), (27, 4, "coffin"), (20, 11, "candle"), (28, 11, "candle"), (37, 11, "column"), (43, 11, "column"), (37, 23, "column"), (43, 23, "column"), (21, 23, "mushroom"), (27, 28, "mushroom") })
+        {
             Add(crypt, $"prop-{x}-{y}", sprite, ObjectKind.Scenery, x, y, sprite, true);
+        }
         // All map objects intentionally sit on traversable ground (except the blocking gate).
         foreach (var zone in new[] { town, wilds, crypt })
-        foreach (var o in zone.Objects)
-        if (Zone.Solid(zone.At(o.Position)))
-            zone.Set(o.Position, zone.Id == "crypt" ? Ground.Stone : Ground.Path);
+        {
+            foreach (var o in zone.Objects)
+            {
+                if (Zone.Solid(zone.At(o.Position)))
+                {
+                    zone.Set(o.Position, zone.Id == "crypt" ? Ground.Stone : Ground.Path);
+                }
+            }
+        }
+
         Array.Fill(town.Seen, true);
         return [town, wilds, crypt];
     }

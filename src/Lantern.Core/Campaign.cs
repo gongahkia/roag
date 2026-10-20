@@ -69,12 +69,17 @@ public sealed partial class Campaign
     {
         Journal.Add(new(++_sequence, text));
         if (Journal.Count > 100)
+        {
             Journal.RemoveAt(0);
+        }
     }
     private ActionResult Result(bool ok, string text, string? title = null)
     {
         if (ok)
+        {
             Note(text);
+        }
+
         return new(ok, text, title);
     }
     public bool Present(WorldObject o) => o.Kind switch { ObjectKind.Encounter or ObjectKind.Chest or ObjectKind.Relic => !Completed.Contains(o.Id), _ => true };
@@ -84,14 +89,23 @@ public sealed partial class Campaign
     public ActionResult Move(int dx, int dy)
     {
         if (Battle is not null)
+        {
             return new(false, "Choose a battle action first.");
+        }
+
         if (Math.Abs(dx) + Math.Abs(dy) != 1)
+        {
             return new(false, "Move one tile at a time.");
+        }
+
         var next = Position + new Cell(dx, dy);
         if (!Walkable(next))
         {
             if (ObjectAt(next) is { } blocked && blocked.Kind != ObjectKind.Scenery)
+            {
                 return Interact(blocked.Id);
+            }
+
             return new(false, "The way is blocked.");
         }
         PreviousPosition = Position;
@@ -100,13 +114,23 @@ public sealed partial class Campaign
         if (ZoneId != "hearth")
         {
             if (Steps % 4 == 0)
+            {
                 Light = Math.Max(0, Light - 1);
+            }
+
             if (Light < 25 && Steps % 12 == 0)
-            foreach (var h in Party)
-                h.Stress = Math.Min(100, h.Stress + 2);
+            {
+                foreach (var h in Party)
+                {
+                    h.Stress = Math.Min(100, h.Stress + 2);
+                }
+            }
         }
         else
+        {
             Light = 100;
+        }
+
         Reveal();
         if (ObjectAt(next) is { } o)
         {
@@ -116,7 +140,9 @@ public sealed partial class Campaign
                 return new(true, "Ambush / " + o.Name);
             }
             if (o.Kind == ObjectKind.Portal)
+            {
                 return Interact(o.Id);
+            }
         }
         return new(true, "");
     }
@@ -129,10 +155,16 @@ public sealed partial class Campaign
     public ActionResult Interact(string? id = null)
     {
         if (Battle is not null)
+        {
             return new(false, "Finish the encounter first.");
+        }
+
         var o = id is null ? Zone.Objects.Where(Present).Where(o => o.Kind != ObjectKind.Scenery && o.Position.Distance(Position) <= 1).OrderBy(o => o.Position.Distance(Position)).FirstOrDefault() : Zone.Objects.FirstOrDefault(o => o.Id == id && Present(o));
         if (o is null || o.Position.Distance(Position) > 1)
+        {
             return new(false, "Walk next to an object, then press E or click it.");
+        }
+
         switch (o.Kind)
         {
             case ObjectKind.Portal:
@@ -145,15 +177,24 @@ public sealed partial class Campaign
                 return new(true, "Encounter / " + o.Name);
             case ObjectKind.Gate:
                 if (Completed.Contains(o.Id))
+                {
                     return new(true, "The seal is open.");
+                }
+
                 if (!HasKey)
+                {
                     return new(false, "An iron key is needed. Search the chest in Ashwood.", "THE IRON SEAL");
+                }
+
                 Completed.Add(o.Id);
                 HasKey = false;
                 return Result(true, "The iron key turns. Beyond the seal, a bell begins to toll.", "THE SEAL OPENS");
             case ObjectKind.Inn:
                 if (Gold < 12)
+                {
                     return new(false, "A room costs 12 gold. You can still camp with rations.", "THE COPPER KETTLE");
+                }
+
                 Gold -= 12;
                 foreach (var h in Party)
                 {
@@ -165,7 +206,10 @@ public sealed partial class Campaign
                 return Result(true, "Warm beds, clean bandages, and a quiet night. The party is fully restored.", "THE COPPER KETTLE");
             case ObjectKind.Merchant:
                 if (Gold < 10)
+                {
                     return new(false, "An expedition kit costs 10 gold.", "THE PROVISIONER");
+                }
+
                 Gold -= 10;
                 Potions += 2;
                 Torches += 2;
@@ -196,7 +240,10 @@ public sealed partial class Campaign
                 return Result(true, o.Detail, "A CACHE IN THE DARK");
             case ObjectKind.Shrine:
                 if (!Completed.Add(o.Id))
+                {
                     return new(false, "The shrine has given all it can.");
+                }
+
                 foreach (var h in Party)
                 {
                     h.Mana = Math.Min(h.MaxMana, h.Mana + 8);
@@ -207,7 +254,10 @@ public sealed partial class Campaign
                 return Camp();
             case ObjectKind.Relic:
                 if (!Completed.Contains("abbey-abbot"))
+                {
                     return new(false, "The Hollow Abbot still guards this ember.");
+                }
+
                 HasRelic = true;
                 Completed.Add(o.Id);
                 return Result(true, "A living ember rests in your lantern. Bring it to Warden Elowen in Hearth.", "THE EMBER RELIC");
@@ -218,11 +268,20 @@ public sealed partial class Campaign
     public ActionResult Camp()
     {
         if (Battle is not null)
+        {
             return new(false, "You cannot camp during combat.");
+        }
+
         if (ZoneId != "hearth" && !Zone.Objects.Any(o => o.Kind == ObjectKind.Camp && o.Position.Distance(Position) <= 1))
+        {
             return new(false, "Find a marked campsite before resting.");
+        }
+
         if (Rations < 2)
+        {
             return new(false, "Camping needs 2 shared rations.");
+        }
+
         Rations -= 2;
         Light = Math.Min(100, Light + 20);
         foreach (var h in Party)
@@ -237,9 +296,15 @@ public sealed partial class Campaign
     public ActionResult UseTorch()
     {
         if (Battle is not null)
+        {
             return new(false, "Relight the lantern outside combat.");
+        }
+
         if (Torches <= 0 || Light == 100)
+        {
             return new(false, Torches <= 0 ? "No torches left." : "The lantern is already bright.");
+        }
+
         Torches--;
         Light = Math.Min(100, Light + 45);
         Reveal();
@@ -248,12 +313,21 @@ public sealed partial class Campaign
     public ActionResult UsePotion(int heroId)
     {
         if (Battle is not null)
+        {
             return new(false, "Use the potion action during battle.");
+        }
+
         if ((uint)heroId >= Party.Count || Potions <= 0)
+        {
             return new(false, "No potion available.");
+        }
+
         var h = Party[heroId];
         if (h.Health == h.MaxHealth)
+        {
             return new(false, h.Name + " is already healthy.");
+        }
+
         Potions--;
         h.Health = Math.Min(h.MaxHealth, h.Health + 24);
         return Result(true, h.Name + " drinks a potion. +24 health.");

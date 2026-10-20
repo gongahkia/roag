@@ -35,7 +35,10 @@ public sealed class CampaignTests
     {
         var z = new Zone("test", "", "", 12, 12, Ground.Stone);
         for (int y = 0; y < 12; y++)
+        {
             z.Set(new(5, y), Ground.Wall);
+        }
+
         z.Reveal(new(3, 5), 8);
         Assert.True(z.Visible[z.Index(new(5, 5))]);
         Assert.False(z.Visible[z.Index(new(6, 5))]);
@@ -46,8 +49,12 @@ public sealed class CampaignTests
     {
         var c = new Campaign();
         foreach (var z in c.Zones)
-        foreach (var o in z.Objects.Where(o => o.Kind != ObjectKind.Scenery))
-            Assert.Contains(z.Neighbors(o.Position), z.Walkable);
+        {
+            foreach (var o in z.Objects.Where(o => o.Kind != ObjectKind.Scenery))
+            {
+                Assert.Contains(z.Neighbors(o.Position), z.Walkable);
+            }
+        }
     }
     [Fact]
     public void ChestsAndShrinesCannotBeFarmed()
@@ -126,7 +133,10 @@ public sealed class CampaignTests
         int target = guarded.Battle!.Active.Id;
         guarded.Act(3);
         while (guarded.Battle!.Active.Friendly)
+        {
             guarded.Act(3);
+        }
+
         guarded.Battle.Active.Intent = IntentKind.Strike;
         guarded.Battle.Active.IntentTarget = target;
         var exposed = Campaign.FromJson(guarded.StateJson());
@@ -196,15 +206,25 @@ public sealed class CampaignTests
         var c = InBattle();
         c.Act(3);
         while (c.Battle!.Active.Friendly)
+        {
             c.Act(3);
+        }
+
         foreach (var hero in c.Battle.Units.Where(u => u.Friendly))
+        {
             hero.Health = 1;
+        }
+
         for (int i = 0; c.Battle is not null && i < 100; i++)
         {
             if (c.Battle.Active.Friendly)
+            {
                 c.Act(3);
+            }
             else
+            {
                 c.AdvanceEnemy();
+            }
         }
         Assert.Null(c.Battle);
         Assert.Equal("hearth", c.ZoneId);
@@ -301,11 +321,18 @@ public sealed class CampaignTests
         {
             var b = c.Battle!;
             if (b.Active.Friendly && c.Party[b.Active.HeroId].Role == role)
+            {
                 return;
+            }
+
             if (b.Active.Friendly)
+            {
                 c.Act(3);
+            }
             else
+            {
                 c.AdvanceEnemy();
+            }
         }
         throw new InvalidOperationException("Requested companion never received a turn.");
     }
