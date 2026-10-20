@@ -206,3 +206,7 @@ After restoring the readable export, `--check` also passed with that file presen
 Ithica gameplay/source/assets were left unchanged. Re-executed **all 131 core tests**, the normal integrated headless rescue/salvage/construction loop, and the retained fantasy headless quest; all passed. Normal saves and legacy player saves were not modified. This change adds ownership/provenance documentation only in Ithica.
 
 Fork-specific build, 61 RPG/import tests, 38 catalog tests, 74 browser assertions, 1,000 procedural seeds and 25 native graphical checks passed in Vagabonds. Its own `docs/VERIFICATION.md` records the independent application and isolated-checkout scope; those results do not add new Ithica native-platform certification.
+
+## Pressure and crew society design direction
+
+**Recorded: 2026-10-20. Documentation only.** Recorded the user's long-term direction for stronger station failures, expansion/deeper mining, drones, colony attacks, dynamic difficulty and detailed crew preferences/relationships/disputes in the master reference, explicitly as future work. Checked the current implementation against `Colonist`/`Machine` records, `Simulation.Production` and `CrewSystem.Events`: health/fire damage and scheduled incidents exist, while general wear/maintenance and the requested social/adaptive systems do not. `git diff --check` passed. No gameplay code, assets, save formats or runtime behavior changed; no runtime tests were needed for this documentation change.

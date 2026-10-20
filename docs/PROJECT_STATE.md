@@ -22,6 +22,7 @@
 - [Sprites and authoring](#sprites-and-authoring)
 - [Verification and performance](#verification-and-performance)
 - [Boundaries and future work](#boundaries-and-future-work)
+- [Design direction (planned)](#design-direction-planned)
 - [Maintaining this reference](#maintaining-this-reference)
 - [Detailed references](#detailed-references)
 
@@ -312,6 +313,35 @@ Current and historical measurements are distinguished in [PERFORMANCE.md](PERFOR
 | Authoring | Atlas scene experiments export JSON/PNG; no runtime recipe importer, general map editor or mod API |
 
 Balance values are current implementation choices. New biomes/enemies, permanent-death settings and larger simulation changes need actual implementation, updated counts and appropriate validation. Keep mechanics readable while leaving the setting unexplained.
+
+## Design direction (planned)
+
+**User direction recorded: 2026-10-20. These are future requirements, not implemented systems.** Ithica should become a lunar colony survival simulation with stronger operational pressure and a detailed internal society. Expansion, deeper mining, drones and attacks should interact with residents' preferences, relationships and disputes. The name's kingdom/community association is an intent to make governing the people matter alongside keeping the station alive. The independent fantasy party RPG belongs to Vagabonds.
+
+The current foundations are pressure/temperature/fire, power networks, construction/mining, needs, jobs, recovery and field hazards. Machines have health and can be destroyed by fire, but there is no general wear/maintenance loop. Colony incidents mostly use fixed tick thresholds; a role, trait label and morale do not amount to a persistent social simulation. Deep strata, deployable drones, colony attacks, adaptive incident pacing and detailed relationships remain unimplemented.
+
+### Coupled systems to build
+
+| Direction | Intended decisions and consequences |
+| --- | --- |
+| Station condition and failures | Equipment use, exposure and deferred upkeep affect condition. Inspection, preventive maintenance, repair parts, repair jobs, spare capacity and isolation let the player manage risk. Failures can propagate through actual power, water, pressure, temperature and staffing dependencies. |
+| Expansion and deeper extraction | New station areas and deeper deposits offer useful resources while requiring support infrastructure, labor, power and safe access. Depth and industrial activity introduce visible risks. Expansion should create choices about resilience and commitments as well as increasing output. |
+| Drones | Dispatch units for survey, extraction, repair or recovery with limited charge, range, payload, condition and communications. Automation competes for station resources and can strand valuable equipment, creating recovery decisions. |
+| External attacks | Threats can reach the colony and damage or disrupt meaningful systems. Detection, preparation, defensive layout, drones, sheltering and repair matter. Keep attackers' nature within the sparse lunar setting; no new alien civilization or supernatural explanation is established by this direction. |
+| Crew society | Residents retain individual preferences, dislikes, values, risk tolerance and work preferences; shared experiences form memories, trust, friendships, rivalries and disputes. Workload, unsafe orders, unequal treatment, rescue choices and losses can affect cooperation and collective demands. Include positive bonds and reconciliation as well as conflict. |
+| Dynamic difficulty | Pace threats using exposure/depth, active commitments, sustainable capacity, reserves, injuries, stress and recent incidents. Use bounded pressure, forecasts, cooldowns and recovery windows. Preparedness and prevention must improve outcomes; expose causes and avoid an automatic escalation that simply cancels every successful improvement. |
+
+Social behavior should affect existing work, care, expedition and resource decisions, with visible causes and responses such as rest, reassignment, safer infrastructure or changed priorities. Do not implement personality as decorative text or replace causal disputes with unrelated random sabotage events. Technical failures and social tensions should be able to reinforce or relieve one another without making every setback an unavoidable cascade.
+
+An illustrative future chain: a deep extraction project consumes the station's power reserve; maintenance is deferred to finish a drone; a neglected system fails and injures a resident; colleagues remember the unsafe assignment and dispute the next emergency shift. The player can invest in redundancy, revise work allocation, repair the system or postpone expansion. This example describes desired interactions, not current events or a scripted quest.
+
+### First milestone and sequencing
+
+The recommended first playable increment pairs **maintenance and repair with the first persistent crew preferences, memories and disputes**, using the current station, jobs and needs. Add legible incident pacing and ways to recover. Acceptance should demonstrate a real equipment fault, physical station consequences, an actual paid repair job, resident workload/recovery consequences, a causally explained social reaction and a player response that changes the outcome. Invalid commands must still cost nothing, and saving/loading must preserve the fault, job, memories, relationships and incident pacing exactly.
+
+Follow with deeper extraction and drone logistics; then station attacks/defense and broader collective politics. These are incremental milestones, not a promise that every listed system ships together. Dwarf Fortress and Songs of Syx are depth references; comparable individual detail should be pursued for a manageable lunar crew before claiming their population scale or full feature breadth.
+
+Reference reading: [Songs of Syx's fulfillment model](https://www.songsofsyx.com/wiki/index.php/Fulfillment) illustrates how differing preferences and provision affect loyalty; [Bay 12 developer discussions](https://www.bay12games.com/media/df_talk_combined_transcript.html) discuss personalities, memories and relationships. These inform design judgment and do not establish Ithica features. Preserve the current shared-clock/resident/save contracts, source artwork and independent Vagabonds boundary when implementing this direction.
 
 ## Maintaining this reference
 
