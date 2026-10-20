@@ -1,5 +1,9 @@
 # Vagabonds extraction verification
 
+## Finite world generation (2026-10-21)
+
+The new generation tests pass alongside all 96 existing regressions: 1,002 macro seeds (−500 through 499 plus signed integer extremes), an overlapping model with more than 63 patterns, learned adjacency and forced contradictions, six culture footprints with constructive fallback/connectivity, chunk-order determinism, cross-chunk site slicing, eviction and persistent edits. The seed-42 full report generated all 24 towns and 48 sites on all four floors (216 footprints), with zero fallback regions and 4,138 deterioration/connection repairs reported separately. Samples learn 101, 111 and 99 patterns. Release build passed with zero warnings/errors. New sample maps and solver are original; existing PNGs/catalog/mappings were not modified.
+
 **Recorded: 2026-10-20, Fedora 44 x64 under WSL2/WSLg, SDK 10.0.402 / runtime 10.0.13, Release.** This records checks on the extracted application. The old source verification archive is provenance, not a claim of testing this fork on macOS or Windows.
 
 ## Executed acceptance checks

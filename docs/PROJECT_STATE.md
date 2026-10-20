@@ -6,6 +6,8 @@ Vagabonds is the party RPG extracted from Ithica at `c87d480`. Ithica remains a 
 
 ## Implemented game
 
+The new finite-world generation API lives under `Vagabonds.Core.World`. It has a 4096×4096 surface and three underground floors, 24 towns, six cultures/factions, 48 sites, authored overlapping-WFC samples and bounded chunk/footprint caches. Existing campaign generation, rules and saves remain independent. See [WORLD.md](WORLD.md) for architecture and the runtime integration design.
+
 | Area | Current implementation |
 | --- | --- |
 | Runtime | C# / .NET 10, MonoGame DesktopGL 3.8.6 |
