@@ -210,3 +210,7 @@ Fork-specific build, 61 RPG/import tests, 38 catalog tests, 74 browser assertion
 ## Pressure and crew society design direction
 
 **Recorded: 2026-10-20. Documentation only.** Recorded the user's long-term direction for stronger station failures, expansion/deeper mining, drones, colony attacks, dynamic difficulty and detailed crew preferences/relationships/disputes in the master reference, explicitly as future work. Checked the current implementation against `Colonist`/`Machine` records, `Simulation.Production` and `CrewSystem.Events`: health/fire damage and scheduled incidents exist, while general wear/maintenance and the requested social/adaptive systems do not. `git diff --check` passed. No gameplay code, assets, save formats or runtime behavior changed; no runtime tests were needed for this documentation change.
+
+## Event variety and storyteller direction
+
+**Recorded: 2026-10-20. Documentation only.** Added the user's RimWorld reference to planned Ithica direction: varied positive/negative/social/opportunity incidents, condition-based and external chance events, persistent consequences/follow-ups, bounded storyteller pacing, and saved independent RNG/history. This is not an implemented director or new event content. The existing fixed incident scheduling remains unchanged. `git diff --check` passed; no runtime tests were needed for this documentation-only change.
