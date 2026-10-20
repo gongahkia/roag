@@ -114,6 +114,14 @@ Executed validation: a clean Release build passed with zero warnings/errors and 
 
 Inspected keyboard-driven atlas captures at 1024×720 (ghost subject) and 1440×900 (513 green actors). Both accepted typed queries; the preview remained open while typing Q. The first normal-client input harness attempted focus before the window was viewable; its final captured query was verified, and subsequent targeted input waited for a visible window and checked focus before typing. Captures/reports live under ignored `artifacts/native-atlas/`; no player saves were written. The integrated headless rescue/salvage/construction loop and retained fantasy headless quest also completed. Catalog `--check` and all **33** generic tests passed. Final content/requirement audit continues separately.
 
+## Final coverage audit: neutral identities and derived references
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** The requirement audit found two remaining metadata issues and resolved them. Publisher enemy/NPC/player role labels now remain solely in original identity evidence, with neutral actor names/subjects such as Ghost. The one-pixel crop has an explicit gray-center-pixel name/coordinate rather than an inherited terrain label. All five ambiguous motifs remain explicitly unresolved rather than receiving invented identities.
+
+The tracked-media audit accounted for **686 PNGs / 3 ZIPs**: the 664 original sprite PNGs plus 14 retained pack-preview composites and 8 rendered documentation references. The 22 derived images now have explicit reference-only classification, dimensions and hashes in `catalog.reference_images`, authored by `reference/derived-images.json`. Their composites are not new sprite regions. The old sprite-guide introduction and three generated pack-table headers now point to schema 5; headers were regenerated from frozen records through `write_pack_markdown`, without rebuilding the import audit.
+
+Executed validation at this checkpoint: **35 generic tests passed**, all **11,887** asset objects passed schema validation, deterministic freshness/original-file/crop hashes passed, and all **73** real-browser assertions passed again. The generic suite checks complete tracked-media accounting and preserved publisher roles in original provenance. `git diff ed31f0a -- '*.png' '*.zip' assets/sprites.json` is empty. Final native-data refresh and completion evidence are recorded below.
+
 ## Reproduction
 
 ```sh

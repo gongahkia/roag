@@ -7,6 +7,7 @@
 | Scope | Count |
 | --- | ---: |
 | Original PNGs / ZIP archives | 664 / 3 |
+| Derived pack previews / rendered reference PNGs | 14 / 8 |
 | Total indexed regions | 11,887 |
 | Occupied sprite regions | 7,115 |
 | Non-gameplay slots, separators and annotations | 4,772 |
@@ -26,6 +27,7 @@ Occupied regions comprise **5,676 Urizen cells**, **653 Godot icon variants**, a
 | --- | --- |
 | `schema_version` | `5` |
 | `images`, `archives`, `packs`, `summary` | Original inventory and provenance retained |
+| `reference_images` | 22 explicitly classified preview composites/screenshots, repository-relative paths, dimensions and hashes; reference use only |
 | `catalog_summary` | Coverage and selection counts, including current Ithica and preview-only counts |
 | `game_bindings` | Preserved colony and RPG-preview alias maps; their keys retain compatibility meaning |
 | `ithica_casting` | Authored current lunar casting source, limits and generator ownership |
@@ -40,13 +42,15 @@ Schema 5 is additive to schema 4. Use `sprites[].asset` to reason about artwork 
 
 [asset.schema.json](asset.schema.json) describes the version-1 `asset` object. [asset-semantics.json](asset-semantics.json) is the authored input for neutral visual descriptions; [asset_catalog.py](../../tools/asset_catalog.py) combines it with preserved source identities and pixel measurements. Subject claims carry their own confidence, basis and evidence reference. A visually similar figure is not silently upgraded to a confirmed goblin or a profession.
 
-Every crop has a generic type, layer suitability, composition status, exact foreground RGBA palette, color family coverage, primary color and foreground bounds. Color measurements exclude alpha-zero and near-black pixels (all RGB channels at most 8), matching the frozen import's background rule. Color family names use documented deterministic HSV buckets; exact hex/alpha/pixel counts remain available. Layer suitability is a generic suggestion, not an implemented render layer or collision rule. Named variants and exact pixel duplicates retain all source IDs. Input variant groups distinguish keyboard keys from controller buttons with the same letter. `asset.relations.input_prompt` retains visible control/state/size labels; bright/dim does not mean pressed/released. `asset.relations.glyph` records original font families/labels and unambiguous characters/code points, using the same punctuation table as runtime font selection. The unidentified rainbow edge glyph has no asserted code point. Adjacency, animation and direction sets remain unconfirmed until separately evidenced.
+Every crop has a generic type, layer suitability, composition status, exact foreground RGBA palette, color family coverage, primary color and foreground bounds. Color measurements exclude alpha-zero and near-black pixels (all RGB channels at most 8), matching the frozen import's background rule. Color family names use documented deterministic HSV buckets; exact hex/alpha/pixel counts remain available. Layer suitability is a generic suggestion, not an implemented render layer or collision rule. Publisher gameplay-role prefixes such as enemy/NPC/player stay in original identity evidence rather than neutral names/subject terms. Named variants and exact pixel duplicates retain all source IDs. Input variant groups distinguish keyboard keys from controller buttons with the same letter. `asset.relations.input_prompt` retains visible control/state/size labels; bright/dim does not mean pressed/released. `asset.relations.glyph` records original font families/labels and unambiguous characters/code points, using the same punctuation table as runtime font selection. The unidentified rainbow edge glyph has no asserted code point. Adjacency, animation and direction sets remain unconfirmed until separately evidenced.
 
 Schema 5 measures and classifies all records. Visual inspection covers every occupied crop, with unresolved identities and series scope retained. The current semantic input contains 36 body-series descriptions, 98 held-prop/stance descriptions and 1,704 individual observations, including the preserved 104-crop review, all 125 occupied two-bit crops, and every uncertain Urizen crop outside the main character series. Fifty-four inspected sheets cover all 7,115 occupied crops, including every Urizen, Godot icon and input prompt region. Exceptional figures use individual descriptions rather than inheriting nearby tool/stance labels. Series descriptions are compositional observations, not individually confirmed species or professions. `asset.evidence.review_status`, `observations` and `inspection_refs` distinguish category-only coverage, publisher identity, visible controls, silhouette support, series observations and individual descriptions.
 
 Individual neutral names also supply conservative subject terms. Explicit “-like” or disjunctive names produce low-confidence candidate terms rather than exact identities; separately authored claims retain their declared confidence. Nouns are taken from the positive name, never from a negated uncertainty statement. Primary types describe the artwork's broad grouping: portable objects such as books, jewelry and syringes consistently use `item`, while suggested layers still allow object or interface use. These labels do not implement equipping, crafting or collision.
 
 [urizen-silhouette-matches.json](urizen-silhouette-matches.json) records exact binary foreground-mask comparisons against the preserved author's historical tilesets at revision `28b1e60cf8fa2f15622537f6df0290e2ac890d5f`. It retains URLs, downloaded-file hashes, mask hashes and every alternative publisher label. There are 1,095 matching crops, including 81 whose original identities were not high confidence. Colors are deliberately ignored for this comparison; only terms shared by all matches become medium-confidence `publisher_silhouette_match` claims. Original identity/confidence fields are never upgraded. Shape equality alone cannot confirm a recolored sprite's publisher identity.
+
+Five small ambiguous motifs retain type `unresolved` with explicit visual descriptions; this includes one isolated gray pixel. Their pixels, colors and evidence remain queryable. Original publisher confidence remains unchanged for all crops (2,138 high / 440 medium / 4,537 low); visual inspection does not silently confirm a species or identity.
 
 Coordinate review sheets are reproducible with `uv run --with pillow python tools/make_asset_review.py`. The generated manifest covers every one of the 7,115 occupied crops; its existence is not evidence that a page was inspected. Only pages explicitly recorded in the semantic input count as inspected. Original pixels are displayed at nearest-neighbor scale with coordinates. The optional historical comparison tool is `uv run --with pillow python tools/match_upstream_silhouettes.py --download`; downloading is explicit, cached under ignored `artifacts/`, and never required for normal catalog regeneration.
 
@@ -145,6 +149,7 @@ The generator preserves authored WFC sockets on 7×7 room chunks, CA terrain rul
 | Task | File |
 | --- | --- |
 | Complete source of truth | [catalog.json](../catalog.json), `sprites[].asset` plus preserved source evidence; game usage is separate |
+| Derived image classification | [derived-images.json](derived-images.json); preview composites/screenshots stay separate from source sprites |
 | Generic visual authoring / contract | [asset-semantics.json](asset-semantics.json) / [asset.schema.json](asset.schema.json) |
 | Historical silhouette evidence | [urizen-silhouette-matches.json](urizen-silhouette-matches.json); original RGB identity remains separate |
 | Current lunar casting and family ideas | [ithica-casting.json](../ithica-casting.json) |
