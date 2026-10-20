@@ -282,7 +282,7 @@ The acceptance record and commands are maintained in [VERIFICATION.md](VERIFICAT
 
 `--headless` without a tick count completes the real integrated loop. `--headless N` advances the unified colony; `--demo` first completes the loop. `--legacy-colony --headless N --demo` preserves the old automated-rescue regression. Tools never write player saves. Generation validation covers 1–10,000 consecutive signed seeds, wrapping deterministically.
 
-CI runs locked restore/build/tests, the legacy colony check, integrated loop, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. It does not certify native rendering on all platforms. Actual graphical work here is macOS Intel; Windows/Linux still need native smoke checks.
+CI runs locked restore/build/tests, the legacy colony check, integrated loop, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. It does not certify native rendering on all platforms. Actual graphical checks cover macOS Intel and Fedora 44 x64 under WSLg. The Fedora local setup passed locked restore, a clean Release build, all 131 tests, the integrated headless loop and all 18 graphical smoke checks at 1024×720 using SDK 10.0.402 / runtime 10.0.13. Native Windows and standalone Linux desktop sessions still need smoke checks; see the scoped record in [VERIFICATION.md](VERIFICATION.md).
 
 Current and historical measurements are distinguished in [PERFORMANCE.md](PERFORMANCE.md). The historical dense-world samples do not prove Dwarf Fortress/Songs of Syx scale. Combined samples measure the actual small home-plus-expedition workload and useful completed work. Root arrays/caches remain a foundation, not a promise of arbitrary simulation scale.
 

@@ -24,6 +24,20 @@ The 18 native checks are automated within the actual MonoGame client, including 
 
 The new cases cover all saved phases, variable/nonsequential party IDs in combat, one-time stock/cargo/component transfers, canceled/invalid actions, colony clock remainder and tick budgeting, no deliberation-time advancement, shared needs/work exclusion, paid care/refills, escorted oxygen, fractional morale preservation, emergency return, failed-component recovery, persistent revisits/access and non-destructive legacy import.
 
+## Fedora WSL local setup
+
+**Recorded: 2026-10-20. Platform: Fedora Linux 44, WSL2 x64, WSLg, .NET 10.0.13 / SDK 10.0.402, Release.** Installed the SDK with `./tools/setup-dotnet.sh` into `~/.local/share/ithica/dotnet`; the existing launcher finds it without PATH changes. SDL2 compatibility, OpenAL and Mesa libraries were already present, so no additional system packages were installed.
+
+| Check | Result / scope |
+| --- | --- |
+| Locked restore | Passed for all five solution projects |
+| Release build | Passed with zero warnings/errors |
+| Core suite | 131 passed, zero failed/skipped |
+| Integrated headless loop | Seed 42 completed rescue, salvage, returned cargo and a constructed powered suit service; deeper site discovered |
+| WSLg graphical smoke | All 18 automated checks passed through `./ithica.sh` at 1024×720; 12 frames rendered and `/tmp/ithica-local-smoke.png` captured and inspected |
+
+This validates local launch through WSLg. It does not establish native Windows or standalone Linux desktop coverage, a manual balance playthrough, audio playback or performance results. These checks did not write player saves. Run `./ithica.sh` from the repository to play.
+
 ## Reproduction
 
 ```sh

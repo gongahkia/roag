@@ -24,7 +24,7 @@ Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), th
 dotnet run --project src/Ithica.Client --configuration Release
 ```
 
-The normal window is 1440×900, resizable down to 1024×720. Use `--window-size 1280x800`. Native rendering has been checked on macOS Intel; other desktop platforms need graphical smoke checks.
+The normal window is 1440×900, resizable down to 1024×720. Use `--window-size 1280x800`. Rendering has been checked on macOS Intel and Fedora 44 under WSLg; native Windows and standalone Linux desktop sessions still need graphical smoke checks.
 
 ## First colony and outing
 
