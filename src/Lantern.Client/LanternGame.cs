@@ -66,6 +66,7 @@ public sealed partial class LanternGame : Game
                     _atlas = true;
                     break;
             }
+        _eventWatermark = _campaign.CombatEvents.LastOrDefault()?.Sequence ?? 0;
         _graphics = new(this)
         {
             PreferredBackBufferWidth = options.Width,
@@ -291,9 +292,15 @@ public sealed partial class LanternGame : Game
             _follow = true;
         }
         if (Pressed(Keys.OemPlus) || Pressed(Keys.PageUp))
+        {
+            _follow = false;
             _camera.ZoomAt(_camera.WorldToScreen(Point(_campaign.Position)), 1);
+        }
         if (Pressed(Keys.OemMinus) || Pressed(Keys.PageDown))
+        {
+            _follow = false;
             _camera.ZoomAt(_camera.WorldToScreen(Point(_campaign.Position)), -1);
+        }
         if (_campaign.Battle is { } b)
         {
             for (int i = 0; i < 6; i++)
@@ -343,9 +350,9 @@ public sealed partial class LanternGame : Game
         var r = _campaign.Move(dx, dy);
         if (r.Message.Length > 0)
             Apply(r);
-        _follow = true;
         if (_campaign.Battle is not null || _campaign.ZoneId != zone)
         {
+            _follow = true;
             _route.Clear();
             _routeObject = null;
             _lastActive = -1;
@@ -424,6 +431,8 @@ public sealed partial class LanternGame : Game
             _routeObject = null;
             _positions = new Vector2[4];
             _lastActive = -1;
+            _eventWatermark = _campaign.CombatEvents.LastOrDefault()?.Sequence ?? 0;
+            _popups.Clear();
             Recenter(true);
             Toast("Expedition restored.");
         }
