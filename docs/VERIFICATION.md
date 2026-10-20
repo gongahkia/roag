@@ -190,3 +190,11 @@ The work is committed in cohesive checkpoints; use `git log --oneline` for the f
 | `64b4d91` | Native atlas text focus and authoritative recruited-resident inspection |
 
 Later checkpoints finish recovery/escort/timing/UI safeguards, record measurements and consolidate the final references. The temporary integration plan is removed only after acceptance; its implemented decisions live in [PROJECT_STATE.md](PROJECT_STATE.md), [ARCHITECTURE.md](ARCHITECTURE.md) and the specialist guides. No remote push is part of this work.
+
+## Compressed catalog storage
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** The complete schema-5 catalog is now tracked as `assets/catalog.json.gz`; the readable `assets/catalog.json` export remains local and ignored. Compression preserves all **75,975,550 original JSON bytes** in **2,671,355 bytes**, with decompressed SHA-256 `4052ec2032fb037fb3071071bacbe0eb284ae603ccb8270614284b480bd58a7e`, identical to the pre-change file. Original artwork, IDs, crops, evidence, fields and derived native metadata remain unchanged. Existing Git history is retained; no history rewrite or Git LFS setup is involved.
+
+Executed checks, with the local JSON export temporarily absent: catalog regeneration freshness/hash checks passed; **38 catalog tests passed**, including the regular-Git size budget and actual CLI agreement between compressed/default and explicit plain JSON catalogs. **74 browser assertions passed**, including the complete gzip download, existing query/scene exports and all 7,115 original-RGBA crop hashes. The browser used Playwright 1.64.0 with the existing Chromium executable because the default browser revision was not installed. An initial combined-download run timed out during a later crop export; the repository catalog download is now checked in its own browser page, and the complete suite passed. Reports are under ignored `artifacts/catalog-storage/`.
+
+After restoring the readable export, `--check` also passed with that file present. The Release solution build passed with zero warnings/errors. Canonical queries matched the existing native smoke reports using the compressed catalog; no new native graphical run or remote CI run is claimed for this storage change. The existing runtime atlas index is unchanged, and gameplay rules/saves are unaffected.

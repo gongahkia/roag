@@ -1,6 +1,6 @@
 # Artwork catalog: schema 5, coverage and regeneration
 
-[catalog.json](../catalog.json) is the canonical, game-independent artwork catalog. Schema 5 adds `sprites[].asset`: descriptions, subjects, generic types, suggested layers, composition, evidence and measured foreground palettes for every region. Current Ithica casting and retained preview bindings remain separate fields. Source pixels, original IDs, crop rectangles, hashes and publisher-identity confidence are preserved. This guide retains its historical filename for existing links.
+[catalog.json.gz](../catalog.json.gz) is the canonical, game-independent artwork catalog. Schema 5 adds `sprites[].asset`: descriptions, subjects, generic types, suggested layers, composition, evidence and measured foreground palettes for every region. Current Ithica casting and retained preview bindings remain separate fields. Source pixels, original IDs, crop rectangles, hashes and publisher-identity confidence are preserved. This guide retains its historical filename for existing links.
 
 ## Coverage
 
@@ -148,7 +148,7 @@ The generator preserves authored WFC sockets on 7×7 room chunks, CA terrain rul
 
 | Task | File |
 | --- | --- |
-| Complete source of truth | [catalog.json](../catalog.json), `sprites[].asset` plus preserved source evidence; game usage is separate |
+| Complete source of truth | [catalog.json.gz](../catalog.json.gz), `sprites[].asset` plus preserved source evidence; game usage is separate |
 | Derived image classification | [derived-images.json](derived-images.json); preview composites/screenshots stay separate from source sprites |
 | Generic visual authoring / contract | [asset-semantics.json](asset-semantics.json) / [asset.schema.json](asset.schema.json) |
 | Historical silhouette evidence | [urizen-silhouette-matches.json](urizen-silhouette-matches.json); original RGB identity remains separate |
@@ -175,6 +175,6 @@ python3 tools/build_game_catalog.py
 python3 tools/build_game_catalog.py --check
 ```
 
-The catalog builder reads the frozen audit, original inventory retained in the existing catalog, neutral visual authoring, original PNG pixels, colony manifest, field/preview bindings, current casting, generation rules, focused review and HTML template. It deterministically regenerates schema 5, the viewer index, field manifest, Markdown tables and offline HTML. **Keep the existing catalog's original inventory; it is also an input.** `--check` verifies freshness and all 664 original PNG / 3 archive hashes. The standard-library decoder also verifies every crop against its frozen RGBA hash. CI runs the freshness check on Linux. Run `python3 -m unittest discover -s tests/catalog -v` for the neutral metadata, pixel decoder and query contracts.
+The catalog builder reads the frozen audit, original inventory retained in the existing catalog, neutral visual authoring, original PNG pixels, colony manifest, field/preview bindings, current casting, generation rules, focused review and HTML template. It deterministically regenerates schema 5, the viewer index, field manifest, Markdown tables and offline HTML. **Keep the tracked `catalog.json.gz` original inventory; it is also an input.** The gzip preserves the complete formatted JSON without dropping fields. Queries and verification read it directly, including in fresh clones. Regeneration also creates an ignored `assets/catalog.json` export for direct inspection; `--catalog` accepts either JSON or JSON.gz. `--check` requires the compressed catalog and checks the local export only when it exists. Freshness compares decompressed JSON so valid gzip differences between platforms do not create false failures. `--check` verifies freshness and all 664 original PNG / 3 archive hashes. The standard-library decoder also verifies every crop against its frozen RGBA hash. CI runs the freshness check on Linux. Run `python3 -m unittest discover -s tests/catalog -v` for the neutral metadata, pixel decoder and query contracts.
 
 Edit authoring inputs, then regenerate derived files. Do not hand-edit generated records/tables or transfer coordinates blindly after an intentional sheet change. The optional original-audit development tool uses Pillow; its use would require a deliberate audit migration. No generator recolors or repacks source PNGs.

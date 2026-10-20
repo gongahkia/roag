@@ -1,34 +1,47 @@
 #!/usr/bin/env python3
 """Build the game-independent artwork catalog and separate game usage projections.
 
-Standard library only. catalog.json remains backwards compatible with its original
-file inventory. sprites.json is retained as the frozen import audit. No images are changed.
+Standard library only. catalog.json.gz preserves the complete original inventory;
+catalog.json is its ignored local export. sprites.json remains the frozen import audit.
+No images are changed.
 """
 import argparse
 import base64
 import collections
+import gzip
 import hashlib
+import io
 import json
 import struct
 from pathlib import Path
 
 from asset_catalog import build_assets, COLOR_ORDER, TYPES, LAYERS, Png, encode_rgba_png
+from catalog_io import load_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 
 
 def read(name):
-    return json.loads((ASSETS / name).read_text())
+    return load_catalog(ASSETS / name)
 
 
 def write(name, value, check=False, compact=False):
     target = ASSETS / name
     content = json.dumps(value, ensure_ascii=False, indent=None if compact else 2,
                          separators=(",", ":") if compact else None) + "\n"
+    compressed = target.suffix == '.gz'
     if check:
-        if not target.exists() or target.read_text() != content:
+        current = None if not target.exists() else (
+            gzip.decompress(target.read_bytes()).decode('utf-8') if compressed else target.read_text())
+        if current != content:
             raise SystemExit(f"Stale generated file: {target.relative_to(ROOT)}; run python3 tools/build_game_catalog.py")
+    elif compressed:
+        buffer = io.BytesIO()
+        # Stable header: no machine filename, timestamp or platform-specific OS byte.
+        with gzip.GzipFile(filename='', mode='wb', fileobj=buffer, mtime=0) as stream:
+            stream.write(content.encode('utf-8'))
+        target.write_bytes(buffer.getvalue())
     else:
         target.write_text(content)
 
@@ -95,7 +108,7 @@ def assessment(r):
 
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument("--check", action="store_true"); args = parser.parse_args()
-    inventory = read("catalog.json")
+    inventory = read("catalog.json.gz")
     references = read("reference/derived-images.json")
     if references.get("schema_version") != 1:
         raise ValueError("Unsupported derived-image reference version")
@@ -235,7 +248,10 @@ def main():
                         "Historical exact-RGB matches and filename/control labels retain their original evidence. Uncertain figures and fragments remain uncertain.",
                         "No inferred animation timing, direction set, species, collision mask, or autotile bitmask is presented as publisher metadata.",
                         "Renderer registration in the viewer is separate from active gameplay use. Unbound sprites remain unused even though the viewer can display them."])
-    write("catalog.json", inventory, args.check)
+    write("catalog.json.gz", inventory, args.check)
+    # Fresh checkouts can query/check without materializing the 72 MiB export.
+    if not args.check or (ASSETS / "catalog.json").exists():
+        write("catalog.json", inventory, args.check)
     index = [{"id": e["id"], "name": e["name"], "pack": e["pack"], "source": e["source"], "rect": e["rect"], "asset": e["asset"],
               "kind": e["kind"], "identity": e["identity"], "rgba_sha256": e["rgba_sha256"],
               "category": e.get("category", "unclassified"), "family": e["assessment"]["family"], "layer": e["assessment"]["layer"],
@@ -278,7 +294,7 @@ def main():
     lines=["# Ithica expedition: curated runtime bindings","",
            "This table includes retained fantasy-preview aliases. Current lunar use is listed separately in [ithica-sprites.md](ithica-sprites.md) and `catalog.json` → `sprites[].ithica`. A preview binding does not imply current lunar use.", "",
            "Every RPG semantic alias below references an unchanged ID/crop in the source audit. Casting and palette are game decisions, not new author identities. The native viewer additionally registers all 7,115 occupied sprites; registration alone does not make them gameplay bindings.","",
-           "Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).","",
+           "Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).","",
            f"**{len(bindings)} semantic aliases, {len(colony['font'])} font glyphs, {len(set(bindings.values())|set(colony['font'].values()))} distinct runtime-bound IDs.**","",
            "| Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |","|---|---|---|---|---|"]
     for alias,sid in sorted(bindings.items()):

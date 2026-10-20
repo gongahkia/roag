@@ -13,3 +13,5 @@ artifacts/
 .vs/
 .idea/
 .ithica/
+# Full readable export; the complete canonical catalog is tracked as JSON.gz.
+/assets/catalog.json

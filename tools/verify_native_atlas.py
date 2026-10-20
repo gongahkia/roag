@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 
+from catalog_io import load_catalog
 from query_assets import matches, parser as query_parser, sort_key
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,7 +31,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('reports', type=Path, nargs='+')
     args = p.parse_args()
-    records = json.loads((ROOT / 'assets/catalog.json').read_text())['sprites']
+    records = load_catalog()['sprites']
     index = json.loads((ROOT / 'assets/atlas-index.json').read_text())
     expected = {}
     for query, argv in CASES.items():

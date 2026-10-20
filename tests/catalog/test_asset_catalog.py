@@ -1,6 +1,7 @@
 """Meaningful contracts for the canonical artwork metadata and neutral query path."""
 import copy
 import base64
+import gzip
 import hashlib
 import json
 import struct
@@ -16,15 +17,32 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects, neutral_record
 from query_assets import facets, matches, parser, sort_key
+from catalog_io import DEFAULT_CATALOG, load_catalog
 
 
 def chunk(kind, payload):
     return struct.pack('>I', len(payload)) + kind + payload + struct.pack('>I', zlib.crc32(kind + payload))
 
 
+class CatalogStorageTests(unittest.TestCase):
+    def test_tracked_catalog_stays_below_github_large_file_warning(self):
+        self.assertLess(DEFAULT_CATALOG.stat().st_size, 50 * 1024 * 1024)
+
+    def test_cli_queries_match_for_tracked_gzip_and_plain_json_export(self):
+        command = [sys.executable, str(ROOT / 'tools/query_assets.py'), '--subject', 'ghost',
+                   '--subject-confidence', 'high', '--format', 'ids', '--limit', '0']
+        compressed = subprocess.check_output(command, cwd=ROOT)
+        self.assertTrue(compressed.strip())
+        with tempfile.TemporaryDirectory() as directory:
+            export = Path(directory) / 'catalog.json'
+            export.write_bytes(gzip.decompress(DEFAULT_CATALOG.read_bytes()))
+            plain = subprocess.check_output([*command, '--catalog', str(export)], cwd=ROOT)
+        self.assertEqual(compressed, plain)
+
+
 class PixelTests(unittest.TestCase):
     def test_every_imported_png_matches_frozen_dimensions(self):
-        catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
+        catalog = load_catalog()
         for item in catalog['images']:
             with self.subTest(item=item['path']):
                 image = Png(ROOT / 'assets' / item['path'])
@@ -97,7 +115,7 @@ class PixelTests(unittest.TestCase):
 class CatalogTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
+        cls.catalog = load_catalog()
         cls.records = cls.catalog['sprites']
         cls.by_id = {r['id']: r for r in cls.records}
         cls.original = json.loads((ROOT / 'assets/sprites.json').read_text())['records']

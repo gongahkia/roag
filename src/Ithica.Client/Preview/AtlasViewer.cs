@@ -177,7 +177,7 @@ public sealed partial class PreviewGame
             Detail("Optional game notes", "game:true includes game casting/proposals. Game notes are otherwise excluded. Usage is a separate optional filter.");
             Detail("Controls", "F3 pack, F6/Tab type, F8 color, F10 sort. Shift reverses cycling. F7 usage, F4 preview mask, F9 reset. Arrows select; wheel/pages browse; wheel over this panel scrolls.");
             Detail("All typed keys", string.Join(", ", ArtworkQuery.Keys));
-            Detail("Exports", "The offline assets/atlas.html exports neutral metadata, exact crop PNGs and layered scenes. The canonical assets/catalog.json and tools/query_assets.py use the same artwork records.");
+            Detail("Exports", "The offline assets/atlas.html exports neutral metadata, exact crop PNGs and layered scenes. The canonical assets/catalog.json.gz and tools/query_assets.py use the same artwork records.");
         }
         else
         {

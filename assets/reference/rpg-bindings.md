@@ -4,7 +4,7 @@ This table includes retained fantasy-preview aliases. Current lunar use is liste
 
 Every RPG semantic alias below references an unchanged ID/crop in the source audit. Casting and palette are game decisions, not new author identities. The native viewer additionally registers all 7,115 occupied sprites; registration alone does not make them gameplay bindings.
 
-Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
+Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
 **100 semantic aliases, 94 font glyphs, 191 distinct runtime-bound IDs.**
 

@@ -16,8 +16,7 @@ import json
 from pathlib import Path
 
 from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, neutral_record
-
-DEFAULT_CATALOG = Path(__file__).resolve().parents[1] / 'assets/catalog.json'
+from catalog_io import DEFAULT_CATALOG, load_catalog
 
 
 def matches(record, args):
@@ -68,7 +67,7 @@ def facets(records):
 
 def parser():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--catalog', type=Path, default=DEFAULT_CATALOG)
+    p.add_argument('--catalog', type=Path, default=DEFAULT_CATALOG, help='Catalog JSON or JSON.gz (default: tracked catalog.json.gz).')
     p.add_argument('--search', default='')
     p.add_argument('--pack', action='append', help='Repeat to match any of the listed packs.')
     p.add_argument('--type', choices=TYPES, action='append')
@@ -97,7 +96,7 @@ def main(argv=None):
     args = p.parse_args(argv)
     if not 0 <= args.min_color_coverage <= 1 or args.offset < 0 or args.limit < 0:
         p.error('Color coverage must be 0–1; offset and limit must be nonnegative.')
-    catalog = json.loads(args.catalog.read_text())
+    catalog = load_catalog(args.catalog)
     if catalog.get('schema_version', 0) < 5:
         p.error('A schema-5 artwork catalog is required; regenerate it with tools/build_game_catalog.py.')
     records = sorted((r for r in catalog['sprites'] if matches(r, args)),

@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 from playwright.sync_api import sync_playwright
 
 from asset_catalog import Png, neutral_record
+from catalog_io import DEFAULT_CATALOG, load_catalog
 from query_assets import matches, parser as query_parser, sort_key
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +27,7 @@ def main():
     p.add_argument('--output', type=Path, default=ROOT / 'artifacts/atlas-verification')
     args = p.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
+    catalog = load_catalog()
     records = {r['id']: r for r in catalog['sprites']}
     checks, errors, requests = [], [], []
     url = (ROOT / 'assets/atlas.html').as_uri()
@@ -188,6 +189,11 @@ def main():
         page.screenshot(path=str(args.output / 'offline-atlas-mobile.png'))
         check(not errors, 'no browser script errors: '+str(errors))
         check(not requests, 'no network requests: '+str(requests))
+        # Exercise the repository download in its own page, separate from crop exports.
+        page = browser.new_page(accept_downloads=True)
+        page.goto(url)
+        packed_catalog = download('a[href="catalog.json.gz"]', 'catalog.json.gz')
+        check(packed_catalog.read_bytes() == DEFAULT_CATALOG.read_bytes(), 'complete compressed catalog download')
         browser.close()
 
     report = {'result': 'passed', 'checks': checks, 'count': len(checks), 'output': str(args.output)}
