@@ -30,6 +30,7 @@ public sealed class Site
 
 public sealed partial class Campaign
 {
+    private bool _returning; // Commands and return travel settle atomically before any save boundary.
     public Simulation Home { get; private set; }
     public CampaignClock Clock { get; private set; } = new();
     public long CampaignTick => Home.Tick;
@@ -49,7 +50,11 @@ public sealed partial class Campaign
         : Home.Resources.Components > 0 ? "Build a suit service with the recovered component."
         : "Recover a usable component from the scattered salvage.";
 
-    public Campaign(int seed = 42, int width = 96, int height = 64) : this(new Simulation(seed, width, height)) { }
+    public Campaign(int seed = 42, int width = 96, int height = 64) : this(new Simulation(seed, width, height))
+    {
+        Home.Log.RemoveAll(n => n.Text.StartsWith("Charter:", StringComparison.Ordinal));
+        Home.Event(Objective);
+    }
     private Campaign(Simulation home)
     {
         Home = home;
@@ -168,7 +173,8 @@ public sealed partial class Campaign
         }
         Pack.Medicine = field.Potions;
         Charge(ticks);
-        if (field.RetreatRequested || Party.All(c => c.Health <= 5)) return FinishReturn(true);
+        if (Phase != CampaignPhase.Expedition) return new(true, ArrivalReport);
+        if (field.RetreatRequested) return FinishReturn(true);
         RefreshProjection();
         return new(true, result.Message);
     }
@@ -277,10 +283,12 @@ public sealed partial class Campaign
     {
         for (int i = 0; i < ticks; i++) Tick();
         RefreshProjection();
+        if (!_returning && ActiveField is not null && Party.All(c => c.Health <= 5)) FinishReturn(true);
     }
 
     private void Tick()
     {
+        if (Home.GameOver) return;
         Home.Step();
         if (ActiveField is { } f)
         {
@@ -304,19 +312,24 @@ public sealed partial class Campaign
         if (ActiveField is not { } f) return new(false, "No expedition is active.");
         var exit = f.Zone.Objects.Single(o => o.Kind == ObjectKind.Return);
         if (!emergency && (f.Battle is not null || f.Position.Distance(exit.Position) > 1)) return new(false, "Reach the return approach first.");
-        Charge(ActionCosts.Travel);
-        if (emergency) Cargo = default;
-        Home.Resources += Cargo + Pack.Cost;
-        string names = string.Join(", ", Party.Select(c => c.Name));
-        foreach (var c in Party) Home.BringHome(c);
-        foreach (var s in Home.Survivors.Where(s => s.FieldEscort))
-        { s.FieldEscort = false; s.Cell = Home.ArrivalCell(); Home.RecruitFieldSurvivor(s); }
-        ArrivalReport = (emergency ? "An injured return. Cargo was lost. " : "Home. ") + names
-            + $" / recovered {Cargo.Components:0} component(s), {Cargo.Metal:0} metal. Residents retain their condition and may need recovery.";
-        Home.Event(ArrivalReport, emergency ? NoticeLevel.Warning : NoticeLevel.Good);
-        Cargo = default; Pack = new() { Food = 0, Water = 0, Medicine = 0, Filters = 0 };
-        f.LeaveField(); PartyIds.Clear(); ChangePhase(CampaignPhase.Arrival); DiscoverSites();
-        return new(true, ArrivalReport);
+        _returning = true;
+        try
+        {
+            Charge(ActionCosts.Travel);
+            if (emergency) Cargo = default;
+            Home.Resources += Cargo + Pack.Cost;
+            string names = string.Join(", ", Party.Select(c => c.Name));
+            foreach (var c in Party) Home.BringHome(c);
+            foreach (var s in Home.Survivors.Where(s => s.FieldEscort))
+            { s.FieldEscort = false; s.Cell = Home.ArrivalCell(); Home.RecruitFieldSurvivor(s); }
+            ArrivalReport = (emergency ? "An injured return. Cargo was lost. " : "Home. ") + names
+                + $" / recovered {Cargo.Components:0} component(s), {Cargo.Metal:0} metal. Residents retain their condition and may need recovery.";
+            Home.Event(ArrivalReport, emergency ? NoticeLevel.Warning : NoticeLevel.Good);
+            Cargo = default; Pack = new() { Food = 0, Water = 0, Medicine = 0, Filters = 0 };
+            f.LeaveField(); PartyIds.Clear(); ChangePhase(CampaignPhase.Arrival); DiscoverSites();
+            return new(true, ArrivalReport);
+        }
+        finally { _returning = false; }
     }
 
     public Result DismissArrival()
