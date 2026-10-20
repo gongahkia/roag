@@ -13,7 +13,7 @@ try
     var options = Options.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("VAGABONDS / top-down party RPG\n./vagabonds.sh [--seed N] [--load] [--save PATH] [--skip-intro]\n  --import-legacy PATH (copies an old RPG save to the selected Vagabonds save and exits)\n  --scene town|forest|crypt|battle|victory|atlas\n  --headless (plays a deterministic complete expedition without graphics)\n  --generation-report (map, WFC, terrain and quest diagnostics)\n  --validate-seeds N (check consecutive seeds from --seed, no window/save)\n  --smoke-test --screenshot PATH --frames N --window-size WIDTHxHEIGHT");
+        Console.WriteLine("VAGABONDS / top-down party RPG\n./vagabonds.sh [--seed N] [--load | --new] [--save PATH] [--skip-intro]\n  Normal launch resumes the selected save when it exists.\n  --new (start over; saving or quitting replaces the selected save)\n  --load (require and resume the selected save)\n  --import-legacy PATH (copies an old RPG save to the selected Vagabonds save and exits)\n  --scene town|forest|crypt|battle|victory|atlas (preview without autosaving)\n  --headless (plays a deterministic complete expedition without graphics)\n  --generation-report (map, WFC, terrain and quest diagnostics)\n  --validate-seeds N (check consecutive seeds from --seed, no window/save)\n  --smoke-test --screenshot PATH --frames N --window-size WIDTHxHEIGHT");
         return 0;
     }
     if (options.ImportLegacy is { } legacy)
@@ -69,6 +69,9 @@ catch (Exception e) when (e is ArgumentException or IOException or JsonException
         {
             get; private set;
         }
+        public bool NewGame { get; private set; }
+        public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest;
+        private bool _sceneSpecified;
         public bool SkipIntro
         {
             get; private set;
@@ -117,6 +120,9 @@ catch (Exception e) when (e is ArgumentException or IOException or JsonException
                     case "--load":
                         o.Load = true;
                         break;
+                    case "--new":
+                        o.NewGame = true;
+                        break;
                     case "--save":
                         o.Save = Path.GetFullPath(Value());
                         break;
@@ -148,10 +154,12 @@ catch (Exception e) when (e is ArgumentException or IOException or JsonException
                     case "--scene":
                         o.Scene = Value();
                         o.SkipIntro = true;
+                        o._sceneSpecified = true;
                         break;
                     case "--demo":
                         o.Scene = "battle";
                         o.SkipIntro = true;
+                        o._sceneSpecified = true;
                         break;
                     case "--window-size":
                         var parts = Value().Split('x');
@@ -166,6 +174,10 @@ catch (Exception e) when (e is ArgumentException or IOException or JsonException
                     default:
                         throw new ArgumentException("Unknown option: " + args[i]);
                 }
+            }
+            if (o.Load && o.NewGame)
+            {
+                throw new ArgumentException("Choose either --load or --new.");
             }
             if (o.Width < 1024 || o.Height < 720 || o.Width > 4096 || o.Height > 2160 || o.Frames < 0)
             {

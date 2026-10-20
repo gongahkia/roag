@@ -23,9 +23,9 @@ Requires the same .NET 10 SDK as the colony prototype. From the repository:
 
 On Windows: `dotnet run --project src/Vagabonds.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
 
-The four-page field guide opens before play. F1 reopens it. Closing the window or Q saves to `~/.vagabonds/campaign.json`. `--save PATH` selects another file. The inherited `lantern-rpg` format remains compatible, while this default slot is separate from the old RPG and colony slots. Copy old progress with `./vagabonds.sh --import-legacy PATH`, which leaves the source untouched.
+Normal launch resumes `~/.vagabonds/campaign.json` if it exists, or starts a new expedition if it does not. `--save PATH` selects another slot. Use `--new --seed N` to explicitly start over; saving or quitting replaces the selected save. `--load` requires an existing save and cannot be combined with `--new`. An invalid existing save reports an error instead of starting over. The four-page field guide opens for new expeditions; F1 reopens it. Closing the window or Q saves normal play. The inherited `lantern-rpg` format remains compatible, while this default slot is separate from the old RPG and colony slots. Copy old progress with `./vagabonds.sh --import-legacy PATH`, which leaves the source untouched.
 
-Preview scenes (`--demo` and non-town `--scene` values) save only when you explicitly press F5/Ctrl+S, so browsing the atlas or a combat example preserves your existing expedition. Outside the atlas, loading a save with F9 resumes normal autosaving.
+Preview scenes (`--demo` and all explicit `--scene` values, including town) and frame-limited captures do not automatically load or save your expedition. Use `--load --frames N` to capture existing progress. F5/Ctrl+S still saves explicitly; outside the atlas, loading a save with F9 resumes normal autosaving. Frame limits and smoke checks always suppress exit autosaves.
 
 ## Controls
 
@@ -66,7 +66,7 @@ Defeat brings everyone back to Hearth at partial health/mana, adds stress, and r
 
 ## Procedural areas and hazards
 
-New campaigns generate Ashwood forests and ponds with cellular automata, and assemble 35 Abbey rooms using a connected quest graph and socket-based WFC. Hearth keeps its layout with seeded furnishings. Routes, the key, camps, portals and the locked boss chamber are checked before play. Use `--seed N` to explore another world. [Generation design, rules and diagnostics](PROCEDURAL_GENERATION.md) explain the full pipeline.
+New campaigns generate Ashwood forests and ponds with cellular automata, and assemble 35 Abbey rooms using a connected quest graph and socket-based WFC. Hearth keeps its layout with seeded furnishings. Routes, the key, camps, portals and the locked boss chamber are checked before play. Use `--new --seed N` to explore another world. [Generation design, rules and diagnostics](PROCEDURAL_GENERATION.md) explain the full pipeline.
 
 Off-road fire, spores and corruption evolve every four successful steps or waits in the active area. Period or Space waits. Fire/spores cost 1 health and 1 stress; corruption costs 3 stress. Roads, room crosses and objective approaches stay safe. T spends a torch to clear hazards and their sources within three Manhattan cells, even at full light when needed. Hover a visible hazard for its rules. Combat, menus, blocked moves and inactive areas pause hazard evolution.
 

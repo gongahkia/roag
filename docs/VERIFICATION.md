@@ -33,3 +33,9 @@ The published application and its copied runtime assets were then copied into an
 The initial staged whitespace check reported three inherited generated reference Markdown files with extra blank lines at EOF; those source asset files were preserved byte-for-byte, and the check passed with those three unchanged origin files excluded.
 
 CI is configured across Linux/macOS/Windows; no remote CI run or new native macOS/Windows test is claimed.
+
+## Audit fixes: safe startup (2026-10-21)
+
+Executed locally under WSLg with SDK 10.0.402, Release. Locked restore and build passed with zero warnings/errors; all 75 tests passed, including 14 new graphics-free client startup cases. These cover exact saved continuation, a missing slot, explicit `--new`, invalid existing data, required `--load`, conflicting flags, explicit town/forest/atlas previews, frame limits, smoke mode and demo mode. The headless expedition completed with Victory true.
+
+A freshly published client launched from `/tmp` with temporary fixtures. Ordinary launch followed by Q retained the saved seed, iron key and completed objectives; explicit town preview followed by Q left the save bytes unchanged; `--new --seed 7` followed by Q saved the requested new campaign. Its native smoke passed all 25 checks at 1024×720. Reports/capture are ignored under `artifacts/fixes/startup-*`. No player save was read or modified. Native quit automation used held key events after short synthetic key taps proved unreliable; exact state continuation is asserted by the automated startup tests.

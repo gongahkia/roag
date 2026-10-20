@@ -7,7 +7,7 @@ New RPG expeditions use a reproducible hybrid generator. Hearth keeps its street
 ![Generated Abbey rooms after exploring northern and southern branches](images/lantern-crypt.png)
 
 ```sh
-./rpg.sh --seed 42
+./rpg.sh --new --seed 42
 ./rpg.sh --seed 1337 --scene forest
 ./rpg.sh --seed 7 --scene crypt
 ./rpg.sh --generation-report --seed 42

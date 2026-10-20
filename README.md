@@ -12,12 +12,12 @@ Install the .NET 10 SDK, or use the optional per-user installer:
 ./tools/setup-dotnet.sh
 ./vagabonds.sh
 ./vagabonds.sh --load
-./vagabonds.sh --seed 1337
+./vagabonds.sh --new --seed 1337
 ```
 
 `play.sh` and `rpg.sh` are aliases. On Windows or with a system SDK, run `dotnet run --project src/Vagabonds.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
 
-New saves use `~/.vagabonds/campaign.json`. To copy an existing fantasy RPG save into the new save slot without changing its source:
+Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a new expedition when it does not. `--save PATH` selects another slot. `--new [--seed N]` explicitly starts over; saving or quitting then replaces the selected save. `--load` requires an existing save. Preview scenes and frame-limited captures do not autosave. To copy an existing fantasy RPG save into the new save slot without changing its source:
 
 ```sh
 ./vagabonds.sh --import-legacy ~/.regolith/lantern.json

@@ -4,6 +4,7 @@
     <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Vagabonds.Core.Tests" />
     <ProjectReference Include="../Vagabonds.Core/Vagabonds.Core.csproj" />
     <ProjectReference Include="../Vagabonds.Graphics/Vagabonds.Graphics.csproj" />
     <Content Include="../../assets/urizen/*.png" Link="assets/urizen/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

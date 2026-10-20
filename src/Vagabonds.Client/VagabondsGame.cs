@@ -46,11 +46,12 @@ public sealed partial class VagabondsGame : Game
     public VagabondsGame(Options options)
     {
         _options = options;
-        _autoSave = options.Load || options.Scene == "town";
-        _campaign = options.Load ? Campaign.Load(options.Save) : new Campaign(options.Seed);
+        _autoSave = !options.Preview;
+        var startup = CampaignStartup.Open(options);
+        _campaign = startup.Campaign;
         if (_campaign.FieldMode) throw new InvalidDataException("A lunar field session is not a Vagabonds RPG campaign.");
-        _intro = !options.SkipIntro && !options.Load;
-        if (!options.Load)
+        _intro = !options.SkipIntro && !startup.Resumed;
+        if (!startup.Resumed)
         {
             switch (options.Scene)
             {
