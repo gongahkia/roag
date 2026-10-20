@@ -320,7 +320,8 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
         composition = 'tile_candidate'
     elif asset_type == 'fragment':
         composition = 'fragment_candidate'
-    if record.get('character_matrix') and record['grid'][0] <= 201:
+    reviewed_matrix = bool(record.get('character_matrix') and 104 <= record['grid'][0] <= 201 and 0 <= record['grid'][1] <= 35)
+    if reviewed_matrix:
         matrix = record['character_matrix']
         held = matrix['held_prop_observation']
         description = f'Figure body variant {matrix["body_variant_row"]:02d}, prop/stance variant {matrix["profession_variant_column"]:02d}: {held}.'
@@ -410,7 +411,7 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
                           'source_grid': record.get('grid'), 'source_variant_style': record.get('style'),
                           'named_variant_group': 'godot:' + record['semantic_family'] if record.get('semantic_family') else
                               'input:' + record.get('control', '') if record['pack'] == 'input-prompts' else None,
-                          'character_matrix': record.get('character_matrix')},
+                          'character_matrix': record.get('character_matrix') if reviewed_matrix else None},
             'evidence': {'source_identity': 'identity', 'references': evidence_refs, 'observations': observations,
                          'inspection_refs': list(inspections), 'review_status': review_status,
                          'uncertainties': uncertainties,

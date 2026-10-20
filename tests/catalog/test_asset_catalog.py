@@ -216,6 +216,13 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(r['asset']['composition']['kind'], 'fragment_candidate')
         self.assertTrue(any('neighboring assembly' in note for note in r['asset']['evidence']['uncertainties']))
 
+    def test_bottom_figure_does_not_inherit_unrelated_tool_matrix(self):
+        r = self.by_id['urizen-onebit-r40-c105']
+        self.assertIn('hammer', r['name'].lower())  # Frozen working label is preserved.
+        self.assertIsNone(r['asset']['relations']['character_matrix'])
+        self.assertNotIn('hammer', r['asset']['name'].lower())
+        self.assertFalse(any(o['scope'] == 'series' for o in r['asset']['evidence']['observations']))
+
     def test_qualified_visual_names_do_not_assert_exact_species(self):
         claims = named_visual_subjects('A gray snake-like creature', 'medium', 'fixture')
         self.assertTrue(any(c['term'] == 'snake_like' and c['confidence'] == 'low' for c in claims))

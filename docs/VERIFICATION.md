@@ -84,6 +84,14 @@ Executed validation: **26 generic tests passed**, all **11,887** metadata object
 
 Executed validation: **26 generic tests passed**, all **11,887** metadata objects passed schema validation, and deterministic freshness plus original-file/crop hashes passed. No source images or game bindings changed. Bottom/edge figure exceptions, icon/control inspection and atlas controls remain in progress.
 
+## Neutral visual authoring: complete Urizen inspection
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected the remaining four bottom figure sheets and revisited edge/short-series exceptions, adding 135 individual descriptions. All 5,676 occupied Urizen crops are covered by 41 explicitly inspected pages. Current neutral authoring contains 1,704 individual observations plus the 36 body / 98 prop series. Every uncertain crop outside the main series now has an individual description; no occupied record remains at category-only or inspected-without-description status.
+
+Original misleading working labels remain preserved in the frozen source fields. Neutral names describe the actual exceptional creature/pose instead of inheriting a neighboring hammer, bucket or profession. The generic matrix relationship is restricted to the reviewed main area; out-of-matrix source grouping remains available in the original fields. Species and animation remain evidence-scoped.
+
+Executed validation: **27 generic tests passed** after correcting a new test's mistaken assumption that the old bottom-row working label was also a structured matrix field. All **11,887** metadata objects passed schema validation; catalog freshness and original PNG/archive/crop hashes passed. Icon/control visual inspection, richer icon descriptions and atlas controls remain in progress.
+
 ## Reproduction
 
 ```sh

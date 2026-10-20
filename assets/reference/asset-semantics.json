@@ -21507,6 +21507,2031 @@
         }
       ],
       "review_origin": "Coordinate-labelled original-pixel review, rows 40–49, columns 078–102, 4x nearest-neighbor with enlarged symbol crops, 2026-10-20."
+    },
+    "urizen-onebit-r06-c202": {
+      "name": "Red broad horned humanoid with clustered upper projections",
+      "description": "Red broad horned humanoid with clustered upper projections. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 06, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r09-c202": {
+      "name": "Muted green large-headed humanoid with low extended left-side form",
+      "description": "Muted green large-headed humanoid with low extended left-side form. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 09, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r09-c203": {
+      "name": "Muted green pair of long-headed humanoid silhouettes",
+      "description": "Muted green pair of long-headed humanoid silhouettes. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 09, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r10-c202": {
+      "name": "Beige pair of tall horned head-like forms on joined legs",
+      "description": "Beige pair of tall horned head-like forms on joined legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 10, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r10-c203": {
+      "name": "Beige broad multi-pronged head-like form above several legs",
+      "description": "Beige broad multi-pronged head-like form above several legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 10, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r10-c204": {
+      "name": "Beige narrow long-eared humanoid silhouette",
+      "description": "Beige narrow long-eared humanoid silhouette. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 10, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r17-c202": {
+      "name": "Purple round-headed humanoid with both arms lowered",
+      "description": "Purple round-headed humanoid with both arms lowered. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 17, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r17-c204": {
+      "name": "Purple round-headed humanoid with raised right-side rod",
+      "description": "Purple round-headed humanoid with raised right-side rod. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 17, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r17-c205": {
+      "name": "Purple small hunched humanoid with right-side upright rod",
+      "description": "Purple small hunched humanoid with right-side upright rod. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 17, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r21-c202": {
+      "name": "Blue broad-hatted humanoid with short forward arm",
+      "description": "Blue broad-hatted humanoid with short forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 21, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r22-c202": {
+      "name": "Orange broad humanoid with one raised hand",
+      "description": "Orange broad humanoid with one raised hand. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 22, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r22-c203": {
+      "name": "Orange joined two-headed horned humanoid",
+      "description": "Orange joined two-headed horned humanoid. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 22, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r27-c202": {
+      "name": "Green long-headed crouched humanoid with low bent arms",
+      "description": "Green long-headed crouched humanoid with low bent arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 27, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c104": {
+      "name": "Red pointed-headed long-limbed humanoid with lowered arms",
+      "description": "Red pointed-headed long-limbed humanoid with lowered arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c105": {
+      "name": "Red pointed-headed humanoid with diagonal raised left arm",
+      "description": "Red pointed-headed humanoid with diagonal raised left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c106": {
+      "name": "Red pointed-headed humanoid with horizontal left arm",
+      "description": "Red pointed-headed humanoid with horizontal left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c107": {
+      "name": "Red pointed-headed humanoid with bent right arm",
+      "description": "Red pointed-headed humanoid with bent right arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c108": {
+      "name": "Red pointed-headed humanoid with bent forward arm",
+      "description": "Red pointed-headed humanoid with bent forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c109": {
+      "name": "Red pointed-headed humanoid with small detached left-hand mark",
+      "description": "Red pointed-headed humanoid with small detached left-hand mark. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c110": {
+      "name": "Red pointed-headed humanoid with raised left-side angular arm",
+      "description": "Red pointed-headed humanoid with raised left-side angular arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c113": {
+      "name": "Green narrow twin-pronged humanoid with lowered arms",
+      "description": "Green narrow twin-pronged humanoid with lowered arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c114": {
+      "name": "Green narrow twin-pronged humanoid with raised left forearm",
+      "description": "Green narrow twin-pronged humanoid with raised left forearm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c115": {
+      "name": "Green narrow twin-pronged humanoid with horizontal left arm",
+      "description": "Green narrow twin-pronged humanoid with horizontal left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c116": {
+      "name": "Green narrow twin-pronged humanoid with curled left-side loop",
+      "description": "Green narrow twin-pronged humanoid with curled left-side loop. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c117": {
+      "name": "Green narrow twin-pronged humanoid with tiny left-hand mark",
+      "description": "Green narrow twin-pronged humanoid with tiny left-hand mark. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c118": {
+      "name": "Green narrow twin-pronged humanoid with long horizontal right arm",
+      "description": "Green narrow twin-pronged humanoid with long horizontal right arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r36-c119": {
+      "name": "Green narrow twin-pronged humanoid with small bent left arm",
+      "description": "Green narrow twin-pronged humanoid with small bent left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 36, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c104": {
+      "name": "Red broad round-headed humanoid with lowered arms",
+      "description": "Red broad round-headed humanoid with lowered arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c105": {
+      "name": "Red broad round-headed humanoid with diagonal raised left arm",
+      "description": "Red broad round-headed humanoid with diagonal raised left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c106": {
+      "name": "Red broad round-headed humanoid with horizontal left arm",
+      "description": "Red broad round-headed humanoid with horizontal left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c107": {
+      "name": "Red broad round-headed humanoid with curled left-side arm",
+      "description": "Red broad round-headed humanoid with curled left-side arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c108": {
+      "name": "Red broad round-headed humanoid with lower forward arm",
+      "description": "Red broad round-headed humanoid with lower forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c109": {
+      "name": "Red broad round-headed humanoid with tiny left-hand mark",
+      "description": "Red broad round-headed humanoid with tiny left-hand mark. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c110": {
+      "name": "Red broad round-headed humanoid with raised left-side angular arm",
+      "description": "Red broad round-headed humanoid with raised left-side angular arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c113": {
+      "name": "Muted green broad-hatted humanoid with lowered arms",
+      "description": "Muted green broad-hatted humanoid with lowered arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c114": {
+      "name": "Muted green broad-hatted humanoid with short horizontal left arm",
+      "description": "Muted green broad-hatted humanoid with short horizontal left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r37-c116": {
+      "name": "Muted green broad-hatted humanoid beside tall rectangular outline",
+      "description": "Muted green broad-hatted humanoid beside tall rectangular outline. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 37, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c104": {
+      "name": "Gray hunched long-headed humanoid with bent limbs",
+      "description": "Gray hunched long-headed humanoid with bent limbs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c105": {
+      "name": "Gray joined pair of square-headed humanoids",
+      "description": "Gray joined pair of square-headed humanoids. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c106": {
+      "name": "Gray long-headed humanoid holding round upper-left form",
+      "description": "Gray long-headed humanoid holding round upper-left form. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c107": {
+      "name": "Gray upright broad-headed humanoid with long lower silhouette",
+      "description": "Gray upright broad-headed humanoid with long lower silhouette. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c108": {
+      "name": "Gray paired head-like forms above narrow legs",
+      "description": "Gray paired head-like forms above narrow legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c109": {
+      "name": "Gray tall paired head-like forms beside broad right block",
+      "description": "Gray tall paired head-like forms beside broad right block. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c110": {
+      "name": "Gray broad pair of head-like forms above joined legs",
+      "description": "Gray broad pair of head-like forms above joined legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c111": {
+      "name": "Gray broad head-like form attached to smaller right-side figure",
+      "description": "Gray broad head-like form attached to smaller right-side figure. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c112": {
+      "name": "Gray short left-side figure beside taller right-side figure",
+      "description": "Gray short left-side figure beside taller right-side figure. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c113": {
+      "name": "Gray tall cluster of head-like blocks above narrow legs",
+      "description": "Gray tall cluster of head-like blocks above narrow legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c114": {
+      "name": "Gray broad cluster of head-like blocks above joined lower body",
+      "description": "Gray broad cluster of head-like blocks above joined lower body. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c115": {
+      "name": "Gray broad head cluster with long straight lower outline",
+      "description": "Gray broad head cluster with long straight lower outline. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c116": {
+      "name": "Gray joined figure cluster with raised left appendage",
+      "description": "Gray joined figure cluster with raised left appendage. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c117": {
+      "name": "Gray joined figure cluster with raised right appendage",
+      "description": "Gray joined figure cluster with raised right appendage. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c118": {
+      "name": "Gray low long-bodied figure cluster with bent upper projections",
+      "description": "Gray low long-bodied figure cluster with bent upper projections. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c119": {
+      "name": "Gray two head-like forms above curled lower silhouette",
+      "description": "Gray two head-like forms above curled lower silhouette. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c120": {
+      "name": "Gray narrow upright head-like form beside small lower-left figure",
+      "description": "Gray narrow upright head-like form beside small lower-left figure. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r38-c121": {
+      "name": "Gray small head-like form above large lower-left block",
+      "description": "Gray small head-like form above large lower-left block. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "clustered_figures"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 38, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c104": {
+      "name": "Gray upright humanoid with broad upper-side prongs",
+      "description": "Gray upright humanoid with broad upper-side prongs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c105": {
+      "name": "Gray upright humanoid with two head-like upper forms",
+      "description": "Gray upright humanoid with two head-like upper forms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c106": {
+      "name": "Gray slim humanoid with broad flat head and forward arm",
+      "description": "Gray slim humanoid with broad flat head and forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c107": {
+      "name": "Orange quadruped with two small upper head-like forms",
+      "description": "Orange quadruped with two small upper head-like forms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c108": {
+      "name": "Orange quadruped with three small upper head-like forms",
+      "description": "Orange quadruped with three small upper head-like forms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c109": {
+      "name": "Orange long-bodied quadruped with several head-like upper forms",
+      "description": "Orange long-bodied quadruped with several head-like upper forms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r39-c110": {
+      "name": "Orange quadruped with raised right neck and smaller left head",
+      "description": "Orange quadruped with raised right neck and smaller left head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 39, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c104": {
+      "name": "Dark gray hunched humanoid with bent legs and angular head",
+      "description": "Dark gray hunched humanoid with bent legs and angular head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c105": {
+      "name": "Dark gray crouched long-headed creature with small tail-like extension",
+      "description": "Dark gray crouched long-headed creature with small tail-like extension. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c106": {
+      "name": "Brown hunched humanoid with forward upper projection",
+      "description": "Brown hunched humanoid with forward upper projection. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c107": {
+      "name": "Dark gray crouched long-headed creature with long low lower body",
+      "description": "Dark gray crouched long-headed creature with long low lower body. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c108": {
+      "name": "Gray shaggy upright figure with broad head and bent arms",
+      "description": "Gray shaggy upright figure with broad head and bent arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c109": {
+      "name": "Rust orange horned humanoid with raised side arm",
+      "description": "Rust orange horned humanoid with raised side arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c110": {
+      "name": "Brown long-snouted hunched creature with thin legs",
+      "description": "Brown long-snouted hunched creature with thin legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c111": {
+      "name": "Brown shaggy crouched creature with broad lower silhouette",
+      "description": "Brown shaggy crouched creature with broad lower silhouette. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c112": {
+      "name": "Gray hunched pointed-headed humanoid with bent lower body",
+      "description": "Gray hunched pointed-headed humanoid with bent lower body. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c113": {
+      "name": "Gray low broad-headed creature with extended right-side limb",
+      "description": "Gray low broad-headed creature with extended right-side limb. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c114": {
+      "name": "Rust orange crouched creature with rounded head and forward arm",
+      "description": "Rust orange crouched creature with rounded head and forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c115": {
+      "name": "Red narrow upright creature with branching upper prongs",
+      "description": "Red narrow upright creature with branching upper prongs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c116": {
+      "name": "Brown long-eared upright creature with broad hands",
+      "description": "Brown long-eared upright creature with broad hands. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c117": {
+      "name": "Pale yellow slim humanoid with raised angular arms",
+      "description": "Pale yellow slim humanoid with raised angular arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c118": {
+      "name": "Gray heavy rounded humanoid with large bent lower body",
+      "description": "Gray heavy rounded humanoid with large bent lower body. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c119": {
+      "name": "Brown wide-armed humanoid with raised side projection",
+      "description": "Brown wide-armed humanoid with raised side projection. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c120": {
+      "name": "Red large clustered horned creature with broad angular arms",
+      "description": "Red large clustered horned creature with broad angular arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c121": {
+      "name": "Gray square-headed compact humanoid with short legs",
+      "description": "Gray square-headed compact humanoid with short legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c122": {
+      "name": "Gray tall humanoid carrying long upright fork-like implement",
+      "description": "Gray tall humanoid carrying long upright fork-like implement. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c123": {
+      "name": "Mauve small crouched pointed-headed creature",
+      "description": "Mauve small crouched pointed-headed creature. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c124": {
+      "name": "Mauve broad-headed upright creature with short forward arms",
+      "description": "Mauve broad-headed upright creature with short forward arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c125": {
+      "name": "Gray upright humanoid with large side-facing flat head",
+      "description": "Gray upright humanoid with large side-facing flat head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c126": {
+      "name": "Gray slim upright humanoid with small flat head and long arm",
+      "description": "Gray slim upright humanoid with small flat head and long arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c127": {
+      "name": "Pink broad-headed upright humanoid with large lower-side mass",
+      "description": "Pink broad-headed upright humanoid with large lower-side mass. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c128": {
+      "name": "Green very small hunched humanoid with low trailing form",
+      "description": "Green very small hunched humanoid with low trailing form. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c129": {
+      "name": "Green square-headed slim humanoid with narrow legs",
+      "description": "Green square-headed slim humanoid with narrow legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c130": {
+      "name": "Green pointed-headed crouched humanoid",
+      "description": "Green pointed-headed crouched humanoid. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c131": {
+      "name": "Pale green tall humanoid beside long upright left implement",
+      "description": "Pale green tall humanoid beside long upright left implement. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c132": {
+      "name": "Pale green hunched humanoid with broad head and narrow face",
+      "description": "Pale green hunched humanoid with broad head and narrow face. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c133": {
+      "name": "Pale green humanoid with two upper prongs and raised left arm",
+      "description": "Pale green humanoid with two upper prongs and raised left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r40-c134": {
+      "name": "Gray hooded humanoid with round head and small forward hands",
+      "description": "Gray hooded humanoid with round head and small forward hands. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 40, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c104": {
+      "name": "Dark teal slim humanoid with stepped flat head",
+      "description": "Dark teal slim humanoid with stepped flat head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c105": {
+      "name": "Dark teal tall humanoid with flat head and forward arm",
+      "description": "Dark teal tall humanoid with flat head and forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c106": {
+      "name": "Dark teal hunched humanoid with broad upper projection",
+      "description": "Dark teal hunched humanoid with broad upper projection. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c107": {
+      "name": "Purple pointed-headed slim humanoid",
+      "description": "Purple pointed-headed slim humanoid. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c108": {
+      "name": "Gray tall slim humanoid with flat head and short arms",
+      "description": "Gray tall slim humanoid with flat head and short arms. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c109": {
+      "name": "Dark teal upright humanoid with sloped shoulders",
+      "description": "Dark teal upright humanoid with sloped shoulders. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c110": {
+      "name": "Teal broad rounded humanoid with dark central inset",
+      "description": "Teal broad rounded humanoid with dark central inset. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c111": {
+      "name": "Magenta low crouched creature with long horizontal upper form",
+      "description": "Magenta low crouched creature with long horizontal upper form. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c112": {
+      "name": "Violet tall narrow humanoid with dark central chest inset",
+      "description": "Violet tall narrow humanoid with dark central chest inset. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c113": {
+      "name": "Red thin humanoid with head facing sideways and long left arm",
+      "description": "Red thin humanoid with head facing sideways and long left arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c114": {
+      "name": "Gray thin humanoid with elongated upper-left projection",
+      "description": "Gray thin humanoid with elongated upper-left projection. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r41-c115": {
+      "name": "Dark blue small humanoid with broad flat head",
+      "description": "Dark blue small humanoid with broad flat head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 41, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c104": {
+      "name": "Green low rounded slime-like blob with two dark eyes",
+      "description": "Green low rounded slime-like blob with two dark eyes. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c105": {
+      "name": "Green rounded slime-like blob with small dark upper notch",
+      "description": "Green rounded slime-like blob with small dark upper notch. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c106": {
+      "name": "Green tall irregular monster-like blob with dark square eyes and open mouth",
+      "description": "Green tall irregular monster-like blob with dark square eyes and open mouth. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c107": {
+      "name": "Green long-snouted upright reptile-like creature with curled lower tail",
+      "description": "Green long-snouted upright reptile-like creature with curled lower tail. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c111": {
+      "name": "Brown branching tree-like upright figure",
+      "description": "Brown branching tree-like upright figure. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "tree_like_figure"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c113": {
+      "name": "Pale pink spotted quadruped with raised neck and pointed upper projections",
+      "description": "Pale pink spotted quadruped with raised neck and pointed upper projections. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "quadruped"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c115": {
+      "name": "Brown slender quadruped with upright neck and short upper points",
+      "description": "Brown slender quadruped with upright neck and short upper points. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "quadruped"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r42-c116": {
+      "name": "Olive curled upright creature with round checkered head",
+      "description": "Olive curled upright creature with round checkered head. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "creature_like"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 42, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r43-c107": {
+      "name": "Pale cyan hunched humanoid with long left-side horizontal implement",
+      "description": "Pale cyan hunched humanoid with long left-side horizontal implement. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 43, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r43-c109": {
+      "name": "Blue pointed-headed humanoid with bent forward arm",
+      "description": "Blue pointed-headed humanoid with bent forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 43, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r43-c110": {
+      "name": "Blue pointed-headed humanoid with short side-facing head and raised left hand",
+      "description": "Blue pointed-headed humanoid with short side-facing head and raised left hand. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 43, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r43-c115": {
+      "name": "Dark brown humanoid with long low arm and bent legs",
+      "description": "Dark brown humanoid with long low arm and bent legs. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 43, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c107": {
+      "name": "Pale cyan hunched humanoid with long upper-left horizontal implement",
+      "description": "Pale cyan hunched humanoid with long upper-left horizontal implement. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c108": {
+      "name": "Blue pointed-headed humanoid in low bent-leg pose",
+      "description": "Blue pointed-headed humanoid in low bent-leg pose. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c109": {
+      "name": "Blue pointed-headed humanoid with raised left diagonal implement",
+      "description": "Blue pointed-headed humanoid with raised left diagonal implement. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c110": {
+      "name": "Blue pointed-headed humanoid with low forward arm",
+      "description": "Blue pointed-headed humanoid with low forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c111": {
+      "name": "Orange narrow twin-pronged humanoid with small forward hand",
+      "description": "Orange narrow twin-pronged humanoid with small forward hand. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c112": {
+      "name": "Orange blocky humanoid with separate low side blocks",
+      "description": "Orange blocky humanoid with separate low side blocks. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c114": {
+      "name": "Dark brown broad-headed humanoid with forward arm",
+      "description": "Dark brown broad-headed humanoid with forward arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r44-c115": {
+      "name": "Dark brown broad-headed humanoid with upright bent arm",
+      "description": "Dark brown broad-headed humanoid with upright bent arm. This exceptional figure is described individually; neighboring matrix columns do not establish its held tool, species, occupation, animation or direction.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 44, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r46-c104": {
+      "name": "White flat-headed humanoid with neutral narrow legs",
+      "description": "White upright humanoid with dark eye/face pixels and neutral narrow legs. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 46, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r46-c105": {
+      "name": "White flat-headed humanoid with slightly bent left leg",
+      "description": "White upright humanoid with dark eye/face pixels and slightly bent left leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 46, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r46-c106": {
+      "name": "White flat-headed humanoid with stepped right leg",
+      "description": "White upright humanoid with dark eye/face pixels and stepped right leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 46, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r46-c107": {
+      "name": "White flat-headed humanoid with short forward leg",
+      "description": "White upright humanoid with dark eye/face pixels and short forward leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 46, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r46-c108": {
+      "name": "White flat-headed humanoid with wide lower stance",
+      "description": "White upright humanoid with dark eye/face pixels and wide lower stance. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 46, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r47-c104": {
+      "name": "White broad upper-body humanoid with neutral narrow legs",
+      "description": "White upright humanoid with dark eye/face pixels and neutral narrow legs. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r47-c105": {
+      "name": "White broad upper-body humanoid with slightly bent left leg",
+      "description": "White upright humanoid with dark eye/face pixels and slightly bent left leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r47-c106": {
+      "name": "White broad upper-body humanoid with stepped right leg",
+      "description": "White upright humanoid with dark eye/face pixels and stepped right leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r47-c107": {
+      "name": "White broad upper-body humanoid with short forward leg",
+      "description": "White upright humanoid with dark eye/face pixels and short forward leg. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "urizen-onebit-r47-c108": {
+      "name": "White broad upper-body humanoid with wide lower stance",
+      "description": "White upright humanoid with dark eye/face pixels and wide lower stance. The nearby poses are visible variants; no walking sequence, direction set or playback timing is established.",
+      "type": "actor",
+      "layers": [
+        "actor",
+        "object"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "humanoid"
+      ],
+      "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
     }
   },
   "character_rows": {
@@ -28719,6 +30744,159 @@
         "urizen-onebit-r49-c098",
         "urizen-onebit-r49-c102"
       ]
+    },
+    {
+      "file": "onebit-r40-49-c104-129.png",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
+      "rect": [
+        1353,
+        521,
+        337,
+        129
+      ],
+      "scale": 4,
+      "method": "coordinate-labelled original-pixel visual review",
+      "sprite_ids": [
+        "urizen-onebit-r40-c104",
+        "urizen-onebit-r40-c105",
+        "urizen-onebit-r40-c106",
+        "urizen-onebit-r40-c107",
+        "urizen-onebit-r40-c108",
+        "urizen-onebit-r40-c109",
+        "urizen-onebit-r40-c110",
+        "urizen-onebit-r40-c111",
+        "urizen-onebit-r40-c112",
+        "urizen-onebit-r40-c113",
+        "urizen-onebit-r40-c114",
+        "urizen-onebit-r40-c115",
+        "urizen-onebit-r40-c116",
+        "urizen-onebit-r40-c117",
+        "urizen-onebit-r40-c118",
+        "urizen-onebit-r40-c119",
+        "urizen-onebit-r40-c120",
+        "urizen-onebit-r40-c121",
+        "urizen-onebit-r40-c122",
+        "urizen-onebit-r40-c123",
+        "urizen-onebit-r40-c124",
+        "urizen-onebit-r40-c125",
+        "urizen-onebit-r40-c126",
+        "urizen-onebit-r40-c127",
+        "urizen-onebit-r40-c128",
+        "urizen-onebit-r40-c129",
+        "urizen-onebit-r41-c104",
+        "urizen-onebit-r41-c105",
+        "urizen-onebit-r41-c106",
+        "urizen-onebit-r41-c107",
+        "urizen-onebit-r41-c108",
+        "urizen-onebit-r41-c109",
+        "urizen-onebit-r41-c110",
+        "urizen-onebit-r41-c111",
+        "urizen-onebit-r41-c112",
+        "urizen-onebit-r41-c113",
+        "urizen-onebit-r41-c114",
+        "urizen-onebit-r41-c115",
+        "urizen-onebit-r42-c104",
+        "urizen-onebit-r42-c105",
+        "urizen-onebit-r42-c106",
+        "urizen-onebit-r42-c107",
+        "urizen-onebit-r42-c108",
+        "urizen-onebit-r42-c109",
+        "urizen-onebit-r42-c110",
+        "urizen-onebit-r42-c111",
+        "urizen-onebit-r42-c112",
+        "urizen-onebit-r42-c113",
+        "urizen-onebit-r42-c114",
+        "urizen-onebit-r42-c115",
+        "urizen-onebit-r42-c116",
+        "urizen-onebit-r43-c104",
+        "urizen-onebit-r43-c105",
+        "urizen-onebit-r43-c106",
+        "urizen-onebit-r43-c107",
+        "urizen-onebit-r43-c108",
+        "urizen-onebit-r43-c109",
+        "urizen-onebit-r43-c110",
+        "urizen-onebit-r43-c111",
+        "urizen-onebit-r43-c112",
+        "urizen-onebit-r43-c113",
+        "urizen-onebit-r43-c114",
+        "urizen-onebit-r43-c115",
+        "urizen-onebit-r44-c104",
+        "urizen-onebit-r44-c105",
+        "urizen-onebit-r44-c106",
+        "urizen-onebit-r44-c107",
+        "urizen-onebit-r44-c108",
+        "urizen-onebit-r44-c109",
+        "urizen-onebit-r44-c110",
+        "urizen-onebit-r44-c111",
+        "urizen-onebit-r44-c112",
+        "urizen-onebit-r44-c114",
+        "urizen-onebit-r44-c115",
+        "urizen-onebit-r46-c104",
+        "urizen-onebit-r46-c105",
+        "urizen-onebit-r46-c106",
+        "urizen-onebit-r46-c107",
+        "urizen-onebit-r46-c108",
+        "urizen-onebit-r46-c111",
+        "urizen-onebit-r46-c112",
+        "urizen-onebit-r46-c113",
+        "urizen-onebit-r47-c104",
+        "urizen-onebit-r47-c105",
+        "urizen-onebit-r47-c106",
+        "urizen-onebit-r47-c107",
+        "urizen-onebit-r47-c108",
+        "urizen-onebit-r47-c111",
+        "urizen-onebit-r47-c112",
+        "urizen-onebit-r47-c113"
+      ]
+    },
+    {
+      "file": "onebit-r40-49-c130-155.png",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
+      "rect": [
+        1691,
+        521,
+        337,
+        129
+      ],
+      "scale": 4,
+      "method": "coordinate-labelled original-pixel visual review",
+      "sprite_ids": [
+        "urizen-onebit-r40-c130",
+        "urizen-onebit-r40-c131",
+        "urizen-onebit-r40-c132",
+        "urizen-onebit-r40-c133",
+        "urizen-onebit-r40-c134"
+      ]
+    },
+    {
+      "file": "onebit-r40-49-c156-181.png",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
+      "rect": [
+        2029,
+        521,
+        337,
+        129
+      ],
+      "scale": 4,
+      "method": "coordinate-labelled original-pixel visual review",
+      "sprite_ids": []
+    },
+    {
+      "file": "onebit-r40-49-c182-205.png",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
+      "rect": [
+        2367,
+        521,
+        311,
+        129
+      ],
+      "scale": 4,
+      "method": "coordinate-labelled original-pixel visual review",
+      "sprite_ids": []
     }
   ]
 }
