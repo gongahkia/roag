@@ -21,6 +21,18 @@ TYPES = ['actor', 'terrain', 'structure', 'vegetation', 'item', 'prop', 'vehicle
          'ui_icon', 'input_prompt', 'glyph', 'fragment', 'unresolved', 'non_asset']
 LAYERS = ['ground', 'structure', 'object', 'actor', 'effect', 'interface', 'text', 'unresolved', 'reference']
 CONFIDENCE = ['low', 'medium', 'high']
+VISUAL_NOUNS = '''humanoid animal creature insect snail moth beetle spider snake cat dog bat frog fish lizard
+reptile bird rodent wing cape ghost skeleton horn hood robe
+sword blade knife axe bow spear staff shovel pickaxe hoe saw tool shield hammer fork spade rod scoop
+flask bottle food fruit berry plant tree grass flower mushroom grain wheat corn pumpkin pear pod cheese meat
+pastry sandwich bread bun clothing garment tunic coat jacket vest dress skirt trousers boot glove belt ring
+pendant accessory crown helmet hat pot vessel container crate box bucket pouch bag toolbox ingot mineral
+crystal geode grille lattice mesh panel wall masonry brick window door stairs rail track road building house
+tower bridge hatch grate casing pipe conduit computer screen radar chip circuit can canister fire flame
+spark smoke cloud star moon planet globe vehicle rocket ship boat aircraft car train horse tent sofa chair
+table cabinet bookcase shelf book basket jar kettle teapot goblet tray plate mug dish utensil necklace
+lock key padlock chain rope hook token coin trap net spike foliage texture pattern frame loop cross
+branch vine leaf sprig shoot print mark ornament slit stripe band square rectangle diamond circle'''.split()
 
 
 def load_json(path):
@@ -193,6 +205,27 @@ def visual_claims(values, confidence, evidence):
                   'visual_observation', evidence) for value in values]
 
 
+def named_visual_subjects(name, confidence, evidence):
+    """Index nouns the author explicitly put in the neutral name, not guesses from pixels.
+
+    Only the positive display name is used: a description saying 'not a ghost'
+    must never become a ghost subject. Qualified/disjunctive names remain low
+    confidence *_like claims rather than silently becoming exact identities.
+    """
+    name = name.lower()
+    ambiguous = ' or ' in name
+    result = []
+    for noun in VISUAL_NOUNS:
+        plural = {'leaf': 'leaves', 'berry': 'berries', 'knife': 'knives', 'shelf': 'shelves'}.get(
+            noun, noun[:-1] + 'ies' if noun.endswith('y') else noun + 'es' if noun.endswith(('s', 'x', 'ch', 'sh')) else noun + 's')
+        if not re.search(r'\b(?:' + re.escape(noun) + '|' + re.escape(plural) + r')\b', name):
+            continue
+        qualified = ambiguous or bool(re.search(r'\b' + re.escape(noun) + r'[- ]like\b', name))
+        result.append(claim(noun + '_like' if qualified else noun, 'low' if qualified else confidence,
+                            'visual_observation', evidence))
+    return result
+
+
 def base_type(record):
     if record['kind'] != 'sprite':
         return 'non_asset', ['reference']
@@ -205,11 +238,21 @@ def base_type(record):
         return 'glyph', ['text']
     if record.get('character_matrix') or any(token in tag for token in ['character', 'creature', 'figure', 'player', 'enemy', 'npc', 'animal']):
         return 'actor', ['actor']
+    portable = {'accesscard', 'armor', 'bag', 'banknote', 'book', 'bullet', 'camera', 'canister', 'cannedfood',
+                'cellphone', 'chip', 'cigarette', 'cigarettespack', 'clothes', 'explosive', 'firstaid', 'food',
+                'gameconsole', 'gamepad', 'headphones', 'headset', 'helmet', 'idcard', 'key', 'material', 'mineral',
+                'money', 'musical', 'necklace', 'patch', 'pda', 'phone', 'pill', 'pillsjar', 'plasticcard', 'potion',
+                'ring', 'scroll', 'shield', 'smartphone', 'soda', 'sunglasses', 'syringe', 'testtube', 'tool',
+                'toolbox', 'watch', 'weapon'}
+    if tag in portable:
+        return 'item', ['object', 'interface']
     if any(token in tag for token in ['flora', 'plant', 'flower', 'mushroom', 'farm']):
         return 'vegetation', ['object', 'ground']
-    if tag in ['floor', 'water', 'river', 'road', 'street', 'railway'] or 'terrain textures' in tag:
+    if tag in ['floor', 'water', 'river', 'road', 'street', 'railway', 'overworld'] or 'terrain textures' in tag:
         return 'terrain', ['ground']
-    if tag in ['wall', 'door', 'stairs', 'building', 'multistory', 'stockade', 'bridge', 'footbridge', 'hatch', 'awning', 'window', 'column', 'factory', 'chapel']:
+    if tag in ['wall', 'door', 'stairs', 'building', 'district', 'multistory', 'stockade', 'bridge', 'footbridge',
+               'hatch', 'awning', 'window', 'column', 'factory', 'chapel', 'cave', 'radiotower', 'powerstation',
+               'gasstation', 'electricpole']:
         return 'structure', ['structure']
     if 'transport' in tag or tag == 'ship':
         return 'vehicle', ['object']
@@ -338,6 +381,10 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
         evidence_refs.append('reference/asset-semantics.json#sprites/' + record['id'])
         subjects += visual_claims(override.get('subjects', []), override.get('confidence', 'medium'),
                                  'reference/asset-semantics.json#sprites/' + record['id'])
+        for subject in named_visual_subjects(override.get('name', ''), override.get('confidence', 'medium'),
+                                             'reference/asset-semantics.json#sprites/' + record['id']):
+            if subject['term'] not in {s['term'] for s in subjects}:
+                subjects.append(subject)
         uncertainties += override.get('uncertainties', [])
     if record['kind'] == 'sprite' and measured['foreground_pixels'] <= 2 and not publisher:
         asset_type, layers, composition = 'unresolved', ['unresolved'], 'sparse_mark'

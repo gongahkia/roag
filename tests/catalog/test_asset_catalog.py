@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe
+from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects
 from query_assets import facets, matches, parser, sort_key
 
 
@@ -207,6 +207,20 @@ class CatalogTests(unittest.TestCase):
                 and r['identity']['basis'] == 'author_metadata_visible_rgb_match']
         self.assertTrue(rows)
         self.assertTrue(all(r['asset']['type'] == 'glyph' for r in rows))
+
+    def test_qualified_visual_names_do_not_assert_exact_species(self):
+        claims = named_visual_subjects('A gray snake-like creature', 'medium', 'fixture')
+        self.assertTrue(any(c['term'] == 'snake_like' and c['confidence'] == 'low' for c in claims))
+        self.assertFalse(any(c['term'] == 'snake' for c in claims))
+
+    def test_paw_print_is_not_an_animal_actor(self):
+        r = self.by_id['urizen-onebit-r14-c024']
+        self.assertEqual(r['asset']['type'], 'symbol')
+        self.assertEqual(r['identity']['confidence'], 'low')
+
+    def test_portable_publisher_objects_use_consistent_item_type(self):
+        for sid in ['urizen-onebit-r43-c002', 'urizen-onebit-r37-c001', 'urizen-onebit-r09-c065']:
+            self.assertEqual(self.by_id[sid]['asset']['type'], 'item', sid)
 
     def test_empty_facets_and_stable_sort(self):
         self.assertEqual(facets([]), {'types': {}, 'primary_colors': {}, 'subjects': {}})

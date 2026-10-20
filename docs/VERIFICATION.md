@@ -60,6 +60,12 @@ Pinned historical author PNG/JSON files were fetched explicitly into ignored `ar
 
 Executed validation: **22 generic tests passed**, full regeneration and `--check` passed, and all **11,887** generic metadata objects passed the JSON Schema. New cases cover source confidence preservation, conflicting/wrong shape evidence, two-bit label corrections, matrix-edge exceptions, prone-pose uncertainty and tiny publisher-identified glyphs. All original PNG/archive/crop hashes and 166 current / 75 preview-only / 6,874 unused selections remain intact. Remaining art authoring and generic atlas controls are still in progress.
 
+## Neutral visual authoring: terrain and objects, first section
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected the five coordinate sheets for one-bit columns 0–24 and added individual descriptions for every previously undescribed uncertain crop in that section: structural textures, plants, animals, food, clothing, furniture, jewelry, containers and effects. Current authoring totals are 628 individual observations and 22 sheets covering 3,977 occupied crops. A cyan paw-print motif is classified as a symbol rather than inheriting the regional animal category. Portable publisher-labelled objects use consistent `item` grouping.
+
+Executed validation: **25 generic tests passed**; deterministic regeneration/`--check`, all original source/crop hashes, and JSON Schema validation of all **11,887** generic objects passed. Added cases check qualified visual subject claims, footprint classification and portable-object grouping. Current/preview gameplay selections remain 166 / 75, with 6,874 wholly unused crops. Further art sections and atlas presentation remain in progress.
+
 ## Reproduction
 
 ```sh
