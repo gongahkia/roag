@@ -1,6 +1,8 @@
-# Lantern Below
+# Ithica expedition prototype
 
-A playable fantasy party RPG used to explore the same artwork as Regolith. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains independently playable with `./play.sh`.
+**Current implementation guide:** the RPG still runs under the legacy name Lantern Below. Its fantasy content is a prototype fixture, not final lunar canon. The [Ithica integration plan](ITHICA_PLAN.md) defines how its tested systems join the colony, with shared residents, decision-driven expedition time and a restrained lunar setting. That integration is pending.
+
+This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains independently playable with `./play.sh`.
 
 ![Turn-based encounter in Ashwood](images/lantern-battle.png)
 
@@ -8,7 +10,7 @@ A playable fantasy party RPG used to explore the same artwork as Regolith. Explo
 
 ## Run
 
-Requires the same .NET 10 SDK as Regolith. From the repository:
+Requires the same .NET 10 SDK as the colony prototype. From the repository:
 
 ```sh
 ./rpg.sh

@@ -1,4 +1,6 @@
-# Regolith architecture
+# Ithica architecture
+
+**Implementation snapshot:** this guide describes the existing colony and expedition prototypes, whose source projects retain the legacy Regolith/Lantern names. The [Ithica integration plan](ITHICA_PLAN.md) defines the approved shared campaign, clock, target project layout and naming migration. Those changes are not yet implemented; consult [PROJECT_STATE.md](PROJECT_STATE.md) for the current boundary.
 
 The game uses C#/.NET 10 with MonoGame DesktopGL 3.8.6. The simulation has no MonoGame dependency; the native client submits commands and renders simulation state. The original Python project is archived under `legacy/python` and is not imported or launched by the new game.
 

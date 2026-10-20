@@ -1,13 +1,14 @@
-# Project state and agent reference
+# Ithica project state and agent reference
 
-**Last reconciled: 2026-10-20.** This is the master reference for what is implemented in this repository, where its authoritative data lives, and how to work on it. Read this before extending either game. Keep it current when behavior, content, data formats, or tooling changes; update the reconciliation date after checking the affected sources.
+**Last reconciled: 2026-10-20.** This is the master reference for what is implemented in this repository, where its authoritative data lives, and how to work on it. Read this before extending Ithica. Keep it current when behavior, content, data formats, or tooling changes; update the reconciliation date after checking the affected sources.
 
-The repository contains two playable C# games: **Regolith**, a lunar colony simulator, and **Lantern Below**, a fantasy party RPG. Both use MonoGame DesktopGL and the same imported artwork. Their gameplay rules, progression, saves, and clients are separate. The original Python terminal game is archived under `legacy/python/`.
+**Ithica** is the current product name. The approved target is one mysterious lunar salvage colony/RPG; see the [integration plan](ITHICA_PLAN.md). The implemented repository still contains two playable C# prototypes under legacy names: **Regolith**, a lunar colony simulator, and **Lantern Below**, a fantasy party RPG. Both use MonoGame DesktopGL and the same imported artwork. Their gameplay rules, progression, saves, and clients are currently separate. The original Python terminal game is archived under `legacy/python/`.
 
 Executable behavior comes from the source code and authored configuration linked below. Generated catalogs describe artwork and bindings; they do not implement the mechanics suggested in their future-use notes. When documentation and code diverge, inspect the implementation and tests and reconcile the documentation.
 
 ## Contents
 
+- [Approved direction](#approved-direction)
 - [Current scope](#current-scope)
 - [Run and inspect](#run-and-inspect)
 - [Code ownership](#code-ownership)
@@ -26,10 +27,19 @@ Executable behavior comes from the source code and authored configuration linked
 - [Keeping this reference current](#keeping-this-reference-current)
 - [Detailed references](#detailed-references)
 
+## Approved direction
+
+[ITHICA_PLAN.md](ITHICA_PLAN.md) is the consolidated implementation plan, including feasibility findings, shared residents and inventory, clock semantics, persistent lunar sites, asset reuse, the code/runtime rebrand, compatibility and staged acceptance gates. The design is approved; those integration stages are not yet implemented.
+
+The colony runs continuously while unpaused. Expedition exploration and combat wait at player decisions, with **both the home colony and expedition frozen until a committed action advances their shared logical time**. There is no real-time colony countdown while reading or choosing, and no second fixed-shift charge on return.
+
+Start with one colonist; rescue people who become the same workers and expedition members. Retain the Moon setting and restrained observational labels. Existing fantasy areas, companions and enemy names below describe prototype content, not a final Ithica biome count or lunar bestiary. Existing source paths, commands and save identifiers remain listed accurately until their explicit migration lands.
+
 ## Current scope
 
 | Item | Implemented state |
 | --- | --- |
+| Product name / integration | Ithica; consolidated plan documented, shared gameplay and runtime naming migration pending |
 | Runtime | C# / .NET 10, MonoGame.Framework.DesktopGL 3.8.6 |
 | Playable prototypes | 2: Regolith and Lantern Below |
 | RPG environments | 3 areas: 2 procedural exploration biomes and 1 town hub |
@@ -91,7 +101,7 @@ The SDK targets are defined in [global.json](../global.json) and [Directory.Buil
 | [Regolith.Core.Tests](../tests/Regolith.Core.Tests/) | Colony environment, routing, work, power, rescues, charter and save continuation. |
 | [Lantern.Core.Tests](../tests/Lantern.Core.Tests/) | RPG campaign/combat, procedural layouts, WFC/fallback, hazards and save continuation. |
 
-[Regolith.sln](../Regolith.sln) contains all eight projects. Keep rules in the respective Core project and presentation in its client. The gameplay cores have no MonoGame dependency and do not share simulation state. Cross-client graphics changes can affect both games.
+[Regolith.sln](../Regolith.sln) currently contains all eight projects. Keep rules in the respective Core project and presentation in its client until the [target architecture](ITHICA_PLAN.md#target-architecture) is implemented. The gameplay cores have no MonoGame dependency and do not share simulation state. Cross-client graphics changes can affect both prototypes.
 
 ## Regolith colony
 
@@ -331,6 +341,8 @@ python3 tools/build_game_catalog.py --check
 
 Last recorded gameplay verification, 2026-10-20: 97 core cases passed; 1,000 layouts for seeds −500 through 499 had zero fallback zones; 36 real full expeditions completed; colony/RPG native smoke checks passed 12/17 checks; the published RPG passed outside the repository; the offline atlas passed 14 checks; generated content and original asset hashes matched. These are the recorded baseline, not an assertion that a future checkout has just passed them. The extra expedition/browser checks were local verification; the persistent core cases and CI workflow are in the repo.
 
+Ithica planning reconciliation, 2026-10-20: inspected current tick ownership, crew processing, RPG action pacing, fixed-party/site assumptions and save validation to ground the integration plan. The documentation change passed local link/anchor and code-fence checks across eight Markdown files, plus whitespace checks. Gameplay code and generated assets were unchanged; the gameplay suite was not rerun for this documentation-only change.
+
 [CI](../.github/workflows/build.yml) runs locked restore/build/tests, both headless scenarios and 256 procedural seeds on all three desktop OS runners; the catalog check runs on Linux. This does not certify native graphics on every OS.
 
 ```sh
@@ -344,6 +356,8 @@ Published clients carry runtime artwork/manifests/credits; the RPG also carries 
 
 | Area | Present boundary or future possibility |
 | --- | --- |
+| Combined campaign | Planned in ITHICA_PLAN.md; no shared population, clock, inventory, phase transition or save yet |
+| Product rebrand | Current documentation says Ithica; legacy projects, launchers, runtime titles and save identities remain until the staged migration |
 | RPG world | Three finite areas and a fixed quest; no endless world, biome progression campaign or streaming |
 | RPG enemies | Fixed authored encounter compositions and sprite-keyed intents; no procedural bestiary, roaming ecology or respawn system |
 | RPG tactics | Top-down battle presentation; no tactical movement, range, cover or flanking |
@@ -359,6 +373,8 @@ Catalog future-use ideas describe possibilities. They are not commitments or shi
 
 For a gameplay/content change, update the affected overview, counts, rosters, limits and source links here in the same change. Keep detailed guides synchronized where their behavior changes. Record verification commands/results with their actual scope and date.
 
+Follow [the Ithica plan](ITHICA_PLAN.md) for integration work. Update implemented status here and stage acceptance there together. Preserve the distinction between old prototype inventories and new lunar content; do not claim the shared clock or new launcher exists before it runs and is verified.
+
 For sprite changes, edit the authored inputs listed above and regenerate derived outputs. Retain publisher identity/evidence separately from game roles; leave unreviewed identities uncertain. Check source hashes and never infer animation, species, collision or sockets just from neighboring atlas indices.
 
 For generator/save changes, preserve quest reachability, the locked boss cut, independent RNG state, protected approaches and old-save handling. Update the applicable format/generator version and tests deliberately. Do not reroll a loaded version-two map or remove `LegacyWorldBuilder` as unused code.
@@ -369,6 +385,7 @@ For content questions, verify counts in code/configuration: zones in `WorldBuild
 
 | Reference | Use |
 | --- | --- |
+| [ITHICA_PLAN.md](ITHICA_PLAN.md) | Approved combined-game design, time contract, implementation stages and Ithica naming/compatibility migration |
 | [README](../README.md) | Launching, colony play guide and general build instructions |
 | [LANTERN.md](LANTERN.md) | RPG walkthrough, complete controls and player-facing rules |
 | [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) | CA/WFC implementation, hazards, diagnostics and screenshots |

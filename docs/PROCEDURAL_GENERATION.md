@@ -1,6 +1,8 @@
-# Lantern Below: procedural areas and living hazards
+# Ithica procedural generation prototype
 
-New expeditions use a reproducible hybrid generator. Hearth keeps its streets, houses and services; Ashwood gets cellular forest/pond terrain and reserved routes; the Abbey gets a connected room graph, socket-based Wave Function Collapse (WFC), and cellular erosion. The original five encounters and return-home quest remain playable. Regolith's colony simulation is independent and unchanged.
+**Current implementation:** the legacy Lantern RPG uses the fantasy environments below. The [Ithica integration plan](ITHICA_PLAN.md#procedural-generation-and-persistent-sites) retains the CA/WFC techniques and validation, recasts suitable artwork for the Moon, and introduces persistent sites in one campaign. Lunar content and the shared clock are planned, not implemented by this guide.
+
+New RPG expeditions use a reproducible hybrid generator. Hearth keeps its streets, houses and services; Ashwood gets cellular forest/pond terrain and reserved routes; the Abbey gets a connected room graph, socket-based Wave Function Collapse (WFC), and cellular erosion. The original five encounters and return-home quest remain playable. The colony simulation is currently independent.
 
 ![Generated Abbey rooms after exploring northern and southern branches](images/lantern-crypt.png)
 

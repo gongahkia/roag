@@ -1,4 +1,6 @@
-# Simulation performance
+# Ithica colony simulation performance
+
+These measurements cover the current colony prototype under its legacy Regolith project names. They do not measure the planned combined campaign. See the [Ithica integration plan](ITHICA_PLAN.md#target-architecture) for the shared clock and additional workload to measure during integration.
 
 The C# core uses contiguous cell arrays, reusable atmosphere/BFS buffers, spatial work buckets, and cached power connectivity. The client renders visible map cells and advances fixed simulation ticks independently of draw frequency. These choices make a useful starting point; this project does not yet demonstrate the full workload of Dwarf Fortress or Songs of Syx.
 
