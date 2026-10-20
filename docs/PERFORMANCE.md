@@ -1,10 +1,29 @@
-# Ithica colony simulation performance
+# Ithica simulation performance
 
-These measurements cover the current colony prototype under its legacy Regolith project names. They do not measure the planned combined campaign. See the [Ithica integration plan](ITHICA_PLAN.md#target-architecture) for the shared clock and additional workload to measure during integration.
+Current integration measurements and the historical dense-world baseline are recorded separately. The core uses contiguous arrays, reusable diffusion/BFS buffers, spatial work buckets, cached topology/power and explicit simulation ticks. This remains a foundation for profiling larger simulations, not a demonstrated Dwarf Fortress or Songs of Syx workload.
 
-The C# core uses contiguous cell arrays, reusable atmosphere/BFS buffers, spatial work buckets, and cached power connectivity. The client renders visible map cells and advances fixed simulation ticks independently of draw frequency. These choices make a useful starting point; this project does not yet demonstrate the full workload of Dwarf Fortress or Songs of Syx.
+## Current integration samples
 
-## Measured baseline
+Release, 2026-10-20, **Intel Core i5-8279U @ 2.40 GHz**, macOS 15.7.7, x64, .NET 10.0.13 / SDK 10.0.402. Raw results: [ithica-performance.json](ithica-performance.json). Processes were measured sequentially after the build/test run; no competing benchmark was launched during these recorded samples.
+
+| Workload | Observed result | Useful work |
+| --- | --- | --- |
+| 32 fresh campaigns, seeds 0–31 | Mean 158.69 ms per full loop; 7,204 total logical ticks; 275,449,392 allocated bytes across all creation/generation/actions/JSON checks | 32 actual rescues and 32 constructed powered upgrades; each final snapshot round-tripped exactly |
+| 256×256 / 1,000 residents, 120 measured ticks | Mean 7.168 ms, p95 16.437 ms, 1,827 B/tick | 1,000 jobs completed; zero queued; 3,421 measured route searches |
+| Sequential matched observation, same colony workload | Retained pre-integration binary: mean 5.879 / p95 11.354 ms. Ithica: mean 4.351 / p95 8.751 ms | Same 1,000 completions, route searches and 1,827 B/tick |
+
+The samples show meaningful local variability. Neither the historical/current pair nor the matched observation establishes a statistically reliable speedup or regression. Retain the raw results rather than selecting a favorable sample as a performance guarantee.
+
+The combined workload replays solo rescue, home recovery, surface salvage combat, returned cargo and an actually constructed suit service, then serializes/restores the shared campaign. It includes fresh-world/CA generation and JSON allocations; it is not per-tick allocation and does not measure disk flush, GPU rendering, WFC-heavy trips, large populations or sustained production. The deeper repair/seal/loot loop is verified functionally, not benchmarked at scale.
+
+```sh
+./ithica.sh --campaign-benchmark --samples 32 --seed 0
+./ithica.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
+```
+
+The real-time client starts ticks within an approximately 12 ms frame budget, with at most eight accumulated ticks. One synchronous tick can exceed that budget. Turn actions settle atomically and may take longer on a large home; their logical cost stays independent of FPS. Inactive site fields freeze, avoiding full-world scans for every discovered site.
+
+## Historical pre-integration baseline
 
 Release measurements on the development Mac, 20 October 2026: **Intel Core i5-8279U @ 2.40 GHz**, macOS 15.7.7, x64, .NET 10.0.13 / SDK 10.0.402. Each run warms up 16 ticks, collects garbage, then measures **120 ticks**. Results are individual local samples, not a statistical benchmark campaign. The raw output is retained in [performance-baseline.json](performance-baseline.json).
 

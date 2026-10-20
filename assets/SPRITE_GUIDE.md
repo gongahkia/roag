@@ -1,12 +1,10 @@
-# Regolith sprite reference
+# Ithica sprite reference and original import audit
 
-This reference describes **every occupied sprite region in all three downloaded packs**, including every icon variant, both generations of input prompts, the main Urizen atlas, and its free 2-bit sample. It gives each region a stable ID, source rectangle, identification basis, current-game proposal where appropriate, and an idea for future use.
+The per-pack tables and [sprites.json](sprites.json) preserve the original import-time audit of every occupied region, including uncertain motifs, exact IDs/crops, proposals and future ideas. Their unused/proposed flags refer to the archived Python prototype, which loads no PNGs. The historical proposals below do not assert current gameplay.
 
-**The tables and sprites.json preserve the original import-time audit.** Their `unused` / `proposed` statuses describe the archived terminal prototype in `legacy/python/`, which loads no PNGs. Current bindings are separate: the colony selects **154 IDs** in [runtime-sprites.json](runtime-sprites.json), and the RPG selects **171 IDs** through [lantern-bindings.json](lantern-bindings.json) plus the shared glyph map. See catalog v2's `usage` for both games. Source images, stable IDs, crop rectangles, and original proposals remain unchanged; an audit entry marked unused may now be bound in either game.
+**Current source of truth:** [catalog.json](catalog.json), schema 4, covers **11,887 regions / 7,115 occupied sprites**. `sprites[].ithica` separates **166 current selected IDs**, **75 preview-only IDs** and **6,874 unbound occupied sprites**, with lunar roles, limits and future ideas. [Schema/authoring guide](reference/CATALOG_V2.md) · [14 current field aliases](reference/ithica-sprites.md) · [colony selection](ithica-colony-sprites.json) · [field/preview selection](ithica-expedition-bindings.json).
 
-The current [catalog.json](catalog.json) is **schema 2**: it retains the original file inventory and now includes all **11,887 sprite/slot records**, live colony/RPG usage, RPG role proposals, adaptation limits, tags, and review status. [sprites.json](sprites.json) remains the frozen import-time audit. See [the schema guide](reference/CATALOG_V2.md) for the distinction.
-
-Open [the current atlas and scene lab](atlas.html) for live usage filters, all three packs, original/masked previews, and scene painting with JSON/PNG export. The RPG also includes this coverage in a native F2 viewer. [RPG bindings](reference/rpg-bindings.md) document its curated role selection. Viewing an entry does not mark it as used in gameplay.
+Original PNGs, IDs, crops and publisher-identity evidence remain unchanged. Current home and field contexts can cast the same crop differently. The full atlas is available with F2 in Ithica and in [the offline browser/scene lab](atlas.html). Registration in a viewer is not gameplay use.
 
 ## Open the reference
 
@@ -33,7 +31,7 @@ The long Markdown tables contain **all sprite entries**, not just a shortlist. B
 | Input prompts, all nine sheets | 9 | 786 | 8 author/font-credit regions |
 | **Total** | **664** | **7,115** | **4,772 non-sprite regions** |
 
-There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `runtime-sprites.json`.
+There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `ithica-colony-sprites.json` and catalog schema 4.
 
 “Occupied sprite region” means a crop containing visible artwork. It does **not** mean a guaranteed independent object or unique design. Multi-cell machines, large buildings, banners, celestial bodies, and plants contribute several cells. Six extremely sparse cells contain only one or two foreground pixels and are explicitly flagged for review. Forty-two sprite crops repeat another crop's exact RGBA pixels and dimensions; their individual entries remain present with `identical_crop_to` links.
 
@@ -41,12 +39,12 @@ There are **11,887 total records**. At import, **1,885 sprite records had a prop
 
 | Field / value | Meaning |
 |---|---|
-| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog v2's live usage may now differ. |
-| `mapping_status: proposed` | A suggested use for a feature that exists in Regolith today. It is not an active binding. |
+| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog schema 4 records current Ithica/preview selection separately. |
+| `mapping_status: proposed` | A proposal for an import-era colony feature; it does not imply an active current binding. |
 | `mapping_status: unmapped` | No specific existing feature is assigned. Read `future_ideas` for a possible use and any mechanics/art changes it would need. |
 | `not_applicable` | Empty space, separator art, or a source credit, rather than a gameplay sprite. |
 | `author_metadata_visible_rgb_match` | A historical name from the author's Urizen tile data matches this crop's visible RGB artwork. |
-| `publisher_filename` | The icon name comes from its provided filename. The Regolith interpretation is still a proposal. |
+| `publisher_filename` | The icon name comes from its provided filename. The Import-era colony interpretation is still a proposal. |
 | `visible_key_label_or_symbol` | A key or controller label read from the image. Controller bright/dim states are visual observations. |
 | `visual_inference` / `visual_region_and_silhouette` | A working visual description or group, with unconfirmed author identity. These are deliberately marked as uncertain. |
 
@@ -72,10 +70,10 @@ The main sheet's columns **25, 51, 77, and 103** are magenta separator bands. Th
 
 “Empty” means no nontransparent foreground pixel with any RGB channel above 8. This matters because the files mix transparent, black, and almost-black backgrounds. An alpha-only test incorrectly identifies opaque black padding as art. The threshold is explicit in the generator and JSON; original pixels are never changed.
 
-| Main-sheet columns, inclusive | Visually inspected content | Regolith interpretation |
+| Main-sheet columns, inclusive | Visually inspected content | Import-era colony interpretation |
 |---|---|---|
 | 0–24 | Walls, doors, textures, vegetation, animals, food, minerals, clothing, tools, furniture, buildings, miscellaneous items | Geology and deck/hull candidates; indoor crops; tools, supplies, bunks, salvage, and decoration. Plants and animals do not imply outdoor lunar ecology. |
-| 26–50 | Fantasy/medieval buildings, weapons, armor, scrolls, books, signs, containers, heraldry, effects, modular larger pictures | Mostly future props, keepsakes, reskinned tools/storage, scenario art, or UI symbols. Combat and magic are not current systems. |
+| 26–50 | Fantasy/medieval buildings, weapons, armor, scrolls, books, signs, containers, heraldry, effects, modular larger pictures | Mostly future props, keepsakes, reskinned tools/storage, scenario art, or UI symbols. This is an import-era assessment; current lunar combat and retained preview casting are documented separately. |
 | 52–76 | Metal architecture, roads/rails, vehicles, medical equipment, electronics, computers, machine parts, conduits, banknotes | Strongest machinery/HUD material; many current-feature candidates. Roads, rovers, pipe networks, and money require new mechanics. |
 | 78–102 | Spacecraft and sci-fi effects, figures/poses, celestial objects, patterned tiles, status symbols, bitmap text | Crew/suit alternatives, effects, sector-map art, graphical UI, and font glyphs. Several pictures span cells. |
 | 104–205 | Dense figure/profession matrix, sparse creature rows, miscellaneous figures and poses | Crew appearance candidates near the human figures; other rows remain unconfirmed body/species variants with future-use ideas. |
@@ -97,7 +95,7 @@ The other **4,536 main-sheet occupied cells** receive explicit visual descriptio
 - Cropped parts of a large machine, banner, plant, or planet must be assembled deliberately. They are not all complete one-cell objects.
 - The 125 occupied 2-bit sample cells have visual working labels, not recovered author names. The sample does not provide a complete matching replacement for every one-bit tile.
 
-### Concrete starting mappings for this game
+### Preserved import-era starting mappings
 
 These are also stored in `sprites.json` under `recommended_mappings`. They cover all terrain types and current buildable modules. A different crop can be chosen later without changing the simulation model.
 

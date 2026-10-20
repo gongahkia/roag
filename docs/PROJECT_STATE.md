@@ -1,411 +1,326 @@
-# Ithica project state and agent reference
+# Ithica: project state and agent reference
 
-**Last reconciled: 2026-10-20.** This is the master reference for what is implemented in this repository, where its authoritative data lives, and how to work on it. Read this before extending Ithica. Keep it current when behavior, content, data formats, or tooling changes; update the reconciliation date after checking the affected sources.
+**Last reconciled: 2026-10-20.** This is the master source of truth for the implemented game, its rules and limits, data ownership and verification. Read it before changing the project. Update this document alongside affected behavior, content, formats or tooling. Source code and authored configuration implement behavior; catalog ideas remain proposals.
 
-**Ithica** is the current product name. The approved target is one mysterious lunar salvage colony/RPG; see the [integration plan](ITHICA_PLAN.md). The implemented repository still contains two playable C# prototypes under legacy names: **Regolith**, a lunar colony simulator, and **Lantern Below**, a fantasy party RPG. Both use MonoGame DesktopGL and the same imported artwork. Their gameplay rules, progression, saves, and clients are currently separate. The original Python terminal game is archived under `legacy/python/`.
-
-Executable behavior comes from the source code and authored configuration linked below. Generated catalogs describe artwork and bindings; they do not implement the mechanics suggested in their future-use notes. When documentation and code diverge, inspect the implementation and tests and reconcile the documentation.
+**Ithica is one playable C# / MonoGame lunar salvage colony game.** Start with one colonist, rescue people through controlled expeditions, bring the same residents home, recover useful components and build improvements that change later trips. The Moon remains recognizable; names and explanations stay sparse. The old fantasy RPG and Python prototypes remain explicit compatibility/regression references.
 
 ## Contents
 
-- [Approved direction](#approved-direction)
 - [Current scope](#current-scope)
 - [Run and inspect](#run-and-inspect)
-- [Code ownership](#code-ownership)
-- [Regolith colony](#regolith-colony)
-- [Lantern worlds and progression](#lantern-worlds-and-progression)
-- [Party and combat](#party-and-combat)
-- [Enemies and encounters](#enemies-and-encounters)
-- [Procedural generation](#procedural-generation)
-- [Exploration hazards](#exploration-hazards)
-- [Sprites and authoring](#sprites-and-authoring)
+- [The integrated loop](#the-integrated-loop)
+- [Time contract](#time-contract)
+- [People supplies and recovery](#people-supplies-and-recovery)
+- [Colony systems](#colony-systems)
+- [Sites generation and hazards](#sites-generation-and-hazards)
+- [Field roles and encounters](#field-roles-and-encounters)
 - [Controls](#controls)
-- [Saves](#saves)
-- [Performance and platforms](#performance-and-platforms)
-- [Verification](#verification)
-- [Current gaps](#current-gaps)
-- [Keeping this reference current](#keeping-this-reference-current)
+- [Ownership and architecture](#ownership-and-architecture)
+- [Saves and compatibility](#saves-and-compatibility)
+- [Sprites and authoring](#sprites-and-authoring)
+- [Verification and performance](#verification-and-performance)
+- [Boundaries and future work](#boundaries-and-future-work)
+- [Maintaining this reference](#maintaining-this-reference)
 - [Detailed references](#detailed-references)
-
-## Approved direction
-
-[ITHICA_PLAN.md](ITHICA_PLAN.md) is the consolidated implementation plan, including feasibility findings, shared residents and inventory, clock semantics, persistent lunar sites, asset reuse, the code/runtime rebrand, compatibility and staged acceptance gates. The design is approved; those integration stages are not yet implemented.
-
-The colony runs continuously while unpaused. Expedition exploration and combat wait at player decisions, with **both the home colony and expedition frozen until a committed action advances their shared logical time**. There is no real-time colony countdown while reading or choosing, and no second fixed-shift charge on return.
-
-Start with one colonist; rescue people who become the same workers and expedition members. Retain the Moon setting and restrained observational labels. Existing fantasy areas, companions and enemy names below describe prototype content, not a final Ithica biome count or lunar bestiary. Existing source paths, commands and save identifiers remain listed accurately until their explicit migration lands.
 
 ## Current scope
 
 | Item | Implemented state |
 | --- | --- |
-| Product name / integration | Ithica; solution, Core, graphics, client and tools consolidated; shared gameplay integration in progress |
-| Runtime | C# / .NET 10, MonoGame.Framework.DesktopGL 3.8.6 |
-| Playable prototypes | 2: Regolith and Lantern Below |
-| RPG environments | 3 areas: 2 procedural exploration biomes and 1 town hub |
-| RPG room themes | 3 within the Abbey: cloister, cistern, collapsed vault; these are room variants within one biome |
-| RPG party | 4 fixed companions/classes; 12 class skills and 3 shared actions |
-| RPG enemies | 7 named enemies using 6 sprite archetypes, including 1 boss |
-| RPG encounters | 5 authored groups; clearing an encounter persists |
-| RPG progression | 1 finite key → gate → boss → relic → return-home quest |
-| RPG environmental hazards | 3: fire, spores, corruption |
-| Colony progression | Solo opening, survivor rescues, construction and founding charter |
-| Sprite coverage | 7,115 occupied regions; 11,887 total indexed regions across 3 publisher packs |
-| Asset catalog | Schema 3; usage, interpretation, generation eligibility, identity evidence and future ideas |
-| Focused Urizen review | 104 individually inspected crops; generation rules reference 43 distinct sprite IDs |
-| Tutorials | Colony: 6 sections; RPG: 4 pages |
-| Automated core tests | Last recorded baseline: 97 passing cases, split 41 colony / 56 RPG |
+| Product / runtime | Ithica; C# / .NET 10, MonoGame DesktopGL 3.8.6 |
+| Normal executable | One window and campaign, with colony, preparation, expedition and arrival phases |
+| Population | One starting colonist; rescue-driven recruitment; parties of 1–4 actual residents |
+| Clock | Continuous unpaused colony time; both sides wait at field decisions; accepted actions advance shared ticks |
+| Shared state | Home stock, explicit carried supplies/cargo, resident conditions, progression, persistent sites and one save |
+| Environments | Built colony plus 2 generated site families: lunar surface and compartments below it |
+| Site registry | Initial distress site; salvage after a rescue; deeper signal after powered suit service; additional distress sites arrive over time |
+| Enemies | 3 lunar stat/name variants using 2 appearances; 2 encounter templates |
+| Field abilities | 4 roles × 3 skills, plus guard, medical kit and retreat |
+| Colony modules | 12 definitions, 11 buildable; RTG is starter-only; suit service needs a recovered component |
+| Generation | CA terrain, WFC room connections, cellular damage/exposure, protected approaches and global seal validation |
+| Assets | 7,115 occupied regions / 11,887 total records, across 3 original packs |
+| Current sprite selection | 166 IDs including font/UI; 14 explicit field aliases/IDs; 75 additional preview-only IDs |
+| Catalog | Schema 4: current lunar casting, retained preview usage, identity evidence, unused status and future ideas |
+| Focused Urizen review | 104 preserved individual crop observations; no claim of a new manual identification of every sprite |
+| Tutorial / viewer | 6 sectioned lessons; full atlas in the same window with current-use filtering |
+| Verification | See the dated verification record below; historical prototype measurements remain separately identified |
 
-The RPG generates terrain, room connections/styles, selected objective locations and dressing. Enemy compositions, classes and the quest sequence remain authored. The generator does not create additional biomes or a new campaign storyline for each seed.
+The combined loop is implemented. Larger armies, an endless world, physical hauling, z-levels and a rich social simulation are not part of this delivery.
 
 ## Run and inspect
 
-Run these from the repository root. The shell launchers also resolve the repository when invoked from another directory.
+From the repository root:
 
 ```sh
-./play.sh
-./play.sh --load
-./rpg.sh
-./rpg.sh --load
-./rpg.sh --seed 1337 --scene forest
-./rpg.sh --seed 7 --scene crypt
-./rpg.sh --demo
-./rpg.sh --scene atlas
+./ithica.sh
+./ithica.sh --load
+./ithica.sh --seed 1337
+./ithica.sh --scene preparation
+./ithica.sh --scene surface
+./ithica.sh --scene battle
+./ithica.sh --scene structure
+./ithica.sh --scene arrival
+./ithica.sh --scene atlas
 ```
 
-`play.sh` starts the colony client; `--headless` or `--benchmark` routes it to `Regolith.Tools`. `rpg.sh` starts the RPG client; its headless/report modes exit before graphics initialization. RPG scenes are `town`, `forest`, `crypt`, `battle`, `victory`, and `atlas`; `--demo` selects `battle`.
+`play.sh` forwards to Ithica. `rpg.sh` deliberately opens the retained fantasy preview/regression path, equivalent to `ithica.sh --preview`. It does not open a second gameplay phase of the normal campaign.
+
+The shell launchers resolve their own directory. On Windows or with a system SDK:
 
 ```sh
-./play.sh --headless 700 --demo --seed 42
-./rpg.sh --headless --seed 42
-./rpg.sh --generation-report --seed 42
-./rpg.sh --validate-seeds 1000 --seed -500
+dotnet run --project src/Ithica.Client --configuration Release
 ```
 
-Headless, generation-report and seed-validation modes write no player save. Seed validation checks 1–10,000 consecutive signed 32-bit seeds and reports fallback counts. Generation reports include terrain counts, room sockets/styles, solver statistics, and quest validation.
+The default window is 1440×900, minimum 1024×720. `--window-size 1024x720`, `--screenshot PATH --frames 12`, `--skip-intro`, `--save PATH` and `--help` are supported. Named preview scenes execute ordinary campaign commands to reach their state, use a fresh campaign and do not autosave on exit. F5 remains an explicit save. The normal new game starts paused with its tutorial.
 
-Both clients default to 1440 × 900 with a minimum of 1024 × 720. Use `--window-size 1280x800`, `--skip-intro`, or `--screenshot PATH --frames 12` when inspecting UI. These are native desktop games; the HTML atlas is a separate asset-inspection tool.
+[tools/dotnet.sh](../tools/dotnet.sh) finds a system SDK, an Ithica per-user installation, or the existing historical Regolith installation. [tools/setup-dotnet.sh](../tools/setup-dotnet.sh) installs SDK 10.0.402 under `~/.local/share/ithica/dotnet`. Existing SDK installations are not moved or deleted. [global.json](../global.json) requests 10.0.100 with `latestFeature` roll-forward; project packages are pinned and locked. Python is a catalog development tool, not a game runtime dependency.
 
-The SDK targets are defined in [global.json](../global.json) and [Directory.Build.props](../Directory.Build.props). `global.json` requests 10.0.100 with `latestFeature` roll-forward; setup/CI use SDK 10.0.402. [tools/dotnet.sh](../tools/dotnet.sh) locates a system or per-user SDK, and [tools/setup-dotnet.sh](../tools/setup-dotnet.sh) can install the latter. Python is a development/catalog tool, not a C# game runtime dependency.
+## The integrated loop
 
-## Code ownership
+1. Maintain pressure, power, food, water and useful work while colony time runs.
+2. Click a distress contact or discovered site directly on the map. Preparation pauses time; select residents and supplies, with home staffing/stock consequences visible.
+3. Depart as those residents. They leave local work, consume their own needs and explore under player control. Valid moves, interactions and combat actions advance both site and colony conditions.
+4. Share supplies with the stranded person, recover salvage or restore useful equipment. Return through the site's return approach.
+5. Deposit cargo and unused supplies once, recruit a living escort only in breathable shelter, and retain injuries/fatigue. Read the paused arrival report, then resume the previous colony pause/speed state.
+6. Use an actual recovered component to construct powered suit service. It equips departing residents to use 35% less suit oxygen and reveals the next signal. Below, a paid pump repair opens a seal and supplies home with water.
 
-| Project | Responsibility and entry points |
+The first rescue supports Ada alone and has no mandatory battle. The first salvage encounter and component are a separate outing. Residents away cannot also work or tend farms at home. An empty shelter still runs machines; a living person outside counts toward survival.
+
+The game uses observed labels such as surface, shelter, movement and sealed passage. It does not establish a named alien civilization or supernatural origin. The old Hearth/Ashwood/Abbey story is confined to the explicit preview.
+
+## Time contract
+
+[CampaignClock.cs](../src/Ithica.Core/Campaign/CampaignClock.cs) defines clock policy and centralized `ActionCosts`; [Campaign.cs](../src/Ithica.Core/Campaign/Campaign.cs) is its gameplay owner. `CampaignTick` is the colony's authoritative integer tick. Clients request advancement; rendering and animation do not independently advance either simulation.
+
+| Situation | Advancement |
 | --- | --- |
-| [Regolith.Core](../src/Ithica.Core/Colony/) | Graphics-free colony simulation. [Simulation.cs](../src/Ithica.Core/Colony/Simulation.cs) owns state/ticks/orders/power; [World.cs](../src/Ithica.Core/Colony/World.cs) owns terrain/environment; [CrewSystem.cs](../src/Ithica.Core/Colony/CrewSystem.cs) owns crew/rescues/progression; [GridRouter.cs](../src/Ithica.Core/Colony/GridRouter.cs) owns routing. |
-| [Regolith.Client](../src/Ithica.Client/) | Colony window, mouse/keyboard input, clock, HUD, tutorial and map rendering. Start at `IthicaGame.cs`. |
-| [Regolith.Tools](../src/Ithica.Tools/) | Colony headless scenarios and benchmarks. Start at `Program.cs`. |
-| [Regolith.Graphics](../src/Ithica.Graphics/) | Shared `SpriteLibrary` and `MapCamera`: lazy textures, crop lookup, black-background removal, palette masks, bitmap text and camera transforms. |
-| [Lantern.Core](../src/Ithica.Core/Expeditions/) | Graphics-free RPG maps, party, exploration, combat, generation and saves. [Campaign.cs](../src/Ithica.Core/Expeditions/Campaign.cs), [Combat.cs](../src/Ithica.Core/Expeditions/Combat.cs), and [Persistence.cs](../src/Ithica.Core/Expeditions/Persistence.cs) are partial definitions of `Campaign`. |
-| [Lantern.Client](../src/Ithica.Client/Preview/) | RPG window/input, world and battle presentation, field guide and full native atlas. Start at `PreviewGame.cs`; rendering is in `WorldRenderer.cs` and `Interface.cs`. |
-| [Regolith.Core.Tests](../tests/Ithica.Core.Tests/Colony/) | Colony environment, routing, work, power, rescues, charter and save continuation. |
-| [Lantern.Core.Tests](../tests/Ithica.Core.Tests/Expeditions/) | RPG campaign/combat, procedural layouts, WFC/fallback, hazards and save continuation. |
+| Colony unpaused | Elapsed-time accumulator, initially 8 ticks/second; speed 1× / 3× / 8× |
+| Colony paused, tutorial, construction, preparation, atlas or arrival report | No simulation ticks |
+| Expedition awaiting player choice, inspecting, targeting or reading | Both site and home wait |
+| Accepted field command | Stated logical cost; home and active site advance together |
+| Hostile turn | Deterministically resolved as a paid action until the next player decision |
+| Invalid/canceled action | No time, resource deduction or RNG consumption |
 
-[Ithica.sln](../Ithica.sln) now contains five projects: Core, Client, Graphics, Tools and Core.Tests. Colony and expedition rules share one graphics-free assembly but retain separate state at this checkpoint. Keep rules in the respective Core project and presentation in its client until the [target architecture](ITHICA_PLAN.md#target-architecture) is implemented. The gameplay cores have no MonoGame dependency and do not share simulation state. Cross-client graphics changes can affect both prototypes.
-
-## Regolith colony
-
-The player starts with **Ada alone** at Tranquility. A stranded survivor is present from the opening; further distress contacts arrive over time. Clicking a contact dispatches a ready colonist and spends **2 food + 2 water**. Rescues have outbound and escorted-return phases. Recruitment completes after the living survivor reaches pressurized shelter. Unassisted contacts lose suit oxygen and then health; failed rescues release their assigned worker.
-
-Rescue dispatch is a direct map interaction. R locates a distress contact; it does not open a separate expedition tab.
-
-Implemented systems include seeded geology/resource seams; mining, building, salvage and survey orders; rectangular designations; reserved construction costs and cancellation refunds; crew health/hunger/energy/morale/suit needs; local work selection; four-neighbor oxygen/heat/fire updates; breaches and incidents; daylight/storm-dependent solar output; connected deck power islands and local batteries; farming, rest and medicine; visibility, notices, overlays and following crew.
-
-The founding charter requires **3 rescues, cycle 3, 4 living crew, 20 food, and a powered uplink in pressure**. One cycle is 480 logical ticks. A completed charter allows continued play. Colony loss offers a restart; exiting after loss preserves the previous save.
-
-Blueprints are defined in [Regolith.Core/Models.cs](../src/Ithica.Core/Colony/Models.cs):
-
-| Module | Purpose |
-| --- | --- |
-| Pressure hull / habitat deck / airlock | Enclosure, walking surface, power connectivity and a pressure-sealing entrance |
-| Solar array / battery bank | Up to 12 kW daylight supply / 240 kWh storage per connected bank |
-| Life support | Water-powered oxygen/warmth production; 3 kW draw |
-| Hydroponics | Food production subject to water, pressure, temperature and 4 kW supply |
-| Sleeping pod / med station | Rest and treatment; med station draws 2 kW |
-| Earth uplink | Charter objective; costs 60 metal + 20 crystal and draws 5 kW |
-| Radioisotope generator | Reliable 12 kW starter supply; cannot be manufactured |
-
-There are 11 module definitions, including the starter-only RTG. Resources are shared metal/water/food/crystal stock; items are delivered to inventory abstractly. Crew can occupy the same cell. Colony combat, hauling, z-levels and a detailed social simulation are not implemented.
-
-## Lantern worlds and progression
-
-| Area ID | Environment | Size | Present content |
-| --- | --- | --- | --- |
-| `hearth` | Hearth, town hub | 36 × 26 | Authored houses/roads/services; seeded furnishings; no environmental hazards |
-| `wilds` | Ashwood, forest biome | 48 × 32 | Cellular trees/ponds, meandering river and bridges, road branches, two encounters, key chest, shrine, camp |
-| `crypt` | Sunken Abbey, ruin/dungeon biome | 51 × 37 | 35 generated rooms, three room styles, two ordinary encounters and boss group, strongbox, camp, seal and relic |
-
-**Counting convention:** two exploration biomes plus one hub gives three environments. Cloisters, cisterns and collapsed vaults are Abbey room styles. Ponds, decorative cave mouths and hazard patches do not create additional playable areas.
-
-Adding an area also requires updating `WorldBuilder.Validate` and the zone/discovery validation in RPG `Persistence.cs`, which currently expect three areas, plus portal and progression checks.
-
-The quest is: leave Hearth → find `iron-cache` in Ashwood → open `iron-gate` in Abbey → defeat `abbey-abbot` → collect `relic` → return to `elder` in Hearth. The key is consumed on opening the gate; completion persists. The relic checks that the boss has been defeated. Four ordinary encounters are available for XP/supplies; their completion is not a condition for opening the key chest.
-
-Hearth services are Warden Elowen (`elder`, quest), Old Garran (`smith`, advice), the Copper Kettle (`inn`, 12 gold for full recovery), and the provisioner (`merchant`, 10 gold for two potions/two torches/two rations). The smith has dialogue, not a crafting interface.
-
-Starting shared supplies are **36 gold, 5 potions, 4 torches, 6 rations**, with light at 100. A torch restores up to 45 light; marked camps spend two rations to restore 18 HP, 6 mana and 12 composure per companion. The forest shrine restores up to 8 mana and reduces stress by 15 once. The key chest gives 18 gold and a potion; the Abbey strongbox gives 24 gold, two potions and a torch. See [Campaign.cs](../src/Ithica.Core/Expeditions/Campaign.cs) for interaction rules.
-
-Defeat returns the party to Hearth at partial health/mana, increases stress, and removes a quarter of current gold. Cleared encounters, collected chests, opened gates and exploration persist. Returning the relic completes the quest and allows continued exploration.
-
-## Party and combat
-
-The party has four fixed roles, defined in [Models.cs](../src/Ithica.Core/Expeditions/Models.cs). These are game casts of sprite appearances, not publisher-confirmed character identities.
-
-| Companion | Role | Level-one HP / MP | Class skills |
-| --- | --- | --- | --- |
-| Rowan | Warden | 52 / 12 | Longsword; Shield bash; Stand fast |
-| Vesper | Ranger | 38 / 12 | Arrow; Hunter's mark; Volley |
-| Iris | Arcanist | 34 / 18 | Wand; Ember; Chain arc |
-| Sable | Vestal | 42 / 20 | Smite; Mend; Absolution |
-
-Each class also has **Guard, Potion and Retreat**, giving six available action buttons per hero. Potions restore 24 HP or revive. Classes define equipment; an equipping/gear-swapping system is not implemented.
-
-Battles are turn-based on the exploration map. Initiative uses speed plus seeded tie variation; enemy intent and target are telegraphed. Skills validate mana and targets before spending resources. Guard halves damage until the actor's next turn; burn and bleed damage at turn start; stun skips an action; mark grants bonus damage; stress at 80+ weakens attacks. Mend can heal/revive and clear bleeding. Victory gives XP, gold and a potion; leveling increases health, mana and attack strength.
-
-Positions are for battle presentation: there is no tactical movement, range or flanking. Abbey formations stay within two Manhattan cells of their encounter marker. Exploration uses cardinal movement, collision, line of sight, fog/discovery and click routing that avoids unintended encounters/portals and prefers hazard-free paths.
-
-## Enemies and encounters
-
-There are **seven named enemies, six sprite archetypes, and one boss**. Bell keeper shares the `skeleton` appearance and basic attack behavior with Oathless guard. Repeated individuals and encounter-specific stats do not count as new named types. Rosters/stats are currently inline in `StartEncounter`; intent behavior is keyed by sprite alias in `NewRound`, both in [Combat.cs](../src/Ithica.Core/Expeditions/Combat.cs).
-
-| Enemy | Sprite alias | HP | Base power | Armor | Behavior |
-| --- | --- | ---: | ---: | ---: | --- |
-| Briar hound | `wolf` | 23 | 6 | 0 | Attacks; bleeding on even rounds |
-| Ashwood raider | `bandit` | 34 | 8 | 2 | Attacks; guards every third round |
-| Grief wisp | `wisp` | 20–24 | 4–5 | 0 | Damage and high stress; stats vary by group |
-| Oathless guard | `skeleton` | 30 | 8 | 2 | Armored melee attack |
-| Cistern slime | `slime` | 28 | 6 | 0 | Basic melee attack |
-| Bell keeper | `skeleton` | 30 | 7 | 2 | Armored boss escort; guard variant |
-| Hollow Abbot | `abbot` | 112 | 12 | 3 | Cycles bleeding attack, enemy healing and party-wide sweep |
-
-Base power is an input to combat resolution; actual damage also depends on attack type, armor, guard, conditions and random variation.
-
-| Encounter ID | Area | Composition |
-| --- | --- | --- |
-| `wilds-hounds` | Ashwood | Two Briar hounds |
-| `wilds-raiders` | Ashwood | Ashwood raider + Grief wisp |
-| `abbey-hollows` | Abbey | Two Oathless guards + Grief wisp |
-| `abbey-slimes` | Abbey | Two Cistern slimes |
-| `abbey-abbot` | Abbey | Hollow Abbot + Bell keeper + Grief wisp |
-
-The five groups retain these compositions across seeds. Names, variants and AI are game data; sprite rows/colors are not inferred species or animation sequences. Fire/spores/corruption belong to the environment and are not additional enemies.
-
-## Procedural generation
-
-Current generation rules are [assets/ithica-generation.json](../assets/ithica-generation.json), with rules schema 1 and generator version 2. [GenerationRules.cs](../src/Ithica.Core/Expeditions/GenerationRules.cs) loads an **embedded resource**, so changing the JSON requires rebuilding the executable.
-
-1. **Hearth:** retain authored streets, buildings, services and exit; seed furnishings and appearance choices.
-2. **Ashwood:** seed trees at 47% and smooth through four synchronous eight-neighbor passes; seed pond masks at 42% and smooth three passes. Tree birth needs five occupied neighbors; survival needs four. Add a continuous winding river, then carve roads/bridges and clearings around seeded objectives. Reserve routes from hazards.
-3. **Abbey graph:** establish a short main route and seeded branches connecting all 35 rooms. The boss chamber is a leaf connected through its western seal.
-4. **WFC assembly:** choose among 45 room tiles: 15 nonempty connection masks × three room variants. Sockets are north/east/south/west; `0` is masonry, `1` a centered arch. Mandatory graph edges and outer/boss boundaries constrain the domains. Optional connections can produce loops.
-5. **Room realization:** apply cloister/cistern/collapsed styles, with weights 5/3/2; use two cellular erosion passes in collapsed rooms. Keep arches, center formation space, safe crosses and objectives clear; place scenery on valid ground.
-6. **Validation:** check objects, arrivals, reachable objectives/return routes and boss/relic isolation before unlocking. Exhausted WFC attempts use exact graph sockets and cloister rooms; failed world validation uses the retained authored world and records the reason. Invalid fallback worlds throw.
-
-The WFC solver uses 64-bit domains, queued constraint propagation, weighted Shannon entropy and at most eight seeded attempts. Socket masks describe **7 × 7 room chunks**, not individual sprite-sheet cells. Connectivity comes from the graph and validation as well as local socket rules.
-
-Active map generation is in [WorldBuilder.cs](../src/Ithica.Core/Expeditions/WorldBuilder.cs), [WaveFunctionCollapse.cs](../src/Ithica.Core/Expeditions/WaveFunctionCollapse.cs), and [CellularAutomata.cs](../src/Ithica.Core/Expeditions/CellularAutomata.cs). [Zone.cs](../src/Ithica.Core/Expeditions/Zone.cs) contains map/path/visibility operations **and `LegacyWorldBuilder`**, retained for old saves and fallback. Preserve that compatibility path when changing generation.
-
-Named seed streams separate generation stages and combat. A seed reproduces a fresh world for the same generator; changing the generator may change future worlds. Existing version-two saves restore their actual maps without generating replacement layouts. See [the generation guide](PROCEDURAL_GENERATION.md) for full rules and screenshots.
-
-## Exploration hazards
-
-[HazardField.cs](../src/Ithica.Core/Expeditions/HazardField.cs) updates reusable flat buffers every **four successful steps or waits in the active exploration area**. Blocked movement, menus, camps, combat and inactive areas do not advance these fields. Spread uses seed/cell/tick hashes independently of combat RNG.
-
-| Hazard | Evolution | Cost per step/wait on the hazard |
-| --- | --- | --- |
-| Fire | Woodland ignition near the camp; finite material fuel; up to five ticks per ignition; exhausted trees/grass show dead-tree/grit artwork | Each conscious companion loses 1 HP and gains 1 stress |
-| Spores | Persistent source near shrine/cistern; four-tick clouds spread and decay | Each conscious companion loses 1 HP and gains 1 stress |
-| Corruption | Persistent source near an encounter; seven-tick growth cycles around it | Each conscious companion gains 3 stress |
-
-Hazards cannot take a conscious hero below 1 HP and do not change terrain collision. Protected roads, clearings, room crosses and objective approaches exclude hazards. **T** spends a torch to clear hazards and their sources within three Manhattan cells and suppress regrowth there for eight hazard ticks; it works at full light when a hazard is nearby. Clearing removes the affected sources permanently. Existing campfire scenery remains a safe rest interaction.
-
-## Sprites and authoring
-
-There are three publisher packs, recorded in [CREDITS.txt](../assets/CREDITS.txt): Urizen by vurmux, Godot node icons by pixel-boy, and keyboard/controller prompts by Hyohnoo. Input prompts contain new and legacy variants. The original asset inventory is 664 PNGs and three ZIPs.
-
-| Coverage | Current count |
+| Accepted operation | Campaign ticks |
 | --- | ---: |
-| Urizen occupied cells, main sheet + free 2-bit sample | 5,676: 5,551 main + 125 sample |
-| Godot icon regions | 653 |
-| Input prompt regions | 786 |
-| Occupied regions across packs | 7,115 |
-| Blank/separator/annotation regions | 4,772 |
-| Total indexed regions | 11,887 |
-| Colony bindings / font / distinct IDs | 60 aliases / 94 glyphs / 154 IDs |
-| RPG bindings / font / distinct IDs | 99 aliases / 94 glyphs / 190 IDs |
-| Bound by either game / unbound occupied sprites | 241 / 6,874 |
-| Distinct IDs referenced by generation rules | 43 |
-| Individually inspected crops in focused Urizen generation review | 104 |
+| Move whole party / wait / each combat actor action | 1 |
+| Approach / return travel | 8 each |
+| Rescue / salvage / refill / suppress exposure | 4 each |
+| Field treatment outside combat | 8 |
+| Pump repair / cycle seal | 12 each |
+| Field rest | 32 |
 
-Counts describe indexed regions, including variants/fragments; they do not mean 7,115 unique, fully identified standalone objects. Preserve original PNGs, stable IDs and crop rectangles. Tinting, masks and black-background removal happen in texture copies; the renderer uses nearest sampling. Ground/object data defines collision and occlusion explicitly.
+Combat medical kits cost one combat action; outside-combat treatment costs eight ticks. Multi-target attacks are one action. One abstract colony cycle is 480 ticks; this is gameplay pacing, not an astronomical lunar day.
 
-| File | Authority and editing workflow |
+Mode changes discard the real-time accumulator. Returning adds no fixed shift or real-time catch-up. Colony frame pacing starts ticks for up to roughly 12 ms and retains at most eight pending ticks; an individual tick remains synchronous and can exceed that budget. Core callers can request a smaller tick budget without losing pending ticks. Under load the simulation may slow relative to wall time.
+
+Click-to-walk commits successive validated steps. It stops on encounters, relevant exposure, blocked movement, transitions or a newly reported dangerous home incident. Esc cancels uncommitted steps. Waiting to think at the next decision costs nothing. Field home conditions remain visible, and new danger notices stop automated travel.
+
+Hostile resolution and travel settle atomically before the public command returns. Saves occur at settled command boundaries, including an ongoing encounter's next player turn. Animation timers and uncommitted UI routes are not saved as pending gameplay actions.
+
+## People supplies and recovery
+
+[Colonist](../src/Ithica.Core/Colony/Models.cs) is the authoritative resident record: stable ID, home/field location, profession, field role, health, hunger, energy, morale, suit oxygen, charge, level and experience. Party and battle slots reference IDs, including nonsequential IDs. Encounter heroes/units are controlled projections; changes commit after each action, preserving fractional resident health/morale. They are not independent residents synchronized only on return.
+
+A contact has a survivor record until recruitment; new rescues record the recruited resident ID after reaching pressure and becomes historical contact data. Its health and oxygen transfer into the new resident. Escorted survivors still use oxygen on logical ticks, can be included in a paid refill, and remain frozen while the player thinks. Their old contact record does not continue simulating as a second colonist.
+
+Away crew receive needs updates once and no home movement, jobs, bed treatment or local farming bonus. Home sleep restores energy, health, morale and equipment charge. Powered nearby medical care improves sleeping recovery. Injured arrivals may rest before returning to work or becoming available for another outing.
+
+Default departure pack: **4 food, 4 water, 2 medical kits, 1 filter kit**. Packing spends home stock once: each medical kit costs 2 metal, each filter 1 crystal, plus packed food/water. At least one food/water is required; quantities are adjustable. Unused supplies convert back once on return. Viewing or canceling preparation makes no reservation.
+
+Rescue shares one food and one water. A refill uses one water per person, including escorts. Treatment uses a medical kit; rest uses one food per party member and one water. Field meals use carried food, never remote home food. A salvaged cache gives carried **12 metal, 2 crystal and 1 component**. Those become home stock only on return.
+
+Failure favors injury and recovery. Exhaustion or defeat triggers one injured return and leaves carried salvage behind. A failed component remains recoverable at its persistent site, preventing the first upgrade from becoming unreachable; cleared encounters remain cleared. Downed returnees are stabilized, not fully healed. Colony deaths and distress failures remain possible. Exact difficulty is a tuning boundary, not a promised permanent-death ruleset.
+
+## Colony systems
+
+The home retains seeded geology, mining/salvage/survey and rectangular orders; reserved construction/refunds; four-neighbor double-buffered atmosphere, heat and oxygen-dependent fire; breaches; connected power islands, local batteries and priority consumers; farming, beds, medicine, needs, notices, overlays and map following.
+
+| Module | Function |
 | --- | --- |
-| [catalog.json](../assets/catalog.json) | Generated schema-3 inventory plus every region's identity evidence, live binding usage, affordances, generation status and future ideas. Use this for current coverage. |
-| [sprites.json](../assets/sprites.json) | Frozen import audit with IDs/crops/metrics/historical matches. Its usage flags describe import time. |
-| [build_runtime_assets.py](../tools/build_runtime_assets.py) → [ithica-colony-sprites.json](../assets/ithica-colony-sprites.json) | Colony alias selection and identified shared font; selection is authored in the Python builder. |
-| [ithica-expedition-bindings.json](../assets/ithica-expedition-bindings.json) | Authored RPG aliases pointing to existing stable sprite IDs. |
-| [ithica-generation.json](../assets/ithica-generation.json) | Authored CA/material/room/hazard placement rules; embedded in Core at build. |
-| [urizen-generation-review.json](../assets/reference/urizen-generation-review.json) | Authored per-crop observations, decisions and future uses for the focused review. |
-| [build_game_catalog.py](../tools/build_game_catalog.py) | Builds catalog enrichments, `ithica-expedition-sprites.json`, `atlas-index.json`, `atlas.html`, `reference/rpg-bindings.md`, and `reference/urizen-generation.md`. |
-| [atlas-template.html](../assets/reference/atlas-template.html) | Authored offline viewer/scene-lab template; regenerate `atlas.html` after edits. |
-| [urizen-generation.md](../assets/reference/urizen-generation.md) | Generated human-readable table of the 104 inspected crops and actual generation references. |
+| Pressure hull / habitat deck / airlock | Enclosure, walking surface, power connectivity and a pressure seal |
+| Solar array / battery | Up to 12 kW daylight supply / 240 kWh storage per bank |
+| Life support | Water-powered oxygen and warmth; 3 kW |
+| Hydroponics | Food subject to water, pressure, temperature and 4 kW; local botanists improve output |
+| Sleeping pod / med station | Recovery; powered nearby med station improves healing, drawing 2 kW |
+| Earth uplink | Retained optional colony charter module, 60 metal + 20 crystal, 5 kW |
+| RTG | Reliable 12 kW starter generator; cannot be manufactured |
+| Suit service | 24 metal + 4 crystal + 1 component, 2 kW; improved field oxygen efficiency on departure and deeper-site discovery |
 
-Generation status is `runtime_rule`, `candidate_requires_rules`, `not_world_generation`, or `not_applicable`. A catalog idea or registered viewer sprite does not imply a gameplay system exists. Unused/unmapped entries retain proposals and required work. Publisher identity and game casting stay separate: the author's dog becomes a Briar hound; a leaf silhouette becomes corruption; uncertain figures/fragments retain their uncertainty.
+The optional retained charter requires 3 rescues, cycle 3, 4 living crew, 20 food and a powered pressurized uplink. It is not the combined game's first-loop objective or a required ending. Stock includes metal, water, food, crystal and components. Delivery is abstract; there is no hauling or collision reservation, and people may share cells.
 
-The catalog builder reads `catalog.json` to retain its original image/archive inventory while replacing generated enrichments. Preserve that inventory; deleting the entire catalog is not a supported clean-regeneration step.
+## Sites generation and hazards
 
-The native **F2 atlas** displays/searches all occupied regions, usage, generation notes and visual observations. The offline [atlas.html](../assets/atlas.html) embeds metadata/original images and adds a scene lab: pin sprites, paint ground/prop/actor layers, and export exact-ID JSON or PNG. Scene recipes are not loaded by the game or automatically learned as WFC samples. Controller artwork is available; controller input is not implemented.
+[LunarGenerator](../src/Ithica.Core/Generation/LunarGenerator.cs) reuses the tested CA/WFC algorithms, then explicitly changes ground/collision, art, objects and progression. Old forest, pond, shrine and relic objects do not enter the lunar site.
 
-```sh
-# After RPG aliases, generation/review data, or atlas-template edits:
-python3 tools/build_game_catalog.py
-python3 tools/build_game_catalog.py --check
+| Family | Layout | Content |
+| --- | --- | --- |
+| Surface | 48×32; cellular rubble with protected approaches | Distress rescue or salvage encounter/component; explicit return point |
+| Compartments | 51×37; 7×5 chunks of 7×7 rooms; WFC and cellular damage | Pump, sealed passage, heavier encounter, component and return point |
 
-# After changing colony selection, regenerate it before the shared catalog:
-python3 tools/build_runtime_assets.py
-python3 tools/build_game_catalog.py
-```
+The WFC solver uses authored opposing sockets, bounded attempts and a valid structural fallback. Global validation checks reachability and ensures the seal cannot be bypassed while its repair prerequisite remains reachable. Room variants are presented as intact, service and damaged geometry; atlas indices never supply sockets automatically.
 
-The normal builders use Python's standard library; `--check` also verifies original PNG/ZIP hashes. Rebuilding the frozen import audit through `build_sprite_reference.py` is a separate development task requiring Pillow and a renewed review of identities/mappings.
+Each discovered site's seed/version is fixed. Generation happens once when first prepared; generated arrays, seen cells, cleared encounters, recovered loot, repairs, seal state and exposure are saved. Revisits do not reroll. Seeds for layout/dressing, site combat and colony simulation remain independent, preserving the legacy stream algorithms where required.
+
+Home and the current site are active. Inactive site cellular fields freeze; known distress survival still follows campaign time through the home contact schedule. The current site advances its exposure automaton every four logical ticks, including combat, rest and repair costs. Protected approaches remain excluded. The symbolic exposure/interference overlay can affect health/stress and be suppressed nearby with a kit; source removal persists. No ordinary outdoor fire or spores are initialized in lunar sites. Colony fire consumes oxygen. Vegetation remains a future enclosed-habitat casting idea.
+
+A secured pump provides one home water per 32 campaign ticks. Remote autonomous colonies, streamed regions and a fully simulated distant ecology are not implemented.
+
+## Field roles and encounters
+
+| Profession / field role | Three abilities |
+| --- | --- |
+| Engineer / Engineer | Strike, Disrupt, Brace together |
+| Miner / Scout | Shot, Track, Burst |
+| Botanist / Surveyor | Pulse, Interrupt, Arc |
+| Medic / Medic | Strike, Treat, Reassure |
+
+Shared actions are Guard, Medical kit and Retreat. Charge replaces the preview's mana presentation. Initiative, intent telegraphs, armor, guard, mark, stun, damage/bleed effects, stress and experience remain graphics-free rules. Resident health is on a 100-point scale and charge caps at 40. Battle positioning is top-down presentation; tactical movement, cover and range are absent.
+
+| Variant | Appearance | Present statistics |
+| --- | --- | --- |
+| Movement | `bandit` crop, source identity kept uncertain | 28 HP for 1–2 residents, 30 for 3–4; power 6, speed 6, armor 1 |
+| A still shape | Same appearance, heavier variant | 48 HP, power 8, speed 5, armor 2 |
+| Interference | `wisp` crop, no asserted supernatural origin | 18 HP, power 4, speed 6, armor 0; stress-oriented intent |
+
+The salvage template has one Movement, adding Interference for parties above two. The deeper template has A still shape plus Interference. Encounters do not respawn after clearing. Ordinary/heavy victories award 20/45 experience each; the lunar game does not fabricate preview gold or medical kits as rewards.
+
+The retained preview has four fixed fantasy companions, 12 class skills plus 3 shared actions, seven named enemies across six appearances, five groups, three areas and its key → gate → boss → relic → return quest. These are compatibility fixtures, not current lunar counts. See [LEGACY_RPG.md](LEGACY_RPG.md).
 
 ## Controls
 
-The clients have separate control schemes. Full tables are in [README](../README.md) and [LANTERN.md](LANTERN.md).
+| Context | Input |
+| --- | --- |
+| Colony | Click/Enter inspect, order or prepare a map contact/site; R locates distress |
+| Colony time | Space pause; 1/2/3 speed; period advances one paused tick |
+| Colony work | D mine/salvage, B ordinary construction, U suit service, P survey, X cancel; V rectangle |
+| Colony inspection | Arrows/HJKL cursor, Shift stride; C manifest, E log, O overlays, G home, F follow |
+| Expedition movement | WASD/arrows; click seen terrain or an object to route/approach; Esc stops |
+| Expedition interactions | E/Enter interact, Space/period wait, R return at the return approach |
+| Field supplies | O refill, H treat selected resident, C rest, T suppress nearby exposure |
+| Combat | 1–6 select action; click map unit/enemy entry/party card; Enter uses the current action on the default appropriate target |
+| Both maps | Wheel zoom at pointer; +/- or Page Up/Down at cursor/party; 0 reset; right/middle drag pan |
+| Preparation | Click residents, scroll list, +/- supplies; Enter depart, Esc cancel |
+| Arrival | Enter/Space/Esc or button dismisses report |
+| Whole campaign | F5 save, F9 load; colony also S / Shift+L; loading pauses colony time |
+| Guide / atlas | T at home, F1 outside; F2 atlas, Esc closes; atlas F3 pack, F4 palette, F6 family, F7 usage, type search |
+| Window | F11 fullscreen; Q save/quit through the guarded normal autosave path |
 
-| Action | Regolith | Lantern Below |
-| --- | --- | --- |
-| Main map input | Click/Enter inspect, rescue or designate | WASD/arrows or click to move; E/Enter interact |
-| Zoom and pan | Wheel at pointer; +/− at cursor; right/middle drag | Wheel at pointer; +/− at party; right/middle drag |
-| Follow / reset | F selected crew; G home; 0 reset zoom | G follow party; 0 reset/follow |
-| Time | Space pause; 1/2/3 speeds; period single tick | Exploration turns on movement; period/Space waits |
-| Work / supplies | D/B/P/X mine/build/survey/cancel; V rectangle | T torch/ward; R camp; H potion on selected hero |
-| Information | C crew; E log; O environmental overlays | I pack; J journal; F2 atlas; F4 original colors |
-| Tutorial | T six-section tutorial; ? controls | F1 four-page field guide |
-| Combat | Not implemented | 1–3 skills; 4 guard; 5 potion; 6 retreat; click target/Enter confirm |
-| Save / load | S or F5 / Shift+L or F9 | F5 or Ctrl+S / F9 |
-| Window / exit | F11 fullscreen; Q quit | F11 fullscreen; Q quit |
+Explicit preview scenes, frame captures, smoke and headless tools do not autosave player state. Normal live campaigns autosave on exit while living; exiting after colony loss preserves the prior save.
 
-Within the RPG atlas, type to search; F3 cycles packs, F6/Tab families, F7 usage, F4 original/masked artwork; arrows select, Page Up/Down or wheel pages, and detail-panel scrolling reads longer notes.
+## Ownership and architecture
 
-## Saves
+[Ithica.sln](../Ithica.sln) contains five projects:
 
-| Game | Default path | Format/version |
-| --- | --- | --- |
-| C# colony | `~/.regolith/colony-csharp.json` | `regolith-csharp`, version 1 |
-| C# RPG | `~/.regolith/lantern.json` | `lantern-rpg`, version 2; reads RPG version 1 |
-| Archived Python colony | `~/.regolith/colony.json` | Python version 2; archived loader also reads version 1 |
+| Project | Ownership |
+| --- | --- |
+| [Ithica.Core](../src/Ithica.Core/) | Shared Campaign/clock/commands; Colony simulation; Expeditions combat/maps; Generation; Persistence; command-driven diagnostics. No MonoGame dependency |
+| [Ithica.Client](../src/Ithica.Client/) | One MonoGame game; home and field screens, preparation/arrival, guide, atlas, input and presentation; explicit legacy preview in `Preview/` |
+| [Ithica.Graphics](../src/Ithica.Graphics/) | Sprite lookup, lazy texture loading, original/mask copies, bitmap text and camera |
+| [Ithica.Tools](../src/Ithica.Tools/) | Headless loop, generation validation/reports, colony and combined benchmarks; no graphics initialization |
+| [Ithica.Core.Tests](../tests/Ithica.Core.Tests/) | Retained colony/preview behavior plus cross-phase integration, time, failure and saved continuation |
 
-The formats are separate. C# writes use a flushed temporary file followed by atomic replacement. Colony saves preserve authoritative world/crew/jobs/resources/rescues and RNG state; derived routing/power lookups rebuild on load. RPG version-two saves preserve actual terrain/sprite choices/objects/safe masks, discovery, hazard ages/fuel/sources/suppression/timing, party, quest and mid-combat state. RPG version-one saves reconstruct the original authored maps with hazards disabled and can resave as version-two snapshots.
+Start at [Campaign.cs](../src/Ithica.Core/Campaign/Campaign.cs), [CampaignClock.cs](../src/Ithica.Core/Campaign/CampaignClock.cs), [CampaignPersistence.cs](../src/Ithica.Core/Persistence/CampaignPersistence.cs), [IthicaGame.cs](../src/Ithica.Client/IthicaGame.cs) and [ExpeditionScreen.cs](../src/Ithica.Client/ExpeditionScreen.cs). The client's `_sim` is an alias for the campaign's home, not another simulation. UI gameplay callbacks detected while drawing are queued for Update. Core commands settle effects and automatic hostile turns before returning; the renderer owns no simulation RNG.
 
-Normal window close/Q saves. Colony loss preserves the previous save. RPG `--demo` and non-town preview scenes autosave only after a load resumes normal play; explicit F5/Ctrl+S can still save previews. `--frames` captures and native smoke runs do not autosave. Use `--save PATH` for inspection that might write a save.
+Worlds use contiguous row-major arrays and reusable diffusion/BFS buffers. Work uses spatial buckets and cached topology/power graphs; routing limits new requests to 64 per tick with rotating crew processing. Simulation is synchronous on one thread. Worker threads would require commands and immutable/double-buffered render state; do not share mutable worlds across threads casually.
 
-Sources: [colony persistence](../src/Ithica.Core/Colony/Persistence.cs), [RPG persistence](../src/Ithica.Core/Expeditions/Persistence.cs), and the respective client exit/load handlers. Preserve compatibility and exact continuation when changing state or generation.
+## Saves and compatibility
 
-## Performance and platforms
+| Data | Default path / format |
+| --- | --- |
+| Ithica campaign | `~/.ithica/campaign.json`, format `ithica`, version 1 |
+| Nested current field session | `ithica-field`, version 1; one site's maps with a variable resident projection |
+| Legacy colony compatibility | `~/.regolith/colony-csharp.json`, `regolith-csharp`, version 1 |
+| Legacy fantasy preview | `~/.regolith/lantern.json`, `lantern-rpg`, versions 1/2 |
+| Archived Python | `~/.regolith/colony.json`, separate Python format |
 
-The games run synchronous simulation on their client thread. The colony advances at eight logical ticks/second at normal speed; its 12 ms frame budget limits starting more ticks, not interrupting one long tick. It slows simulated wall-clock progress under overload. Colony routing allows 64 requests per tick; an individual BFS can still visit the whole map. There is no simulation worker, ECS, chunk streaming or crowd reservation.
+Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
 
-Colony terrain/environment and routing use contiguous arrays, reusable buffers, cached active-floor/power connectivity and spatial work buckets. RPG generation runs at campaign creation and uses 35 WFC domains; active-area hazards advance at turn cadence. Rendering is bounded by the visible viewport. These are foundations, not a measured full Dwarf Fortress/Songs of Syx workload.
+`./ithica.sh --import-colony PATH` imports an inactive legacy colony into a new campaign; finish its automated legacy rescues first. It preserves source world, people, resources, clock and RNG, reads without changing the source, and writes only the selected Ithica save. It does not merge an unrelated fantasy campaign. Original save identifiers, historical SDK lookup and `LegacyWorldBuilder` remain intentional compatibility code.
 
-Recorded colony stress samples on Intel i5-8279U/macOS, .NET 10.0.13, after warm-up and over 120 measured ticks:
+## Sprites and authoring
 
-| Dense world / agents | Mean / p95 tick | Mining complete / queued |
-| --- | --- | --- |
-| 256 × 256 / 1,000 | 4.094 / 10.988 ms | 1,000 / 1,000 |
-| 512 × 512 / 10,000 | 15.666 / 16.731 ms | 7,215 / 10,000 |
-| 1024 × 1024 / 10,000 | 64.465 / 65.901 ms | 7,215 / 10,000 |
+Read [the schema-4 guide](../assets/reference/CATALOG_V2.md) and [current field casting](../assets/reference/ithica-sprites.md). Source identities and interpretations remain separate. Original sheets, IDs, rectangles, inventory/archive hashes, credits and uncertain labels are preserved.
 
-These samples use a dense sealed habitat, abundant resources, one nearby mining order per crew member and later idle movement; they exclude rendering, serialization, hazards and incoming rescues. Routing limits leave work queued. See [PERFORMANCE.md](PERFORMANCE.md) and [raw measurements](performance-baseline.json) before making scale/frame-rate claims.
+| Authoritative input | Purpose |
+| --- | --- |
+| [sprites.json](../assets/sprites.json) | Frozen import audit and stable source/crop/evidence records |
+| [ithica-expedition-bindings.json](../assets/ithica-expedition-bindings.json) | Field/retained-preview alias-to-ID selection |
+| [ithica-casting.json](../assets/ithica-casting.json) | Current lunar roles/limits, placement categories and future lunar ideas |
+| [ithica-generation.json](../assets/ithica-generation.json) | Retained preview/intermediate CA/WFC material and room rules |
+| [urizen-generation-review.json](../assets/reference/urizen-generation-review.json) | 104 focused crop observations and uncertainty |
+| [atlas-template.html](../assets/reference/atlas-template.html) | Offline atlas UI/template |
+| Existing [catalog.json](../assets/catalog.json) inventory | Also an input: retain original file/archive inventory when regenerating |
 
-CI is configured for Linux, Windows and macOS core/headless checks. Native graphics and published builds have been exercised locally on **macOS Intel**. Framework-dependent distribution requires .NET 10; installers, signing and store publishing are not configured.
+Derived outputs are the colony/field manifests, schema-4 catalog, viewer index, offline HTML and generated Markdown tables. Edit inputs and regenerate:
 
-## Verification
+```sh
+python3 tools/build_runtime_assets.py
+python3 tools/build_game_catalog.py
+python3 tools/build_game_catalog.py --check
+```
 
-Choose checks for the changed subsystem. Documentation-only changes need source/count/link consistency checks; gameplay changes need the relevant core tests. Shared graphics changes warrant both clients; generation changes warrant seed validation plus full quest runs.
+The catalog covers 664 PNGs, 3 archives, 11,887 regions / 7,115 occupied crops. Per-region `ithica` distinguishes bound, preview-only, unused and non-gameplay status, with current phase aliases and lunar proposals. Current selection is 166 IDs including shared glyphs/UI; the field/preview manifest selects 191; their historical selection union is 241 and 6,874 occupied sprites remain unbound. There are 14 current field aliases/IDs and 104 preserved focused visual reviews. General proposals do not mean each crop was newly manually identified.
+
+Colony and field binding contexts intentionally differ, for example `wall`; they use separate sprite libraries rather than dictionary overwrite. Texture masks/black removal are in-memory copies, with nearest-neighbor rendering. Native atlas registration is lazy and is not gameplay use. Offline atlas scene exports use `ithica-sprite-scene`, version 1; runtime scene-recipe import remains absent.
+
+## Verification and performance
+
+The acceptance record and commands are maintained in [VERIFICATION.md](VERIFICATION.md). The current change preserves the original 97 core cases and adds tests for the shared clock, all saved phases, actor identity, paid supplies, departure/return, failed cargo recovery, deeper-site progression and legacy import. Consult that record for final totals and actual native/published results; a plan or configured CI job is not verification evidence.
 
 ```sh
 ./tools/dotnet.sh restore Ithica.sln --locked-mode
 ./tools/dotnet.sh build Ithica.sln --configuration Release --no-restore
 ./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
-python3 tools/build_game_catalog.py --check
-
-./play.sh --headless 700 --demo --seed 42
-./rpg.sh --headless --seed 42
-./rpg.sh --validate-seeds 1000 --seed -500
-
-# Requires a desktop/OpenGL environment; opens real windows:
-./play.sh --smoke-test --screenshot /tmp/regolith-smoke.png
-./rpg.sh --smoke-test --window-size 1024x720 --screenshot /tmp/lantern-smoke.png
+./ithica.sh --headless
+./ithica.sh --validate-seeds 1000 --seed -500
+./ithica.sh --campaign-benchmark --samples 32
+./ithica.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
+./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
+./rpg.sh --headless
 ```
 
-Last recorded gameplay verification, 2026-10-20: 97 core cases passed; 1,000 layouts for seeds −500 through 499 had zero fallback zones; 36 real full expeditions completed; colony/RPG native smoke checks passed 12/17 checks; the published RPG passed outside the repository; the offline atlas passed 14 checks; generated content and original asset hashes matched. These are the recorded baseline, not an assertion that a future checkout has just passed them. The extra expedition/browser checks were local verification; the persistent core cases and CI workflow are in the repo.
+`--headless` without a tick count completes the real integrated loop. `--headless N` advances the unified colony; `--demo` first completes the loop. `--legacy-colony --headless N --demo` preserves the old automated-rescue regression. Tools never write player saves. Generation validation covers 1–10,000 consecutive signed seeds, wrapping deterministically.
 
-Ithica planning reconciliation, 2026-10-20: inspected current tick ownership, crew processing, RPG action pacing, fixed-party/site assumptions and save validation to ground the integration plan. The documentation change passed local link/anchor and code-fence checks across eight Markdown files, plus whitespace checks. Gameplay code and generated assets were unchanged; the gameplay suite was not rerun for this documentation-only change.
+CI runs locked restore/build/tests, the legacy colony check, integrated loop, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. It does not certify native rendering on all platforms. Actual graphical work here is macOS Intel; Windows/Linux still need native smoke checks.
 
-[CI](../.github/workflows/build.yml) runs locked restore/build/tests, both headless scenarios and 256 procedural seeds on all three desktop OS runners; the catalog check runs on Linux. This does not certify native graphics on every OS.
+Current and historical measurements are distinguished in [PERFORMANCE.md](PERFORMANCE.md). The historical dense-world samples do not prove Dwarf Fortress/Songs of Syx scale. Combined samples measure the actual small home-plus-expedition workload and useful completed work. Root arrays/caches remain a foundation, not a promise of arbitrary simulation scale.
 
-```sh
-./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/game
-./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/lantern
-```
+## Boundaries and future work
 
-Published clients carry runtime artwork/manifests/credits; the RPG also carries its viewer index/all required source images. Keep `bin/`, `obj/`, `artifacts/` and player saves out of source control.
-
-## Current gaps
-
-| Area | Present boundary or future possibility |
+| Area | Present boundary |
 | --- | --- |
-| Combined campaign | Planned in ITHICA_PLAN.md; no shared population, clock, inventory, phase transition or save yet |
-| Product rebrand | Ithica projects and asset configuration migrated; compatibility launchers, historical saves and explicit expedition preview retained |
-| RPG world | Three finite areas and a fixed quest; no endless world, biome progression campaign or streaming |
-| RPG enemies | Fixed authored encounter compositions and sprite-keyed intents; no procedural bestiary, roaming ecology or respawn system |
-| RPG tactics | Top-down battle presentation; no tactical movement, range, cover or flanking |
-| RPG items and dialogue | Shared consumables, class equipment, service purchases and fixed dialogue; no hauling, gear swapping, crafting, branching dialogue or per-item shop stock |
-| Colony scale | One dense layer, shared inventory, overlapping crew and synchronous simulation; no z-levels, hauling, combat or rich social model |
-| Art | Existing crops and palette masks; no confirmed directional animation sets, inferred sprite autotile rules or automatic fragment assembly |
-| Input | Keyboard/mouse implemented; controller sprites are cataloged but gamepad controls are absent |
-| Authoring tools | Atlas scene lab exports experiments; no runtime scene-recipe import, general map editor or mod API |
+| World | Finite persistent sites and authored opportunity types; no streamed endless world or autonomous distant colonies |
+| Time | Atomic synchronous commands; inactive site fields freeze; important deadlines follow campaign time |
+| Tactics | Intent/ability combat in a top-down view; no tactical walking, range, cover or flanking |
+| Economy | Aggregate stock/cargo and fixed recipes; no hauling, per-item gear swapping, detailed crafting or shops in the lunar loop |
+| People | Needs, jobs, field roles, stress and recovery; no rich relationships, diplomacy or generational simulation |
+| Navigation | Overlapping people, request-limited BFS; no crowd reservations or hierarchical regions |
+| Assets | Original crops and masks; no inferred animation/direction sets, automatic fragment assembly or sprite-derived sockets |
+| Input | Mouse/keyboard; controller artwork exists but gamepad input is absent |
+| Authoring | Atlas scene experiments export JSON/PNG; no runtime recipe importer, general map editor or mod API |
 
-Catalog future-use ideas describe possibilities. They are not commitments or shipped features. This table records scope boundaries; later work should follow the user's actual request.
+Balance values are current implementation choices. New biomes/enemies, permanent-death settings and larger simulation changes need actual implementation, updated counts and appropriate validation. Keep mechanics readable while leaving the setting unexplained.
 
-## Keeping this reference current
+## Maintaining this reference
 
-For a gameplay/content change, update the affected overview, counts, rosters, limits and source links here in the same change. Keep detailed guides synchronized where their behavior changes. Record verification commands/results with their actual scope and date.
+Verify facts in code/configuration before updating counts. Do not copy old fantasy counts into the lunar roster, or treat catalog proposals as shipped systems. Keep authoritative resident ownership, one clock, no deliberation-time countdown, independent RNG and exact saved continuation intact. Preserve the source art and stable mappings; regenerate derived asset data.
 
-Follow [the Ithica plan](ITHICA_PLAN.md) for integration work. Update implemented status here and stage acceptance there together. Preserve the distinction between old prototype inventories and new lunar content; do not claim the shared clock or new launcher exists before it runs and is verified.
-
-For sprite changes, edit the authored inputs listed above and regenerate derived outputs. Retain publisher identity/evidence separately from game roles; leave unreviewed identities uncertain. Check source hashes and never infer animation, species, collision or sockets just from neighboring atlas indices.
-
-For generator/save changes, preserve quest reachability, the locked boss cut, independent RNG state, protected approaches and old-save handling. Update the applicable format/generator version and tests deliberately. Do not reroll a loaded version-two map or remove `LegacyWorldBuilder` as unused code.
-
-For content questions, verify counts in code/configuration: zones in `WorldBuilder`, room variants in `ithica-generation.json`, enemies/encounters in `Combat`, party/skills in RPG `Models`, modules in colony `Models`, and asset coverage in `catalog_summary`. Avoid copying historical chat counts into new documentation without checking those sources.
+For gameplay changes update current scope, controls, costs, roster/content, saves, limits and verification here, then synchronize specialist guides. Record new performance samples with hardware/workload and useful-work counts. Keep legacy save readers, fixtures and explicit preview paths working until a deliberate replacement migration is tested. Historical names inside provenance or compatibility formats are not accidental current branding.
 
 ## Detailed references
 
 | Reference | Use |
 | --- | --- |
-| [ITHICA_PLAN.md](ITHICA_PLAN.md) | Approved combined-game design, time contract, implementation stages and Ithica naming/compatibility migration |
-| [README](../README.md) | Launching, colony play guide and general build instructions |
-| [LANTERN.md](LANTERN.md) | RPG walkthrough, complete controls and player-facing rules |
-| [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) | CA/WFC implementation, hazards, diagnostics and screenshots |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Simulation ownership, routing, power, persistence and extension boundaries |
-| [PERFORMANCE.md](PERFORMANCE.md) | Measured colony scenario, limitations and reproduction commands |
-| [CATALOG_V2.md](../assets/reference/CATALOG_V2.md) | Current schema-3 catalog documentation; filename retained for older links |
-| [rpg-bindings.md](../assets/reference/rpg-bindings.md) | Every current RPG semantic alias and shared glyph mapping |
-| [urizen-generation.md](../assets/reference/urizen-generation.md) | Focused visual review with generation use/unused candidates |
-| [SPRITE_GUIDE.md](../assets/SPRITE_GUIDE.md) | Original exhaustive audit guide; import-time usage flags |
-| [CREDITS.txt](../assets/CREDITS.txt) | Source publishers and recorded provenance/license declarations |
-| [legacy Python README](../legacy/python/README.md) | Archived terminal implementation and its independent launch workflow |
-
-Integration checkpoint, 2026-10-20: consolidated Ithica solution, Core and tests; all 97 existing core cases pass. Both prototype clients now live in one executable, with the independent RPG exposed as `--preview`. Shared campaign integration is the next stage.
-
-Shared-domain checkpoint, 2026-10-20: `Ithica.Core.Campaign` now owns the colony clock, resident-backed variable parties, packed supplies, lunar persistent sites, transactional departure/return, rescued recruitment, salvage components, a buildable suit service and atomic unified saves. Thirteen integration cases cover these boundaries, bringing the core suite to **110 passing cases**. The native main client still uses the old standalone colony path at this checkpoint; connecting the shared campaign is the next stage. `regolith-csharp` and `lantern-rpg` readers remain intact.
-
-Unified-client checkpoint, 2026-10-20: the normal launcher now starts the shared campaign. Map-click preparation, configurable supply packs and 1-4 residents, top-down field movement/combat, mouse/cursor zoom and pan, shared saves, arrival reports, six tutorial sections and the full native atlas run in one window. Native smoke passed **18 checks**, including the real rescue → salvage combat → cargo/injury return → constructed upgrade loop. Native surface/preparation/battle/structure/arrival/atlas scenes rendered at 1440×900 and/or 1024×720. Lunar validation covered **1,000 seeds / 2,000 sites with zero fallback**. Source sheets and existing IDs/crops remain preserved. Catalog casting and final reference consolidation are still in progress.
-
-Continuation/recovery checkpoint, 2026-10-20: **125 core cases pass**, including all saved phases, nonsequential IDs in combat, inactive-site persistence, seal prerequisites, paid treatment/refills, exact return travel, component refunds and non-destructive legacy import. A fully incapacitated field party now makes one injured return across all action paths, preventing endless zero-oxygen travel; cargo is lost and recovery remains necessary. The deeper pump/seal/encounter/loot/return loop and its persistent home-water benefit are covered by command-driven checks.
-
-Lunar catalog checkpoint, 2026-10-20: schema 4 adds `sprites[].ithica` to every region, separating **166 current selected IDs**, **14 field aliases/IDs**, **75 preview-only IDs** and **6,874 unbound occupied sprites**. Original identity evidence, all source files/crops, the 104 focused observations and legacy preview assessments are retained. Authored roles/limits and lunar future ideas live in `assets/ithica-casting.json`; the native/offline atlas exposes current lunar use separately.
-
-Completed gameplay checkpoint, 2026-10-20: **131 core tests pass**. Home rest recharges field equipment and powered care improves recovery; escorted people consume oxygen only on logical ticks and retain a recruitment-ID link. Morale projection preserves fractions, home hull completion excludes away residents, and failed components remain recoverable. Frame tick-start budgeting is retained, dangerous home notices stop field routes, and encounter conditions/target reserves are visible. Native/published acceptance and current source-of-truth cleanup are recorded in the following documentation checkpoint.
+| [README](../README.md) | Normal launch, quick loop and build commands |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Ownership, time, persistence and scaling boundaries |
+| [EXPEDITIONS.md](EXPEDITIONS.md) | Current lunar field controls and progression |
+| [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) | CA/WFC reuse, lunar recasting, persistence and validation |
+| [VERIFICATION.md](VERIFICATION.md) | Dated implementation acceptance, actual checks and rollback commits |
+| [PERFORMANCE.md](PERFORMANCE.md) | Workloads, raw measurements and limitations |
+| [LEGACY_RPG.md](LEGACY_RPG.md) | Retained fantasy prototype walkthrough and regression commands |
+| [Catalog guide](../assets/reference/CATALOG_V2.md) | Schema 4, evidence, current usage and regeneration |
+| [Current field sprites](../assets/reference/ithica-sprites.md) | Every current lunar field alias, source evidence and adaptation limits |
+| [Urizen review](../assets/reference/urizen-generation.md) | Preserved 104-crop focused inspection |
+| [CREDITS.txt](../assets/CREDITS.txt) | Original publisher provenance and declarations |
+| [Archived Python README](../legacy/python/README.md) | Historical terminal implementation |

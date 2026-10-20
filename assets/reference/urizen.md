@@ -1,6 +1,6 @@
 # Urizen: every occupied atlas cell
 
-Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [runtime-sprites.json](../runtime-sprites.json) for the MonoGame client's current selection of these unchanged IDs. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.
+Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [catalog schema 4](CATALOG_V2.md) for current Ithica/preview selection and [ithica-colony-sprites.json](../ithica-colony-sprites.json) for the home bindings. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.
 
 All coordinates are zero-based source pixels; rectangles are `x, y, width, height`. Urizen IDs also encode zero-based row and column. Source paths are relative to `assets/`.
 

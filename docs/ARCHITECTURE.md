@@ -1,65 +1,55 @@
 # Ithica architecture
 
-**Implementation snapshot:** this guide describes the existing colony and expedition prototypes, whose source projects retain the legacy Regolith/Lantern names. The [Ithica integration plan](ITHICA_PLAN.md) defines the approved shared campaign, clock, target project layout and naming migration. Those changes are not yet implemented; consult [PROJECT_STATE.md](PROJECT_STATE.md) for the current boundary.
+[PROJECT_STATE.md](PROJECT_STATE.md) is the implemented reference. Ithica uses one graphics-free C# campaign and one MonoGame window. Home, expedition, preparation and arrival screens operate on the same population, inventory and timeline.
 
-The game uses C#/.NET 10 with MonoGame DesktopGL 3.8.6. The simulation has no MonoGame dependency; the native client submits commands and renders simulation state. The original Python project is archived under `legacy/python` and is not imported or launched by the new game.
+## Ownership
 
-## Projects and ownership
+- `Ithica.Core/Campaign` owns the campaign, clock, commands, phase transitions, site registry and carried supplies/cargo.
+- `Colony` owns home cell arrays, machines, work, routing, contact survival and authoritative residents.
+- `Expeditions` owns site/encounter mechanics and the retained fantasy compatibility path. A field session's heroes and combat units are controlled projections of resident IDs, not another population.
+- `Generation` recasts the existing CA/WFC algorithms into lunar terrain, objects and validated access.
+- `Persistence` owns unified snapshots and validation; `Diagnostics` replays ordinary commands for tools and native inspection.
+- `Ithica.Client` handles input and presentation. Its `_sim` property references `Campaign.Home`. Gameplay callbacks collected in immediate-mode UI drawing are queued for Update.
+- `Ithica.Graphics` owns sprite libraries, masks, text and cameras. `Ithica.Tools` and Core.Tests run without MonoGame or SDL initialization.
 
-`Regolith.Core` owns `World`, `Simulation`, colonists, machines, work orders, contacts, expeditions, the seeded random stream, and persistence. `Regolith.Client` owns graphics resources, input, UI state, and the clock accumulator. Shared `Regolith.Graphics` now contains `SpriteLibrary` and `MapCamera`, used by both the colony and RPG clients. `Regolith.Tools` references only Core and runs without SDL/OpenGL. Tests reference only Core, so environmental and progression rules can be checked without opening a window.
+The solution has five projects. The explicit `Preview/` client path retains the old fantasy gameplay and save readers; it is not the normal expedition phase.
 
-`Lantern.Core` contains independent fantasy RPG rules; it does not reference colony simulation types. `Lantern.Client` uses the shared renderer utilities and its own manifest, map presentation, party interface, and atlas viewer. Texture loading is lazy for unbound atlas entries, so browsing all 7,115 registered sprites does not eagerly allocate 664 image pairs. See [the RPG guide](LANTERN.md) and [catalog schema](../assets/reference/CATALOG_V2.md).
+## One clock
 
-There is currently one simulation thread. The client advances fixed logical ticks at 8 ticks/second, or 3×/8× that rate, and interpolates crew positions between updates. A frame limits how long it starts further ticks and caps accumulated backlog; under sustained load the simulation slows relative to real time. An individual tick is synchronous and may exceed that budget. Moving simulation to a worker would require commands and immutable/double-buffered render snapshots; directly sharing these mutable collections across threads would be unsafe.
+`CampaignTick` is the home simulation tick. In colony mode an elapsed-time adapter requests fixed ticks at eight per second, with 1×/3×/8× speed. The client limits how long it starts further ticks to roughly 12 ms and retains bounded backlog. Each tick is synchronous; expensive individual ticks may exceed the frame budget.
 
-## Cells and cellular updates
+In field mode there is no wall-time simulation. Accepted commands advance their declared costs through the campaign scheduler, updating home, active site fields, actor needs and known distress conditions together. Hostile actions resolve deterministically to the next player turn. Thinking, inspection, targeting, menus, camera changes and invalid actions spend no time or RNG.
 
-Cells use row-major integer indices, `y * width + x`. Terrain and visibility are byte arrays. Oxygen, heat, and fire are float arrays with reusable next-state buffers. World changes increment a topology version. The cached active-floor list and connected power graph rebuild when topology changes, instead of rebuilding each tick. Topology changes from many completed jobs are coalesced before the final power refresh.
+The clock's accumulator resets at phase transitions. A return charges travel once and adds no fixed expedition shift. Save snapshots preserve the colony remainder but contain no uncommitted click-route or animation timer. Every public action settles before saving; there is no partially executed enemy action to repeat on load.
 
-Geology uses a seeded five-pass, eight-neighbor majority automaton followed by resource veins and an accessible starting site. Atmospheric fields use four-neighbor pairwise exchange from the old state into next-state buffers. Sealed floor-to-floor oxygen transfers are equal and opposite. Exterior vacuum is a fixed zero-oxygen, ambient-temperature boundary: leaked gas is discarded, rather than simulated across the entire wasteland. Hull and rock block exchange. Airlocks abstract a cycling pressure seal and block gas while passing people and power.
+## People and stock
 
-Only floor cells participate in atmosphere/fire updates. This improves the common case of a large map containing a small built colony; a nearly all-deck stress world still visits nearly every cell. Fire consumes oxygen, heats the cell, spreads stochastically to eligible neighbors, and extinguishes without oxygen. The model is deliberately game-like: heat has habitat relaxation, sunlight is an accelerated cycle, and no pressure momentum or mass units are modeled.
+Residents keep stable IDs, location and field capabilities independently of their work/profession. Departure validates all people/supplies first, releases their home jobs and commits the phase once. Away residents receive needs updates once and never home work, local treatment or farm bonuses. Empty home staffing does not imply defeat.
 
-## Agents, work, and routes
+At each field command, encounter health/stress deltas commit to residents; fractional values remain intact. Post-tick projections refresh from that authority. Charge, level and experience persist across phases. New rescues recruit only in breathable shelter and keep a resident-ID link in historical contact data; old saves may omit that link.
 
-Colonists and contacts have stable IDs. Work orders are indexed by tile and grouped into 16×16 spatial buckets. Workers consider a bounded nearby candidate set and prefer suitable professions. Construction reserves stock when ordered; cancellation refunds it. Releasing a worker clears ownership so another worker can take over.
+Packed food/water, manufactured medical kits and filters are deducted once; field use consumes carried supplies. Cargo and unused supplies return once. Construction reserves component stock through the same `Stock` arithmetic as metal/crystal, including cancel refunds. Failed returns leave undeposited salvage recoverable at its persistent site, retaining cleared encounters.
 
-The router uses breadth-first search with reusable queue, parent, target, and visited-stamp arrays. Paths are lists consumed with a cursor, avoiding front-removal shifts. The simulation allows at most 64 route requests per tick and rotates the crew processing order so agents receive turns. A single search can still visit the whole map; this is a request limit rather than a time/expansion limit. Local idle patrol avoids needless colony-wide searches. Routes are revalidated as people move, and impossible work stays queued.
+## World representation and performance
 
-This is a baseline for profiling, not a final solution to dense cities. Hierarchical navigation, connectivity/region caches, expansion budgets, and shared routes are plausible next changes if measurements identify routing as the bottleneck. There is no collision reservation or crowd avoidance; multiple people can occupy a cell.
+Cells use row-major contiguous arrays. Atmosphere/heat/fire use old-state/new-state buffers; hull blocks exchange and exterior vacuum drains breached rooms. Only active floors participate. Fire requires oxygen. Deck/airlock topology defines local electrical islands; topology and machine changes invalidate caches. Connected batteries and prioritized consumers avoid one global power pool.
 
-## Rescues and colony progression
+Work is indexed spatially. BFS reuses buffers and path cursors; at most 64 new routes start per tick, with rotating crew processing. People can overlap. The home and current site are active; distant site fields freeze while explicitly known contact deadlines continue on campaign time.
 
-The opening has Ada alone and a reachable survivor. A map click or cursor confirmation dispatches a ready colonist and spends one rescue kit. Duplicate dispatches do not reserve a second worker or spend more stock. The expedition proceeds through outbound travel, emergency oxygen at contact, and a slower escorted return. The survivor becomes crew only after reaching pressurized shelter.
+Keep the synchronous foundation until profiling justifies another thread. Moving simulation off the UI thread requires a command queue and immutable/double-buffered render snapshots; exposing mutable arrays to both threads would be unsafe. Hierarchical routing, region caches, collision reservations and more detailed hauling remain future work, not present scaling guarantees.
 
-Unassisted survivors lose oxygen and then health. Failure releases the rescuer; an escorted living contact can become stranded again. Later contacts arrive over time. The charter requires three rescues, cycle 3, four living crew, 20 food, and a powered, pressurized Earth uplink. This milestone is covered by a full progression test involving actual work and rescues.
+## Persistence and compatibility
 
-## Power and production
+The root format is `ithica`, version 1, at `~/.ithica/campaign.json`. It contains home state, clock, phase, registry/site arrays, roster locations, pack/cargo, encounters, completion and independent RNG. Temp-file writes flush before atomic replacement. Load validates map, phase, roster and projection consistency without regenerating visited sites.
 
-Connected deck/airlock cells form electrical islands. Machines draw only from their island's production and battery banks. Solar output follows daylight and storms; the starter RTG is constant. Supply allocation favors oxygen production, agriculture, medicine, and communications. Inspecting a network never advances stored energy. Life support consumes water and adds local oxygen/heat. Farms require power, water, pressure, and suitable temperature; nearby botanists help production.
+The nested home retains the `regolith-csharp` identity and old reader. Field sessions use `ithica-field`; the legacy fantasy path retains `lantern-rpg` versions 1/2 and `LegacyWorldBuilder`. Explicit colony import leaves its source untouched and rejects in-flight automated legacy rescues. Two unrelated campaigns are never implicitly merged.
 
-## Sprite contract
+## Assets
 
-`assets/catalog.json` schema 3 retains the original inventory and adds all 11,887 region records with current per-game usage and RPG assessments. `assets/sprites.json` remains the exhaustive frozen import-time audit, with stable IDs and crops. The source PNGs and colony binding selection are preserved. `assets/ithica-colony-sprites.json` is the colony's smaller generated selection; `assets/ithica-expedition-bindings.json` selects the RPG roles and `assets/ithica-expedition-sprites.json` registers its bindings plus every occupied sprite for the native viewer.
+Original source images/IDs/crops remain stable. Home and field aliases use separate contexts; combining their dictionaries by overwrite would corrupt mappings. Source pixels are not edited; black removal and palette masks happen in texture copies. Native atlas textures load lazily.
 
-`tools/build_runtime_assets.py` reads the audit and writes the runtime selection. The client loads PNGs directly, so building does not require MonoGame's content editor or Python. It strips black backgrounds and creates palette masks in memory, uses nearest-neighbor sampling, and draws Urizen's font with fixed advance. Source files are never recolored or repacked. Runtime output copies the needed folders and credits; the exhaustive catalogs, archives, and previews stay in the development repository.
+Schema 4 distinguishes current Ithica phase use from preview-only bindings and proposals. Edit the documented authoring inputs and regenerate derived manifests/catalogs/tables. See the [catalog guide](../assets/reference/CATALOG_V2.md).
 
-## Saves and deterministic continuation
+## Verification boundaries
 
-C# saves use format `regolith-csharp`, version 1, at `~/.regolith/colony-csharp.json` by default. They contain authoritative cell arrays, resources, people, machines, jobs, routes, survivor conditions, active expeditions, timing, logs, and explicit random state. Derived lookup tables and power connectivity are reconstructed on load. Input is validated before the colony is used.
-
-Saving writes and flushes a uniquely named temporary file next to the destination, then atomically replaces the destination. A failed write leaves the previous save available. Tests compare exact serialized state after save/load and further ticks, including outbound and returning expeditions. Repeated runs use stable ordering and the saved random stream. Bit-for-bit floating-point equivalence across every CPU/runtime is not promised, and no old Python save conversion is provided.
-
-## RPG generation and persistence
-
-`Lantern.Core` uses eight-neighbor cellular terrain masks for Ashwood and a connected graph plus 64-bit-domain WFC for Abbey room assembly. Socket constraints are authored per 7×7 chunk; they are unrelated to sprite-sheet indices. Generation rules are embedded from `assets/ithica-generation.json`. After placement, global validation checks access, portal destinations, encounter-free approaches and the key/lock cut before returning a world. Exhausted WFC attempts use exact graph sockets; a failed whole-world validation records a fallback to the retained authored maps.
-
-`HazardField` uses synchronous reusable buffers for fire, spores and corruption every four exploration turns in the active zone. Protected masks preserve roads, room crosses and objective access. Spread reads deterministic seed/cell/tick hashes independently of combat RNG. Fuel and suppression persist; terrain collision stays fixed.
-
-RPG saves use format `lantern-rpg`, version 2, with authoritative maps, objects, sprite choices, safe masks and full environmental state as well as party/quest/battle data. Version-one saves rebuild the original authored maps with hazards disabled and resave as snapshots. Map generation never reruns over a saved map. See [the generation guide](PROCEDURAL_GENERATION.md) for algorithms, rules, diagnostics and extension limits.
-
-## Extension boundaries
-
-Keep game rules in Core; route UI actions through simulation methods rather than mutating world state from widgets. When using `World.SetTerrain`, topology caches invalidate automatically; bulk tools that write `Tiles` directly must call `InvalidateTopology`. Rendering should remain bounded by the viewport, with world summaries maintained by the simulation if their cost grows. Profile representative active colonies before adding concurrency, an ECS, or a chunked world.
-
-Current simplifications include shared abstract resources, instant mined-stock delivery, automatic roof/radiator connections, no z-levels, no hauling, no combat, and no social simulation beyond needs and flavor traits. These are scope decisions rather than capabilities supplied automatically by MonoGame.
+Core coverage preserves all original colony/RPG cases and exercises phase clocks, identity, supplies, failure recovery, persistent access and exact save continuation. Native smoke replays the integrated loop through the same client and command paths. Headless tools verify useful work and procedural seeds. [VERIFICATION.md](VERIFICATION.md) records results; [PERFORMANCE.md](PERFORMANCE.md) records hardware and workload limits.

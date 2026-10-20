@@ -1,128 +1,72 @@
 # Ithica
 
-**A small life on the Moon.** Build a salvage colony from the people you rescue, then take those same residents into the wasteland. Keep the setting mysterious and the survival decisions readable.
+**A small life on the Moon.** Build a salvage colony from the people you rescue, then take those same residents into the wasteland. Recover something useful, bring it home, and leave some questions unanswered.
 
-**Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) records what is implemented. The [Ithica integration plan](docs/ITHICA_PLAN.md) consolidates the approved direction, clock rules, shared population, lunar content and naming migration. [AGENTS.md](AGENTS.md) tells future agents how to maintain both.
+A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases.
 
-The target is one **MonoGame + C#** game: continuous colony time, with both the colony and expedition waiting at RPG decisions. Committed expedition actions advance the shared timeline. **Integration is planned, not yet implemented.** The repository currently contains two independently playable prototypes with separate saves and legacy code names; their existing launchers remain accurate below.
+**Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) is the master source of truth. [AGENTS.md](AGENTS.md) defines repository guidance. [Verification](docs/VERIFICATION.md) records actual checks and implementation checkpoints.
 
-| Prototype | Launch | Explore |
-| --- | --- | --- |
-| Colony (legacy name: Regolith) | `./play.sh` | Lunar colony, cellular atmosphere, work orders, and survivor rescues |
-| Expedition (legacy name: Lantern Below) | `./rpg.sh` | Top-down party RPG, cellular forests/ponds, WFC dungeons, spreading hazards, turn-based skills, and a return-home quest |
-| Sprite atlas | `./rpg.sh --scene atlas` or open [assets/atlas.html](assets/atlas.html) | All 7,115 occupied sprites, current bindings, uncertainty, future ideas, and an offline scene-painting lab |
-
-![Existing expedition prototype: party exploration](docs/images/lantern-town.png)
-
-The RPG runs from the same .NET 10 setup as the colony game. Start with `./rpg.sh`; use `./rpg.sh --demo` for a combat scene. [The RPG guide](docs/LANTERN.md) includes controls, the expedition route, headless checks, and current scope. Try `./rpg.sh --seed 1337 --scene forest` or `./rpg.sh --seed 7 --scene crypt` to explore generated areas. [Procedural generation](docs/PROCEDURAL_GENERATION.md) documents the quest graph, WFC, cellular terrain and hazards. Both games have separate saves. F2 opens the complete sprite viewer inside the RPG; F4 compares original colors with its game palette.
-
-[catalog.json](assets/catalog.json) is now schema 3: the original inventory plus **11,887 region records**, with identity evidence, per-game runtime usage, RPG affordances, generation rules, visual review notes, adaptation limits, and future ideas. Existing sprite IDs, crops, source PNGs, colony bindings, and the frozen import audit are preserved. [Catalog structure and regeneration](assets/reference/CATALOG_V2.md) · [RPG binding table](assets/reference/rpg-bindings.md) · [104-crop Urizen generation review](assets/reference/urizen-generation.md).
-
-## Colony prototype
-
-A sprite-based colony simulator built with **C# / .NET 10 and MonoGame DesktopGL**. Ada starts alone at the prototype's Tranquility outpost. Click stranded people in the wasteland, send a rescue, escort them into shelter, and build a colony from the people you save. The integration plan replaces separate prototype progression with the shared Ithica loop; the following instructions describe the current implementation.
-
-![Tranquility outpost in the MonoGame client](docs/images/outpost.png)
+![Ithica: lunar expedition combat](docs/images/ithica-battle.png)
 
 ## Play
 
 Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then run:
 
 ```sh
-./play.sh
-./play.sh --load
-./play.sh --seed 8675309
-./play.sh --demo --skip-intro
+./ithica.sh
+./ithica.sh --load
+./ithica.sh --seed 1337
 ```
 
-The launcher works from any directory. On macOS/Linux, `./tools/setup-dotnet.sh` can install SDK 10.0.402 into `~/.local/share/regolith/dotnet` without changing your PATH. The SDK is already installed there on the development machine. First launch restores the pinned NuGet packages and builds Release.
-
-On Windows, or with the SDK on your PATH:
+`./tools/setup-dotnet.sh` optionally installs the pinned SDK without changing your PATH. The launcher also finds the existing historical per-user SDK. On Windows or with a system SDK:
 
 ```sh
 dotnet run --project src/Ithica.Client --configuration Release
 ```
 
-The native window defaults to **1440×900** and supports resizing down to **1024×720**. Use `--window-size 1280x800` to set its initial size. MonoGame DesktopGL targets Windows, macOS, and Linux; native rendering has been exercised on macOS Intel. Other desktop platforms still need a graphical smoke run. Linux needs a working desktop/OpenGL environment; headless tools need only .NET.
+The normal window is 1440×900, resizable down to 1024×720. Use `--window-size 1280x800`. Native rendering has been checked on macOS Intel; other desktop platforms need graphical smoke checks.
 
-The six-section tutorial opens before time starts. Enter advances; Left goes back; Esc closes it. Reopen it with **T**. Tutorial and construction menus hold simulation time.
+## First colony and outing
 
-## First colony
+1. Read the six-section tutorial. Space runs/pauses home time; mouse wheel zooms at the pointer and right/middle drag pans.
+2. Click the distress contact directly on the map. Select Ada and pack supplies. Preparation shows the stock and workers left at home; Enter departs.
+3. Move with WASD/arrows or clicks. E interacts, Space waits. Every accepted action spends logical time; thinking spends none. Share supplies with the stranded person, then escort them to the return approach.
+4. Dismiss the paused arrival report. The survivor becomes a resident in breathable shelter and needs food, sleep and recovery. The same people can later work at home or leave together.
+5. Visit the newly available salvage site. Read enemy intentions, use 1–6 and click targets, recover a component and bring it home. U selects **suit service**, built on connected deck for 24 metal, 4 crystal and 1 component.
+6. Powered suit service equips more efficient suits and reveals a deeper signal. Repair useful equipment there while keeping the shelter alive. A failed return leaves carried salvage recoverable at its site.
 
-1. **Save Mika.** Click the red distress contact on the map, then press Space to run time. A rescue costs **2 food + 2 water**. Ada travels out, shares oxygen, and escorts Mika home at half speed. Recruitment happens only inside pressure. **R** locates contacts; it does not open a separate expedition screen.
-2. **Supply the outpost.** Press **D**, then click cyan ice for water, amber ore for metal, or purple crystal for equipment. Jobs reserve workers automatically. **P** surveys nearby open terrain.
-3. **Expand carefully.** **B** opens construction. Machines need deck and connected power. Enclose new deck with hull and an airlock, and add generation/storage before new consumers. **O** cycles oxygen, heat, and power overlays. Repair meteor breaches with pressure hull.
-4. **Bring more people home.** Incoming distress signals have real oxygen and health countdowns. New arrivals need food, sleep, and recovery before becoming reliable workers.
-5. **Earn the founding charter.** Rescue three people, reach cycle 3 with four living crew and 20 food, and power a pressurized Earth uplink. The uplink costs 60 metal, 20 crystal, and 5 kW. Keep building afterward.
+D designates mining/salvage; B opens ordinary construction; P surveys; X cancels and refunds; V starts a rectangle. C shows residents, O cycles home overlays, and R locates distress. Outside, O refills suits, H treats a selected resident, C rests and T suppresses nearby exposure. These actions use supplies and time. [Full controls and current rules](docs/PROJECT_STATE.md#controls).
 
-## Controls
+F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the complete sprite atlas in the same window. The normal save is `~/.ithica/campaign.json`; `--save PATH` selects a slot. Q/window close autosaves a living normal campaign; explicit preview scenes and test tools preserve player saves. Import an inactive legacy colony with `--import-colony PATH`; its original file remains untouched.
 
-| Input | Action |
-| --- | --- |
-| Left click / Enter | Inspect, rescue a stranded person, or place the active order |
-| Mouse wheel over map | Zoom around the pointer, from 25% to 300% |
-| Right / middle mouse drag | Pan the map |
-| Arrows / H J K L | Move the map cursor; Shift moves five cells, except Shift+L loads |
-| + / − or Page Up / Down | Zoom around the cursor |
-| 0 / map zoom percentage | Reset zoom |
-| Space / 1 2 3 / period | Pause; select 1× / 3× / 8×; pause and advance one tick |
-| D / B / P / X | Mine or salvage / construction / survey / cancel with refund |
-| V | Start/cancel a rectangular designation; click or Enter confirms |
-| Esc | Close menu, cancel selection, or return to inspection |
-| R / G / F | Locate distress contact / return home / follow selected crew |
-| C / E | Crew manifest / expanded log; mouse wheel scrolls the panel |
-| O | Cycle terrain, oxygen, temperature, and power views |
-| T / ? | Six-section tutorial / control reference |
-| S or F5 / Shift+L or F9 | Save / load (loading pauses) |
-| F11 / Q | Toggle fullscreen / save and quit |
-
-Closing the window also saves a living colony. After colony loss, quitting preserves the previous save; **N** starts again. The default C# save is `~/.regolith/colony-csharp.json`; `--save PATH` selects another slot. Writes are atomic and include random state and in-flight expeditions. Python saves are a separate format and are retained at `~/.regolith/colony.json`.
-
-## Simulation and structure
-
-Geology uses five passes of a Moore-neighborhood cellular automaton. Atmosphere, heat, and fire use local four-neighbor, double-buffered updates. Hull blocks gas; exterior vacuum drains breached rooms; airlocks pass people and electrical connectivity while sealing the air. Connected decks form separate power islands with local battery banks and prioritized life support. Crew track health, food, rest, morale, and suit oxygen while finding routes to work and rescues.
-
-The implementation separates the game from its presentation:
-
-| Project | Responsibility |
-| --- | --- |
-| [Regolith.Core](src/Ithica.Core/Colony/) | Graphics-free simulation, contiguous world arrays, jobs, routing, rescue, atomic saves |
-| [Regolith.Client](src/Ithica.Client/) | Colony map rendering, mouse/keyboard input, HUD/tutorial |
-| [Regolith.Graphics](src/Ithica.Graphics/) | Shared sprite loader, palette masks, bitmap text, and camera; lazy texture loading for the atlas |
-| [Lantern.Core](src/Ithica.Core/Expeditions/) / [Lantern.Client](src/Ithica.Client/Preview/) | Independent RPG rules and its MonoGame presentation |
-| [Regolith.Tools](src/Ithica.Tools/) | Deterministic headless runs and simulation benchmarks |
-| [Regolith.Core.Tests](tests/Ithica.Core.Tests/Colony/) | Environment, work, power, rescue, progression, and saved-continuation checks |
-| [legacy/python](legacy/python/) | Archived terminal prototype, runnable independently |
-
-This is a playable single-layer foundation. Resources go directly into shared inventory; crew may share a cell. Hauling, multi-level excavation, combat, modding, rich social behavior, and background simulation threads are future work. See [architecture](docs/ARCHITECTURE.md) for design decisions and [performance](docs/PERFORMANCE.md) for measured limits and reproduction commands.
-
-## Assets
-
-All original spritesheets, stable sprite IDs, crop rectangles, and proposed mappings are preserved. The client uses **Urizen tiles and bitmap font**, **Godot node icons**, and **keyboard/mouse prompts** from the three imported packs. Palette tinting and black-background removal happen in texture copies during loading.
-
-[assets/ithica-colony-sprites.json](assets/ithica-colony-sprites.json) selects **154 existing IDs** for 60 semantic bindings and 94 glyphs. Regenerate this small runtime selection with `python3 tools/build_runtime_assets.py` (standard library only). Python is not a game dependency, and no content-pipeline editor is required.
-
-The full [sprite guide](assets/SPRITE_GUIDE.md), [visual browser](assets/sprites.html), and [sprite catalog](assets/sprites.json) retain every occupied region and future-use proposal. Their unused/proposed flags describe the original import audit; use the runtime manifest for current bindings. [catalog.json](assets/catalog.json) retains the original image hashes and archive inventory. Publishers and CC0 declarations are recorded in [CREDITS.txt](assets/CREDITS.txt).
-
-## Build and verify
-
-Use `./tools/dotnet.sh` in place of `dotnet` if you used the per-user SDK installer.
+## Inspect and verify
 
 ```sh
-dotnet restore Ithica.sln --locked-mode
-dotnet build Ithica.sln --configuration Release --no-restore
-dotnet test Ithica.sln --configuration Release --no-build
-./play.sh --headless 700 --demo --seed 42
-./play.sh --smoke-test --screenshot /tmp/regolith-smoke.png
-./play.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
+./ithica.sh --scene surface
+./ithica.sh --scene battle
+./ithica.sh --scene structure
+./ithica.sh --scene atlas
+./ithica.sh --headless
+./ithica.sh --validate-seeds 1000 --seed -500
+./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
 ```
 
-Headless runs print JSON and never write saves. The graphical smoke run opens a real window, exercises tutorial navigation, direct rescue clicks, zoom, recruitment, build cancellation, and save/load, then exits without changing the player's save. `--screenshot PATH --frames 12` captures a normal view and exits; omit `--frames` for an interactive session.
-
-NuGet versions are pinned with lockfiles. The included CI workflow builds and runs core/headless checks on Linux, Windows, and macOS; it does not certify native graphics on those platforms. To create a local distributable for the current machine:
+Scenes use real commands to reach a fresh state and do not autosave on exit. `--headless` completes rescue, recovery, salvage combat, returned cargo and a constructed upgrade without opening a window or writing a player save.
 
 ```sh
-dotnet publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/game
+./tools/dotnet.sh restore Ithica.sln --locked-mode
+./tools/dotnet.sh build Ithica.sln --configuration Release --no-restore
+./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
+python3 tools/build_game_catalog.py --check
+./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/ithica
 ```
 
-The output includes runtime artwork and credits. This framework-dependent build requires .NET 10 on the destination machine; native installers, signing, and store publishing are not configured.
+Core rules, generation and saves have no graphics dependency. [Architecture](docs/ARCHITECTURE.md) describes ownership; [performance](docs/PERFORMANCE.md) records workloads and limits. The current game has finite persistent sites, aggregate inventory and overlapping people; hauling, z-levels, rich social behavior and tactical movement remain future work.
+
+## Art and tools
+
+All three imported packs, original sheets, stable IDs and crop evidence are preserved. [catalog.json](assets/catalog.json), schema 4, covers **11,887 regions / 7,115 occupied crops**. Each has current/preview/unused status and evidence-scoped ideas; current lunar casting is separate from the retained fantasy preview. Ithica selects 166 IDs including shared font/UI, with 14 explicit field aliases. [Current casting](assets/reference/ithica-sprites.md) · [Catalog authoring](assets/reference/CATALOG_V2.md) · [104-crop Urizen review](assets/reference/urizen-generation.md) · [Credits](assets/CREDITS.txt).
+
+Open [assets/atlas.html](assets/atlas.html) for the offline browser and layered scene lab, or F2 in-game. Scene experiments export exact-ID JSON and PNG; runtime recipe import is not implemented. Texture masks are in-memory copies; source PNGs are never repainted or repacked. Python is only needed to regenerate development assets.
+
+`play.sh` is a compatibility alias for Ithica. `rpg.sh` / `--preview` retain the independent fantasy prototype for regression and its old saves; see [the legacy guide](docs/LEGACY_RPG.md). The original Python terminal implementation remains archived under [legacy/python](legacy/python/README.md).

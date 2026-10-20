@@ -1,20 +1,19 @@
-# Repository guidance
+# Ithica repository guidance
 
-Read [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) before working in this repository. It is the master reference for implemented features, content counts, code/data ownership, saves, asset authoring, limits and verification. Read [docs/ITHICA_PLAN.md](docs/ITHICA_PLAN.md) for the approved combined-game direction and staged implementation. The README and specialist guides provide deeper task-specific detail.
+Read [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) before working. It is the master reference for implemented gameplay, counts, controls, ownership, saves, assets, boundaries and verification. Specialist guides add detail; [docs/VERIFICATION.md](docs/VERIFICATION.md) records actual checks and rollback checkpoints.
 
-## Maintain the project reference
+## Maintain the source of truth
 
-- Update the master document in the same change when features, content counts, controls, formats, tooling or known boundaries change. Reconcile its date and verification notes with what was actually checked.
-- Verify current behavior in code and authored configuration. Keep implemented systems, catalog ideas and future work distinct.
-- The game is **Ithica**, a mysterious lunar salvage colony. The approved target combines colony and RPG play around the same residents, inventory and campaign. Regolith and Lantern Below are legacy implementation names, not separate intended products. Preserve their tested systems and runnable regression paths while integrating them; Python under `legacy/` is archived.
-- Keep the plan and implemented inventory distinct. A renamed project is not evidence that the shared loop, clock or save format is implemented. Mark implementation stages complete only after their acceptance checks pass.
-- Apply the approved timing contract: continuous colony time while unpaused; both colony and expedition wait at RPG decisions; accepted actions advance one shared logical clock. No background wall-time colony advancement while the player thinks.
-- Keep the Moon setting and sparse observational naming. Existing fantasy place/enemy names are prototype content to recast deliberately, not final lunar canon.
+- Update the master reference in the same change when behavior, content, formats, controls, tooling or known limits change. Verify facts in source/authored configuration and record actual validation.
+- The normal product is **Ithica**, one mysterious lunar salvage colony/RPG. Keep names sparse and mechanics readable. Fantasy content belongs to the explicit retained preview, not current lunar canon.
+- Keep implemented systems, unused asset ideas and future work distinct. Preserve original source images, IDs, crops and publisher evidence; edit authoring inputs and regenerate derived catalogs/manifests/tables.
+- When committing is authorized, use cohesive working checkpoints and preserve unrelated user changes/commits. Keep build output and player saves out of source control.
 
-## Implementation boundaries
+## Gameplay and implementation boundaries
 
-- Keep gameplay graphics-free in Core and input/rendering in the client. Until the planned consolidation lands, shared graphics changes can affect both existing clients.
-- Preserve original artwork, stable sprite IDs/crops and existing mapping semantics. Edit the documented authoring inputs and regenerate catalogs/manifests instead of hand-editing generated sections.
-- Preserve quest reachability, protected routes, RNG independence and save continuation when changing RPG generation. `LegacyWorldBuilder` is required for version-one saves and fallback.
-- Preserve original pack names and historical save-format identifiers during the Ithica rebrand. Use explicit migrations/readers; do not globally replace strings in third-party provenance or overwrite existing player saves.
-- Use the verification commands in the master reference appropriate to the change. Update verification claims with actual results; distinguish local graphics checks from CI configuration.
+- Keep rules in graphics-free Core and input/rendering in Client. One campaign owns residents, inventory and logical time; field heroes/units are controlled resident-ID projections. Away residents cannot also work or receive local care at home.
+- Colony time runs continuously while unpaused. Both expedition and home wait at field decisions; accepted actions advance the shared clock. Invalid actions consume no time/RNG/resources. Mode transitions add no wall-time backlog or fixed-shift double charge.
+- Preserve deterministic commands, RNG independence, protected routes, prerequisite reachability, persistent sites, one-time stock transfers and exact saved continuation. Failed undeposited components must remain recoverable.
+- Retain `regolith-csharp` / `lantern-rpg` readers and `LegacyWorldBuilder` for compatibility/regression. Original pack names, historical formats/records and SDK fallback paths retain their identities intentionally. Never globally replace those strings or overwrite legacy player saves while rebranding.
+- The normal launcher is `ithica.sh`; `play.sh` forwards to it. `rpg.sh` / `--preview` are the retained fantasy regression path. Python under `legacy/` is archived.
+- Use the master reference's checks appropriate to the change. Distinguish configured CI from executed checks and native macOS verification from untested desktop graphics on other platforms.

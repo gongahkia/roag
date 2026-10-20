@@ -800,7 +800,7 @@ def cell(text):
 
 
 def write_pack_markdown(records, pack, title, output):
-    lines = [f"# {title}", "", "Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [ithica-colony-sprites.json](../ithica-colony-sprites.json) for the MonoGame client's current selection of these unchanged IDs. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.", "",
+    lines = [f"# {title}", "", "Generated from the import-time audit in [sprites.json](../sprites.json). The `unused` / `proposed` statuses describe the archived Python prototype. See [catalog schema 4](CATALOG_V2.md) for current Ithica/preview selection and [ithica-colony-sprites.json](../ithica-colony-sprites.json) for the home bindings. `unmapped` means no specific feature was assigned in the audit; ideas can require new mechanics or art changes.", "",
              "All coordinates are zero-based source pixels; rectangles are `x, y, width, height`. Urizen IDs also encode zero-based row and column. Source paths are relative to `assets/`.", "",
              "Identity basis: **author match** = historical author name matched by visible RGB artwork; **filename** = publisher's filename; **visual** = working description, not a verified author name. Unnamed figures keep their species/profession unconfirmed.", ""]
     sources = sorted({r["source"] for r in records if r["pack"] == pack})
