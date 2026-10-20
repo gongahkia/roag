@@ -24,4 +24,12 @@ The browser used Playwright 1.64.0 with the existing Chromium executable. Report
 
 The existing Vagabonds initialization commits, GitHub remote and funding file are preserved. The user-owned untracked root AGENTS.md link was left untouched and is not part of the extraction commit. Source artwork, catalog and asset mappings were not renamed or reinterpreted.
 
-An isolated-clone build and an application run outside the checkout will be recorded as a separate follow-up. CI is configured across Linux/macOS/Windows; no remote CI run or new native macOS/Windows test is claimed.
+## Isolated checkout and distribution acceptance
+
+A fresh `git clone --no-local` of checkpoint `cdea68c` was created under a temporary directory without an Ithica sibling. Locked restore, clean Release build, all 61 core tests, the full headless quest, catalog freshness/hash checks and all 38 catalog tests passed there. The readable `assets/catalog.json` export was absent. All project references stayed inside the temporary checkout.
+
+The published application and its copied runtime assets were then copied into another temporary directory and launched from a third working directory, outside both repositories. It passed all 25 native graphical checks and loaded all 7,115 sprites. A generated legacy RPG fixture was imported through the actual published CLI to a separate destination: source and imported bytes matched, the source was unchanged, and an attempted self-overwrite failed with exit code 1. No real player saves were involved. The temporary checkout/application/fixtures were removed after the check; persistent reports are `artifacts/fork/isolation.json` and `isolation-*.log`, with a captured `isolated-published.png`.
+
+The initial staged whitespace check reported three inherited generated reference Markdown files with extra blank lines at EOF; those source asset files were preserved byte-for-byte, and the check passed with those three unchanged origin files excluded.
+
+CI is configured across Linux/macOS/Windows; no remote CI run or new native macOS/Windows test is claimed.

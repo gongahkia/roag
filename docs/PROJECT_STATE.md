@@ -64,6 +64,6 @@ The inherited `assets/ithica-expedition-bindings.json` is the RPG alias input, `
 
 ## Verification and boundaries
 
-Run locked restore, Release build, core tests, a headless quest, seed validation, catalog freshness/hash checks and the catalog suite; use native smoke and published-output checks for client/extraction changes. [VERIFICATION.md](VERIFICATION.md) records actual results and platform scope; configured CI is not evidence of execution.
+The extraction passed locked restore/build, 61 core/import tests, 38 catalog tests, 74 offline-browser assertions, 1,000 seeds with zero fallback, 25 native graphical checks and all 15 canonical/native query comparisons. A fresh isolated clone repeated restore/build/core/catalog/quest checks, and a published copy ran outside both repositories with all sprites and safe CLI imports. Run locked restore, Release build, core tests, a headless quest, seed validation, catalog freshness/hash checks and the catalog suite; use native smoke and published-output checks for client/extraction changes. [VERIFICATION.md](VERIFICATION.md) records actual results and platform scope; configured CI is not evidence of execution.
 
 The playable scope is a generated three-area vertical slice with five encounters and one finite quest. It has no colony-management mode, endless world, branching campaign, physical hauling, gear swapping, tactical walking/range/cover, automatic sprite animation or gamepad input. Source identities that were uncertain remain uncertain.
