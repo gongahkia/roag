@@ -6,6 +6,7 @@ Read [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) before working. It is the ma
 
 - Update the master reference in the same change when behavior, content, formats, controls, tooling or known limits change. Verify facts in source/authored configuration and record actual validation.
 - The normal product is **Ithica**, one mysterious lunar salvage colony/RPG. Keep names sparse and mechanics readable. Fantasy content belongs to the explicit retained preview, not current lunar canon.
+- Standalone fantasy RPG development belongs to the independent sibling **Vagabonds** repository. Keep Ithica's existing fantasy preview as a compatibility/regression fixture; neither game's launchers, source or assets should depend on the sibling checkout.
 - Keep implemented systems, unused asset ideas and future work distinct. Preserve original source images, IDs, crops and publisher evidence; edit authoring inputs and regenerate derived catalogs/manifests/tables.
 - When committing is authorized, use cohesive working checkpoints and preserve unrelated user changes/commits. Keep build output and player saves out of source control.
 

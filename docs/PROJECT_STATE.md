@@ -4,6 +4,8 @@
 
 **Ithica is one playable C# / MonoGame lunar salvage colony game.** Start with one colonist, rescue people through controlled expeditions, bring the same residents home, recover useful components and build improvements that change later trips. The Moon remains recognizable; names and explanations stay sparse. The old fantasy RPG and Python prototypes remain explicit compatibility/regression references.
 
+**The standalone fantasy RPG is now Vagabonds**, developed in the independent sibling repository `../vagabonds` ([repository](https://github.com/gongahkia/vagabonds)). It was extracted from Ithica commit `c87d480` with its own RPG application, projects/tests, complete original assets, catalog, mappings and authoring tools. Its normal launcher is `vagabonds.sh`, and its default save is `~/.vagabonds/campaign.json`. Ithica's lunar gameplay, save and existing `rpg.sh` compatibility path are preserved. These repositories do not reference or automatically synchronize each other's code/assets; historical `ithica-*` filenames and original IDs in the copied artwork remain intentional provenance.
+
 ## Contents
 
 - [Current scope](#current-scope)

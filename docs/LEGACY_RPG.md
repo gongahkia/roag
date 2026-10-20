@@ -1,5 +1,7 @@
 # Legacy fantasy RPG preview
 
+Standalone development of this RPG now lives in the independent sibling **Vagabonds** repository (`../vagabonds`, [repository](https://github.com/gongahkia/vagabonds)). Launch it there with `./vagabonds.sh`; it includes its own complete assets, catalog and mappings, and uses `~/.vagabonds/campaign.json`. This guide and Ithica's `rpg.sh` remain the preserved source compatibility/regression path. No launcher here depends on Vagabonds.
+
 This is the preserved regression/art-exploration prototype. It is separate from the normal Ithica campaign and retains old fantasy content/save identities. Use [EXPEDITIONS.md](EXPEDITIONS.md) for the current lunar game.
 
 This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains independently playable with `./play.sh`.
