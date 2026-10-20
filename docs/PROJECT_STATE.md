@@ -6,7 +6,7 @@ Vagabonds is the party RPG extracted from Ithica at `c87d480`. Ithica remains a 
 
 ## Implemented game
 
-The new finite-world generation API lives under `Vagabonds.Core.World`. It has a 4096×4096 surface and three underground floors, 24 towns, six cultures/factions, 48 sites, authored overlapping-WFC samples and bounded chunk/footprint caches. Existing campaign generation, rules and saves remain independent. See [WORLD.md](WORLD.md) for architecture and the runtime integration design.
+The new finite-world backend lives under `Vagabonds.Core.World`, with `--world-headless`, `--world-report` and `--validate-worlds N` diagnostics. It has a 4096×4096 surface and three underground floors, 24 towns, six cultures/factions, 48 sites, authored overlapping-WFC samples and bounded caches. Generated inhabitants can join the lone traveller; real-time ticks drive local routines, regional stocks, caravans, shortages, repair/delivery requests and raids. Commands cover construction, digging, storage, trade, turn-based combat, revival and permanent death. Versioned world manifests save immutable chunk snapshots atomically. The graphical campaign is still the default at this backend checkpoint. See [WORLD.md](WORLD.md) for architecture and scope.
 
 | Area | Current implementation |
 | --- | --- |

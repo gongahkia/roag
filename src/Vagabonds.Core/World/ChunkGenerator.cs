@@ -115,7 +115,7 @@ public sealed class ChunkGenerator(WorldPlan plan)
         if (key.Floor == 0) foreach (var road in plan.Roads)
         {
             if (Math.Max(road.A.X, road.B.X) + 1 < key.X * 64 || Math.Min(road.A.X, road.B.X) - 1 >= (key.X + 1) * 64 || Math.Max(road.A.Y, road.B.Y) + 1 < key.Y * 64 || Math.Min(road.A.Y, road.B.Y) - 1 >= (key.Y + 1) * 64) continue;
-            for (int i = 0; i < 4096; i++) if (road.Contains(new(key.X * 64 + i % 64, key.Y * 64 + i / 64))) tiles[i] = tiles[i] == Material.Water ? Material.Bridge : Material.Earth;
+            for (int i = 0; i < 4096; i++) if (tiles[i] is not (Material.StairsDown or Material.StairsUp) && road.Contains(new(key.X * 64 + i % 64, key.Y * 64 + i / 64))) tiles[i] = tiles[i] == Material.Water ? Material.Bridge : Material.Earth;
         }
         return new(key, tiles, biomes, cultures, Hash(tiles));
         void Paint(bool town, int id, WorldPosition center)

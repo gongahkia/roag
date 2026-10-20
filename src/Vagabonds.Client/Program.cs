@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Vagabonds.Client;
 using Vagabonds.Core.Expeditions;
+using Vagabonds.Core.World;
 
 namespace Vagabonds.Client
 {
@@ -20,6 +21,12 @@ try
     {
         Campaign.ImportLegacy(legacy, options.Save);
         Console.WriteLine(JsonSerializer.Serialize(new { imported = true, save = options.Save }));
+        return 0;
+    }
+    if (options.WorldReport || options.ValidateWorlds > 0 || options.WorldHeadless)
+    {
+        object report = options.WorldReport ? WorldDiagnostics.GenerationReport(options.Seed) : options.WorldHeadless ? WorldDiagnostics.Headless(options.Seed) : WorldDiagnostics.ValidateSeeds(options.Seed, options.ValidateWorlds);
+        Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
     if (options.ValidateSeeds > 0)
@@ -85,6 +92,9 @@ catch (Exception e) when (e is ArgumentException or IOException or InvalidDataEx
             get; private set;
         }
         public bool GenerationReport { get; private set; }
+        public bool WorldReport { get; private set; }
+        public bool WorldHeadless { get; private set; }
+        public int ValidateWorlds { get; private set; }
         public int ValidateSeeds { get; private set; }
         public bool Help
         {
@@ -111,6 +121,12 @@ catch (Exception e) when (e is ArgumentException or IOException or InvalidDataEx
                 string Value() => i + 1 < args.Length ? args[++i] : throw new ArgumentException("Missing option value.");
                 switch (args[i])
                 {
+                    case "--world-report": o.WorldReport = true; break;
+                    case "--world-headless": o.WorldHeadless = true; break;
+                    case "--validate-worlds":
+                        o.ValidateWorlds = int.Parse(Value());
+                        if (o.ValidateWorlds is < 1 or > 10000) throw new ArgumentException("Validate 1..10000 worlds.");
+                        break;
                     case "--import-legacy":
                         o.ImportLegacy = Path.GetFullPath(Value());
                         break;
