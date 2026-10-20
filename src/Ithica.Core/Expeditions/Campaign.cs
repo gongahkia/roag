@@ -2,6 +2,8 @@ namespace Ithica.Core.Expeditions;
 
 public sealed partial class Campaign
 {
+    public bool FieldMode { get; private set; }
+    public bool RetreatRequested { get; private set; }
     public int Seed
     {
         get; private set;
@@ -136,6 +138,7 @@ public sealed partial class Campaign
     private void AdvanceExploration()
     {
         Steps++;
+        if (FieldMode) return;
         if (ZoneId != "hearth")
         {
             if (Steps % 4 == 0)

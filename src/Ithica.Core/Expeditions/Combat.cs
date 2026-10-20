@@ -4,7 +4,7 @@ public sealed partial class Campaign
 {
     private void StartEncounter(WorldObject encounter)
     {
-        var battle = new Battle { EncounterId = encounter.Id, Name = encounter.Name, Boss = encounter.Id == "abbey-abbot" };
+        var battle = new Battle { EncounterId = encounter.Id, Name = encounter.Name, Boss = encounter.Id == "abbey-abbot" || FieldMode && encounter.Id.EndsWith("-heavy", StringComparison.Ordinal) };
         var occupied = new HashSet<Cell>();
         int radius = ZoneId == "crypt" ? 2 : 6;
         var arena = new HashSet<Cell> { encounter.Position };
@@ -27,7 +27,7 @@ public sealed partial class Campaign
                 HeroId = h.Id,
                 Name = h.Name,
                 Sprite = h.Sprite,
-                Position = Place(encounter.Position + new Cell(-4 - h.Id % 2 * 2, h.Id / 2 * 3 - 2)),
+                Position = Place(encounter.Position + new Cell(-4 - battle.Units.Count % 2 * 2, battle.Units.Count / 2 * 3 - 2)),
                 Health = h.Health,
                 MaxHealth = h.MaxHealth,
                 Mana = h.Mana,
@@ -39,7 +39,7 @@ public sealed partial class Campaign
             });
         }
 
-        (string Name, string Sprite, int Health, int Power, int Speed, int Armor)[] enemies = encounter.Id switch
+        (string Name, string Sprite, int Health, int Power, int Speed, int Armor)[] enemies = FieldMode ? FieldEnemies(encounter.Id) : encounter.Id switch
         {
             "wilds-hounds" => [("Briar hound", "wolf", 23, 6, 7, 0), ("Briar hound", "wolf", 23, 6, 6, 0)],
             "wilds-raiders" => [("Ashwood raider", "bandit", 34, 8, 6, 2), ("Grief wisp", "wisp", 23, 5, 5, 0)],
@@ -198,8 +198,8 @@ public sealed partial class Campaign
         string target = Battle.Units[enemy.IntentTarget].Name;
         return enemy.Intent switch
         {
-            IntentKind.Sweep => "BELL TOLL / all allies",
-            IntentKind.Heal => "BLESSING / heal enemies",
+            IntentKind.Sweep => FieldMode ? "SWEEP / all residents" : "BELL TOLL / all allies",
+            IntentKind.Heal => FieldMode ? "RECOVER / threats" : "BLESSING / heal enemies",
             IntentKind.Dread => "DREAD / " + target,
             IntentKind.Bleed => "REND / " + target,
             IntentKind.Guard => "BRACE / self",
@@ -219,8 +219,8 @@ public sealed partial class Campaign
         }
 
         var actor = b.Active;
-        var hero = Party[actor.HeroId];
-        var skill = Skills.Get(hero.Role, skillIndex);
+        var hero = Party.Single(h => h.Id == actor.HeroId);
+        var skill = FieldMode ? Skills.FieldGet(hero.Role, skillIndex) : Skills.Get(hero.Role, skillIndex);
         if (actor.Mana < skill.Mana)
         {
             return new(false, "Not enough mana for " + skill.Name + ".");
@@ -367,7 +367,7 @@ public sealed partial class Campaign
     {
         foreach (var unit in Battle!.Units.Where(u => u.Friendly))
         {
-            var h = Party[unit.HeroId];
+            var h = Party.Single(h => h.Id == unit.HeroId);
             h.Health = unit.Health;
             h.Mana = unit.Mana;
             h.Stress = unit.Stress;
@@ -392,11 +392,12 @@ public sealed partial class Campaign
             int lost = Gold / 4;
             Gold -= lost;
             Battle = null;
-            ZoneId = "hearth";
-            Position = PreviousPosition = new(18, 16);
+            if (FieldMode) RetreatRequested = true;
+            else ZoneId = "hearth";
+            Position = PreviousPosition = FieldMode ? Zone.Objects.Single(o => o.Kind == ObjectKind.Return).Position : new(18, 16);
             Light = 100;
             Reveal();
-            Note("RETREAT / The party is carried to Hearth. Lost " + lost + " gold. The road remains open; heal and try again.");
+            Note(FieldMode ? "RETREAT / Injured, you withdraw toward the shelter." : "RETREAT / The party is carried to Hearth. Lost " + lost + " gold. The road remains open; heal and try again.");
             return true;
         }
         if (!b.Units.Any(u => !u.Friendly && u.Alive))
@@ -404,8 +405,7 @@ public sealed partial class Campaign
             SyncParty();
             Completed.Add(b.EncounterId);
             int reward = b.Boss ? 55 : 18, experience = b.Boss ? 45 : 20;
-            Gold += reward;
-            Potions++;
+            if (!FieldMode) { Gold += reward; Potions++; }
             foreach (var h in Party)
             {
                 h.Experience += experience;
@@ -419,7 +419,7 @@ public sealed partial class Campaign
                     Note(h.Name + " reaches level " + h.Level + ".");
                 }
             }
-            Note("VICTORY / " + b.Name + ". +" + reward + " gold, +" + experience + " XP each, +1 potion.");
+            Note(FieldMode ? "The movement stops. +" + experience + " experience each." : "VICTORY / " + b.Name + ". +" + reward + " gold, +" + experience + " XP each, +1 potion.");
             Battle = null;
             return true;
         }
@@ -436,7 +436,7 @@ public sealed partial class Campaign
                 continue;
             }
             var actor = b.Active;
-            var hero = Party[actor.HeroId];
+            var hero = Party.Single(h => h.Id == actor.HeroId);
             var hurt = b.Units.Where(u => u.Friendly && u.Health < u.MaxHealth - 16).OrderBy(u => u.Health).FirstOrDefault();
             if (hurt is not null && hero.Role == 3 && actor.Mana >= 3)
             {

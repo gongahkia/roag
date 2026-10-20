@@ -8,8 +8,10 @@ public enum Terrain : byte
 }
 public enum ModuleKind : byte
 {
-    Wall, Floor, Airlock, Solar, Battery, Oxygen, Farm, Bunk, Medbay, Beacon, Rtg
+    Wall, Floor, Airlock, Solar, Battery, Oxygen, Farm, Bunk, Medbay, Beacon, Rtg, SuitRack
 }
+public enum ResidentLocation : byte { Home, Field }
+
 public enum WorkKind : byte
 {
     Dig, Build, Salvage, Survey
@@ -32,15 +34,15 @@ public enum NoticeLevel : byte
 }
 
 public readonly record struct Result(bool Success, string Message);
-public readonly record struct Stock(float Metal, float Water, float Food, float Crystal)
+public readonly record struct Stock(float Metal, float Water, float Food, float Crystal, float Components = 0)
 {
-    public static Stock operator +(Stock a, Stock b) => new(a.Metal + b.Metal, a.Water + b.Water, a.Food + b.Food, a.Crystal + b.Crystal);
-    public static Stock operator -(Stock a, Stock b) => new(a.Metal - b.Metal, a.Water - b.Water, a.Food - b.Food, a.Crystal - b.Crystal);
-    public static Stock operator *(Stock a, float n) => new(a.Metal * n, a.Water * n, a.Food * n, a.Crystal * n);
-    public bool Covers(Stock cost) => Metal >= cost.Metal && Water >= cost.Water && Food >= cost.Food && Crystal >= cost.Crystal;
+    public static Stock operator +(Stock a, Stock b) => new(a.Metal + b.Metal, a.Water + b.Water, a.Food + b.Food, a.Crystal + b.Crystal, a.Components + b.Components);
+    public static Stock operator -(Stock a, Stock b) => new(a.Metal - b.Metal, a.Water - b.Water, a.Food - b.Food, a.Crystal - b.Crystal, a.Components - b.Components);
+    public static Stock operator *(Stock a, float n) => new(a.Metal * n, a.Water * n, a.Food * n, a.Crystal * n, a.Components * n);
+    public bool Covers(Stock cost) => Metal >= cost.Metal && Water >= cost.Water && Food >= cost.Food && Crystal >= cost.Crystal && Components >= cost.Components;
     [JsonIgnore]
     public bool Valid => float.IsFinite(Metal) && float.IsFinite(Water) && float.IsFinite(Food) && float.IsFinite(Crystal)
-                                  && Metal >= 0 && Water >= 0 && Food >= 0 && Crystal >= 0;
+                                  && float.IsFinite(Components) && Metal >= 0 && Water >= 0 && Food >= 0 && Crystal >= 0 && Components >= 0;
 }
 
 public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float Work, float Power, string Description, string Sprite)
@@ -56,7 +58,8 @@ public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float W
         new(ModuleKind.Bunk, "Sleeping pod", new(6,0,0,0), 5, 0, "A proper bed restores energy, health, and morale.", "bunk"),
         new(ModuleKind.Medbay, "Med station", new(20,0,0,6), 12, 2, "Treats nearby resting colonists when supplied with 2 kW.", "medbay"),
         new(ModuleKind.Beacon, "Earth uplink", new(60,0,0,20), 24, 5, "Send the founding charter once your colony is ready.", "beacon"),
-        new(ModuleKind.Rtg, "Radioisotope generator", default, 0, -12, "The outpost's reliable 12 kW starter generator.", "rtg")
+        new(ModuleKind.Rtg, "Radioisotope generator", default, 0, -12, "The outpost's reliable 12 kW starter generator.", "rtg"),
+        new(ModuleKind.SuitRack, "Suit service", new(24,0,0,4,1), 16, 2, "A recovered component improves field oxygen efficiency by 35% while powered. Opens a deeper signal.", "medbay")
     ];
     public static Blueprint Get(ModuleKind kind) => All[(int)kind];
 }
@@ -132,6 +135,14 @@ public sealed class WorkOrder
 
 public sealed class Colonist
 {
+    public ResidentLocation Location { get; set; }
+    public string? SiteId { get; set; }
+    public int FieldRole { get; set; }
+    public int Charge { get; set; } = 12;
+    public int Level { get; set; } = 1;
+    public int Experience { get; set; }
+    public float SuitEfficiency { get; set; } = 1;
+
     public int Id
     {
         get; set;
@@ -175,6 +186,8 @@ public sealed class Colonist
 
 public sealed class Survivor
 {
+    public bool FieldEscort { get; set; }
+
     public int Id
     {
         get; set;

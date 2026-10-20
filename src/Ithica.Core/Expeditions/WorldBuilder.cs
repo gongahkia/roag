@@ -44,7 +44,7 @@ public static class WorldBuilder
         Array.Fill(town.Safe, true);
     }
 
-    private static Zone Forest(int seed)
+    internal static Zone Forest(int seed)
     {
         var rules = GenerationRules.Default.Forest;
         var random = GenerationSeeds.Stream(seed, 20);
@@ -99,7 +99,7 @@ public static class WorldBuilder
         return z;
     }
 
-    private static Zone Abbey(int seed, GenerationOptions options)
+    internal static Zone Abbey(int seed, GenerationOptions options)
     {
         var rules = GenerationRules.Default.Abbey;
         int columns = rules.Columns, rows = rules.Rows, size = rules.ChunkSize;

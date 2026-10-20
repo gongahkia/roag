@@ -6,7 +6,7 @@ public enum Ground : byte
 }
 public enum ObjectKind
 {
-    Scenery, Talk, Inn, Merchant, Chest, Shrine, Camp, Portal, Gate, Encounter, Relic
+    Scenery, Talk, Inn, Merchant, Chest, Shrine, Camp, Portal, Gate, Encounter, Relic, Rescue, Salvage, Return, Terminal
 }
 public enum TargetKind
 {
@@ -34,10 +34,19 @@ public static class Skills
     public static readonly Skill Guard = new("Guard", "shield", 0, TargetKind.Self, 0, "guard", "Halve incoming damage until your next turn.");
     public static readonly Skill Potion = new("Potion", "potion", 0, TargetKind.Ally, 24, "potion", "Spend a shared potion to heal or revive an ally.");
     public static readonly Skill Flee = new("Retreat", "exit", 0, TargetKind.Self, 0, "flee", "Leave the encounter. Everyone gains 5 stress.");
+    public static readonly Skill[][] FieldByRole = [
+        [new("Strike","sword",0,TargetKind.Enemy,9,"","A controlled strike."),new("Disrupt","shield",3,TargetKind.Enemy,6,"stun","Damage and interrupt one turn."),new("Brace together","banner",3,TargetKind.AllAllies,0,"rally","Guard the party and reduce stress.")],
+        [new("Shot","bow",0,TargetKind.Enemy,8,"","Aimed fire."),new("Track","mark",2,TargetKind.Enemy,4,"mark","Expose a target for three turns."),new("Burst","bow",4,TargetKind.AllEnemies,6,"","Hit every visible threat.")],
+        [new("Pulse","staff",0,TargetKind.Enemy,7,"","A low-power discharge."),new("Interrupt","arc",3,TargetKind.Enemy,11,"stun","Discharge and interrupt."),new("Arc","arc",5,TargetKind.AllEnemies,8,"","Discharge through the group.")],
+        [new("Strike","cross",0,TargetKind.Enemy,7,"","A steady strike."),new("Treat","potion",3,TargetKind.Ally,18,"heal","Stabilize a companion."),new("Reassure","resolve",4,TargetKind.AllAllies,20,"calm","Reduce the party's stress.")]
+    ];
+    public static Skill FieldGet(int role, int index) => index is >= 0 and < 3 ? FieldByRole[role][index] : Get(role, index);
     public static Skill Get(int role, int index) => index switch { 3 => Guard, 4 => Potion, 5 => Flee, _ when index >= 0 && index < 3 => ByRole[role][index], _ => throw new ArgumentOutOfRangeException(nameof(index)) };
 }
 public sealed class Hero
 {
+    public bool Resident { get; set; }
+
     public int Id
     {
         get; set;
@@ -64,12 +73,12 @@ public sealed class Hero
     {
         get; set;
     }
-    public int MaxHealth => (Role switch { 0 => 52, 1 => 38, 2 => 34, _ => 42 }) + (Level - 1) * 6;
-    public int MaxMana => (Role switch { 0 => 12, 1 => 12, 2 => 18, _ => 20 }) + (Level - 1) * 3;
+    public int MaxHealth => Resident ? 100 : (Role switch { 0 => 52, 1 => 38, 2 => 34, _ => 42 }) + (Level - 1) * 6;
+    public int MaxMana => Resident ? 40 : (Role switch { 0 => 12, 1 => 12, 2 => 18, _ => 20 }) + (Level - 1) * 3;
     public int Armor => Role == 0 ? 3 : 1;
     public int Speed => Role switch { 0 => 5, 1 => 9, 2 => 7, _ => 6 };
     public string RoleName => Role switch { 0 => "Warden", 1 => "Ranger", 2 => "Arcanist", _ => "Vestal" };
-    public string Sprite => Role switch { 0 => "warden", 1 => "ranger", 2 => "mage", _ => "healer" };
+    public string Sprite => Resident ? "resident" : Role switch { 0 => "warden", 1 => "ranger", 2 => "mage", _ => "healer" };
 }
 public sealed record WorldObject(string Id, string Name, ObjectKind Kind, Cell Position, string Sprite, bool Blocks = false, string Detail = "", string Destination = "", Cell Arrival = default);
 public sealed class CombatUnit

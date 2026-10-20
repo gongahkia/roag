@@ -192,7 +192,7 @@ public sealed partial class Simulation
         }
 
         AddColonist("Ada", "Engineer", "Meticulous", World.Index(cx - 5, cy));
-        Event("TRANQUILITY OUTPOST / Ada made it. The other sleeping pods are empty.", NoticeLevel.Good);
+        Event("SHELTER / Ada made it. The other sleeping pods are empty.", NoticeLevel.Good);
         Event("A voice in the wasteland. Click a distress contact to send help.");
         Event("Charter: rescue 3 people, reach cycle 3 with 4 crew and 20 food, and power an uplink.");
         UpdatePower();
@@ -226,7 +226,7 @@ public sealed partial class Simulation
     {
         foreach (var c in Crew)
         {
-            if (c.Alive && c.Cell == cell)
+            if (c.Alive && c.Location == ResidentLocation.Home && c.Cell == cell)
             {
                 return c;
             }
@@ -686,7 +686,7 @@ public sealed partial class Simulation
                 bool tended = false;
                 foreach (var c in Crew)
                 {
-                    if (c.Alive && c.Role == "Botanist" && World.Distance(c.Cell, i) <= 2)
+                    if (c.Alive && c.Location == ResidentLocation.Home && c.Role == "Botanist" && World.Distance(c.Cell, i) <= 2)
                     {
                         tended = true;
                         break;

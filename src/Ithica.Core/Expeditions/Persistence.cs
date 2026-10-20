@@ -10,6 +10,7 @@ public sealed partial class Campaign
     {
         public string Format { get; set; } = "lantern-rpg";
         public int Version { get; set; } = 2;
+        public bool RetreatRequested { get; set; }
         public int Seed
         {
             get; set;
@@ -134,7 +135,7 @@ public sealed partial class Campaign
             return z;
         }
     }
-    private SaveData Snapshot() => new() { Seed = Seed, RandomState = Random.State, ZoneId = ZoneId, Position = Position, PreviousPosition = PreviousPosition, Gold = Gold, Potions = Potions, Torches = Torches, Rations = Rations, Light = Light, Steps = Steps, HasKey = HasKey, HasRelic = HasRelic, Victory = Victory, Sequence = _sequence, Party = Party, Completed = Completed, Seen = Zones.Select(z => z.Seen).ToList(), Zones = Zones.Select(ZoneData.From).ToList(), Battle = Battle, Journal = Journal, CombatEvents = CombatEvents };
+    private SaveData Snapshot() => new() { Format = FieldMode ? "ithica-field" : "lantern-rpg", Version = FieldMode ? 1 : 2, RetreatRequested = RetreatRequested, Seed = Seed, RandomState = Random.State, ZoneId = ZoneId, Position = Position, PreviousPosition = PreviousPosition, Gold = Gold, Potions = Potions, Torches = Torches, Rations = Rations, Light = Light, Steps = Steps, HasKey = HasKey, HasRelic = HasRelic, Victory = Victory, Sequence = _sequence, Party = Party, Completed = Completed, Seen = Zones.Select(z => z.Seen).ToList(), Zones = Zones.Select(ZoneData.From).ToList(), Battle = Battle, Journal = Journal, CombatEvents = CombatEvents };
     public string StateJson() => JsonSerializer.Serialize(Snapshot(), JsonOptions);
     public void Save(string? path = null)
     {
@@ -162,20 +163,21 @@ public sealed partial class Campaign
     public static Campaign FromJson(string json)
     {
         var d = JsonSerializer.Deserialize<SaveData>(json, JsonOptions) ?? throw new InvalidDataException("Empty RPG save.");
-        if (d.Format != "lantern-rpg" || d.Version is not (1 or 2) || d.Party is null || d.Party.Count != 4 || d.Completed is null || d.Seen is null || d.Seen.Count != 3 || d.Gold < 0 || d.Potions < 0 || d.Torches < 0 || d.Rations < 0 || d.Light is < 0 or > 100 || d.Steps < 0 || d.RandomState == 0 || d.Journal is null || d.CombatEvents is null)
+        bool field = d.Format == "ithica-field" && d.Version == 1;
+        if ((!field && (d.Format != "lantern-rpg" || d.Version is not (1 or 2))) || d.Party is null || (field ? d.Party.Count > 4 : d.Party.Count != 4) || d.Completed is null || d.Seen is null || (field ? d.Seen.Count != 1 : d.Seen.Count != 3) || d.Gold < 0 || d.Potions < 0 || d.Torches < 0 || d.Rations < 0 || d.Light is < 0 or > 100 || d.Steps < 0 || d.RandomState == 0 || d.Journal is null || d.CombatEvents is null)
         {
             throw new InvalidDataException("Invalid RPG save. Colony saves use a different format.");
         }
 
-        var c = new Campaign(d.Seed, d.Version == 1, restoreMaps: d.Version == 2);
-        if (d.Version == 2)
+        var c = new Campaign(d.Seed, !field && d.Version == 1, restoreMaps: field || d.Version == 2) { FieldMode = field, RetreatRequested = d.RetreatRequested };
+        if (field || d.Version == 2)
         {
-            if (d.Zones is null || d.Zones.Count != 3 || d.Zones.Any(z => z is null)
-                || !d.Zones.Select(z => z.Id).SequenceEqual(new[] { "hearth", "wilds", "crypt" }))
+            if (d.Zones is null || (field ? d.Zones.Count != 1 : d.Zones.Count != 3) || d.Zones.Any(z => z is null)
+                || !field && !d.Zones.Select(z => z.Id).SequenceEqual(new[] { "hearth", "wilds", "crypt" }))
                 throw new InvalidDataException("Missing generated maps.");
             c.Zones.Clear();
             c.Zones.AddRange(d.Zones.Select(z => z.Restore()));
-            var validation = WorldBuilder.Validate(c.Zones);
+            var validation = field ? Generation.LunarGenerator.Validate(c.Zones[0]) : WorldBuilder.Validate(c.Zones);
             if (!validation.Valid) throw new InvalidDataException("Invalid saved quest: " + string.Join("; ", validation.Errors));
         }
         if (!c.Zones.Any(z => z.Id == d.ZoneId))
@@ -183,15 +185,16 @@ public sealed partial class Campaign
             throw new InvalidDataException("Unknown RPG area.");
         }
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < d.Party.Count; i++)
         {
             var h = d.Party[i];
-            if (h is null || h.Id != i || h.Role != i || h.Level is < 1 or > 100 || h.Experience < 0 || h.Health < 0 || h.Health > h.MaxHealth || h.Mana < 0 || h.Mana > h.MaxMana || h.Stress is < 0 or > 100)
+            if (h is null || (field ? !h.Resident || h.Id < 0 || h.Role is < 0 or > 3 : h.Id != i || h.Role != i || h.Resident) || h.Level is < 1 or > 100 || h.Experience < 0 || h.Health < 0 || h.Health > h.MaxHealth || h.Mana < 0 || h.Mana > h.MaxMana || h.Stress is < 0 or > 100)
             {
                 throw new InvalidDataException("Invalid party member.");
             }
         }
-        for (int i = 0; i < 3; i++)
+        if (d.Party.Select(h => h.Id).Distinct().Count() != d.Party.Count) throw new InvalidDataException("Duplicate resident identity.");
+        for (int i = 0; i < d.Seen.Count; i++)
         {
             if (d.Seen[i] is null || d.Seen[i].Length != c.Zones[i].Tiles.Length)
             {
@@ -208,7 +211,7 @@ public sealed partial class Campaign
 
         if (d.Battle is { } b)
         {
-            if (b.Units is null || b.Units.Count is < 5 or > 12 || b.Order is null || b.Order.Count == 0 || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.Round < 1 || !c.Zone.Objects.Any(o => o.Id == b.EncounterId && o.Kind == ObjectKind.Encounter))
+            if (b.Units is null || b.Units.Count < d.Party.Count + 1 || b.Units.Count > 12 || b.Order is null || b.Order.Count == 0 || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.Round < 1 || !c.Zone.Objects.Any(o => o.Id == b.EncounterId && o.Kind == ObjectKind.Encounter))
             {
                 throw new InvalidDataException("Invalid encounter.");
             }
@@ -216,12 +219,12 @@ public sealed partial class Campaign
             for (int i = 0; i < b.Units.Count; i++)
             {
                 var u = b.Units[i];
-                if (u is null || u.Id != i || !c.Zone.Walkable(u.Position) || u.Health < 0 || u.MaxHealth <= 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.HeroId is < -1 or > 3 || u.Stress is < 0 or > 100 || u.IntentTarget < 0 || u.IntentTarget >= b.Units.Count)
+                if (u is null || u.Id != i || !c.Zone.Walkable(u.Position) || u.Health < 0 || u.MaxHealth <= 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || (u.HeroId < -1 || (u.Friendly && !d.Party.Any(h => h.Id == u.HeroId))) || u.Stress is < 0 or > 100 || u.IntentTarget < 0 || u.IntentTarget >= b.Units.Count)
                 {
                     throw new InvalidDataException("Invalid battle unit.");
                 }
             }
-            if (b.Units.Take(4).Where((u, i) => u.HeroId != i).Any() || b.Units.Skip(4).Any(u => u.Friendly) || !b.Active.Alive)
+            if (b.Units.Take(d.Party.Count).Where((u, i) => u.HeroId != d.Party[i].Id).Any() || b.Units.Skip(d.Party.Count).Any(u => u.Friendly) || !b.Active.Alive)
             {
                 throw new InvalidDataException("Invalid battle turn.");
             }
@@ -247,7 +250,7 @@ public sealed partial class Campaign
         c.Reveal();
         return c;
     }
-    public object GenerationSummary() => new { Seed, Validation = WorldBuilder.Validate(Zones), Zones = Zones.Select(z => new { z.Id, z.Width, z.Height, z.Generation, Terrain = z.Tiles.GroupBy(g => g).ToDictionary(g => g.Key.ToString(), g => g.Count()), HazardTiles = z.Environment.Cells.Count(h => h != HazardKind.None), z.Environment.Turns, z.Environment.Ticks }) };
+    public object GenerationSummary() => new { Seed, Validation = FieldMode ? Generation.LunarGenerator.Validate(Zone) : WorldBuilder.Validate(Zones), Zones = Zones.Select(z => new { z.Id, z.Width, z.Height, z.Generation, Terrain = z.Tiles.GroupBy(g => g).ToDictionary(g => g.Key.ToString(), g => g.Count()), HazardTiles = z.Environment.Cells.Count(h => h != HazardKind.None), z.Environment.Turns, z.Environment.Ticks }) };
     public object Summary() => new { Seed, Zone = ZoneId, Position, Gold, Potions, Torches, Rations, Light, Steps, HasKey, HasRelic, Victory, Party, Completed = Completed.Order().ToArray(), Encounter = Battle?.Name, Objective, Generation = GenerationSummary(), Journal = Journal.TakeLast(5) };
     public ActionResult TravelTo(string objectId)
     {

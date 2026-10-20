@@ -149,6 +149,9 @@ public sealed partial class Simulation
         {
             var c = data.Crew[i];
             if (c.Id != i || !Cell(c.Cell) || !Unit(c.Health) || !Unit(c.Suit) || !Unit(c.Energy) || !Unit(c.Hunger) || !Unit(c.Morale)
+                || !Enum.IsDefined(c.Location) || c.FieldRole is < 0 or > 3 || c.Charge is < 0 or > 40 || c.Level is < 1 or > 100 || c.Experience < 0
+                || !float.IsFinite(c.SuitEfficiency) || c.SuitEfficiency is < .1f or > 1
+                || c.Location == ResidentLocation.Field && (c.Job is not null || c.Expedition is not null || string.IsNullOrWhiteSpace(c.SiteId))
                 || c.PathCursor < 0 || c.PathCursor > c.Path.Count || c.Path.Any(p => !Cell(p)))
             {
                 throw new InvalidDataException("Invalid crew state.");

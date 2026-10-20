@@ -102,7 +102,7 @@ public sealed partial class Simulation
         target[0] = survivor.Cell;
         foreach (var c in Crew)
         {
-            if (!c.Alive || (crewId is int requested && c.Id != requested) || c.Expedition is not null || c.Rest || c.Health < 40 || c.Energy < 25 || c.Suit < 65)
+            if (!c.Alive || c.Location != ResidentLocation.Home || (crewId is int requested && c.Id != requested) || c.Expedition is not null || c.Rest || c.Health < 40 || c.Energy < 25 || c.Suit < 65)
             {
                 continue;
             }
@@ -242,7 +242,7 @@ public sealed partial class Simulation
     {
         foreach (var s in Survivors)
         {
-            if (!s.Active)
+            if (!s.Active || s.FieldEscort)
             {
                 continue;
             }
@@ -443,6 +443,17 @@ public sealed partial class Simulation
 
     private void CrewTick(Colonist c)
     {
+        if (c.Location == ResidentLocation.Field)
+        {
+            c.Hunger = Math.Min(100, c.Hunger + .12f);
+            c.Energy = Math.Max(0, c.Energy - .06f);
+            c.Suit = Math.Max(0, c.Suit - (Storm ? .28f : .19f) * c.SuitEfficiency);
+            if (c.Suit <= 0) c.Health = Math.Max(1, c.Health - 1.6f);
+            if (c.Hunger >= 85) c.Health = Math.Max(1, c.Health - .12f);
+            c.Activity = "Outside / " + c.SiteId;
+            return;
+        }
+
         int cell = c.Cell;
         bool breathable = World.Breathable(cell);
         c.Hunger = Math.Min(100, c.Hunger + .12f);
