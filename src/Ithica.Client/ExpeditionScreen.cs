@@ -37,7 +37,13 @@ public sealed partial class IthicaGame
     {
         if (_atlas) { _modal = ""; return; }
         if (_campaign.Phase == CampaignPhase.Preparation) _modal = "departure";
-        else if (_campaign.Phase == CampaignPhase.Arrival) _modal = "arrival";
+        else if (_campaign.Phase == CampaignPhase.Arrival)
+        {
+            _modal = "arrival";
+            if (_selectedSurvivor is int contact && contact >= 0 && contact < _sim.Survivors.Count
+                && _sim.Survivors[contact].RecruitedResidentId is int resident)
+            { _selectedCrew = resident; _selectedSurvivor = null; _panel = "colony"; }
+        }
         else if (_modal is "departure" or "arrival") _modal = "";
     }
 
@@ -60,7 +66,7 @@ public sealed partial class IthicaGame
 
     private void HandleCampaignInput()
     {
-        if (Pressed(Keys.Q)) { Exit(); return; }
+        if (Pressed(Keys.Q) && !_atlas) { Exit(); return; }
         if (Pressed(Keys.F11)) _graphics.ToggleFullScreen();
         if (Pressed(Keys.F2)) { _atlas = !_atlas; _campaign.Clock.Accumulator = 0; }
         if (_atlas) { _modal = ""; AtlasInput(); return; }
