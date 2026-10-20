@@ -160,7 +160,8 @@ public sealed partial class Simulation
         for (int i = 0; i < data.Survivors.Count; i++)
         {
             var s = data.Survivors[i];
-            if (s.Id != i || !Cell(s.Cell) || !Unit(s.Health) || !Unit(s.Suit) || !Enum.IsDefined(s.State))
+            if (s.Id != i || !Cell(s.Cell) || !Unit(s.Health) || !Unit(s.Suit) || !Enum.IsDefined(s.State)
+                || s.RecruitedResidentId is int resident && ((uint)resident >= data.Crew.Count || s.State != ContactState.Rescued || data.Crew[resident].Name != s.Name))
             {
                 throw new InvalidDataException("Invalid survivor state.");
             }

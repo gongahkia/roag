@@ -1,7 +1,7 @@
 using Ithica.Core.Colony;
 using Xunit;
 
-namespace Regolith.Tests;
+namespace Ithica.Tests.Colony;
 
 public sealed class AtmosphereTests
 {

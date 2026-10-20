@@ -8,6 +8,86 @@ namespace Ithica.Tests.Integration;
 
 public sealed class ContinuationTests
 {
+    [Fact]
+    public void HomeHullConstructionDoesNotDisplaceAnAwayResident()
+    {
+        var game = CampaignTests.Outside(); var away = game.Home.Crew[0]; int cell = away.Cell;
+        game.Home.AddColonist("Builder", "Engineer", "Patient", game.Home.World.Center);
+        CampaignScenarios.Require(game.Home.Designate(game.Home.World.X(cell), game.Home.World.Y(cell), Tool.Build, ModuleKind.Wall));
+        for (int i = 0; game.Home.JobAt(cell) is not null && i < 80; i++) CampaignScenarios.Require(game.Wait());
+        Assert.Equal(Terrain.Wall, game.Home.World.Tiles[cell]);
+        Assert.Equal(cell, away.Cell); Assert.Equal(ResidentLocation.Field, away.Location); Assert.Empty(away.Path);
+    }
+
+    [Fact]
+    public void FailedCargoCanBeRecoveredByAnotherResidentWithoutDuplicatingTheComponent()
+    {
+        var game = new Game(); CampaignScenarios.Rescue(game); CampaignScenarios.Require(game.StepColony(80));
+        CampaignScenarios.Require(game.Prepare("salvage")); CampaignScenarios.Require(game.Depart([0]));
+        CampaignScenarios.Approach(game, "presence"); CampaignScenarios.Approach(game, "component");
+        game.Home.Crew[0].Health = 5; game.Home.Crew[0].Suit = 0; CampaignScenarios.Require(game.Refill());
+        Assert.Equal(CampaignPhase.Arrival, game.Phase); Assert.Equal(0, game.Home.Resources.Components);
+        var site = game.Sites.Single(s => s.Id == "salvage");
+        Assert.DoesNotContain("component", site.Session!.Completed); Assert.Contains("presence", site.Session.Completed);
+        CampaignScenarios.Require(game.DismissArrival()); CampaignScenarios.Require(game.StepColony(80));
+        CampaignScenarios.Require(game.Prepare("salvage")); CampaignScenarios.Require(game.Depart([1]));
+        CampaignScenarios.Approach(game, "component"); CampaignScenarios.Approach(game, "return");
+        Assert.Equal(1, game.Home.Resources.Components); Assert.Equal(game.StateJson(), Game.FromJson(game.StateJson()).StateJson());
+    }
+
+    [Fact]
+    public void EscortedSurvivorsNeedOxygenOnActionsAndKeepAResidentIdentityAfterRecruitment()
+    {
+        var game = CampaignTests.Outside(); CampaignScenarios.Approach(game, "survivor");
+        var survivor = game.Home.Survivors[0]; float oxygen = survivor.Suit;
+        game.UpdateRealtime(600); Assert.Equal(oxygen, survivor.Suit);
+        CampaignScenarios.Require(game.Wait()); Assert.Equal(oxygen - .16f, survivor.Suit, 4);
+        int water = game.Pack.Water; CampaignScenarios.Require(game.Refill());
+        Assert.Equal(water - 2, game.Pack.Water); Assert.InRange(survivor.Suit, 99, 100);
+        CampaignScenarios.Approach(game, "return");
+        Assert.Equal(1, survivor.RecruitedResidentId); Assert.Equal("Mika", game.Home.Crew[survivor.RecruitedResidentId!.Value].Name);
+        Assert.Equal(game.StateJson(), Game.FromJson(game.StateJson()).StateJson());
+    }
+
+    [Fact]
+    public void RealtimeBudgetRetainsPendingTicksAndTransitionsDiscardThem()
+    {
+        var game = new Game(); game.Clock.Paused = false;
+        game.UpdateRealtime(.25, maxTicks: 1);
+        Assert.Equal(1, game.CampaignTick); Assert.Equal(1, game.Clock.Accumulator);
+        game.UpdateRealtime(0, maxTicks: 1);
+        Assert.Equal(2, game.CampaignTick); Assert.Equal(0, game.Clock.Accumulator);
+        game.UpdateRealtime(.25, maxTicks: 1);
+        CampaignScenarios.Require(game.Prepare("rescue-0")); CampaignScenarios.Require(game.CancelPreparation());
+        game.UpdateRealtime(0, maxTicks: 1);
+        Assert.Equal(3, game.CampaignTick);
+    }
+
+    [Fact]
+    public void IntegerEncounterProjectionPreservesFractionalResidentMorale()
+    {
+        var game = new Game(); game.Home.Crew[0].Morale = 80.25f;
+        CampaignScenarios.Require(game.Prepare("rescue-0")); CampaignScenarios.Require(game.Depart([0]));
+        CampaignScenarios.Require(game.Wait());
+        Assert.Equal(80.25f, game.Home.Crew[0].Morale);
+        Assert.Equal(game.StateJson(), Game.FromJson(game.StateJson()).StateJson());
+    }
+
+    [Fact]
+    public void HomeRestRechargesFieldEquipmentAndPoweredMedicalCareImprovesRecovery()
+    {
+        var home = new Game(); var resident = home.Home.Crew[0];
+        resident.Cell = home.Home.Machines.First(m => m.Kind == ModuleKind.Bunk).Cell;
+        resident.Rest = true; resident.Energy = 20; resident.Health = 50; resident.Charge = 0;
+        var cared = Game.FromJson(home.StateJson());
+        int cell = cared.Home.World.Floors.First(i => cared.Home.World.Distance(i, resident.Cell) <= 4 && cared.Home.MachineAt(i) is null);
+        cared.Home.AddMachine(ModuleKind.Medbay, cell); cared.Home.UpdatePower();
+        Assert.True(cared.Home.MachineAt(cell)!.Powered);
+        CampaignScenarios.Require(home.StepColony(20)); CampaignScenarios.Require(cared.StepColony(20));
+        Assert.Equal(20, home.Home.Crew[0].Charge);
+        Assert.True(cared.Home.Crew[0].Health > home.Home.Crew[0].Health + 3);
+    }
+
     [Theory]
     [InlineData("colony")] [InlineData("preparation")] [InlineData("surface")]
     [InlineData("battle")] [InlineData("arrival")] [InlineData("structure")]

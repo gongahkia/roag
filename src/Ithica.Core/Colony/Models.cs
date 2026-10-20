@@ -187,6 +187,7 @@ public sealed class Colonist
 public sealed class Survivor
 {
     public bool FieldEscort { get; set; }
+    public int? RecruitedResidentId { get; set; }
 
     public int Id
     {

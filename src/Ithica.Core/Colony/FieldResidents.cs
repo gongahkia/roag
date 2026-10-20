@@ -40,6 +40,7 @@ public sealed partial class Simulation
         resident.Rest = true;
         resident.FieldRole = survivor.Role switch { "Miner" => 1, "Botanist" => 2, "Medic" => 3, _ => 0 };
         survivor.State = ContactState.Rescued;
+        survivor.RecruitedResidentId = resident.Id;
         survivor.FieldEscort = false;
         Event(survivor.Name + " is home. A sleeping pod is no longer empty.", NoticeLevel.Good);
         return true;

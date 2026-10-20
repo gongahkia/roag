@@ -77,7 +77,7 @@ public sealed class Hero
     public int MaxMana => Resident ? 40 : (Role switch { 0 => 12, 1 => 12, 2 => 18, _ => 20 }) + (Level - 1) * 3;
     public int Armor => Role == 0 ? 3 : 1;
     public int Speed => Role switch { 0 => 5, 1 => 9, 2 => 7, _ => 6 };
-    public string RoleName => Role switch { 0 => "Warden", 1 => "Ranger", 2 => "Arcanist", _ => "Vestal" };
+    public string RoleName => Resident ? Role switch { 0 => "Engineer", 1 => "Scout", 2 => "Surveyor", _ => "Medic" } : Role switch { 0 => "Warden", 1 => "Ranger", 2 => "Arcanist", _ => "Vestal" };
     public string Sprite => Resident ? "resident" : Role switch { 0 => "warden", 1 => "ranger", 2 => "mage", _ => "healer" };
 }
 public sealed record WorldObject(string Id, string Name, ObjectKind Kind, Cell Position, string Sprite, bool Blocks = false, string Detail = "", string Destination = "", Cell Arrival = default);

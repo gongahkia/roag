@@ -63,9 +63,9 @@ public sealed partial class Campaign
 
     private void ChangePhase(CampaignPhase phase) { Phase = phase; Clock.Rebase(); }
 
-    public void UpdateRealtime(double seconds)
+    public void UpdateRealtime(double seconds, int maxTicks = 8)
     {
-        int count = Clock.Elapse(seconds, Phase == CampaignPhase.Colony);
+        int count = Clock.Elapse(seconds, Phase == CampaignPhase.Colony, maxTicks);
         for (int i = 0; i < count; i++) Tick();
     }
 
@@ -160,15 +160,15 @@ public sealed partial class Campaign
     private Result FieldCommand(Func<Field, ActionResult> action, int ticks)
     {
         if (ActiveField is not { } field) return new(false, "No expedition is active.");
-        var before = field.Party.ToDictionary(h => h.Id, h => h.Health);
+        var before = field.Party.ToDictionary(h => h.Id, h => (h.Health, h.Stress));
         var result = action(field);
         if (!result.Success) return new(false, result.Message);
         foreach (var c in Party)
         {
             var h = field.Party.Single(h => h.Id == c.Id);
             var unit = field.Battle?.Units.SingleOrDefault(u => u.HeroId == c.Id);
-            c.Health = Math.Clamp(c.Health + (unit?.Health ?? h.Health) - before[c.Id], 0, 100);
-            c.Charge = unit?.Mana ?? h.Mana; c.Morale = 100 - (unit?.Stress ?? h.Stress);
+            c.Health = Math.Clamp(c.Health + (unit?.Health ?? h.Health) - before[c.Id].Health, 0, 100);
+            c.Charge = unit?.Mana ?? h.Mana; c.Morale = Math.Clamp(c.Morale + before[c.Id].Stress - (unit?.Stress ?? h.Stress), 0, 100);
             c.Level = h.Level; c.Experience = h.Experience;
         }
         Pack.Medicine = field.Potions;
@@ -264,10 +264,12 @@ public sealed partial class Campaign
 
     public Result Refill()
     {
-        if (ActiveField is not { Battle: null } || Pack.Water < PartyIds.Count || Party.All(c => c.Suit >= 99))
-            return new(false, "Refilling needs 1 carried water per resident and a depleted suit, outside combat.");
-        Pack.Water -= PartyIds.Count;
+        if (ActiveField is not { Battle: null } || Pack.Water < PartyIds.Count + Home.Survivors.Count(s => s.FieldEscort)
+            || Party.All(c => c.Suit >= 99) && Home.Survivors.Where(s => s.FieldEscort).All(s => s.Suit >= 99))
+            return new(false, "Refilling needs 1 carried water per person and a depleted suit, outside combat.");
+        Pack.Water -= PartyIds.Count + Home.Survivors.Count(s => s.FieldEscort);
         foreach (var c in Party) c.Suit = 100;
+        foreach (var s in Home.Survivors.Where(s => s.FieldEscort)) s.Suit = 100;
         Charge(ActionCosts.Refill); return new(true, "Suit reserves replenished.");
     }
 
@@ -300,6 +302,16 @@ public sealed partial class Campaign
                 { c.Morale = Math.Max(0, c.Morale - 3); if (c.Health > 0) c.Health = Math.Max(1, c.Health - 1); }
             }
         }
+        foreach (var survivor in Home.Survivors.Where(s => s.FieldEscort))
+        {
+            survivor.Suit = Math.Max(0, survivor.Suit - (Home.Storm ? .24f : .16f));
+            if (survivor.Suit <= 0) survivor.Health = Math.Max(0, survivor.Health - .6f);
+            if (survivor.Health <= 0)
+            {
+                survivor.State = ContactState.Lost; survivor.FieldEscort = false;
+                Home.Event(survivor.Name + " could not make it back.", NoticeLevel.Danger);
+            }
+        }
         foreach (var s in Home.Survivors.Where(s => s.State == ContactState.Escorted && !s.FieldEscort)) Home.RecruitFieldSurvivor(s);
         if (Home.Tick % 32 == 0) Home.Resources += new Stock(0, Sites.Count(s => s.Secured), 0, 0);
         DiscoverSites();
@@ -316,13 +328,19 @@ public sealed partial class Campaign
         try
         {
             Charge(ActionCosts.Travel);
-            if (emergency) Cargo = default;
+            if (emergency)
+            {
+                // Carried salvage was never deposited. Leave it recoverable at the
+                // persistent site so a failed first outing cannot lock progression.
+                if (Cargo.Components > 0) f.Completed.Remove("component");
+                Cargo = default;
+            }
             Home.Resources += Cargo + Pack.Cost;
             string names = string.Join(", ", Party.Select(c => c.Name));
             foreach (var c in Party) Home.BringHome(c);
             foreach (var s in Home.Survivors.Where(s => s.FieldEscort))
             { s.FieldEscort = false; s.Cell = Home.ArrivalCell(); Home.RecruitFieldSurvivor(s); }
-            ArrivalReport = (emergency ? "An injured return. Cargo was lost. " : "Home. ") + names
+            ArrivalReport = (emergency ? "An injured return. Carried salvage was left behind. " : "Home. ") + names
                 + $" / recovered {Cargo.Components:0} component(s), {Cargo.Metal:0} metal. Residents retain their condition and may need recovery.";
             Home.Event(ArrivalReport, emergency ? NoticeLevel.Warning : NoticeLevel.Good);
             Cargo = default; Pack = new() { Food = 0, Water = 0, Medicine = 0, Filters = 0 };

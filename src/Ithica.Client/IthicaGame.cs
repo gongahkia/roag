@@ -154,8 +154,11 @@ public sealed partial class IthicaGame : Game
         if (_modal.Length == 0 && !_atlas && !_sim.GameOver)
         {
             long tickStarted = Stopwatch.GetTimestamp();
-            _campaign.UpdateRealtime(delta);
-            _tickMilliseconds = Stopwatch.GetElapsedTime(tickStarted).TotalMilliseconds;
+            long beforeTick = _campaign.CampaignTick;
+            _campaign.UpdateRealtime(delta, maxTicks: 1);
+            while (_campaign.Clock.Accumulator >= 1 && Stopwatch.GetElapsedTime(tickStarted).TotalMilliseconds < 12)
+                _campaign.UpdateRealtime(0, maxTicks: 1);
+            _tickMilliseconds = Stopwatch.GetElapsedTime(tickStarted).TotalMilliseconds / Math.Max(1, _campaign.CampaignTick - beforeTick);
         }
         else _campaign.Clock.Accumulator = 0;
 

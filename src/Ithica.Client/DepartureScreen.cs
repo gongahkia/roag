@@ -16,6 +16,11 @@ public sealed partial class IthicaGame
         Fill(r, Surface); Outline(r, Accent * .35f);
         Text("BEFORE YOU LEAVE", r.X + 24, r.Y + 24, Ink, 1.7f);
         Text((_campaign.SelectedSite?.Name ?? "A signal").ToUpperInvariant() + " / TIME IS HELD", r.X + 24, r.Y + 60, Accent, .9f);
+        if (_campaign.SelectedSite?.ContactId is int contact)
+        {
+            var target = _sim.Survivors[contact];
+            Text($"{target.Name} / O2 {target.Suit:0}% / HEALTH {target.Health:0} / APPROX. {target.TimeLeft} LOGICAL TICKS REMAIN", r.X + 24, r.Y + 83, Amber, .75f);
+        }
         int leftWidth = (r.Width - 72) / 2, rightX = r.X + 48 + leftWidth;
         Text("CHOOSE 1-4 RESIDENTS", r.X + 24, r.Y + 102, Muted, .85f);
         _departureList = new(r.X + 24, r.Y + 130, leftWidth, r.Height - 232);

@@ -9,12 +9,13 @@ public sealed class CampaignClock
     public int Speed { get; set; } = 1;
     public double Accumulator { get; set; }
 
-    internal int Elapse(double seconds, bool colony)
+    internal int Elapse(double seconds, bool colony, int maxTicks)
     {
+        if (maxTicks is < 1 or > 8) throw new ArgumentOutOfRangeException(nameof(maxTicks));
         if (!double.IsFinite(seconds) || seconds < 0) throw new ArgumentOutOfRangeException(nameof(seconds));
         if (!colony || Paused) { Accumulator = 0; return 0; }
         Accumulator = Math.Min(8, Accumulator + Math.Min(seconds, .25) * 8 * Speed);
-        int ticks = (int)Accumulator;
+        int ticks = Math.Min(maxTicks, (int)Accumulator);
         Accumulator -= ticks;
         return ticks;
     }

@@ -212,6 +212,7 @@ public sealed partial class Simulation
             recruit.Rest = true;
             recruit.Activity = "Recovering from the wasteland";
             s.State = ContactState.Rescued;
+            s.RecruitedResidentId = recruit.Id;
             s.Cell = c.Cell;
             e.Phase = RescuePhase.Complete;
             c.Expedition = null;
@@ -389,7 +390,7 @@ public sealed partial class Simulation
                 Span<int> exits = stackalloc int[4];
                 foreach (var other in Crew)
                 {
-                    if (!other.Alive || other.Cell != cell)
+                    if (!other.Alive || other.Location != ResidentLocation.Home || other.Cell != cell)
                     {
                         continue;
                     }
@@ -441,6 +442,12 @@ public sealed partial class Simulation
     }
     private static string TerrainNameFromReward(Stock r) => r.Water > 0 ? "water ice" : r.Crystal > 0 ? "silicate crystal" : "metal";
 
+    private bool HasMedicalCare(int cell)
+    {
+        foreach (var machine in _machines)
+            if (machine.Kind == ModuleKind.Medbay && machine.Powered && World.Distance(cell, machine.Cell) <= 4) return true;
+        return false;
+    }
     private void CrewTick(Colonist c)
     {
         if (c.Location == ResidentLocation.Field)
@@ -545,7 +552,8 @@ public sealed partial class Simulation
             {
                 c.Activity = "Sleeping";
                 c.Energy = Math.Min(100, c.Energy + 1.15f);
-                c.Health = Math.Min(100, c.Health + .04f);
+                c.Health = Math.Min(100, c.Health + (HasMedicalCare(c.Cell) ? .24f : .04f));
+                c.Charge = Math.Min(40, c.Charge + 1);
                 c.Morale = Math.Min(100, c.Morale + .025f);
                 if (c.Energy >= 94)
                 {

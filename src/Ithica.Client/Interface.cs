@@ -223,7 +223,7 @@ public sealed partial class IthicaGame
         float x = _sidebar.X + 18, y = _sidebar.Y + 70, w = _sidebar.Width - 36;
         if (_panel == "crew")
         {
-            Text("PEOPLE OF TRANQUILITY", x, y, Muted, .85f);
+            Text("PEOPLE OF THE SHELTER", x, y, Muted, .85f);
             y += 28;
             int rows = Math.Max(1, (int)((_sidebar.Bottom - y - 16) / 76));
             for (int n = _panelScroll; n < Math.Min(_sim.Crew.Count, _panelScroll + rows); n++)
