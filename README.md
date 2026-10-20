@@ -1,5 +1,7 @@
 # REGOLITH / LANTERN BELOW
 
+**Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) is the master document for implemented systems, biome/enemy counts, assets, saves, code ownership, current gaps, and verification. Future agents should read it before making changes; [AGENTS.md](AGENTS.md) defines how to keep it current.
+
 Two independently playable **MonoGame + C#** prototypes share the imported sprite kit and graphics utilities. The colony simulation remains the default launcher.
 
 | Prototype | Launch | Explore |
