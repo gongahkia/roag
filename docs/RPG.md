@@ -32,7 +32,7 @@ Preview scenes (`--demo` and all explicit `--scene` values, including town) and 
 | Input | Action |
 | --- | --- |
 | WASD / arrows | Move one tile; hold to continue |
-| Left click | Walk to visible terrain or approach/interact with an object |
+| Left click | Walk through discovered terrain to a discovered tile or approach/interact with an object |
 | E / Enter outside combat | Interact with the current/adjacent object |
 | Mouse wheel over map | Zoom around pointer |
 | Right / middle drag | Pan |
@@ -53,6 +53,8 @@ Preview scenes (`--demo` and all explicit `--scene` values, including town) and 
 | F11 / Q | Fullscreen / save and quit |
 
 Menus and the atlas pause automatic enemy actions. Gameplay has no real-time survival timer: exploration advances only when moving and combat advances by turns. Repeated movement into walls does not consume light.
+
+Click routes use discovered cells and prefer paths around currently visible hazards. Hazards outside your sight do not affect route selection. If a discovered destination has no known route, explore toward it with WASD/arrows first. A hazardous path remains available when it is the only discovered route.
 
 ## Expedition route
 

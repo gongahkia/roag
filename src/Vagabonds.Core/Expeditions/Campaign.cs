@@ -186,12 +186,16 @@ public sealed partial class Campaign
         Reveal();
         return new(true, "You wait and watch the shadows.");
     }
-    public List<Cell> Route(Cell destination)
+    public List<Cell> Route(Cell destination) => FindRoute(destination, discoveredOnly: true);
+    private List<Cell> FindRoute(Cell destination, bool discoveredOnly)
     {
+        if (!Zone.Inside(destination) || discoveredOnly && !Zone.Seen[Zone.Index(destination)]) return [];
         var o = ObjectAt(destination);
         IEnumerable<Cell> goals = o is { Blocks: true } && !Walkable(destination) ? Zone.Neighbors(destination).Where(Walkable) : [destination];
-        bool Allowed(Cell p) => Walkable(p) && (o?.Position == p || ObjectAt(p)?.Kind is not (ObjectKind.Encounter or ObjectKind.Portal));
-        var path = Zone.FindPath(Position, goals, p => Allowed(p) && (p == destination || Zone.Environment.Cells[Zone.Index(p)] == HazardKind.None));
+        bool Allowed(Cell p) => (!discoveredOnly || Zone.Seen[Zone.Index(p)]) && Walkable(p)
+            && (o?.Position == p || ObjectAt(p)?.Kind is not (ObjectKind.Encounter or ObjectKind.Portal));
+        var path = Zone.FindPath(Position, goals, p => Allowed(p) && (p == destination
+            || discoveredOnly && !Zone.Visible[Zone.Index(p)] || Zone.Environment.Cells[Zone.Index(p)] == HazardKind.None));
         return path.Count > 0 ? path : Zone.FindPath(Position, goals, Allowed);
     }
     public ActionResult Interact(string? id = null)

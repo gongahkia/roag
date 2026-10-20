@@ -26,6 +26,8 @@ Rowan is a Warden, Vesper a Ranger, Iris an Arcanist and Sable a Vestal. Class e
 
 Successful exploration moves/waits spend resources and evolve active hazards every four steps; combat resolves its own turns. Invalid actions and inspection consume no time/resources/RNG. Inactive areas freeze. Roads, objective approaches and room crosses stay protected. The existing deterministic map/combat stream behavior and version-one fallback layouts are retained.
 
+Player click routes stay on discovered terrain and prefer paths avoiding currently visible hazards. Changes to hazards outside the party's sight do not influence routing. If no discovered path exists, explore manually first. The headless verification driver may plan across the full map, then uses the same paid movement and combat as before.
+
 ## Run, controls and scenes
 
 ```sh

@@ -270,7 +270,8 @@ public sealed partial class Campaign
             return new(false, "No such object in this area.");
         }
 
-        var route = Route(o.Position);
+        // Verification traverses undiscovered maps through real movement; player clicks use Route.
+        var route = FindRoute(o.Position, discoveredOnly: false);
         if (route.Count == 0 && Position.Distance(o.Position) > 1)
         {
             return new(false, "No route to " + o.Name);

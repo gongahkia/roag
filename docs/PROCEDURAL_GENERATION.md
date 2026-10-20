@@ -56,7 +56,7 @@ Hazards use a separate four-neighbor automaton with reusable next-state buffers.
 
 Spread uses a deterministic hash of seed, cell and environment tick; it never consumes combat RNG. Fire, spores and corruption use distinct silhouettes and colors, with hover explanations. Hazards cannot take a conscious hero below 1 HP. They do not alter terrain collision. Fire fuel depletion changes presentation, not the route graph. Existing scenery and campfires do not automatically become hazard sources.
 
-Road corridors, objective clearings, room crosses and objective approaches are protected. Hazards never occupy those cells. Click routing prefers hazard-free paths, and manual movement can enter a hazardous tile. **T** spends one torch to restore up to 45 light and clear hazards/sources within three Manhattan cells, even at full light when a hazard is nearby. Cleared sources are removed permanently; the area is protected from regrowth for eight hazard ticks. This is the lantern's magical ward, not a physical fire/air simulation.
+Road corridors, objective clearings, room crosses and objective approaches are protected. Hazards never occupy those cells. Click routing stays on discovered terrain and prefers paths avoiding currently visible hazards; hidden hazard changes do not influence its decisions. Both click routing and manual movement can enter a hazardous tile when needed. **T** spends one torch to restore up to 45 light and clear hazards/sources within three Manhattan cells, even at full light when a hazard is nearby. Cleared sources are removed permanently; the area is protected from regrowth for eight hazard ticks. This is the lantern's magical ward, not a physical fire/air simulation.
 
 ## Assets and authoring
 
