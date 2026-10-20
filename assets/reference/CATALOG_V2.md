@@ -50,7 +50,7 @@ Individual neutral names also supply conservative subject terms. Explicit “-li
 
 Coordinate review sheets are reproducible with `uv run --with pillow python tools/make_asset_review.py`. The generated manifest covers every one of the 7,115 occupied crops; its existence is not evidence that a page was inspected. Only pages explicitly recorded in the semantic input count as inspected. Original pixels are displayed at nearest-neighbor scale with coordinates. The optional historical comparison tool is `uv run --with pillow python tools/match_upstream_silhouettes.py --download`; downloading is explicit, cached under ignored `artifacts/`, and never required for normal catalog regeneration.
 
-The full generic-catalog work remains active. Art coverage now includes explicit descriptions for uncertain motifs, 137 neutral icon-family descriptions, 786 structured prompt labels/states/sizes, and characters/code points for 146 publisher-labelled glyphs. The offline atlas now exposes those generic queries and exact exports; remaining completion work is the native atlas and final acceptance audit. The final checks must exercise canonical JSON and viewer agreement; type/subject/color/layer/composition queries with confidence; original-file, ID, crop and evidence preservation; deterministic regeneration; actual browser interaction/exports; and the native atlas. Game-specific roles must remain optional relationships rather than the basis of neutral classification. Each checkpoint records its actual scope in VERIFICATION.md and preserves a separate rollback commit.
+The full generic-catalog work remains active. Art coverage now includes explicit descriptions for uncertain motifs, 137 neutral icon-family descriptions, 786 structured prompt labels/states/sizes, and characters/code points for 146 publisher-labelled glyphs. The offline atlas now exposes those generic queries and exact exports; both native viewers share the same artwork/query model and final acceptance is being audited. The final checks must exercise canonical JSON and viewer agreement; type/subject/color/layer/composition queries with confidence; original-file, ID, crop and evidence preservation; deterministic regeneration; actual browser interaction/exports; and the native atlas. Game-specific roles must remain optional relationships rather than the basis of neutral classification. Each checkpoint records its actual scope in VERIFICATION.md and preserves a separate rollback commit.
 
 Agent-friendly queries use the same catalog and exclude game-specific interpretations by default:
 
@@ -97,6 +97,32 @@ uv run --with playwright==1.64.0 python tools/verify_asset_atlas.py
 ```
 
 An existing Chromium can be selected with `--browser /path/to/chromium`. Reports, downloads and desktop/mobile screenshots go to ignored `artifacts/atlas-verification/`. The persistent generic unit suite also decodes every embedded crop PNG and verifies all 7,115 frozen RGBA hashes. Linux CI configures both that suite and the browser check; actual executed results are recorded in [VERIFICATION.md](../../docs/VERIFICATION.md).
+
+## Native artwork atlas
+
+F2 opens the native atlas in either the normal game or retained preview. It uses the same `asset` descriptors as the offline atlas. F3 cycles pack, F6/Tab type, F8 measured color, F10 sort and F7 optional game usage. Shift reverses cycling. The second row also cycles suggested layer and composition. F4 only changes the preview palette, F9 resets filters, and F1 opens query help. Arrows/pages browse; the wheel over the detail panel scrolls its evidence. Esc clears typed text, then closes.
+
+Free words are ANDed over neutral metadata. Typed filters include:
+
+```text
+subject:ghost confidence:high
+color:green type:actor
+layer:object composition:fragment_candidate
+hex:#feffff
+primary:blue sort:name desc:true
+type:input_prompt color:white coverage:0.3
+source:high
+```
+
+`confidence:` sets minimum subject-claim confidence; `source:` and `visual:` match original identity and visual classification confidence separately. Repeated subjects/colors require every term; comma lists work as well. The color control uses 5% foreground coverage; typed `coverage:` uses a 0–1 fraction. A typed `sort:` takes precedence over the sort button. `game:true` or the Game notes control opts into casting/proposal text and details. Invalid color/hex/confidence/coverage syntax shows an error with no results. Filtering changes no campaign state.
+
+Both native readers use [ArtworkCatalog.cs](../../src/Ithica.Client/ArtworkCatalog.cs). Their graphical smoke reports include full ID/order results for representative queries. Compare executed reports with the canonical JSON using:
+
+```sh
+python3 tools/verify_native_atlas.py artifacts/native-atlas/current.json artifacts/native-atlas/preview.json
+```
+
+This verifies actual native results against the independent Python query path, including all IDs, colors, subjects/confidence, fragments/layers/composition, exact RGB, source confidence, optional game notes and invalid queries. Reports are ignored developer artifacts, not player saves.
 
 ## Current lunar use and retained preview use
 

@@ -92,7 +92,7 @@ Guard halves incoming damage until the unit's next turn. Burn and bleed deal dam
 
 ## Explore the sprites
 
-Press **F2** inside the game, or run `./rpg.sh --scene atlas`. Type to search IDs, names, categories, interpretations, or ideas. F3 cycles packs, F6/Tab cycles families, and F7 cycles usage. F4 switches original/masked artwork. Arrows select entries; Page Up/Down or the wheel pages through the grid. Scroll over the detail panel to read long notes. Esc clears search, then returns to play; F2 also returns directly.
+Press **F2** inside the game, or run `./rpg.sh --scene atlas`. Type to search neutral artwork descriptions, subjects and IDs. Typed filters include `subject:ghost confidence:high` and `color:green type:actor`. Game interpretations/ideas require the optional Game notes control or `game:true`. F3 cycles packs, F6/Tab types, F8 colors, F10 sorts and F7 optional usage; Shift reverses cycling. F1 opens query help, F9 resets filters, and F4 switches the preview palette. Arrows select entries; Page Up/Down or the wheel pages through the grid. Scroll over the detail panel to read long notes. Esc clears search, then returns to play; F2 also returns directly.
 
 The native viewer has all **7,115 occupied regions** from Urizen, Godot node icons, and keyboard/controller prompts. Merely registering or viewing an image is not counted as a gameplay binding. Some entries are fragments, uncertain figures, or sparse marks, rather than independently usable objects. Controller art is available for inspection; controller input is not implemented.
 

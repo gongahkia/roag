@@ -110,7 +110,7 @@ public sealed partial class PreviewGame : Game
             }
         }
 
-        _entries = JsonSerializer.Deserialize<List<AtlasEntry>>(File.ReadAllText(Path.Combine(root, "atlas-index.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        _entries = JsonSerializer.Deserialize<List<ArtworkEntry>>(File.ReadAllText(Path.Combine(root, "atlas-index.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
         FilterAtlas();
         _camera.Reset(32);
         Recenter(true);
@@ -241,7 +241,7 @@ public sealed partial class PreviewGame : Game
     }
     private void Input()
     {
-        if (Pressed(Keys.Q))
+        if (Pressed(Keys.Q) && !_atlas)
         {
             Exit();
             return;
@@ -624,6 +624,7 @@ public sealed partial class PreviewGame : Game
                 {
                     graphicalSmokeTest = "passed",
                     checks = _checks,
+                    artworkQueries = ArtworkQuery.Diagnostics(_entries),
                     sprites = _entries.Count
                 }));
             }
@@ -685,13 +686,18 @@ public sealed partial class PreviewGame : Game
         _search = "";
         FilterAtlas();
         _search = "runtime_rule";
+        _atlasShowGame = true;
         FilterAtlas();
-        Check(_filtered.Count >= 40, "atlas searches per-sprite generation rules");
+        Check(_filtered.Count >= 40, "optional atlas game search finds generation rules");
+        _atlasShowGame = false;
         _search = "";
         FilterAtlas();
         _campaign = new Campaign(_options.Seed);
         _campaign.RunDemoExpedition();
         Check(_campaign.Victory, "full expedition and return-to-town quest");
+        string artworkState = _campaign.StateJson();
+        CheckArtworkAtlas(Check);
+        Check(_campaign.StateJson() == artworkState, "atlas filtering preserves exact preview state");
         _campaign = new Campaign(_options.Seed);
         _campaign.TravelTo("to-wilds");
         _campaign.TravelTo("wilds-hounds");

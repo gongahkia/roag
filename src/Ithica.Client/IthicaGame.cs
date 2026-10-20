@@ -109,7 +109,7 @@ public sealed partial class IthicaGame : Game
         _pixel.SetData([Color.White]);
         _sprites = new SpriteLibrary(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "assets"));
         _fieldSprites = new SpriteLibrary(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "assets"), "ithica-expedition-sprites.json");
-        _entries = JsonSerializer.Deserialize<List<AtlasEntry>>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "assets", "atlas-index.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        _entries = JsonSerializer.Deserialize<List<ArtworkEntry>>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "assets", "atlas-index.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
         FilterAtlas();
         ResetFieldCamera();
     }
@@ -658,6 +658,7 @@ public sealed partial class IthicaGame : Game
                 {
                     graphicalSmokeTest = "passed",
                     checks = _smokeChecks,
+                    artworkQueries = ArtworkQuery.Diagnostics(_entries),
                     bindings = _sprites.BindingCount,
                     frames = _drawCount
                 }));
@@ -715,6 +716,9 @@ public sealed partial class IthicaGame : Game
         Check(_sim.Designate(cx, cy + 1, Tool.Build, ModuleKind.Solar).Success, "ordinary construction accepts work");
         Check(_sim.Designate(cx, cy + 1, Tool.Cancel).Success && _sim.Resources == before, "cancel refunds reserved stock");
         Check(_entries.Count == 7115 && _fieldSprites.HasBinding("resident"), "complete atlas and lunar actor binding load");
+        string artworkState = _campaign.StateJson();
+        CheckArtworkAtlas(Check);
+        Check(_campaign.StateJson() == artworkState, "atlas filtering preserves exact campaign state");
         CenterHabitat(); _selectedSurvivor = null; _selectedCrew = 0; _paused = true; _modal = ""; SelectTool(Tool.Inspect);
     }
     protected override void UnloadContent()
