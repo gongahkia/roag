@@ -39,7 +39,7 @@ Start with one colonist; rescue people who become the same workers and expeditio
 
 | Item | Implemented state |
 | --- | --- |
-| Product name / integration | Ithica; consolidated plan documented, shared gameplay and runtime naming migration pending |
+| Product name / integration | Ithica; solution, Core, graphics, client and tools consolidated; shared gameplay integration in progress |
 | Runtime | C# / .NET 10, MonoGame.Framework.DesktopGL 3.8.6 |
 | Playable prototypes | 2: Regolith and Lantern Below |
 | RPG environments | 3 areas: 2 procedural exploration biomes and 1 town hub |
@@ -92,16 +92,16 @@ The SDK targets are defined in [global.json](../global.json) and [Directory.Buil
 
 | Project | Responsibility and entry points |
 | --- | --- |
-| [Regolith.Core](../src/Regolith.Core/) | Graphics-free colony simulation. [Simulation.cs](../src/Regolith.Core/Simulation.cs) owns state/ticks/orders/power; [World.cs](../src/Regolith.Core/World.cs) owns terrain/environment; [CrewSystem.cs](../src/Regolith.Core/CrewSystem.cs) owns crew/rescues/progression; [GridRouter.cs](../src/Regolith.Core/GridRouter.cs) owns routing. |
-| [Regolith.Client](../src/Regolith.Client/) | Colony window, mouse/keyboard input, clock, HUD, tutorial and map rendering. Start at `ColonyGame.cs`. |
-| [Regolith.Tools](../src/Regolith.Tools/) | Colony headless scenarios and benchmarks. Start at `Program.cs`. |
-| [Regolith.Graphics](../src/Regolith.Graphics/) | Shared `SpriteLibrary` and `MapCamera`: lazy textures, crop lookup, black-background removal, palette masks, bitmap text and camera transforms. |
-| [Lantern.Core](../src/Lantern.Core/) | Graphics-free RPG maps, party, exploration, combat, generation and saves. [Campaign.cs](../src/Lantern.Core/Campaign.cs), [Combat.cs](../src/Lantern.Core/Combat.cs), and [Persistence.cs](../src/Lantern.Core/Persistence.cs) are partial definitions of `Campaign`. |
-| [Lantern.Client](../src/Lantern.Client/) | RPG window/input, world and battle presentation, field guide and full native atlas. Start at `LanternGame.cs`; rendering is in `WorldRenderer.cs` and `Interface.cs`. |
-| [Regolith.Core.Tests](../tests/Regolith.Core.Tests/) | Colony environment, routing, work, power, rescues, charter and save continuation. |
-| [Lantern.Core.Tests](../tests/Lantern.Core.Tests/) | RPG campaign/combat, procedural layouts, WFC/fallback, hazards and save continuation. |
+| [Regolith.Core](../src/Ithica.Core/Colony/) | Graphics-free colony simulation. [Simulation.cs](../src/Ithica.Core/Colony/Simulation.cs) owns state/ticks/orders/power; [World.cs](../src/Ithica.Core/Colony/World.cs) owns terrain/environment; [CrewSystem.cs](../src/Ithica.Core/Colony/CrewSystem.cs) owns crew/rescues/progression; [GridRouter.cs](../src/Ithica.Core/Colony/GridRouter.cs) owns routing. |
+| [Regolith.Client](../src/Ithica.Client/) | Colony window, mouse/keyboard input, clock, HUD, tutorial and map rendering. Start at `IthicaGame.cs`. |
+| [Regolith.Tools](../src/Ithica.Tools/) | Colony headless scenarios and benchmarks. Start at `Program.cs`. |
+| [Regolith.Graphics](../src/Ithica.Graphics/) | Shared `SpriteLibrary` and `MapCamera`: lazy textures, crop lookup, black-background removal, palette masks, bitmap text and camera transforms. |
+| [Lantern.Core](../src/Ithica.Core/Expeditions/) | Graphics-free RPG maps, party, exploration, combat, generation and saves. [Campaign.cs](../src/Ithica.Core/Expeditions/Campaign.cs), [Combat.cs](../src/Ithica.Core/Expeditions/Combat.cs), and [Persistence.cs](../src/Ithica.Core/Expeditions/Persistence.cs) are partial definitions of `Campaign`. |
+| [Lantern.Client](../src/Ithica.Client/Preview/) | RPG window/input, world and battle presentation, field guide and full native atlas. Start at `PreviewGame.cs`; rendering is in `WorldRenderer.cs` and `Interface.cs`. |
+| [Regolith.Core.Tests](../tests/Ithica.Core.Tests/Colony/) | Colony environment, routing, work, power, rescues, charter and save continuation. |
+| [Lantern.Core.Tests](../tests/Ithica.Core.Tests/Expeditions/) | RPG campaign/combat, procedural layouts, WFC/fallback, hazards and save continuation. |
 
-[Regolith.sln](../Regolith.sln) currently contains all eight projects. Keep rules in the respective Core project and presentation in its client until the [target architecture](ITHICA_PLAN.md#target-architecture) is implemented. The gameplay cores have no MonoGame dependency and do not share simulation state. Cross-client graphics changes can affect both prototypes.
+[Ithica.sln](../Ithica.sln) now contains five projects: Core, Client, Graphics, Tools and Core.Tests. Colony and expedition rules share one graphics-free assembly but retain separate state at this checkpoint. Keep rules in the respective Core project and presentation in its client until the [target architecture](ITHICA_PLAN.md#target-architecture) is implemented. The gameplay cores have no MonoGame dependency and do not share simulation state. Cross-client graphics changes can affect both prototypes.
 
 ## Regolith colony
 
@@ -113,7 +113,7 @@ Implemented systems include seeded geology/resource seams; mining, building, sal
 
 The founding charter requires **3 rescues, cycle 3, 4 living crew, 20 food, and a powered uplink in pressure**. One cycle is 480 logical ticks. A completed charter allows continued play. Colony loss offers a restart; exiting after loss preserves the previous save.
 
-Blueprints are defined in [Regolith.Core/Models.cs](../src/Regolith.Core/Models.cs):
+Blueprints are defined in [Regolith.Core/Models.cs](../src/Ithica.Core/Colony/Models.cs):
 
 | Module | Purpose |
 | --- | --- |
@@ -143,13 +143,13 @@ The quest is: leave Hearth → find `iron-cache` in Ashwood → open `iron-gate`
 
 Hearth services are Warden Elowen (`elder`, quest), Old Garran (`smith`, advice), the Copper Kettle (`inn`, 12 gold for full recovery), and the provisioner (`merchant`, 10 gold for two potions/two torches/two rations). The smith has dialogue, not a crafting interface.
 
-Starting shared supplies are **36 gold, 5 potions, 4 torches, 6 rations**, with light at 100. A torch restores up to 45 light; marked camps spend two rations to restore 18 HP, 6 mana and 12 composure per companion. The forest shrine restores up to 8 mana and reduces stress by 15 once. The key chest gives 18 gold and a potion; the Abbey strongbox gives 24 gold, two potions and a torch. See [Campaign.cs](../src/Lantern.Core/Campaign.cs) for interaction rules.
+Starting shared supplies are **36 gold, 5 potions, 4 torches, 6 rations**, with light at 100. A torch restores up to 45 light; marked camps spend two rations to restore 18 HP, 6 mana and 12 composure per companion. The forest shrine restores up to 8 mana and reduces stress by 15 once. The key chest gives 18 gold and a potion; the Abbey strongbox gives 24 gold, two potions and a torch. See [Campaign.cs](../src/Ithica.Core/Expeditions/Campaign.cs) for interaction rules.
 
 Defeat returns the party to Hearth at partial health/mana, increases stress, and removes a quarter of current gold. Cleared encounters, collected chests, opened gates and exploration persist. Returning the relic completes the quest and allows continued exploration.
 
 ## Party and combat
 
-The party has four fixed roles, defined in [Models.cs](../src/Lantern.Core/Models.cs). These are game casts of sprite appearances, not publisher-confirmed character identities.
+The party has four fixed roles, defined in [Models.cs](../src/Ithica.Core/Expeditions/Models.cs). These are game casts of sprite appearances, not publisher-confirmed character identities.
 
 | Companion | Role | Level-one HP / MP | Class skills |
 | --- | --- | --- | --- |
@@ -166,7 +166,7 @@ Positions are for battle presentation: there is no tactical movement, range or f
 
 ## Enemies and encounters
 
-There are **seven named enemies, six sprite archetypes, and one boss**. Bell keeper shares the `skeleton` appearance and basic attack behavior with Oathless guard. Repeated individuals and encounter-specific stats do not count as new named types. Rosters/stats are currently inline in `StartEncounter`; intent behavior is keyed by sprite alias in `NewRound`, both in [Combat.cs](../src/Lantern.Core/Combat.cs).
+There are **seven named enemies, six sprite archetypes, and one boss**. Bell keeper shares the `skeleton` appearance and basic attack behavior with Oathless guard. Repeated individuals and encounter-specific stats do not count as new named types. Rosters/stats are currently inline in `StartEncounter`; intent behavior is keyed by sprite alias in `NewRound`, both in [Combat.cs](../src/Ithica.Core/Expeditions/Combat.cs).
 
 | Enemy | Sprite alias | HP | Base power | Armor | Behavior |
 | --- | --- | ---: | ---: | ---: | --- |
@@ -192,7 +192,7 @@ The five groups retain these compositions across seeds. Names, variants and AI a
 
 ## Procedural generation
 
-Current generation rules are [assets/lantern-generation.json](../assets/lantern-generation.json), with rules schema 1 and generator version 2. [GenerationRules.cs](../src/Lantern.Core/GenerationRules.cs) loads an **embedded resource**, so changing the JSON requires rebuilding the executable.
+Current generation rules are [assets/ithica-generation.json](../assets/ithica-generation.json), with rules schema 1 and generator version 2. [GenerationRules.cs](../src/Ithica.Core/Expeditions/GenerationRules.cs) loads an **embedded resource**, so changing the JSON requires rebuilding the executable.
 
 1. **Hearth:** retain authored streets, buildings, services and exit; seed furnishings and appearance choices.
 2. **Ashwood:** seed trees at 47% and smooth through four synchronous eight-neighbor passes; seed pond masks at 42% and smooth three passes. Tree birth needs five occupied neighbors; survival needs four. Add a continuous winding river, then carve roads/bridges and clearings around seeded objectives. Reserve routes from hazards.
@@ -203,13 +203,13 @@ Current generation rules are [assets/lantern-generation.json](../assets/lantern-
 
 The WFC solver uses 64-bit domains, queued constraint propagation, weighted Shannon entropy and at most eight seeded attempts. Socket masks describe **7 × 7 room chunks**, not individual sprite-sheet cells. Connectivity comes from the graph and validation as well as local socket rules.
 
-Active map generation is in [WorldBuilder.cs](../src/Lantern.Core/WorldBuilder.cs), [WaveFunctionCollapse.cs](../src/Lantern.Core/WaveFunctionCollapse.cs), and [CellularAutomata.cs](../src/Lantern.Core/CellularAutomata.cs). [Zone.cs](../src/Lantern.Core/Zone.cs) contains map/path/visibility operations **and `LegacyWorldBuilder`**, retained for old saves and fallback. Preserve that compatibility path when changing generation.
+Active map generation is in [WorldBuilder.cs](../src/Ithica.Core/Expeditions/WorldBuilder.cs), [WaveFunctionCollapse.cs](../src/Ithica.Core/Expeditions/WaveFunctionCollapse.cs), and [CellularAutomata.cs](../src/Ithica.Core/Expeditions/CellularAutomata.cs). [Zone.cs](../src/Ithica.Core/Expeditions/Zone.cs) contains map/path/visibility operations **and `LegacyWorldBuilder`**, retained for old saves and fallback. Preserve that compatibility path when changing generation.
 
 Named seed streams separate generation stages and combat. A seed reproduces a fresh world for the same generator; changing the generator may change future worlds. Existing version-two saves restore their actual maps without generating replacement layouts. See [the generation guide](PROCEDURAL_GENERATION.md) for full rules and screenshots.
 
 ## Exploration hazards
 
-[HazardField.cs](../src/Lantern.Core/HazardField.cs) updates reusable flat buffers every **four successful steps or waits in the active exploration area**. Blocked movement, menus, camps, combat and inactive areas do not advance these fields. Spread uses seed/cell/tick hashes independently of combat RNG.
+[HazardField.cs](../src/Ithica.Core/Expeditions/HazardField.cs) updates reusable flat buffers every **four successful steps or waits in the active exploration area**. Blocked movement, menus, camps, combat and inactive areas do not advance these fields. Spread uses seed/cell/tick hashes independently of combat RNG.
 
 | Hazard | Evolution | Cost per step/wait on the hazard |
 | --- | --- | --- |
@@ -243,11 +243,11 @@ Counts describe indexed regions, including variants/fragments; they do not mean 
 | --- | --- |
 | [catalog.json](../assets/catalog.json) | Generated schema-3 inventory plus every region's identity evidence, live binding usage, affordances, generation status and future ideas. Use this for current coverage. |
 | [sprites.json](../assets/sprites.json) | Frozen import audit with IDs/crops/metrics/historical matches. Its usage flags describe import time. |
-| [build_runtime_assets.py](../tools/build_runtime_assets.py) → [runtime-sprites.json](../assets/runtime-sprites.json) | Colony alias selection and identified shared font; selection is authored in the Python builder. |
-| [lantern-bindings.json](../assets/lantern-bindings.json) | Authored RPG aliases pointing to existing stable sprite IDs. |
-| [lantern-generation.json](../assets/lantern-generation.json) | Authored CA/material/room/hazard placement rules; embedded in Core at build. |
+| [build_runtime_assets.py](../tools/build_runtime_assets.py) → [ithica-colony-sprites.json](../assets/ithica-colony-sprites.json) | Colony alias selection and identified shared font; selection is authored in the Python builder. |
+| [ithica-expedition-bindings.json](../assets/ithica-expedition-bindings.json) | Authored RPG aliases pointing to existing stable sprite IDs. |
+| [ithica-generation.json](../assets/ithica-generation.json) | Authored CA/material/room/hazard placement rules; embedded in Core at build. |
 | [urizen-generation-review.json](../assets/reference/urizen-generation-review.json) | Authored per-crop observations, decisions and future uses for the focused review. |
-| [build_game_catalog.py](../tools/build_game_catalog.py) | Builds catalog enrichments, `lantern-sprites.json`, `atlas-index.json`, `atlas.html`, `reference/rpg-bindings.md`, and `reference/urizen-generation.md`. |
+| [build_game_catalog.py](../tools/build_game_catalog.py) | Builds catalog enrichments, `ithica-expedition-sprites.json`, `atlas-index.json`, `atlas.html`, `reference/rpg-bindings.md`, and `reference/urizen-generation.md`. |
 | [atlas-template.html](../assets/reference/atlas-template.html) | Authored offline viewer/scene-lab template; regenerate `atlas.html` after edits. |
 | [urizen-generation.md](../assets/reference/urizen-generation.md) | Generated human-readable table of the 104 inspected crops and actual generation references. |
 
@@ -300,7 +300,7 @@ The formats are separate. C# writes use a flushed temporary file followed by ato
 
 Normal window close/Q saves. Colony loss preserves the previous save. RPG `--demo` and non-town preview scenes autosave only after a load resumes normal play; explicit F5/Ctrl+S can still save previews. `--frames` captures and native smoke runs do not autosave. Use `--save PATH` for inspection that might write a save.
 
-Sources: [colony persistence](../src/Regolith.Core/Persistence.cs), [RPG persistence](../src/Lantern.Core/Persistence.cs), and the respective client exit/load handlers. Preserve compatibility and exact continuation when changing state or generation.
+Sources: [colony persistence](../src/Ithica.Core/Colony/Persistence.cs), [RPG persistence](../src/Ithica.Core/Expeditions/Persistence.cs), and the respective client exit/load handlers. Preserve compatibility and exact continuation when changing state or generation.
 
 ## Performance and platforms
 
@@ -325,9 +325,9 @@ CI is configured for Linux, Windows and macOS core/headless checks. Native graph
 Choose checks for the changed subsystem. Documentation-only changes need source/count/link consistency checks; gameplay changes need the relevant core tests. Shared graphics changes warrant both clients; generation changes warrant seed validation plus full quest runs.
 
 ```sh
-./tools/dotnet.sh restore Regolith.sln --locked-mode
-./tools/dotnet.sh build Regolith.sln --configuration Release --no-restore
-./tools/dotnet.sh test Regolith.sln --configuration Release --no-build
+./tools/dotnet.sh restore Ithica.sln --locked-mode
+./tools/dotnet.sh build Ithica.sln --configuration Release --no-restore
+./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
 python3 tools/build_game_catalog.py --check
 
 ./play.sh --headless 700 --demo --seed 42
@@ -346,8 +346,8 @@ Ithica planning reconciliation, 2026-10-20: inspected current tick ownership, cr
 [CI](../.github/workflows/build.yml) runs locked restore/build/tests, both headless scenarios and 256 procedural seeds on all three desktop OS runners; the catalog check runs on Linux. This does not certify native graphics on every OS.
 
 ```sh
-./tools/dotnet.sh publish src/Regolith.Client --configuration Release --self-contained false --output artifacts/game
-./tools/dotnet.sh publish src/Lantern.Client --configuration Release --self-contained false --output artifacts/lantern
+./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/game
+./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/lantern
 ```
 
 Published clients carry runtime artwork/manifests/credits; the RPG also carries its viewer index/all required source images. Keep `bin/`, `obj/`, `artifacts/` and player saves out of source control.
@@ -357,7 +357,7 @@ Published clients carry runtime artwork/manifests/credits; the RPG also carries 
 | Area | Present boundary or future possibility |
 | --- | --- |
 | Combined campaign | Planned in ITHICA_PLAN.md; no shared population, clock, inventory, phase transition or save yet |
-| Product rebrand | Current documentation says Ithica; legacy projects, launchers, runtime titles and save identities remain until the staged migration |
+| Product rebrand | Ithica projects and asset configuration migrated; compatibility launchers, historical saves and explicit expedition preview retained |
 | RPG world | Three finite areas and a fixed quest; no endless world, biome progression campaign or streaming |
 | RPG enemies | Fixed authored encounter compositions and sprite-keyed intents; no procedural bestiary, roaming ecology or respawn system |
 | RPG tactics | Top-down battle presentation; no tactical movement, range, cover or flanking |
@@ -379,7 +379,7 @@ For sprite changes, edit the authored inputs listed above and regenerate derived
 
 For generator/save changes, preserve quest reachability, the locked boss cut, independent RNG state, protected approaches and old-save handling. Update the applicable format/generator version and tests deliberately. Do not reroll a loaded version-two map or remove `LegacyWorldBuilder` as unused code.
 
-For content questions, verify counts in code/configuration: zones in `WorldBuilder`, room variants in `lantern-generation.json`, enemies/encounters in `Combat`, party/skills in RPG `Models`, modules in colony `Models`, and asset coverage in `catalog_summary`. Avoid copying historical chat counts into new documentation without checking those sources.
+For content questions, verify counts in code/configuration: zones in `WorldBuilder`, room variants in `ithica-generation.json`, enemies/encounters in `Combat`, party/skills in RPG `Models`, modules in colony `Models`, and asset coverage in `catalog_summary`. Avoid copying historical chat counts into new documentation without checking those sources.
 
 ## Detailed references
 
@@ -397,3 +397,5 @@ For content questions, verify counts in code/configuration: zones in `WorldBuild
 | [SPRITE_GUIDE.md](../assets/SPRITE_GUIDE.md) | Original exhaustive audit guide; import-time usage flags |
 | [CREDITS.txt](../assets/CREDITS.txt) | Source publishers and recorded provenance/license declarations |
 | [legacy Python README](../legacy/python/README.md) | Archived terminal implementation and its independent launch workflow |
+
+Integration checkpoint, 2026-10-20: consolidated Ithica solution, Core and tests; all 97 existing core cases pass. Both prototype clients now live in one executable, with the independent RPG exposed as `--preview`. Shared campaign integration is the next stage.

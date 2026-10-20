@@ -1,8 +1,8 @@
-# Lantern Below: curated runtime bindings
+# Ithica expedition: curated runtime bindings
 
 Every RPG semantic alias below references an unchanged ID/crop in the source audit. Casting and palette are game decisions, not new author identities. The native viewer additionally registers all 7,115 occupied sprites; registration alone does not make them gameplay bindings.
 
-Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
+Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
 
 **99 semantic aliases, 94 font glyphs, 190 distinct runtime-bound IDs.**
 

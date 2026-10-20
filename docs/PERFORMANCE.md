@@ -25,10 +25,10 @@ The reported memory is managed .NET memory; it excludes native graphics/driver m
 Use `./tools/dotnet.sh` instead of `dotnet` if the SDK is installed locally through the setup script. Run samples sequentially to avoid CPU contention:
 
 ```sh
-dotnet build Regolith.sln --configuration Release
-dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --benchmark --width 256 --height 256 --agents 1000 --ticks 120
-dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --benchmark --width 512 --height 512 --agents 10000 --ticks 120
-dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --benchmark --width 1024 --height 1024 --agents 10000 --ticks 120
+dotnet build Ithica.sln --configuration Release
+dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --benchmark --width 256 --height 256 --agents 1000 --ticks 120
+dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --benchmark --width 512 --height 512 --agents 10000 --ticks 120
+dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --benchmark --width 1024 --height 1024 --agents 10000 --ticks 120
 ```
 
 `./play.sh --benchmark ...` selects the same tool and builds as needed. Output includes dimensions, runtime, tick timing, allocations, paths, completion counts, living agents, and managed memory. Increasing `--ticks` changes the work/idle mixture; comparisons should use the same arguments. Startup/JIT, rendering, and serialization are outside the timed loop.

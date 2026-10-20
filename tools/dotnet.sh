@@ -5,9 +5,10 @@ export DOTNET_NOLOGO=1
 if command -v dotnet >/dev/null 2>&1; then
     exec dotnet "$@"
 fi
-local_sdk="$HOME/.local/share/regolith/dotnet/dotnet"
-if [ -x "$local_sdk" ]; then
-    exec "$local_sdk" "$@"
-fi
-echo 'Regolith needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0 or run ./tools/setup-dotnet.sh.' >&2
+for ithica_sdk in "$HOME/.local/share/ithica/dotnet/dotnet" "$HOME/.local/share/regolith/dotnet/dotnet"; do
+    if [ -x "$ithica_sdk" ]; then
+        exec "$ithica_sdk" "$@"
+    fi
+done
+echo 'Ithica needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0 or run ./tools/setup-dotnet.sh.' >&2
 exit 1

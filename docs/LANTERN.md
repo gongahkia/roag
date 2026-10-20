@@ -21,7 +21,7 @@ Requires the same .NET 10 SDK as the colony prototype. From the repository:
 ./rpg.sh --scene atlas
 ```
 
-On Windows: `dotnet run --project src/Lantern.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
+On Windows: `dotnet run --project src/Ithica.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
 
 The four-page field guide opens before play. F1 reopens it. Closing the window or Q saves to `~/.regolith/lantern.json`. `--save PATH` selects another file. This format is separate from colony and archived Python saves.
 
@@ -105,8 +105,8 @@ Open [the offline atlas](../assets/atlas.html) for more filters and a **scene la
 The [binding table](../assets/reference/rpg-bindings.md) lists every RPG alias and source identity. [Catalog schema](../assets/reference/CATALOG_V2.md) explains exhaustive coverage, usage, evidence, and uncertainty. The original artwork, crop IDs, colony selection, and import audit are unchanged.
 
 ```sh
-./tools/dotnet.sh build Regolith.sln --configuration Release
-./tools/dotnet.sh test Regolith.sln --configuration Release --no-build
+./tools/dotnet.sh build Ithica.sln --configuration Release
+./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
 ./rpg.sh --headless
 ./rpg.sh --smoke-test --screenshot /tmp/lantern-smoke.png
 python3 tools/build_game_catalog.py --check
@@ -114,6 +114,6 @@ python3 tools/build_game_catalog.py --check
 
 The headless driver completes a real expedition through movement, interactions, paid skills, camp costs, boss combat, and return-home progression. It does not grant items or victory through debug state. Core tests cover this on several seeds, plus hundreds of generated quest layouts, WFC constraints/fallback, cellular hazards, legacy saves, collision, visibility, gate/chest rules, battle validation, guard, stress, healing/revival, burning, defeat, retreat, and exact save continuation. The native smoke opens a real window and checks the viewer, transition, combat, zoom, saves, and full quest before exiting without touching the player's save.
 
-Capture other views with `--scene town|forest|crypt|battle|victory|atlas --screenshot PATH --frames 12`. Local distribution: `./tools/dotnet.sh publish src/Lantern.Client --configuration Release --self-contained false --output artifacts/lantern`. The output needs .NET 10 and includes all source images required by its viewer, the lightweight atlas index, runtime manifest, and credits. The larger audit/catalog stays in the repository.
+Capture other views with `--scene town|forest|crypt|battle|victory|atlas --screenshot PATH --frames 12`. Local distribution: `./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/lantern`. The output needs .NET 10 and includes all source images required by its viewer, the lightweight atlas index, runtime manifest, and credits. The larger audit/catalog stays in the repository.
 
 This is a generated three-area vertical slice around a planned quest graph, with five encounters and one finite quest. Equipment is class-defined; item hauling, gear swapping, dialogue branches, shops with individual wares, branching procedural campaigns, directional sprite animations, tactical movement, and gamepad controls are future work. Maps use single-cell sprite interpretations, not an inferred autotile/animation system. Native graphics have been exercised on macOS Intel; other desktop platforms still need graphical verification.

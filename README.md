@@ -40,7 +40,7 @@ The launcher works from any directory. On macOS/Linux, `./tools/setup-dotnet.sh`
 On Windows, or with the SDK on your PATH:
 
 ```sh
-dotnet run --project src/Regolith.Client --configuration Release
+dotnet run --project src/Ithica.Client --configuration Release
 ```
 
 The native window defaults to **1440×900** and supports resizing down to **1024×720**. Use `--window-size 1280x800` to set its initial size. MonoGame DesktopGL targets Windows, macOS, and Linux; native rendering has been exercised on macOS Intel. Other desktop platforms still need a graphical smoke run. Linux needs a working desktop/OpenGL environment; headless tools need only .NET.
@@ -86,12 +86,12 @@ The implementation separates the game from its presentation:
 
 | Project | Responsibility |
 | --- | --- |
-| [Regolith.Core](src/Regolith.Core/) | Graphics-free simulation, contiguous world arrays, jobs, routing, rescue, atomic saves |
-| [Regolith.Client](src/Regolith.Client/) | Colony map rendering, mouse/keyboard input, HUD/tutorial |
-| [Regolith.Graphics](src/Regolith.Graphics/) | Shared sprite loader, palette masks, bitmap text, and camera; lazy texture loading for the atlas |
-| [Lantern.Core](src/Lantern.Core/) / [Lantern.Client](src/Lantern.Client/) | Independent RPG rules and its MonoGame presentation |
-| [Regolith.Tools](src/Regolith.Tools/) | Deterministic headless runs and simulation benchmarks |
-| [Regolith.Core.Tests](tests/Regolith.Core.Tests/) | Environment, work, power, rescue, progression, and saved-continuation checks |
+| [Regolith.Core](src/Ithica.Core/Colony/) | Graphics-free simulation, contiguous world arrays, jobs, routing, rescue, atomic saves |
+| [Regolith.Client](src/Ithica.Client/) | Colony map rendering, mouse/keyboard input, HUD/tutorial |
+| [Regolith.Graphics](src/Ithica.Graphics/) | Shared sprite loader, palette masks, bitmap text, and camera; lazy texture loading for the atlas |
+| [Lantern.Core](src/Ithica.Core/Expeditions/) / [Lantern.Client](src/Ithica.Client/Preview/) | Independent RPG rules and its MonoGame presentation |
+| [Regolith.Tools](src/Ithica.Tools/) | Deterministic headless runs and simulation benchmarks |
+| [Regolith.Core.Tests](tests/Ithica.Core.Tests/Colony/) | Environment, work, power, rescue, progression, and saved-continuation checks |
 | [legacy/python](legacy/python/) | Archived terminal prototype, runnable independently |
 
 This is a playable single-layer foundation. Resources go directly into shared inventory; crew may share a cell. Hauling, multi-level excavation, combat, modding, rich social behavior, and background simulation threads are future work. See [architecture](docs/ARCHITECTURE.md) for design decisions and [performance](docs/PERFORMANCE.md) for measured limits and reproduction commands.
@@ -100,7 +100,7 @@ This is a playable single-layer foundation. Resources go directly into shared in
 
 All original spritesheets, stable sprite IDs, crop rectangles, and proposed mappings are preserved. The client uses **Urizen tiles and bitmap font**, **Godot node icons**, and **keyboard/mouse prompts** from the three imported packs. Palette tinting and black-background removal happen in texture copies during loading.
 
-[assets/runtime-sprites.json](assets/runtime-sprites.json) selects **154 existing IDs** for 60 semantic bindings and 94 glyphs. Regenerate this small runtime selection with `python3 tools/build_runtime_assets.py` (standard library only). Python is not a game dependency, and no content-pipeline editor is required.
+[assets/ithica-colony-sprites.json](assets/ithica-colony-sprites.json) selects **154 existing IDs** for 60 semantic bindings and 94 glyphs. Regenerate this small runtime selection with `python3 tools/build_runtime_assets.py` (standard library only). Python is not a game dependency, and no content-pipeline editor is required.
 
 The full [sprite guide](assets/SPRITE_GUIDE.md), [visual browser](assets/sprites.html), and [sprite catalog](assets/sprites.json) retain every occupied region and future-use proposal. Their unused/proposed flags describe the original import audit; use the runtime manifest for current bindings. [catalog.json](assets/catalog.json) retains the original image hashes and archive inventory. Publishers and CC0 declarations are recorded in [CREDITS.txt](assets/CREDITS.txt).
 
@@ -109,9 +109,9 @@ The full [sprite guide](assets/SPRITE_GUIDE.md), [visual browser](assets/sprites
 Use `./tools/dotnet.sh` in place of `dotnet` if you used the per-user SDK installer.
 
 ```sh
-dotnet restore Regolith.sln --locked-mode
-dotnet build Regolith.sln --configuration Release --no-restore
-dotnet test Regolith.sln --configuration Release --no-build
+dotnet restore Ithica.sln --locked-mode
+dotnet build Ithica.sln --configuration Release --no-restore
+dotnet test Ithica.sln --configuration Release --no-build
 ./play.sh --headless 700 --demo --seed 42
 ./play.sh --smoke-test --screenshot /tmp/regolith-smoke.png
 ./play.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
@@ -122,7 +122,7 @@ Headless runs print JSON and never write saves. The graphical smoke run opens a 
 NuGet versions are pinned with lockfiles. The included CI workflow builds and runs core/headless checks on Linux, Windows, and macOS; it does not certify native graphics on those platforms. To create a local distributable for the current machine:
 
 ```sh
-dotnet publish src/Regolith.Client --configuration Release --self-contained false --output artifacts/game
+dotnet publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/game
 ```
 
 The output includes runtime artwork and credits. This framework-dependent build requires .NET 10 on the destination machine; native installers, signing, and store publishing are not configured.

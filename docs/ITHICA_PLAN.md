@@ -199,15 +199,15 @@ Retain the current exhaustive catalog and focused Urizen review. Extend visual r
 
 | Current implementation | Reuse / required change |
 | --- | --- |
-| [Colony `Simulation.Step`](../src/Regolith.Core/Simulation.cs) advances explicit integer ticks | Retain fixed-step simulation, but let the campaign own advancement and filter local worker behavior by resident location |
-| [Colony client](../src/Regolith.Client/ColonyGame.cs) uses an elapsed-time accumulator | Keep this as the colony pacing adapter; clear it on transitions and remove client ownership of authoritative time |
-| [Colony crew system](../src/Regolith.Core/CrewSystem.cs) updates needs and work together | Separate shared needs from colony-only work, rescue travel and local care before residents can leave safely |
-| [RPG `Campaign`](../src/Lantern.Core/Campaign.cs) exposes movement, wait and interaction commands | Route these through common validation, action costs and the campaign scheduler |
-| [RPG client](../src/Lantern.Client/LanternGame.cs) currently paces enemy actions and path movement with wall time | Wall time can pace display; accepted commands and the saved deterministic queue must own all gameplay advancement |
-| [Combat](../src/Lantern.Core/Combat.cs) copies party stats and uses hero-index assumptions | Use resident identities and variable party slots; establish one health/injury authority |
-| [RPG persistence](../src/Lantern.Core/Persistence.cs) validates exactly four heroes and three zones | Introduce variable roster/site collections in a new format; retain old-format readers and regression fixtures |
+| [Colony `Simulation.Step`](../src/Ithica.Core/Colony/Simulation.cs) advances explicit integer ticks | Retain fixed-step simulation, but let the campaign own advancement and filter local worker behavior by resident location |
+| [Colony client](../src/Ithica.Client/IthicaGame.cs) uses an elapsed-time accumulator | Keep this as the colony pacing adapter; clear it on transitions and remove client ownership of authoritative time |
+| [Colony crew system](../src/Ithica.Core/Colony/CrewSystem.cs) updates needs and work together | Separate shared needs from colony-only work, rescue travel and local care before residents can leave safely |
+| [RPG `Campaign`](../src/Ithica.Core/Expeditions/Campaign.cs) exposes movement, wait and interaction commands | Route these through common validation, action costs and the campaign scheduler |
+| [RPG client](../src/Ithica.Client/Preview/PreviewGame.cs) currently paces enemy actions and path movement with wall time | Wall time can pace display; accepted commands and the saved deterministic queue must own all gameplay advancement |
+| [Combat](../src/Ithica.Core/Expeditions/Combat.cs) copies party stats and uses hero-index assumptions | Use resident identities and variable party slots; establish one health/injury authority |
+| [RPG persistence](../src/Ithica.Core/Expeditions/Persistence.cs) validates exactly four heroes and three zones | Introduce variable roster/site collections in a new format; retain old-format readers and regression fixtures |
 | Existing CA, WFC, route protection and save tests | Preserve their guarantees while recasting content and moving ownership |
-| [Shared graphics](../src/Regolith.Graphics/) already serves both clients | Keep sprite loading, camera, bitmap text and atlas behavior in the shared graphics layer |
+| [Shared graphics](../src/Ithica.Graphics/) already serves both clients | Keep sprite loading, camera, bitmap text and atlas behavior in the shared graphics layer |
 
 The colony and RPG currently have different random-stream implementations. Keep their legacy behavior for old saves. Define explicit streams for the new campaign and persist their state; do not merge them by replacing every random call with one global generator.
 
@@ -250,7 +250,7 @@ The canonical current product name is **Ithica**. Complete its code/runtime migr
 | Launchers and distribution | `ithica.sh` becomes the normal entry; temporarily retain `play.sh` / `rpg.sh` as documented compatibility or regression entry points; update publish artifacts and CI paths together |
 | Window/HUD/tutorial/help | Ithica title, one phase-aware interface and a sectioned tutorial covering the same shared campaign |
 | README/current guides/agent guidance | Ithica branding; accurately label legacy implementation identifiers while migration is incomplete |
-| Authored asset configuration | Move `lantern-bindings.json` and `lantern-generation.json` to Ithica-named inputs; combine colony/expedition binding contexts deliberately |
+| Authored asset configuration | Move `ithica-expedition-bindings.json` and `ithica-generation.json` to Ithica-named inputs; combine colony/expedition binding contexts deliberately |
 | Generated manifests/catalog/browser | Regenerate Ithica runtime selections and visible headings from updated authoring tools; update embedded logical resource names and project copy rules |
 | New saves | `~/.ithica/campaign.json`, format `ithica`, initial version 1; atomic writes and explicit schema validation |
 | Per-user SDK default | Prefer an Ithica-named installation location while retaining discovery of the existing Regolith SDK location; do not move or delete installed toolchains |

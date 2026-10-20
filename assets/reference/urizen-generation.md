@@ -4,7 +4,7 @@
 
 This supplements the exhaustive per-sprite catalog. Observations below were checked against the exact source crops; uncertain publisher identities stay uncertain. Source pixels, IDs, rectangles, original audit labels and identity confidence are preserved.
 
-The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [lantern-generation.json](../lantern-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.
+The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [ithica-generation.json](../ithica-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.
 
 Fire, spores and corruption use explicit overlay rules. Button mushrooms represent spores and a leaf silhouette represents magical corruption; these are game interpretations, not publisher identities. Existing campfires remain rest locations, not fire sources.
 

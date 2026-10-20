@@ -51,5 +51,5 @@ data={"schemaVersion":1,"sourceCatalog":"sprites.json","notes":"Runtime selectio
       "sprites":{key:{"source":records[key]["source"],"rect":records[key]["rect"]}for key in sorted(selected)}}
 assert all(key in records for key in selected)
 assert set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789?!.,:+-=/()") <= set(font)
-(ASSETS/"runtime-sprites.json").write_text(json.dumps(data,indent=2)+"\n")
+(ASSETS/"ithica-colony-sprites.json").write_text(json.dumps(data,indent=2)+"\n")
 print(f"Selected {len(selected)} existing sprite IDs, {len(bindings)} bindings, {len(font)} glyphs. Original images and catalog unchanged.")

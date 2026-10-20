@@ -96,10 +96,10 @@ def main():
     audit = read("sprites.json")
     records = audit["records"]
     sprites = {r["id"]: r for r in records if r["kind"] == "sprite"}
-    colony = read("runtime-sprites.json")
-    rpg = read("lantern-bindings.json")
+    colony = read("ithica-colony-sprites.json")
+    rpg = read("ithica-expedition-bindings.json")
     bindings = rpg["bindings"]
-    generation = read("lantern-generation.json")
+    generation = read("ithica-generation.json")
     visual_review = read("reference/urizen-generation-review.json")
     reviewed = {r["id"]: r for r in visual_review["entries"]}
     if len(reviewed) != len(visual_review["entries"]) or any(sid not in sprites for sid in reviewed):
@@ -124,7 +124,7 @@ def main():
         if sprite not in sprites: raise ValueError(f"Missing RPG binding {key}: {sprite}")
     runtime = {"schemaVersion": 1, "sourceCatalog": "catalog.json", "notes": rpg["notes"], "bindings": bindings,
                "font": colony["font"], "sprites": {key: {"source": r["source"], "rect": r["rect"]} for key, r in sprites.items()}}
-    write("lantern-sprites.json", runtime, args.check)
+    write("ithica-expedition-sprites.json", runtime, args.check)
     usages = collections.defaultdict(lambda: {"colony": [], "rpg": []})
     for game, manifest in [("colony", colony), ("rpg", runtime)]:
         for alias, sid in manifest["bindings"].items(): usages[sid][game].append(alias)
@@ -148,7 +148,7 @@ def main():
                      "actors": "Encounter/NPC appearance chosen after the quest graph; never use body variants as room sockets.",
                      "technology": "Future alternate-theme assembly after joint/footprint review.",
                      "symbols-and-assemblies": "Future ornament/socket marker only after complete-assembly review."}.get(family, "UI/item/reference artwork; no automatic terrain placement."),
-            "adjacency_basis": "Game-authored sockets and masks in lantern-generation.json; artwork indices are not inferred adjacency.",
+            "adjacency_basis": "Game-authored sockets and masks in ithica-generation.json; artwork indices are not inferred adjacency.",
             "visual_review": reviewed.get(r["id"]),
             "required_before_new_use": [] if status == "runtime_rule" else ["Review identity, layer, apparent scale, footprint and joins.", "Author biome, weight, collision and safe-route exclusions; validate reachability."] if candidate else []}
         if r["id"] in reviewed:
@@ -173,7 +173,7 @@ def main():
                          "generation_rule_sprites": len(rule_refs), "generation_visually_reviewed": len(reviewed),
                          "unused_sprites": sum(e["runtime_status"] == "unused" for e in enriched),
                          "families": dict(sorted(collections.Counter(e["assessment"]["family"] for e in enriched if e["kind"] == "sprite").items()))},
-        generation_rules={"source": "lantern-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
+        generation_rules={"source": "ithica-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
                           "visual_review": "reference/urizen-generation-review.json", "notes": generation["notes"]},
         game_bindings={"colony": colony["bindings"], "rpg": bindings}, sprites=enriched,
         catalog_limits=["Every crop has a usage/affordance assessment; that is not individual verified identification of all 7,115 motifs.",
@@ -217,9 +217,9 @@ def main():
         "broken-column":"Author-confirmed broken antique column used as nonblocking collapsed-room scenery outside the safe cross.",
     }
     def cell(text):return str(text).replace("|","\\|").replace("\n"," ")
-    lines=["# Lantern Below: curated runtime bindings","",
+    lines=["# Ithica expedition: curated runtime bindings","",
            "Every RPG semantic alias below references an unchanged ID/crop in the source audit. Casting and palette are game decisions, not new author identities. The native viewer additionally registers all 7,115 occupied sprites; registration alone does not make them gameplay bindings.","",
-           "Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).","",
+           "Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).","",
            f"**{len(bindings)} semantic aliases, {len(colony['font'])} font glyphs, {len(set(bindings.values())|set(colony['font'].values()))} distinct runtime-bound IDs.**","",
            "| Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |","|---|---|---|---|---|"]
     for alias,sid in sorted(bindings.items()):
@@ -233,7 +233,7 @@ def main():
     else:md_path.write_text(md)
     review_lines = ["# Urizen: generation crop review", "", visual_review["scope"], "",
         "This supplements the exhaustive per-sprite catalog. Observations below were checked against the exact source crops; uncertain publisher identities stay uncertain. Source pixels, IDs, rectangles, original audit labels and identity confidence are preserved.", "",
-        "The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [lantern-generation.json](../lantern-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.", "",
+        "The game uses authored north/east/south/west sockets on **7 x 7 room chunks**, not on arbitrary sprite numbers. Only aliases referenced by [ithica-generation.json](../ithica-generation.json) are eligible for automatic generation. Collision belongs to Ground/object data; generated props, including boulders, grave markers and cave mouths, are nonblocking scenery. Cave artwork does not add another playable area. Crystal props add no mining or crafting mechanic.", "",
         "Fire, spores and corruption use explicit overlay rules. Button mushrooms represent spores and a leaf silhouette represents magical corruption; these are game interpretations, not publisher identities. Existing campfires remain rest locations, not fire sources.", "",
         f"**{len(reviewed)} individually inspected crops; {len(rule_refs)} distinct sprite IDs referenced by generation rules across all packs.**", "",
         "| Stable ID | Preserved identity / evidence | Visual observation | Generation status / rule references | Future use / limitations |", "|---|---|---|---|---|"]

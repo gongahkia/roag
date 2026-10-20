@@ -21,15 +21,15 @@ jobs:
           dotnet-version: '10.0.402'
           cache: true
           cache-dependency-path: '**/packages.lock.json'
-      - run: dotnet restore Regolith.sln --locked-mode
-      - run: dotnet build Regolith.sln --configuration Release --no-restore
-      - run: dotnet test Regolith.sln --configuration Release --no-build
+      - run: dotnet restore Ithica.sln --locked-mode
+      - run: dotnet build Ithica.sln --configuration Release --no-restore
+      - run: dotnet test Ithica.sln --configuration Release --no-build
       - name: Run deterministic headless scenario
-        run: dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --headless 700 --demo --seed 42
+        run: dotnet run --project src/Ithica.Tools --configuration Release --no-build -- --headless 700 --demo --seed 42
       - name: Complete RPG expedition without graphics
-        run: dotnet run --project src/Lantern.Client --configuration Release --no-build -- --headless
+        run: dotnet run --project src/Ithica.Client --configuration Release --no-build -- --preview --headless
       - name: Validate procedural quest routes across seeds
-        run: dotnet run --project src/Lantern.Client --configuration Release --no-build -- --validate-seeds 256 --seed -128
+        run: dotnet run --project src/Ithica.Client --configuration Release --no-build -- --preview --validate-seeds 256 --seed -128
       - name: Check generated catalog and original image hashes
         if: matrix.os == 'ubuntu-latest'
         run: python3 tools/build_game_catalog.py --check

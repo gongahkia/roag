@@ -60,7 +60,7 @@ Road corridors, objective clearings, room crosses and objective approaches are p
 
 ## Assets and authoring
 
-[assets/lantern-generation.json](../assets/lantern-generation.json) is the authoritative generation rules file, embedded into `Lantern.Core` at build time. It defines CA settings, material sprites/fuel, biome dressing, room styles/weights and hazard aliases. Editing it requires a rebuild; catalog regeneration alone does not change an already built executable.
+[assets/ithica-generation.json](../assets/ithica-generation.json) is the authoritative generation rules file, embedded into `Lantern.Core` at build time. It defines CA settings, material sprites/fuel, biome dressing, room styles/weights and hazard aliases. Editing it requires a rebuild; catalog regeneration alone does not change an already built executable.
 
 Source PNGs and existing IDs/crops are unchanged. [The Urizen generation review](../assets/reference/urizen-generation.md) documents 104 individually inspected crops, including uncertain fragments and unused candidates. Catalog schema 3 adds `generation` to every indexed region, distinguishing `runtime_rule`, `candidate_requires_rules`, `not_world_generation` and `not_applicable`. The native F2 and offline HTML viewers show/search the new notes; search `runtime_rule`, `cistern`, or `visual review`.
 
@@ -70,8 +70,8 @@ To extend a theme: inspect the exact crop and neighboring fragments, add an alia
 
 ```sh
 python3 tools/build_game_catalog.py
-./tools/dotnet.sh build Regolith.sln --configuration Release
-./tools/dotnet.sh test Regolith.sln --configuration Release --no-build
+./tools/dotnet.sh build Ithica.sln --configuration Release
+./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
 ./rpg.sh --validate-seeds 1000 --seed 0
 python3 tools/build_game_catalog.py --check
 ```
