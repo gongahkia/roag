@@ -9,6 +9,7 @@ namespace Lantern.Client;
 
 public sealed partial class LanternGame : Game
 {
+    private const int GuidePageCount = 4;
     private readonly Options _options;
     private readonly GraphicsDeviceManager _graphics;
     private Campaign _campaign;
@@ -263,6 +264,13 @@ public sealed partial class LanternGame : Game
             AtlasInput();
             return;
         }
+        if (_intro || _dialogTitle.Length > 0)
+        {
+            int dialogWheel = _mouse.ScrollWheelValue - _oldMouse.ScrollWheelValue;
+            if (dialogWheel != 0) _dialogScroll = Math.Max(0, _dialogScroll - Math.Sign(dialogWheel) * 48);
+            if (Pressed(Keys.PageDown) || Pressed(Keys.Down)) _dialogScroll += 96;
+            if (Pressed(Keys.PageUp) || Pressed(Keys.Up)) _dialogScroll = Math.Max(0, _dialogScroll - 96);
+        }
         if (_intro)
         {
             if (Pressed(Keys.Escape))
@@ -277,7 +285,7 @@ public sealed partial class LanternGame : Game
 
             if (Pressed(Keys.Enter) || Pressed(Keys.Space) || Pressed(Keys.Right))
             {
-                if (_lesson < 2)
+                if (_lesson < GuidePageCount - 1)
                 {
                     _lesson++;
                 }
@@ -290,13 +298,6 @@ public sealed partial class LanternGame : Game
         }
         if (_dialogTitle.Length > 0)
         {
-            int dialogWheel = _mouse.ScrollWheelValue - _oldMouse.ScrollWheelValue;
-            if (dialogWheel != 0)
-                _dialogScroll = Math.Max(0, _dialogScroll - Math.Sign(dialogWheel) * 48);
-            if (Pressed(Keys.PageDown) || Pressed(Keys.Down))
-                _dialogScroll += 96;
-            if (Pressed(Keys.PageUp) || Pressed(Keys.Up))
-                _dialogScroll = Math.Max(0, _dialogScroll - 96);
             if (Pressed(Keys.Escape) || Pressed(Keys.Enter) || Pressed(Keys.Space))
             {
                 _dialogTitle = "";
@@ -652,6 +653,8 @@ public sealed partial class LanternGame : Game
             _checks.Add(name);
         }
         Check(_entries.Count == 7115, "all occupied sprites available in viewer");
+        Check(WorldBuilder.Validate(_campaign.Zones).Valid, "generated quest routes and sealed boss chamber validate");
+        Check(_campaign.Zones[2].Generation.Rooms.Count == 35 && !_campaign.Zones[2].Generation.UsedFallback, "WFC assembled 35 matching rooms");
         Check(_intro, "tutorial opens");
         _intro = false;
         Check(_campaign.Move(1, 0).Success, "cardinal movement");
@@ -667,6 +670,10 @@ public sealed partial class LanternGame : Game
         Check(loaded.StateJson() == _campaign.StateJson(), "mid-combat save restores exactly");
         _campaign.AutoBattle();
         Check(_campaign.Completed.Contains("wilds-hounds"), "combat victory clears encounter");
+        int environmentTick = _campaign.Zone.Environment.Ticks;
+        for (int i = 0; i < 4; i++) _campaign.Wait();
+        Check(_campaign.Zone.Environment.Ticks == environmentTick + 1, "four exploration turns advance cellular hazards");
+        Check(Campaign.FromJson(_campaign.StateJson()).StateJson() == _campaign.StateJson(), "generated maps and evolving hazards save exactly");
         var pointer = new Vector2(_map.X + 150, _map.Y + 100);
         var anchor = _camera.ScreenToWorld(pointer);
         _camera.ZoomAt(pointer, 1);
@@ -675,6 +682,11 @@ public sealed partial class LanternGame : Game
         _search = "potion";
         FilterAtlas();
         Check(_filtered.Count > 8, "atlas search finds cross-pack candidates");
+        _search = "";
+        FilterAtlas();
+        _search = "runtime_rule";
+        FilterAtlas();
+        Check(_filtered.Count >= 40, "atlas searches per-sprite generation rules");
         _search = "";
         FilterAtlas();
         _campaign = new Campaign(_options.Seed);

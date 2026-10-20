@@ -20,7 +20,9 @@
       "leaf",
       "boulder",
       "cave-mouth"
-    ]
+    ],
+    "pondPercent": 42,
+    "pondPasses": 3
   },
   "materials": {
     "Grass": {

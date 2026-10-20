@@ -116,7 +116,8 @@ public static class GenerationSeeds
         x = unchecked(x * 0x7feb352dU);
         x ^= x >> 15;
         x = unchecked(x * 0x846ca68bU);
-        return (x ^ (x >> 16)) | 1U;
+        uint result = x ^ (x >> 16);
+        return result == 0 ? 1U : result;
     }
     public static RandomStream Stream(int seed, uint salt) => new(Mix(unchecked((uint)seed), salt));
 }

@@ -50,11 +50,11 @@ public sealed partial class Campaign
     private int _sequence;
     public string Objective => Victory ? "The ember has a home. Explore, recover, and inspect the art." : HasRelic ? "Bring the ember relic to Warden Elowen in Hearth." : Completed.Contains("iron-gate") ? "Defeat the Hollow Abbot and recover the ember relic." : HasKey ? "Take the iron key to the sealed chamber beneath the abbey." : "Find the iron key in Ashwood's abandoned chest.";
     public Campaign(int seed = 42) : this(seed, false) { }
-    private Campaign(int seed, bool legacy)
+    private Campaign(int seed, bool legacy, bool restoreMaps = false)
     {
         Seed = seed;
         Random = new(unchecked((uint)seed));
-        Zones = legacy ? LegacyWorldBuilder.Create(seed) : WorldBuilder.Create(seed);
+        Zones = restoreMaps ? [] : legacy ? LegacyWorldBuilder.Create(seed) : WorldBuilder.Create(seed);
         if (legacy)
             foreach (var zone in Zones)
             {
@@ -70,7 +70,7 @@ public sealed partial class Campaign
             Party.Add(hero);
         }
         Note("Four strangers share one lantern. Find the ember beneath the abbey, and bring it home.");
-        Reveal();
+        if (!restoreMaps) Reveal();
     }
     private void Note(string text)
     {
@@ -187,7 +187,7 @@ public sealed partial class Campaign
     {
         var o = ObjectAt(destination);
         IEnumerable<Cell> goals = o is { Blocks: true } && !Walkable(destination) ? Zone.Neighbors(destination).Where(Walkable) : [destination];
-        bool Allowed(Cell p) => Walkable(p) && (o?.Position == p || ObjectAt(p)?.Kind != ObjectKind.Encounter);
+        bool Allowed(Cell p) => Walkable(p) && (o?.Position == p || ObjectAt(p)?.Kind is not (ObjectKind.Encounter or ObjectKind.Portal));
         var path = Zone.FindPath(Position, goals, p => Allowed(p) && (p == destination || Zone.Environment.Cells[Zone.Index(p)] == HazardKind.None));
         return path.Count > 0 ? path : Zone.FindPath(Position, goals, Allowed);
     }

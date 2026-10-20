@@ -30,6 +30,8 @@ public sealed class ForestRules
     public int Passes { get; set; }
     public int Birth { get; set; }
     public int Survive { get; set; }
+    public int PondPercent { get; set; }
+    public int PondPasses { get; set; }
     public string[] Props { get; set; } = [];
 }
 public sealed class MaterialRule

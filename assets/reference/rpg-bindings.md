@@ -4,7 +4,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
 
-**101 semantic aliases, 94 font glyphs, 192 distinct runtime-bound IDs.**
+**99 semantic aliases, 94 font glyphs, 190 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -20,23 +20,23 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | bones | urizen-onebit-r38-c002 | bones / remains | author_metadata_visible_rgb_match / high | Render as bones; preserve the source identity and keep mechanics in game data. |
 | book | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as book; preserve the source identity and keep mechanics in game data. |
 | bookcase | urizen-onebit-r36-c002 | furniture / bookcase | author_metadata_visible_rgb_match / high | Render as bookcase; preserve the source identity and keep mechanics in game data. |
-| boulder | urizen-onebit-r05-c020 | floor / boulders | author_metadata_visible_rgb_match / high | Render as boulder; preserve the source identity and keep mechanics in game data. |
+| boulder | urizen-onebit-r05-c020 | floor / boulders | author_metadata_visible_rgb_match / high | Author-confirmed boulder cluster used as nonblocking scenery, rather than adding an obstacle or mining resource. |
 | bow | urizen-onebit-r10-c026 | weapon / bow | author_metadata_visible_rgb_match / high | Author-confirmed bow used for arrow/volley ability icons. |
 | brazier | urizen-onebit-r22-c027 | light / brazier | author_metadata_visible_rgb_match / high | Render as brazier; preserve the source identity and keep mechanics in game data. |
 | bridge | urizen-onebit-r40-c012 | bridge; orientation=H | author_metadata_visible_rgb_match / high | Render as bridge; preserve the source identity and keep mechanics in game data. |
-| broken-column | urizen-onebit-r03-c027 | column / antique / broken | author_metadata_visible_rgb_match / high | Render as broken column; preserve the source identity and keep mechanics in game data. |
+| broken-column | urizen-onebit-r03-c027 | column / antique / broken | author_metadata_visible_rgb_match / high | Author-confirmed broken antique column used as nonblocking collapsed-room scenery outside the safe cross. |
 | button-mushroom | urizen-onebit-r10-c003 | flora / mushroom / button | author_metadata_visible_rgb_match / high | Render as button mushroom; preserve the source identity and keep mechanics in game data. |
 | campfire | urizen-onebit-r42-c000 | bonfire | author_metadata_visible_rgb_match / high | Render as campfire; preserve the source identity and keep mechanics in game data. |
 | candle | urizen-onebit-r42-c007 | light / candle | author_metadata_visible_rgb_match / high | Render as candle; preserve the source identity and keep mechanics in game data. |
-| cave-mouth | urizen-onebit-r03-c030 | cave | author_metadata_visible_rgb_match / high | Render as cave mouth; preserve the source identity and keep mechanics in game data. |
+| cave-mouth | urizen-onebit-r03-c030 | cave | author_metadata_visible_rgb_match / high | Author-confirmed cave silhouette used as scenery; it does not create a fourth playable area or transition. |
 | chest | urizen-onebit-r19-c026 | furniture / chest | author_metadata_visible_rgb_match / high | Render as chest; preserve the source identity and keep mechanics in game data. |
 | chest-open | urizen-onebit-r19-c027 | furniture / chest / open | author_metadata_visible_rgb_match / high | Render as chest open; preserve the source identity and keep mechanics in game data. |
 | coffin | urizen-onebit-r19-c029 | Chests, bows, siege and workshop parts R19 C029 | visual_region_and_silhouette / low | Unconfirmed chest/workshop silhouette used as a coffin-shaped crypt prop; this is not an author label. |
 | coin | urizen-onebit-r46-c001 | money / coin | author_metadata_visible_rgb_match / high | Render as coin; preserve the source identity and keep mechanics in game data. |
 | column | urizen-onebit-r03-c026 | column / antique | author_metadata_visible_rgb_match / high | Render as column; preserve the source identity and keep mechanics in game data. |
-| cracked-wall | urizen-onebit-r02-c001 | Structural tile R02 C001 | visual_region_and_silhouette / low | Render as cracked wall; preserve the source identity and keep mechanics in game data. |
+| cracked-wall | urizen-onebit-r02-c001 | Structural tile R02 C001 | visual_region_and_silhouette / low | Visually fractured structural pattern used for collapsed masonry; its exact publisher variant remains unconfirmed. |
 | cross | urizen-onebit-r25-c032 | chapel / cross | author_metadata_visible_rgb_match / high | Render as cross; preserve the source identity and keep mechanics in game data. |
-| crystal | urizen-onebit-r22-c002 | mineral / crystal; index=0 | author_metadata_visible_rgb_match / high | Render as crystal; preserve the source identity and keep mechanics in game data. |
+| crystal | urizen-onebit-r22-c002 | mineral / crystal; index=0 | author_metadata_visible_rgb_match / high | Author-confirmed diagonal crystal becomes decorative ruin treasure; no mining/crafting/reward interaction is implemented. |
 | dead-tree | urizen-onebit-r10-c005 | flora / tree / dead | author_metadata_visible_rgb_match / high | Render as dead tree; preserve the source identity and keep mechanics in game data. |
 | elder | urizen-onebit-r01-c187 | Figure row 01, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as elder; preserve the source identity and keep mechanics in game data. |
 | ember | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Render as ember; preserve the source identity and keep mechanics in game data. |
@@ -50,10 +50,10 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | grave | urizen-onebit-r39-c008 | gravestone / cross | author_metadata_visible_rgb_match / high | Render as grave; preserve the source identity and keep mechanics in game data. |
 | grave-obelisk | urizen-onebit-r25-c035 | gravestone / obelisk | author_metadata_visible_rgb_match / high | Render as grave obelisk; preserve the source identity and keep mechanics in game data. |
 | grave-slab | urizen-onebit-r39-c007 | gravestone | author_metadata_visible_rgb_match / high | Render as grave slab; preserve the source identity and keep mechanics in game data. |
-| grit | urizen-onebit-r05-c017 | floor / grit | author_metadata_visible_rgb_match / high | Render as grit; preserve the source identity and keep mechanics in game data. |
-| hazard-corruption | urizen-onebit-r09-c001 | flora / leafs | author_metadata_visible_rgb_match / high | Render as hazard corruption; preserve the source identity and keep mechanics in game data. |
-| hazard-fire | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Render as hazard fire; preserve the source identity and keep mechanics in game data. |
-| hazard-spores | urizen-onebit-r10-c003 | flora / mushroom / button | author_metadata_visible_rgb_match / high | Render as hazard spores; preserve the source identity and keep mechanics in game data. |
+| grit | urizen-onebit-r05-c017 | floor / grit | author_metadata_visible_rgb_match / high | Author-confirmed grit becomes eroded-room ground and scorched grass presentation. Collision remains explicit Ground data. |
+| hazard-corruption | urizen-onebit-r09-c001 | flora / leafs | author_metadata_visible_rgb_match / high | Author's leaf silhouette represents magical blight. Growth, source lifetime and stress costs are game rules. |
+| hazard-fire | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Author's fire crop marks spreading magical fire. Campfire props remain safe rest locations and do not ignite it. |
+| hazard-spores | urizen-onebit-r10-c003 | flora / mushroom / button | author_metadata_visible_rgb_match / high | Author's button mushrooms represent a spore cloud/source overlay; poison is game casting, not a publisher property. |
 | healer | urizen-onebit-r01-c175 | Figure row 01, profession column 71: cross-shaped prop | visual_region_and_silhouette / low | Cross-shaped held prop; Sable's class is a game interpretation. |
 | heart | godot-white-heart | heart | publisher_filename / high | Render as heart; preserve the source identity and keep mechanics in game data. |
 | innkeeper | urizen-onebit-r01-c176 | Figure row 01, profession column 72: raised goblet-like prop | visual_region_and_silhouette / low | Render as innkeeper; preserve the source identity and keep mechanics in game data. |
@@ -68,7 +68,7 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | mushroom | urizen-onebit-r10-c002 | flora / mushroom / toadstool | author_metadata_visible_rgb_match / high | Render as mushroom; preserve the source identity and keep mechanics in game data. |
 | path | urizen-onebit-r05-c001 | floor / dirt | author_metadata_visible_rgb_match / high | Render as path; preserve the source identity and keep mechanics in game data. |
 | pine | urizen-onebit-r08-c003 | flora / tree / spruce | author_metadata_visible_rgb_match / high | Render as pine; preserve the source identity and keep mechanics in game data. |
-| poplar | urizen-onebit-r08-c004 | flora / tree / poplar | author_metadata_visible_rgb_match / high | Render as poplar; preserve the source identity and keep mechanics in game data. |
+| poplar | urizen-onebit-r08-c004 | flora / tree / poplar | author_metadata_visible_rgb_match / high | Author's poplar is a collidable/occluding Tree appearance in the cellular forest. |
 | potion | urizen-onebit-r04-c030 | potion / health | author_metadata_visible_rgb_match / high | Render as potion; preserve the source identity and keep mechanics in game data. |
 | ranger | urizen-onebit-r01-c119 | Figure row 01, profession column 15: curved bow-like prop | visual_region_and_silhouette / low | Bow-like held prop; Vesper's role and abilities are game data. |
 | ration | urizen-onebit-r17-c000 | food / mushroom | author_metadata_visible_rgb_match / high | Render as ration; preserve the source identity and keep mechanics in game data. |
@@ -76,8 +76,7 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | relic | urizen-onebit-r13-c027 | magic / orb | author_metadata_visible_rgb_match / high | Render as relic; preserve the source identity and keep mechanics in game data. |
 | resolve | godot-white-brain | brain | publisher_filename / high | Render as resolve; preserve the source identity and keep mechanics in game data. |
 | rock-floor | urizen-onebit-r05-c009 | floor / rocks | author_metadata_visible_rgb_match / high | Render as rock floor; preserve the source identity and keep mechanics in game data. |
-| ruin-wall | urizen-onebit-r02-c000 | wall / stone | author_metadata_visible_rgb_match / high | Render as ruin wall; preserve the source identity and keep mechanics in game data. |
-| sand | urizen-onebit-r05-c002 | floor / sand | author_metadata_visible_rgb_match / high | Render as sand; preserve the source identity and keep mechanics in game data. |
+| ruin-wall | urizen-onebit-r02-c000 | wall / stone | author_metadata_visible_rgb_match / high | Author-confirmed stone wall used as masonry for generated room boundaries; sockets belong to the 7x7 room. |
 | save | godot-white-save | save | publisher_filename / high | Render as save; preserve the source identity and keep mechanics in game data. |
 | shield | urizen-onebit-r12-c026 | shield | author_metadata_visible_rgb_match / high | Render as shield; preserve the source identity and keep mechanics in game data. |
 | shrine | urizen-onebit-r24-c027 | furniture / statue | author_metadata_visible_rgb_match / high | Render as shrine; preserve the source identity and keep mechanics in game data. |
@@ -102,10 +101,9 @@ Edit `assets/lantern-bindings.json`, then run `python3 tools/build_game_catalog.
 | wall | urizen-onebit-r02-c002 | wall / stone / window | author_metadata_visible_rgb_match / high | Author's wall motif; repeated full cells rather than an inferred autotile bitmask. |
 | warden | urizen-onebit-r00-c125 | Figure row 00, profession column 21: raised blade-like tool | visual_region_and_silhouette / low | Raised blade-like prop; Rowan's role is casting, not a confirmed publisher profession. |
 | water | urizen-onebit-r12-c004 | river; orientation=RD | author_metadata_visible_rgb_match / high | A source water motif repeated over blue backing; collision is explicit map data. |
-| waterlily | urizen-onebit-r09-c002 | flora / waterlily | author_metadata_visible_rgb_match / high | Render as waterlily; preserve the source identity and keep mechanics in game data. |
 | web | urizen-onebit-r39-c004 | web | author_metadata_visible_rgb_match / high | Render as web; preserve the source identity and keep mechanics in game data. |
 | well | urizen-onebit-r25-c031 | well | author_metadata_visible_rgb_match / high | Render as well; preserve the source identity and keep mechanics in game data. |
-| willow | urizen-onebit-r08-c002 | flora / tree / willow | author_metadata_visible_rgb_match / high | Render as willow; preserve the source identity and keep mechanics in game data. |
+| willow | urizen-onebit-r08-c002 | flora / tree / willow | author_metadata_visible_rgb_match / high | Author's willow is a collidable/occluding Tree appearance; changing the crop does not change tree rules. |
 | wisp | urizen-onebit-r42-c110 | enemy / ghost | author_metadata_visible_rgb_match / high | Render as wisp; preserve the source identity and keep mechanics in game data. |
 | wolf | urizen-onebit-r14-c000 | animal / dog | author_metadata_visible_rgb_match / high | The author's dog becomes a Briar hound; enemy name/faction are game data. |
 | wood | urizen-onebit-r05-c003 | floor / plank | author_metadata_visible_rgb_match / high | Render as wood; preserve the source identity and keep mechanics in game data. |

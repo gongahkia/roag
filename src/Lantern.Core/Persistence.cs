@@ -107,12 +107,14 @@ public sealed partial class Campaign
         public Zone Restore()
         {
             long count = Width * (long)Height;
+            var allowedSprites = GenerationRules.Default.SpriteAliases.ToHashSet(StringComparer.Ordinal);
             if (Width is < 8 or > 256 || Height is < 8 or > 256 || Tiles is null || Tiles.Length != count
                 || GroundSprites is null || GroundSprites.Length != count || Safe is null || Safe.Length != count
                 || Hazards is null || Hazards.Length != count || Sources is null || Sources.Length != count
                 || Age is null || Age.Length != count || Fuel is null || Fuel.Length != count || Suppressed is null || Suppressed.Length != count
                 || Objects is null || Objects.Count > count || Objects.Any(o => o is null || !Enum.IsDefined(o.Kind)) || Generation is null
                 || Tiles.Any(g => !Enum.IsDefined(g)) || Hazards.Any(h => !Enum.IsDefined(h)) || Sources.Any(h => !Enum.IsDefined(h))
+                || GroundSprites.Any(s => s is not null && !allowedSprites.Contains(s))
                 || Turns < 0 || Ticks < 0 || Ticks > Turns / GenerationRules.Default.Hazards.StepsPerTick)
                 throw new InvalidDataException("Invalid generated map or environment data.");
             var z = new Zone(Id, Name, Subtitle, Width, Height, Ground.Void) { Generation = Generation };
@@ -165,7 +167,7 @@ public sealed partial class Campaign
             throw new InvalidDataException("Invalid RPG save. Colony saves use a different format.");
         }
 
-        var c = new Campaign(d.Seed, d.Version == 1);
+        var c = new Campaign(d.Seed, d.Version == 1, restoreMaps: d.Version == 2);
         if (d.Version == 2)
         {
             if (d.Zones is null || d.Zones.Count != 3 || d.Zones.Any(z => z is null)

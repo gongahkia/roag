@@ -10144,11 +10144,11 @@
     "records": 11887,
     "occupied_sprites": 7115,
     "used_colony": 154,
-    "used_rpg": 192,
-    "used_either": 242,
-    "generation_rule_sprites": 11887,
+    "used_rpg": 190,
+    "used_either": 241,
+    "generation_rule_sprites": 43,
     "generation_visually_reviewed": 104,
-    "unused_sprites": 6873,
+    "unused_sprites": 6874,
     "families": {
       "actors": 3393,
       "consumables": 101,
@@ -10311,12 +10311,10 @@
       "flagstone": "urizen-onebit-r05-c004",
       "rock-floor": "urizen-onebit-r05-c009",
       "grit": "urizen-onebit-r05-c017",
-      "sand": "urizen-onebit-r05-c002",
       "boulder": "urizen-onebit-r05-c020",
       "willow": "urizen-onebit-r08-c002",
       "poplar": "urizen-onebit-r08-c004",
       "leaf": "urizen-onebit-r09-c001",
-      "waterlily": "urizen-onebit-r09-c002",
       "tuft": "urizen-onebit-r09-c004",
       "button-mushroom": "urizen-onebit-r10-c003",
       "broken-column": "urizen-onebit-r03-c027",
@@ -92819,16 +92817,14 @@
         "colony": [
           "vacuum"
         ],
-        "rpg": [
-          "sand"
-        ]
+        "rpg": []
       },
       "assessment": {
         "family": "environment",
         "layer": "ground-or-structure",
         "rpg_role": "Traversable ground, blocking structure, transition, or overworld landmark",
         "ideas": [
-          "Candidate ground palette for a themed room or biome. Use explicit Ground collision and authored weights; source indices are not adjacency bits.",
+          "The colony already casts this sand texture as vacuum terrain. Unused in the RPG: future sandy banks or a dry biome after explicit terrain/placement rules.",
           "Compose a settlement, forest path, ruin, dungeon room, or travel map using this floor / sand crop.",
           "Keep tile collision and occlusion explicit in map data rather than inferring them from pixels."
         ],
@@ -92842,7 +92838,7 @@
         "visual_review": {
           "id": "urizen-onebit-r05-c002",
           "visual_observation": "Separated small dots; sand or sparse ground texture.",
-          "future_use": "Candidate ground palette for a themed room or biome. Use explicit Ground collision and authored weights; source indices are not adjacency bits.",
+          "future_use": "The colony already casts this sand texture as vacuum terrain. Unused in the RPG: future sandy banks or a dry biome after explicit terrain/placement rules.",
           "decision": "candidate",
           "publisher_identity_changed": false
         },
@@ -92861,7 +92857,7 @@
         "identity_basis": "author_metadata_visible_rgb_match",
         "confidence": "high",
         "individual_name_confirmed": true,
-        "game_role_is_interpretation": true,
+        "game_role_is_interpretation": false,
         "needs_visual_review": false,
         "assessment_basis": "Evidence-scoped category/region rules plus preserved crop observations; curated runtime casting is separate from publisher identity. Not a new manual identification of every motif.",
         "generation_crop_visually_inspected": true
@@ -157955,7 +157951,7 @@
           }
         ]
       },
-      "runtime_status": "used",
+      "runtime_status": "unused",
       "mapping_status": "proposed",
       "current_game_uses": [
         "hydroponics"
@@ -157969,16 +157965,14 @@
       },
       "usage": {
         "colony": [],
-        "rpg": [
-          "waterlily"
-        ]
+        "rpg": []
       },
       "assessment": {
         "family": "vegetation",
         "layer": "prop",
         "rpg_role": "Biome dressing, harvestable plant, or readable cover silhouette",
         "ideas": [
-          "Nonblocking woodland or ruin dressing; harvest, poison and corruption meanings need explicit game rules. Keep plants off reserved objective cells.",
+          "Unused in the RPG: future floating pond/garden decoration. Add a water decoration layer and explicit placement rules while preserving water collision; no automatic spawning yet.",
           "Use as woodland/overgrown-ruin dressing or an optional herb/food pickup.",
           "Distinguish decorative grass from collidable trees in map rules."
         ],
@@ -157992,7 +157986,7 @@
         "visual_review": {
           "id": "urizen-onebit-r09-c002",
           "visual_observation": "Flat rounded plant with a pointed/lobed edge; waterlily silhouette.",
-          "future_use": "Nonblocking woodland or ruin dressing; harvest, poison and corruption meanings need explicit game rules. Keep plants off reserved objective cells.",
+          "future_use": "Unused in the RPG: future floating pond/garden decoration. Add a water decoration layer and explicit placement rules while preserving water collision; no automatic spawning yet.",
           "decision": "candidate",
           "publisher_identity_changed": false
         },
@@ -158011,7 +158005,7 @@
         "identity_basis": "author_metadata_visible_rgb_match",
         "confidence": "high",
         "individual_name_confirmed": true,
-        "game_role_is_interpretation": true,
+        "game_role_is_interpretation": false,
         "needs_visual_review": false,
         "assessment_basis": "Evidence-scoped category/region rules plus preserved crop observations; curated runtime casting is separate from publisher identity. Not a new manual identification of every motif.",
         "generation_crop_visually_inspected": true

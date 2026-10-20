@@ -101,7 +101,7 @@ public sealed partial class LanternGame
                 }
                 if (g != Ground.Tree) sprite = zone.GroundSprites[i] ?? sprite;
                 Fill(r, bg * alpha);
-                if (g != Ground.Grass || hash % 3 == 0)
+                if (g != Ground.Grass || hash % 3 == 0 || zone.GroundSprites[i] == "grit")
                 {
                     Tile(sprite, r, ink * alpha);
                 }

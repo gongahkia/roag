@@ -27,6 +27,15 @@ public sealed class HazardField(int width, int height)
                 && (kind == HazardKind.Fire ? Fuel[i] > 0 : zone.Walkable(new(i % width, i / width)))
                 && Cells[i] == HazardKind.None && !zone.Objects.Any(o => zone.Index(o.Position) == i)).ToArray();
             if (candidates.Length == 0) continue;
+            string targetId = kind switch
+            {
+                HazardKind.Fire => "wood-camp",
+                HazardKind.Spores => zone.Id == "crypt" ? "abbey-slimes" : "forest-shrine",
+                _ => zone.Id == "crypt" ? "abbey-hollows" : "wilds-raiders"
+            };
+            Cell target = zone.Objects.FirstOrDefault(o => o.Id == targetId)?.Position ?? new(width / 2, height / 2);
+            int nearest = candidates.Min(i => new Cell(i % width, i / width).Distance(target));
+            candidates = candidates.Where(i => new Cell(i % width, i / width).Distance(target) <= nearest + 1).ToArray();
             int source = candidates[random.Next(candidates.Length)];
             Cells[source] = kind;
             Age[source] = 1;
@@ -58,6 +67,8 @@ public sealed class HazardField(int width, int height)
             {
                 int limit = kind switch { HazardKind.Fire => 5, HazardKind.Spores => 4, _ => 7 };
                 if (kind == HazardKind.Fire && Fuel[i] > 0) Fuel[i]--;
+                if (kind == HazardKind.Fire && Fuel[i] == 0)
+                    zone.GroundSprites[i] = zone.Tiles[i] == Ground.Tree ? "dead-tree" : zone.Tiles[i] == Ground.Grass ? "grit" : zone.GroundSprites[i];
                 if (Age[i] < limit && (kind != HazardKind.Fire || Fuel[i] > 0))
                 {
                     _next[i] = kind;

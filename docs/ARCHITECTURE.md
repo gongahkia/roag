@@ -38,7 +38,7 @@ Connected deck/airlock cells form electrical islands. Machines draw only from th
 
 ## Sprite contract
 
-`assets/catalog.json` schema 2 retains the original inventory and adds all 11,887 region records with current per-game usage and RPG assessments. `assets/sprites.json` remains the exhaustive frozen import-time audit, with stable IDs and crops. The source PNGs and colony binding selection are preserved. `assets/runtime-sprites.json` is the colony's smaller generated selection; `assets/lantern-bindings.json` selects the RPG roles and `assets/lantern-sprites.json` registers its bindings plus every occupied sprite for the native viewer.
+`assets/catalog.json` schema 3 retains the original inventory and adds all 11,887 region records with current per-game usage and RPG assessments. `assets/sprites.json` remains the exhaustive frozen import-time audit, with stable IDs and crops. The source PNGs and colony binding selection are preserved. `assets/runtime-sprites.json` is the colony's smaller generated selection; `assets/lantern-bindings.json` selects the RPG roles and `assets/lantern-sprites.json` registers its bindings plus every occupied sprite for the native viewer.
 
 `tools/build_runtime_assets.py` reads the audit and writes the runtime selection. The client loads PNGs directly, so building does not require MonoGame's content editor or Python. It strips black backgrounds and creates palette masks in memory, uses nearest-neighbor sampling, and draws Urizen's font with fixed advance. Source files are never recolored or repacked. Runtime output copies the needed folders and credits; the exhaustive catalogs, archives, and previews stay in the development repository.
 
@@ -47,6 +47,14 @@ Connected deck/airlock cells form electrical islands. Machines draw only from th
 C# saves use format `regolith-csharp`, version 1, at `~/.regolith/colony-csharp.json` by default. They contain authoritative cell arrays, resources, people, machines, jobs, routes, survivor conditions, active expeditions, timing, logs, and explicit random state. Derived lookup tables and power connectivity are reconstructed on load. Input is validated before the colony is used.
 
 Saving writes and flushes a uniquely named temporary file next to the destination, then atomically replaces the destination. A failed write leaves the previous save available. Tests compare exact serialized state after save/load and further ticks, including outbound and returning expeditions. Repeated runs use stable ordering and the saved random stream. Bit-for-bit floating-point equivalence across every CPU/runtime is not promised, and no old Python save conversion is provided.
+
+## RPG generation and persistence
+
+`Lantern.Core` uses eight-neighbor cellular terrain masks for Ashwood and a connected graph plus 64-bit-domain WFC for Abbey room assembly. Socket constraints are authored per 7×7 chunk; they are unrelated to sprite-sheet indices. Generation rules are embedded from `assets/lantern-generation.json`. After placement, global validation checks access, portal destinations, encounter-free approaches and the key/lock cut before returning a world. Exhausted WFC attempts use exact graph sockets; a failed whole-world validation records a fallback to the retained authored maps.
+
+`HazardField` uses synchronous reusable buffers for fire, spores and corruption every four exploration turns in the active zone. Protected masks preserve roads, room crosses and objective access. Spread reads deterministic seed/cell/tick hashes independently of combat RNG. Fuel and suppression persist; terrain collision stays fixed.
+
+RPG saves use format `lantern-rpg`, version 2, with authoritative maps, objects, sprite choices, safe masks and full environmental state as well as party/quest/battle data. Version-one saves rebuild the original authored maps with hazards disabled and resave as snapshots. Map generation never reruns over a saved map. See [the generation guide](PROCEDURAL_GENERATION.md) for algorithms, rules, diagnostics and extension limits.
 
 ## Extension boundaries
 

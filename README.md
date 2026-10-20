@@ -5,14 +5,14 @@ Two independently playable **MonoGame + C#** prototypes share the imported sprit
 | Prototype | Launch | Explore |
 | --- | --- | --- |
 | Regolith | `./play.sh` | Lunar colony, cellular atmosphere, work orders, and survivor rescues |
-| Lantern Below | `./rpg.sh` | Top-down four-person RPG, visible encounters, turn-based skills, light/stress, camps, loot, and a complete return-home quest |
+| Lantern Below | `./rpg.sh` | Top-down party RPG, cellular forests/ponds, WFC dungeons, spreading hazards, turn-based skills, and a return-home quest |
 | Sprite atlas | `./rpg.sh --scene atlas` or open [assets/atlas.html](assets/atlas.html) | All 7,115 occupied sprites, current bindings, uncertainty, future ideas, and an offline scene-painting lab |
 
 ![Lantern Below: party exploration](docs/images/lantern-town.png)
 
-The RPG runs from the same .NET 10 setup as the colony game. Start with `./rpg.sh`; use `./rpg.sh --demo` for a combat scene. [The RPG guide](docs/LANTERN.md) includes controls, the expedition route, headless checks, and current scope. Both games have separate saves. F2 opens the complete sprite viewer inside the RPG; F4 compares original colors with its game palette.
+The RPG runs from the same .NET 10 setup as the colony game. Start with `./rpg.sh`; use `./rpg.sh --demo` for a combat scene. [The RPG guide](docs/LANTERN.md) includes controls, the expedition route, headless checks, and current scope. Try `./rpg.sh --seed 1337 --scene forest` or `./rpg.sh --seed 7 --scene crypt` to explore generated areas. [Procedural generation](docs/PROCEDURAL_GENERATION.md) documents the quest graph, WFC, cellular terrain and hazards. Both games have separate saves. F2 opens the complete sprite viewer inside the RPG; F4 compares original colors with its game palette.
 
-[catalog.json](assets/catalog.json) is now schema 2: the original inventory plus **11,887 region records**, with identity evidence, per-game runtime usage, RPG affordances, adaptation limits, and future ideas. Existing sprite IDs, crops, source PNGs, colony bindings, and the frozen import audit are preserved. [Catalog structure and regeneration](assets/reference/CATALOG_V2.md) · [RPG binding table](assets/reference/rpg-bindings.md).
+[catalog.json](assets/catalog.json) is now schema 3: the original inventory plus **11,887 region records**, with identity evidence, per-game runtime usage, RPG affordances, generation rules, visual review notes, adaptation limits, and future ideas. Existing sprite IDs, crops, source PNGs, colony bindings, and the frozen import audit are preserved. [Catalog structure and regeneration](assets/reference/CATALOG_V2.md) · [RPG binding table](assets/reference/rpg-bindings.md) · [104-crop Urizen generation review](assets/reference/urizen-generation.md).
 
 ## Regolith colony simulator
 

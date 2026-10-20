@@ -28,6 +28,8 @@ jobs:
         run: dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --headless 700 --demo --seed 42
       - name: Complete RPG expedition without graphics
         run: dotnet run --project src/Lantern.Client --configuration Release --no-build -- --headless
+      - name: Validate procedural quest routes across seeds
+        run: dotnet run --project src/Lantern.Client --configuration Release --no-build -- --validate-seeds 256 --seed -128
       - name: Check generated catalog and original image hashes
         if: matrix.os == 'ubuntu-latest'
         run: python3 tools/build_game_catalog.py --check

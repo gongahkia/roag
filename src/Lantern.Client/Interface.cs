@@ -318,11 +318,11 @@ public sealed partial class LanternGame
         string title = _dialogTitle, body = _dialogText;
         if (_intro)
         {
-            string[] titles = ["FOUR COMPANIONS. ONE LANTERN.", "READ THE ENEMY. CHOOSE YOUR MOMENT.", "BRING THE LIGHT HOME."];
-            string[] pages = ["You are a party of four: Rowan the warden, Vesper the ranger, Iris the arcanist, and Sable the vestal.\n\nMove with WASD or arrows, or click a visible destination. E interacts. Leave Hearth by the eastern road. Search Ashwood's abandoned chest for the iron key.\n\nThe inn restores your party for 12 gold. The provisioner sells expedition kits for 10. The party shares potions, torches, and rations.", "Enemies are visible on the map. Step onto one to begin a turn-based encounter, with everyone still shown from above.\n\n1-3 select a class skill, 4 guards, 5 uses a potion, and 6 retreats. Click an enemy or companion to confirm a targeted skill; Enter confirms the selected target. Enemy intentions appear in the right panel.\n\nMarks add damage. Fire and bleeding persist across turns. Guard halves incoming damage. Stress above 80 weakens your attacks.", "Find the iron key, descend into the Sunken Abbey, defeat the Hollow Abbot, and carry the ember relic back to Warden Elowen.\n\nT relights the lantern. R camps at a marked fire for 2 rations. I shows supplies; J opens the journal. F5 saves and F9 loads, including during combat. Defeat returns you to town with a gold penalty.\n\nF2 opens every sprite in the three packs, with identity evidence and future-use notes. F4 toggles original artwork colors. Scroll zooms; right-drag pans; G follows the party."];
+            string[] titles = ["FOUR COMPANIONS. ONE LANTERN.", "READ THE ENEMY. CHOOSE YOUR MOMENT.", "BRING THE LIGHT HOME.", "THE FOREST AND THE BLIGHT."];
+            string[] pages = ["You are a party of four: Rowan the warden, Vesper the ranger, Iris the arcanist, and Sable the vestal.\n\nMove with WASD or arrows, or click a visible destination. E interacts. Leave Hearth by the eastern road. Search Ashwood's abandoned chest for the iron key.\n\nThe inn restores your party for 12 gold. The provisioner sells expedition kits for 10. The party shares potions, torches, and rations.", "Enemies are visible on the map. Step onto one to begin a turn-based encounter, with everyone still shown from above.\n\n1-3 select a class skill, 4 guards, 5 uses a potion, and 6 retreats. Click an enemy or companion to confirm a targeted skill; Enter confirms the selected target. Enemy intentions appear in the right panel.\n\nMarks add damage. Fire and bleeding persist across turns. Guard halves incoming damage. Stress above 80 weakens your attacks.", "Find the iron key, descend into the Sunken Abbey, defeat the Hollow Abbot, and carry the ember relic back to Warden Elowen.\n\nT relights the lantern. R camps at a marked fire for 2 rations. I shows supplies; J opens the journal. F5 saves and F9 loads, including during combat. Defeat returns you to town with a gold penalty.\n\nF2 opens every sprite in the three packs, with identity evidence and future-use notes. F4 toggles original artwork colors. Scroll zooms; right-drag pans; G follows the party.", "Ashwood grows differently with each expedition seed: forests and ponds surround a winding road. Abbey rooms assemble into connected cloisters, cisterns and collapsed vaults. Hearth remains your familiar home.\n\nFollow roads and the clear crosses through Abbey rooms for safe passage. Fire, spores and violet blight spread outside those routes every four successful steps or waits. Blocked moves, menus, resting and battle do not advance them; distant areas pause.\n\nFire and spores cost conscious companions 1 health and 1 stress per step. Blight costs 3 stress. Hazards cannot take the last point of health. T spends a torch to clear nearby hazards and their sources, even at full light. Period or Space waits one turn.\n\nThe same seed reproduces a new map. Saving preserves your actual terrain, discoveries and evolving hazards, including during battle."];
             title = titles[_lesson];
             body = pages[_lesson];
-            Text($"FIELD GUIDE / {_lesson + 1:00} OF 03", r.X + 28, r.Y + 24, Gold);
+            Text($"FIELD GUIDE / {_lesson + 1:00} OF {titles.Length:00}", r.X + 28, r.Y + 24, Gold);
         }
         else
         {
@@ -360,9 +360,9 @@ public sealed partial class LanternGame
                 _intro = false;
             }
 
-            if (Button(new(r.Right - 193, r.Bottom - 69, 165, 44), _lesson == 2 ? "BEGIN" : "CONTINUE", selected: true, modal: true))
+            if (Button(new(r.Right - 193, r.Bottom - 69, 165, 44), _lesson == GuidePageCount - 1 ? "BEGIN" : "CONTINUE", selected: true, modal: true))
             {
-                if (_lesson < 2)
+                if (_lesson < GuidePageCount - 1)
                 {
                     _lesson++;
                 }

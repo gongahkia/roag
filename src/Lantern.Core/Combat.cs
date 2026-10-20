@@ -6,9 +6,16 @@ public sealed partial class Campaign
     {
         var battle = new Battle { EncounterId = encounter.Id, Name = encounter.Name, Boss = encounter.Id == "abbey-abbot" };
         var occupied = new HashSet<Cell>();
+        int radius = ZoneId == "crypt" ? 2 : 6;
+        var arena = new HashSet<Cell> { encounter.Position };
+        var frontier = new Queue<Cell>();
+        frontier.Enqueue(encounter.Position);
+        while (frontier.TryDequeue(out var cell))
+            foreach (var n in Zone.Neighbors(cell))
+                if (n.Distance(encounter.Position) <= radius && Walkable(n) && arena.Add(n)) frontier.Enqueue(n);
         Cell Place(Cell desired)
         {
-            var best = Enumerable.Range(0, Zone.Tiles.Length).Select(i => new Cell(i % Zone.Width, i / Zone.Width)).Where(p => Walkable(p) && !occupied.Contains(p)).OrderBy(p => p.Distance(desired)).ThenBy(p => p.Y).ThenBy(p => p.X).First();
+            var best = arena.Where(p => !occupied.Contains(p)).OrderBy(p => p.Distance(desired)).ThenBy(p => p.Y).ThenBy(p => p.X).First();
             occupied.Add(best);
             return best;
         }

@@ -98,7 +98,7 @@
     {
       "id": "urizen-onebit-r05-c002",
       "visual_observation": "Separated small dots; sand or sparse ground texture.",
-      "future_use": "Candidate ground palette for a themed room or biome. Use explicit Ground collision and authored weights; source indices are not adjacency bits.",
+      "future_use": "The colony already casts this sand texture as vacuum terrain. Unused in the RPG: future sandy banks or a dry biome after explicit terrain/placement rules.",
       "decision": "candidate",
       "publisher_identity_changed": false
     },
@@ -287,7 +287,7 @@
     {
       "id": "urizen-onebit-r09-c002",
       "visual_observation": "Flat rounded plant with a pointed/lobed edge; waterlily silhouette.",
-      "future_use": "Nonblocking woodland or ruin dressing; harvest, poison and corruption meanings need explicit game rules. Keep plants off reserved objective cells.",
+      "future_use": "Unused in the RPG: future floating pond/garden decoration. Add a water decoration layer and explicit placement rules while preserving water collision; no automatic spawning yet.",
       "decision": "candidate",
       "publisher_identity_changed": false
     },

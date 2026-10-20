@@ -49,12 +49,16 @@ public static class WorldBuilder
         var rules = GenerationRules.Default.Forest;
         var random = GenerationSeeds.Stream(seed, 20);
         var z = new Zone("wilds", "ASHWOOD / THE OLD ROAD", "A living forest around a winding road", 48, 32, Ground.Grass);
-        z.Generation = new() { Algorithm = "Cellular forest / reserved quest routes", CellularPasses = rules.Passes };
+        z.Generation = new() { Algorithm = "Cellular forest and ponds / reserved quest routes", CellularPasses = rules.Passes + rules.PondPasses };
         bool[] initial = Enumerable.Range(0, z.Tiles.Length).Select(_ => random.Next(100) < rules.InitialTreesPercent).ToArray();
         var forest = CellularAutomata.Smooth(initial, z.Width, z.Height, rules.Passes, rules.Birth, rules.Survive);
         for (int y = 0; y < z.Height; y++)
             for (int x = 0; x < z.Width; x++)
                 if (forest[y * z.Width + x] || x < 2 || y < 2 || x >= z.Width - 2 || y >= z.Height - 2) z.Set(new(x, y), Ground.Tree);
+        var ponds = CellularAutomata.Smooth(Enumerable.Range(0, z.Tiles.Length).Select(_ => random.Next(100) < rules.PondPercent).ToArray(), z.Width, z.Height, rules.PondPasses);
+        for (int y = 3; y < z.Height - 3; y++)
+            for (int x = 6; x < z.Width - 6; x++)
+                if ((y < 12 || y > 22) && ponds[y * z.Width + x]) z.Set(new(x, y), Ground.Water);
         // A continuous river meanders independently of the road; intersections become bridges.
         int riverX = 20 + random.Next(5);
         for (int y = 2; y < z.Height - 2; y++)
@@ -192,7 +196,7 @@ public static class WorldBuilder
                 bool interior = x > 0 && y > 0 && x < 6 && y < 6;
                 bool corner = Math.Abs(x - 3) >= 2 && Math.Abs(y - 3) >= 2;
                 Ground ground = interior ? Ground.Stone : Ground.Wall;
-                if (interior && corner && style.Shape == "eroded" && rough[y * 7 + x]) ground = Ground.Wall;
+                if (interior && (x == 1 || x == 5 || y == 1 || y == 5) && x != 3 && y != 3 && style.Shape == "eroded" && rough[y * 7 + x]) ground = Ground.Wall;
                 if (interior && corner && style.Shape == "cistern") ground = Ground.Water;
                 if ((y == 0 && x == 3 && (mask & 1) != 0) || (x == 6 && y == 3 && (mask & 2) != 0)
                     || (y == 6 && x == 3 && (mask & 4) != 0) || (x == 0 && y == 3 && (mask & 8) != 0)) ground = Ground.Stone;
@@ -200,7 +204,7 @@ public static class WorldBuilder
                 z.GroundSprites[z.Index(p)] = ground == Ground.Wall ? style.WallSprite : ground == Ground.Water ? "water" : style.FloorSprites[random.Next(style.FloorSprites.Length)];
                 // Every room has a safe cross. All socket connections and their approaches stay clear.
                 if ((x == 3 || y == 3) && ground == Ground.Stone) z.Safe[z.Index(p)] = true;
-                if (interior && !corner && x != 3 && y != 3 && random.Next(100) < 18)
+                if (ground == Ground.Stone && interior && !corner && x != 3 && y != 3 && random.Next(100) < 18)
                 {
                     string prop = style.Props[random.Next(style.Props.Length)];
                     z.Objects.Add(new($"crypt-prop-{p.X}-{p.Y}", prop.Replace('-', ' '), ObjectKind.Scenery, p, prop));
@@ -262,7 +266,17 @@ public static class WorldBuilder
         };
         foreach (var z in zones)
             foreach (string id in requiredIds[z.Id])
-                if (z.Objects.Count(o => o.Id == id) != 1) errors.Add("Missing/duplicate objective: " + id);
+            {
+                ObjectKind expected = id switch
+                {
+                    "inn" => ObjectKind.Inn, "merchant" => ObjectKind.Merchant, "elder" or "smith" => ObjectKind.Talk,
+                    "iron-cache" or "abbey-chest" => ObjectKind.Chest, "forest-shrine" => ObjectKind.Shrine,
+                    "wood-camp" or "crypt-camp" => ObjectKind.Camp, "iron-gate" => ObjectKind.Gate, "relic" => ObjectKind.Relic,
+                    "to-wilds" or "to-town" or "to-crypt" or "to-forest" => ObjectKind.Portal,
+                    _ => ObjectKind.Encounter
+                };
+                if (z.Objects.Count(o => o.Id == id && o.Kind == expected) != 1) errors.Add("Missing/invalid objective: " + id);
+            }
         if (errors.Count > 0) return new(false, errors.ToArray());
         foreach (var z in zones)
         {
@@ -277,6 +291,9 @@ public static class WorldBuilder
                 }
             }
         }
+        foreach (var (id, destination) in new[] { ("to-wilds", "wilds"), ("to-town", "hearth"), ("to-crypt", "crypt"), ("to-forest", "wilds") })
+            if (zones.SelectMany(z => z.Objects).Single(o => o.Id == id).Destination != destination) errors.Add(id + ": incorrect destination.");
+        if (errors.Count > 0) return new(false, errors.ToArray());
         HashSet<Cell> Flood(Zone z, Cell start, bool open, bool avoidEncounters = false)
         {
             var blocked = z.Objects.Where(o => o.Blocks && !(open && o.Kind == ObjectKind.Gate) || avoidEncounters && o.Kind == ObjectKind.Encounter).Select(o => o.Position).ToHashSet();

@@ -203,6 +203,18 @@ def main():
         "banner":"Heraldic/prop silhouette used for the party rally ability; no cloth simulation.",
         "water":"A source water motif repeated over blue backing; collision is explicit map data.",
         "wall":"Author's wall motif; repeated full cells rather than an inferred autotile bitmask.",
+        "ruin-wall":"Author-confirmed stone wall used as masonry for generated room boundaries; sockets belong to the 7x7 room.",
+        "cracked-wall":"Visually fractured structural pattern used for collapsed masonry; its exact publisher variant remains unconfirmed.",
+        "grit":"Author-confirmed grit becomes eroded-room ground and scorched grass presentation. Collision remains explicit Ground data.",
+        "boulder":"Author-confirmed boulder cluster used as nonblocking scenery, rather than adding an obstacle or mining resource.",
+        "cave-mouth":"Author-confirmed cave silhouette used as scenery; it does not create a fourth playable area or transition.",
+        "crystal":"Author-confirmed diagonal crystal becomes decorative ruin treasure; no mining/crafting/reward interaction is implemented.",
+        "hazard-fire":"Author's fire crop marks spreading magical fire. Campfire props remain safe rest locations and do not ignite it.",
+        "hazard-spores":"Author's button mushrooms represent a spore cloud/source overlay; poison is game casting, not a publisher property.",
+        "hazard-corruption":"Author's leaf silhouette represents magical blight. Growth, source lifetime and stress costs are game rules.",
+        "willow":"Author's willow is a collidable/occluding Tree appearance; changing the crop does not change tree rules.",
+        "poplar":"Author's poplar is a collidable/occluding Tree appearance in the cellular forest.",
+        "broken-column":"Author-confirmed broken antique column used as nonblocking collapsed-room scenery outside the safe cross.",
     }
     def cell(text):return str(text).replace("|","\\|").replace("\n"," ")
     lines=["# Lantern Below: curated runtime bindings","",

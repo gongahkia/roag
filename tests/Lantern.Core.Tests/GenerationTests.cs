@@ -79,6 +79,29 @@ public sealed class GenerationTests
         Assert.False(result.Valid);
         Assert.Contains(result.Errors, e => e.Contains("before opening"));
     }
+    [Fact]
+    public void SavedMapsAreAuthoritativeAndNotRegeneratedFromTheSeed()
+    {
+        var c = new Campaign(42);
+        c.Zone.Set(c.Position, Ground.Path);
+        c.Zone.GroundSprites[c.Zone.Index(c.Position)] = "grit";
+        var loaded = Campaign.FromJson(c.StateJson());
+        Assert.Equal(Ground.Path, loaded.Zone.At(loaded.Position));
+        Assert.Equal("grit", loaded.Zone.GroundSprites[loaded.Zone.Index(loaded.Position)]);
+        Assert.Equal(c.StateJson(), loaded.StateJson());
+    }
+    [Fact]
+    public void AbbeyBattleFormationStaysInsideItsRoom()
+    {
+        var c = new Campaign(1337);
+        c.TravelTo("to-wilds");
+        c.TravelTo("to-crypt");
+        c.TravelTo("abbey-hollows");
+        Assert.NotNull(c.Battle);
+        var center = c.Zone.Objects.Single(o => o.Id == "abbey-hollows").Position;
+        Assert.All(c.Battle.Units, u => Assert.True(u.Position.Distance(center) <= 2));
+        Assert.Equal(c.Battle.Units.Count, c.Battle.Units.Select(u => u.Position).Distinct().Count());
+    }
     [Theory]
     [InlineData(0)]
     [InlineData(7)]
