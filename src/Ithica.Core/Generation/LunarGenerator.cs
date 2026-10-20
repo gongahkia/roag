@@ -48,7 +48,7 @@ public static class LunarGenerator
         }
         // Keep objective approaches clear even when the source object's former use differed.
         foreach (var obj in zone.Objects)
-            foreach (var p in zone.Neighbors(obj.Position).Append(obj.Position))
+            foreach (var p in new[] { obj.Position })
                 if (zone.Inside(p)) { zone.Set(p, Ground.Stone); zone.Safe[zone.Index(p)] = true; }
         var validity = Validate(zone);
         if (!validity.Valid) throw new InvalidOperationException(string.Join("; ", validity.Errors));

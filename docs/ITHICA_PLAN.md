@@ -1,6 +1,6 @@
 # Ithica: integration plan
 
-**Design consolidated: 2026-10-20. Status: approved direction; implementation pending.**
+**Design consolidated: 2026-10-20. Status: implementation in progress; naming and shared-domain checkpoints committed separately.**
 
 **Ithica** is a mysterious lunar salvage colony game. Start with one person, keep a shelter alive, and venture into the surrounding wasteland to recover supplies, investigate what remains, and bring stranded people home. Those people become the colony and the expedition party: their skills, injuries, work and survival connect both halves of play.
 

@@ -91,7 +91,7 @@ public sealed partial class Campaign
 
         return new(ok, text, title);
     }
-    public bool Present(WorldObject o) => o.Kind switch { ObjectKind.Encounter or ObjectKind.Chest or ObjectKind.Relic => !Completed.Contains(o.Id), _ => true };
+    public bool Present(WorldObject o) => o.Kind switch { ObjectKind.Encounter or ObjectKind.Chest or ObjectKind.Relic or ObjectKind.Rescue or ObjectKind.Salvage => !Completed.Contains(o.Id), _ => true };
     public WorldObject? ObjectAt(Cell cell) => Zone.Objects.FirstOrDefault(o => o.Position == cell && Present(o));
     public bool Walkable(Cell p) => Zone.Walkable(p) && !(ObjectAt(p) is { } o && o.Blocks && !(o.Kind == ObjectKind.Gate && Completed.Contains(o.Id)));
     public void Reveal() => Zone.Reveal(Position, ZoneId == "hearth" ? 60 : ZoneId == "wilds" ? 10 : Light > 60 ? 10 : Light > 20 ? 8 : 5);

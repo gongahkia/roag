@@ -59,7 +59,7 @@ public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float W
         new(ModuleKind.Medbay, "Med station", new(20,0,0,6), 12, 2, "Treats nearby resting colonists when supplied with 2 kW.", "medbay"),
         new(ModuleKind.Beacon, "Earth uplink", new(60,0,0,20), 24, 5, "Send the founding charter once your colony is ready.", "beacon"),
         new(ModuleKind.Rtg, "Radioisotope generator", default, 0, -12, "The outpost's reliable 12 kW starter generator.", "rtg"),
-        new(ModuleKind.SuitRack, "Suit service", new(24,0,0,4,1), 16, 2, "A recovered component improves field oxygen efficiency by 35% while powered. Opens a deeper signal.", "medbay")
+        new(ModuleKind.SuitRack, "Suit service", new(24,0,0,4,1), 16, 2, "A recovered component equips suits to use 35% less oxygen on their next departure. Opens a deeper signal.", "medbay")
     ];
     public static Blueprint Get(ModuleKind kind) => All[(int)kind];
 }

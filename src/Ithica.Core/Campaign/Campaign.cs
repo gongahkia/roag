@@ -162,13 +162,13 @@ public sealed partial class Campaign
         {
             var h = field.Party.Single(h => h.Id == c.Id);
             var unit = field.Battle?.Units.SingleOrDefault(u => u.HeroId == c.Id);
-            c.Health = Math.Clamp(c.Health + (unit?.Health ?? h.Health) - before[c.Id], 1, 100);
+            c.Health = Math.Clamp(c.Health + (unit?.Health ?? h.Health) - before[c.Id], 0, 100);
             c.Charge = unit?.Mana ?? h.Mana; c.Morale = 100 - (unit?.Stress ?? h.Stress);
             c.Level = h.Level; c.Experience = h.Experience;
         }
         Pack.Medicine = field.Potions;
         Charge(ticks);
-        if (field.RetreatRequested || Party.All(c => c.Health <= 5)) return ReturnHome(true);
+        if (field.RetreatRequested || Party.All(c => c.Health <= 5)) return FinishReturn(true);
         RefreshProjection();
         return new(true, result.Message);
     }
@@ -176,6 +176,9 @@ public sealed partial class Campaign
     public Result Move(int dx, int dy)
     {
         if (ActiveField is not { } f) return new(false, "No expedition is active.");
+        if (Math.Abs(dx) + Math.Abs(dy) != 1) return new(false, "Move one tile at a time.");
+        var next = f.Position + new Cell(dx, dy);
+        if (f.Battle is null && !f.Walkable(next) && f.ObjectAt(next) is { Kind: ObjectKind.Gate } gate) return Interact(gate.Id);
         var result = FieldCommand(c => c.Move(dx, dy), ActionCosts.Move);
         if (result.Success) ResolveEnemies();
         return result;
@@ -206,7 +209,7 @@ public sealed partial class Campaign
         if (obj is null) return new(false, "Approach an object to interact.");
         switch (obj.Kind)
         {
-            case ObjectKind.Return: return ReturnHome(false);
+            case ObjectKind.Return: return ReturnHome();
             case ObjectKind.Rescue:
                 if (SelectedSite!.ContactId is not int contact || Home.Survivors[contact] is not { State: ContactState.Stranded } survivor)
                     return new(false, "There is no living contact here.");
@@ -286,7 +289,7 @@ public sealed partial class Campaign
             {
                 if (c.Hunger >= 35 && Pack.Food > 0) { Pack.Food--; c.Hunger = Math.Max(0, c.Hunger - 27); }
                 if (hazardTick && f.Zone.Environment.Cells[f.Zone.Index(f.Position)] != HazardKind.None)
-                { c.Morale = Math.Max(0, c.Morale - 3); c.Health = Math.Max(1, c.Health - 1); }
+                { c.Morale = Math.Max(0, c.Morale - 3); if (c.Health > 0) c.Health = Math.Max(1, c.Health - 1); }
             }
         }
         foreach (var s in Home.Survivors.Where(s => s.State == ContactState.Escorted && !s.FieldEscort)) Home.RecruitFieldSurvivor(s);
@@ -294,7 +297,9 @@ public sealed partial class Campaign
         DiscoverSites();
     }
 
-    public Result ReturnHome(bool emergency = false)
+    public Result ReturnHome() => FinishReturn(false);
+
+    private Result FinishReturn(bool emergency)
     {
         if (ActiveField is not { } f) return new(false, "No expedition is active.");
         var exit = f.Zone.Objects.Single(o => o.Kind == ObjectKind.Return);

@@ -448,8 +448,8 @@ public sealed partial class Simulation
             c.Hunger = Math.Min(100, c.Hunger + .12f);
             c.Energy = Math.Max(0, c.Energy - .06f);
             c.Suit = Math.Max(0, c.Suit - (Storm ? .28f : .19f) * c.SuitEfficiency);
-            if (c.Suit <= 0) c.Health = Math.Max(1, c.Health - 1.6f);
-            if (c.Hunger >= 85) c.Health = Math.Max(1, c.Health - .12f);
+            if (c.Suit <= 0 && c.Health > 0) c.Health = Math.Max(1, c.Health - 1.6f);
+            if (c.Hunger >= 85 && c.Health > 0) c.Health = Math.Max(1, c.Health - .12f);
             c.Activity = "Outside / " + c.SiteId;
             return;
         }

@@ -17,6 +17,7 @@ public sealed partial class Simulation
 
     public void BringHome(Colonist resident)
     {
+        resident.Health = Math.Max(5, resident.Health);
         resident.Location = ResidentLocation.Home;
         resident.SiteId = null;
         resident.Cell = ArrivalCell();

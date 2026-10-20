@@ -253,7 +253,7 @@ public sealed partial class Simulation
             throw new ArgumentOutOfRangeException(nameof(cell));
         }
 
-        var c = new Colonist { Id = Crew.Count, Name = name, Role = role, Trait = trait, Cell = cell };
+        var c = new Colonist { Id = Crew.Count, Name = name, Role = role, Trait = trait, Cell = cell, FieldRole = role switch { "Miner" => 1, "Botanist" => 2, "Medic" => 3, _ => 0 } };
         Crew.Add(c);
         return c;
     }

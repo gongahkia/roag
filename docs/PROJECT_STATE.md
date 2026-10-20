@@ -399,3 +399,5 @@ For content questions, verify counts in code/configuration: zones in `WorldBuild
 | [legacy Python README](../legacy/python/README.md) | Archived terminal implementation and its independent launch workflow |
 
 Integration checkpoint, 2026-10-20: consolidated Ithica solution, Core and tests; all 97 existing core cases pass. Both prototype clients now live in one executable, with the independent RPG exposed as `--preview`. Shared campaign integration is the next stage.
+
+Shared-domain checkpoint, 2026-10-20: `Ithica.Core.Campaign` now owns the colony clock, resident-backed variable parties, packed supplies, lunar persistent sites, transactional departure/return, rescued recruitment, salvage components, a buildable suit service and atomic unified saves. Thirteen integration cases cover these boundaries, bringing the core suite to **110 passing cases**. The native main client still uses the old standalone colony path at this checkpoint; connecting the shared campaign is the next stage. `regolith-csharp` and `lantern-rpg` readers remain intact.
