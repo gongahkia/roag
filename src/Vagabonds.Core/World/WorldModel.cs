@@ -34,10 +34,20 @@ public static class WorldRandom
         }
     }
     public static RandomStream Stream(int seed, int x, int y = 0, int salt = 0) => new(Hash(seed, x, y, salt));
+    public static double Noise(int seed, int x, int y, int scale, int salt)
+    {
+        int gx = x / scale, gy = y / scale;
+        double fx = x % scale / (double)scale, fy = y % scale / (double)scale;
+        fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+        double a = Hash(seed, gx, gy, salt) / (double)uint.MaxValue, b = Hash(seed, gx + 1, gy, salt) / (double)uint.MaxValue;
+        double c = Hash(seed, gx, gy + 1, salt) / (double)uint.MaxValue, d = Hash(seed, gx + 1, gy + 1, salt) / (double)uint.MaxValue;
+        return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
+    }
 }
 
 public sealed record TownPlan(int Id, string Name, int Culture, int FactionId, WorldPosition Center);
 public sealed record SitePlan(int Id, string Name, int Culture, string Purpose, WorldPosition Center);
+public sealed record BiomeRegion(Biome Biome, int X, int Y);
 public sealed record RoadPlan(int Id, int FromTown, int ToTown, WorldPosition A, WorldPosition B)
 {
     public int Length => A.Distance(B);
@@ -48,7 +58,7 @@ public sealed record RoadPlan(int Id, int FromTown, int ToTown, WorldPosition A,
 
 public sealed class WorldPlan
 {
-    public const int GenerationVersion = 1;
+    public const int GenerationVersion = 2;
     public const int ChunkSize = 64;
     public const int ChunksAcross = 64;
     public const int Size = ChunkSize * ChunksAcross;
@@ -60,15 +70,30 @@ public sealed class WorldPlan
     public List<TownPlan> Towns { get; init; } = [];
     public List<SitePlan> Sites { get; init; } = [];
     public List<RoadPlan> Roads { get; init; } = [];
+    public List<BiomeRegion> BiomeRegions { get; init; } = [];
     public List<string> History { get; init; } = [];
     public bool Contains(WorldPosition p) => p.X >= 0 && p.Y >= 0 && p.X < Size && p.Y < Size && p.Floor is >= 0 and < Floors;
-    public Biome BiomeAt(int x, int y) => (Biome)Math.Clamp((x * 6 / Size + y / 512) % 6, 0, 5);
+    public Biome BiomeAt(int x, int y)
+    {
+        double wx = x + (WorldRandom.Noise(Seed, x, y, 512, 21) - .5) * 360;
+        double wy = y + (WorldRandom.Noise(Seed, x, y, 512, 22) - .5) * 360;
+        Biome selected = Biome.Grassland; double best = double.MaxValue;
+        foreach (var region in BiomeRegions)
+        {
+            double distance = (wx - region.X) * (wx - region.X) + (wy - region.Y) * (wy - region.Y);
+            if (distance < best) { best = distance; selected = region.Biome; }
+        }
+        return selected;
+    }
     public static WorldPlan Generate(int seed)
     {
         var r = WorldRandom.Stream(seed, 0, salt: 700);
         string[] starts = ["Amber", "Briar", "Cairn", "Dawn", "Ember", "Fern", "Grey", "Hollow"];
         string[] ends = ["ford", "wick", "mere", "haven", "watch", "bridge"];
         var plan = new WorldPlan { Seed = seed, Id = $"world-{unchecked((uint)seed):x8}" };
+        var biomes = Enum.GetValues<Biome>();
+        for (int i = biomes.Length - 1; i > 0; i--) { int j = r.Next(i + 1); (biomes[i], biomes[j]) = (biomes[j], biomes[i]); }
+        for (int i = 0; i < 6; i++) plan.BiomeRegions.Add(new(biomes[i], 500 + i % 3 * 1400 + r.Next(250), 800 + i / 3 * 2100 + r.Next(350)));
         for (int y = 0; y < 4; y++) for (int x = 0; x < 6; x++)
         {
             int i = y * 6 + x;
@@ -96,7 +121,8 @@ public sealed class WorldPlan
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
-        if (Towns == null || Sites == null || Roads == null || History == null || Towns.Any(t => t == null) || Sites.Any(t => t == null) || Roads.Any(r => r == null)) return ["Missing world plan data."];
+        if (Towns == null || Sites == null || Roads == null || History == null || BiomeRegions == null || Towns.Any(t => t == null) || Sites.Any(t => t == null) || Roads.Any(r => r == null) || BiomeRegions.Any(r => r == null)) return ["Missing world plan data."];
+        if (BiomeRegions.Count != 6 || BiomeRegions.Select(b => b.Biome).Distinct().Count() != 6 || BiomeRegions.Any(b => !Enum.IsDefined(b.Biome) || !Contains(new(b.X, b.Y)))) errors.Add("Invalid biome geography.");
         if (Towns.Count != 24 || Sites.Count != 48) errors.Add("World requires 24 towns and 48 sites.");
         if (Towns.Any(t => !Contains(t.Center)) || Sites.Any(t => !Contains(t.Center))) errors.Add("Settlement/site outside world.");
         if (Towns.Any(t => t.Culture is < 0 or >= 6 || t.FactionId is < 0 or >= 6 || t.Name == null) || Sites.Any(s => s.Culture is < 0 or >= 6 || s.Name == null || s.Purpose is not ("ruin" or "mine" or "shrine" or "fort"))) errors.Add("Invalid culture/site purpose.");

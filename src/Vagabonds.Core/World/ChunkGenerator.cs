@@ -7,11 +7,11 @@ public static class Materials
     public static bool Walkable(Material m) => m is not (Material.Tree or Material.Water or Material.Rock or Material.Wall or Material.Storage);
     public static bool Opaque(Material m) => m is Material.Tree or Material.Rock or Material.Wall;
     public static int Hardness(Material m) => m switch { Material.Rock or Material.Wall => 4, Material.Tree => 2, _ => 1 };
-    public static string Yield(Material m) => m is Material.Tree or Material.Door ? "wood" : "stone";
+    public static string Yield(Material m) => m is Material.Tree or Material.Door or Material.Storage or Material.Camp ? "wood" : "stone";
     public static string Sprite(Material m, Biome biome, CultureSample? culture = null) => m switch
     {
         Material.Tree => biome == Biome.Marsh ? "willow" : biome == Biome.Snow ? "pine" : "tree",
-        Material.Water => "water", Material.Rock => "boulder", Material.Earth => "rock-floor",
+        Material.Water => "water", Material.Rock => "boulder", Material.Earth => "path",
         Material.Wall => culture?.Wall ?? "ruin-wall", Material.Floor => culture?.Floor ?? "stone",
         Material.Door => "wood", Material.Bridge => "bridge", Material.StairsDown => "stairs-down", Material.StairsUp => "stairs-up",
         Material.Storage => "chest", Material.Camp => "campfire", _ => biome is Biome.Highland or Biome.Badland ? "rock-floor" : "grass"
@@ -19,7 +19,7 @@ public static class Materials
 }
 
 public sealed record GenerationTrace(string Purpose, string Sample, int PatternCount, int Attempts, int Observations, long Propagations, int FallbackRegions, int RepairedCells, string RawHash, string FinalHash);
-public sealed record Footprint(Material[] Cells, int Width, int Height, GenerationTrace Trace);
+public sealed record Footprint(Material[] Cells, Material[] RawCells, int Width, int Height, GenerationTrace Trace);
 public sealed record GeneratedChunk(ChunkKey Key, Material[] Tiles, Biome[] Biomes, int[] Cultures, string BaseHash);
 
 public sealed class ChunkGenerator(WorldPlan plan)
@@ -36,7 +36,7 @@ public sealed class ChunkGenerator(WorldPlan plan)
         string purpose = town ? "town" : plan.Sites[id].Purpose;
         var model = SampleLibrary.Default.Model(culture);
         const int size = 64;
-        var tiles = Enumerable.Repeat(Material.Floor, size * size).ToArray();
+        var tiles = Enumerable.Repeat(town ? Material.Grass : Material.Floor, size * size).ToArray();
         int attempts = 0, observations = 0, fallbacks = 0; long propagations = 0;
         // Four structural regions around a guaranteed central road/plaza. Collapse a whole
         // footprint before slicing chunks, so visitation order cannot change its seams.
@@ -47,6 +47,8 @@ public sealed class ChunkGenerator(WorldPlan plan)
             var pins = new Dictionary<int, char>();
             for (int x = 0; x < w; x++) { pins[x] = '.'; pins[(h - 1) * w + x] = '.'; }
             for (int y = 0; y < h; y++) { pins[y * w] = '.'; pins[y * w + w - 1] = '.'; }
+            pins[h / 2 * w + w / 2] = '#';
+            pins[h / 2 * w + w / 2 + 1] = '+';
             var result = forceFallback ? null : model.Solve(w, h, WorldRandom.Hash(plan.Seed, id, floor, region + (town ? 1000 : 2000)), pins);
             char[] cells;
             if (result == null)
@@ -60,6 +62,7 @@ public sealed class ChunkGenerator(WorldPlan plan)
             else { cells = result.Cells; attempts += result.Attempts; observations += result.Observations; propagations += result.Propagations; }
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) tiles[(oy + y) * size + ox + x] = cells[y * w + x] switch { '#' => Material.Wall, '+' => Material.Door, _ => Material.Floor };
         }
+        var rawCells = (Material[])tiles.Clone();
         string rawHash = Hash(tiles); int repairs = 0;
         if (!town) for (int i = 0; i < tiles.Length; i++)
             if (tiles[i] == Material.Wall && WorldRandom.Hash(plan.Seed, i, id, floor + 900) % 100 < 6) { tiles[i] = Material.Floor; repairs++; }
@@ -79,7 +82,7 @@ public sealed class ChunkGenerator(WorldPlan plan)
             if (floor < WorldPlan.Floors - 1) tiles[32 * size + 34] = Material.StairsDown;
         }
         var trace = new GenerationTrace(purpose, SampleLibrary.Default.Cultures[culture].Sample, model.PatternCount, attempts, observations, propagations, fallbacks, repairs, rawHash, Hash(tiles));
-        var footprint = new Footprint(tiles, size, size, trace);
+        var footprint = new Footprint(tiles, rawCells, size, size, trace);
         if (!forceFallback)
         {
             if (_footprints.Count >= 8) _footprints.Remove(_order.Dequeue());

@@ -56,7 +56,7 @@ public sealed partial class WorldSession
         if (plan.Version != WorldPlan.GenerationVersion || plan.SampleHash != SampleLibrary.Default.Hash) throw new InvalidDataException("World generation version/sample manifest differs from this build.");
         if (plan.Validate().Count != 0 || plan.Towns.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Sites.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Any(r => r.FromTown is < 0 or >= 24 || r.ToTown is < 0 or >= 24)) throw new InvalidDataException("Invalid world plan.");
         var state = save.State.Deserialize<WorldState>(SaveOptions) ?? throw new InvalidDataException("Missing world state.");
-        if (save.Chunks.Count > 16384 || save.Chunks.Select(c => c.Key).Distinct().Count() != save.Chunks.Count) throw new InvalidDataException("Invalid chunk references.");
+        if (save.Chunks.Count > 16384 || save.Chunks.Any(c => c == null) || save.Chunks.Select(c => c.Key).Distinct().Count() != save.Chunks.Count) throw new InvalidDataException("Invalid chunk references.");
         state.Chunks = [];
         foreach (var reference in save.Chunks)
         {
@@ -64,7 +64,7 @@ public sealed partial class WorldSession
             byte[] data = File.ReadAllBytes(Path.Combine(Path.GetFullPath(path) + ".chunks", reference.Hash + ".json"));
             if (Convert.ToHexString(SHA256.HashData(data)) != reference.Hash) throw new InvalidDataException("Chunk snapshot checksum mismatch.");
             var delta = JsonSerializer.Deserialize<ChunkDelta>(data, SaveOptions) ?? throw new InvalidDataException("Empty chunk snapshot.");
-            if (delta.Key != reference.Key || !plan.Contains(new(delta.Key.X * 64, delta.Key.Y * 64, delta.Key.Floor)) || delta.Edits == null || delta.Discovered == null || delta.Storage == null || delta.Edits.Count > 4096 || delta.Discovered.Any(i => i is < 0 or >= 4096) || delta.Edits.Any(e => e.Key is < 0 or >= 4096 || !Enum.IsDefined(e.Value)) || delta.Storage.Any(s => s.Key is < 0 or >= 4096 || s.Value.Any(e => e.Value < 0))) throw new InvalidDataException("Invalid chunk snapshot.");
+            if (delta.Key != reference.Key || !plan.Contains(new(delta.Key.X * 64, delta.Key.Y * 64, delta.Key.Floor)) || delta.Edits == null || delta.Discovered == null || delta.Storage == null || delta.Edits.Count > 4096 || delta.Discovered.Any(i => i is < 0 or >= 4096) || delta.Edits.Any(e => e.Key is < 0 or >= 4096 || !Enum.IsDefined(e.Value)) || delta.Storage.Any(s => s.Key is < 0 or >= 4096 || s.Value == null || s.Value.Any(e => e.Value < 0))) throw new InvalidDataException("Invalid chunk snapshot.");
             state.Chunks.Add(delta);
         }
         ValidateState(plan, state);
@@ -79,7 +79,7 @@ public sealed partial class WorldSession
         if (s.Party.Any(id => !s.Actors.Any(a => a.Id == id && a.Recruited && a.Kind == ActorKind.Person)) || s.Towns.Count != 24 || s.Towns.Where((t, i) => t == null || t.Id != i || t.Stocks == null || new[] { "food", "wood", "stone", "medicine" }.Any(k => !t.Stocks.ContainsKey(k)) || t.Stocks.Any(e => e.Value < 0)).Any() || s.Factions.Count != 6 || s.Factions.Any(f => f == null || f.Relations == null || f.Relations.Length != 6) || s.Inventory.Any(e => e.Value < 0) || s.Arc.TownId is < 0 or >= 24 || s.Arc.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Arc.PatronId) || !Enum.IsDefined(s.Arc.Kind) || !Enum.IsDefined(s.Arc.Status) || s.Tasks.Any(t => t == null || t.TownId is < 0 or >= 24 || t.RoadId < 0 || t.RoadId >= plan.Roads.Count)) throw new InvalidDataException("Invalid party, economy or arc.");
         if (s.Battle is { } b)
         {
-            if (s.AwaitingContinuation || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
+            if (s.AwaitingContinuation || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
         }
     }
 }

@@ -88,6 +88,20 @@ public sealed class AcceptanceTests : IDisposable
         var loaded = WorldSession.Load(Slot);
         Assert.Equal(42, loaded.Seed); Assert.Equal(before, File.ReadAllBytes(Slot));
     }
+    [Theory]
+    [InlineData("chunks")]
+    [InlineData("biomes")]
+    [InlineData("battle")]
+    public void NullNestedSaveObjectsAreRejectedAsInvalidData(string kind)
+    {
+        var s = WorldSession.Create(42); s.StartBattle(s.State.Actors.First(a => a.Kind == ActorKind.Beast).Id); s.Save(Slot);
+        var json = JsonNode.Parse(File.ReadAllText(Slot))!;
+        if (kind == "chunks") json["chunks"] = JsonNode.Parse("[null]");
+        else if (kind == "biomes") json["plan"]!["biomeRegions"] = null;
+        else json["state"]!["battle"]!["units"] = JsonNode.Parse("[null,null]");
+        File.WriteAllText(Slot, json.ToJsonString());
+        Assert.Throws<InvalidDataException>(() => WorldSession.Load(Slot));
+    }
     [Fact]
     public void FailedStorageTakeDoesNotCreateOrMutateAStack()
     {
@@ -104,7 +118,7 @@ public sealed class AcceptanceTests : IDisposable
             var s = WorldSession.Create(1337 + size);
             foreach (var a in s.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(size - 1).ToArray())
             { a.Position = s.State.Position; s.Submit(new(WorldCommandKind.Recruit, ActorId: a.Id)); }
-            foreach (var a in s.Party) a.Role = 2;
+            foreach (var a in s.Party) { a.Role = 2; a.Health = a.MaxHealth; a.Mana = a.MaxMana; }
             var enemy = s.State.Actors.First(a => a.Kind == ActorKind.Beast); s.StartBattle(enemy.Id);
             Assert.Equal(size, s.State.Battle!.Units.Count(u => u.Friendly));
             int budget = 500;

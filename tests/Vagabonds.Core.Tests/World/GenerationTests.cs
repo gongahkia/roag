@@ -12,7 +12,7 @@ public sealed class GenerationTests
         {
             var plan = WorldPlan.Generate(seed);
             Assert.Empty(plan.Validate());
-            Assert.Equal(6, Enumerable.Range(0, 6).Select(x => plan.BiomeAt(x * WorldPlan.Size / 6 + 1, 0)).Distinct().Count());
+            Assert.Equal(6, plan.BiomeRegions.Select(b => plan.BiomeAt(b.X, b.Y)).Distinct().Count());
             Assert.Equal(24, plan.Towns.Select(t => t.Id).Distinct().Count());
         }
     }
