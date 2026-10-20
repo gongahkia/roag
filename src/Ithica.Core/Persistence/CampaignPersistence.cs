@@ -12,6 +12,7 @@ public sealed partial class Campaign
     {
         public string Id { get; set; } = "";
         public int Seed { get; set; }
+        public int GeneratorVersion { get; set; } = 2;
         public int MapCell { get; set; }
         public int? ContactId { get; set; }
         public bool Structure { get; set; }
@@ -36,7 +37,7 @@ public sealed partial class Campaign
     {
         Home = JsonSerializer.Deserialize<JsonElement>(Home.StateJson()), Clock = Clock, Phase = Phase, SelectedSiteId = SelectedSiteId,
         PartyIds = PartyIds, Pack = Pack, Cargo = Cargo, ArrivalReport = ArrivalReport,
-        Sites = Sites.Select(s => new SiteData { Id = s.Id, Seed = s.Seed, MapCell = s.MapCell, ContactId = s.ContactId,
+        Sites = Sites.Select(s => new SiteData { Id = s.Id, Seed = s.Seed, GeneratorVersion = s.GeneratorVersion, MapCell = s.MapCell, ContactId = s.ContactId,
             Structure = s.Structure, Secured = s.Secured, Field = s.Session is null ? null : JsonSerializer.Deserialize<JsonElement>(s.Session.StateJson()) }).ToList()
     };
 
@@ -83,12 +84,12 @@ public sealed partial class Campaign
         c.Sites.Clear();
         foreach (var s in d.Sites)
         {
-            if (!home.World.Valid(s.MapCell) || s.ContactId is int id && ((uint)id >= home.Survivors.Count || s.Structure))
+            if (s.GeneratorVersion is not (2 or 3) || !home.World.Valid(s.MapCell) || s.ContactId is int id && ((uint)id >= home.Survivors.Count || s.Structure))
                 throw new InvalidDataException("Invalid site contact or position.");
             var field = s.Field is { ValueKind: JsonValueKind.Object } value ? Field.FromJson(value.GetRawText()) : null;
-            if (field is not null && (!field.FieldMode || field.ZoneId != s.Id || field.Seed != s.Seed))
+            if (field is not null && (!field.FieldMode || field.ZoneId != s.Id || field.Seed != s.Seed || field.Zone.Generation.Version != s.GeneratorVersion))
                 throw new InvalidDataException("Invalid site session.");
-            c.Sites.Add(new() { Id = s.Id, Seed = s.Seed, MapCell = s.MapCell, ContactId = s.ContactId, Structure = s.Structure, Secured = s.Secured, Session = field });
+            c.Sites.Add(new() { Id = s.Id, Seed = s.Seed, GeneratorVersion = s.GeneratorVersion, MapCell = s.MapCell, ContactId = s.ContactId, Structure = s.Structure, Secured = s.Secured, Session = field });
         }
         bool away = c.Phase == CampaignPhase.Expedition;
         if (away != (c.PartyIds.Count > 0) || c.PartyIds.Any(id => home.Crew.All(r => r.Id != id || !r.Alive))
@@ -121,6 +122,6 @@ public sealed partial class Campaign
     }
 
     public object Summary() => new { name = "Ithica", Home.Seed, CampaignTick, Phase, Objective, residents = Home.Crew.Count,
-        rescued = Home.RescuedCount, Home.Resources, SupportUpgrade, sites = Sites.Select(s => new { s.Id, s.Name, s.Structure, s.Secured, instantiated = s.Session is not null }),
+        rescued = Home.RescuedCount, Home.Resources, SupportUpgrade, sites = Sites.Select(s => new { s.Id, s.Name, s.Seed, s.GeneratorVersion, s.Structure, s.Secured, instantiated = s.Session is not null }),
         party = PartyIds, Pack, Cargo, home = Home.Summary() };
 }

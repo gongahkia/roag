@@ -4,6 +4,7 @@ using System.Text.Json;
 using Ithica.Core.Colony;
 using Ithica.Core.Diagnostics;
 using Ithica.Core.Generation;
+using Ithica.Tools;
 using IntegratedCampaign = Ithica.Core.Campaign;
 
 var values = new Dictionary<string, string>();
@@ -19,7 +20,7 @@ try
             switches.Add(key);
             continue;
         }
-        if (key is not ("--seed" or "--width" or "--height" or "--headless" or "--ticks" or "--agents" or "--save" or "--validate-seeds" or "--samples") || i + 1 >= args.Length)
+        if (key is not ("--seed" or "--width" or "--height" or "--headless" or "--ticks" or "--agents" or "--save" or "--validate-seeds" or "--samples" or "--export-generation") || i + 1 >= args.Length)
         {
             throw new ArgumentException("Unknown or incomplete option: " + key);
         }
@@ -29,7 +30,7 @@ try
     int Number(string key, int fallback) => values.TryGetValue(key, out string? value) ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
     if (switches.Contains("--help"))
     {
-        Console.WriteLine("Ithica simulation tools\n  --headless [TICKS] [--demo] (without TICKS, completes the integrated loop)\n  --story-check (ordinary-command fault, repair, workload and recovery walkthrough)\n  --validate-seeds N --generation-report --campaign-benchmark [--samples N]\n  --legacy-colony --headless TICKS [--demo] [--seed N] [--width N --height N]\n  --benchmark [--agents N] [--ticks N] [--width N --height N]\n  --load --save PATH\nThe simulation tools never open a graphics window or write a save.");
+        Console.WriteLine("Ithica simulation tools\n  --headless [TICKS] [--demo] (without TICKS, completes the integrated loop)\n  --export-generation PATH.svg [--samples 4 --seed N] (developer map comparison)\n  --story-check (ordinary-command fault, repair, workload and recovery walkthrough)\n  --validate-seeds N --generation-report --campaign-benchmark [--samples N]\n  --legacy-colony --headless TICKS [--demo] [--seed N] [--width N --height N]\n  --benchmark [--agents N] [--ticks N] [--width N --height N]\n  --load --save PATH\nThe simulation tools never open a graphics window or write a save.");
         return 0;
     }
     if (switches.Contains("--benchmark"))
@@ -114,6 +115,13 @@ try
         }, new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
+    if (values.TryGetValue("--export-generation", out string? exportPath))
+    {
+        int seed = Number("--seed", 42), samples = Number("--samples", 4);
+        GenerationGallery.Write(exportPath, seed, samples);
+        Console.WriteLine(JsonSerializer.Serialize(new { export = Path.GetFullPath(exportPath), seed, samples, generatorVersion = LunarGenerator.CurrentVersion }));
+        return 0;
+    }
     if (values.ContainsKey("--validate-seeds"))
     {
         int count = Number("--validate-seeds", 1000), first = Number("--seed", -500), fallback = 0;
@@ -133,7 +141,9 @@ try
     if (switches.Contains("--generation-report"))
     {
         int seed = Number("--seed", 42);
-        Console.WriteLine(JsonSerializer.Serialize(new { seed, sites = new[] { false, true }.Select(structure => {
+        var geology = new World(96, 64); geology.GenerateLunar(seed);
+        Console.WriteLine(JsonSerializer.Serialize(new { seed, generatorVersion = LunarGenerator.CurrentVersion,
+            colony = new { geology.GenerationVersion, geology.GeologyProfile, terrain = geology.Tiles.GroupBy(t => t).ToDictionary(t => t.Key.ToString(), t => t.Count()) }, sites = new[] { false, true }.Select(structure => {
             var zone = LunarGenerator.Create(structure ? "below" : "surface", seed, structure, false);
             return new { zone.Id, zone.Width, zone.Height, zone.Generation, validation = LunarGenerator.Validate(zone),
                 terrain = zone.Tiles.GroupBy(g => g).ToDictionary(g => g.Key.ToString(), g => g.Count()) };

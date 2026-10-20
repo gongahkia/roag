@@ -160,7 +160,7 @@ public sealed partial class Simulation
         _ => "Cycling airlock"
     };
 
-    public Simulation(int seed = 42, int width = 96, int height = 64, bool setup = true)
+    public Simulation(int seed = 42, int width = 96, int height = 64, bool setup = true, bool lunarTerrain = false)
     {
         if (width < 48 || height < 32)
         {
@@ -179,7 +179,8 @@ public sealed partial class Simulation
             return;
         }
 
-        World.Generate(Random);
+        if (lunarTerrain) World.GenerateLunar(seed);
+        else World.Generate(Random);
         int cx = width / 2, cy = height / 2;
         foreach (var (kind, x, y) in new[] { (ModuleKind.Rtg, -7, -3), (ModuleKind.Oxygen, -5, -3), (ModuleKind.Farm, 3, -3), (ModuleKind.Battery, -7, 3), (ModuleKind.Farm, 5, -3) })
         {

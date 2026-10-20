@@ -11,6 +11,8 @@ public sealed class World
     {
         get;
     }
+    public int GenerationVersion { get; internal set; } = 1;
+    public string GeologyProfile { get; internal set; } = "Legacy geology";
     public int Count => Width * Height;
     public int Center => Index(Width / 2, Height / 2);
     public Terrain[] Tiles
@@ -223,6 +225,17 @@ public sealed class World
                 y = Math.Clamp(y, 1, Height - 2);
             }
         }
+        InitializeShelter();
+    }
+
+    public void GenerateLunar(int seed)
+    {
+        new Generation.LunarTerrain(seed, Width, Height).Fill(this);
+        InitializeShelter();
+    }
+
+    private void InitializeShelter()
+    {
         int cx = Width / 2, cy = Height / 2;
         for (int y = cy - 9; y <= cy + 9; y++)
         {

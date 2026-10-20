@@ -44,7 +44,7 @@
 | Station pressure | Usage/exposure wear, three repairable fault types, paid resident service jobs and prevention deadlines |
 | Community | Persistent preferences, bounded memories, directional trust, unequal-work disputes, protected breaks and reconciliation |
 | Incidents | 12 authored definitions / 24 responses across 8 families; hidden saved pacing, warnings, cooldowns and follow-ups |
-| Generation | CA terrain, WFC room connections, cellular damage/exposure, protected approaches and global seal validation |
+| Generation | Version 3 lunar gradient-noise/crater geology and seams; BSP chamber networks, protected approaches and validated seals; legacy CA/WFC generation retained |
 | Assets | 7,115 occupied regions / 11,887 total records, across 3 original packs |
 | Current sprite selection | 166 IDs including font/UI; 14 explicit field aliases/IDs; 75 additional preview-only IDs |
 | Catalog | Schema 5: generic artwork metadata/measured colors for every region; separate current/preview usage and preserved source evidence; all occupied artwork inspected; neutral offline/native queries verified |
@@ -193,20 +193,27 @@ Open **I** for **station reports**: pending messages, response windows, affected
 
 ## Sites generation and hazards
 
-[LunarGenerator](../src/Ithica.Core/Generation/LunarGenerator.cs) reuses the tested CA/WFC algorithms, then explicitly changes ground/collision, art, objects and progression. Old forest, pond, shrine and relic objects do not enter the lunar site.
+[LunarGenerator](../src/Ithica.Core/Generation/LunarGenerator.cs) now has an independent **version 3 lunar generator**. New normal campaigns use their own lunar geology rather than recasting the fantasy forest/abbey. The current terrain authoring is embedded from [lunar-generation.json](../src/Ithica.Core/Generation/lunar-generation.json); it adds no runtime file or package dependency. The original CA/WFC `WorldBuilder`, version-2 lunar recasting and `LegacyWorldBuilder` remain compatibility/regression paths.
 
-| Family | Layout | Content |
-| --- | --- | --- |
-| Surface | 48×32; cellular rubble with protected approaches | Distress rescue or salvage encounter/component; explicit return point |
-| Compartments | 51×37; 7×5 chunks of 7×7 rooms; WFC and cellular damage | Pump, sealed passage, heavier encounter, component and return point |
+| Area | Current generation |
+| --- | --- |
+| Colony surroundings | Existing configurable world size (default 96×64); warped four-octave Perlin-style gradient fields, crater bowls/rims and independent elongated ore/ice/crystal fields |
+| Surface | Width 48–60, height 32–40; coherent rubble/crater collision, four possible return sides, bounded separated objective anchors, terrain-aware protected approaches and connected exploration pockets |
+| Compartments | Width 52–64, height 36–44; bounded BSP partitions, variable chamber bounds, connected spanning graph plus extra links, three-octave damaged edges and one isolated sealed vault |
 
-The WFC solver uses authored opposing sockets, bounded attempts and a valid structural fallback. Global validation checks reachability and ensures the seal cannot be bypassed while its repair prerequisite remains reachable. Room variants are presented as intact, service and damaged geometry; atlas indices never supply sockets automatically.
+**Four geological profiles** vary thresholds, warp and crater density: broken plain, crater field, basalt ridge and ice basin. Resource fields produce coherent seams; they do not simulate real mineral chemistry or vertical strata. The starter shelter, airlock, cleared staging ground and three nearby 3×3 supply patches remain stable for a fair opening. Home layout/resource generation consumes no home simulation RNG. The bare legacy `Simulation` still uses its original CA/random-walk geology unless lunar terrain is explicitly requested.
 
-Each discovered site's seed/version is fixed. Generation happens once when first prepared; generated arrays, seen cells, cleared encounters, recovered loot, repairs, seal state and exposure are saved. Revisits do not reroll. Seeds for layout/dressing, site combat and colony simulation remain independent, preserving the legacy stream algorithms where required.
+Underground chambers are intact, service or damaged, with a separate sealed vault. The spanning graph connects all ordinary chambers; additional corridors allow alternative routes. The pump is outside the vault and reachable before its gate. Only one opening crosses the vault boundary; salvage and its encounter remain behind that seal. This uses BSP/graph construction, not WFC; WFC remains implemented in the retained preview/version-2 path.
 
-Home and the current site are active. Inactive site cellular fields freeze; known distress survival still follows campaign time through the home contact schedule. The current site advances its exposure automaton every four logical ticks, including combat, rest and repair costs. Protected approaches remain excluded. The symbolic exposure/interference overlay can affect health/stress and be suppressed nearby with a kit; source removal persists. No ordinary outdoor fire or spores are initialized in lunar sites. Colony fire consumes oxygen. Service faults can reduce or stop the actual power/life-support/farm systems; they are not separate event-only resource bars. Vegetation remains a future enclosed-habitat casting idea.
+Every new site validates all traversable cells as connected, all objective positions as distinct/reachable/protected, and the seal's prerequisite and lack of bypass. Bounded terrain-aware corridor routing can clear rubble without removing the vault boundary. Damaged isolated corner cells are closed before corridor construction. Generated maps keep the same observed lunar terrain and hazard eligibility; no forest, pond, shrine, vegetation or outdoor fire/spores are introduced. This remains finite 2D tile generation, not streamed terrain, walking elevation or z-levels.
 
-A secured pump provides one home water per 32 campaign ticks. Remote autonomous colonies, streamed regions and a fully simulated distant ecology are not implemented.
+Site layout, terrain/profile, crater/chamber metadata, dressing and hazard sources are deterministic for the recorded seed/version and independent of combat, home simulation and director RNG. The campaign mixes stable separate site seeds; diagnostic export rows compare independent generator inputs using the same specified seed. Normal interactive campaigns choose fresh seeds unless `--seed` is supplied; diagnostics remain reproducible.
+
+**Saved maps remain authoritative.** Each site now records its generator version as well as seed. Historical registry entries without this field default to **version 2**, including places discovered but not yet visited; they still generate with the retained implementation. New sites use version 3. Visiting generates once; revisits and loads retain literal arrays, discoveries, cleared encounters, loot, repairs, seal state and exposure. Colony saves add geology profile/version metadata with deterministic legacy defaults and never regenerate saved geology. Preserve shipped generation implementations/rules when adding a future version; do not silently retune an existing saved version.
+
+Home and the current site are active. Inactive site cellular fields freeze; known distress survival still follows campaign time. The current site advances its exposure automaton every four logical ticks, including combat, rest and repair costs. Protected approaches remain excluded. Interference can affect health/stress and can be suppressed nearby using a carried kit; source removal persists. Colony fire still consumes oxygen. Vegetation remains a future enclosed-habitat idea.
+
+A secured pump provides one home water per 32 campaign ticks. Remote autonomous colonies, streamed regions and a fully simulated distant ecology remain unimplemented.
 
 ## Field roles and encounters
 
@@ -277,7 +284,7 @@ Worlds use contiguous row-major arrays and reusable diffusion/BFS buffers. Work 
 | Legacy fantasy preview | `~/.regolith/lantern.json`, `lantern-rpg`, versions 1/2 |
 | Archived Python | `~/.regolith/colony.json`, separate Python format |
 
-Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Additive nested-home fields retain machine condition/faults, exact service reservations, resident disposition/work/breaks/memories/trust, and version-1 director RNG/budget/pacing, pending targets/deadlines, bounded 64-entry history, cooldowns and outstanding follow-ups. Historical saves without these fields initialize healthy condition and deterministic profiles/director without advancing time or consuming the original RNG. Current saves validate all new ranges, references and target shapes. Older application builds are not promised to understand new service orders. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
+Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Site records include generator version (missing historical values mean version 2); literal saved maps retain their original terrain and generator report. Additive nested-home fields retain machine condition/faults, exact service reservations, resident disposition/work/breaks/memories/trust, and version-1 director RNG/budget/pacing, pending targets/deadlines, bounded 64-entry history, cooldowns and outstanding follow-ups. Historical saves without these fields initialize healthy condition and deterministic profiles/director without advancing time or consuming the original RNG. Current saves validate all new ranges, references and target shapes. Older application builds are not promised to understand new service orders. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
 
 `./ithica.sh --import-colony PATH` imports an inactive legacy colony into a new campaign; finish its automated legacy rescues first. It preserves source world, people, resources, clock and RNG, reads without changing the source, and writes only the selected Ithica save. It does not merge an unrelated fantasy campaign. Original save identifiers, historical SDK lookup and `LegacyWorldBuilder` remain intentional compatibility code.
 
@@ -326,17 +333,21 @@ The acceptance record and commands are maintained in [VERIFICATION.md](VERIFICAT
 ./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
 ./ithica.sh --headless
 ./ithica.sh --validate-seeds 1000 --seed -500
+./ithica.sh --generation-report --seed 42
+./ithica.sh --export-generation artifacts/lunar-gallery.svg --seed 42 --samples 4
 ./ithica.sh --campaign-benchmark --samples 32
 ./ithica.sh --benchmark --width 256 --height 256 --agents 1000 --ticks 120
 ./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
 ./rpg.sh --headless
 ```
 
-`--headless` without a tick count completes the real integrated loop. `--headless N` advances the unified colony; `--demo` first completes the loop. `--legacy-colony --headless N --demo` preserves the old automated-rescue regression. Tools never write player saves. Generation validation covers 1–10,000 consecutive signed seeds, wrapping deterministically.
+`--headless` without a tick count completes the real integrated loop. `--headless N` advances the unified colony; `--demo` first completes the loop. `--legacy-colony --headless N --demo` preserves the old automated-rescue regression. Tools never write player saves. `--export-generation PATH.svg --samples 1..12` atomically writes a developer SVG comparison of colony geology, surface terrain and compartment layouts. `--generation-report` includes profile/version, dimensions, crater/chamber metadata and terrain counts. Generation validation covers 1–10,000 consecutive signed seeds, wrapping deterministically.
 
 CI configures locked restore/build/tests, the legacy colony check, integrated loop, station fault/repair/social walkthrough, retained RPG quest, 256 lunar seeds and catalog freshness/hashes across its configured OS scope. Linux also configures the generic metadata/export suite and Playwright offline-atlas interaction check; see VERIFICATION.md for executed local scope. It does not certify native rendering on all platforms. Actual graphical checks cover macOS Intel and Fedora 44 x64 under WSLg. The Fedora local setup passed locked restore, a clean Release build, all 131 tests, the integrated headless loop and the initial 18 graphical smoke checks at 1024×720 using SDK 10.0.402 / runtime 10.0.13. Later generic-atlas verification passed 26 current-client / 25 preview graphical checks and complete canonical/native query-order comparisons; the offline browser passed 73 assertions. The compressed-storage follow-up passed 38 catalog tests, 74 browser assertions including the compressed catalog download, catalog freshness with/without the local JSON export, and a clean Release build. Native Windows and standalone Linux desktop sessions still need smoke checks; see the scoped record in [VERIFICATION.md](VERIFICATION.md).
 
-The 2026-10-21 station milestone passed 186 core cases, the ordinary-command station walkthrough, normal and retained-preview headless loops, 256 generated seeds without fallback, and native WSLg UI checks; the dated record below distinguishes new runs from prior platform evidence.
+The earlier 2026-10-21 station milestone passed 186 core cases, the ordinary-command station walkthrough, normal and retained-preview headless loops, 256 generated seeds without fallback, and native WSLg UI checks; the dated record below distinguishes new runs from prior platform evidence.
+
+The lunar-generation/player-report follow-up passed **205 Core cases**, **1,000 seeds / 2,000 sites with zero fallback**, 64 complete integrated loops with exact continuation, and **35 native checks at each of 1024×720 and 1440×900** under WSLg. It includes backward generation-version behavior for discovered/unvisited sites. See the dated verification record for exact scope.
 
 Current and historical measurements are distinguished in [PERFORMANCE.md](PERFORMANCE.md). The historical dense-world samples do not prove Dwarf Fortress/Songs of Syx scale. Combined samples measure the actual small home-plus-expedition workload and useful completed work. Root arrays/caches remain a foundation, not a promise of arbitrary simulation scale.
 

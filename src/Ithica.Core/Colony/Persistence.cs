@@ -14,6 +14,8 @@ public sealed partial class Simulation
         {
             get; set;
         }
+        public int GenerationVersion { get; set; } = 1;
+        public string GeologyProfile { get; set; } = "Legacy geology";
         public int Width
         {
             get; set;
@@ -70,6 +72,8 @@ public sealed partial class Simulation
     private SaveData Snapshot() => new()
     {
         Seed = Seed,
+        GenerationVersion = World.GenerationVersion,
+        GeologyProfile = World.GeologyProfile,
         Width = World.Width,
         Height = World.Height,
         Tick = Tick,
@@ -130,6 +134,8 @@ public sealed partial class Simulation
             throw new InvalidDataException("Invalid colony dimensions or resources.");
         }
 
+        if (data.GenerationVersion is not (1 or 3) || string.IsNullOrWhiteSpace(data.GeologyProfile) || data.GeologyProfile.Length > 64)
+            throw new InvalidDataException("Invalid saved geology metadata.");
         int size = checked(data.Width * data.Height);
         if (data.Tiles.Length != size || data.Oxygen.Length != size || data.Heat.Length != size || data.Fire.Length != size || data.Discovered.Length != size)
         {
@@ -222,6 +228,8 @@ public sealed partial class Simulation
             IncidentsEnabled = data.IncidentsEnabled,
             Story = data.Story
         };
+        sim.World.GenerationVersion = data.GenerationVersion;
+        sim.World.GeologyProfile = data.GeologyProfile;
         data.Tiles.CopyTo(sim.World.Tiles, 0);
         data.Oxygen.CopyTo(sim.World.Oxygen, 0);
         data.Heat.CopyTo(sim.World.Heat, 0);
@@ -253,6 +261,7 @@ public sealed partial class Simulation
         Seed,
         Tick,
         Cycle,
+        World.GenerationVersion, World.GeologyProfile,
         Living = LivingCount,
         Pressure = Math.Round(Pressure, 3),
         Resources,

@@ -4,7 +4,25 @@ namespace Ithica.Core.Generation;
 
 public static class LunarGenerator
 {
-    public static Zone Create(string id, int seed, bool structure, bool rescue)
+    public const int CurrentVersion = 3;
+    public static Zone Create(string id, int seed, bool structure, bool rescue, int generatorVersion = CurrentVersion)
+    {
+        if (generatorVersion == 2) return CreateLegacy(id, seed, structure, rescue);
+        if (generatorVersion != CurrentVersion) throw new ArgumentOutOfRangeException(nameof(generatorVersion));
+        var zone = structure ? LunarAreas.Compartments(id, seed) : LunarAreas.Surface(id, seed, rescue);
+        var validity = Validate(zone);
+        if (!validity.Valid) throw new InvalidOperationException($"Lunar seed {seed} ({(structure ? "compartments" : "surface")}): " + string.Join("; ", validity.Errors));
+        var eligible = Enumerable.Range(0, zone.Tiles.Length).Where(i => !zone.Safe[i] && zone.Walkable(new(i % zone.Width, i / zone.Width))).ToArray();
+        if (eligible.Length > 0)
+        {
+            int i = eligible[GenerationSeeds.Stream(seed, 331).Next(eligible.Length)];
+            zone.Environment.Cells[i] = zone.Environment.Sources[i] = HazardKind.Corruption;
+            zone.Environment.Age[i] = 1;
+        }
+        return zone;
+    }
+
+    private static Zone CreateLegacy(string id, int seed, bool structure, bool rescue)
     {
         // Keep the tested graph/CA algorithms. Recast collision and artwork together;
         // no forest, pond, flame or fantasy quest object survives into the lunar site.
@@ -51,7 +69,7 @@ public static class LunarGenerator
             foreach (var p in new[] { obj.Position })
                 if (zone.Inside(p)) { zone.Set(p, Ground.Stone); zone.Safe[zone.Index(p)] = true; }
         var validity = Validate(zone);
-        if (!validity.Valid) throw new InvalidOperationException(string.Join("; ", validity.Errors));
+        if (!validity.Valid) throw new InvalidOperationException($"Lunar seed {seed} ({(structure ? "compartments" : "surface")}): " + string.Join("; ", validity.Errors));
         // Radiation/interference occupies unprotected ground. There is no outdoor fire.
         var eligible = Enumerable.Range(0, zone.Tiles.Length).Where(i => !zone.Safe[i] && zone.Walkable(new(i % zone.Width, i / zone.Width))).ToArray();
         if (eligible.Length > 0)
@@ -66,9 +84,13 @@ public static class LunarGenerator
     public static QuestValidation Validate(Zone zone)
     {
         var errors = new List<string>();
-        var entry = zone.Objects.SingleOrDefault(o => o.Kind == ObjectKind.Return);
+        var returns = zone.Objects.Where(o => o.Kind == ObjectKind.Return).ToArray();
+        if (returns.Length != 1) return new(false, ["Expected one return approach."]);
+        var entry = returns[0];
         if (entry is null) return new(false, ["Missing return approach."]);
-        if (zone.Objects.Select(o => o.Id).Distinct().Count() != zone.Objects.Count) errors.Add("Duplicate object.");
+        if (zone.Objects.Select(o => o.Id).Distinct().Count() != zone.Objects.Count) return new(false, ["Duplicate object."]);
+        if (new[] { ObjectKind.Gate, ObjectKind.Terminal, ObjectKind.Salvage, ObjectKind.Encounter, ObjectKind.Rescue }.Any(kind => zone.Objects.Count(o => o.Kind == kind) > 1))
+            return new(false, ["Duplicate objective kind."]);
         foreach (var obj in zone.Objects)
             if (!zone.Walkable(obj.Position) || obj.Position != entry.Position && zone.FindPath(entry.Position, [obj.Position]).Count == 0)
                 errors.Add("Unreachable " + obj.Id);
@@ -80,6 +102,16 @@ public static class LunarGenerator
                 errors.Add("Seal prerequisite is inaccessible.");
             if (salvage is not null && zone.FindPath(entry.Position, [salvage.Position], p => p != gate.Position).Count > 0)
                 errors.Add("Seal can be bypassed.");
+        }
+        if (zone.Generation.Version >= 3)
+        {
+            var connected = LunarPaths.Reachable(zone, entry.Position);
+            var protectedRoutes = LunarPaths.Reachable(zone, entry.Position, safeOnly: true);
+            if (zone.Objects.Any(o => !protectedRoutes.Contains(o.Position))) errors.Add("Unprotected objective route.");
+            int floors = zone.Tiles.Count(g => !Zone.Solid(g));
+            if (connected.Count != floors) errors.Add("Disconnected traversable terrain.");
+            if (zone.Objects.Select(o => o.Position).Distinct().Count() != zone.Objects.Count) errors.Add("Overlapping objectives.");
+            if (zone.Objects.Any(o => !zone.Inside(o.Position) || !zone.Safe[zone.Index(o.Position)])) errors.Add("Unprotected objective.");
         }
         if (zone.Tiles.Any(g => g is Ground.Grass or Ground.Tree or Ground.Water or Ground.Wood)) errors.Add("Non-lunar terrain.");
         if (zone.Environment.Cells.Any(h => h is HazardKind.Fire or HazardKind.Spores) || zone.Environment.Sources.Any(h => h is HazardKind.Fire or HazardKind.Spores)) errors.Add("Ineligible outdoor hazard.");

@@ -20,6 +20,7 @@ public sealed class Site
 {
     public string Id { get; set; } = "";
     public int Seed { get; set; }
+    public int GeneratorVersion { get; set; } = 2;
     public int MapCell { get; set; }
     public int? ContactId { get; set; }
     public bool Structure { get; set; }
@@ -50,7 +51,7 @@ public sealed partial class Campaign
         : Home.Resources.Components > 0 ? "Build a suit service with the recovered component."
         : "Recover a usable component from the scattered salvage.";
 
-    public Campaign(int seed = 42, int width = 96, int height = 64) : this(new Simulation(seed, width, height))
+    public Campaign(int seed = 42, int width = 96, int height = 64) : this(new Simulation(seed, width, height, lunarTerrain: true))
     {
         Home.Log.RemoveAll(n => n.Text.StartsWith("Charter:", StringComparison.Ordinal));
         Home.Event(Objective);
@@ -97,7 +98,7 @@ public sealed partial class Campaign
     {
         if (Sites.Any(s => s.Id == id)) return;
         uint salt = contact is int i ? unchecked(100U + (uint)i) : structure ? 81U : 80U;
-        Sites.Add(new() { Id = id, MapCell = cell, ContactId = contact, Structure = structure,
+        Sites.Add(new() { Id = id, GeneratorVersion = LunarGenerator.CurrentVersion, MapCell = cell, ContactId = contact, Structure = structure,
             Seed = unchecked((int)GenerationSeeds.Mix(unchecked((uint)Home.Seed), salt)) });
         Home.World.Reveal(cell, 1);
     }
@@ -108,7 +109,7 @@ public sealed partial class Campaign
         var site = Sites.SingleOrDefault(s => s.Id == siteId);
         if (site is null || site.ContactId is int id && Home.Survivors[id].State != ContactState.Stranded)
             return new(false, "That signal is no longer available.");
-        site.Session ??= Field.CreateField(site.Seed, LunarGenerator.Create(site.Id, site.Seed, site.Structure, site.ContactId is not null));
+        site.Session ??= Field.CreateField(site.Seed, LunarGenerator.Create(site.Id, site.Seed, site.Structure, site.ContactId is not null, site.GeneratorVersion));
         SelectedSiteId = site.Id;
         ChangePhase(CampaignPhase.Preparation);
         return new(true, "Choose residents and supplies. Time is paused.");

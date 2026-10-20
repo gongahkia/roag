@@ -70,6 +70,10 @@ public sealed class HearthRules { public string[] Furniture { get; set; } = []; 
 public sealed class GenerationReport
 {
     public int Version { get; set; } = 2;
+    public string Profile { get; set; } = "";
+    public int NoiseOctaves { get; set; }
+    public List<CraterPlacement> Craters { get; set; } = [];
+    public List<ChamberPlacement> Chambers { get; set; } = [];
     public string Algorithm { get; set; } = "authored";
     public int CellularPasses { get; set; }
     public int WfcAttempts { get; set; }
@@ -79,6 +83,8 @@ public sealed class GenerationReport
     public string FallbackReason { get; set; } = "";
     public List<RoomPlacement> Rooms { get; set; } = [];
 }
+public sealed record CraterPlacement(int X, int Y, int Radius);
+public sealed record ChamberPlacement(int X, int Y, int Width, int Height, string Kind);
 public sealed record RoomPlacement(int X, int Y, int Sockets, string Variant);
 public sealed record GenerationOptions(int? WfcAttempts = null);
 public sealed record QuestValidation(bool Valid, string[] Errors);

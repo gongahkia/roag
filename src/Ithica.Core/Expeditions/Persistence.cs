@@ -116,6 +116,10 @@ public sealed partial class Campaign
                 || Objects is null || Objects.Count > count || Objects.Any(o => o is null || !Enum.IsDefined(o.Kind)) || Generation is null
                 || Tiles.Any(g => !Enum.IsDefined(g)) || Hazards.Any(h => !Enum.IsDefined(h)) || Sources.Any(h => !Enum.IsDefined(h))
                 || GroundSprites.Any(s => s is not null && !allowedSprites.Contains(s))
+                || Generation.Version is < 1 or > 3 || Generation.NoiseOctaves is < 0 or > 8 || Generation.Profile is null || Generation.Profile.Length > 64
+                || Generation.Craters is null || Generation.Craters.Count > 80 || Generation.Craters.Any(c => c is null || c.X < 0 || c.X >= Width || c.Y < 0 || c.Y >= Height || c.Radius is < 1 or > 128)
+                || Generation.Chambers is null || Generation.Chambers.Count > 128 || Generation.Chambers.Any(c => c is null || c.X < 0 || c.Y < 0 || c.Width < 1 || c.Height < 1
+                    || (long)c.X + c.Width > Width || (long)c.Y + c.Height > Height || c.Kind is not ("intact" or "service" or "damaged" or "sealed"))
                 || Turns < 0 || Ticks < 0 || Ticks > Turns / GenerationRules.Default.Hazards.StepsPerTick)
                 throw new InvalidDataException("Invalid generated map or environment data.");
             var z = new Zone(Id, Name, Subtitle, Width, Height, Ground.Void) { Generation = Generation };

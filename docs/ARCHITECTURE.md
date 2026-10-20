@@ -7,7 +7,7 @@
 - `Ithica.Core/Campaign` owns the campaign, clock, commands, phase transitions, site registry and carried supplies/cargo.
 - `Colony` owns home cell arrays, machines, work, routing, contact survival and authoritative residents.
 - `Expeditions` owns site/encounter mechanics and the retained fantasy compatibility path. A field session's heroes and combat units are controlled projections of resident IDs, not another population.
-- `Generation` recasts the existing CA/WFC algorithms into lunar terrain, objects and validated access.
+- `Generation` owns version-3 lunar gradient-noise/crater geology, BSP chambers/graph corridors, isolated seals and validation; it retains version-2 CA/WFC recasting for recorded older sites.
 - `Persistence` owns unified snapshots and validation; `Diagnostics` replays ordinary commands for tools and native inspection.
 - `Ithica.Client` handles input and presentation. Its `_sim` property references `Campaign.Home`. Gameplay callbacks collected in immediate-mode UI drawing are queued for Update.
 - `Ithica.Graphics` owns sprite libraries, masks, text and cameras. `Ithica.Tools` and Core.Tests run without MonoGame or SDL initialization.
@@ -38,6 +38,8 @@ The normal Campaign enables story mode, replacing old fixed disasters but retain
 
 ## World representation and performance
 
+New normal colony geology uses independent seeded noise/crater/resource fields; the starter shelter remains stable. Lunar surface maps vary shape, size and approaches; underground maps use BSP chambers plus a connected graph and one sealed vault. All traversable cells/objectives are validated, and generation never advances simulation time or consumes home/combat/director RNG.
+
 Cells use row-major contiguous arrays. Atmosphere/heat/fire use old-state/new-state buffers; hull blocks exchange and exterior vacuum drains breached rooms. Only active floors participate. Fire requires oxygen. Deck/airlock topology defines local electrical islands; topology and machine changes invalidate caches. Connected batteries and prioritized consumers avoid one global power pool.
 
 Work is indexed spatially. BFS reuses buffers and path cursors; at most 64 new routes start per tick, with rotating crew processing. People can overlap. The home and current site are active; distant site fields freeze while explicitly known contact deadlines continue on campaign time.
@@ -46,7 +48,7 @@ Keep the synchronous foundation until profiling justifies another thread. Moving
 
 ## Persistence and compatibility
 
-The root format is `ithica`, version 1, at `~/.ithica/campaign.json`. It contains home state, clock, phase, registry/site arrays, roster locations, pack/cargo, encounters, completion and independent RNG. Temp-file writes flush before atomic replacement. Load validates map, phase, roster and projection consistency without regenerating visited sites.
+The root format is `ithica`, version 1, at `~/.ithica/campaign.json`. It contains home state, clock, phase, registry/site arrays, roster locations, pack/cargo, encounters, completion and independent RNG. Temp-file writes flush before atomic replacement. Load validates map, phase, roster and projection consistency without regenerating visited sites. Site generator versions are saved; missing historical values select the retained version 2 for unvisited sites as well. New registry entries use version 3. Saved colony arrays remain authoritative, with additive geology profile/version metadata. The new embedded lunar rules are separate from frozen preview/version-2 generation inputs.
 
 The nested home retains the `regolith-csharp` identity and old reader. Field sessions use `ithica-field`; the legacy fantasy path retains `lantern-rpg` versions 1/2 and `LegacyWorldBuilder`. Explicit colony import leaves its source untouched and rejects in-flight automated legacy rescues. Two unrelated campaigns are never implicitly merged.
 
