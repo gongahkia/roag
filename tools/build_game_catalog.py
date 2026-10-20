@@ -219,6 +219,7 @@ def main():
                         "Renderer registration in the viewer is separate from active gameplay use. Unbound sprites remain unused even though the viewer can display them."])
     write("catalog.json", inventory, args.check)
     index = [{"id": e["id"], "name": e["name"], "pack": e["pack"], "source": e["source"], "rect": e["rect"], "asset": e["asset"],
+              "kind": e["kind"], "identity": e["identity"], "rgba_sha256": e["rgba_sha256"],
               "category": e.get("category", "unclassified"), "family": e["assessment"]["family"], "layer": e["assessment"]["layer"],
               "confidence": e["review"]["confidence"], "basis": e["review"]["identity_basis"], "role": e["assessment"]["rpg_role"],
               "ideas": e["assessment"]["ideas"], "adaptation": e["assessment"]["adaptation"], "usage": e["usage"],

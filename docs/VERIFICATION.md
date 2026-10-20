@@ -92,6 +92,12 @@ Original misleading working labels remain preserved in the frozen source fields.
 
 Executed validation: **27 generic tests passed** after correcting a new test's mistaken assumption that the old bottom-row working label was also a structured matrix field. All **11,887** metadata objects passed schema validation; catalog freshness and original PNG/archive/crop hashes passed. Icon/control visual inspection, richer icon descriptions and atlas controls remain in progress.
 
+## Neutral visual authoring: icon/control packs and complete inspection
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected all six Godot and seven input contact sheets. Every one of the 7,115 occupied crops now has a recorded inspection reference across 54 sheets. Multi-source inspection entries retain each exact source/crop/hash; regeneration validates them against the frozen import. There are 1,704 individual Urizen observations, 36 body / 98 prop series, and 137 authored neutral icon-family descriptions. All 786 prompts expose control, category, visible appearance and size; keyboard A and controller A retain separate variant groups. The 146 publisher-labelled glyphs expose exact characters/code points using the runtime font's shared punctuation aliases. The unknown multicolored edge glyph remains uncertain.
+
+Executed validation: **32 generic tests passed**. They cover all occupied inspection/useful-description evidence, neutral icon shape queries, prompt device/state separation, glyph code points and full canonical/viewer metadata/export agreement. All **11,887** generic objects passed schema validation. Regeneration and `--check` passed, preserving all source PNG/archive/crop hashes and current/preview selections. Runtime font regeneration selected the same 154 IDs / 60 bindings / 94 glyphs. Neutral JSON and CSV exports retain original identity evidence and subject-level confidence. Atlas interface implementation/interaction verification remains in progress.
+
 ## Reproduction
 
 ```sh

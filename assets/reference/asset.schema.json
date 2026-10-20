@@ -68,13 +68,34 @@
     },
     "relations": {
       "type": "object", "additionalProperties": false,
-      "required": ["exact_rgba_duplicates", "source_grid", "source_variant_style", "named_variant_group", "character_matrix"],
+      "required": ["exact_rgba_duplicates", "source_grid", "source_variant_style", "named_variant_group", "character_matrix", "input_prompt", "glyph"],
       "properties": {
         "exact_rgba_duplicates": {"$ref": "#/$defs/strings"},
         "source_grid": {"oneOf": [{"type": "null"}, {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}]},
         "source_variant_style": {"type": ["string", "null"]},
         "named_variant_group": {"type": ["string", "null"]},
-        "character_matrix": {"type": ["object", "null"]}
+        "character_matrix": {"type": ["object", "null"]},
+        "input_prompt": {
+          "oneOf": [{"type": "null"}, {
+            "type": "object", "additionalProperties": false,
+            "required": ["control", "category", "visual_state", "size_family"],
+            "properties": {
+              "control": {"type": ["string", "null"]}, "category": {"type": "string"},
+              "visual_state": {"type": ["string", "null"]}, "size_family": {"type": ["string", "null"]}
+            }
+          }]
+        },
+        "glyph": {
+          "oneOf": [{"type": "null"}, {
+            "type": "object", "additionalProperties": false,
+            "required": ["families", "publisher_labels", "character", "codepoint"],
+            "properties": {
+              "families": {"$ref": "#/$defs/strings"}, "publisher_labels": {"$ref": "#/$defs/strings"},
+              "character": {"oneOf": [{"type": "null"}, {"type": "string", "minLength": 1, "maxLength": 1}]},
+              "codepoint": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$"}]}
+            }
+          }]
+        }
       }
     },
     "evidence": {

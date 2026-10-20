@@ -15,7 +15,7 @@ import io
 import json
 from pathlib import Path
 
-from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES
+from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, neutral_record
 
 DEFAULT_CATALOG = Path(__file__).resolve().parents[1] / 'assets/catalog.json'
 
@@ -79,7 +79,7 @@ def parser():
     p.add_argument('--hex', help='Exact foreground RGB hex, for example "#00ff00".')
     p.add_argument('--subject', action='append', help='Exact subject term; repeat to require every term.')
     p.add_argument('--subject-confidence', choices=CONFIDENCE, default='low', help='Minimum confidence for subject claims.')
-    p.add_argument('--composition')
+    p.add_argument('--composition', choices=COMPOSITIONS)
     p.add_argument('--include-non-assets', action='store_true', help='Include blank slots, guides and annotations.')
     p.add_argument('--sort', choices=['id', 'name', 'type', 'color', 'width', 'height', 'confidence'], default='id')
     p.add_argument('--descending', action='store_true')
@@ -109,17 +109,23 @@ def main(argv=None):
         output = ''.join(r['id'] + '\n' for r in page)
     elif args.format == 'csv':
         stream = io.StringIO(newline='')
-        writer = csv.DictWriter(stream, fieldnames=['id', 'pack', 'source', 'rect', 'name', 'type', 'primary_color', 'color_names', 'subjects', 'description'])
+        writer = csv.DictWriter(stream, fieldnames=['id', 'pack', 'source', 'rect', 'kind', 'rgba_sha256', 'source_identity',
+                                                   'name', 'type', 'classification_confidence', 'suggested_layers', 'composition',
+                                                   'primary_color', 'color_names', 'color_coverage', 'subjects', 'subject_claims', 'description'])
         writer.writeheader()
         for r in page:
             a = r['asset']
             writer.writerow({'id': r['id'], 'pack': r['pack'], 'source': r['source'], 'rect': json.dumps(r['rect']),
+                             'kind': r['kind'], 'rgba_sha256': r['rgba_sha256'], 'source_identity': json.dumps(r.get('identity', {})),
                              'name': a['name'], 'type': a['type'], 'primary_color': a['appearance']['primary_color'],
+                             'classification_confidence': a['classification_confidence'],
+                             'suggested_layers': '; '.join(a['suggested_layers']), 'composition': a['composition']['kind'],
                              'color_names': '; '.join(a['appearance']['color_names']),
+                             'color_coverage': json.dumps(a['appearance']['color_coverage']), 'subject_claims': json.dumps(a['subjects']),
                              'subjects': '; '.join(c['term'] for c in a['subjects']), 'description': a['description']})
         output = stream.getvalue()
     else:
-        rows = page if args.full else [{k: r[k] for k in ['id', 'pack', 'source', 'rect', 'asset']} for r in page]
+        rows = page if args.full else [neutral_record(r) for r in page]
         output = json.dumps({'catalog_schema': catalog['schema_version'], 'total': len(records), 'offset': args.offset,
                              'returned': len(rows), 'matches': rows}, ensure_ascii=False, indent=2) + '\n'
     if args.output:

@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects
+from asset_catalog import COLOR_ORDER, COMPOSITIONS, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe, named_visual_subjects, neutral_record
 from query_assets import facets, matches, parser, sort_key
 
 
@@ -222,6 +222,42 @@ class CatalogTests(unittest.TestCase):
         self.assertIsNone(r['asset']['relations']['character_matrix'])
         self.assertNotIn('hammer', r['asset']['name'].lower())
         self.assertFalse(any(o['scope'] == 'series' for o in r['asset']['evidence']['observations']))
+
+    def test_every_occupied_crop_has_inspection_and_useful_evidence(self):
+        occupied = [r for r in self.records if r['kind'] == 'sprite']
+        self.assertEqual(len(occupied), 7115)
+        for r in occupied:
+            self.assertTrue(r['asset']['evidence']['inspection_refs'], r['id'])
+            self.assertNotIn(r['asset']['evidence']['review_status'], ['category_only', 'inspected_unresolved'], r['id'])
+
+    def test_icons_are_searchable_by_visible_shape(self):
+        r = self.by_id['godot-white-event']
+        self.assertEqual(r['name'], 'event')
+        self.assertTrue(matches(r, parser().parse_args(['--type', 'ui_icon', '--subject', 'exclamation', '--subject-confidence', 'medium'])))
+        self.assertFalse(matches(r, parser().parse_args(['--subject', 'exclamation', '--subject-confidence', 'high'])))
+
+    def test_input_variant_groups_preserve_device_and_appearance(self):
+        prompts = [r for r in self.records if r['kind'] == 'sprite' and r['pack'] == 'input-prompts']
+        for r in prompts:
+            self.assertEqual(r['asset']['relations']['input_prompt']['visual_state'], r['visual_state'])
+        key = next(r for r in prompts if r['control'] == 'A' and r['category'] == 'keyboard')
+        button = next(r for r in prompts if r['control'] == 'A' and r['category'] == 'controller')
+        self.assertNotEqual(key['asset']['relations']['named_variant_group'], button['asset']['relations']['named_variant_group'])
+
+    def test_font_codepoints_come_from_publisher_labels(self):
+        glyphs = [r['asset']['relations']['glyph'] for r in self.records if r['asset']['relations']['glyph']]
+        self.assertEqual(len(glyphs), 146)
+        for g in glyphs:
+            self.assertEqual(g['codepoint'], f"U+{ord(g['character']):04X}")
+        question = next(g for g in glyphs if 'question' in g['publisher_labels'])
+        self.assertEqual(question['character'], '?')
+        self.assertIsNone(self.by_id['urizen-onebit-r49-c102']['asset']['relations']['glyph'])
+
+    def test_neutral_exports_and_viewer_retain_canonical_evidence(self):
+        index = json.loads((ROOT / 'assets/atlas-index.json').read_text())
+        self.assertEqual({r['id'] for r in index}, {r['id'] for r in self.records if r['kind'] == 'sprite'})
+        for r in index:
+            self.assertEqual(neutral_record(r), neutral_record(self.by_id[r['id']]), r['id'])
 
     def test_qualified_visual_names_do_not_assert_exact_species(self):
         claims = named_visual_subjects('A gray snake-like creature', 'medium', 'fixture')

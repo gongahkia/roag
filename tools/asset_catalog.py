@@ -22,6 +22,21 @@ TYPES = ['actor', 'terrain', 'structure', 'vegetation', 'item', 'prop', 'vehicle
 LAYERS = ['ground', 'structure', 'object', 'actor', 'effect', 'interface', 'text', 'unresolved', 'reference']
 CONFIDENCE = ['low', 'medium', 'high']
 COMPOSITIONS = ['non_asset', 'standalone_candidate', 'tile_candidate', 'fragment_candidate', 'uncertain', 'sparse_mark']
+GLYPH_ALIASES = {
+    'roundopen': '(', 'roundclose': ')', 'squareopen': '[', 'squareclose': ']', 'curlyopen': '{', 'curlyclose': '}',
+    'less': '<', 'more': '>', 'plus': '+', 'minus': '-', 'question': '?', 'exclamation': '!', 'caret': '^',
+    'colon': ':', 'hash': '#', 'underscore': '_', 'atsign': '@', 'percent': '%', 'tilde': '~', 'dollar': '$',
+    'quote': '"', 'apostrophe': "'", 'ampersand': '&', 'asterisk': '*', 'equality': '=', 'graveaccent': '`',
+    'bar': '|', 'slash': '/', 'backslash': '\\', 'period': '.', 'comma': ',', 'semicolon': ';',
+}
+NEUTRAL_FIELDS = ['id', 'pack', 'source', 'rect', 'kind', 'rgba_sha256', 'identity', 'asset']
+
+
+def neutral_record(record):
+    """Keep source identity evidence with an exported descriptor's references."""
+    return {key: record.get(key, {}) if key == 'identity' else record[key] for key in NEUTRAL_FIELDS}
+
+
 VISUAL_NOUNS = '''humanoid animal creature insect snail moth beetle spider snake cat dog bat frog fish lizard
 reptile bird rodent wing cape ghost skeleton horn hood robe
 sword blade knife axe bow spear staff shovel pickaxe hoe saw tool shield hammer fork spade rod scoop
@@ -33,7 +48,12 @@ tower bridge hatch grate casing pipe conduit computer screen radar chip circuit 
 spark smoke cloud star moon planet globe vehicle rocket ship boat aircraft car train horse tent sofa chair
 table cabinet bookcase shelf book basket jar kettle teapot goblet tray plate mug dish utensil necklace
 lock key padlock chain rope hook token coin trap net spike foliage texture pattern frame loop cross
-branch vine leaf sprig shoot print mark ornament slit stripe band square rectangle diamond circle'''.split()
+branch vine leaf sprig shoot print mark ornament slit stripe band square rectangle diamond circle
+heart eye skull arrow footprint paw speaker loudhailer cartridge cannon card die dice gear cogwheel hub
+exclamation question note snowflake document folder file film chart clock target reticle pouch cap face
+brain chest latch coin seam wing pedestal feather mouth crossguard grip bust antenna bell bone bucket
+paintbrush waste bin bubble pipe loop flame scroll envelope eyelid sound route keyboard mouse controller'''.split()
+VISUAL_NOUNS = list(dict.fromkeys(VISUAL_NOUNS))
 
 
 def load_json(path):
@@ -200,6 +220,18 @@ def properties_terms(properties):
     return terms - {'default', 'unknown', 'cell'}
 
 
+def glyph_metadata(record):
+    if record.get('category') != 'font':
+        return None
+    properties = [m['properties'] for m in record.get('identity', {}).get('upstream_matches', [])
+                  if m['properties'].get('group1') == 'font']
+    labels = sorted({p.get('group3', '') for p in properties})
+    characters = {GLYPH_ALIASES.get(label, label) for label in labels}
+    character = next(iter(characters)) if len(characters) == 1 and len(next(iter(characters))) == 1 else None
+    return {'families': sorted({p.get('group2', '') for p in properties}), 'publisher_labels': labels,
+            'character': character, 'codepoint': f'U+{ord(character):04X}' if character else None}
+
+
 def visual_claims(values, confidence, evidence):
     return [claim(value if isinstance(value, str) else value['term'],
                   confidence if isinstance(value, str) else value.get('confidence', confidence),
@@ -320,6 +352,24 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
         composition = 'tile_candidate'
     elif asset_type == 'fragment':
         composition = 'fragment_candidate'
+    icon = authored.get('icon_families', {}).get(record.get('semantic_family')) if record['pack'] == 'godot-node-icons' else None
+    if icon:
+        reference = 'reference/asset-semantics.json#icon_families/' + record['semantic_family']
+        display_name, description = icon['name'], icon['description']
+        confidence = icon.get('confidence', 'medium')
+        observations.append({'id': 'icon-family-' + record['semantic_family'], 'scope': 'series',
+                             'description': description, 'origin': icon['review_origin']})
+        evidence_refs.append(reference)
+        subjects += named_visual_subjects(display_name, confidence, reference)
+    if record['pack'] == 'input-prompts' and record['kind'] == 'sprite':
+        description = (f"Input artwork labelled {record.get('control', '')!r}, category {record['category']}, "
+                       f"source style {record.get('style', '')}, size family {record.get('size_family', '')}, "
+                       f"visible appearance {record.get('visual_state', 'unspecified')}. "
+                       'Appearance states do not establish pressed/released behavior, analog directions or a game binding.')
+    glyph = glyph_metadata(record)
+    if glyph and glyph['character']:
+        display_name = f"Bitmap glyph {glyph['character']} ({', '.join(glyph['families'])})"
+        description = f"Publisher-labelled bitmap character {glyph['character']!r}, {glyph['codepoint']}, font family {', '.join(glyph['families'])}."
     reviewed_matrix = bool(record.get('character_matrix') and 104 <= record['grid'][0] <= 201 and 0 <= record['grid'][1] <= 35)
     if reviewed_matrix:
         matrix = record['character_matrix']
@@ -410,7 +460,10 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
             'relations': {'exact_rgba_duplicates': duplicates.get(record['id'], []),
                           'source_grid': record.get('grid'), 'source_variant_style': record.get('style'),
                           'named_variant_group': 'godot:' + record['semantic_family'] if record.get('semantic_family') else
-                              'input:' + record.get('control', '') if record['pack'] == 'input-prompts' else None,
+                              'input:' + record['category'] + ':' + record.get('control', '') if record['pack'] == 'input-prompts' else None,
+                          'input_prompt': {key: record.get(key) for key in ['control', 'category', 'visual_state', 'size_family']}
+                              if record['pack'] == 'input-prompts' and record['kind'] == 'sprite' else None,
+                          'glyph': glyph,
                           'character_matrix': record.get('character_matrix') if reviewed_matrix else None},
             'evidence': {'source_identity': 'identity', 'references': evidence_refs, 'observations': observations,
                          'inspection_refs': list(inspections), 'review_status': review_status,
@@ -448,20 +501,38 @@ def build_assets(records, assets_dir):
     for key in authored.get('character_columns', {}):
         if not 104 <= int(key) <= 201:
             raise ValueError('Prop column outside observed matrix: ' + key)
+    icon_families = {r.get('semantic_family') for r in records if r['pack'] == 'godot-node-icons'}
+    for key, entry in authored.get('icon_families', {}).items():
+        if key not in icon_families or not entry.get('name') or not entry.get('description') or entry.get('confidence') not in CONFIDENCE:
+            raise ValueError('Invalid neutral icon family: ' + key)
     for index, page in enumerate(authored.get('inspected_pages', [])):
-        source = assets_dir / page['source']
-        if hashlib.sha256(source.read_bytes()).hexdigest() != page['source_sha256']:
-            raise ValueError('Inspected source hash changed: ' + page['source'])
-        x, y, width, height = page['rect']
         if len(page['sprite_ids']) != len(set(page['sprite_ids'])):
             raise ValueError('Duplicate IDs in inspection page: ' + page['file'])
+        crops = page.get('crops')
+        if crops is not None:
+            if len(crops) != len(page['sprite_ids']) or {c['id'] for c in crops} != set(page['sprite_ids']):
+                raise ValueError('Inspection crop IDs differ from page: ' + page['file'])
+            crop_by_id = {c['id']: c for c in crops}
+        else:
+            x, y, width, height = page['rect']
+            if hashlib.sha256((assets_dir / page['source']).read_bytes()).hexdigest() != page['source_sha256']:
+                raise ValueError('Inspected source hash changed: ' + page['source'])
         for sid in page['sprite_ids']:
             r = by_id.get(sid)
-            if r is None or r['kind'] != 'sprite' or r['source'] != page['source']:
+            if r is None or r['kind'] != 'sprite':
                 raise ValueError('Invalid inspection-page sprite: ' + sid)
-            sx, sy, sw, sh = r['rect']
-            if sx < x or sy < y or sx + sw > x + width or sy + sh > y + height:
-                raise ValueError('Declared inspected sprite outside page: ' + sid)
+            source = crop_by_id[sid] if crops is not None else page
+            if source['source'] != r['source']:
+                raise ValueError('Inspection source differs from frozen sprite: ' + sid)
+            if hashlib.sha256((assets_dir / source['source']).read_bytes()).hexdigest() != source['source_sha256']:
+                raise ValueError('Inspected source hash changed: ' + source['source'])
+            if crops is not None:
+                if source['rect'] != r['rect']:
+                    raise ValueError('Inspected crop differs from frozen sprite: ' + sid)
+            else:
+                sx, sy, sw, sh = r['rect']
+                if sx < x or sy < y or sx + sw > x + width or sy + sh > y + height:
+                    raise ValueError('Declared inspected sprite outside page: ' + sid)
             inspections[sid].append('reference/asset-semantics.json#inspected_pages/' + str(index))
     images = {}
     groups = collections.defaultdict(list)

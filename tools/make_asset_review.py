@@ -80,7 +80,10 @@ def main():
                 draw.text((x, y + 81), r['name'][:13], font=font, fill='#c7c5ac')
             filename = f'{pack}-{start:04d}-{start+len(batch)-1:04d}.png'
             sheet.save(args.output / filename)
-            manifest.append({'file': filename, 'pack': pack, 'ids': [r['id'] for r in batch]})
+            manifest.append({'file': filename, 'pack': pack, 'ids': [r['id'] for r in batch],
+                             'crops': [{'id': r['id'], 'source': r['source'], 'rect': r['rect'],
+                                        'source_sha256': hashlib.sha256((ASSETS / r['source']).read_bytes()).hexdigest()}
+                                       for r in batch]})
     (args.output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     covered = {sid for page in manifest for sid in page['ids']}
     expected = {r['id'] for r in records if r['kind'] == 'sprite'}

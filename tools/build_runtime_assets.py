@@ -2,6 +2,7 @@
 """Select existing sprite IDs for the client without modifying the source catalog/artwork. Standard library only."""
 import json
 from pathlib import Path
+from asset_catalog import GLYPH_ALIASES
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
@@ -25,11 +26,7 @@ for name, icon in {"mine":"shovel", "build":"hammer", "survey":"search", "cancel
                    "follow":"follow", "temperature":"freeze", "shield":"shield", "help":"scroll"}.items():
     bindings["icon-"+name] = "godot-white-"+icon
 
-aliases = {"roundopen":"(","roundclose":")","squareopen":"[","squareclose":"]","curlyopen":"{","curlyclose":"}",
-           "less":"<","more":">","plus":"+","minus":"-","question":"?","exclamation":"!","caret":"^",
-           "colon":":","hash":"#","underscore":"_","atsign":"@","percent":"%","tilde":"~","dollar":"$",
-           "quote":'"',"apostrophe":"'","ampersand":"&","asterisk":"*","equality":"=","graveaccent":"`",
-           "bar":"|","slash":"/","backslash":"\\","period":".","comma":",","semicolon":";"}
+aliases = GLYPH_ALIASES
 font = {}
 for r in records.values():
     if r.get("category") != "font":
