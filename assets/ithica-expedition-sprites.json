@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "sourceCatalog": "catalog.json",
-  "notes": "Runtime interpretations for Lantern Below. IDs and rectangles come from sprites.json. Role/species labels are game casting decisions, not author identities or animation claims.",
+  "notes": "Ithica expedition and legacy preview bindings. Original IDs/crops are preserved; publisher identity is separate from in-game lunar casting.",
   "bindings": {
     "grass": "urizen-onebit-r05-c015",
     "grass-alt": "urizen-onebit-r05-c016",
@@ -101,7 +101,8 @@
     "crystal": "urizen-onebit-r22-c002",
     "hazard-fire": "urizen-onebit-r42-c006",
     "hazard-spores": "urizen-onebit-r10-c003",
-    "hazard-corruption": "urizen-onebit-r09-c001"
+    "hazard-corruption": "urizen-onebit-r09-c001",
+    "resident": "urizen-onebit-r00-c105"
   },
   "font": {
     "A": "urizen-onebit-r44-c078",

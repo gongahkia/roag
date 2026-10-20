@@ -293,7 +293,7 @@ public sealed partial class IthicaGame
             1 => "OXYGEN / CELL PRESSURE",
             2 => "TEMPERATURE / LOCAL HEAT",
             3 => "POWER / CONNECTED DECK",
-            _ => "TRANQUILITY / SURFACE SECTOR"
+            _ => "SHELTER / SURFACE SECTOR"
         }, view.X + 20, view.Y + 17, _overlay > 0 ? Accent : Muted);
         if (_tool != Tool.Inspect)
         {
@@ -313,6 +313,7 @@ public sealed partial class IthicaGame
     }
     private void DrawColonist(Colonist c)
     {
+        if (c.Location != ResidentLocation.Home) return;
         Vector2 pos = _camera.WorldToScreen(_crewPositions.Length > c.Id && _crewPositions[c.Id] != Vector2.Zero ? _crewPositions[c.Id] : CellCenter(c.Cell));
         int size = Math.Max(10, (int)_camera.CellSize);
         var box = new Rectangle((int)pos.X - size / 2, (int)pos.Y - size / 2, size, size);

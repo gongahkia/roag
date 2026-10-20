@@ -40,7 +40,7 @@ public static class Skills
         [new("Pulse","staff",0,TargetKind.Enemy,7,"","A low-power discharge."),new("Interrupt","arc",3,TargetKind.Enemy,11,"stun","Discharge and interrupt."),new("Arc","arc",5,TargetKind.AllEnemies,8,"","Discharge through the group.")],
         [new("Strike","cross",0,TargetKind.Enemy,7,"","A steady strike."),new("Treat","potion",3,TargetKind.Ally,18,"heal","Stabilize a companion."),new("Reassure","resolve",4,TargetKind.AllAllies,20,"calm","Reduce the party's stress.")]
     ];
-    public static Skill FieldGet(int role, int index) => index is >= 0 and < 3 ? FieldByRole[role][index] : Get(role, index);
+    public static Skill FieldGet(int role, int index) => index is >= 0 and < 3 ? FieldByRole[role][index] : index == 4 ? Potion with { Name = "Medical kit", Description = "Spend a carried medical kit to stabilize an ally." } : Get(role, index);
     public static Skill Get(int role, int index) => index switch { 3 => Guard, 4 => Potion, 5 => Flee, _ when index >= 0 && index < 3 => ByRole[role][index], _ => throw new ArgumentOutOfRangeException(nameof(index)) };
 }
 public sealed class Hero

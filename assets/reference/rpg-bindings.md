@@ -4,7 +4,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json](../catalog.json).
 
-**99 semantic aliases, 94 font glyphs, 190 distinct runtime-bound IDs.**
+**100 semantic aliases, 94 font glyphs, 191 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -74,6 +74,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | ration | urizen-onebit-r17-c000 | food / mushroom | author_metadata_visible_rgb_match / high | Render as ration; preserve the source identity and keep mechanics in game data. |
 | reed | urizen-onebit-r09-c006 | flora / cane | author_metadata_visible_rgb_match / high | Render as reed; preserve the source identity and keep mechanics in game data. |
 | relic | urizen-onebit-r13-c027 | magic / orb | author_metadata_visible_rgb_match / high | Render as relic; preserve the source identity and keep mechanics in game data. |
+| resident | urizen-onebit-r00-c105 | Figure row 00, profession column 01: hammer-like hand tool | visual_region_and_silhouette / low | Render as resident; preserve the source identity and keep mechanics in game data. |
 | resolve | godot-white-brain | brain | publisher_filename / high | Render as resolve; preserve the source identity and keep mechanics in game data. |
 | rock-floor | urizen-onebit-r05-c009 | floor / rocks | author_metadata_visible_rgb_match / high | Render as rock floor; preserve the source identity and keep mechanics in game data. |
 | ruin-wall | urizen-onebit-r02-c000 | wall / stone | author_metadata_visible_rgb_match / high | Author-confirmed stone wall used as masonry for generated room boundaries; sockets belong to the 7x7 room. |

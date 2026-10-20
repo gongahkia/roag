@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Ithica.Core.Colony;
+using Ithica.Core;
 using Ithica.Graphics;
 
 namespace Ithica.Client;
@@ -73,6 +74,7 @@ public sealed partial class IthicaGame
             text += (text.Length > 0 ? " + " : "") + $"{cost.Water:0} water";
         }
 
+        if (cost.Components > 0) text += $" + {cost.Components:0} component";
         return text;
     }
     private void StatCard(Rectangle r, string title, string value, string icon, Color color)
@@ -86,7 +88,7 @@ public sealed partial class IthicaGame
     {
         _tooltip = null;
         Text("ITHICA", 20, 16, Ink, 2);
-        Text("TRANQUILITY OUTPOST", 184, 21, Muted);
+        Text("SHELTER", 184, 21, Muted);
         if (width > 1160)
         {
             Text($"CYCLE {_sim.Cycle:00} / {(_sim.Storm ? "PARTICLE STORM" : _sim.Daylight > .1f ? "LUNAR DAY" : "LUNAR NIGHT")}", width - 618, 21, _sim.Storm ? Danger : Muted, .85f);
@@ -94,7 +96,7 @@ public sealed partial class IthicaGame
 
         if (Button(new(width - 268, 8, 44, 40), "", "icon-save", tooltip: "Save colony [S]"))
         {
-            SaveColony();
+            QueueUI(SaveColony);
         }
 
         if (Button(new(width - 216, 8, 64, 40), "", _paused ? "icon-play" : "icon-pause", !_paused, tooltip: "Pause / resume [Space]"))
@@ -286,11 +288,11 @@ public sealed partial class IthicaGame
             }, x, y, w, Ink, .95f) + 16;
             if (s.State == ContactState.Stranded && _sim.ExpeditionFor(s.Id) is null)
             {
-                Text("RESCUE KIT / 2 FOOD + 2 WATER", x, y, Muted, .75f);
+                Text("CHOOSE PEOPLE AND CARRIED SUPPLIES", x, y, Muted, .75f);
                 y += 24;
-                if (Button(new((int)x, (int)y, (int)w, 44), "SEND RESCUE", "icon-rescue", enabled: _sim.Resources.Covers(Simulation.RescueCost)))
+                if (Button(new((int)x, (int)y, (int)w, 44), "PREPARE RESCUE", "icon-rescue", enabled: true))
                 {
-                    Message(_sim.Dispatch(s.Id));
+                    QueueUI(() => PrepareRescue(s.Id));
                 }
 
                 y += 62;
@@ -368,7 +370,7 @@ public sealed partial class IthicaGame
         {
             Fill(new((int)x, (int)y, (int)w, 1), Color.White * .08f);
             y += 20;
-            Text("LIFE AT TRANQUILITY", x, y, Muted, .8f);
+            Text("LIFE IN THE SHELTER", x, y, Muted, .8f);
             y += 25;
             Bar("HABITAT PRESSURE", _sim.Pressure, x, y, w, _sim.Pressure > .4f ? Accent : Danger);
             y += 36;
@@ -397,17 +399,12 @@ public sealed partial class IthicaGame
             Text($"SUIT O2 {s.Suit:0}% / HEALTH {s.Health:0}%", x + 12, y + 38, Muted, .8f);
             y += 74;
         }
-        // Pin the charter to the bottom when there is room, without covering the inspector.
-        if (y < _sidebar.Bottom - 126)
+        if (y < _sidebar.Bottom - 128)
         {
             y = Math.Max(y + 12, _sidebar.Bottom - 128);
-            Text(_sim.Victory ? "CHARTER GRANTED" : "FOUNDING CHARTER", x, y, _sim.Victory ? Accent : Muted, .8f);
-            y += 25;
-            CheckLine(_sim.RescuedCount >= 3, $"Rescue 3 people / {_sim.RescuedCount}", x, y);
-            y += 23;
-            CheckLine(_sim.Cycle >= 3 && _sim.LivingCount >= 4, "Cycle 3 + 4 living crew", x, y);
-            y += 23;
-            CheckLine(_sim.Resources.Food >= 20 && _sim.Machines.Any(m => m.Kind == ModuleKind.Beacon && m.Powered && _sim.World.Oxygen[m.Cell] >= .4f), "20 food + powered Earth uplink", x, y);
+            Text("NEXT", x, y, Muted, .8f); y += 24;
+            y += Wrap(_campaign.Objective, x, y, w, Ink, .85f) + 12;
+            Text($"COMPONENTS / {_sim.Resources.Components:0}", x, y, Amber, .85f);
         }
     }
     private void CheckLine(bool done, string label, float x, float y)
@@ -424,24 +421,24 @@ public sealed partial class IthicaGame
 
     private sealed record Lesson(string Title, string Story, string Instructions, string Objective, string Key);
     private static readonly Lesson[] Lessons = [
-        new("ONE LIGHT IN THE DARK","Only Ada reached Tranquility. The generator hums, the air is good, and the other sleeping pods are empty.",
-            "Space runs or pauses time. Move the cursor with arrows or H/J/K/L. Scroll over the map to zoom at your pointer; +/- zooms at the cursor. Drag with the right or middle mouse button to pan. Ada works, eats, and sleeps on her own.",
-            "The colony starts with one person. The field manual holds time.","key-space"),
-        new("A VOICE IN THE WASTELAND","Mika's damaged suit is losing oxygen outside the outpost. A red distress contact appears on the map, even beyond explored ground.",
-            "Click the stranded person directly on the map to send a ready colonist. Each rescue kit costs 2 food and 2 water. You can also place the cursor on them and press Enter. R locates the next contact.",
-            "First job: click Mika's distress marker, then resume time.","key-mouse"),
-        new("BRING THEM HOME","Reaching someone is only half the rescue. Ada shares emergency oxygen, then escorts the injured survivor home at half walking speed.",
-            "Survivors join only after reaching pressurized shelter. They arrive hungry and exhausted, then recover, eat, sleep, and work. More distress signals arrive over time. Leave someone too long and their oxygen, then health, runs out.",
-            "Grow through rescues. Open CREW or press C to meet your people.","key-r"),
-        new("LIVE OFF THE MOON","Every new arrival needs air, water, food, and a place to recover. The supplies in this abandoned outpost will not last forever.",
-            "Choose the mining tool with D, then click cyan ice, amber ore, or purple crystal to queue work. V starts a rectangular selection; move to the opposite corner and confirm. P surveys open ground and uncovers more terrain.",
-            "Mine ice for water, ore for metal, and crystal for equipment.","key-d"),
-        new("BUILD A PLACE WORTH SAVING","Air spreads through rooms one cell at a time. A single missing hull tile lets the room breathe into the wasteland.",
-            "B opens the blueprint catalog. Choose a module, then click to place it. Modules need deck and connected power. Enclose rooms with hull and an airlock. O cycles pressure, heat, and power overlays. Repair meteor breaches with pressure hull.",
-            "Expand solar power and storage before adding more consumers.","key-b"),
-        new("A FUTURE AT TRANQUILITY","Earth is listening. Give the people you bring home a future here, then send a signal that Tranquility is alive.",
-            "Rescue at least 3 people. Reach cycle 3 with 4 living crew and 20 food. Build an Earth uplink for 60 metal and 20 crystal, then keep it powered and pressurized. Founding the colony is a milestone; you can keep building afterward.",
-            "S saves. Shift+L loads. T reopens these lessons. Q saves and quits.","key-s")
+        new("ONE LIGHT IN THE DARK", "Ada is alone. The generator hums; the other sleeping pods are empty.",
+            "Colony time runs continuously while unpaused. Space pauses or resumes; 1/2/3 choose speed. Wheel zooms at the pointer, +/- at the cursor; right-drag pans. The guide holds time.",
+            "Keep the shelter supplied with power, air, water and food.", "key-space"),
+        new("A VOICE OUTSIDE", "Someone's suit is failing in the wasteland. A distress contact marks their position.",
+            "Click the person directly, or put the cursor on them and press Enter. Choose one to four ready residents and pack supplies. The shelter loses their labor while they are away. Start with Ada alone.",
+            "Click the distress contact. Preparation holds time; Enter departs.", "key-mouse"),
+        new("THE WORLD WAITS", "Outside the shelter, you choose each step. Nothing advances while you think.",
+            "WASD/arrows or clicks move. E interacts; Space waits. Accepted actions advance BOTH the expedition and colony. Combat shows intentions; 1-6 select actions, then click a target. R returns only at the return approach.",
+            "Share supplies with the person, then escort them to the return approach.", "key-r"),
+        new("THE SAME PEOPLE", "A rescued person joins only in breathable shelter. Their injuries and exhaustion come home with them.",
+            "Dismiss the arrival report to resume colony time. Residents recover, eat, sleep and work. C opens the manifest. D designates ice, ore or crystal for mining; P surveys. V begins a rectangular work selection.",
+            "People who work here can also join your next outing. Recovery matters.", "key-d"),
+        new("SOMETHING USEFUL", "Salvage outside can change what is possible at home.",
+            "Recover a component from the salvage site and return it. B opens ordinary blueprints; U selects suit service. Build it on connected deck for 24 metal, 4 crystal and 1 component. Powered service equips more efficient suits and reveals another signal.",
+            "Hull holds air; deck connects power. O shows pressure, heat and power.", "key-b"),
+        new("LEAVE SOME QUESTIONS OPEN", "There are marks below the dust. You do not yet know who left them.",
+            "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
+            "T reopens this guide at home; F1 outside. Q saves and quits.", "key-s")
     ];
     private void DrawModal(int width, int height)
     {
@@ -506,7 +503,8 @@ public sealed partial class IthicaGame
                 Text(Cost(bp.Cost), box.X + 58, box.Y + 37, _sim.Resources.Covers(bp.Cost) ? Muted : Danger, .8f);
                 Text(bp.Power > 0 ? $"{bp.Power:0} KW REQUIRED" : bp.Kind == ModuleKind.Solar ? "UP TO 12 KW" : "PASSIVE", box.X + 58, box.Y + 56, Muted, .7f);
             }
-            Text("DECK CONNECTS POWER. HULL HOLDS ATMOSPHERE.", r.X + 30, r.Bottom - 74, Muted, .85f);
+            Text("U: SUIT SERVICE / 1 COMPONENT + 24 METAL + 4 CRYSTAL", r.X + 30, r.Bottom - 78, Amber, .8f);
+            if (Button(new(r.X + 30, r.Bottom - 55, 360, 40), "U  SUIT SERVICE", modal: true, enabled: _sim.Resources.Covers(Blueprint.Get(ModuleKind.SuitRack).Cost))) ChooseBlueprint(ModuleKind.SuitRack);
             if (Button(new(r.Right - 154, r.Bottom - 55, 124, 40), "CLOSE", modal: true))
             {
                 _modal = "";
@@ -516,9 +514,9 @@ public sealed partial class IthicaGame
         {
             Text("OUTPOST CONTROLS", r.X + 30, r.Y + 28, Ink, 1.7f);
             Text("THE SIMULATION IS PAUSED WHILE THIS PANEL IS OPEN", r.X + 30, r.Y + 69, Muted, .8f);
-            (string Key, string Action)[] controls = [("ARROWS / HJKL","Move cursor"),("SPACE / 1 2 3","Pause / speed"),("CLICK CONTACT","Dispatch rescue"),("R / C / G","Distress / crew / home"),
+            (string Key, string Action)[] controls = [("ARROWS / HJKL","Move cursor"),("SPACE / 1 2 3","Pause / speed"),("CLICK CONTACT","Prepare an outing"),("R / C / G","Distress / crew / home"),
                 ("D / B / P / X","Mine / build / survey / cancel"),("V / ENTER / ESC","Region / confirm / inspect"),("WHEEL / + - / 0","Zoom at pointer / cursor / reset"),("RIGHT DRAG","Pan map"),
-                ("O / F / E","Overlays / follow / log"),("S / SHIFT+L","Save / load colony"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
+                ("O / F / E","Overlays / follow / log"),("F5 / F9 / F2","Save / load / atlas"),("T / Q","Tutorial / save and quit"),("F11 / F5 / F9","Fullscreen / save / load")];
             float y = r.Y + 115;
             foreach (var (key, action) in controls)
             {

@@ -8,7 +8,7 @@ try
     var options = ClientOptions.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\nFor headless simulation or benchmarks use ./play.sh --headless TICKS or ./play.sh --benchmark.");
+        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\n--scene colony|preparation|surface|battle|structure|arrival|atlas\n  --import-colony PATH (writes only to the new Ithica save)\nHeadless: ./ithica.sh --headless or ./ithica.sh --benchmark.");
         return 0;
     }
     using var game = new IthicaGame(options);
@@ -17,7 +17,7 @@ try
 }
 catch (Exception error) when (error is ArgumentException or FormatException or IOException or System.Text.Json.JsonException or OverflowException)
 {
-    Console.Error.WriteLine("Regolith: " + error.Message);
+    Console.Error.WriteLine("Ithica: " + error.Message);
     return 1;
 }
 
@@ -28,7 +28,9 @@ namespace Ithica.Client
         public int Seed { get; private set; } = 42;
         public int Width { get; private set; } = 96;
         public int Height { get; private set; } = 64;
-        public string SavePath { get; private set; } = Simulation.DefaultSave;
+        public string SavePath { get; private set; } = Ithica.Core.Campaign.DefaultSave;
+        public string? ImportPath { get; private set; }
+        public string Scene { get; private set; } = "colony";
         public bool Load
         {
             get; private set;
@@ -87,6 +89,12 @@ namespace Ithica.Client
                         break;
                     case "--save":
                         result.SavePath = Path.GetFullPath(Value());
+                        break;
+                    case "--import-colony":
+                        result.ImportPath = Path.GetFullPath(Value());
+                        break;
+                    case "--scene":
+                        result.Scene = Value();
                         break;
                     case "--load":
                         result.Load = true;

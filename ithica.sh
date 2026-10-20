@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 project=src/Ithica.Client
 for argument in "$@"; do
     case "$argument" in
-        --headless|--benchmark|--validate-seeds|--generation-report) project=src/Ithica.Tools ;;
+        --headless|--benchmark|--validate-seeds|--generation-report|--campaign-benchmark) project=src/Ithica.Tools ;;
         --preview) exec ./tools/dotnet.sh run --project src/Ithica.Client --configuration Release -- "$@" ;;
     esac
 done
