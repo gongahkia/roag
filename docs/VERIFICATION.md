@@ -122,6 +122,25 @@ The tracked-media audit accounted for **686 PNGs / 3 ZIPs**: the 664 original sp
 
 Executed validation at this checkpoint: **35 generic tests passed**, all **11,887** asset objects passed schema validation, deterministic freshness/original-file/crop hashes passed, and all **73** real-browser assertions passed again. The generic suite checks complete tracked-media accounting and preserved publisher roles in original provenance. `git diff ed31f0a -- '*.png' '*.zip' assets/sprites.json` is empty. Final native-data refresh and completion evidence are recorded below.
 
+## Generic catalogue completion acceptance
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Reconciled the completed library against the user's full game-independent catalogue objective, rather than current game bindings. All evidence below was inspected/executed locally; remote CI and native Windows/macOS rendering of the new atlas are not claimed.
+
+| Requirement | Authoritative evidence / executed result |
+| --- | --- |
+| Every available source sprite | All 7,115 occupied crops across 664 originals; 54 recorded original-pixel inspection sheets; every uncertain crop outside the compositional matrix has an individual description |
+| Whole repository / archive coverage | All 686 discoverable/tracked PNGs accounted for as 664 source files + 22 explicit derived references; all 3 ZIPs pass CRC, and all 662 archived images match indexed original bytes |
+| Generic identity/type/subjects/colors/layers | `sprites[].asset`, 1,706 individual observations (1,704 Urizen + 2 icon exceptions), 36 body / 98 prop series, 137 icon families; exact foreground palettes, crop bounds, subject confidence/basis and provenance; all 11,887 asset objects validate against the schema |
+| Uncertainty and future pivots | Five ambiguous motifs stay explicitly unresolved; source confidence remains 2,138 high / 440 medium / 4,537 low. Original source identities and publisher-role labels are preserved; game roles stay outside neutral names/subjects/classification |
+| Fragments, variants and rendering limits | Composition/duplicates/variant groups retain original IDs; glyphs/prompts expose source-supported labels. No animation, direction set, collision, sockets or automatic assembly is invented |
+| Machine access / source of truth | Canonical JSON, standard-library queries, confidence/color/layer/composition filters, sorting/facets and JSON/CSV/ID export; full canonical/viewer metadata agreement and all 7,115 embedded crop PNG RGBA hashes verified |
+| Offline human access | 73 real-browser assertions passed against the final data, including URLs, pagination, confidence, measured/exact colors, actual downloads, scene painting/erasing, mobile viewport and no script/network errors; screenshots inspected |
+| Native access | Final-data Release build: zero warnings/errors. Actual WSLg smoke: 26 current / 25 preview checks passed; 15 complete query-result/order comparisons per client matched canonical Python results. Keyboard-driven atlas captures at 1024×720 and 1440×900 inspected |
+| Game/source preservation | All 131 game tests passed; integrated and retained-preview headless loops completed. All 664 original PNG / 3 archive hashes and frozen crop/identity records unchanged; 166 current / 75 preview-only / 6,874 unused selections retained; no player saves written |
+| Repeatability / rollback | Final generic suite: 36 passed. Deterministic regeneration/`--check`, schema validation and clean diffs passed; implementation and verification committed in checkpoints, preserving concurrent user commits |
+
+A final enlarged-icon check added individual observations for the rounded color face and filled color particle motif, with family descriptions covering their differing geometry. The generic suite also protects archive-to-original image coverage. The latest browser artifacts are in `artifacts/atlas-verification/`; final native reports are in `artifacts/native-atlas/` and were rechecked after the metadata cleanup. Main entry points are `assets/catalog.json`, `assets/atlas.html`, `tools/query_assets.py` and the F2 native atlas. Source/artwork ideas and current gameplay remain separate. No required work for this catalogue scope remains.
+
 ## Reproduction
 
 ```sh

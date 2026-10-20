@@ -23533,6 +23533,35 @@
         "humanoid"
       ],
       "review_origin": "Coordinate-labelled original-pixel review of exceptional figures, row 47, original 12x12 crop at 4x nearest-neighbor, 2026-10-20."
+    },
+    "godot-color-character": {
+      "name": "Peach rounded face with two vertical dark eyes",
+      "description": "A filled peach-colored round face/head with two narrow vertical dark eye marks and a darker orange lower edge. This color variant depicts the face without the shoulders of the monochrome variants.",
+      "type": "ui_icon",
+      "layers": [
+        "interface"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "face"
+      ],
+      "review_origin": "Original color-icon PNG inspected at nearest-neighbor scale, supplementing the full six-sheet variant review, 2026-10-20."
+    },
+    "godot-color-particle": {
+      "name": "White glowing disk with orange spark marks",
+      "description": "A filled white disk with a yellow rim, a separate orange block containing a yellow cross at upper left, and an orange cross-like mark above it. This is a small interface motif; no particle behavior is assigned.",
+      "type": "ui_icon",
+      "layers": [
+        "interface"
+      ],
+      "composition": "standalone_candidate",
+      "confidence": "medium",
+      "subjects": [
+        "circle",
+        "spark"
+      ],
+      "review_origin": "Original color-icon PNG inspected at nearest-neighbor scale, supplementing the full six-sheet variant review, 2026-10-20."
     }
   },
   "character_rows": {
@@ -48419,8 +48448,8 @@
       "review_origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
     },
     "character": {
-      "name": "Humanoid bust with square head and two dark eyes",
-      "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+      "name": "Stylized human face",
+      "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
       "confidence": "medium",
       "review_origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
     },
@@ -48791,8 +48820,8 @@
       "review_origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
     },
     "particle": {
-      "name": "Small circular outline beside two separated crosses",
-      "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+      "name": "Circle with detached spark marks",
+      "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
       "confidence": "medium",
       "review_origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
     },

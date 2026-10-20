@@ -10184,7 +10184,7 @@
       "white": 862,
       "yellow": 244
     },
-    "asset_individual_visual_descriptions": 1704,
+    "asset_individual_visual_descriptions": 1706,
     "asset_review_status": {
       "publisher_identified": 1668,
       "visible_control_described": 786,
@@ -1899942,8 +1899942,8 @@
       "notes": "color is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Peach rounded face with two vertical dark eyes",
+        "description": "A filled peach-colored round face/head with two narrow vertical dark eye marks and a darker orange lower edge. This color variant depicts the face without the shoulders of the monochrome variants.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1899957,39 +1899957,31 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
           },
           {
-            "term": "square",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
+            "evidence": "reference/asset-semantics.json#sprites/godot-color-character"
           },
           {
             "term": "eye",
             "confidence": "medium",
             "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
+            "evidence": "reference/asset-semantics.json#sprites/godot-color-character"
           }
         ],
         "tags": [
-          "bust",
           "character",
           "eye",
+          "face",
           "gray",
-          "humanoid",
           "interface",
           "orange",
-          "square",
           "ui_icon"
         ],
         "appearance": {
@@ -1900061,14 +1900053,21 @@
           "source_identity": "identity",
           "references": [
             "sprites.json#godot-color-character",
-            "reference/asset-semantics.json#icon_families/character"
+            "reference/asset-semantics.json#icon_families/character",
+            "reference/asset-semantics.json#sprites/godot-color-character"
           ],
           "observations": [
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
+            },
+            {
+              "id": "godot-color-character",
+              "scope": "individual",
+              "description": "A filled peach-colored round face/head with two narrow vertical dark eye marks and a darker orange lower edge. This color variant depicts the face without the shoulders of the monochrome variants.",
+              "origin": "Original color-icon PNG inspected at nearest-neighbor scale, supplementing the full six-sheet variant review, 2026-10-20."
             }
           ],
           "inspection_refs": [
@@ -1901665,8 +1901664,8 @@
       "notes": "color is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "White glowing disk with orange spark marks",
+        "description": "A filled white disk with a yellow rim, a separate orange block containing a yellow cross at upper left, and an orange cross-like mark above it. This is a small interface motif; no particle behavior is assigned.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1901680,17 +1901679,43 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#sprites/godot-color-particle"
+          },
+          {
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#sprites/godot-color-particle"
           }
         ],
         "tags": [
-          "cross",
+          "circle",
           "interface",
+          "mark",
           "orange",
           "particle",
+          "spark",
           "ui_icon",
           "white",
           "yellow"
@@ -1901766,14 +1901791,21 @@
           "source_identity": "identity",
           "references": [
             "sprites.json#godot-color-particle",
-            "reference/asset-semantics.json#icon_families/particle"
+            "reference/asset-semantics.json#icon_families/particle",
+            "reference/asset-semantics.json#sprites/godot-color-particle"
           ],
           "observations": [
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
+            },
+            {
+              "id": "godot-color-particle",
+              "scope": "individual",
+              "description": "A filled white disk with a yellow rim, a separate orange block containing a yellow cross at upper left, and an orange cross-like mark above it. This is a small interface motif; no particle behavior is assigned.",
+              "origin": "Original color-icon PNG inspected at nearest-neighbor scale, supplementing the full six-sheet variant review, 2026-10-20."
             }
           ],
           "inspection_refs": [
@@ -1906829,8 +1906861,8 @@
       "notes": "control is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Stylized human face",
+        "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1906844,38 +1906876,17 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "square",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "eye",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
           }
         ],
         "tags": [
-          "bust",
           "character",
-          "eye",
+          "face",
           "green",
-          "humanoid",
           "interface",
-          "square",
           "ui_icon"
         ],
         "appearance": {
@@ -1906937,7 +1906948,7 @@
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1917378,8 +1917389,8 @@
       "notes": "control is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Circle with detached spark marks",
+        "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1917393,17 +1917404,31 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
           }
         ],
         "tags": [
-          "cross",
+          "circle",
           "green",
           "interface",
+          "mark",
           "particle",
+          "spark",
           "ui_icon"
         ],
         "appearance": {
@@ -1917465,7 +1917490,7 @@
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1931601,8 +1931626,8 @@
       "notes": "node is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Stylized human face",
+        "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1931616,37 +1931641,16 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "square",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "eye",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
           }
         ],
         "tags": [
-          "bust",
           "character",
-          "eye",
-          "humanoid",
+          "face",
           "interface",
-          "square",
           "ui_icon",
           "white"
         ],
@@ -1931709,7 +1931713,7 @@
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1942133,8 +1942137,8 @@
       "notes": "node is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Circle with detached spark marks",
+        "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1942148,16 +1942152,30 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
           }
         ],
         "tags": [
-          "cross",
+          "circle",
           "interface",
+          "mark",
           "particle",
+          "spark",
           "ui_icon",
           "white"
         ],
@@ -1942220,7 +1942238,7 @@
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1956370,8 +1956388,8 @@
       "notes": "node_2D is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Stylized human face",
+        "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1956385,25 +1956403,7 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "square",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "eye",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
@@ -1956411,12 +1956411,9 @@
         ],
         "tags": [
           "blue",
-          "bust",
           "character",
-          "eye",
-          "humanoid",
+          "face",
           "interface",
-          "square",
           "ui_icon"
         ],
         "appearance": {
@@ -1956478,7 +1956475,7 @@
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1967120,8 +1967117,8 @@
       "notes": "node_2D is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Circle with detached spark marks",
+        "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1967135,7 +1967132,19 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
@@ -1967143,9 +1967152,11 @@
         ],
         "tags": [
           "blue",
-          "cross",
+          "circle",
           "interface",
+          "mark",
           "particle",
+          "spark",
           "ui_icon"
         ],
         "appearance": {
@@ -1967207,7 +1967218,7 @@
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1981354,8 +1981365,8 @@
       "notes": "node_3D is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Stylized human face",
+        "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1981369,38 +1981380,17 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "square",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "eye",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
           }
         ],
         "tags": [
-          "bust",
           "character",
-          "eye",
-          "humanoid",
+          "face",
           "interface",
           "pink",
-          "square",
           "ui_icon"
         ],
         "appearance": {
@@ -1981462,7 +1981452,7 @@
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -1991884,8 +1991874,8 @@
       "notes": "node_3D is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. An alternate to the white HUD variant; no variant is currently loaded.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Circle with detached spark marks",
+        "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -1991899,17 +1991889,31 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
           }
         ],
         "tags": [
-          "cross",
+          "circle",
           "interface",
+          "mark",
           "particle",
           "pink",
+          "spark",
           "ui_icon"
         ],
         "appearance": {
@@ -1991971,7 +1991975,7 @@
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -2006090,8 +2006094,8 @@
       "notes": "white is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. White is the suggested primary HUD variant.",
       "asset": {
         "schema_version": 1,
-        "name": "Humanoid bust with square head and two dark eyes",
-        "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Stylized human face",
+        "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -2006105,37 +2006109,16 @@
             "evidence": "identity"
           },
           {
-            "term": "humanoid",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "square",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "eye",
-            "confidence": "medium",
-            "basis": "visual_observation",
-            "evidence": "reference/asset-semantics.json#icon_families/character"
-          },
-          {
-            "term": "bust",
+            "term": "face",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/character"
           }
         ],
         "tags": [
-          "bust",
           "character",
-          "eye",
-          "humanoid",
+          "face",
           "interface",
-          "square",
           "ui_icon",
           "white"
         ],
@@ -2006198,7 +2006181,7 @@
             {
               "id": "icon-family-character",
               "scope": "series",
-              "description": "Humanoid bust with square head and two dark eyes. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Stylized human head with two dark eye marks. Monochrome styles include shoulders; the color style is a rounded face.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],
@@ -2016656,8 +2016639,8 @@
       "notes": "white is a visual variant, not a separate Regolith object. Originally a Godot editor/node icon; the proposed use is for this game's HUD. White is the suggested primary HUD variant.",
       "asset": {
         "schema_version": 1,
-        "name": "Small circular outline beside two separated crosses",
-        "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+        "name": "Circle with detached spark marks",
+        "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
         "type": "ui_icon",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -2016671,16 +2016654,30 @@
             "evidence": "identity"
           },
           {
-            "term": "cross",
+            "term": "spark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "mark",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#icon_families/particle"
+          },
+          {
+            "term": "circle",
             "confidence": "medium",
             "basis": "visual_observation",
             "evidence": "reference/asset-semantics.json#icon_families/particle"
           }
         ],
         "tags": [
-          "cross",
+          "circle",
           "interface",
+          "mark",
           "particle",
+          "spark",
           "ui_icon",
           "white"
         ],
@@ -2016743,7 +2016740,7 @@
             {
               "id": "icon-family-particle",
               "scope": "series",
-              "description": "Small circular outline beside two separated crosses. This is a small interface icon; publisher naming is preserved separately and does not assign a function in a future game.",
+              "description": "Small circular form beside detached spark-like marks. Monochrome styles use an outline; the color style has a filled white center and warm-colored rim.",
               "origin": "All six original-pixel Godot icon contact sheets inspected across visual variants, 2026-10-20."
             }
           ],

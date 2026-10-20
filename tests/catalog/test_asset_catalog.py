@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 import zlib
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -119,6 +120,22 @@ class CatalogTests(unittest.TestCase):
         for r in references:
             self.assertEqual(r['usage'], 'reference_only')
             self.assertEqual(hashlib.sha256((ROOT / r['path']).read_bytes()).hexdigest(), r['sha256'])
+
+    def test_every_archived_image_is_indexed_byte_for_byte(self):
+        source_hashes = {r['sha256'] for r in self.catalog['images']}
+        formats = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tga', '.svg', '.tif', '.tiff', '.ico', '.ase', '.aseprite', '.psd', '.kra'}
+        count = 0
+        for archive in self.catalog['archives']:
+            with zipfile.ZipFile(ROOT / 'assets' / archive['path']) as zipped:
+                self.assertIsNone(zipped.testzip())
+                for entry in zipped.infolist():
+                    if entry.is_dir():
+                        continue
+                    raw = zipped.read(entry)
+                    if Path(entry.filename).suffix.lower() in formats or raw.startswith(b'\x89PNG\r\n\x1a\n'):
+                        count += 1
+                        self.assertIn(hashlib.sha256(raw).hexdigest(), source_hashes, entry.filename)
+        self.assertEqual(count, 662)
 
     def test_every_region_has_valid_generic_description_and_palette(self):
         for r in self.records:
@@ -258,6 +275,11 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(r['name'], 'event')
         self.assertTrue(matches(r, parser().parse_args(['--type', 'ui_icon', '--subject', 'exclamation', '--subject-confidence', 'medium'])))
         self.assertFalse(matches(r, parser().parse_args(['--subject', 'exclamation', '--subject-confidence', 'high'])))
+        face = self.by_id['godot-color-character']['asset']
+        self.assertIn('rounded face', face['name'])
+        self.assertTrue(any(o['scope'] == 'individual' for o in face['evidence']['observations']))
+        particle = self.by_id['godot-color-particle']['asset']
+        self.assertIn('filled white disk', particle['description'].lower())
 
     def test_input_variant_groups_preserve_device_and_appearance(self):
         prompts = [r for r in self.records if r['kind'] == 'sprite' and r['pack'] == 'input-prompts']
