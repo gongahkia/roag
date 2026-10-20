@@ -38,6 +38,20 @@ The new cases cover all saved phases, variable/nonsequential party IDs in combat
 
 This validates local launch through WSLg. It does not establish native Windows or standalone Linux desktop coverage, a manual balance playthrough, audio playback or performance results. These checks did not write player saves. Run `./ithica.sh` from the repository to play.
 
+## Generic catalog foundation
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Schema 5 adds game-independent `sprites[].asset` metadata and standard-library pixel measurement. This checkpoint is the foundation for ongoing neutral visual authoring and atlas controls, not a claim that every ambiguous motif has been individually identified.
+
+| Check | Executed result / scope |
+| --- | --- |
+| Generic catalog tests | `python3 -m unittest discover -s tests/catalog -v`: 14 passed; PNG filters/bounds/hash rejection, every imported PNG's dimensions, all original record fields, every generic descriptor/palette, binding counts and neutral queries |
+| JSON Schema | Draft 2020-12 validation passed for all 11,887 `asset` objects against `assets/reference/asset.schema.json` using an isolated `uv run --with jsonschema` environment |
+| Regeneration / freshness | `python3 tools/build_game_catalog.py` then `--check` passed; all 664 original PNG / 3 archive hashes and every region's frozen RGBA crop hash retained |
+| Query examples | High-confidence `--subject ghost` finds `urizen-onebit-r42-c110`; actor/green queries return measured green figures; a neutral search for game casting `Interference` returns zero |
+| Game bindings | 166 current IDs, 75 preview-only IDs and 6,874 wholly unused sprites preserved; no gameplay or save-format changes |
+
+CI now configures the 14 generic tests on Linux alongside catalog freshness. That configuration is separate from the executed local results above. Systematic neutral visual authoring and presentation checks continue in later checkpoints.
+
 ## Reproduction
 
 ```sh

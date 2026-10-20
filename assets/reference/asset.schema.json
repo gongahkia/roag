@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ithica:asset:1",
+  "title": "Game-independent artwork description in catalog.json sprites[].asset",
+  "type": "object",
+  "required": ["schema_version", "name", "description", "type", "classification_confidence", "suggested_layers", "subjects", "tags", "appearance", "composition", "relations", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
+    "type": {"enum": ["actor", "terrain", "structure", "vegetation", "item", "prop", "vehicle", "effect", "symbol", "ui_icon", "input_prompt", "glyph", "fragment", "unresolved", "non_asset"]},
+    "classification_confidence": {"$ref": "#/$defs/confidence"},
+    "suggested_layers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["ground", "structure", "object", "actor", "effect", "interface", "text", "unresolved", "reference"]}},
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["term", "confidence", "basis", "evidence"],
+        "properties": {
+          "term": {"type": "string", "minLength": 1},
+          "confidence": {"$ref": "#/$defs/confidence"},
+          "basis": {"enum": ["publisher_metadata", "visible_control", "preserved_visual_description", "category_inference", "visual_observation"]},
+          "evidence": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "tags": {"$ref": "#/$defs/strings"},
+    "appearance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["width", "height", "foreground_pixels", "foreground_fraction", "foreground_bounds", "primary_color", "primary_hex", "color_names", "color_coverage", "palette", "color_count", "style", "background_rule"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1},
+        "foreground_pixels": {"type": "integer", "minimum": 0},
+        "foreground_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "foreground_bounds": {"oneOf": [{"type": "null"}, {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer", "minimum": 0}}]},
+        "primary_color": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/color"}]},
+        "primary_hex": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^#[0-9a-f]{6}$"}]},
+        "color_names": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/color"}},
+        "color_coverage": {"type": "object", "propertyNames": {"$ref": "#/$defs/color"}, "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["hex", "alpha", "name", "pixels", "coverage"],
+            "properties": {
+              "hex": {"type": "string", "pattern": "^#[0-9a-f]{6}$"},
+              "alpha": {"type": "integer", "minimum": 1, "maximum": 255},
+              "name": {"$ref": "#/$defs/color"},
+              "pixels": {"type": "integer", "minimum": 1},
+              "coverage": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+            }
+          }
+        },
+        "color_count": {"type": "integer", "minimum": 0},
+        "style": {"const": "pixel_art"},
+        "background_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "composition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "animation", "directions", "sockets", "collision"],
+      "properties": {
+        "kind": {"enum": ["non_asset", "standalone_candidate", "tile_candidate", "fragment_candidate", "uncertain", "sparse_mark"]},
+        "animation": {"const": "unconfirmed"}, "directions": {"const": "unconfirmed"},
+        "sockets": {"const": "unauthored"}, "collision": {"const": "game_defined"}
+      }
+    },
+    "relations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exact_rgba_duplicates", "source_grid", "source_variant_style", "named_variant_group", "character_matrix"],
+      "properties": {
+        "exact_rgba_duplicates": {"$ref": "#/$defs/strings"},
+        "source_grid": {"oneOf": [{"type": "null"}, {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}]},
+        "source_variant_style": {"type": ["string", "null"]},
+        "named_variant_group": {"type": ["string", "null"]},
+        "character_matrix": {"type": ["object", "null"]}
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_identity", "references", "observations", "uncertainties", "scope"],
+      "properties": {
+        "source_identity": {"const": "identity"}, "references": {"$ref": "#/$defs/strings"},
+        "observations": {
+          "type": "array", "items": {"type": "object", "additionalProperties": false,
+            "required": ["id", "scope", "description"],
+            "properties": {"id": {"type": "string"}, "scope": {"enum": ["individual", "region", "series"]}, "description": {"type": "string", "minLength": 1}}}
+        },
+        "uncertainties": {"$ref": "#/$defs/strings"}, "scope": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "confidence": {"enum": ["low", "medium", "high"]},
+    "color": {"enum": ["black", "gray", "white", "brown", "red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink"]},
+    "strings": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

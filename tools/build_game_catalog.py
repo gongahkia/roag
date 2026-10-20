@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enrich every existing sprite with per-game usage and RPG affordances; preserve all source IDs/evidence.
+"""Build the game-independent artwork catalog and separate game usage projections.
 
 Standard library only. catalog.json remains backwards compatible with its original
 file inventory. sprites.json is retained as the frozen import audit. No images are changed.
@@ -10,6 +10,8 @@ import collections
 import hashlib
 import json
 from pathlib import Path
+
+from asset_catalog import build_assets, COLOR_ORDER, TYPES, LAYERS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
@@ -95,6 +97,7 @@ def main():
     inventory = read("catalog.json")
     audit = read("sprites.json")
     records = audit["records"]
+    neutral = build_assets(records, ASSETS)
     sprites = {r["id"]: r for r in records if r["kind"] == "sprite"}
     colony = read("ithica-colony-sprites.json")
     rpg = read("ithica-expedition-bindings.json")
@@ -137,6 +140,7 @@ def main():
     enriched = []
     for r in records:
         e = dict(r)
+        e["asset"] = neutral[r["id"]]
         e["import_audit"] = {"runtime_status": r["runtime_status"], "mapping_status": r["mapping_status"]}
         e["usage"] = usages[r["id"]]
         e["runtime_status"] = "used" if any(e["usage"].values()) else "unused" if r["kind"] == "sprite" else "not_applicable"
@@ -180,8 +184,13 @@ def main():
         e["review"]["generation_crop_visually_inspected"] = r["id"] in reviewed
         enriched.append(e)
     # Retain every original inventory field; replace only generated v2 enrichments.
-    inventory.update(schema_version=4,
-        catalog_scope="Original inventory and every region from all three packs; current Ithica phase bindings, retained RPG preview usage, identity evidence and lunar future ideas.",
+    inventory.update(schema_version=5,
+        catalog_scope="Game-independent artwork descriptions, subjects, type, composition and measured colors for every region. Current Ithica and retained preview usage remain separate projections; original source identity and evidence are preserved.",
+        asset_taxonomy={"schema_version": 1, "source": "reference/asset-semantics.json", "types": TYPES,
+                        "suggested_layers": LAYERS, "color_names": COLOR_ORDER,
+                        "foreground_rule": "Alpha zero and RGB channels all <=8 are background for measurement, without changing source pixels.",
+                        "identity_rule": "Publisher identity, visual subject claims and gameplay casting are independent. Each subject claim records confidence, basis and evidence.",
+                        "composition_rule": "Fragments, variant groups and suggested layers do not supply animation, directions, collision or adjacency rules."},
         source_audit="sprites.json", generator="tools/build_game_catalog.py",
         catalog_summary={"images": len(inventory["images"]), "records": len(enriched), "occupied_sprites": len(sprites),
                          "used_colony": sum(bool(e["usage"]["colony"]) for e in enriched), "used_rpg": sum(bool(e["usage"]["rpg"]) for e in enriched),
@@ -191,6 +200,9 @@ def main():
                          "ithica_field_aliases": len(lunar["field"]), "ithica_field_sprites": len(field_usage),
                          "preview_only": sum(e["ithica"]["status"] == "preview_only" for e in enriched),
                          "unused_sprites": sum(e["runtime_status"] == "unused" for e in enriched),
+                         "asset_types": dict(sorted(collections.Counter(e["asset"]["type"] for e in enriched if e["kind"] == "sprite").items())),
+                         "asset_primary_colors": dict(sorted(collections.Counter(e["asset"]["appearance"]["primary_color"] for e in enriched if e["kind"] == "sprite").items())),
+                         "asset_individual_visual_descriptions": sum(any(o["scope"] == "individual" for o in e["asset"]["evidence"]["observations"]) for e in enriched),
                          "families": dict(sorted(collections.Counter(e["assessment"]["family"] for e in enriched if e["kind"] == "sprite").items()))},
         generation_rules={"source": "ithica-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
                           "visual_review": "reference/urizen-generation-review.json", "notes": generation["notes"]},
@@ -198,12 +210,13 @@ def main():
         ithica_casting={"source": "ithica-casting.json", "scope": lunar["scope"], "field": lunar["field"],
                         "lunar_generator": "src/Ithica.Core/Generation/LunarGenerator.cs",
                         "legacy_rules": "generation_rules and usage.rpg retain preview/intermediate-generation meaning; use sprites[].ithica for the current game."}, sprites=enriched,
-        catalog_limits=["Every crop has a usage/affordance assessment; that is not individual verified identification of all 7,115 motifs.",
+        catalog_limits=["Every crop has generic artwork metadata and measured foreground colors; uncertain visual subjects remain explicitly uncertain.",
+                        "Generic asset descriptions are independent of game-specific usage and proposals. Authoring coverage and visual observation scope are recorded explicitly.",
                         "Historical exact-RGB matches and filename/control labels retain their original evidence. Uncertain figures and fragments remain uncertain.",
                         "No inferred animation timing, direction set, species, collision mask, or autotile bitmask is presented as publisher metadata.",
                         "Renderer registration in the viewer is separate from active gameplay use. Unbound sprites remain unused even though the viewer can display them."])
     write("catalog.json", inventory, args.check)
-    index = [{"id": e["id"], "name": e["name"], "pack": e["pack"], "source": e["source"], "rect": e["rect"],
+    index = [{"id": e["id"], "name": e["name"], "pack": e["pack"], "source": e["source"], "rect": e["rect"], "asset": e["asset"],
               "category": e.get("category", "unclassified"), "family": e["assessment"]["family"], "layer": e["assessment"]["layer"],
               "confidence": e["review"]["confidence"], "basis": e["review"]["identity_basis"], "role": e["assessment"]["rpg_role"],
               "ideas": e["assessment"]["ideas"], "adaptation": e["assessment"]["adaptation"], "usage": e["usage"],

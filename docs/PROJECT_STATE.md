@@ -40,7 +40,7 @@
 | Generation | CA terrain, WFC room connections, cellular damage/exposure, protected approaches and global seal validation |
 | Assets | 7,115 occupied regions / 11,887 total records, across 3 original packs |
 | Current sprite selection | 166 IDs including font/UI; 14 explicit field aliases/IDs; 75 additional preview-only IDs |
-| Catalog | Schema 4: current lunar casting, retained preview usage, identity evidence, unused status and future ideas |
+| Catalog | Schema 5: generic artwork metadata/measured colors for every region; separate current/preview usage and preserved source evidence; neutral visual authoring in progress |
 | Focused Urizen review | 104 preserved individual crop observations; no claim of a new manual identification of every sprite |
 | Tutorial / viewer | 6 sectioned lessons; full atlas in the same window with current-use filtering |
 | Verification | See the dated verification record below; historical prototype measurements remain separately identified |
@@ -240,11 +240,13 @@ Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/
 
 ## Sprites and authoring
 
-Read [the schema-4 guide](../assets/reference/CATALOG_V2.md) and [current field casting](../assets/reference/ithica-sprites.md). Source identities and interpretations remain separate. Original sheets, IDs, rectangles, inventory/archive hashes, credits and uncertain labels are preserved.
+Read [the schema-5 guide](../assets/reference/CATALOG_V2.md) and [current field casting](../assets/reference/ithica-sprites.md). The canonical catalog's `sprites[].asset` describes artwork independently of gameplay: generic type, subjects with confidence/evidence, suggested layers, composition, exact foreground palettes and color coverage. Neutral visual authoring is continuing; regional/category inference is not an individual verified identification. Source identities, visual interpretations and game casting remain separate. Original sheets, IDs, rectangles, inventory/archive hashes, credits and uncertain labels are preserved.
 
 | Authoritative input | Purpose |
 | --- | --- |
 | [sprites.json](../assets/sprites.json) | Frozen import audit and stable source/crop/evidence records |
+| [asset-semantics.json](../assets/reference/asset-semantics.json) | Game-independent visual descriptions and subject evidence |
+| [asset.schema.json](../assets/reference/asset.schema.json) | Version-1 generic artwork metadata contract |
 | [ithica-expedition-bindings.json](../assets/ithica-expedition-bindings.json) | Field/retained-preview alias-to-ID selection |
 | [ithica-casting.json](../assets/ithica-casting.json) | Current lunar roles/limits, placement categories and future lunar ideas |
 | [ithica-generation.json](../assets/ithica-generation.json) | Retained preview/intermediate CA/WFC material and room rules |
@@ -252,15 +254,18 @@ Read [the schema-4 guide](../assets/reference/CATALOG_V2.md) and [current field 
 | [atlas-template.html](../assets/reference/atlas-template.html) | Offline atlas UI/template |
 | Existing [catalog.json](../assets/catalog.json) inventory | Also an input: retain original file/archive inventory when regenerating |
 
-Derived outputs are the colony/field manifests, schema-4 catalog, viewer index, offline HTML and generated Markdown tables. Edit inputs and regenerate:
+Derived outputs are the colony/field manifests, schema-5 catalog, viewer index, offline HTML and generated Markdown tables. Edit inputs and regenerate:
 
 ```sh
 python3 tools/build_runtime_assets.py
 python3 tools/build_game_catalog.py
 python3 tools/build_game_catalog.py --check
+python3 -m unittest discover -s tests/catalog -v
 ```
 
 The catalog covers 664 PNGs, 3 archives, 11,887 regions / 7,115 occupied crops. Per-region `ithica` distinguishes bound, preview-only, unused and non-gameplay status, with current phase aliases and lunar proposals. Current selection is 166 IDs including shared glyphs/UI; the field/preview manifest selects 191; their historical selection union is 241 and 6,874 occupied sprites remain unbound. There are 14 current field aliases/IDs and 104 preserved focused visual reviews. General proposals do not mean each crop was newly manually identified.
+
+`python3 tools/query_assets.py --type actor --color green --limit 10` searches generic metadata without game interpretations. Subjects, minimum subject confidence, exact RGB, layer suitability, composition, sort order, facets and JSON/CSV/ID export are available. Full foreground color measurement and crop-hash validation use Python's standard library; no imaging package is required for regeneration or queries.
 
 Colony and field binding contexts intentionally differ, for example `wall`; they use separate sprite libraries rather than dictionary overwrite. Texture masks/black removal are in-memory copies, with nearest-neighbor rendering. Native atlas registration is lazy and is not gameplay use. Offline atlas scene exports use `ithica-sprite-scene`, version 1; runtime scene-recipe import remains absent.
 
@@ -319,7 +324,7 @@ For gameplay changes update current scope, controls, costs, roster/content, save
 | [VERIFICATION.md](VERIFICATION.md) | Dated implementation acceptance, actual checks and rollback commits |
 | [PERFORMANCE.md](PERFORMANCE.md) | Workloads, raw measurements and limitations |
 | [LEGACY_RPG.md](LEGACY_RPG.md) | Retained fantasy prototype walkthrough and regression commands |
-| [Catalog guide](../assets/reference/CATALOG_V2.md) | Schema 4, evidence, current usage and regeneration |
+| [Catalog guide](../assets/reference/CATALOG_V2.md) | Schema 5, generic queries, evidence, current usage and regeneration |
 | [Current field sprites](../assets/reference/ithica-sprites.md) | Every current lunar field alias, source evidence and adaptation limits |
 | [Urizen review](../assets/reference/urizen-generation.md) | Preserved 104-crop focused inspection |
 | [CREDITS.txt](../assets/CREDITS.txt) | Original publisher provenance and declarations |

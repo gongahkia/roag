@@ -1,6 +1,6 @@
-# Ithica catalog: schema 4, coverage and regeneration
+# Artwork catalog: schema 5, coverage and regeneration
 
-[catalog.json](../catalog.json) retains the original inventory and every region from all three packs. Schema 4 adds explicit **current Ithica casting and phase usage**, separately from retained RPG preview bindings. Source pixels, original IDs, crop rectangles, hashes and publisher-identity confidence are preserved. This guide retains its historical filename for existing links.
+[catalog.json](../catalog.json) is the canonical, game-independent artwork catalog. Schema 5 adds `sprites[].asset`: descriptions, subjects, generic types, suggested layers, composition, evidence and measured foreground palettes for every region. Current Ithica casting and retained preview bindings remain separate fields. Source pixels, original IDs, crop rectangles, hashes and publisher-identity confidence are preserved. This guide retains its historical filename for existing links.
 
 ## Coverage
 
@@ -24,16 +24,36 @@ Occupied regions comprise **5,676 Urizen cells**, **653 Godot icon variants**, a
 
 | Field | Meaning |
 | --- | --- |
-| `schema_version` | `4` |
+| `schema_version` | `5` |
 | `images`, `archives`, `packs`, `summary` | Original inventory and provenance retained |
 | `catalog_summary` | Coverage and selection counts, including current Ithica and preview-only counts |
 | `game_bindings` | Preserved colony and RPG-preview alias maps; their keys retain compatibility meaning |
 | `ithica_casting` | Authored current lunar casting source, limits and generator ownership |
 | `sprites` | All 11,887 original region records, enriched without changing their source identity |
+| `asset_taxonomy` | Generic types, layer suitability, color vocabulary and evidence/measurement rules |
 | `generation_rules` | Retained preview/intermediate-generation rule metadata |
 | `catalog_limits` | Identification, animation, assembly and review limits |
 
-Schema 4 is additive to schema 3. Existing `usage.colony` and `usage.rpg` are retained; `rpg` refers to the preview selection, not a claim that every fantasy binding appears in the lunar game. New consumers should use `sprites[].ithica` for current game usage. The original import audit remains frozen in [sprites.json](../sprites.json).
+Schema 5 is additive to schema 4. Use `sprites[].asset` to reason about artwork independently of game mechanics. Existing `usage.colony`, `usage.rpg` and `ithica` are retained; `rpg` refers to the preview selection. Use `sprites[].ithica` for current game usage. The original import audit remains frozen in [sprites.json](../sprites.json).
+
+## Generic artwork metadata and queries
+
+[asset.schema.json](asset.schema.json) describes the version-1 `asset` object. [asset-semantics.json](asset-semantics.json) is the authored input for neutral visual descriptions; [asset_catalog.py](../../tools/asset_catalog.py) combines it with preserved source identities and pixel measurements. Subject claims carry their own confidence, basis and evidence reference. A visually similar figure is not silently upgraded to a confirmed goblin or a profession.
+
+Every crop has a generic type, layer suitability, composition status, exact foreground RGBA palette, color family coverage, primary color and foreground bounds. Color measurements exclude alpha-zero and near-black pixels (all RGB channels at most 8), matching the frozen import's background rule. Color family names use documented deterministic HSV buckets; exact hex/alpha/pixel counts remain available. Layer suitability is a generic suggestion, not an implemented render layer or collision rule. Named variants and exact pixel duplicates retain all source IDs. Adjacency, animation and direction sets remain unconfirmed until separately evidenced.
+
+The initial schema-5 foundation measures and classifies all records; systematic neutral visual authoring is continuing. Its scoped observations are separate from the retained 104-crop generation review. A category inference, an individual visual observation and a publisher-provided identity have distinct evidence.
+
+Agent-friendly queries use the same catalog and exclude game-specific interpretations by default:
+
+```sh
+python3 tools/query_assets.py --subject ghost --subject-confidence high --format ids
+python3 tools/query_assets.py --type actor --color green --sort color --limit 10
+python3 tools/query_assets.py --type fragment --color cyan --facets
+python3 tools/query_assets.py --search battery --format csv --output /tmp/batteries.csv
+```
+
+`--color` requires at least 5% foreground coverage by default; use `--min-color-coverage 0` to include any measured accent. `--primary-color` selects the dominant family. `--hex` selects an exact foreground RGB value. Repeat `--subject` to require multiple subject terms, and use `--subject-confidence` to set their minimum confidence. `--layer`, `--composition`, sorting and JSON/CSV/ID output are supported. `--limit 0` exports all matches; `--include-non-assets` explicitly includes blank/guide/annotation regions. `--full` includes the preserved and game-specific fields when needed.
 
 Each record preserves source, crop, original identity/confidence, exact-match evidence, visual observations, duplicate/fragment metadata and import-time proposals. It also carries:
 
@@ -71,7 +91,8 @@ The generator preserves authored WFC sockets on 7×7 room chunks, CA terrain rul
 
 | Task | File |
 | --- | --- |
-| Complete source of truth | [catalog.json](../catalog.json), `sprites[].ithica` and preserved evidence |
+| Complete source of truth | [catalog.json](../catalog.json), `sprites[].asset` plus preserved source evidence; game usage is separate |
+| Generic visual authoring / contract | [asset-semantics.json](asset-semantics.json) / [asset.schema.json](asset.schema.json) |
 | Current lunar casting and family ideas | [ithica-casting.json](../ithica-casting.json) |
 | Field/preview alias-to-ID selection | [ithica-expedition-bindings.json](../ithica-expedition-bindings.json) |
 | Preview/intermediate generation rules | [ithica-generation.json](../ithica-generation.json) |
@@ -95,6 +116,6 @@ python3 tools/build_game_catalog.py
 python3 tools/build_game_catalog.py --check
 ```
 
-The catalog builder reads the frozen audit, original inventory retained in the existing catalog, colony manifest, field/preview bindings, current casting, generation rules, focused review and HTML template. It deterministically regenerates schema 4, the viewer index, field manifest, Markdown tables and offline HTML. **Keep the existing catalog's original inventory; it is also an input.** `--check` verifies freshness and all 664 original PNG / 3 archive hashes. CI runs it on Linux.
+The catalog builder reads the frozen audit, original inventory retained in the existing catalog, neutral visual authoring, original PNG pixels, colony manifest, field/preview bindings, current casting, generation rules, focused review and HTML template. It deterministically regenerates schema 5, the viewer index, field manifest, Markdown tables and offline HTML. **Keep the existing catalog's original inventory; it is also an input.** `--check` verifies freshness and all 664 original PNG / 3 archive hashes. The standard-library decoder also verifies every crop against its frozen RGBA hash. CI runs the freshness check on Linux. Run `python3 -m unittest discover -s tests/catalog -v` for the neutral metadata, pixel decoder and query contracts.
 
 Edit authoring inputs, then regenerate derived files. Do not hand-edit generated records/tables or transfer coordinates blindly after an intentional sheet change. The optional original-audit development tool uses Pillow; its use would require a deliberate audit migration. No generator recolors or repacks source PNGs.

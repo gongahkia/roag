@@ -35,3 +35,6 @@ jobs:
       - name: Check generated catalog and original image hashes
         if: matrix.os == 'ubuntu-latest'
         run: python3 tools/build_game_catalog.py --check
+      - name: Check generic artwork metadata and queries
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 -m unittest discover -s tests/catalog -v
