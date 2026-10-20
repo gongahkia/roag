@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name
+from asset_catalog import COLOR_ORDER, CONFIDENCE, LAYERS, TYPES, Png, appearance, color_name, describe
 from query_assets import facets, matches, parser, sort_key
 
 
@@ -39,6 +39,7 @@ class PixelTests(unittest.TestCase):
         self.assertEqual(measured['color_coverage'], {'green': .666667, 'white': .333333})
         self.assertEqual(measured['foreground_bounds'], [0, 1, 3, 1])
         self.assertEqual(measured['palette'][1]['alpha'], 128)
+        self.assertEqual(measured['foreground_mask_sha256'], hashlib.sha256(bytes([0, 0, 0, 1, 1, 1])).hexdigest())
 
     def test_all_png_row_filters_decode_known_bytes(self):
         rows = [bytes([0, 10, 200, 255, 30, 80, 10, 128]), bytes([5, 20, 150, 255, 100, 90, 40, 64])]
@@ -149,10 +150,63 @@ class CatalogTests(unittest.TestCase):
         args.subject_confidence = 'low'
         self.assertTrue(matches(record, args))
 
+    def test_silhouette_evidence_does_not_upgrade_frozen_identity(self):
+        r = self.by_id['urizen-onebit-r23-c104']
+        self.assertEqual(r['identity']['confidence'], 'low')
+        claims = [c for c in r['asset']['subjects'] if c['term'] == 'golem']
+        self.assertTrue(claims)
+        self.assertTrue(all(c['confidence'] == 'medium' and c['basis'] == 'publisher_silhouette_match' for c in claims))
+
+    def test_wrong_silhouette_evidence_is_rejected(self):
+        r = self.by_id['urizen-onebit-r23-c104']
+        with self.assertRaisesRegex(ValueError, 'silhouette evidence'):
+            describe(r, r['asset']['appearance'], {}, {}, {'mask_sha256': '0' * 64, 'matches': []})
+
+    def test_conflicting_silhouette_names_do_not_become_asserted_subjects(self):
+        r = self.by_id['urizen-twobit-r05-c010']
+        evidence = {'mask_sha256': r['asset']['appearance']['foreground_mask_sha256'], 'matches': [
+            {'properties': {'group1': 'animal', 'group2': 'fox'}},
+            {'properties': {'group1': 'building', 'group2': 'house'}}]}
+        asset = describe(r, r['asset']['appearance'], {}, {}, evidence)
+        self.assertFalse(any(s['basis'] == 'publisher_silhouette_match' for s in asset['subjects']))
+        self.assertEqual(asset['evidence']['review_status'], 'category_only')
+
+    def test_two_bit_visual_description_corrects_working_label_separately(self):
+        r = self.by_id['urizen-twobit-r06-c012']
+        self.assertIn('chest', r['name'])
+        self.assertIn('medical case', r['asset']['name'].lower())
+        self.assertEqual(r['asset']['type'], 'item')
+        self.assertTrue(r['asset']['evidence']['inspection_refs'])
+
+    def test_matrix_series_do_not_turn_props_into_jobs_or_animations(self):
+        r = self.by_id['urizen-onebit-r04-c105']
+        a = r['asset']
+        self.assertTrue(matches(r, parser().parse_args(['--search', 'hammer'])))
+        self.assertTrue(any(o['scope'] == 'series' for o in a['evidence']['observations']))
+        self.assertFalse(r['character_matrix']['species_and_profession_confirmed'])
+        self.assertEqual(a['composition']['animation'], 'unconfirmed')
+        self.assertTrue(any(c['term'] == 'goblin_like' and c['confidence'] == 'low' for c in a['subjects']))
+
+    def test_exceptional_matrix_edge_does_not_inherit_wrong_body(self):
+        r = self.by_id['urizen-onebit-r22-c203']
+        self.assertTrue(any(c['term'] == 'ogre' for c in r['asset']['subjects']))
+        self.assertFalse(any(o['id'] == 'body-row-22' for o in r['asset']['evidence']['observations']))
+
+    def test_prone_pose_is_not_a_claim_of_death(self):
+        a = self.by_id['urizen-onebit-r00-c201']['asset']
+        self.assertIn('does not establish death', a['description'])
+        self.assertEqual(a['composition']['animation'], 'unconfirmed')
+
     def test_non_assets_are_explicitly_opt_in(self):
         record = next(r for r in self.records if r['kind'] == 'blank')
         self.assertFalse(matches(record, parser().parse_args([])))
         self.assertTrue(matches(record, parser().parse_args(['--include-non-assets'])))
+
+    def test_publisher_identified_tiny_glyph_is_not_discarded_as_residue(self):
+        rows = [r for r in self.records if r['kind'] == 'sprite' and r['category'] == 'font' and r['foreground_pixels'] <= 2
+                and r['identity']['basis'] == 'author_metadata_visible_rgb_match']
+        self.assertTrue(rows)
+        self.assertTrue(all(r['asset']['type'] == 'glyph' for r in rows))
 
     def test_empty_facets_and_stable_sort(self):
         self.assertEqual(facets([]), {'types': {}, 'primary_colors': {}, 'subjects': {}})

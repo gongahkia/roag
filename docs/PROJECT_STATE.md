@@ -247,6 +247,7 @@ Read [the schema-5 guide](../assets/reference/CATALOG_V2.md) and [current field 
 | [sprites.json](../assets/sprites.json) | Frozen import audit and stable source/crop/evidence records |
 | [asset-semantics.json](../assets/reference/asset-semantics.json) | Game-independent visual descriptions and subject evidence |
 | [asset.schema.json](../assets/reference/asset.schema.json) | Version-1 generic artwork metadata contract |
+| [urizen-silhouette-matches.json](../assets/reference/urizen-silhouette-matches.json) | Pinned historical exact-mask evidence; conservative medium-confidence subject support, separate from original identity |
 | [ithica-expedition-bindings.json](../assets/ithica-expedition-bindings.json) | Field/retained-preview alias-to-ID selection |
 | [ithica-casting.json](../assets/ithica-casting.json) | Current lunar roles/limits, placement categories and future lunar ideas |
 | [ithica-generation.json](../assets/ithica-generation.json) | Retained preview/intermediate CA/WFC material and room rules |
@@ -266,6 +267,8 @@ python3 -m unittest discover -s tests/catalog -v
 The catalog covers 664 PNGs, 3 archives, 11,887 regions / 7,115 occupied crops. Per-region `ithica` distinguishes bound, preview-only, unused and non-gameplay status, with current phase aliases and lunar proposals. Current selection is 166 IDs including shared glyphs/UI; the field/preview manifest selects 191; their historical selection union is 241 and 6,874 occupied sprites remain unbound. There are 14 current field aliases/IDs and 104 preserved focused visual reviews. General proposals do not mean each crop was newly manually identified.
 
 `python3 tools/query_assets.py --type actor --color green --limit 10` searches generic metadata without game interpretations. Subjects, minimum subject confidence, exact RGB, layer suitability, composition, sort order, facets and JSON/CSV/ID export are available. Full foreground color measurement and crop-hash validation use Python's standard library; no imaging package is required for regeneration or queries.
+
+Neutral visual authoring currently records 36 body series, 98 prop/stance series, 269 individual observations and 17 inspected coordinate sheets covering 3,256 occupied crops. The review-sheet generator covers all 7,115 crops, but generated pages count as inspection only after explicit recording. Exact historical foreground-mask comparison supports 81 previously unconfirmed crops while preserving their original source identities. Medium-confidence silhouette claims, compositional series observations and individual descriptions remain distinguishable in `asset.evidence`; systematic authoring of the remaining art and neutral atlas controls is ongoing.
 
 Colony and field binding contexts intentionally differ, for example `wall`; they use separate sprite libraries rather than dictionary overwrite. Texture masks/black removal are in-memory copies, with nearest-neighbor rendering. Native atlas registration is lazy and is not gameplay use. Offline atlas scene exports use `ithica-sprite-scene`, version 1; runtime scene-recipe import remains absent.
 

@@ -50,7 +50,15 @@ This validates local launch through WSLg. It does not establish native Windows o
 | Query examples | High-confidence `--subject ghost` finds `urizen-onebit-r42-c110`; actor/green queries return measured green figures; a neutral search for game casting `Interference` returns zero |
 | Game bindings | 166 current IDs, 75 preview-only IDs and 6,874 wholly unused sprites preserved; no gameplay or save-format changes |
 
-CI now configures the 14 generic tests on Linux alongside catalog freshness. That configuration is separate from the executed local results above. Systematic neutral visual authoring and presentation checks continue in later checkpoints.
+CI configures the generic suite on Linux alongside catalog freshness. That configuration is separate from the executed local results above. Systematic neutral visual authoring and presentation checks continue in later checkpoints.
+
+## Neutral visual authoring: character and two-bit checkpoint
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Added 36 character-body and 98 prop/stance series descriptions, 269 individual observations (including retained observations and all 125 occupied two-bit crops), and 17 explicitly inspected coordinate sheets covering 3,256 occupied sprites. The full review generator produced 54 sheets with exact-ID coverage of all 7,115 occupied crops; uninspected generated sheets do not count as visual evidence.
+
+Pinned historical author PNG/JSON files were fetched explicitly into ignored `artifacts/upstream-urizen/`. Exact binary foreground-mask comparison produced 1,095 matches, including 81 previously unconfirmed crops. The evidence JSON retains source URLs/hashes and every alternative match; catalog generation checks each mask hash against the current crop. Only shared terms become medium-confidence silhouette claims, and original source identities remain unchanged.
+
+Executed validation: **22 generic tests passed**, full regeneration and `--check` passed, and all **11,887** generic metadata objects passed the JSON Schema. New cases cover source confidence preservation, conflicting/wrong shape evidence, two-bit label corrections, matrix-edge exceptions, prone-pose uncertainty and tiny publisher-identified glyphs. All original PNG/archive/crop hashes and 166 current / 75 preview-only / 6,874 unused selections remain intact. Remaining art authoring and generic atlas controls are still in progress.
 
 ## Reproduction
 

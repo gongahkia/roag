@@ -203,6 +203,8 @@ def main():
                          "asset_types": dict(sorted(collections.Counter(e["asset"]["type"] for e in enriched if e["kind"] == "sprite").items())),
                          "asset_primary_colors": dict(sorted(collections.Counter(e["asset"]["appearance"]["primary_color"] for e in enriched if e["kind"] == "sprite").items())),
                          "asset_individual_visual_descriptions": sum(any(o["scope"] == "individual" for o in e["asset"]["evidence"]["observations"]) for e in enriched),
+                         "asset_review_status": dict(sorted(collections.Counter(e["asset"]["evidence"]["review_status"] for e in enriched if e["kind"] == "sprite").items())),
+                         "asset_inspected_sprites": sum(bool(e["asset"]["evidence"]["inspection_refs"]) for e in enriched),
                          "families": dict(sorted(collections.Counter(e["assessment"]["family"] for e in enriched if e["kind"] == "sprite").items()))},
         generation_rules={"source": "ithica-generation.json", "schema_version": generation["schemaVersion"], "generator_version": generation["generatorVersion"],
                           "visual_review": "reference/urizen-generation-review.json", "notes": generation["notes"]},

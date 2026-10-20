@@ -125,12 +125,14 @@ def appearance(image, record):
     if hashlib.sha256(rgba).hexdigest() != record['rgba_sha256']:
         raise ValueError('Source crop pixels differ from frozen import: ' + record['id'])
     colors = collections.Counter()
+    mask = bytearray(width * height)
     bounds = [width, height, -1, -1]
     for i in range(0, len(rgba), 4):
         r, g, b, alpha = rgba[i:i + 4]
         if not alpha or max(r, g, b) <= 8:
             continue
         colors[(r, g, b, alpha)] += 1
+        mask[i // 4] = 1
         x, y = (i // 4) % width, (i // 4) // width
         bounds = [min(bounds[0], x), min(bounds[1], y), max(bounds[2], x), max(bounds[3], y)]
     count = sum(colors.values())
@@ -143,6 +145,7 @@ def appearance(image, record):
                         'pixels': amount, 'coverage': round(amount / count, 6)})
     ordered = sorted(families, key=lambda key: (-families[key], COLOR_ORDER.index(key)))
     return {'width': width, 'height': height, 'foreground_pixels': count,
+            'foreground_mask_sha256': hashlib.sha256(mask).hexdigest(),
             'foreground_fraction': round(count / (width * height), 6),
             'foreground_bounds': [bounds[0], bounds[1], bounds[2] - bounds[0] + 1, bounds[3] - bounds[1] + 1] if count else None,
             'primary_color': ordered[0] if ordered else None, 'primary_hex': palette[0]['hex'] if palette else None,
@@ -175,6 +178,19 @@ def publisher_terms(record):
         terms.update(words(record.get('control', '')))
         terms.add(record['category'])
     return sorted(terms)
+
+
+def properties_terms(properties):
+    terms = set()
+    for key in ['group1', 'group2', 'group3', 'tags']:
+        terms.update(words(str(properties.get(key, ''))))
+    return terms - {'default', 'unknown', 'cell'}
+
+
+def visual_claims(values, confidence, evidence):
+    return [claim(value if isinstance(value, str) else value['term'],
+                  confidence if isinstance(value, str) else value.get('confidence', confidence),
+                  'visual_observation', evidence) for value in values]
 
 
 def base_type(record):
@@ -212,7 +228,9 @@ def base_type(record):
     return 'prop', ['object', 'interface']
 
 
-def describe(record, measured, authored, duplicates):
+def describe(record, measured, authored, duplicates, silhouette=None, inspections=()):
+    if silhouette and silhouette['mask_sha256'] != measured['foreground_mask_sha256']:
+        raise ValueError('Historical silhouette evidence disagrees with current crop: ' + record['id'])
     asset_type, layers = base_type(record)
     identity = record.get('identity', {})
     source_confidence = identity.get('confidence', 'low')
@@ -226,6 +244,28 @@ def describe(record, measured, authored, duplicates):
     composition = 'uncertain'
     uncertainties = []
     evidence_refs = ['sprites.json#' + record['id']]
+    observations = []
+    silhouette_supported = False
+    if silhouette and not publisher:
+        shared = set.intersection(*(properties_terms(m['properties']) for m in silhouette['matches']))
+        reference = 'reference/urizen-silhouette-matches.json#matches/' + record['id']
+        if shared:
+            silhouette_supported = True
+            subjects += [claim(term, 'medium', 'publisher_silhouette_match', reference) for term in sorted(shared)]
+            evidence_refs.append(reference)
+            groups = {m['properties']['group1'] for m in silhouette['matches']}
+            if len(groups) == 1:
+                group = next(iter(groups))
+                asset_type, layers = base_type({**record, 'category': group})
+                composition = 'fragment_candidate' if group == 'pipe' else 'standalone_candidate'
+                if group == 'pipe':
+                    asset_type, layers = 'fragment', ['object', 'structure']
+                names = {tuple(str(m['properties'].get(k, '')) for k in ['group1', 'group2', 'group3']) for m in silhouette['matches']}
+                if len(names) == 1:
+                    display_name = ' / '.join(part for part in next(iter(names)) if part) + ' (silhouette match)'
+                    description = 'Foreground silhouette matches the historical author label ' + display_name.removesuffix(' (silhouette match)') + '; source colors differ or its identity was previously unresolved.'
+                confidence = 'medium'
+            uncertainties.append('Historical binary-mask match ignores color and can have alternative identities; it does not confirm the publisher identity of this crop.')
     if record['kind'] != 'sprite':
         composition = 'non_asset'
         confidence = 'high'
@@ -236,16 +276,37 @@ def describe(record, measured, authored, duplicates):
         composition = 'tile_candidate'
     elif asset_type == 'fragment':
         composition = 'fragment_candidate'
-    if not subjects and record['kind'] == 'sprite':
-        subjects = [claim(asset_type, 'low', 'category_inference', 'category')]
-    if record.get('character_matrix'):
+    if record.get('character_matrix') and record['grid'][0] <= 201:
         matrix = record['character_matrix']
         held = matrix['held_prop_observation']
         description = f'Figure body variant {matrix["body_variant_row"]:02d}, prop/stance variant {matrix["profession_variant_column"]:02d}: {held}.'
+        if not publisher and not silhouette:
+            display_name = f'Figure variant {matrix["body_variant_row"]:02d}/{matrix["profession_variant_column"]:02d}: {held}'
+        body = authored.get('character_rows', {}).get(str(record['grid'][1]))
+        prop = authored.get('character_columns', {}).get(str(record['grid'][0]))
+        if body:
+            reference = 'reference/asset-semantics.json#character_rows/' + str(record['grid'][1])
+            observations.append({'id': 'body-row-' + str(record['grid'][1]), 'scope': 'series', 'description': body['description']})
+            evidence_refs.append(reference)
+            subjects += visual_claims(body.get('subjects', ['humanoid']), 'medium', reference)
+            description = body['description']
+            if not publisher and not silhouette:
+                display_name = measured['primary_color'].capitalize() + ' ' + body['name']
+            confidence = 'high' if publisher else 'medium'
+        if prop:
+            reference = 'reference/asset-semantics.json#character_columns/' + str(record['grid'][0])
+            observations.append({'id': 'prop-column-' + str(record['grid'][0]), 'scope': 'series', 'description': prop['description']})
+            evidence_refs.append(reference)
+            subjects += visual_claims(prop.get('subjects', []), 'medium', reference)
+            if record['grid'][0] == 201:
+                description = prop['description'] + f' It is aligned with body-variant row {record["grid"][1]:02d}; the depicted condition is unconfirmed.'
+            else:
+                description += ' ' + prop['description']
+            if not publisher and not silhouette:
+                display_name += ': ' + prop['name']
         uncertainties.append('Body row and held prop do not confirm species, profession, animation or a direction set.')
     if record['kind'] == 'sprite' and source_confidence != 'high':
         uncertainties.append('Publisher identity remains unconfirmed; visual descriptions are interpretations.')
-    observations = []
     for rule in authored.get('regions', []):
         match = rule['match']
         if match.get('source') and match['source'] != record['source']:
@@ -272,15 +333,23 @@ def describe(record, measured, authored, duplicates):
         layers = override.get('layers', layers)
         composition = override.get('composition', composition)
         confidence = override.get('confidence', confidence)
-        observations.append({'id': record['id'], 'scope': 'individual', 'description': override['description']})
+        observations.append({'id': record['id'], 'scope': 'individual', 'description': override['description'],
+                             'origin': override.get('review_origin', 'Neutral exact-crop visual review')})
         evidence_refs.append('reference/asset-semantics.json#sprites/' + record['id'])
-        subjects += [claim(term, override.get('confidence', 'medium'), 'visual_observation',
-                           'reference/asset-semantics.json#sprites/' + record['id']) for term in override.get('subjects', [])]
+        subjects += visual_claims(override.get('subjects', []), override.get('confidence', 'medium'),
+                                 'reference/asset-semantics.json#sprites/' + record['id'])
         uncertainties += override.get('uncertainties', [])
-    if record['kind'] == 'sprite' and measured['foreground_pixels'] <= 2:
+    if record['kind'] == 'sprite' and measured['foreground_pixels'] <= 2 and not publisher:
         asset_type, layers, composition = 'unresolved', ['unresolved'], 'sparse_mark'
         uncertainties.append('Only one or two foreground pixels; may be a fragment or atlas residue.')
+    if not subjects and record['kind'] == 'sprite':
+        subjects = [claim(asset_type, 'low', 'category_inference', 'asset.type')]
     tags = sorted(set([asset_type, *layers, *measured['color_names'], *(c['term'] for c in subjects)]))
+    review_status = 'publisher_identified' if publisher else 'visible_control_described' if basis == 'visible_control' else 'visually_described' if override else \
+        'visual_series_described' if any(o['scope'] == 'series' for o in observations) else \
+        'silhouette_supported' if silhouette_supported else 'inspected_unresolved' if inspections else 'category_only'
+    if record['kind'] != 'sprite':
+        review_status = 'non_asset'
     return {'schema_version': 1, 'name': display_name, 'description': description, 'type': asset_type,
             'classification_confidence': confidence, 'suggested_layers': layers,
             'subjects': subjects, 'tags': tags, 'appearance': measured,
@@ -292,6 +361,7 @@ def describe(record, measured, authored, duplicates):
                               'input:' + record.get('control', '') if record['pack'] == 'input-prompts' else None,
                           'character_matrix': record.get('character_matrix')},
             'evidence': {'source_identity': 'identity', 'references': evidence_refs, 'observations': observations,
+                         'inspection_refs': list(inspections), 'review_status': review_status,
                          'uncertainties': uncertainties,
                          'scope': 'Artwork description; gameplay usage and suggestions are separate.'}}
 
@@ -299,11 +369,46 @@ def describe(record, measured, authored, duplicates):
 def build_assets(records, assets_dir):
     assets_dir = Path(assets_dir)
     authored = load_json(assets_dir / 'reference/asset-semantics.json')
+    silhouette_path = assets_dir / 'reference/urizen-silhouette-matches.json'
+    silhouettes = load_json(silhouette_path)['matches'] if silhouette_path.exists() else {}
     if authored.get('schema_version') != 1:
         raise ValueError('Unsupported neutral semantic input version')
     ids = {r['id'] for r in records}
     if set(authored.get('sprites', {})) - ids:
         raise ValueError('Semantic input refers to missing sprite IDs')
+    by_id = {r['id']: r for r in records}
+    inspections = collections.defaultdict(list)
+    for sid, entry in authored.get('sprites', {}).items():
+        if by_id[sid]['kind'] != 'sprite' or not entry.get('description'):
+            raise ValueError('Individual observation must describe an occupied sprite: ' + sid)
+        if entry.get('type', 'prop') not in TYPES or not set(entry.get('layers', [])) <= set(LAYERS):
+            raise ValueError('Invalid generic type/layers: ' + sid)
+        if entry.get('confidence', 'medium') not in CONFIDENCE:
+            raise ValueError('Invalid visual confidence: ' + sid)
+        for value in entry.get('subjects', []):
+            if isinstance(value, dict) and (not value.get('term') or value.get('confidence', 'medium') not in CONFIDENCE):
+                raise ValueError('Invalid subject claim: ' + sid)
+    for key in authored.get('character_rows', {}):
+        if not 0 <= int(key) <= 35:
+            raise ValueError('Character body row outside observed matrix: ' + key)
+    for key in authored.get('character_columns', {}):
+        if not 104 <= int(key) <= 201:
+            raise ValueError('Prop column outside observed matrix: ' + key)
+    for index, page in enumerate(authored.get('inspected_pages', [])):
+        source = assets_dir / page['source']
+        if hashlib.sha256(source.read_bytes()).hexdigest() != page['source_sha256']:
+            raise ValueError('Inspected source hash changed: ' + page['source'])
+        x, y, width, height = page['rect']
+        if len(page['sprite_ids']) != len(set(page['sprite_ids'])):
+            raise ValueError('Duplicate IDs in inspection page: ' + page['file'])
+        for sid in page['sprite_ids']:
+            r = by_id.get(sid)
+            if r is None or r['kind'] != 'sprite' or r['source'] != page['source']:
+                raise ValueError('Invalid inspection-page sprite: ' + sid)
+            sx, sy, sw, sh = r['rect']
+            if sx < x or sy < y or sx + sw > x + width or sy + sh > y + height:
+                raise ValueError('Declared inspected sprite outside page: ' + sid)
+            inspections[sid].append('reference/asset-semantics.json#inspected_pages/' + str(index))
     images = {}
     groups = collections.defaultdict(list)
     for r in records:
@@ -315,5 +420,5 @@ def build_assets(records, assets_dir):
         source = r['source']
         if source not in images:
             images[source] = Png(assets_dir / source)
-        result[r['id']] = describe(r, appearance(images[source], r), authored, duplicates)
+        result[r['id']] = describe(r, appearance(images[source], r), authored, duplicates, silhouettes.get(r['id']), inspections[r['id']])
     return result
