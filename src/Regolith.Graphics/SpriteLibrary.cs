@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Regolith.Client;
+namespace Regolith.Graphics;
 
 public sealed class SpriteLibrary : IDisposable
 {
@@ -26,26 +26,40 @@ public sealed class SpriteLibrary : IDisposable
     private readonly Dictionary<string, TexturePair> _textures = [];
     private readonly Dictionary<string, Frame> _bindings = [];
     private readonly Dictionary<char, Frame> _font = [];
+    private readonly Dictionary<string, SpriteData> _definitions;
+    private readonly Dictionary<string, Frame> _frames = [];
+    private readonly GraphicsDevice _device;
+    private readonly string _assetRoot;
     public int BindingCount => _bindings.Count;
+    public bool HasBinding(string name) => _bindings.ContainsKey(name);
 
-    public SpriteLibrary(GraphicsDevice device, string assetRoot)
+    public SpriteLibrary(GraphicsDevice device, string assetRoot, string manifestFile = "runtime-sprites.json")
     {
-        var manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(Path.Combine(assetRoot, "runtime-sprites.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+        _device = device;
+        _assetRoot = assetRoot;
+        var manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(Path.Combine(assetRoot, manifestFile)), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                      ?? throw new InvalidDataException("Empty runtime sprite manifest.");
         if (manifest.SchemaVersion != 1)
         {
             throw new InvalidDataException("Unsupported runtime sprite manifest.");
         }
 
-        foreach (var data in manifest.Sprites.Values)
+        _definitions = manifest.Sprites;
+        foreach (var (name, id) in manifest.Bindings)
+            _bindings[name] = Resolve(id);
+        foreach (var (character, id) in manifest.Font)
+            if (character.Length == 1)
+                _font[character[0]] = Resolve(id);
+    }
+    private Frame Resolve(string id)
+    {
+        if (_frames.TryGetValue(id, out var cached))
+            return cached;
+        var data = _definitions[id];
+        if (!_textures.TryGetValue(data.Source, out var texture))
         {
-            if (_textures.ContainsKey(data.Source))
-            {
-                continue;
-            }
-
-            using var file = File.OpenRead(Path.Combine(assetRoot, data.Source));
-            using var decoded = Texture2D.FromStream(device, file);
+            using var file = File.OpenRead(Path.Combine(_assetRoot, data.Source));
+            using var decoded = Texture2D.FromStream(_device, file);
             var pixels = new Color[decoded.Width * decoded.Height];
             var mask = new Color[pixels.Length];
             decoded.GetData(pixels);
@@ -60,40 +74,32 @@ public sealed class SpriteLibrary : IDisposable
                 pixels[i] = Color.FromNonPremultiplied(c.R, c.G, c.B, c.A);
                 mask[i] = new Color(c.A, c.A, c.A, c.A);
             }
-            var original = new Texture2D(device, decoded.Width, decoded.Height);
-            var monochrome = new Texture2D(device, decoded.Width, decoded.Height);
+            var original = new Texture2D(_device, decoded.Width, decoded.Height);
+            var monochrome = new Texture2D(_device, decoded.Width, decoded.Height);
             original.SetData(pixels);
             monochrome.SetData(mask);
-            _textures.Add(data.Source, new(original, monochrome));
+            texture = new(original, monochrome);
+            _textures.Add(data.Source, texture);
         }
-        Frame Resolve(string id)
+        var s = data;
+        if (s.Rect.Length != 4)
         {
-            var s = manifest.Sprites[id];
-            if (s.Rect.Length != 4)
-            {
-                throw new InvalidDataException("Invalid sprite rectangle: " + id);
-            }
-
-            var frame = new Frame(_textures[s.Source], new(s.Rect[0], s.Rect[1], s.Rect[2], s.Rect[3]));
-            if (frame.Source.Right > frame.Texture.Original.Width || frame.Source.Bottom > frame.Texture.Original.Height)
-            {
-                throw new InvalidDataException("Sprite outside source image: " + id);
-            }
-
-            return frame;
-        }
-        foreach (var (name, id) in manifest.Bindings)
-        {
-            _bindings[name] = Resolve(id);
+            throw new InvalidDataException("Invalid sprite rectangle: " + id);
         }
 
-        foreach (var (character, id) in manifest.Font)
+        var frame = new Frame(texture, new(s.Rect[0], s.Rect[1], s.Rect[2], s.Rect[3]));
+        if (frame.Source.Right > frame.Texture.Original.Width || frame.Source.Bottom > frame.Texture.Original.Height)
         {
-            if (character.Length == 1)
-            {
-                _font[character[0]] = Resolve(id);
-            }
+            throw new InvalidDataException("Sprite outside source image: " + id);
         }
+
+        _frames[id] = frame;
+        return frame;
+    }
+    public void DrawSprite(SpriteBatch batch, string id, Rectangle target, Color color, bool original = false)
+    {
+        var frame = Resolve(id);
+        batch.Draw(original ? frame.Texture.Original : frame.Texture.Mask, target, frame.Source, color);
     }
     public void Draw(SpriteBatch batch, string binding, Rectangle target, Color color, bool original = false)
     {

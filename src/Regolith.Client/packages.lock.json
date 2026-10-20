@@ -3,8 +3,7 @@
   "dependencies": {
     "net10.0": {
       "MonoGame.Framework.DesktopGL": {
-        "type": "Direct",
-        "requested": "[3.8.6, )",
+        "type": "Transitive",
         "resolved": "3.8.6",
         "contentHash": "pVAwFo+wNCco7881v8VAkPcls/jYVyfzxx/eSBMuT45ZqZcTFqptsZxd8KwBEE5PQc5UxbX5erGh0rwtFGsKVg==",
         "dependencies": {
@@ -30,6 +29,12 @@
       },
       "regolith.core": {
         "type": "Project"
+      },
+      "regolith.graphics": {
+        "type": "Project",
+        "dependencies": {
+          "MonoGame.Framework.DesktopGL": "[3.8.6, )"
+        }
       }
     }
   }

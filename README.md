@@ -1,4 +1,20 @@
-# REGOLITH
+# REGOLITH / LANTERN BELOW
+
+Two independently playable **MonoGame + C#** prototypes share the imported sprite kit and graphics utilities. The colony simulation remains the default launcher.
+
+| Prototype | Launch | Explore |
+| --- | --- | --- |
+| Regolith | `./play.sh` | Lunar colony, cellular atmosphere, work orders, and survivor rescues |
+| Lantern Below | `./rpg.sh` | Top-down four-person RPG, visible encounters, turn-based skills, light/stress, camps, loot, and a complete return-home quest |
+| Sprite atlas | `./rpg.sh --scene atlas` or open [assets/atlas.html](assets/atlas.html) | All 7,115 occupied sprites, current bindings, uncertainty, future ideas, and an offline scene-painting lab |
+
+![Lantern Below: party exploration](docs/images/lantern-town.png)
+
+The RPG runs from the same .NET 10 setup as the colony game. Start with `./rpg.sh`; use `./rpg.sh --demo` for a combat scene. [The RPG guide](docs/LANTERN.md) includes controls, the expedition route, headless checks, and current scope. Both games have separate saves. F2 opens the complete sprite viewer inside the RPG; F4 compares original colors with its game palette.
+
+[catalog.json](assets/catalog.json) is now schema 2: the original inventory plus **11,887 region records**, with identity evidence, per-game runtime usage, RPG affordances, adaptation limits, and future ideas. Existing sprite IDs, crops, source PNGs, colony bindings, and the frozen import audit are preserved. [Catalog structure and regeneration](assets/reference/CATALOG_V2.md) · [RPG binding table](assets/reference/rpg-bindings.md).
+
+## Regolith colony simulator
 
 **A small life on the Moon.** A sprite-based colony simulator built with **C# / .NET 10 and MonoGame DesktopGL**. Ada starts alone at Tranquility. Click stranded people in the wasteland, send a rescue, escort them into shelter, and build a colony from the people you save.
 
@@ -67,7 +83,9 @@ The implementation separates the game from its presentation:
 | Project | Responsibility |
 | --- | --- |
 | [Regolith.Core](src/Regolith.Core/) | Graphics-free simulation, contiguous world arrays, jobs, routing, rescue, atomic saves |
-| [Regolith.Client](src/Regolith.Client/) | MonoGame rendering, sprite loading, camera, mouse/keyboard input, HUD/tutorial |
+| [Regolith.Client](src/Regolith.Client/) | Colony map rendering, mouse/keyboard input, HUD/tutorial |
+| [Regolith.Graphics](src/Regolith.Graphics/) | Shared sprite loader, palette masks, bitmap text, and camera; lazy texture loading for the atlas |
+| [Lantern.Core](src/Lantern.Core/) / [Lantern.Client](src/Lantern.Client/) | Independent RPG rules and its MonoGame presentation |
 | [Regolith.Tools](src/Regolith.Tools/) | Deterministic headless runs and simulation benchmarks |
 | [Regolith.Core.Tests](tests/Regolith.Core.Tests/) | Environment, work, power, rescue, progression, and saved-continuation checks |
 | [legacy/python](legacy/python/) | Archived terminal prototype, runnable independently |

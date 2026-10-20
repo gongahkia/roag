@@ -26,3 +26,8 @@ jobs:
       - run: dotnet test Regolith.sln --configuration Release --no-build
       - name: Run deterministic headless scenario
         run: dotnet run --project src/Regolith.Tools --configuration Release --no-build -- --headless 700 --demo --seed 42
+      - name: Complete RPG expedition without graphics
+        run: dotnet run --project src/Lantern.Client --configuration Release --no-build -- --headless
+      - name: Check generated catalog and original image hashes
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 tools/build_game_catalog.py --check

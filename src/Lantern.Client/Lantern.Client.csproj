@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Lantern.Core/Lantern.Core.csproj" />
+    <ProjectReference Include="../Regolith.Graphics/Regolith.Graphics.csproj" />
+    <Content Include="../../assets/urizen/*.png" Link="assets/urizen/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/godot-node-icons/**/*.png" Link="assets/godot-node-icons/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/input-prompts/**/*.png" Link="assets/input-prompts/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/lantern-sprites.json;../../assets/atlas-index.json;../../assets/CREDITS.txt" Link="assets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

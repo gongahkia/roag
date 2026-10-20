@@ -4,7 +4,9 @@ The game uses C#/.NET 10 with MonoGame DesktopGL 3.8.6. The simulation has no Mo
 
 ## Projects and ownership
 
-`Regolith.Core` owns `World`, `Simulation`, colonists, machines, work orders, contacts, expeditions, the seeded random stream, and persistence. `Regolith.Client` owns graphics resources, input, camera, UI state, and the clock accumulator. `Regolith.Tools` references only Core and runs without SDL/OpenGL. Tests reference only Core, so environmental and progression rules can be checked without opening a window.
+`Regolith.Core` owns `World`, `Simulation`, colonists, machines, work orders, contacts, expeditions, the seeded random stream, and persistence. `Regolith.Client` owns graphics resources, input, UI state, and the clock accumulator. Shared `Regolith.Graphics` now contains `SpriteLibrary` and `MapCamera`, used by both the colony and RPG clients. `Regolith.Tools` references only Core and runs without SDL/OpenGL. Tests reference only Core, so environmental and progression rules can be checked without opening a window.
+
+`Lantern.Core` contains independent fantasy RPG rules; it does not reference colony simulation types. `Lantern.Client` uses the shared renderer utilities and its own manifest, map presentation, party interface, and atlas viewer. Texture loading is lazy for unbound atlas entries, so browsing all 7,115 registered sprites does not eagerly allocate 664 image pairs. See [the RPG guide](LANTERN.md) and [catalog schema](../assets/reference/CATALOG_V2.md).
 
 There is currently one simulation thread. The client advances fixed logical ticks at 8 ticks/second, or 3×/8× that rate, and interpolates crew positions between updates. A frame limits how long it starts further ticks and caps accumulated backlog; under sustained load the simulation slows relative to real time. An individual tick is synchronous and may exceed that budget. Moving simulation to a worker would require commands and immutable/double-buffered render snapshots; directly sharing these mutable collections across threads would be unsafe.
 
@@ -36,7 +38,7 @@ Connected deck/airlock cells form electrical islands. Machines draw only from th
 
 ## Sprite contract
 
-`assets/catalog.json` is the original file inventory. `assets/sprites.json` is the exhaustive import-time sprite audit and design proposal, with stable IDs and crops. Those files and the source PNGs are preserved. `assets/runtime-sprites.json` is a smaller, generated selection referencing those exact IDs and rectangles; it is the live renderer binding contract.
+`assets/catalog.json` schema 2 retains the original inventory and adds all 11,887 region records with current per-game usage and RPG assessments. `assets/sprites.json` remains the exhaustive frozen import-time audit, with stable IDs and crops. The source PNGs and colony binding selection are preserved. `assets/runtime-sprites.json` is the colony's smaller generated selection; `assets/lantern-bindings.json` selects the RPG roles and `assets/lantern-sprites.json` registers its bindings plus every occupied sprite for the native viewer.
 
 `tools/build_runtime_assets.py` reads the audit and writes the runtime selection. The client loads PNGs directly, so building does not require MonoGame's content editor or Python. It strips black backgrounds and creates palette masks in memory, uses nearest-neighbor sampling, and draws Urizen's font with fixed advance. Source files are never recolored or repacked. Runtime output copies the needed folders and credits; the exhaustive catalogs, archives, and previews stay in the development repository.
 

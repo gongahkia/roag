@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace Regolith.Client;
+namespace Regolith.Graphics;
 
 public sealed class MapCamera
 {
@@ -21,6 +21,6 @@ public sealed class MapCamera
         CellSize = Math.Clamp(CellSize * MathF.Pow(1.25f, direction), 6, 72);
         Center += anchor - ScreenToWorld(screenPoint);
     }
-    public void Reset() => CellSize = 24;
+    public void Reset(float cellSize = 24) => CellSize = Math.Clamp(cellSize, 6, 72);
     public void Pan(Vector2 screenDelta) => Center -= screenDelta / CellSize;
 }

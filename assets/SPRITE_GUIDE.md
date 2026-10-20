@@ -4,7 +4,9 @@ This reference describes **every occupied sprite region in all three downloaded 
 
 **The tables and JSON preserve the original import-time audit.** Their `unused` / `proposed` statuses describe the archived terminal prototype in `legacy/python/`, which loads no PNGs. The MonoGame client now uses [runtime-sprites.json](runtime-sprites.json): **154 existing sprite IDs**, covering **60 semantic bindings and 94 font glyphs**. That manifest is the source of truth for current usage. Source images, catalog IDs, rectangles, and proposed mappings remain unchanged; an audit entry marked unused may now be selected by the runtime manifest.
 
-The original [catalog.json](catalog.json) remains the file inventory: dimensions, hashes, archives, publisher links, and licenses. It did not previously enumerate the sprites inside the atlases. The new [sprites.json](sprites.json) supplies that detail.
+The current [catalog.json](catalog.json) is **schema 2**: it retains the original file inventory and now includes all **11,887 sprite/slot records**, live colony/RPG usage, RPG role proposals, adaptation limits, tags, and review status. [sprites.json](sprites.json) remains the frozen import-time audit. See [the schema guide](reference/CATALOG_V2.md) for the distinction.
+
+Open [the current atlas and scene lab](atlas.html) for live usage filters, all three packs, original/masked previews, and scene painting with JSON/PNG export. The RPG also includes this coverage in a native F2 viewer. [RPG bindings](reference/rpg-bindings.md) document its curated role selection. Viewing an entry does not mark it as used in gameplay.
 
 ## Open the reference
 

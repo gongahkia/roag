@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Regolith.Core;
+using Regolith.Graphics;
 
 namespace Regolith.Client;
 

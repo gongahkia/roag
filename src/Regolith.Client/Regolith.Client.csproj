@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Regolith.Core/Regolith.Core.csproj" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6" />
+    <ProjectReference Include="../Regolith.Graphics/Regolith.Graphics.csproj" />
     <Content Include="../../assets/urizen/*.png" Link="assets/urizen/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../assets/godot-node-icons/white/*.png" Link="assets/godot-node-icons/white/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../assets/input-prompts/new/*.png" Link="assets/input-prompts/new/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
