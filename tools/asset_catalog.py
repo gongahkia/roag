@@ -30,6 +30,7 @@ GLYPH_ALIASES = {
     'bar': '|', 'slash': '/', 'backslash': '\\', 'period': '.', 'comma': ',', 'semicolon': ';',
 }
 NEUTRAL_FIELDS = ['id', 'pack', 'source', 'rect', 'kind', 'rgba_sha256', 'identity', 'asset']
+PUBLISHER_GAME_ROLES = {'enemy', 'npc', 'player'}
 
 
 def neutral_record(record):
@@ -219,7 +220,7 @@ def publisher_terms(record):
             properties = match['properties']
             for key in ['group1', 'group2', 'group3', 'tags']:
                 terms.update(words(str(properties.get(key, ''))))
-        terms -= {'default', 'unknown', 'cell'}
+        terms -= {'default', 'unknown', 'cell', *PUBLISHER_GAME_ROLES}
     elif identity.get('basis') == 'publisher_filename':
         terms.update(words(record.get('semantic_family', record['name']).replace('_', ' ')))
     elif record['pack'] == 'input-prompts':
@@ -232,7 +233,13 @@ def properties_terms(properties):
     terms = set()
     for key in ['group1', 'group2', 'group3', 'tags']:
         terms.update(words(str(properties.get(key, ''))))
-    return terms - {'default', 'unknown', 'cell'}
+    return terms - {'default', 'unknown', 'cell', *PUBLISHER_GAME_ROLES}
+
+
+def publisher_art_label(properties):
+    """Keep actor identity/variant labels while leaving publisher game roles in provenance."""
+    keys = ['group2', 'group3'] if properties.get('group1') in PUBLISHER_GAME_ROLES else ['group1', 'group2', 'group3']
+    return ' / '.join(str(properties[key]) for key in keys if properties.get(key))
 
 
 def glyph_metadata(record):
@@ -332,6 +339,14 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
     confidence = source_confidence
     description = record['name']
     display_name = record['name']
+    if publisher:
+        actor_labels = {publisher_art_label(m['properties']) for m in identity.get('upstream_matches', [])
+                        if m['properties'].get('group1') in PUBLISHER_GAME_ROLES}
+        if len(actor_labels) == 1 and all(m['properties'].get('group1') in PUBLISHER_GAME_ROLES for m in identity.get('upstream_matches', [])):
+            label = next(iter(actor_labels))
+            if label:
+                display_name = label[0].upper() + label[1:]
+                description = 'Publisher-labelled artwork: ' + label + '. Original publisher gameplay-role labels remain in the source identity evidence.'
     composition = 'uncertain'
     uncertainties = []
     evidence_refs = ['sprites.json#' + record['id']]
@@ -353,7 +368,8 @@ def describe(record, measured, authored, duplicates, silhouette=None, inspection
                     asset_type, layers = 'fragment', ['object', 'structure']
                 names = {tuple(str(m['properties'].get(k, '')) for k in ['group1', 'group2', 'group3']) for m in silhouette['matches']}
                 if len(names) == 1:
-                    display_name = ' / '.join(part for part in next(iter(names)) if part) + ' (silhouette match)'
+                    properties = dict(zip(['group1', 'group2', 'group3'], next(iter(names))))
+                    display_name = publisher_art_label(properties) + ' (silhouette match)'
                     description = 'Foreground silhouette matches the historical author label ' + display_name.removesuffix(' (silhouette match)') + '; source colors differ or its identity was previously unresolved.'
                 confidence = 'medium'
             uncertainties.append('Historical binary-mask match ignores color and can have alternative identities; it does not confirm the publisher identity of this crop.')

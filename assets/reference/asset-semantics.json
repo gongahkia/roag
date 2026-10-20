@@ -70,10 +70,11 @@
       "review_origin": "reference/urizen-generation-review.json"
     },
     "urizen-onebit-r05-c000": {
-      "description": "Almost empty texture crop with a tiny central mark; not useful as a standalone feature.",
+      "description": "A single opaque gray pixel (#404040) at crop coordinate [6, 6]. It may be a fragment or atlas residue; no standalone object identity is established.",
       "confidence": "medium",
       "subjects": [],
-      "review_origin": "reference/urizen-generation-review.json"
+      "review_origin": "reference/urizen-generation-review.json",
+      "name": "Isolated gray center pixel"
     },
     "urizen-onebit-r05-c001": {
       "description": "Dense alternating diagonal marks; dirt floor texture.",

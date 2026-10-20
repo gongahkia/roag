@@ -9,6 +9,7 @@ import base64
 import collections
 import hashlib
 import json
+import struct
 from pathlib import Path
 
 from asset_catalog import build_assets, COLOR_ORDER, TYPES, LAYERS, Png, encode_rgba_png
@@ -95,6 +96,21 @@ def assessment(r):
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument("--check", action="store_true"); args = parser.parse_args()
     inventory = read("catalog.json")
+    references = read("reference/derived-images.json")
+    if references.get("schema_version") != 1:
+        raise ValueError("Unsupported derived-image reference version")
+    reference_images, reference_paths = [], set()
+    for entry in references["images"]:
+        path = entry["path"]
+        if path in reference_paths or entry["kind"] not in {"pack_preview", "rendered_reference"}:
+            raise ValueError("Invalid derived image reference: " + path)
+        reference_paths.add(path)
+        raw = (ROOT / path).read_bytes()
+        if raw[:8] != b'\x89PNG\r\n\x1a\n' or raw[12:16] != b'IHDR':
+            raise ValueError("Expected PNG reference image: " + path)
+        width, height = struct.unpack('>II', raw[16:24])
+        reference_images.append({**entry, "width": width, "height": height, "bytes": len(raw),
+                                 "sha256": hashlib.sha256(raw).hexdigest(), "usage": "reference_only"})
     audit = read("sprites.json")
     records = audit["records"]
     neutral = build_assets(records, ASSETS)
@@ -185,6 +201,8 @@ def main():
         enriched.append(e)
     # Retain every original inventory field; replace only generated v2 enrichments.
     inventory.update(schema_version=5,
+        reference_images={"source": "reference/derived-images.json", "paths_relative_to": "repository_root",
+                          "scope": references["scope"], "images": reference_images},
         catalog_scope="Game-independent artwork descriptions, subjects, type, composition and measured colors for every region. Current Ithica and retained preview usage remain separate projections; original source identity and evidence are preserved.",
         asset_taxonomy={"schema_version": 1, "source": "reference/asset-semantics.json", "types": TYPES,
                         "suggested_layers": LAYERS, "color_names": COLOR_ORDER,
@@ -192,7 +210,7 @@ def main():
                         "identity_rule": "Publisher identity, visual subject claims and gameplay casting are independent. Each subject claim records confidence, basis and evidence.",
                         "composition_rule": "Fragments, variant groups and suggested layers do not supply animation, directions, collision or adjacency rules."},
         source_audit="sprites.json", generator="tools/build_game_catalog.py",
-        catalog_summary={"images": len(inventory["images"]), "records": len(enriched), "occupied_sprites": len(sprites),
+        catalog_summary={"images": len(inventory["images"]), "reference_images": len(reference_images), "records": len(enriched), "occupied_sprites": len(sprites),
                          "used_colony": sum(bool(e["usage"]["colony"]) for e in enriched), "used_rpg": sum(bool(e["usage"]["rpg"]) for e in enriched),
                          "used_either": sum(e["runtime_status"] == "used" for e in enriched),
                          "generation_rule_sprites": len(rule_refs), "generation_visually_reviewed": len(reviewed),

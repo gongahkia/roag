@@ -10141,6 +10141,7 @@
   "generator": "tools/build_game_catalog.py",
   "catalog_summary": {
     "images": 664,
+    "reference_images": 22,
     "records": 11887,
     "occupied_sprites": 7115,
     "used_colony": 154,
@@ -109512,7 +109513,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "npc / male (silhouette match)",
+        "name": "male (silhouette match)",
         "description": "A short humanoid with a flat cap-like head, compact torso and bent-looking legs. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "medium",
@@ -109522,12 +109523,6 @@
         "subjects": [
           {
             "term": "male",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r02-c104"
-          },
-          {
-            "term": "npc",
             "confidence": "medium",
             "basis": "publisher_silhouette_match",
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r02-c104"
@@ -109556,7 +109551,6 @@
           "gray",
           "humanoid",
           "male",
-          "npc",
           "short_stature",
           "unarmed"
         ],
@@ -110463,7 +110457,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "npc / merchant (silhouette match)",
+        "name": "merchant (silhouette match)",
         "description": "A short humanoid with a flat cap-like head, compact torso and bent-looking legs. A thin straight implement projects from one hand.",
         "type": "actor",
         "classification_confidence": "medium",
@@ -110473,12 +110467,6 @@
         "subjects": [
           {
             "term": "merchant",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r02-c108"
-          },
-          {
-            "term": "npc",
             "confidence": "medium",
             "basis": "publisher_silhouette_match",
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r02-c108"
@@ -110514,7 +110502,6 @@
           "held_prop",
           "humanoid",
           "merchant",
-          "npc",
           "pole_like",
           "short_stature"
         ],
@@ -150745,7 +150732,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "npc / female (silhouette match)",
+        "name": "female (silhouette match)",
         "description": "A humanoid with a rounded broad head outline and wide lower-body silhouette. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "medium",
@@ -150755,12 +150742,6 @@
         "subjects": [
           {
             "term": "female",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r03-c104"
-          },
-          {
-            "term": "npc",
             "confidence": "medium",
             "basis": "publisher_silhouette_match",
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r03-c104"
@@ -150783,7 +150764,6 @@
           "female",
           "gray",
           "humanoid",
-          "npc",
           "unarmed"
         ],
         "appearance": {
@@ -215257,8 +215237,8 @@
       "notes": "Only one or two foreground pixels; retained for exhaustive coverage, not certified as an intentional standalone sprite.",
       "asset": {
         "schema_version": 1,
-        "name": "Terrain / texture tile R05 C000",
-        "description": "Almost empty texture crop with a tiny central mark; not useful as a standalone feature.",
+        "name": "Isolated gray center pixel",
+        "description": "A single opaque gray pixel (#404040) at crop coordinate [6, 6]. It may be a fragment or atlas residue; no standalone object identity is established.",
         "type": "unresolved",
         "classification_confidence": "medium",
         "suggested_layers": [
@@ -215338,7 +215318,7 @@
             {
               "id": "urizen-onebit-r05-c000",
               "scope": "individual",
-              "description": "Almost empty texture crop with a tiny central mark; not useful as a standalone feature.",
+              "description": "A single opaque gray pixel (#404040) at crop coordinate [6, 6]. It may be a fragment or atlas residue; no standalone object identity is established.",
               "origin": "reference/urizen-generation-review.json"
             }
           ],
@@ -597692,8 +597672,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / astronaut",
-        "description": "npc / astronaut",
+        "name": "Astronaut",
+        "description": "Publisher-labelled artwork: astronaut. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -597711,20 +597691,13 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "npc",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
           "actor",
           "astronaut",
           "cyan",
-          "modern",
-          "npc"
+          "modern"
         ],
         "appearance": {
           "width": 12,
@@ -722841,7 +722814,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / monk",
+        "name": "Monk",
         "description": "A hood-like head outline and long robe-shaped body end in small separated foot marks. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "high",
@@ -722849,12 +722822,6 @@
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "monk",
             "confidence": "high",
@@ -722888,7 +722855,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "hood",
           "humanoid",
           "monk",
@@ -745624,20 +745590,14 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / monk / prayer",
-        "description": "enemy / monk / prayer",
+        "name": "Monk / prayer",
+        "description": "Publisher-labelled artwork: monk / prayer. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "monk",
             "confidence": "high",
@@ -745653,7 +745613,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "monk",
           "prayer",
           "purple"
@@ -763719,7 +763678,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / genie",
+        "name": "Genie",
         "description": "A large rounded head and broad chest taper into a narrow curved lower body with no clear ordinary feet. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "high",
@@ -763727,12 +763686,6 @@
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "genie",
             "confidence": "high",
@@ -763761,7 +763714,6 @@
         "tags": [
           "actor",
           "blue",
-          "enemy",
           "floating_figure",
           "genie",
           "genie_like",
@@ -843649,7 +843601,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / imp",
+        "name": "Imp",
         "description": "A small humanoid has pronounced paired horns, a compact torso and angular protrusions beside its body. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "high",
@@ -843657,12 +843609,6 @@
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "imp",
             "confidence": "high",
@@ -843696,7 +843642,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "horned",
           "humanoid",
           "imp",
@@ -906210,20 +906155,14 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / pirate",
-        "description": "enemy / pirate",
+        "name": "Pirate",
+        "description": "Publisher-labelled artwork: pirate. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "pirate",
             "confidence": "high",
@@ -906234,7 +906173,6 @@
         "tags": [
           "actor",
           "blue",
-          "enemy",
           "pirate"
         ],
         "appearance": {
@@ -946513,12 +946451,6 @@
         ],
         "subjects": [
           {
-            "term": "enemy",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r22-c203"
-          },
-          {
             "term": "ogre",
             "confidence": "medium",
             "basis": "publisher_silhouette_match",
@@ -946539,7 +946471,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "humanoid",
           "object",
           "ogre",
@@ -964437,7 +964368,7 @@
       "notes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions.",
       "asset": {
         "schema_version": 1,
-        "name": "enemy / golem (silhouette match)",
+        "name": "golem (silhouette match)",
         "description": "A broad flat rectangular head shape sits above a straight torso with thin arms and legs. The arms are close to the body; no distinct held implement is visible.",
         "type": "actor",
         "classification_confidence": "medium",
@@ -964445,12 +964376,6 @@
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-onebit-r23-c104"
-          },
           {
             "term": "golem",
             "confidence": "medium",
@@ -964479,7 +964404,6 @@
         "tags": [
           "actor",
           "block_head",
-          "enemy",
           "golem",
           "gray",
           "humanoid",
@@ -1480203,20 +1480127,14 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / military",
-        "description": "enemy / military",
+        "name": "Military",
+        "description": "Publisher-labelled artwork: military. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "military",
             "confidence": "high",
@@ -1480232,7 +1480150,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "green",
           "military",
           "modern"
@@ -1634403,20 +1634320,14 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / slime",
-        "description": "enemy / slime",
+        "name": "Slime",
+        "description": "Publisher-labelled artwork: slime. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "slime",
             "confidence": "high",
@@ -1634427,7 +1634338,6 @@
         "tags": [
           "actor",
           "cyan",
-          "enemy",
           "slime"
         ],
         "appearance": {
@@ -1634602,8 +1634512,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / beholder",
-        "description": "enemy / beholder",
+        "name": "Beholder",
+        "description": "Publisher-labelled artwork: beholder. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1634615,18 +1634525,11 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
           "actor",
           "beholder",
-          "enemy",
           "purple"
         ],
         "appearance": {
@@ -1634799,20 +1634702,14 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / ghost",
-        "description": "enemy / ghost",
+        "name": "Ghost",
+        "description": "Publisher-labelled artwork: ghost. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "ghost",
             "confidence": "high",
@@ -1634822,7 +1634719,6 @@
         ],
         "tags": [
           "actor",
-          "enemy",
           "ghost",
           "white"
         ],
@@ -1635203,8 +1635099,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / cockatrice",
-        "description": "enemy / cockatrice",
+        "name": "Cockatrice",
+        "description": "Publisher-labelled artwork: cockatrice. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1635216,18 +1635112,11 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
           "actor",
           "cockatrice",
-          "enemy",
           "green"
         ],
         "appearance": {
@@ -1635590,8 +1635479,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / basilisk",
-        "description": "enemy / basilisk",
+        "name": "Basilisk",
+        "description": "Publisher-labelled artwork: basilisk. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1635603,19 +1635492,12 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
           "actor",
           "basilisk",
-          "cyan",
-          "enemy"
+          "cyan"
         ],
         "appearance": {
           "width": 12,
@@ -1663958,8 +1663840,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / business / male",
-        "description": "npc / business / male",
+        "name": "Business / male",
+        "description": "Publisher-labelled artwork: business / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1663983,12 +1663865,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "npc",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1663996,8 +1663872,7 @@
           "business",
           "gray",
           "male",
-          "modern",
-          "npc"
+          "modern"
         ],
         "appearance": {
           "width": 12,
@@ -1664176,8 +1664051,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / bandit / male",
-        "description": "enemy / bandit / male",
+        "name": "Bandit / male",
+        "description": "Publisher-labelled artwork: bandit / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1664186,12 +1664061,6 @@
         "subjects": [
           {
             "term": "bandit",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "enemy",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1664212,7 +1664081,6 @@
         "tags": [
           "actor",
           "bandit",
-          "enemy",
           "male",
           "orange",
           "western"
@@ -1664399,8 +1664267,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / scientist / male",
-        "description": "npc / scientist / male",
+        "name": "Scientist / male",
+        "description": "Publisher-labelled artwork: scientist / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1664420,12 +1664288,6 @@
             "evidence": "identity"
           },
           {
-            "term": "npc",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
             "term": "scientist",
             "confidence": "high",
             "basis": "publisher_metadata",
@@ -1664437,7 +1664299,6 @@
           "cyan",
           "male",
           "modern",
-          "npc",
           "scientist"
         ],
         "appearance": {
@@ -1664800,8 +1664661,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / bodyguard",
-        "description": "enemy / bodyguard",
+        "name": "Bodyguard",
+        "description": "Publisher-labelled artwork: bodyguard. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1664810,12 +1664671,6 @@
         "subjects": [
           {
             "term": "bodyguard",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "enemy",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1664831,7 +1664686,6 @@
           "actor",
           "blue",
           "bodyguard",
-          "enemy",
           "modern"
         ],
         "appearance": {
@@ -1665386,8 +1665240,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / skateboard",
-        "description": "npc / skateboard",
+        "name": "Skateboard",
+        "description": "Publisher-labelled artwork: skateboard. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1665396,12 +1665250,6 @@
         "subjects": [
           {
             "term": "modern",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "npc",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1665416,7 +1665264,6 @@
         "tags": [
           "actor",
           "modern",
-          "npc",
           "orange",
           "skateboard"
         ],
@@ -1665591,20 +1665438,14 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / police",
-        "description": "enemy / police",
+        "name": "Police",
+        "description": "Publisher-labelled artwork: police. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
           "actor"
         ],
         "subjects": [
-          {
-            "term": "enemy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
           {
             "term": "modern",
             "confidence": "high",
@@ -1665621,7 +1665462,6 @@
         "tags": [
           "actor",
           "blue",
-          "enemy",
           "modern",
           "police"
         ],
@@ -1665802,8 +1665642,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / cowboy",
-        "description": "enemy / cowboy",
+        "name": "Cowboy",
+        "description": "Publisher-labelled artwork: cowboy. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1665812,12 +1665652,6 @@
         "subjects": [
           {
             "term": "cowboy",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "enemy",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1665832,7 +1665666,6 @@
         "tags": [
           "actor",
           "cowboy",
-          "enemy",
           "orange",
           "western"
         ],
@@ -1666009,8 +1665842,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / worker",
-        "description": "npc / worker",
+        "name": "Worker",
+        "description": "Publisher-labelled artwork: worker. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1666019,12 +1665852,6 @@
         "subjects": [
           {
             "term": "modern",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "npc",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1666040,7 +1665867,6 @@
           "actor",
           "brown",
           "modern",
-          "npc",
           "worker"
         ],
         "appearance": {
@@ -1696208,8 +1696034,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / business / female",
-        "description": "npc / business / female",
+        "name": "Business / female",
+        "description": "Publisher-labelled artwork: business / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1696233,12 +1696059,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "npc",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1696246,8 +1696066,7 @@
           "business",
           "female",
           "gray",
-          "modern",
-          "npc"
+          "modern"
         ],
         "appearance": {
           "width": 12,
@@ -1696426,8 +1696245,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "enemy / bandit / female",
-        "description": "enemy / bandit / female",
+        "name": "Bandit / female",
+        "description": "Publisher-labelled artwork: bandit / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1696436,12 +1696255,6 @@
         "subjects": [
           {
             "term": "bandit",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
-            "term": "enemy",
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
@@ -1696462,7 +1696275,6 @@
         "tags": [
           "actor",
           "bandit",
-          "enemy",
           "female",
           "orange",
           "western"
@@ -1696639,8 +1696451,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "npc / scientist / female",
-        "description": "npc / scientist / female",
+        "name": "Scientist / female",
+        "description": "Publisher-labelled artwork: scientist / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1696660,12 +1696472,6 @@
             "evidence": "identity"
           },
           {
-            "term": "npc",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
             "term": "scientist",
             "confidence": "high",
             "basis": "publisher_metadata",
@@ -1696677,7 +1696483,6 @@
           "cyan",
           "female",
           "modern",
-          "npc",
           "scientist"
         ],
         "appearance": {
@@ -1761439,8 +1761244,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / bodyguard / male",
-        "description": "player / bodyguard / male",
+        "name": "Bodyguard / male",
+        "description": "Publisher-labelled artwork: bodyguard / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1761464,12 +1761269,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1761477,7 +1761276,6 @@
           "bodyguard",
           "male",
           "modern",
-          "player",
           "white"
         ],
         "appearance": {
@@ -1761652,8 +1761450,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / scientist / male",
-        "description": "player / scientist / male",
+        "name": "Scientist / male",
+        "description": "Publisher-labelled artwork: scientist / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1761673,12 +1761471,6 @@
             "evidence": "identity"
           },
           {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
             "term": "scientist",
             "confidence": "high",
             "basis": "publisher_metadata",
@@ -1761689,7 +1761481,6 @@
           "actor",
           "male",
           "modern",
-          "player",
           "scientist",
           "white"
         ],
@@ -1761865,8 +1761656,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / business / male",
-        "description": "player / business / male",
+        "name": "Business / male",
+        "description": "Publisher-labelled artwork: business / male. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1761890,12 +1761681,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1761903,7 +1761688,6 @@
           "business",
           "male",
           "modern",
-          "player",
           "white"
         ],
         "appearance": {
@@ -1793738,8 +1793522,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / bodyguard / female",
-        "description": "player / bodyguard / female",
+        "name": "Bodyguard / female",
+        "description": "Publisher-labelled artwork: bodyguard / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1793763,12 +1793547,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1793776,7 +1793554,6 @@
           "bodyguard",
           "female",
           "modern",
-          "player",
           "white"
         ],
         "appearance": {
@@ -1793951,8 +1793728,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / scientist / female",
-        "description": "player / scientist / female",
+        "name": "Scientist / female",
+        "description": "Publisher-labelled artwork: scientist / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1793972,12 +1793749,6 @@
             "evidence": "identity"
           },
           {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
-          },
-          {
             "term": "scientist",
             "confidence": "high",
             "basis": "publisher_metadata",
@@ -1793988,7 +1793759,6 @@
           "actor",
           "female",
           "modern",
-          "player",
           "scientist",
           "white"
         ],
@@ -1794164,8 +1793934,8 @@
       ],
       "asset": {
         "schema_version": 1,
-        "name": "player / business / female",
-        "description": "player / business / female",
+        "name": "Business / female",
+        "description": "Publisher-labelled artwork: business / female. Original publisher gameplay-role labels remain in the source identity evidence.",
         "type": "actor",
         "classification_confidence": "high",
         "suggested_layers": [
@@ -1794189,12 +1793959,6 @@
             "confidence": "high",
             "basis": "publisher_metadata",
             "evidence": "identity"
-          },
-          {
-            "term": "player",
-            "confidence": "high",
-            "basis": "publisher_metadata",
-            "evidence": "identity"
           }
         ],
         "tags": [
@@ -1794202,7 +1793966,6 @@
           "business",
           "female",
           "modern",
-          "player",
           "white"
         ],
         "appearance": {
@@ -1870627,12 +1870390,6 @@
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r00-c000"
           },
           {
-            "term": "npc",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r00-c000"
-          },
-          {
             "term": "humanoid",
             "confidence": "medium",
             "basis": "visual_observation",
@@ -1870643,8 +1870400,7 @@
           "actor",
           "gray",
           "humanoid",
-          "male",
-          "npc"
+          "male"
         ],
         "appearance": {
           "width": 12,
@@ -1871057,12 +1870813,6 @@
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r00-c002"
           },
           {
-            "term": "npc",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r00-c002"
-          },
-          {
             "term": "humanoid",
             "confidence": "medium",
             "basis": "visual_observation",
@@ -1871080,7 +1870830,6 @@
           "gray",
           "humanoid",
           "merchant",
-          "npc",
           "pouch",
           "yellow"
         ],
@@ -1874865,12 +1874614,6 @@
             "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r01-c000"
           },
           {
-            "term": "npc",
-            "confidence": "medium",
-            "basis": "publisher_silhouette_match",
-            "evidence": "reference/urizen-silhouette-matches.json#matches/urizen-twobit-r01-c000"
-          },
-          {
             "term": "humanoid",
             "confidence": "medium",
             "basis": "visual_observation",
@@ -1874881,8 +1874624,7 @@
           "actor",
           "female",
           "gray",
-          "humanoid",
-          "npc"
+          "humanoid"
         ],
         "appearance": {
           "width": 12,
@@ -2196031,5 +2195773,232 @@
     "foreground_rule": "Alpha zero and RGB channels all <=8 are background for measurement, without changing source pixels.",
     "identity_rule": "Publisher identity, visual subject claims and gameplay casting are independent. Each subject claim records confidence, basis and evidence.",
     "composition_rule": "Fragments, variant groups and suggested layers do not supply animation, directions, collision or adjacency rules."
+  },
+  "reference_images": {
+    "source": "reference/derived-images.json",
+    "paths_relative_to": "repository_root",
+    "scope": "Derived preview composites and documentation screenshots, retained as reference images rather than independent source sprites. Paths are repository-relative. Original sprite images and crop identities remain in the canonical source inventory.",
+    "images": [
+      {
+        "path": "assets/previews/godot-color.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 268,
+        "bytes": 12551,
+        "sha256": "1b4ac8afb38c532b10515fe8d166e07f535cce71bcd394b4fbc5cec9152d4ee4",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/godot-control.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 1672,
+        "bytes": 66368,
+        "sha256": "9576b5168f920feaa9923dbfa094fb54327c0f0b9a205ec90d333223f3f14dd1",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/godot-node.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 1672,
+        "bytes": 66000,
+        "sha256": "dffffc1da18dfa45c0cfa73e0d138c8dac4f26185b72f467e711e3f25f80e743",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/godot-node_2D.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 1672,
+        "bytes": 66779,
+        "sha256": "b62cb1e17b22bd7db4baebf677713c3c22932de59e9690a0867b4aeea6edc52a",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/godot-node_3D.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 1672,
+        "bytes": 66526,
+        "sha256": "83e3549a39ea24dabb5a72ae5fa182a28d402f354fae62db6f31b878e02cf5dd",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/godot-white.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1440,
+        "height": 1672,
+        "bytes": 66008,
+        "sha256": "feb1b6c1144dfe6de103d6ccec2e24ea4fd32337e49aa708545c5f3986874f9a",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/input-prompts.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1152,
+        "height": 1240,
+        "bytes": 68736,
+        "sha256": "e90353fa2909479d96a00a13be28dd0acd1ba5dad15e0509d1006c41c9c3922a",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-2bit-sample.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1044,
+        "height": 368,
+        "bytes": 12105,
+        "sha256": "f7b97259e8cfd3ba4860bf8c15d7c01e2ad238d5bf85713e500ad4c83fc11878",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-characters-left.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1326,
+        "height": 1302,
+        "bytes": 77532,
+        "sha256": "69954286c764a885f731d2325457e1b1759ce9734dae22630feac6426d38d0d3",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-characters-right.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 1328,
+        "height": 1302,
+        "bytes": 68493,
+        "sha256": "3bfb573b0ea57a1486e5b9bcff6bc3c8a6c34a45bc21740de00592e01165dc88",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-machines-scifi.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 652,
+        "height": 1302,
+        "bytes": 43529,
+        "sha256": "cb15f4452d518efcea24ce5ccb4abd02b615ac376b9c6059d53659988e62b556",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-objects-equipment.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 652,
+        "height": 1302,
+        "bytes": 36271,
+        "sha256": "db9d553c05fa06db02638ac80e88505ae63a4fb080877b0ea5b86833a03dbbf4",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-symbols-fonts.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 652,
+        "height": 1302,
+        "bytes": 32788,
+        "sha256": "b75eab638c01a6aab4a4819a62ae5563eeae8e3cbc394b0467d25c5abb597933",
+        "usage": "reference_only"
+      },
+      {
+        "path": "assets/previews/urizen-terrain-nature.png",
+        "kind": "pack_preview",
+        "description": "Enlarged/composited pack artwork preview; use the original pack files and indexed crop IDs for reuse.",
+        "width": 652,
+        "height": 1302,
+        "bytes": 54136,
+        "sha256": "8ef5590ee44d6c4bd89687a84fb859676147fe3a4a11865783b4b1d1497817fd",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/ithica-battle.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 67392,
+        "sha256": "56283a10bea844f13d46547a89755a2db8484e3af62b8cbcc6d44b6e1f9cdaab",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/ithica-colony.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 99031,
+        "sha256": "b036daca6089ff6a7d86c43ad93d2c9cab0b75308bfe619495eff0b82dd83468",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/lantern-atlas.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 68577,
+        "sha256": "ebcabc7bac2a91caeb662d0db304bb88a10c78a7bf16742286a04782a178b193",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/lantern-battle.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 83891,
+        "sha256": "1952d777c6be411d111dad371c756f96582b6f04a4a6c47bd5933abd7c51be4a",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/lantern-crypt.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 87126,
+        "sha256": "20186d8abd81fb0d7363a99a63916a1d99240b8710192c264051dedca011ce97",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/lantern-hazards.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 85719,
+        "sha256": "65b3d0e620a55f52578a2a87187277e6b4a6cc79163a13425976b124bb7e7454",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/lantern-town.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 89286,
+        "sha256": "e07a21deb0271f7bd754cc28ebb14275e6bd6facb3a453e548b358c33e08ae55",
+        "usage": "reference_only"
+      },
+      {
+        "path": "docs/images/outpost.png",
+        "kind": "rendered_reference",
+        "description": "Documentation/game rendering with composed sprites and UI; reference image, not an independent sprite atlas.",
+        "width": 1440,
+        "height": 847,
+        "bytes": 100203,
+        "sha256": "3f87e3598bcad71337030f26e3119f31ec27ba6a2e8bbc757b3930088f6583db",
+        "usage": "reference_only"
+      }
+    ]
   }
 }

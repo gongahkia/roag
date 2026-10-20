@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -107,6 +108,18 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual({k: current[k] for k in original if k != 'runtime_status'},
                              {k: v for k, v in original.items() if k != 'runtime_status'}, original['id'])
 
+    @unittest.skipUnless((ROOT / '.git').exists(), 'Tracked-media coverage requires the repository checkout')
+    def test_all_tracked_media_are_originals_or_explicit_references(self):
+        files = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
+        media = {p for p in files if Path(p).suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tga', '.svg', '.ase', '.aseprite', '.zip'}}
+        originals = {'assets/' + r['path'] for r in [*self.catalog['images'], *self.catalog['archives']]}
+        references = self.catalog['reference_images']['images']
+        self.assertEqual(media, originals | {r['path'] for r in references})
+        self.assertEqual(len(references), 22)
+        for r in references:
+            self.assertEqual(r['usage'], 'reference_only')
+            self.assertEqual(hashlib.sha256((ROOT / r['path']).read_bytes()).hexdigest(), r['sha256'])
+
     def test_every_region_has_valid_generic_description_and_palette(self):
         for r in self.records:
             a = r['asset']
@@ -137,6 +150,15 @@ class CatalogTests(unittest.TestCase):
         self.assertIn('urizen-onebit-r42-c110', results)
         args = parser().parse_args(['--search', 'Interference'])
         self.assertNotIn('urizen-onebit-r42-c110', [r['id'] for r in self.records if matches(r, args)])
+
+    def test_publisher_game_roles_remain_provenance_not_neutral_subjects(self):
+        r = self.by_id['urizen-onebit-r42-c110']
+        self.assertEqual(r['name'], 'enemy / ghost')
+        self.assertEqual(r['identity']['upstream_matches'][0]['properties']['group1'], 'enemy')
+        self.assertEqual(r['asset']['name'], 'Ghost')
+        self.assertTrue(any(c['term'] == 'ghost' and c['confidence'] == 'high' for c in r['asset']['subjects']))
+        for record in self.records:
+            self.assertFalse(any(c['term'] in {'enemy', 'npc', 'player'} for c in record['asset']['subjects']), record['id'])
 
     def test_color_and_type_query_uses_measured_palette(self):
         args = parser().parse_args(['--type', 'actor', '--color', 'green', '--min-color-coverage', '.5'])

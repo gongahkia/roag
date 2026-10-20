@@ -2,7 +2,7 @@
 
 The per-pack tables and [sprites.json](sprites.json) preserve the original import-time audit of every occupied region, including uncertain motifs, exact IDs/crops, proposals and future ideas. Their unused/proposed flags refer to the archived Python prototype, which loads no PNGs. The historical proposals below do not assert current gameplay.
 
-**Current source of truth:** [catalog.json](catalog.json), schema 4, covers **11,887 regions / 7,115 occupied sprites**. `sprites[].ithica` separates **166 current selected IDs**, **75 preview-only IDs** and **6,874 unbound occupied sprites**, with lunar roles, limits and future ideas. [Schema/authoring guide](reference/CATALOG_V2.md) · [14 current field aliases](reference/ithica-sprites.md) · [colony selection](ithica-colony-sprites.json) · [field/preview selection](ithica-expedition-bindings.json).
+**Current source of truth:** [catalog.json](catalog.json), schema 5, covers **11,887 regions / 7,115 occupied sprites**. `sprites[].asset` provides game-independent descriptions, types, subject confidence, layers, composition and measured colors for every region; all 7,115 occupied crops have recorded inspection. `sprites[].ithica` separately distinguishes **166 current selected IDs**, **75 preview-only IDs** and **6,874 unbound occupied sprites**, with lunar roles, limits and future ideas. [Schema/authoring guide](reference/CATALOG_V2.md) · [14 current field aliases](reference/ithica-sprites.md) · [colony selection](ithica-colony-sprites.json) · [field/preview selection](ithica-expedition-bindings.json).
 
 Original PNGs, IDs, crops and publisher-identity evidence remain unchanged. Current home and field contexts can cast the same crop differently. The full atlas is available with F2 in Ithica and in [the offline browser/scene lab](atlas.html). Registration in a viewer is not gameplay use.
 
@@ -31,7 +31,7 @@ The long Markdown tables contain **all sprite entries**, not just a shortlist. B
 | Input prompts, all nine sheets | 9 | 786 | 8 author/font-credit regions |
 | **Total** | **664** | **7,115** | **4,772 non-sprite regions** |
 
-There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `ithica-colony-sprites.json` and catalog schema 4.
+There are **11,887 total records**. At import, **1,885 sprite records had a proposed use for an existing feature**, and **5,230 remained unmapped with future-use ideas**. Current runtime selection is recorded separately in `ithica-colony-sprites.json` and catalog schema 5.
 
 “Occupied sprite region” means a crop containing visible artwork. It does **not** mean a guaranteed independent object or unique design. Multi-cell machines, large buildings, banners, celestial bodies, and plants contribute several cells. Six extremely sparse cells contain only one or two foreground pixels and are explicitly flagged for review. Forty-two sprite crops repeat another crop's exact RGBA pixels and dimensions; their individual entries remain present with `identical_crop_to` links.
 
@@ -39,7 +39,7 @@ There are **11,887 total records**. At import, **1,885 sprite records had a prop
 
 | Field / value | Meaning |
 |---|---|
-| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog schema 4 records current Ithica/preview selection separately. |
+| `runtime_status: unused` in the frozen audit | The terminal prototype did not load this bitmap at import. Catalog schema 5 records current Ithica/preview selection separately. |
 | `mapping_status: proposed` | A proposal for an import-era colony feature; it does not imply an active current binding. |
 | `mapping_status: unmapped` | No specific existing feature is assigned. Read `future_ideas` for a possible use and any mechanics/art changes it would need. |
 | `not_applicable` | Empty space, separator art, or a source credit, rather than a gameplay sprite. |
