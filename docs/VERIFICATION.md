@@ -78,6 +78,12 @@ Executed validation: **26 generic tests passed**, deterministic catalog freshnes
 
 Executed validation: **26 generic tests passed**, all **11,887** metadata objects passed Draft 2020-12 schema validation, and regeneration/freshness plus original PNG/archive/crop hashes passed. The builder now rejects invalid authored composition values, and the full-record contract checks their vocabulary. No game bindings or source images changed. Remaining art sections and atlas controls are still in progress.
 
+## Neutral visual authoring: spacecraft, celestial artwork and symbols
+
+**Recorded: 2026-10-20, Fedora 44 / WSL2 x64.** Inspected the five one-bit sheets for columns 78–102, with enlarged crops for dense symbol rows, and added 345 individual descriptions. Current totals are 1,569 individual observations and 37 inspected sheets covering 5,581 occupied crops. Coverage includes craft silhouettes/fragments, celestial quadrants, small figure/prop poses, beam motifs, playing-card ranks, status symbols, moon-like disk shapes and the multicolored edge glyph. Descriptions retain uncertainty about species, animation, device functions, card values and symbol meanings.
+
+Executed validation: **26 generic tests passed**, all **11,887** metadata objects passed schema validation, and deterministic freshness plus original-file/crop hashes passed. No source images or game bindings changed. Bottom/edge figure exceptions, icon/control inspection and atlas controls remain in progress.
+
 ## Reproduction
 
 ```sh
