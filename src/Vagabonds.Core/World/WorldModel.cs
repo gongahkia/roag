@@ -164,9 +164,12 @@ public sealed class WorldPlan
     }
 }
 
+public sealed record Preparation(string Definition, string Effect, int Power, long Until);
+public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
 public sealed class Actor
 {
     [JsonRequired] public BodyState Body { get; set; } = new();
+    public List<Preparation> Preparations { get; set; } = [];
     [JsonRequired] public List<ActorMemory> Memories { get; set; } = [];
     [JsonRequired] public Dictionary<long, int> Trust { get; set; } = [];
     public string VariantId { get; set; } = "";
@@ -250,7 +253,7 @@ public sealed class BodyState
     [JsonRequired] public double WorkDone { get; set; }
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
-public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest }
+public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest, Camp }
 public sealed class WorkOrder
 {
     [JsonRequired] public long Id { get; set; }
@@ -267,6 +270,7 @@ public sealed class WorkOrder
     [JsonRequired] public string Status { get; set; } = "Waiting";
     public bool PartyApproach { get; set; }
     public bool Suspended { get; set; }
+    public WorldPosition? Station { get; set; }
     public bool PinnedWorker { get; set; }
     public int Priority { get; set; } = 1;
 }
@@ -384,6 +388,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public CampStory? LastCampStory { get; set; }
     [JsonRequired] public List<WorldDiscovery> Discoveries { get; set; } = [];
     [JsonRequired] public HashSet<int> KnownSites { get; set; } = [];
     [JsonRequired] public List<CombatEvent> CombatEvents { get; set; } = [];

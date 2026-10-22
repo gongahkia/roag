@@ -111,3 +111,9 @@ Inspecting tiles or opening panels does not cancel jobs. A travel click temporar
 Hover fruit trees, fishing banks, herb patches, nests, mushrooms and iron deposits to inspect their stock and yield. Right-click **Gather resources**, or drag-select multiple tiles and use the same command. Available companions take separate jobs. Exhausted plants and fishing banks show a depleted sprite and a recovery time; mineral deposits remain exhausted. Digging removes terrain and the resource on it, so harvest a deposit before clearing it if you want its ore.
 
 Digging no longer charges food per tile; it uses work time and the normal fatigue/hunger simulation. Equip the starting pickaxe or fishing rod under Party for faster work. Tools have their own slot, leaving weapons equipped. Party → Shared pack shows gathered ingredients. Both tools can be crafted beside a camp.
+
+### Preparing at camp
+
+Right-click an existing camp and choose **Assign camp duties**. Select a companion portrait and Cooking, Treatment, Watch or Stories. Each person has one job at a time; different duties can run together, and Work allows reassignment or cancellation. The camp panel keeps time running until you press Pause. Resting the party lets assigned camp workers continue their duties.
+
+Cooking uses gathered ingredients to prepare against burning, bleeding, physical attacks or dread. Hover recipes for the exact effect and cost. Meals serve conscious party members within six tiles; effects and remaining time appear on portrait tooltips. Treatment consumes medicine to heal wounds. Watch grants initiative and an opening guard for the next three game hours. Stories respond to recent events and reveal actual sites on World map; **Camp conversation** replays them with portraits, speech and animation. Repeating a story requires waiting for the speaker's cooldown.

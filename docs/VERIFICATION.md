@@ -185,3 +185,12 @@ Final publish and the published `--world-headless` scenario passed recruitment, 
 - Catalog regeneration check passed. Developer previews executed real harvesting for apple trees (seed 42), fishing banks (1337), deep iron (42). Resource references, strict validation, scaffold template and regenerated JSON schema are available; `review-tooling` reports 176 valid definitions across 17 families. New authoring guide documents the registry and runtime preview.
 
 These checks verify this resource milestone, not the still-pending camp roles, equipment combinations, wildlife, discovery approaches or cooperative abilities in EXPEDITION_SYSTEMS.md. Content hash changes require an explicit new campaign; no player save was used.
+
+## Camp duties milestone — 2026-10-22
+
+- Release full suite: 329/329 tests passed. New camp checks cover simultaneous named duties and exact saves, missing-supply/duplicate-duty no-cost rejection, refunds after cancellation or dismantling, workers continuing through party rest, actual armour/periodic-damage protections and expiry, real-site story discoveries/cooldowns, malformed preparations/reservations, registry validation, and nonoverlapping controls at 1024×720 and 1908×1120.
+- Native `verify-native --scenes world-camp --output artifacts/integration/camp-native-focused` under Xvfb: nine checks passed. Mouse controls assigned three distinct duties, let time run, completed all effects, reloaded them, generated a site clue and displayed/replayed the voiced two-portrait story. Inspected `camp-duties.png` and `camp-conversation.png`.
+- An earlier combined native run passed baseline/resource scenarios but stopped at the new camp assertion: the verifier compared a persisted numeric enum to its UI string. Corrected it to identify camp definitions, added `--scenes` to focus future native iteration, and reran camp successfully. This was a verifier failure, not missing work orders; the captured UI showed all three distinct workers.
+- Runtime previews for `camp.apple-broth` (42) and `camp.stories` (1337) completed normally. Schema regenerated; tooling review reports 183 valid definitions / 18 families. Authoring guide documents the new family, effect rules and native scenario selection.
+
+The full approved expansion remains active: equipment variants, wildlife, multi-approach discoveries and cooperative abilities are not claimed complete here.

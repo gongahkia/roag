@@ -73,7 +73,7 @@ internal static class WorldContextActions
                 string reason = session.State.Position.Distance(p) <= 1 || session.RouteToAdjacent(p).Count > 0 ? "" : "No free observed approach reaches this camp.";
                 if (reason.Length == 0 && session.State.Structures.Any(s => s.Position == p && s.Condition <= 20)) reason = "Repair this worn camp first.";
                 string restReason = reason.Length > 0 ? reason : session.Count("food") < session.State.Party.Count ? $"Rest needs {session.State.Party.Count} food." : "";
-                options.Add(new("rest", "Rest here / 1 hour", restReason)); options.Add(new("craft", "Craft here", reason));
+                options.Add(new("camp", "Assign camp duties", reason)); options.Add(new("rest", "Rest here / 1 hour", restReason)); options.Add(new("craft", "Craft here", reason));
             }
             if (actor is { Kind: ActorKind.Person, Recruited: false } && session.State.Position.Distance(session.Plan.Towns[actor.HomeTown].Center) <= 28)
             {
@@ -188,7 +188,7 @@ internal sealed partial class WorldGame
             case "travel": case "interact": BeginApproach(WorldMouseNavigation.Plan(_session, p)); break;
             case "party": if (actor != null) { _packMember = _session.State.Party.IndexOf(actor.Id); _panel = "inventory"; } break;
             case "lead": if (actor != null) Execute(new(WorldCommandKind.LeadParty, ActorId: actor.Id)); break;
-            case "rest": case "craft":
+            case "rest": case "craft": case "camp":
                 var route = _session.RouteToAdjacent(p); bool reachable = route.Count > 0 || _session.State.Position.Distance(p) <= 1;
                 BeginApproach(new(route, new(action, p), reachable, "No free approach reaches this camp.")); break;
             case "work":

@@ -48,6 +48,7 @@ public sealed partial class WorldSession
                 }
             }
             actor.Memories.RemoveAll(m => m.Until <= State.Tick);
+            actor.Preparations.RemoveAll(p => p.Until <= State.Tick);
             if (State.Tick % 50 != 0 || fighting) continue;
             if (body.Hunger >= settings.StarveAt)
             {

@@ -295,6 +295,24 @@ public sealed class WorldMouseTests
         }
         Assert.Equal(before, JsonSerializer.Serialize(session.State));
     }
+    [Theory]
+    [InlineData(1024, 720)] [InlineData(1908, 1120)]
+    public void CampControlsShowCompanionsCostsAndNoOverlaps(int width, int height)
+    {
+        var session = WorldSession.Create(42); var camp = CampPreview.Prepare(session); var client = Client(session);
+        Field("_campPosition").SetValue(client, camp); Field("_campRole").SetValue(client, "cook");
+        string before = JsonSerializer.Serialize(session.State);
+        Field("_panel").SetValue(client, "camp"); Invoke(client, "BuildMouseControls", width, height);
+        var controls = ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToArray();
+        Assert.False(WorldGame.PanelPausesTime("camp")); Assert.Equal(4, controls.Count(c => c.Id.StartsWith("campworker:", StringComparison.Ordinal) && c.Sprite != null));
+        Assert.Contains(controls, c => c.Id == "campduty:camp.apple-broth" && c.Enabled && c.Detail.Contains("apple", StringComparison.Ordinal));
+        for (int i = 0; i < controls.Length; i++)
+        {
+            Assert.True(new Rectangle(0, 0, width, height).Contains(controls[i].Bounds));
+            for (int j = i + 1; j < controls.Length; j++) Assert.False(controls[i].Bounds.Intersects(controls[j].Bounds));
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
     [Fact]
     public void IllustratedJournalUsesUnambiguousSubjectsAndPreservesLongText()
     {

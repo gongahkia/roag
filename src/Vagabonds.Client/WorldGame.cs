@@ -50,6 +50,7 @@ internal sealed partial class WorldGame : Game
         _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
+        if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
@@ -148,7 +149,7 @@ internal sealed partial class WorldGame : Game
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (_session.IsInCombat)
         {
-            if (!wasInCombat && _panel is "work" or "inventory") ClosePanel();
+            if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
             StopTravel(); _enemyTimer += gameTime.ElapsedGameTime.TotalSeconds;
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
@@ -160,7 +161,7 @@ internal sealed partial class WorldGame : Game
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
         _mouse = mouse; base.Update(gameTime);
     }
-    internal static bool PanelPausesTime(string panel) => panel.Length > 0 && panel is not ("work" or "inventory");
+    internal static bool PanelPausesTime(string panel) => panel.Length > 0 && panel is not ("work" or "inventory" or "camp");
     private void Toggle(string panel) { string next = _panel == panel ? "" : panel; ClosePanel(); _panel = next; }
     private Actor[] WorkCandidates() => _session.State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && a.Position.Distance(_session.State.Position) <= 100).OrderByDescending(a => a.Recruited).ThenBy(a => a.Id).ToArray();
     private RecipeDefinition[] CraftRecipes() => _session.Content.Game.Recipes.Select(_session.Content.Get<RecipeDefinition>).Where(r => r.Output != null).ToArray();
@@ -282,7 +283,7 @@ internal sealed partial class WorldGame : Game
             Capture();
             if (_options.WorldSmoke)
             {
-                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene is "world-battle" or "world-boss" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
+                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene is "world-battle" or "world-boss" or "world-camp" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
                 Console.WriteLine(JsonSerializer.Serialize(new { worldSmoke = checks.Values.All(c => c) ? "passed" : "failed", checks, frames = _draws, updateP95Ms = Percentile(_updates), frameP95Ms = Percentile(_frames), averageFramesPerSecond = _draws / _runtime.Elapsed.TotalSeconds, residentChunks = _session.Chunks.ResidentCount }));
                 if (checks.Values.Any(c => !c)) throw new InvalidDataException("Native world smoke check failed.");
             }

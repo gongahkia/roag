@@ -39,7 +39,7 @@ internal sealed partial class WorldGame
     }
     private void UpdateConversation(double elapsed)
     {
-        if (_panel != "person" || !IsActive) { _voice?.Stop(); return; }
+        if (_panel is not ("person" or "camp-story") || !IsActive) { _voice?.Stop(); return; }
         EnsureConversation();
         _dialogue?.Update(elapsed, (actor, c) => (_voice ??= new()).Play(actor, c, _voiceVolume));
     }
@@ -60,12 +60,12 @@ internal sealed partial class WorldGame
         EnsureConversation();
         var person = _session.State.Actors.FirstOrDefault(a => a.Id == _person);
         if (person == null) return;
-        var player = _session.Party.First(a => a.Life == LifeState.Alive);
+        var player = _session.Party.FirstOrDefault(a => a.Life == LifeState.Alive && (_panel != "camp-story" || a.Id != person.Id)) ?? person;
         int size = PortraitSize(box), y = box.Top + 58;
-        DrawSpeaker(player, SpeakingPortrait(player, box, false), false);
+        if (player.Id != person.Id) DrawSpeaker(player, SpeakingPortrait(player, box, false), false);
         DrawSpeaker(person, SpeakingPortrait(person, box, true), true);
         int middle = box.Center.X - 128;
-        Text("A MOMENT OFF THE ROAD", middle, box.Top + 88, Muted);
+        Text(_panel == "camp-story" ? "BY THE CAMPFIRE" : "A MOMENT OFF THE ROAD", middle, box.Top + 88, Muted);
         Text("Trust " + player.Trust.GetValueOrDefault(person.Id), middle, box.Top + 120, Gold);
         Text($"Hunger {person.Body.Hunger:0} / Fatigue {person.Body.Fatigue:0}", middle, box.Top + 144, Muted);
         Text($"Wounds {person.Body.Wounds} / {person.Job}", middle, box.Top + 168, Muted);

@@ -27,6 +27,11 @@ internal sealed partial class WorldGame
     private static readonly JsonSerializerOptions UiJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private Rectangle PanelBox(int w, int h) => new(32, 84, w - 64, h - 202);
     private static string Short(string text, int count) => text.Length > count ? text[..Math.Max(1, count - 3)] + "..." : text;
+    private WorldPosition _campPosition;
+    private long _campWorker;
+    private string _campRole = "cook";
+    private int _campPage;
+    private CampDefinition[] CampChoices() => _session.Content.Game.CampActivities.Select(_session.Content.Get<CampDefinition>).Where(d => d.Role == _campRole).ToArray();
     private int _suppliesPage;
     private ItemDefinition[] SupplyChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot == "none").ToArray();
     private ItemDefinition[] EquipmentChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
@@ -78,6 +83,7 @@ internal sealed partial class WorldGame
         else if (intent.Kind == "storage") { _storage = cell; _storagePage = 0; _panel = "storage"; }
         else if (intent.Kind == "rest") Execute(new(WorldCommandKind.Camp));
         else if (intent.Kind == "craft") _panel = "craft";
+        else if (intent.Kind == "camp") { _campPosition = cell; _campWorker = _session.State.Party[0]; _panel = "camp"; }
         else if (intent.Kind == "stairs") Execute(new(WorldCommandKind.Interact, cell));
     }
     private void BuildMouseControls(int w, int h)
@@ -109,7 +115,7 @@ internal sealed partial class WorldGame
                     string[] labels = ["How to play", "World inspector", "Reset exploration zoom", "Toggle fullscreen", "Save and quit"];
                     for (int i = 0; i < ids.Length; i++) Add(ids[i], labels[i], x, y + i * 52, Math.Min(360, width), 40);
                     break;
-                case "person":
+                case "person": case "camp-story":
                     EnsureConversation();
                     Add("voice-volume", $"Voice: {_voiceVolume:P0}", box.Right - 450, box.Top + 12, 140, tip: _voice?.Unavailable == true ? "No audio device available. Dialogue remains readable." : "Cycle speech volume; 0% mutes voices.");
                     Add("speech-motion", _reducedMotion ? "Motion: Reduced" : "Motion: Full", box.Right - 300, box.Top + 12, 188);
@@ -119,6 +125,7 @@ internal sealed partial class WorldGame
                         Add("dialogue-next", _dialogue?.Speaking == true ? "Show full line" : "Continue", speech.Right - 164, speech.Bottom - 36, 152, 30);
                         break;
                     }
+                    if (_panel == "camp-story") { Add("panel:camp", "Back to duties", x, box.Bottom - 88, 192); break; }
                     var interactions = _session.Interactions(_person);
                     _interactionPage = Math.Clamp(_interactionPage, 0, Math.Max(0, (interactions.Count - 1) / 6));
                     for (int row = 0; row < Math.Min(6, interactions.Count - _interactionPage * 6); row++)
@@ -144,6 +151,27 @@ internal sealed partial class WorldGame
                         Add("sell:" + item, "Sell 1", box.Right - 132, y + 46 + i * 56, 96, 36, _session.Count(item) > 0);
                     }
                     break;
+                case "camp":
+                    var campParty = _session.Party.ToArray(); int campCardWidth = (width - 8 * (campParty.Length - 1)) / campParty.Length;
+                    if (!campParty.Any(a => a.Id == _campWorker)) _campWorker = campParty[0].Id;
+                    for (int i = 0; i < campParty.Length; i++)
+                        Add("campworker:" + campParty[i].Id, campParty[i].Name, x + i * (campCardWidth + 8), y, campCardWidth, 64, campParty[i].Life == LifeState.Alive, selected: _campWorker == campParty[i].Id,
+                            sprite: campParty[i].Sprite, tip: _session.PreparationDescription(campParty[i]), detail: _session.State.Work.Any(w => w.Worker == campParty[i].Id) ? "Assigned to work" : "Available for duty");
+                    string[] campRoles = ["cook", "treat", "watch", "stories"], roleLabels = ["Cooking", "Treatment", "Watch", "Stories"];
+                    for (int i = 0; i < campRoles.Length; i++) Add("camprole:" + campRoles[i], roleLabels[i], x + i * ((width - 24) / 4 + 8), y + 74, (width - 24) / 4, 32, selected: _campRole == campRoles[i]);
+                    var duties = CampChoices(); _campPage = Math.Clamp(_campPage, 0, Math.Max(0, (duties.Length - 1) / 3));
+                    for (int i = 0; i < Math.Min(3, duties.Length - _campPage * 3); i++)
+                    {
+                        var duty = duties[_campPage * 3 + i]; string unavailable = _session.CampActivityReason(_campPosition, duty.Id, _campWorker);
+                        Add("campduty:" + duty.Id, duty.Name, x, y + 122 + i * 54, width, 48, unavailable.Length == 0, sprite: duty.Sprite,
+                            detail: duty.Cost.Count == 0 ? "Time and effort" : string.Join(", ", duty.Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name)),
+                            tip: duty.Description + " " + duty.Work + " work. Effects reach companions within six tiles.", reason: unavailable);
+                    }
+                    Add("camppage:-1", "Prev", x, y + 290, 72, enabled: _campPage > 0);
+                    Add("camppage:1", "Next", x + 80, y + 290, 72, enabled: (_campPage + 1) * 3 < duties.Length);
+                    Add("panel:work", "Manage duties", x + 160, y + 290, 152);
+                    Add("campstory", "Camp conversation", x + 320, y + 290, 200, enabled: _session.State.LastCampStory is { } story && story.Camp == _campPosition);
+                    break;
                 case "supplies":
                     var supplies = SupplyChoices(); _suppliesPage = Math.Clamp(_suppliesPage, 0, Math.Max(0, (supplies.Length - 1) / 12));
                     for (int row = 0; row < Math.Min(12, supplies.Length - _suppliesPage * 12); row++)
@@ -160,7 +188,7 @@ internal sealed partial class WorldGame
                     var party = _session.Party.ToArray(); var member = SelectedMember(); var items = EquipmentChoices();
                     int card = (width - 8 * (party.Length - 1)) / party.Length;
                     for (int i = 0; i < party.Length; i++) Add("party:" + i, party[i].Name, x + i * (card + 8), y, card, 72, selected: party[i].Id == member.Id,
-                        tip: _session.Class(party[i]).Name + ": " + string.Join(", ", _session.Class(party[i]).Abilities.Select(id => _session.Content.Get<AbilityDefinition>(id).Name)),
+                        tip: _session.Class(party[i]).Name + ": " + string.Join(", ", _session.Class(party[i]).Abilities.Select(id => _session.Content.Get<AbilityDefinition>(id).Name)) + ". Preparations: " + _session.PreparationDescription(party[i]),
                         sprite: party[i].Sprite, detail: $"L{party[i].Level} / HP {party[i].Health}/{party[i].MaxHealth}", progress: (float)party[i].Health / Math.Max(1, party[i].MaxHealth), dimmed: party[i].Life != LifeState.Alive);
                     _gearPage = Math.Clamp(_gearPage, 0, Math.Max(0, (items.Length - 1) / 8));
                     for (int row = 0; row < Math.Min(8, items.Length - _gearPage * 8); row++)
@@ -348,6 +376,13 @@ internal sealed partial class WorldGame
             case "mark-linked-site": _waypoint = _session.Plan.Sites[_session.State.Discoveries.Single(d => d.Id == _discoveryId).SiteId].Center; _notice = "Dungeon destination marked. It is accessible now, with its existing dangers."; break;
             case "buy": case "sell": Execute(new(action == "buy" ? WorldCommandKind.Buy : WorldCommandKind.Sell, Item: argument)); break;
             case "party": _packMember = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "campworker": _campWorker = long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "camprole": _campRole = argument; _campPage = 0; break;
+            case "camppage": _campPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "campduty": if (Execute(new(WorldCommandKind.CampActivity, _campPosition, ActorId: _campWorker, Item: argument))) _session.Paused = false; break;
+            case "campstory":
+                if (_session.State.LastCampStory is { } campStory && _session.State.Actors.FirstOrDefault(a => a.Id == campStory.Speaker) is { } speaker)
+                { _person = speaker.Id; _panel = "camp-story"; ShowDialogue([new(speaker.Id, speaker.Name, speaker.Sprite, campStory.Text)]); _afterDialogue = "camp"; } break;
             case "supplypage": _suppliesPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "supply": break;
             case "gearpage": _gearPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _packItem = _gearPage * 8; break;
@@ -441,7 +476,7 @@ internal sealed partial class WorldGame
                 prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
             work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker }),
             rally = _session.State.WorkRally,
-            dialogue = _panel != "person" || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
+            dialogue = _panel is not ("person" or "camp-story") || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),

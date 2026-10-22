@@ -137,6 +137,7 @@ public sealed partial class WorldSession
         switch (command.Kind)
         {
             case WorldCommandKind.Build: case WorldCommandKind.Dig: case WorldCommandKind.Repair: case WorldCommandKind.Harvest: return TargetBlockReason(command.Kind, command.Target, command.Material);
+            case WorldCommandKind.CampActivity: return CampActivityReason(command.Target, command.Item, command.ActorId);
             case WorldCommandKind.AssignWork:
                 var order = State.Work.FirstOrDefault(w => w.Id == command.WorkId);
                 if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person) return "Select a pending order and a living worker.";

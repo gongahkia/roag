@@ -44,7 +44,7 @@ public sealed partial class WorldSession
         {
             if (!InWorkRally(order.Target)) { order.Status = "Outside the 16-tile rally area; move the party closer"; continue; }
             if (available.Count == 0) { order.Status = "Waiting for a free, rested party member"; continue; }
-            var choice = available.Where(a => order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick).Select(a => (Actor: a, Path: WorkPath(a, order.Target, routes: Routes(a))))
+            var choice = available.Where(a => (order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a, Path: WorkPath(a, order.Target, routes: Routes(a))))
                 .Where(p => p.Path != null).OrderBy(p => p.Path!.Count).ThenBy(p => p.Actor.Id).FirstOrDefault();
             if (choice.Actor == null) { order.Status = "No free observed approach; open access or move blockers"; continue; }
             order.Worker = choice.Actor.Id; available.Remove(choice.Actor);

@@ -58,6 +58,7 @@ internal sealed partial class WorldGame
 
     private string WorkSprite(WorkOrder order)
     {
+        if (order.Kind == WorkKind.Camp) return _session.Content.Get<CampDefinition>(order.Definition).Sprite!;
         if (order.Kind == WorkKind.Harvest) return _session.Content.Get<ResourceDefinition>(order.Definition).Sprite!;
         if (order.Kind == WorkKind.Forage) return _session.Content.Get<ItemDefinition>("item.food").Sprite!;
         if (order.Kind == WorkKind.Craft && _session.Content.Entries.TryGetValue(order.Definition, out var definition) && definition is RecipeDefinition { Output: { } output })

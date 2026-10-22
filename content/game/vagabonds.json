@@ -125,5 +125,14 @@
     "resource.honey-tree",
     "resource.cave-mushrooms",
     "resource.deep-iron"
+  ],
+  "campActivities": [
+    "camp.apple-broth",
+    "camp.cherry-eggs",
+    "camp.mushroom-stew",
+    "camp.honey-tea",
+    "camp.treatment",
+    "camp.watch",
+    "camp.stories"
   ]
 }

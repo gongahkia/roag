@@ -1,0 +1,16 @@
+{
+  "kind": "camp",
+  "id": "camp.honey-tea",
+  "name": "Honey and herb tea",
+  "sprite": "potion",
+  "role": "cook",
+  "effect": "focus",
+  "power": 3,
+  "duration": 1800,
+  "work": 45,
+  "cost": {
+    "item.honey": 1,
+    "item.herbs": 1
+  },
+  "description": "Serves nearby companions: dread attacks cause 9 less stress for 6 game hours."
+}

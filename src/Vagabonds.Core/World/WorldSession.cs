@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork, Harvest }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork, Harvest, CampActivity }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
@@ -181,6 +181,7 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.Craft: return QueueCraft(command.Item);
             case WorldCommandKind.Forage: return QueueForage();
             case WorldCommandKind.Harvest: return QueueHarvest(command.Target);
+            case WorldCommandKind.CampActivity: return QueueCampActivity(command.Target, command.Item, command.ActorId);
             case WorldCommandKind.Wait: return Wait(command.Amount);
             case WorldCommandKind.ConfigureWork: return ConfigureWork(command.WorkId, command.Item, command.Amount);
             case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
@@ -224,7 +225,8 @@ public sealed partial class WorldSession : IGameSession
                 Add("food", -State.Party.Count);
                 foreach (var a in Party.Where(a => a.Life == LifeState.Alive))
                 {
-                    a.Body.RestUntil = State.Tick + TicksPerHour + 1; a.Body.Hunger = Math.Max(0, a.Body.Hunger - Simulation.MealReduction);
+                    if (!State.Work.Any(w => w.Kind == WorkKind.Camp && w.Worker == a.Id && !w.Suspended)) a.Body.RestUntil = State.Tick + TicksPerHour + 1;
+                    a.Body.Hunger = Math.Max(0, a.Body.Hunger - Simulation.MealReduction);
                     Remember(a, "camp-rest", "We took time to eat and recover.", 8);
                 }
                 return Wait(TicksPerHour);

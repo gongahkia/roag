@@ -10,7 +10,7 @@ internal sealed partial class WorldGame
     {
         var box = PanelBox(w, h); Fill(box, new(24, 31, 37));
         int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
-        string title = _panel switch { "inventory" => "PARTY & EQUIPMENT", "game" => "GAME MENU", "person" => "CONVERSATION", "actions" => "EXPEDITION ACTIONS", "loot" => "CHOOSE YOUR EQUIPMENT", "spoils" => "ENCOUNTER WON", "combat-log" => "COMBAT LOG", _ => _panel.ToUpperInvariant() };
+        string title = _panel switch { "inventory" => "PARTY & EQUIPMENT", "camp-story" => "CAMPFIRE STORIES", "game" => "GAME MENU", "person" => "CONVERSATION", "actions" => "EXPEDITION ACTIONS", "loot" => "CHOOSE YOUR EQUIPMENT", "spoils" => "ENCOUNTER WON", "combat-log" => "COMBAT LOG", _ => _panel.ToUpperInvariant() };
         Text(title, x, box.Y + 18, Gold, 2);
         switch (_panel)
         {
@@ -42,6 +42,9 @@ internal sealed partial class WorldGame
                 }
                 break;
             case "inventory": DrawInventorySummary(box); break;
+            case "camp":
+                Text("Choose a companion, a duty and an activity. Time runs; Pause to plan.", x, box.Bottom - 50, Muted); break;
+            case "camp-story": DrawConversation(box); break;
             case "supplies": Text("Ingredients and supplies shared by the expedition.", x, y, Muted); break;
             case "discovery":
                 if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)

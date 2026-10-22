@@ -22,6 +22,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(IncidentDefinition), "incident")]
 [JsonDerivedType(typeof(DiscoveryDefinition), "discovery")]
 [JsonDerivedType(typeof(ResourceDefinition), "resource")]
+[JsonDerivedType(typeof(CampDefinition), "camp")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -49,6 +50,7 @@ public sealed class GameDefinition : ContentDefinition
     public required string[] Incidents { get; set; }
     public string[] Discoveries { get; set; } = [];
     public string[] Resources { get; set; } = [];
+    public string[] CampActivities { get; set; } = [];
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
@@ -58,6 +60,15 @@ public sealed class DiscoveryDefinition : ContentDefinition
     public Dictionary<string, int> Supplies { get; set; } = [];
     public string[] Rewards { get; set; } = [];
     public string[] Enemies { get; set; } = [];
+}
+public sealed class CampDefinition : ContentDefinition
+{
+    public required string Role { get; set; }
+    public required string Effect { get; set; }
+    public int Power { get; set; } = 2;
+    public int Duration { get; set; } = 1800;
+    public int Work { get; set; } = 60;
+    public Dictionary<string, int> Cost { get; set; } = [];
 }
 public sealed class ResourceDefinition : ContentDefinition
 {

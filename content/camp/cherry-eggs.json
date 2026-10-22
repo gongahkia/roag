@@ -1,0 +1,16 @@
+{
+  "kind": "camp",
+  "id": "camp.cherry-eggs",
+  "name": "Cherry and egg skillet",
+  "sprite": "cherry",
+  "role": "cook",
+  "effect": "bleed-resist",
+  "power": 2,
+  "duration": 1800,
+  "work": 55,
+  "cost": {
+    "item.cherry": 2,
+    "item.egg": 1
+  },
+  "description": "Serves nearby companions: reduces bleeding damage by 2 for 6 game hours."
+}

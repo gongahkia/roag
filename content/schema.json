@@ -898,6 +898,15 @@
             ]
           }
         },
+        "campActivities": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "id": {
           "type": "string"
         },
@@ -1312,6 +1321,65 @@
         "biomes",
         "depletedSprite",
         "yield",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "camp"
+        },
+        "role": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "power": {
+          "type": "integer"
+        },
+        "duration": {
+          "type": "integer"
+        },
+        "work": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "role",
+        "effect",
         "id",
         "name"
       ],

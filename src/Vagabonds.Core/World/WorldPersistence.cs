@@ -91,6 +91,14 @@ public sealed partial class WorldSession
                 || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(ContentCatalog.Default.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid resource work order.");
         }
+        foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Camp))
+        {
+            if (order.Station is not { } station || !session.ServiceableCamp(station) || order.Target.Distance(station) > 2
+                || !ContentCatalog.Default.Entries.TryGetValue(order.Definition, out var entry) || entry is not CampDefinition duty
+                || order.Required != duty.Work || order.Before != order.After || order.Yield.Count != 0 || order.Reserved.Count != duty.Cost.Count
+                || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(ContentCatalog.Default.Get<ItemDefinition>(y.Key).Stack) != y.Value))
+                throw new InvalidDataException("Invalid camp duty.");
+        }
         session.RestorePartyFormation();
         session.PrepareLocalCollision(force: true); session.Reveal();
         return session;
@@ -110,6 +118,10 @@ public sealed partial class WorldSession
         var stacks = ContentCatalog.Default.All<ItemDefinition>().Select(i => i.Stack).ToHashSet();
         foreach (var actor in s.Actors)
         {
+            if (actor.Preparations == null || actor.Preparations.Count > 5 || actor.Preparations.Select(p => p?.Effect).Distinct().Count() != actor.Preparations.Count
+                || actor.Preparations.Any(p => p == null || !ContentCatalog.Default.Entries.TryGetValue(p.Definition, out var entry) || entry is not CampDefinition camp
+                    || camp.Role is not ("cook" or "watch") || p.Effect != camp.Effect || p.Power != camp.Power || p.Until < 1 || p.Until > s.Tick + camp.Duration))
+                throw new InvalidDataException("Invalid camp preparation.");
             var body = actor.Body;
             if (new[] { body.Hunger, body.Fatigue }.Any(v => !double.IsFinite(v) || v < 0 || v > 100) || body.Wounds is < 0 or > 10
                 || body.RestUntil < 0 || body.ForageAfter < 0 || !double.IsFinite(body.ForageProgress) || body.ForageProgress is < 0 or > 300 || !double.IsFinite(body.WorkDone) || body.WorkDone < 0
@@ -117,6 +129,7 @@ public sealed partial class WorldSession
                     || m.Tick < 0 || m.Tick > s.Tick || m.Until < m.Tick || m.Mood is < -20 or > 20 || m.Other != 0 && !actorIds.Contains(m.Other))
                 || actor.Trust.Any(t => !actorIds.Contains(t.Key) || t.Value is < -100 or > 100)) throw new InvalidDataException("Invalid actor needs or memories.");
         }
+        if (s.LastCampStory is { } story && (!actorIds.Contains(story.Speaker) || story.Text == null || story.Text.Length > 512 || story.Tick < 0 || story.Tick > s.Tick || !plan.Contains(story.Camp))) throw new InvalidDataException("Invalid camp story.");
         bool StackValid(Dictionary<string, int>? values) => values != null && values.All(p => stacks.Contains(p.Key) && p.Value is >= 0 and <= 9999);
         if (s.WorkRally is { } rally && !plan.Contains(rally) || s.Work == null || s.Structures == null || s.NextWorkId < 1 || s.IncidentRandom == 0 || s.IncidentAfter == null || s.Work.Count > 64
             || s.Work.Select(w => w?.Id).Distinct().Count() != s.Work.Count
@@ -125,6 +138,7 @@ public sealed partial class WorldSession
                 || w.Kind == WorkKind.Build && w.After is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)
                 || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
                 || w.Worker != 0 && !actorIds.Contains(w.Worker) || !StackValid(w.Reserved) || !StackValid(w.Yield) || w.Status == null || w.Priority is < 0 or > 2
+                || w.Kind == WorkKind.Camp && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var campDuty) || campDuty is not CampDefinition || w.Station == null || !plan.Contains(w.Station.Value))
                 || w.Kind is WorkKind.Build or WorkKind.Craft && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var recipe) || recipe is not RecipeDefinition))
             || s.Work.Where(w => w.Worker != 0).GroupBy(w => w.Worker).Any(g => g.Count() > 1)
             || s.Structures.Any(b => b == null || !plan.Contains(b.Position) || !Enum.IsDefined(b.Material) || b.Material is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(b.Foundation)

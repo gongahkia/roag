@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-camp', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-camp', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -76,7 +77,7 @@ def main():
             deadline = time.monotonic() + 40
             while time.monotonic() < deadline:
                 ui = self.ui()
-                if ui.get('panel') != 'person' or ui.get('dialogue', {}).get('finished'): return
+                if ui.get('panel') not in ('person', 'camp-story') or ui.get('dialogue', {}).get('finished'): return
                 self.click('dialogue-next')
             raise RuntimeError('Conversation failed to advance.')
         def tile_point(self, px, py):
@@ -140,176 +141,204 @@ def main():
                     self.click('panel:game'); self.click('quit'); check('cleanMouseExit', self.process.wait(timeout=15) == 0)
             finally: self.abort()
     with tempfile.TemporaryDirectory(prefix='vagabonds-mouse-') as temporary:
-        slot = Path(temporary) / 'world.json'; client = Client('world', slot)
-        try:
-            initial = client.save()['state']; stamp = slot.stat().st_mtime_ns
-            # These are deliberately the only keyboard events in this acceptance run.
-            for key in ('space', 'w', 'F5', 'i', '1'):
-                x('keydown', key); time.sleep(.1); x('keyup', key); time.sleep(.1)
-            check('keyboardGameplayDisabled', client.ui()['tick'] == initial['tick'] and client.ui()['position'] == {k: initial['position'][k] for k in ('x', 'y', 'floor')} and client.ui()['panel'] == '' and slot.stat().st_mtime_ns == stamp)
-            ui = client.ui(); check('readableDefaultCamera', ui['camera']['cellSize'] >= 36 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
-            client.capture('exploration')
-            client.click('panel:game'); client.click('panel:guide'); client.capture('guide'); client.click('close')
-            client.click('panel:game'); client.click('panel:inspector'); client.click('inspect:2'); client.capture('inspector')
-            check('mouseGuideAndInspector', any(c['id'] == 'inspect:2' and c['selected'] for c in client.ui()['controls'])); client.click('close')
-            for _ in range(12): client.click('zoom:out')
-            ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
-            client.click('zoom:default')
-            ui = client.ui(); origin = ui['position']; barrel = next(c for c in ui['cells'] if c['prop'] == 'Barrel')
-            client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
-            check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
-            client.click('context:clear')
-            # Digging spends ordinary work time, never an upfront food charge.
-            baseline = json.loads(slot.read_text()); depleted = json.loads(json.dumps(baseline))
-            depleted['state']['inventory']['food'] = 0
-            slot.write_text(json.dumps(depleted)); client.click('load'); client.context(barrel)
-            ui = client.ui(); dig = next(c for c in ui['controls'] if c['id'] == 'context:dig')
-            check('digWorksWithoutFoodAndExplainsWorkCost', dig['enabled'] and 'no food is reserved' in dig['tip'])
-            client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
-            ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
-            person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
-            client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
-            check('mouseApproachConversation', True)
-            conversation_tick = client.ui()['tick']; time.sleep(.5); client.capture('conversation')
-            check('conversationPausesWorldAndRevealsText', client.ui()['tick'] == conversation_tick and bool(client.ui()['dialogue']['text']))
-            voice = client.ui()['dialogue']; check('conversationVoicePlaysOrReportsMissingDevice', voice['audioUnavailable'] or voice['playedSyllables'] > 0)
-            check('conversationShowsTwoLargePortraits', len(voice['portraits']) == 2 and all(p['bounds']['width'] >= 128 for p in voice['portraits']))
-            client.click('speech-motion'); check('conversationReducedMotion', client.ui()['dialogue']['reducedMotion'])
-            client.click('voice-volume'); check('conversationVolumeControl', client.ui()['dialogue']['volume'] == .75)
-            client.finish_dialogue(); client.click('conversation:interaction.stories')
-            client.wait(lambda u: u['dialogue']['speaker'] == u['party'][0]['id']); client.capture('conversation-player')
-            client.finish_dialogue(); client.click('conversation:interaction.trade'); client.finish_dialogue()
-            check('conversationTradeFollowsSpokenReply', client.ui()['panel'] == 'trade')
-            before = client.save()['state']; client.click('buy:food'); bought = client.save()['state']
-            check('mouseTradeBuy', bought['inventory']['food'] == before['inventory']['food'] + 1)
-            client.click('sell:food'); client.click('close')
-            ui = client.ui(); person = next(a for a in ui['actors'] if a['id'] == person['id'])
-            client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person'); client.finish_dialogue(); client.click('conversation:interaction.recruit'); client.finish_dialogue(); client.pause()
-            recruited = client.save()['state']; check('mouseRecruitment', len(recruited['party']) == 2)
-            check('recruitedMembersStandOnSeparateTiles', client.formation()); client.capture('formation-recruited')
-            camp = client.free_cell(); client.context(camp); client.click('context:build'); client.click('context:construct:Camp')
-            client.pause(); client.click('panel:work'); queued = client.save()['state']
-            check('mouseReservationBeforeCompletion', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
-            ui = client.ui(); worker = next(c for c in ui['controls'] if c['id'].startswith('worker:') and int(c['id'].split(':')[1]) not in queued['party'])
-            client.click(worker['id']); client.click('assign'); assigned = client.save()['state']
-            check('mouseWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party']); client.capture('work')
-            cards = client.ui()['controls']; check('workShowsTaskWorkerAndProgress', all(c['sprite'] for c in cards if c['id'].startswith(('work:', 'worker:'))) and any(c['badgeSprite'] and c['progress'] >= 0 for c in cards if c['id'].startswith('work:')))
-            client.click('close'); client.pause(); client.click('panel:actions'); client.click('wait:300')
-            built = client.save()['state']; check('mouseTimedConstruction', not built['work'] and len(built['structures']) == 1)
-            wall = client.free_cell(); client.context(wall); client.click('context:build'); client.click('context:construct:Wall')
-            client.pause(); client.click('panel:work'); client.click('work:' + str(client.ui()['work'][0]['id'])); client.click('cancel-work'); client.click('close'); client.pause()
-            cancelled = client.save()['state']; check('mouseCancellationRefund', not cancelled['work'] and cancelled['inventory']['stone'] == initial['inventory']['stone'])
-            client.context(camp); client.click('context:rest'); rested = client.save()['state']
-            check('mouseTimedRest', rested['tick'] == cancelled['tick'] + 300)
-            client.context(camp); client.click('context:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
-            crafted = client.save()['state']; recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
-            equipment = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json') if json.loads(p.read_text()).get('slot', 'none') != 'none'), key=lambda d: d['id'])
-            index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
-            check('mouseCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
-            client.click('panel:inventory'); client.click('pause'); party_tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > party_tick + 2); check('partyPanelKeepsTimeRunning', client.ui()['panel'] == 'inventory'); client.pause(); client.click('gear:' + str(index)); client.click('equip'); equipped = client.save()['state']
-            hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0]); check('mouseEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
-            cards = client.ui()['controls']; check('partyShowsPortraitsAndItemSprites', all(c['sprite'] and c['spriteBounds']['height'] >= 30 for c in cards if c['id'].startswith(('party:', 'gear:'))))
-            check('equippedItemHasVisibleWornLabel', any(c['id'] == 'gear:' + str(index) and 'worn' in c['label'] for c in cards))
-            client.capture('party'); client.click('close'); client.click('panel:map'); client.capture('world-map'); client.click('close')
-            client.click('panel:journal'); client.click('history:6'); client.click('history:-6'); client.capture('journal')
-            check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused'])
-            check('journalShowsIllustratedHistory', any(row['start'] and row['sprite'] != 'banner' for row in client.ui()['journal'])); client.click('close')
-            # Real drag/right-click gestures drive batch work and saved approach intent.
-            client.pause(); client.formation(); ui = client.ui(); origin = ui['position']
-            free = {(c['x'], c['y']): c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['prop'] is None and c['material'] in ('Earth', 'Grass')}
-            first = next(c for c in free.values() if 3 <= abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) <= 4 and (c['x'] + 1, c['y']) in free)
-            second = free[(first['x'] + 1, first['y'])]
-            client.drag(first, second); check('dragSelectsWithoutMoving', len(client.ui()['selection']) == 2 and client.ui()['position'] == origin and client.ui()['routeCount'] == 0)
-            client.context(first); client.capture('context-selection')
-            check('rightClickRetainsSelection', len(client.ui()['selection']) == 2 and any(c['id'] == 'context:build' for c in client.ui()['controls']))
-            client.click('context:build'); client.capture('context-build'); client.click('context:construct:Floor')
-            client.click('panel:work'); work_tick = client.ui()['tick']
-            client.wait(lambda u: len([o for o in u['work'] if o['worker'] in [a['id'] for a in u['party']]]) == 2, timeout=5)
-            check('partyWorkersClaimSeparateJobsInManagementPanel', len({o['worker'] for o in client.ui()['work']}) == 2 and not client.ui()['frozen'])
-            client.wait(lambda u: u['tick'] > work_tick + 2)
-            check('workPanelKeepsTimeRunning', True); client.capture('delegated-work')
-            client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause(); client.click('close'); client.formation()
-            paved = client.save()['state']; check('batchConstructionApproachesAndFinishes', all(any(b['position']['x'] == c['x'] and b['position']['y'] == c['y'] for b in paved['structures']) for c in (first, second)))
-            client.drag(first, second); client.context(first); client.click('context:dig'); client.pause()
-            pending = client.save()['state']; check('batchDigReservationsSaved', len(pending['work']) == 2 and all(w['partyApproach'] for w in pending['work']))
-            client.click('load'); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
-            client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause()
-            dug = client.save()['state']; check('batchDigResumesAfterLoadAndRefundsMaterials', dug['inventory']['stone'] == paved['inventory']['stone'] + 4 and len(dug['structures']) == len(paved['structures']) - 2)
-            origin = client.ui()['position']; client.context(client.free_cell())
-            r = client.ui()['map']; client.point(r['x'] + 3, r['y'] + r['height'] - 3)
-            check('contextDismissConsumesClick', client.ui()['context'] is None and client.ui()['routeCount'] == 0 and client.ui()['position'] == origin)
-            companion = client.ui()['party'][-1]; old_cells = {(a['id'], a['x'], a['y']) for a in client.ui()['party']}
-            client.context(companion); client.click('context:lead'); client.formation()
-            check('mouseChangesLeaderWithoutCrossingMembers', client.ui()['party'][0]['id'] == companion['id'] and {(a['id'], a['x'], a['y']) for a in client.ui()['party']} == old_cells)
-            ui = client.ui(); origin = ui['position']; destination = client.free_cell(distance=2); client.tile(destination['x'], destination['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
-            moved = client.save()['state']; check('mouseTravelStartsWithoutKeyboard', moved['position'] != equipped['position'])
-            check('mouseTravelPreservesPartyFormation', client.formation()); client.capture('formation-following')
-            # Isolate world-interaction rendering/input at a real site's already-generated content.
-            fixture = json.loads(slot.read_text()); state = fixture['state']
-            guardian = next(a for a in state['actors'] if a['archetype'].startswith('boss.') and a['position']['floor'] > 1)
-            site_id = (guardian['id'] - 40000) // 8; site = fixture['plan']['sites'][site_id]
-            cache = next(c for c in state['loot'] if c['id'] == f'site-{site_id}-0')
-            state['position'] = dict(cache['position']); state['position']['x'] += 1
-            for actor in state['actors']:
-                if actor['id'] in state['party']: actor['position'] = dict(state['position'])
-            slot.write_text(json.dumps(fixture)); client.click('load')
-            client.wait(lambda u: u['position'] == {k: state['position'][k] for k in ('x', 'y', 'floor')})
-            check('olderStackedSaveSpreadsPartyOnLoad', client.formation())
-            client.tile(cache['position']['x'], cache['position']['y'])
-            looted = client.save()['state']; check('mouseCacheInteraction', next(c for c in looted['loot'] if c['id'] == cache['id'])['taken'])
-            client.tile(site['center']['x'] + 2, site['center']['y']); client.wait(lambda u: u['position']['floor'] == 1); client.pause()
-            check('mouseStairInteraction', True); client.capture('dungeon')
-            check('dungeonLandingHasSeparatePartyTiles', client.formation())
-            ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y']); client.wait(lambda u: u['position']['floor'] == 0)
-            check('surfaceLandingHasSeparatePartyTiles', client.formation())
-            before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
-            check('mouseRejectedLoadPreservesState', before == restored)
-        finally: client.close()
-        client = Client('world-resources', slot)
-        try:
-            ui = client.ui(); origin = ui['position']
-            fruit = next(c for c in ui['cells'] if c['resource'] and c['resource']['id'] == 'resource.apple-tree' and abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) == 1)
-            client.context(fruit); client.capture('resource-tree')
-            check('resourceContextHasHarvest', any(c['id'] == 'context:harvest' and c['enabled'] for c in client.ui()['controls']))
-            client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
-            harvested = client.save(); check('mouseHarvestPersistsStockAndIngredients', harvested['state']['inventory'].get('apple', 0) == 2)
-            client.click('load'); remaining = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']['available']
-            check('resourceStockSurvivesMouseLoad', remaining == fruit['resource']['available'] - 1)
-            client.click('panel:inventory'); client.click('panel:supplies'); client.capture('ingredients-pack')
-            check('packIllustratesHarvestedIngredients', any(c['id'] == 'supply:item.apple' and c['sprite'] == 'apple' and 'x2' in c['label'] for c in client.ui()['controls']))
-            client.click('close')
-            for _ in range(remaining):
-                client.context(fruit); client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
-            client.context(fruit); client.capture('resource-depleted')
-            harvest = next(c for c in client.ui()['controls'] if c['id'] == 'context:harvest')
-            check('exhaustedResourceExplainsRecovery', not harvest['enabled'] and 'recovers' in harvest['reason'])
-        finally: client.close()
-        client = Client('world-battle', slot)
-        try:
-            client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
-            check('fourMembersHaveSeparateTilesInBattle', len(client.ui()['party']) == 4 and client.formation())
-            flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
-            client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.pause()
-            check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
-        finally: client.close()
-        client = Client('world-boss', slot)
-        try:
-            client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
-            before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); client.capture('party-four'); modal = client.save()['state']
-            check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
-            client.click('close'); client.click('skill:0'); selected = client.save()['state']
-            check('mouseAbilityWaitsForTarget', selected['battle'] == modal['battle'] and selected['combatRandom'] == modal['combatRandom'])
-            enemy = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = enemy['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
-            after = client.save()['state']; check('mouseCombatTarget', after['battle'] != selected['battle'] and after['combatRandom'] != selected['combatRandom']); client.capture('combat')
-            fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']; final_id = state['endgame']['actorId']
-            index = battle['actorIds'].index(final_id); battle['units'][index]['health'] = 1; next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
-            battle['turnIndex'] = next(i for i, u in enumerate(battle['order']) if battle['units'][u]['heroId'] >= 0 and battle['units'][u]['health'] > 0)
-            slot.write_text(json.dumps(fixture)); client.click('load'); client.click('skill:0')
-            target = next(u for u in client.ui()['battle']['units'] if u['id'] == index); r = target['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
-            ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
-            client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
-        finally: client.close()
-    report = {'nativeMouseInput': 'passed', 'checks': checks, 'scope': 'Local X11/WSLg. Mouse gameplay only; keyboard events solely verify they are ignored. Temporary saves, explicit site/wounded-boss fixtures; not a balance playthrough.'}
+        slot = Path(temporary) / 'world.json'
+        if 'world' in args.scenes:
+            client = Client('world', slot)
+            try:
+                initial = client.save()['state']; stamp = slot.stat().st_mtime_ns
+                # These are deliberately the only keyboard events in this acceptance run.
+                for key in ('space', 'w', 'F5', 'i', '1'):
+                    x('keydown', key); time.sleep(.1); x('keyup', key); time.sleep(.1)
+                check('keyboardGameplayDisabled', client.ui()['tick'] == initial['tick'] and client.ui()['position'] == {k: initial['position'][k] for k in ('x', 'y', 'floor')} and client.ui()['panel'] == '' and slot.stat().st_mtime_ns == stamp)
+                ui = client.ui(); check('readableDefaultCamera', ui['camera']['cellSize'] >= 36 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
+                client.capture('exploration')
+                client.click('panel:game'); client.click('panel:guide'); client.capture('guide'); client.click('close')
+                client.click('panel:game'); client.click('panel:inspector'); client.click('inspect:2'); client.capture('inspector')
+                check('mouseGuideAndInspector', any(c['id'] == 'inspect:2' and c['selected'] for c in client.ui()['controls'])); client.click('close')
+                for _ in range(12): client.click('zoom:out')
+                ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
+                client.click('zoom:default')
+                ui = client.ui(); origin = ui['position']; barrel = next(c for c in ui['cells'] if c['prop'] == 'Barrel')
+                client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
+                check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
+                client.click('context:clear')
+                # Digging spends ordinary work time, never an upfront food charge.
+                baseline = json.loads(slot.read_text()); depleted = json.loads(json.dumps(baseline))
+                depleted['state']['inventory']['food'] = 0
+                slot.write_text(json.dumps(depleted)); client.click('load'); client.context(barrel)
+                ui = client.ui(); dig = next(c for c in ui['controls'] if c['id'] == 'context:dig')
+                check('digWorksWithoutFoodAndExplainsWorkCost', dig['enabled'] and 'no food is reserved' in dig['tip'])
+                client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
+                ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
+                person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
+                client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
+                check('mouseApproachConversation', True)
+                conversation_tick = client.ui()['tick']; time.sleep(.5); client.capture('conversation')
+                check('conversationPausesWorldAndRevealsText', client.ui()['tick'] == conversation_tick and bool(client.ui()['dialogue']['text']))
+                voice = client.ui()['dialogue']; check('conversationVoicePlaysOrReportsMissingDevice', voice['audioUnavailable'] or voice['playedSyllables'] > 0)
+                check('conversationShowsTwoLargePortraits', len(voice['portraits']) == 2 and all(p['bounds']['width'] >= 128 for p in voice['portraits']))
+                client.click('speech-motion'); check('conversationReducedMotion', client.ui()['dialogue']['reducedMotion'])
+                client.click('voice-volume'); check('conversationVolumeControl', client.ui()['dialogue']['volume'] == .75)
+                client.finish_dialogue(); client.click('conversation:interaction.stories')
+                client.wait(lambda u: u['dialogue']['speaker'] == u['party'][0]['id']); client.capture('conversation-player')
+                client.finish_dialogue(); client.click('conversation:interaction.trade'); client.finish_dialogue()
+                check('conversationTradeFollowsSpokenReply', client.ui()['panel'] == 'trade')
+                before = client.save()['state']; client.click('buy:food'); bought = client.save()['state']
+                check('mouseTradeBuy', bought['inventory']['food'] == before['inventory']['food'] + 1)
+                client.click('sell:food'); client.click('close')
+                ui = client.ui(); person = next(a for a in ui['actors'] if a['id'] == person['id'])
+                client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person'); client.finish_dialogue(); client.click('conversation:interaction.recruit'); client.finish_dialogue(); client.pause()
+                recruited = client.save()['state']; check('mouseRecruitment', len(recruited['party']) == 2)
+                check('recruitedMembersStandOnSeparateTiles', client.formation()); client.capture('formation-recruited')
+                camp = client.free_cell(); client.context(camp); client.click('context:build'); client.click('context:construct:Camp')
+                client.pause(); client.click('panel:work'); queued = client.save()['state']
+                check('mouseReservationBeforeCompletion', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
+                ui = client.ui(); worker = next(c for c in ui['controls'] if c['id'].startswith('worker:') and int(c['id'].split(':')[1]) not in queued['party'])
+                client.click(worker['id']); client.click('assign'); assigned = client.save()['state']
+                check('mouseWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party']); client.capture('work')
+                cards = client.ui()['controls']; check('workShowsTaskWorkerAndProgress', all(c['sprite'] for c in cards if c['id'].startswith(('work:', 'worker:'))) and any(c['badgeSprite'] and c['progress'] >= 0 for c in cards if c['id'].startswith('work:')))
+                client.click('close'); client.pause(); client.click('panel:actions'); client.click('wait:300')
+                built = client.save()['state']; check('mouseTimedConstruction', not built['work'] and len(built['structures']) == 1)
+                wall = client.free_cell(); client.context(wall); client.click('context:build'); client.click('context:construct:Wall')
+                client.pause(); client.click('panel:work'); client.click('work:' + str(client.ui()['work'][0]['id'])); client.click('cancel-work'); client.click('close'); client.pause()
+                cancelled = client.save()['state']; check('mouseCancellationRefund', not cancelled['work'] and cancelled['inventory']['stone'] == initial['inventory']['stone'])
+                client.context(camp); client.click('context:rest'); rested = client.save()['state']
+                check('mouseTimedRest', rested['tick'] == cancelled['tick'] + 300)
+                client.context(camp); client.click('context:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
+                crafted = client.save()['state']; recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
+                equipment = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json') if json.loads(p.read_text()).get('slot', 'none') != 'none'), key=lambda d: d['id'])
+                index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
+                check('mouseCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
+                client.click('panel:inventory'); client.click('pause'); party_tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > party_tick + 2); check('partyPanelKeepsTimeRunning', client.ui()['panel'] == 'inventory'); client.pause(); client.click('gear:' + str(index)); client.click('equip'); equipped = client.save()['state']
+                hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0]); check('mouseEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
+                cards = client.ui()['controls']; check('partyShowsPortraitsAndItemSprites', all(c['sprite'] and c['spriteBounds']['height'] >= 30 for c in cards if c['id'].startswith(('party:', 'gear:'))))
+                check('equippedItemHasVisibleWornLabel', any(c['id'] == 'gear:' + str(index) and 'worn' in c['label'] for c in cards))
+                client.capture('party'); client.click('close'); client.click('panel:map'); client.capture('world-map'); client.click('close')
+                client.click('panel:journal'); client.click('history:6'); client.click('history:-6'); client.capture('journal')
+                check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused'])
+                check('journalShowsIllustratedHistory', any(row['start'] and row['sprite'] != 'banner' for row in client.ui()['journal'])); client.click('close')
+                # Real drag/right-click gestures drive batch work and saved approach intent.
+                client.pause(); client.formation(); ui = client.ui(); origin = ui['position']
+                free = {(c['x'], c['y']): c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['prop'] is None and c['material'] in ('Earth', 'Grass')}
+                first = next(c for c in free.values() if 3 <= abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) <= 4 and (c['x'] + 1, c['y']) in free)
+                second = free[(first['x'] + 1, first['y'])]
+                client.drag(first, second); check('dragSelectsWithoutMoving', len(client.ui()['selection']) == 2 and client.ui()['position'] == origin and client.ui()['routeCount'] == 0)
+                client.context(first); client.capture('context-selection')
+                check('rightClickRetainsSelection', len(client.ui()['selection']) == 2 and any(c['id'] == 'context:build' for c in client.ui()['controls']))
+                client.click('context:build'); client.capture('context-build'); client.click('context:construct:Floor')
+                client.click('panel:work'); work_tick = client.ui()['tick']
+                client.wait(lambda u: len([o for o in u['work'] if o['worker'] in [a['id'] for a in u['party']]]) == 2, timeout=5)
+                check('partyWorkersClaimSeparateJobsInManagementPanel', len({o['worker'] for o in client.ui()['work']}) == 2 and not client.ui()['frozen'])
+                client.wait(lambda u: u['tick'] > work_tick + 2)
+                check('workPanelKeepsTimeRunning', True); client.capture('delegated-work')
+                client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause(); client.click('close'); client.formation()
+                paved = client.save()['state']; check('batchConstructionApproachesAndFinishes', all(any(b['position']['x'] == c['x'] and b['position']['y'] == c['y'] for b in paved['structures']) for c in (first, second)))
+                client.drag(first, second); client.context(first); client.click('context:dig'); client.pause()
+                pending = client.save()['state']; check('batchDigReservationsSaved', len(pending['work']) == 2 and all(w['partyApproach'] for w in pending['work']))
+                client.click('load'); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
+                client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause()
+                dug = client.save()['state']; check('batchDigResumesAfterLoadAndRefundsMaterials', dug['inventory']['stone'] == paved['inventory']['stone'] + 4 and len(dug['structures']) == len(paved['structures']) - 2)
+                origin = client.ui()['position']; client.context(client.free_cell())
+                r = client.ui()['map']; client.point(r['x'] + 3, r['y'] + r['height'] - 3)
+                check('contextDismissConsumesClick', client.ui()['context'] is None and client.ui()['routeCount'] == 0 and client.ui()['position'] == origin)
+                companion = client.ui()['party'][-1]; old_cells = {(a['id'], a['x'], a['y']) for a in client.ui()['party']}
+                client.context(companion); client.click('context:lead'); client.formation()
+                check('mouseChangesLeaderWithoutCrossingMembers', client.ui()['party'][0]['id'] == companion['id'] and {(a['id'], a['x'], a['y']) for a in client.ui()['party']} == old_cells)
+                ui = client.ui(); origin = ui['position']; destination = client.free_cell(distance=2); client.tile(destination['x'], destination['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
+                moved = client.save()['state']; check('mouseTravelStartsWithoutKeyboard', moved['position'] != equipped['position'])
+                check('mouseTravelPreservesPartyFormation', client.formation()); client.capture('formation-following')
+                # Isolate world-interaction rendering/input at a real site's already-generated content.
+                fixture = json.loads(slot.read_text()); state = fixture['state']
+                guardian = next(a for a in state['actors'] if a['archetype'].startswith('boss.') and a['position']['floor'] > 1)
+                site_id = (guardian['id'] - 40000) // 8; site = fixture['plan']['sites'][site_id]
+                cache = next(c for c in state['loot'] if c['id'] == f'site-{site_id}-0')
+                state['position'] = dict(cache['position']); state['position']['x'] += 1
+                for actor in state['actors']:
+                    if actor['id'] in state['party']: actor['position'] = dict(state['position'])
+                slot.write_text(json.dumps(fixture)); client.click('load')
+                client.wait(lambda u: u['position'] == {k: state['position'][k] for k in ('x', 'y', 'floor')})
+                check('olderStackedSaveSpreadsPartyOnLoad', client.formation())
+                client.tile(cache['position']['x'], cache['position']['y'])
+                looted = client.save()['state']; check('mouseCacheInteraction', next(c for c in looted['loot'] if c['id'] == cache['id'])['taken'])
+                client.tile(site['center']['x'] + 2, site['center']['y']); client.wait(lambda u: u['position']['floor'] == 1); client.pause()
+                check('mouseStairInteraction', True); client.capture('dungeon')
+                check('dungeonLandingHasSeparatePartyTiles', client.formation())
+                ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y']); client.wait(lambda u: u['position']['floor'] == 0)
+                check('surfaceLandingHasSeparatePartyTiles', client.formation())
+                before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
+                check('mouseRejectedLoadPreservesState', before == restored)
+            finally: client.close()
+        if 'world-resources' in args.scenes:
+            client = Client('world-resources', slot)
+            try:
+                ui = client.ui(); origin = ui['position']
+                fruit = next(c for c in ui['cells'] if c['resource'] and c['resource']['id'] == 'resource.apple-tree' and abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) == 1)
+                client.context(fruit); client.capture('resource-tree')
+                check('resourceContextHasHarvest', any(c['id'] == 'context:harvest' and c['enabled'] for c in client.ui()['controls']))
+                client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
+                harvested = client.save(); check('mouseHarvestPersistsStockAndIngredients', harvested['state']['inventory'].get('apple', 0) == 2)
+                client.click('load'); remaining = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']['available']
+                check('resourceStockSurvivesMouseLoad', remaining == fruit['resource']['available'] - 1)
+                client.click('panel:inventory'); client.click('panel:supplies'); client.capture('ingredients-pack')
+                check('packIllustratesHarvestedIngredients', any(c['id'] == 'supply:item.apple' and c['sprite'] == 'apple' and 'x2' in c['label'] for c in client.ui()['controls']))
+                client.click('close')
+                for _ in range(remaining):
+                    client.context(fruit); client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
+                client.context(fruit); client.capture('resource-depleted')
+                harvest = next(c for c in client.ui()['controls'] if c['id'] == 'context:harvest')
+                check('exhaustedResourceExplainsRecovery', not harvest['enabled'] and 'recovers' in harvest['reason'])
+            finally: client.close()
+        if 'world-camp' in args.scenes:
+            client = Client('world-camp', slot)
+            try:
+                ui = client.ui(); camp = next(c for c in ui['cells'] if c['material'] == 'Camp'); party = ui['party']
+                client.context(camp); client.click('context:camp'); client.wait(lambda u: u['panel'] == 'camp'); client.capture('camp-duties')
+                check('campHasPortraitAssignmentsAndContextEntry', len([c for c in client.ui()['controls'] if c['id'].startswith('campworker:') and c['sprite']]) == 4)
+                for index, role, duty in [(0, 'cook', 'camp.apple-broth'), (1, 'treat', 'camp.treatment'), (2, 'watch', 'camp.watch')]:
+                    client.click('campworker:' + str(party[index]['id'])); client.click('camprole:' + role); client.click('campduty:' + duty); client.pause()
+                state = client.save()['state']; orders = [w for w in state['work'] if w['definition'].startswith('camp.')]
+                check('mouseAssignsThreeIndependentCampDuties', len(orders) == 3 and len({w['worker'] for w in orders}) == 3)
+                client.click('pause'); tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > tick + 2); client.pause()
+                check('campPanelKeepsWorldRunning', client.ui()['panel'] == 'camp')
+                client.click('close'); client.click('panel:actions'); client.click('wait:300')
+                state = client.save()['state']; members = [a for a in state['actors'] if a['id'] in state['party']]
+                check('nativeCampCookingTreatmentAndWatchComplete', not state['work'] and all(a['body']['wounds'] == 0 and {p['effect'] for p in a['preparations']} == {'burn-resist', 'watch'} for a in members))
+                client.click('load'); state = client.save()['state']; check('campPreparationsSurviveMouseReload', all(len(a['preparations']) == 2 for a in state['actors'] if a['id'] in state['party']))
+                client.context(camp); client.click('context:camp'); client.click('campworker:' + str(party[3]['id'])); client.click('camprole:stories'); client.click('campduty:camp.stories'); client.pause()
+                client.click('close'); client.click('panel:actions'); client.click('wait:300'); state = client.save()['state']
+                check('campStoryMarksAnActualSite', state['lastCampStory'] is not None and any(site['name'] in state['lastCampStory']['text'] and site['id'] in state['knownSites'] for site in client.save()['plan']['sites']))
+                client.context(camp); client.click('context:camp'); client.click('campstory'); client.wait(lambda u: u['panel'] == 'camp-story' and u['dialogue'] is not None); client.capture('camp-conversation')
+                check('campStoriesUseVoicedPortraitPresentation', bool(client.ui()['dialogue']['fullText']) and len(client.ui()['dialogue']['portraits']) == 2)
+                client.finish_dialogue(); check('campConversationReturnsToDuties', client.ui()['panel'] == 'camp'); client.click('close')
+            finally: client.close()
+        if 'world-battle' in args.scenes:
+            client = Client('world-battle', slot)
+            try:
+                client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+                check('fourMembersHaveSeparateTilesInBattle', len(client.ui()['party']) == 4 and client.formation())
+                flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
+                client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.pause()
+                check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
+            finally: client.close()
+        if 'world-boss' in args.scenes:
+            client = Client('world-boss', slot)
+            try:
+                client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+                before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); client.capture('party-four'); modal = client.save()['state']
+                check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
+                client.click('close'); client.click('skill:0'); selected = client.save()['state']
+                check('mouseAbilityWaitsForTarget', selected['battle'] == modal['battle'] and selected['combatRandom'] == modal['combatRandom'])
+                enemy = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = enemy['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                after = client.save()['state']; check('mouseCombatTarget', after['battle'] != selected['battle'] and after['combatRandom'] != selected['combatRandom']); client.capture('combat')
+                fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']; final_id = state['endgame']['actorId']
+                index = battle['actorIds'].index(final_id); battle['units'][index]['health'] = 1; next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
+                battle['turnIndex'] = next(i for i, u in enumerate(battle['order']) if battle['units'][u]['heroId'] >= 0 and battle['units'][u]['health'] > 0)
+                slot.write_text(json.dumps(fixture)); client.click('load'); client.click('skill:0')
+                target = next(u for u in client.ui()['battle']['units'] if u['id'] == index); r = target['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
+                client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
+            finally: client.close()
+    report = {'nativeMouseInput': 'passed', 'scenes': args.scenes, 'checks': checks, 'scope': 'Local X11/WSLg. Mouse gameplay only; keyboard events solely verify they are ignored. Temporary saves, explicit site/wounded-boss fixtures; not a balance playthrough.'}
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n'); print(json.dumps(report))
 
 if __name__ == '__main__': main()

@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "boss", "camp", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -39,7 +39,7 @@ public sealed class ContentCatalog
     public static bool ValidId(string? id) => !string.IsNullOrWhiteSpace(id) && Regex.IsMatch(id, "^[a-z][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$");
     public static string Kind(ContentDefinition d) => d switch
     {
-        AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
+        AbilityDefinition => "ability", BossDefinition => "boss", CampDefinition => "camp", CharacterDefinition => "character", ClassDefinition => "class",
         DialogueDefinition => "dialogue", InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
         TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", ResourceDefinition => "resource", _ => throw new ArgumentException("Unknown content type.")
     };
@@ -124,6 +124,8 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    if (g.CampActivities == null || g.CampActivities.Length == 0) Error("campActivities", "Provide camp activities.");
+                    else foreach (var id in g.CampActivities) Ref<CampDefinition>("campActivities", id);
                     if (g.Resources == null || g.Resources.Length == 0) Error("resources", "Provide a resource pool.");
                     else foreach (var id in g.Resources) Ref<ResourceDefinition>("resources", id);
                     if (g.Discoveries == null || g.Discoveries.Length == 0) Error("discoveries", "Provide a discovery pool.");
@@ -173,6 +175,12 @@ public sealed class ContentCatalog
                     foreach (var id in dsc.Enemies)
                     { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider)) Error("enemies", "Use hostile characters."); }
                     break;
+                case CampDefinition camp:
+                    if (camp.Role is not ("cook" or "treat" or "watch" or "stories")) Error("role", "Use cook, treat, watch or stories.");
+                    if (camp.Role == "cook" ? camp.Effect is not ("armor" or "burn-resist" or "bleed-resist" or "focus") : camp.Effect != camp.Role) Error("effect", "Choose a registered meal preparation, or the effect matching the camp role.");
+                    if (camp.Sprite == null) Error("sprite", "Camp activities need an icon.");
+                    Range("power", camp.Power, 1, 4); Range("work", camp.Work, 10, 300); Range("duration", camp.Duration, 300, 7200);
+                    Cost("cost", camp.Cost); break;
                 case ResourceDefinition resource:
                     if (resource.Sprite == null || !bindings.Contains(resource.DepletedSprite ?? "")) Error("depletedSprite", "Resources need full and depleted sprite bindings.");
                     if (resource.Biomes == null || resource.Biomes.Length == 0 || resource.Biomes.Any(b => !Enum.IsDefined(b)) || resource.Biomes.Distinct().Count() != resource.Biomes.Length) Error("biomes", "Provide distinct known biomes.");

@@ -81,13 +81,14 @@ public sealed partial class WorldSession
         DispatchPartyWork();
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
-            if (Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
+            if (order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
             { CancelWork(order.Id); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
             if (worker == null) { order.Worker = 0; continue; }
             if (worker.Recruited && (PartyTravelling || !order.PartyApproach && worker.Position.Distance(order.Target) > 1 || !InWorkRally(order.Target))) { order.Status = PartyTravelling ? "Travelling with the party" : "Outside rally area or work stopped"; continue; }
             if (State.Battle?.ActorIds.Contains(worker.Id) == true) { order.Status = "Worker in combat"; continue; }
+            if (!CampWorkerEligible(order, worker)) { order.Status = "This companion needs time before another camp story"; continue; }
             if (order.Kind == WorkKind.Forage && worker.Body.ForageAfter > State.Tick) { order.Status = "Gathering grounds recovering"; continue; }
             if (worker.Body.RestUntil > State.Tick || worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
             { order.Status = "Worker needs food, rest or treatment"; continue; }
@@ -118,6 +119,7 @@ public sealed partial class WorldSession
                 case WorkKind.Repair:
                     State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
                 case WorkKind.Harvest: HarvestResource(order.Target); break;
+                case WorkKind.Camp: CompleteCampActivity(order, worker); break;
                 case WorkKind.Forage: worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
             }
             foreach (var (item, count) in order.Yield) Add(item, count);

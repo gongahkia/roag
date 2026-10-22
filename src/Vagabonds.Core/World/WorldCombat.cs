@@ -23,7 +23,7 @@ public sealed partial class WorldSession
         {
             int index = battle.Units.Count;
             battle.ActorIds.Add(a.Id);
-            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.Armor, Speed = a.Speed, Power = a.Power, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
+            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.Armor + PreparationPower(a, "armor"), Speed = a.Speed + PreparationPower(a, "watch"), Guarding = PreparationPower(a, "watch") > 0, Power = a.Power, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
         }
     }
     private int CombatRoll(int max)
@@ -36,7 +36,7 @@ public sealed partial class WorldSession
         foreach (var unit in b.Units)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
-            unit.Power = actor.Power; unit.Speed = actor.Speed; unit.Armor = actor.Armor;
+            unit.Power = actor.Power; unit.Speed = actor.Speed + PreparationPower(actor, "watch"); unit.Armor = actor.Armor + PreparationPower(actor, "armor");
         }
         b.Order = b.Units.Where(u => u.Alive).Select(u => (u.Id, Roll: u.Speed + CombatRoll(3))).OrderByDescending(v => v.Roll).ThenBy(v => v.Id).Select(v => v.Id).ToList();
         b.TurnIndex = 0;
@@ -132,7 +132,7 @@ public sealed partial class WorldSession
                     int old = caster.Health; caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
                     Feedback("heal", caster, caster, "Drain", caster.Health - old, caster.Name + " recovers " + (caster.Health - old) + " HP.");
                 }
-                if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(8, skill.Power));
+                if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(0, Math.Max(8, skill.Power) - PreparationPower(CombatActor(t), "focus") * 3));
                 if (t.Alive)
                 {
                     if (skill.Effect == "burn") t.Burn = skill.Duration;
@@ -172,7 +172,9 @@ public sealed partial class WorldSession
     }
     private void Damage(CombatUnit target, int amount, CombatUnit? source = null, string label = "Hit")
     {
-        int damage = Math.Max(1, amount - target.Armor); if (target.Guarding) damage = Math.Max(1, damage / 2);
+        int resistance = label == "Burn" ? PreparationPower(CombatActor(target), "burn-resist") : label == "Bleed" ? PreparationPower(CombatActor(target), "bleed-resist") : 0;
+        int damage = Math.Max(resistance > 0 ? 0 : 1, amount - target.Armor - resistance); if (target.Guarding && damage > 0) damage = Math.Max(1, damage / 2);
+        if (resistance > 0) Feedback("status", target, target, "Meal protection", resistance, target.Name + " resists " + label.ToLowerInvariant() + " with camp preparation.");
         var actor = State.Actors.Single(a => a.Id == State.Battle!.ActorIds[target.Id]);
         if (damage >= Math.Max(8, target.MaxHealth / 3))
         {
