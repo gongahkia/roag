@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Agent workflow foundation — 2026-10-23
+
+Twelve Python regressions passed: source identity, conservative impact, structured errors, detached execution, retained checksums, failure/timeout/cancellation, live-run reconnection, stale results and evidence-gated completion. Doctor/context and a task checkpoint were exercised on this checkout. Managed process control is currently Linux/WSL; no native Windows/macOS claim. Content patches and declarative reproductions are the next milestone.
+
 ## Completed expedition expansion — 2026-10-22
 
 - **395/395 Release .NET tests** and **38/38 catalog tests** passed on the final implementation. Logs are `artifacts/integration/expansion-tests-final.log` and `expansion-catalog-tests-final.log`. Build had zero warnings/errors; schema freshness is covered by the developer tests.

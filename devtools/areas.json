@@ -1,0 +1,9 @@
+{
+  "content": {"paths": ["content/**", "src/Vagabonds.Core/Content/**"], "profiles": ["core", "world"], "docs": ["docs/CONTENT_AUTHORING.md"], "scenes": ["world-camp", "world-cooperation", "world-situation"]},
+  "world": {"paths": ["src/Vagabonds.Core/World/**", "tests/Vagabonds.Core.Tests/World/**"], "profiles": ["core", "world"], "docs": ["docs/WORLD.md", "docs/PROJECT_STATE.md"], "scenes": ["world", "world-resources", "world-wildlife"]},
+  "client": {"paths": ["src/Vagabonds.Client/**", "src/Vagabonds.Graphics/**", "tests/Vagabonds.Core.Tests/Client/**"], "profiles": ["core", "native"], "docs": ["docs/RPG.md"], "scenes": ["world", "world-cooperation", "world-boss"]},
+  "assets": {"paths": ["assets/**", "tools/*asset*", "tools/*catalog*", "tools/*sprite*", "tests/catalog/**"], "profiles": ["assets", "core", "native"], "docs": ["docs/ASSETS.md"], "scenes": ["world"]},
+  "tooling": {"paths": ["tools/agent*", "tools/agent_support/**", "tests/agent/**", "src/Vagabonds.Tools/**", "tests/Vagabonds.Core.Tests/Content/**", "devtools/**", "dev"], "profiles": ["tools", "core", "world"], "docs": ["docs/AGENT_TOOLING.md", "docs/CONTENT_AUTHORING.md"], "scenes": []},
+  "legacy": {"paths": ["src/Vagabonds.Core/Expeditions/**", "tests/Vagabonds.Core.Tests/Expeditions/**"], "profiles": ["core"], "docs": ["docs/LEGACY_RPG.md"], "scenes": []},
+  "docs": {"paths": ["*.md", "docs/**"], "profiles": ["tools"], "docs": ["docs/DEVELOPMENT.md"], "scenes": []}
+}

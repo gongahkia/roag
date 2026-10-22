@@ -1,6 +1,6 @@
 # Vagabonds project state
 
-**Last reconciled: 2026-10-22.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
+**Last reconciled: 2026-10-23.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
 Vagabonds is the fantasy party RPG extracted from Ithica at `c87d480`, now extended with a finite procedural world and selected systems from the replayed Ithica history. The approved integration direction is recorded in [INTEGRATION.md](INTEGRATION.md). This repository owns its application, Core, graphics, tests, assets, catalog and mappings; it loads no gameplay or assets from a sibling checkout. [ORIGIN.md](ORIGIN.md) records provenance. Archived Ithica guides under `history/ithica/` describe inherited source, not current gameplay.
 
@@ -122,3 +122,7 @@ Every situation also names and selects a real side wall for excavation. Completi
 Cooperative abilities are available with two or more combat participants. Twin strike combines two companions' power into a single armoured hit (3 MP each); Shared aid heals and cleanses the conscious party (4 MP active, 3 MP helper). Select the ability, a conscious unstunned companion whose turn is still ahead this round, then an enemy for Twin strike. Shared aid resolves when its helper is selected. Both actions are consumed; a helper cannot commit twice, and their scheduled status ticks still run. Selection and right-click cancellation cost nothing. Pending helper actions and both mana pools save exactly. Eight actions fit two rows; lone travellers retain six. The isolated `world-cooperation` scene and real ability previews exercise these rules.
 
 Final expansion acceptance passed all nine native scenarios, the eight-seed exploration audit and the 950-tick headless simulation. Content tooling is validated through schema, runtime previews and temporary scaffold/inspect/reference/removal workflows for all three new families. Current gameplay is ready for a fresh-run balance playtest; source artwork and player saves were preserved. Long-form balance and native Windows/macOS execution were not tested by these checks.
+
+## Agent workflow tooling (in progress)
+
+`./dev agent` provides model-independent JSON context, prerequisite diagnosis, conservative impact guidance, managed verification and persistent task/evidence records. Managed workers use Linux/WSL process identities, serialize builds per checkout and keep logs/checksums under `artifacts/agent/`; interrupted sessions can reconnect by run ID. Status distinguishes failed, blocked, cancelled, interrupted and stale results. Task completion requires fresh successful runs covering its explicit profiles; docs and rendered quality still require review. Existing game/developer commands retain their interfaces. [AGENT_TOOLING.md](AGENT_TOOLING.md) tracks the remaining content-edit and reproduction milestones.
