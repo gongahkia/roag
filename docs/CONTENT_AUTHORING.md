@@ -84,4 +84,14 @@ All fourteen content families have a runtime context: `preview character`, `clas
 
 CLI typos, invalid numeric flags and invalid/path-like IDs fail explicitly. Scaffolding validates the stable ID before deriving its path. The tooling review was dogfooded against authoring, generation, every boss, every recipe/incident and actual native input; counts remain consistency indicators rather than quality ratings.
 
-After a Release build, `./dev verify-native` runs the reusable X11/WSLg input acceptance (requires xdotool, ffmpeg and DISPLAY). `--dll PATH` selects a published application; `--output DIRECTORY` selects the report/capture directory. Saves live only in a temporary directory. It exercises reservations/worker assignment/refunds, timed rest/crafting, equipment, movement, failed F9 preservation, combat-menu pause, abilities, an explicitly wounded-boss victory fixture and a fresh run. This replaces fragile ad hoc focus/input scripts; it waits for rendering and focuses after pointer placement. Native tests remain optional/local rather than claimed cross-platform CI coverage.
+After a Release build, `./dev verify-native` runs mouse-only X11/WSLg acceptance (requires xdotool, ffmpeg and DISPLAY). `--dll PATH` selects a published application; `--output DIRECTORY` selects reports/captures. All saves live in a temporary directory. Checks cover ignored gameplay keys, close-camera bounds, automatic approach/conversation/trade/recruitment, reservations/assignment/refunds, timed rest/crafting, equipment, travel, caches/stairs, rejected Load preservation, combat choices/targeting, an explicitly wounded-boss victory fixture and a fresh run. It is a local input check rather than a balance playthrough or cross-platform CI claim.
+
+`--ui-report PATH` writes an atomic development snapshot of control IDs, bounds, enabled/selected states, visible actors, camera, route, clock, focus/cursor and battle targets. It defaults to preview isolation: no player save is opened or autosaved unless explicitly loaded/saved. The native verifier uses these semantic targets instead of brittle pixel coordinates or keyboard shortcuts. It selects its own process window, waits for rendering/load completion and confirms focus and the actual in-game cursor position before pressing a mouse button; failed runs retain diagnostic UI/captures. New mouse controls need stable IDs so this same verifier can exercise them. The tooling review for this milestone retained the shared authoring/preview commands and upgraded this repeatedly used native workflow.
+
+For an isolated Linux display when desktop focus interrupts automation (requires Xvfb/Mesa):
+
+```sh
+SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s '-screen 0 1920x1200x24 +extension GLX +render -noreset' ./dev verify-native --output artifacts/native-mouse-xvfb
+```
+
+This still runs the actual MonoGame client, mouse events, rendered panels and save commands. Software-rendered timings are unsuitable for desktop performance comparisons.

@@ -15,6 +15,8 @@ The user authorized implementation on 2026-10-22 after the history replay. Vagab
 - Make agent authoring practical across characters, interactions, abilities, enemies, bosses, items, recipes and generation: stable IDs, validated data, reference queries, scaffolding, deletion checks, deterministic previews and documented extension points.
 - Review developer-tool usefulness at each substantial milestone. Turn repeated manual checks into reusable commands; use those commands to validate actual gameplay content.
 
+Later input preference: the world client is mouse-only, with visible controls for every action. Keep the 4096×4096 world and use a closer RPG exploration camera; the world map supplies the overview. Existing legacy controls and source sprite bindings remain intact.
+
 Clarified: everyone follows the same needs, fatigue and injury rules. Class, level, equipment and traits augment those shared defaults; party members do not become a separate simulated species.
 
 ## Implementation checkpoints

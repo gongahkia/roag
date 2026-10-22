@@ -29,7 +29,9 @@ try
               --world-smoke (native render/cache/material checks and measured timings)
               --headless | --generation-report | --validate-seeds N | --smoke-test (legacy checks)
               --screenshot PATH --frames N --window-size WIDTHxHEIGHT
-            Space pauses/resumes. E speaks/takes stairs. B builds. X digs. F1 opens the guide.
+              --ui-report PATH (mouse UI diagnostic snapshot; preview without autosaving)
+            Click ground to travel; click people, caches or stairs to approach and interact.
+            Use on-screen Play/Pause, action buttons and Menu. Right-click stops/closes.
             """);
         return 0;
     }
@@ -102,7 +104,7 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
             get; private set;
         }
         public bool NewGame { get; private set; }
-        public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest;
+        public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null;
         public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
         public bool WorldSmoke { get; private set; }
         private bool _sceneSpecified;
@@ -129,6 +131,7 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
         }
         public string Save { get; private set; } = Campaign.DefaultSave;
         public string? ImportLegacy { get; private set; }
+        public string? UiReport { get; private set; }
         public string? Screenshot
         {
             get; private set;
@@ -148,6 +151,7 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
                 string Value() => i + 1 < args.Length ? args[++i] : throw new ArgumentException("Missing option value.");
                 switch (args[i])
                 {
+                    case "--ui-report": o.UiReport = Path.GetFullPath(Value()); break;
                     case "--world-report": o.WorldReport = true; break;
                     case "--world-smoke": o.WorldSmoke = true; o.SmokeTest = true; break;
                     case "--world-headless": o.WorldHeadless = true; break;

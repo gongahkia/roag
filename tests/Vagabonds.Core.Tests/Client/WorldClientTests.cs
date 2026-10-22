@@ -37,6 +37,7 @@ public sealed class WorldClientTests : IDisposable
     [InlineData("--scene", "world")]
     [InlineData("--frames", "2")]
     [InlineData("--world-smoke")]
+    [InlineData("--ui-report", "artifacts/test-ui.json")]
     public void ExplicitFreshOrPreviewDoesNotTouchExistingProgress(params string[] flags)
     {
         WorldSession.Create(1337).Save(Slot); byte[] before = File.ReadAllBytes(Slot);

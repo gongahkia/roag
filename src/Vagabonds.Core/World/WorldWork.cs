@@ -57,7 +57,7 @@ public sealed partial class WorldSession
         foreach (var (item, amount) in order.Reserved) Add(item, -amount);
         order.Id = State.NextWorkId++; order.Worker = Party.FirstOrDefault(a => a.Life == LifeState.Alive && !HasWork(a))?.Id ?? 0;
         State.Work.Add(order);
-        return new(true, $"{order.Kind} queued; supplies reserved. Space lets work proceed, or Period waits one minute. K manages workers/cancellation.");
+        return new(true, $"{order.Kind} queued; supplies reserved. Play or Wait advances work; Work assigns workers or cancels orders.");
     }
     private ActionResult AssignWork(long workId, long actorId)
     {

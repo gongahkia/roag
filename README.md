@@ -26,7 +26,7 @@ Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a n
 
 The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
 
-Space resumes/pauses time; WASD/arrows or click moves; E speaks, loots or takes stairs; B builds; X digs; K manages work; C crafts; O gathers food; Period waits; I manages the party and equipment; J shows tactics/stories/history; M shows known places. F3 inspects procedural samples and generation stages. Combat has six actions with visible enemy intents. Existing saves retain the original three-area campaign and its controls. See the [play guide](docs/RPG.md).
+The world client is mouse-only: hover for a route preview, click ground to travel, and click people, caches or stairs to approach and interact. Play/Pause, Party, Build, Work, Craft, Actions, Journal and World map are visible buttons; Menu opens the guide and procedural inspector. Click an ability and a fighter in combat. Right-click stops travel or closes a panel. The world stays large, with a close RPG camera and bounded zoom. Existing legacy campaigns retain their original controls. See the [play guide](docs/RPG.md).
 
 ## Content authoring
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Local X11/WSLg input acceptance; uses temporary save slots only."""
+"""Mouse-only world acceptance under local X11/WSLg, using temporary save slots."""
 import argparse
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -14,12 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
-    parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-integration')
+    parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
-        if not shutil.which(tool): raise SystemExit(f'{tool} is required for local graphical input acceptance.')
+        if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
     if not os.environ.get('DISPLAY'): raise SystemExit('An X11/WSLg DISPLAY is required.')
     output = args.output.resolve(); output.mkdir(parents=True, exist_ok=True)
+    (output / 'report.json').unlink(missing_ok=True)
     checks = {}
     def check(name, condition):
         checks[name] = bool(condition)
@@ -28,105 +30,163 @@ def main():
         return subprocess.run(['xdotool', *map(str, arguments)], check=True, capture_output=True, text=True).stdout.strip()
     class Client:
         def __init__(self, scene, slot):
-            self.slot = slot
+            self.slot = slot; self.report = slot.with_suffix('.ui.json'); self.window = None
             self.log = (output / (scene + '.log')).open('w')
-            self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(args.dll.resolve()), '--scene', scene, '--seed', '42', '--save', str(slot), '--window-size', '1024x720'], cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT)
-            deadline = time.monotonic() + 20
+            self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(args.dll.resolve()), '--scene', scene, '--seed', '42', '--save', str(slot), '--window-size', '1024x720', '--ui-report', str(self.report)], cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT)
+            try:
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    if self.process.poll() is not None: raise RuntimeError(f'{scene} exited before readiness.')
+                    found = subprocess.run(['xdotool', 'search', '--all', '--onlyvisible', '--pid', str(self.process.pid), '--name', 'Vagabonds'], capture_output=True, text=True).stdout.split()
+                    if found:
+                        self.window = found[-1]; x('mousemove', '--window', self.window, 100, 100); time.sleep(2)
+                        x('windowfocus', '--sync', self.window); self.wait(lambda ui: len(ui['controls']) > 0); return
+                    time.sleep(.1)
+                raise RuntimeError('Window readiness timed out.')
+            except BaseException:
+                self.abort(); raise
+        def ui(self):
+            try: return json.loads(self.report.read_text())
+            except (FileNotFoundError, json.JSONDecodeError): return {}
+        def wait(self, predicate, timeout=12):
+            deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
-                if self.process.poll() is not None:
-                    self.log.close(); raise RuntimeError(f'{scene} exited before its window was ready.')
-                result = subprocess.run(['xdotool', 'search', '--onlyvisible', '--pid', str(self.process.pid), '--name', 'Vagabonds'], capture_output=True, text=True)
-                if result.stdout.split():
-                    self.window = result.stdout.split()[-1]
-                    # WSLg can expose the window before rendering/input are ready. Pointer first, focus second.
-                    x('mousemove', '--window', self.window, 100, 100)
-                    time.sleep(2)
-                    x('windowfocus', '--sync', self.window)
-                    time.sleep(.3)
-                    return
-                time.sleep(.1)
-            self.process.terminate(); self.process.wait(timeout=10); self.log.close()
-            raise RuntimeError('Window readiness timed out.')
-        def key(self, key):
-            x('windowfocus', '--sync', self.window)
-            x('keydown', key); time.sleep(.18); x('keyup', key); time.sleep(.18)
-        def click(self, px, py):
-            x('mousemove', '--window', self.window, px, py); x('windowfocus', '--sync', self.window)
-            x('mousedown', 1); time.sleep(.18); x('mouseup', 1); time.sleep(.18)
+                if self.process.poll() is not None: raise RuntimeError('Client exited: ' + str(self.process.returncode))
+                ui = self.ui()
+                if ui and predicate(ui): return ui
+                time.sleep(.05)
+            raise RuntimeError('UI readiness timed out: ' + json.dumps(self.ui())[:1500])
+        def point(self, px, py):
+            px, py = round(px), round(py)
+            for attempt in range(3):
+                if attempt > 0 or not self.ui().get('focused', False):
+                    x('windowfocus', '0'); x('windowraise', self.window)
+                x('windowfocus', '--sync', self.window); x('mousemove', '--window', self.window, px, py)
+                try:
+                    self.wait(lambda ui: ui['focused'] and abs(ui['pointer']['x'] - px) <= 1 and abs(ui['pointer']['y'] - py) <= 1, timeout=2)
+                    break
+                except RuntimeError:
+                    if attempt == 2: raise
+            x('mousedown', 1); time.sleep(.1); x('mouseup', 1); time.sleep(.12)
+        def click(self, identifier):
+            ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
+            button = next(c for c in ui['controls'] if c['id'] == identifier); r = button['bounds']
+            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+        def tile(self, px, py):
+            ui = self.ui(); r = ui['map']; camera = ui['camera']
+            self.point(r['x'] + r['width'] // 2 + (px + .5 - camera['x']) * camera['cellSize'], r['y'] + r['height'] // 2 + (py + .5 - camera['y']) * camera['cellSize'])
+        def pause(self):
+            if not self.ui()['paused']: self.click('pause')
         def save(self):
-            self.key('F5')
-            return json.loads(self.slot.read_text())
+            before = self.slot.stat().st_mtime_ns if self.slot.exists() else None
+            self.click('save'); deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if self.slot.exists() and self.slot.stat().st_mtime_ns != before: return json.loads(self.slot.read_text())
+                time.sleep(.05)
+            raise RuntimeError('Mouse Save did not write the temporary slot.')
         def capture(self, name):
             subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-f', 'x11grab', '-window_id', self.window, '-video_size', '1024x720', '-i', os.environ['DISPLAY'], '-frames:v', '1', '-update', '1', str(output / (name + '.png'))], check=True, timeout=15)
-        def close(self):
-            if self.process.poll() is None:
-                try:
-                    self.key('Control_L+q'); check('cleanNativeExit', self.process.wait(timeout=15) == 0)
-                finally:
-                    if self.process.poll() is None: self.process.terminate(); self.process.wait(timeout=10)
+        def abort(self):
+            if self.process.poll() is None: self.process.terminate(); self.process.wait(timeout=10)
             self.log.close()
-    with tempfile.TemporaryDirectory(prefix='vagabonds-native-') as temporary:
-        slot = Path(temporary) / 'world.json'
-        client = Client('world', slot)
+        def close(self):
+            if sys.exc_info()[0] is not None:
+                try:
+                    (output / 'report.json').write_text(json.dumps({'nativeMouseInput': 'failed', 'checks': checks}, indent=2) + '\n')
+                    (output / 'failed-ui.json').write_text(json.dumps(self.ui(), indent=2) + '\n'); self.capture('failed-input')
+                except Exception: pass
+                self.abort(); return
+            try:
+                if self.process.poll() is None:
+                    self.click('panel:game'); self.click('quit'); check('cleanMouseExit', self.process.wait(timeout=15) == 0)
+            finally: self.abort()
+    with tempfile.TemporaryDirectory(prefix='vagabonds-mouse-') as temporary:
+        slot = Path(temporary) / 'world.json'; client = Client('world', slot)
         try:
-            initial = client.save()['state']
-            x('mousemove', '--window', client.window, 385, 329); time.sleep(.3); client.capture('hover-route')
-            client.key('b'); client.key('6'); client.click(353, 329)
-            queued = client.save()['state']
-            check('nativeWorkReservesBeforeBuilding', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
-            client.key('Escape'); client.key('k'); client.key('Tab'); client.key('Return')
-            assigned = client.save()['state']
-            check('nativeWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party'])
-            client.capture('worker-panel'); client.key('Escape'); client.key('Shift_L+period')
-            built = client.save()['state']
-            check('nativeTimedCamp', not built['work'] and len(built['structures']) == 1 and built['tick'] >= 300)
-            client.key('b'); client.key('1'); client.click(385, 329); client.key('Escape'); client.key('k'); client.key('c'); client.key('Escape')
-            cancelled = client.save()['state']
-            check('nativeCancellationRefund', not cancelled['work'] and cancelled['inventory']['stone'] == initial['inventory']['stone'])
-            client.key('r'); rested = client.save()['state']
-            check('nativeTimedRest', rested['tick'] == cancelled['tick'] + 300)
-            client.key('c'); client.key('2'); client.key('Escape'); client.key('Shift_L+period')
-            crafted = client.save()['state']
-            recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
-            gear = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json')), key=lambda item: item['id'])
-            equipment = [item for item in gear if item.get('slot', 'none') != 'none']
-            index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
-            check('nativeCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
-            client.key('i')
-            for _ in range(index): client.key('Down')
-            client.key('Return'); equipped = client.save()['state']
-            hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0])
-            check('nativeEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
-            client.capture('party-equipment'); client.key('Escape')
-            client.key('space'); client.key('a'); client.key('space')
-            before = client.save()['state']
-            check('nativeMovement', before['position'] != equipped['position'])
-            slot.write_text('{"format":"vagabonds-world","version":999}')
-            client.key('F9'); restored = client.save()['state']
-            check('nativeRejectedF9PreservesState', before == restored)
+            initial = client.save()['state']; stamp = slot.stat().st_mtime_ns
+            # These are deliberately the only keyboard events in this acceptance run.
+            for key in ('space', 'w', 'F5', 'i', '1'):
+                x('keydown', key); time.sleep(.1); x('keyup', key); time.sleep(.1)
+            check('keyboardGameplayDisabled', client.ui()['tick'] == initial['tick'] and client.ui()['position'] == {k: initial['position'][k] for k in ('x', 'y', 'floor')} and client.ui()['panel'] == '' and slot.stat().st_mtime_ns == stamp)
+            ui = client.ui(); check('readableDefaultCamera', ui['camera']['cellSize'] >= 36 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
             client.capture('exploration')
+            client.click('panel:game'); client.click('panel:guide'); client.capture('guide'); client.click('close')
+            client.click('panel:game'); client.click('panel:inspector'); client.click('inspect:2'); client.capture('inspector')
+            check('mouseGuideAndInspector', any(c['id'] == 'inspect:2' and c['selected'] for c in client.ui()['controls'])); client.click('close')
+            for _ in range(12): client.click('zoom:out')
+            ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
+            client.click('zoom:default')
+            ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
+            person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
+            client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
+            check('mouseApproachConversation', True); client.click('conversation:interaction.trade')
+            before = client.save()['state']; client.click('buy:food'); bought = client.save()['state']
+            check('mouseTradeBuy', bought['inventory']['food'] == before['inventory']['food'] + 1)
+            client.click('sell:food'); client.click('close')
+            ui = client.ui(); person = next(a for a in ui['actors'] if a['id'] == person['id'])
+            client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person'); client.click('conversation:interaction.recruit'); client.pause()
+            recruited = client.save()['state']; check('mouseRecruitment', len(recruited['party']) == 2)
+            client.click('panel:build'); client.click('build:Camp'); ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y'])
+            client.click('panel:work'); queued = client.save()['state']
+            check('mouseReservationBeforeCompletion', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
+            ui = client.ui(); worker = next(c for c in ui['controls'] if c['id'].startswith('worker:') and int(c['id'].split(':')[1]) not in queued['party'])
+            client.click(worker['id']); client.click('assign'); assigned = client.save()['state']
+            check('mouseWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party']); client.capture('work')
+            client.click('close'); client.pause(); client.click('panel:actions'); client.click('wait:300')
+            built = client.save()['state']; check('mouseTimedConstruction', not built['work'] and len(built['structures']) == 1)
+            client.click('panel:build'); client.click('build:Wall'); ui = client.ui(); client.tile(ui['position']['x'] + 1, ui['position']['y'])
+            client.click('panel:work'); client.click('cancel-work'); client.click('close'); client.pause()
+            cancelled = client.save()['state']; check('mouseCancellationRefund', not cancelled['work'] and cancelled['inventory']['stone'] == initial['inventory']['stone'])
+            client.click('panel:actions'); client.click('rest'); rested = client.save()['state']
+            check('mouseTimedRest', rested['tick'] == cancelled['tick'] + 300)
+            client.click('panel:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
+            crafted = client.save()['state']; recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
+            equipment = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json') if json.loads(p.read_text()).get('slot', 'none') != 'none'), key=lambda d: d['id'])
+            index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
+            check('mouseCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
+            client.click('panel:inventory'); client.click('gear:' + str(index)); client.click('equip'); equipped = client.save()['state']
+            hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0]); check('mouseEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
+            client.capture('party'); client.click('close'); client.click('panel:map'); client.capture('world-map'); client.click('close')
+            client.click('panel:journal'); client.click('history:6'); client.click('history:-6'); client.capture('journal')
+            check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused']); client.click('close')
+            ui = client.ui(); origin = ui['position']; client.tile(origin['x'] - 2, origin['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
+            moved = client.save()['state']; check('mouseTravelStartsWithoutKeyboard', moved['position'] != equipped['position'])
+            # Isolate world-interaction rendering/input at a real site's already-generated content.
+            fixture = json.loads(slot.read_text()); state = fixture['state']
+            guardian = next(a for a in state['actors'] if a['archetype'].startswith('boss.') and a['position']['floor'] > 1)
+            site_id = (guardian['id'] - 40000) // 8; site = fixture['plan']['sites'][site_id]
+            cache = next(c for c in state['loot'] if c['id'] == f'site-{site_id}-0')
+            state['position'] = dict(cache['position']); state['position']['x'] += 1
+            for actor in state['actors']:
+                if actor['id'] in state['party']: actor['position'] = dict(state['position'])
+            slot.write_text(json.dumps(fixture)); client.click('load')
+            client.wait(lambda u: u['position'] == {k: state['position'][k] for k in ('x', 'y', 'floor')})
+            client.tile(cache['position']['x'], cache['position']['y'])
+            looted = client.save()['state']; check('mouseCacheInteraction', next(c for c in looted['loot'] if c['id'] == cache['id'])['taken'])
+            client.tile(site['center']['x'] + 2, site['center']['y']); client.wait(lambda u: u['position']['floor'] == 1); client.pause()
+            check('mouseStairInteraction', True); client.capture('dungeon')
+            ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y']); client.wait(lambda u: u['position']['floor'] == 0)
+            before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
+            check('mouseRejectedLoadPreservesState', before == restored)
         finally: client.close()
         client = Client('world-boss', slot)
         try:
-            before = client.save()['state']; check('nativeBossEncounter', before['battle'] is not None)
-            client.key('i'); client.key('1'); modal = client.save()['state']
-            check('combatMenuConsumesNoTurnOrRandomness', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
-            client.key('Escape'); client.key('1'); after = client.save()['state']
-            check('nativePartyAbility', after['battle'] != modal['battle'] and after['combatRandom'] != modal['combatRandom'])
-            client.capture('boss-combat')
-            # Explicit scenario fixture: wound the selected boss, retain legal actor/unit continuation.
-            fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']
-            final_id = state['endgame']['actorId']; unit_index = battle['actorIds'].index(final_id)
-            battle['units'][unit_index]['health'] = 1
-            next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
+            client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+            before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); modal = client.save()['state']
+            check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
+            client.click('close'); client.click('skill:0'); selected = client.save()['state']
+            check('mouseAbilityWaitsForTarget', selected['battle'] == modal['battle'] and selected['combatRandom'] == modal['combatRandom'])
+            enemy = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = enemy['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+            after = client.save()['state']; check('mouseCombatTarget', after['battle'] != selected['battle'] and after['combatRandom'] != selected['combatRandom']); client.capture('combat')
+            fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']; final_id = state['endgame']['actorId']
+            index = battle['actorIds'].index(final_id); battle['units'][index]['health'] = 1; next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
             battle['turnIndex'] = next(i for i, u in enumerate(battle['order']) if battle['units'][u]['heroId'] >= 0 and battle['units'][u]['health'] > 0)
-            slot.write_text(json.dumps(fixture)); client.key('F9'); client.key('1')
-            ending = client.save()['state']; check('nativeFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None)
-            client.capture('victory'); client.key('n'); fresh = client.save()
-            check('nativeFreshRun', fresh['plan']['seed'] != 42 and fresh['state']['tick'] == 0 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
+            slot.write_text(json.dumps(fixture)); client.click('load'); client.click('skill:0')
+            target = next(u for u in client.ui()['battle']['units'] if u['id'] == index); r = target['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+            ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
+            client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
         finally: client.close()
-    report = {'nativeInput': 'passed', 'checks': checks, 'scope': 'Local X11/WSLg; temporary slots, authored work/crafting and an explicitly wounded-boss victory fixture. Not a balance playthrough.'}
-    (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(json.dumps(report))
+    report = {'nativeMouseInput': 'passed', 'checks': checks, 'scope': 'Local X11/WSLg. Mouse gameplay only; keyboard events solely verify they are ignored. Temporary saves, explicit site/wounded-boss fixtures; not a balance playthrough.'}
+    (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n'); print(json.dumps(report))
 
 if __name__ == '__main__': main()

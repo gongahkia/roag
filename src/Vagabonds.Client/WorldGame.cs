@@ -10,7 +10,7 @@ using Vagabonds.Graphics;
 
 namespace Vagabonds.Client;
 
-internal sealed class WorldGame : Game
+internal sealed partial class WorldGame : Game
 {
     private readonly Options _options;
     private readonly GraphicsDeviceManager _graphics;
@@ -23,9 +23,8 @@ internal sealed class WorldGame : Game
     private RenderTarget2D? _frame;
     private readonly MapCamera _camera = new();
     private Rectangle _map, _side;
-    private KeyboardState _keyboard;
     private MouseState _mouse;
-    private string _panel = "", _tool = "", _notice = "Space resumes the world. E speaks to someone nearby.";
+    private string _panel = "", _tool = "", _notice = "Click the ground to travel. Click people or objects to approach and interact.";
     private long _person;
     private Material _build = Material.Wall;
     private int _skill, _combatTarget = -1, _journalOffset;
@@ -33,6 +32,7 @@ internal sealed class WorldGame : Game
     private int _packMember, _packItem;
     private int _workIndex, _workerIndex;
     private readonly Queue<WorldPosition> _route = [];
+    private WorldClickIntent? _pendingInteraction;
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
     private readonly Dictionary<long, GridMotion> _actorMotions = [];
@@ -79,19 +79,18 @@ internal sealed class WorldGame : Game
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
                 if (!_sprites.HasBinding(Materials.Sprite(material, biome, culture))) throw new InvalidDataException("Missing world material sprite.");
-        _camera.Reset(32); Layout(); UpdateMotions(TimeSpan.Zero); UpdateView(); _runtime.Start();
+        Layout(); WorldCameraScale.Apply(_camera, reset: true); UpdateMotions(TimeSpan.Zero); UpdateView(); _runtime.Start();
     }
     private void Layout()
     {
         int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
         _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - 230));
         _side = new(w - 318, 84, 302, h - 100);
-        _camera.Viewport = _map;
+        _camera.Viewport = _map; WorldCameraScale.Apply(_camera);
     }
     private void UpdateView()
     {
-        // Keep even the widest view within five chunks per axis, matching the 25-chunk cache.
-        _camera.Reset(Math.Max(_camera.CellSize, Math.Max(_map.Width, _map.Height) / (4f * WorldPlan.ChunkSize - 2)));
+        WorldCameraScale.Apply(_camera);
         var left = _camera.ScreenToWorld(new(_map.Left, _map.Top));
         var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
         _session.RevealSurface((int)Math.Floor(left.X), (int)Math.Floor(left.Y), (int)Math.Ceiling(right.X), (int)Math.Ceiling(right.Y));
@@ -99,143 +98,49 @@ internal sealed class WorldGame : Game
     protected override void Update(GameTime gameTime)
     {
         var timer = Stopwatch.StartNew(); Layout(); UpdateView();
-        var keys = Keyboard.GetState(); var mouse = Mouse.GetState();
-        bool Press(Keys key) => keys.IsKeyDown(key) && !_keyboard.IsKeyDown(key);
+        var mouse = Mouse.GetState();
         _session.Focused = IsActive;
+        BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         if (IsActive && !_options.WorldSmoke)
         {
-            if (Press(Keys.Q) && (keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl))) Exit();
-            if (Press(Keys.F11)) _graphics.ToggleFullScreen();
-            if (Press(Keys.F5)) TrySave();
-            if (Press(Keys.F9)) TryLoad();
-            if (Press(Keys.Escape)) { _panel = ""; _tool = ""; _route.Clear(); }
-            if (Press(Keys.F1)) Toggle("guide");
-            if (Press(Keys.F3)) Toggle("inspector");
-            if (Press(Keys.I)) Toggle("inventory");
-            if (Press(Keys.J)) Toggle("journal");
-            if (Press(Keys.M)) Toggle("map");
-            if (_session.State.Endgame.Victory)
+            bool click = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
+            if (click)
             {
-                if (Press(Keys.N))
+                var control = WorldMouseControl.Hit(_controls, mouse.Position);
+                if (control != null) { if (control.Enabled) ActivateControl(control.Id); }
+                else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
-                    _session = WorldSession.Create(WorldStartup.FreshSeed()); if (_autoSave) _session.SavePath = _options.Save;
-                    _panel = ""; _route.Clear(); _camera.Center = Vector2.Zero; _notice = "A fresh world begins. Space resumes.";
+                    if (_session.IsInCombat) CombatClick(mouse.Position);
+                    else if (_map.Contains(mouse.Position)) ClickMap(mouse);
                 }
             }
-            else if (_session.State.AwaitingContinuation)
-            {
-                if (Press(Keys.N))
-                {
-                    if (_session.DeathPending) { _notice = "F5 must persist the deaths before starting another expedition."; _keyboard = keys; _mouse = mouse; return; }
-                    if (keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift))
-                    {
-                        _session = WorldSession.Create(WorldStartup.FreshSeed()); if (_autoSave) _session.SavePath = _options.Save;
-                        _notice = "A fresh world begins. Space resumes.";
-                    }
-                    else Execute(new(WorldCommandKind.Continue));
-                    _camera.Center = Vector2.Zero; _route.Clear();
-                }
-            }
-            else if (_session.IsInCombat && _panel.Length == 0) CombatInput(keys, mouse, Press);
-            else if (_panel == "person")
-            {
-                var interactions = _session.Interactions(_person);
-                for (int i = 0; i < Math.Min(6, interactions.Count); i++) if (Press(Keys.D1 + i)) PersonAction(interactions[i]);
-                if (Press(Keys.R) && interactions.FirstOrDefault(i => i.Action == "recruit") is { } recruit) PersonAction(recruit);
-                if (Press(Keys.T) && interactions.FirstOrDefault(i => i.Action == "trade") is { } trade) PersonAction(trade);
-            }
-            else if (_panel == "trade")
-            {
-                string[] items = ["food", "wood", "stone", "medicine"];
-                for (int i = 0; i < 4; i++) if (Press(Keys.D1 + i)) Execute(new(keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift) ? WorldCommandKind.Sell : WorldCommandKind.Buy, Item: items[i], Amount: 1));
-            }
-            else if (_panel == "inventory")
-            {
-                var party = _session.Party.ToArray();
-                if (Press(Keys.Tab)) _packMember = (_packMember + 1) % party.Length;
-                if (Press(Keys.D)) Execute(new(WorldCommandKind.Dismiss, ActorId: party[_packMember % party.Length].Id));
-                var equipment = _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
-                if (equipment.Length > 0 && Press(Keys.Down)) _packItem = (_packItem + 1) % equipment.Length;
-                if (equipment.Length > 0 && Press(Keys.Up)) _packItem = (_packItem + equipment.Length - 1) % equipment.Length;
-                if (equipment.Length > 0 && Press(Keys.Enter)) Execute(new(WorldCommandKind.Equip, ActorId: party[_packMember % party.Length].Id, Item: equipment[_packItem].Id));
-                if (equipment.Length > 0 && Press(Keys.U)) Execute(new(WorldCommandKind.Unequip, ActorId: party[_packMember % party.Length].Id, Item: equipment[_packItem].Slot));
-                for (int i = 0; i < party.Length; i++) if (Press(Keys.D1 + i))
-                    Execute(new(keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift) ? WorldCommandKind.Abandon : WorldCommandKind.Revive, ActorId: party[i].Id));
-            }
-            else if (_panel == "journal")
-            {
-                if (Press(Keys.PageUp)) _journalOffset += 6;
-                if (Press(Keys.PageDown)) _journalOffset = Math.Max(0, _journalOffset - 6);
-            }
-            else if (_panel == "work")
-            {
-                var orders = _session.State.Work; _workIndex %= Math.Max(1, orders.Count);
-                var workers = WorkCandidates();
-                if (orders.Count > 0)
-                {
-                    if (Press(Keys.Down)) _workIndex = (_workIndex + 1) % orders.Count;
-                    if (Press(Keys.Up)) _workIndex = (_workIndex + orders.Count - 1) % orders.Count;
-                    var order = orders[_workIndex % orders.Count];
-                    if (Press(Keys.Tab) && workers.Length > 0) _workerIndex = (_workerIndex + 1) % workers.Length;
-                    if (Press(Keys.Enter) && workers.Length > 0) Execute(new(WorldCommandKind.AssignWork, ActorId: workers[_workerIndex % workers.Length].Id, WorkId: order.Id));
-                    if (Press(Keys.C)) Execute(new(WorldCommandKind.CancelWork, WorkId: order.Id));
-                }
-            }
-            else if (_panel == "craft")
-            {
-                var recipes = CraftRecipes();
-                for (int i = 0; i < Math.Min(9, recipes.Length); i++) if (Press(Keys.D1 + i)) Execute(new(WorldCommandKind.Craft, Item: recipes[i].Id));
-            }
-            else if (_panel == "inspector" && Press(Keys.Tab)) _inspectStage = (_inspectStage + 1) % 3;
-            else if (_panel.Length == 0)
-            {
-                if (Press(Keys.Space)) { _session.Paused = !_session.Paused; if (_session.Paused) _route.Clear(); }
-                if (Press(Keys.B)) _tool = _tool == "build" ? "" : "build";
-                if (Press(Keys.X)) _tool = _tool == "dig" ? "" : "dig";
-                if (_tool == "build") for (int i = 0; i < 6; i++) if (Press(Keys.D1 + i)) _build = BuildChoices[i];
-                if (Press(Keys.E) || Press(Keys.Enter)) Interact();
-                if (Press(Keys.R)) Execute(new(WorldCommandKind.Camp));
-                if (Press(Keys.K)) Toggle("work");
-                if (Press(Keys.C)) Toggle("craft");
-                if (Press(Keys.O)) Execute(new(WorldCommandKind.Forage));
-                if (Press(Keys.P) && _pointer.Cell is { } repair) Execute(new(WorldCommandKind.Repair, repair));
-                if (Press(Keys.OemPeriod)) Execute(new(WorldCommandKind.Wait, Amount: keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift) ? 300 : 5));
-                if (Press(Keys.F)) Execute(new(WorldCommandKind.ResolveArc));
-                if (Press(Keys.V)) Execute(new(WorldCommandKind.CompleteDelivery));
-                if (Press(Keys.G) || Press(Keys.H))
-                {
-                    var storage = WorldSession.Directions.Select(d => _session.State.Position.Offset(d.X, d.Y)).FirstOrDefault(p => _session.Chunks.At(p) == Material.Storage, _session.State.Position);
-                    Execute(new(Press(Keys.G) ? WorldCommandKind.Store : WorldCommandKind.Take, storage, Item: "wood", Amount: 1));
-                }
-                if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _map.Contains(mouse.Position))
-                { _camera.ZoomAt(new(mouse.X, mouse.Y), Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue)); UpdateView(); }
-                if (mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released && _map.Contains(mouse.Position)) ClickMap(mouse);
-                if (mouse.RightButton == ButtonState.Pressed) { _tool = ""; _route.Clear(); }
-                _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
-                if (!_session.Frozen && _moveTimer >= MoveDuration)
-                {
-                    int dx = keys.IsKeyDown(Keys.A) || keys.IsKeyDown(Keys.Left) ? -1 : keys.IsKeyDown(Keys.D) || keys.IsKeyDown(Keys.Right) ? 1 : 0;
-                    int dy = keys.IsKeyDown(Keys.W) || keys.IsKeyDown(Keys.Up) ? -1 : keys.IsKeyDown(Keys.S) || keys.IsKeyDown(Keys.Down) ? 1 : 0;
-                    if (dx != 0 || dy != 0) { _route.Clear(); Execute(new(WorldCommandKind.Move, _session.State.Position.Offset(dx, dx != 0 ? 0 : dy))); _moveTimer = 0; }
-                    else if (_route.TryDequeue(out var next)) { if (!Execute(new(WorldCommandKind.Move, next))) _route.Clear(); _moveTimer = 0; }
-                }
-            }
+            if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released) ClosePanel();
+            if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !_session.IsInCombat && _map.Contains(mouse.Position))
+                Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
+        }
+        _session.ModalOpen = _panel.Length > 0;
+        _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
+        if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
+        {
+            if (!Execute(new(WorldCommandKind.Move, next))) StopTravel();
+            _moveTimer = 0;
+            if (!_session.IsInCombat) FinishApproach();
         }
         _session.ModalOpen = _panel.Length > 0;
         // Long stalls/focus changes discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (_session.IsInCombat)
         {
-            _route.Clear(); _enemyTimer += gameTime.ElapsedGameTime.TotalSeconds;
+            StopTravel(); _enemyTimer += gameTime.ElapsedGameTime.TotalSeconds;
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
-        _keyboard = keys; _mouse = mouse; base.Update(gameTime);
+        _mouse = mouse; base.Update(gameTime);
     }
-    private void Toggle(string panel) { _panel = _panel == panel ? "" : panel; _route.Clear(); }
+    private void Toggle(string panel) { _panel = _panel == panel ? "" : panel; StopTravel(); }
     private Actor[] WorkCandidates() => _session.State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && a.Position.Distance(_session.State.Position) <= 100).OrderByDescending(a => a.Recruited).ThenBy(a => a.Id).ToArray();
     private RecipeDefinition[] CraftRecipes() => _session.Content.Game.Recipes.Select(_session.Content.Get<RecipeDefinition>).Where(r => r.Output != null).ToArray();
     private void PersonAction(InteractionDefinition interaction)
@@ -247,7 +152,7 @@ internal sealed class WorldGame : Game
     private bool Execute(WorldCommand command)
     {
         try { var result = _session.Submit(command); _notice = result.Message; return result.Success; }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message + " F5 retries."; return false; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message + " Use Save to retry."; return false; }
     }
     private void Interact()
     {
@@ -267,29 +172,32 @@ internal sealed class WorldGame : Game
         UpdatePointer(mouse.Position);
         if (_pointer.Cell is not { } p) return;
         if (!_session.Chunks.Seen(p)) { _notice = "Explore this ground first."; return; }
-        if (_tool == "build") { Execute(new(WorldCommandKind.Build, p, Material: _build)); return; }
-        if (_tool == "dig") { Execute(new(WorldCommandKind.Dig, p)); return; }
-        var person = _session.State.Actors.FirstOrDefault(a => a.Position == p && !a.Recruited && a.Kind == ActorKind.Person && a.Life == LifeState.Alive);
-        if (person != null && _session.Visible.Contains(p) && p.Distance(_session.State.Position) <= 2) { _person = person.Id; Execute(new(WorldCommandKind.Interact, ActorId: person.Id)); _panel = "person"; return; }
-        _route.Clear(); foreach (var cell in _pointer.Path) _route.Enqueue(cell);
-        _notice = _route.Count == 0 ? "No known route. Explore manually or change the terrain." : _session.Paused ? "Route ready. Space resumes travel." : "Following known ground.";
+        if (_tool is "build" or "dig" or "repair")
+        {
+            var kind = _tool == "build" ? WorldCommandKind.Build : _tool == "dig" ? WorldCommandKind.Dig : WorldCommandKind.Repair;
+            if (Execute(new(kind, p, Material: _build))) _session.Paused = false;
+            return;
+        }
+        var plan = WorldMouseNavigation.Plan(_session, _pointer.NavigationCell ?? p); StopTravel();
+        if (!plan.Reachable) { _notice = "No observed route. Choose nearer ground, or use the digging/building tools."; return; }
+        _pendingInteraction = plan.Interaction;
+        foreach (var cell in plan.Path) _route.Enqueue(cell);
+        if (_route.Count > 0) { _session.Paused = false; _notice = "Travelling. Right-click or Pause stops the party."; }
+        else FinishApproach();
     }
-    private void CombatInput(KeyboardState keys, MouseState mouse, Func<Keys, bool> press)
+
+    private void CombatClick(Point pointer)
     {
-        _ = keys;
         var battle = _session.State.Battle!;
         if (!battle.Active.Friendly) return;
-        for (int i = 0; i < 6; i++) if (press(Keys.D1 + i)) { _skill = i; UseSkill(); }
-        if (mouse.LeftButton != ButtonState.Pressed || _mouse.LeftButton != ButtonState.Released) return;
-        foreach (var unit in battle.Units) if (UnitRect(unit).Contains(mouse.Position)) { _combatTarget = unit.Id; UseSkill(); return; }
+        foreach (var unit in battle.Units)
+            if (UnitRect(unit).Contains(pointer)) { _combatTarget = unit.Id; UseSkill(); return; }
     }
     private void UseSkill()
     {
         var battle = _session.State.Battle!; var skill = _session.ActiveSkills()[_skill];
-        var selected = battle.Units.FirstOrDefault(u => u.Id == _combatTarget && (skill.Target == TargetKind.Ally ? u.Friendly : !u.Friendly && u.Alive));
-        selected ??= skill.Target == TargetKind.Ally ? battle.Units.Where(u => u.Friendly).MinBy(u => u.Health / (float)u.MaxHealth) : battle.Units.FirstOrDefault(u => !u.Friendly && u.Alive);
-        try { _notice = _session.Act(_skill, selected?.Id ?? -1).Message; }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Death save failed: " + e.Message + " F5 retries."; }
+        try { _notice = _session.Act(_skill, _combatTarget).Message; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Death save failed: " + e.Message + " Use Save to retry."; }
         _enemyTimer = 0;
     }
     private void TrySave()
@@ -302,9 +210,9 @@ internal sealed class WorldGame : Game
         try
         {
             var replacement = WorldSession.Load(_options.Save);
-            _session = replacement; _autoSave = true; _route.Clear(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
+            _session = replacement; _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _tool = ""; _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
-            _notice = "World restored and paused. Space resumes.";
+            _notice = "World restored and paused. Click a destination or Play to continue.";
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
         {
@@ -344,9 +252,21 @@ internal sealed class WorldGame : Game
         var center = _camera.WorldToScreen(position); int size = (int)Math.Ceiling(_camera.CellSize);
         return new((int)Math.Round(center.X - size / 2f), (int)Math.Round(center.Y - size / 2f), size, size);
     }
-    private void UpdatePointer(Point point) => _pointer.Update(_session, _camera, point,
-        enabled: _panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation,
-        navigationEnabled: _tool.Length == 0);
+    private void UpdatePointer(Point point)
+    {
+        WorldPosition? actorCell = null;
+        if (_tool.Length == 0)
+        {
+            var actor = _session.State.Actors.LastOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
+                && _actorMotions.TryGetValue(a.Id, out var motion)
+                && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
+                && ActorRect(motion.Position).Contains(point));
+            actorCell = actor?.Position;
+        }
+        _pointer.Update(_session, _camera, point,
+            enabled: _panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
+            navigationEnabled: _tool.Length == 0, interactionCell: actorCell);
+    }
     protected override void Draw(GameTime gameTime)
     {
         Layout(); UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
@@ -359,14 +279,8 @@ internal sealed class WorldGame : Game
         DrawHud(w, h);
         if (_session.IsInCombat) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
-        if (_session.State.AwaitingContinuation) DrawWipe(w, h);
-        if (_session.State.Endgame.Victory)
-        {
-            var box = new Rectangle(60, h / 2 - 100, w - 120, 200); Fill(box, Panel);
-            Text("EXPEDITION COMPLETE", box.X + 24, box.Y + 24, Gold, 2);
-            Wrap(_session.FinalBoss.Name + " has fallen. Your party ended this world's final threat.", box.X + 24, box.Y + 78, box.Width - 48);
-            Text("F5 saves this ending. N begins a new generated world.", box.X + 24, box.Y + 150, Ink);
-        }
+        DrawMouseControls(w, h);
+        WriteUiReport(w, h);
         _batch.End(); GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();
         if (_lastDraw > 0 && _frames.Count < 10000) _frames.Add(Stopwatch.GetElapsedTime(_lastDraw).TotalMilliseconds); _lastDraw = Stopwatch.GetTimestamp();
@@ -498,11 +412,8 @@ internal sealed class WorldGame : Game
         Text($"Wood {_session.Count("wood")}  Stone {_session.Count("stone")}", x, y, Muted); y += 22;
         Text($"Medicine {_session.Count("medicine")}", x, y, Muted); y += 34;
         if (y < _side.Bottom - 100) { Text("THE FINAL THREAT", x, y, Gold); y += 26; Wrap(_session.FinalObjective, x, y, _side.Width - 28); }
-        int bottom = _map.Bottom + 12;
-        Wrap(_notice.Length > 150 ? _notice[..147] + "..." : _notice, 20, bottom, w - 370); bottom += 42;
-        Text("WASD move  E speak/stairs  Space pause  I pack  J journal  M map", 20, Math.Min(bottom, h - 48), Muted);
-        Text(_tool == "build" ? $"BUILD {_build} | 1 wall 2 floor 3 door 4 bridge 5 store 6 camp | click adjacent" : _tool == "dig" ? "DIG | click adjacent rock, wall or tree | food pays for the work" : "B build  X dig  K work  C craft  O forage  . wait  R rest  F1 help", 20, h - 24, _tool.Length > 0 ? Gold : Muted);
     }
+
     private Rectangle UnitRect(CombatUnit unit)
     {
         var b = _session.State.Battle!; int index = b.Units.Take(unit.Id).Count(u => u.Friendly == unit.Friendly);
@@ -513,7 +424,7 @@ internal sealed class WorldGame : Game
     {
         Fill(_map, new Color(14, 19, 25) * .96f); var b = _session.State.Battle!;
         Text($"ENCOUNTER  /  ROUND {b.Round}", _map.X + 24, _map.Y + 18, Gold);
-        Text(b.Active.Name + "'s turn / J tactics", _map.X + 24, _map.Y + 42);
+        Text(b.Active.Name + "'s turn", _map.X + 24, _map.Y + 42);
         foreach (var unit in b.Units)
         {
             var r = UnitRect(unit); Fill(r, unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
@@ -524,149 +435,32 @@ internal sealed class WorldGame : Game
             string detail = unit.Friendly ? $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
             Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
         }
-        if (b.Active.Friendly)
-        {
-            int y = _map.Bottom - 102; var skills = _session.ActiveSkills();
-            for (int i = 0; i < skills.Count; i++) Text($"{i + 1} {skills[i].Name} ({skills[i].Mana} MP)", _map.X + 24 + i % 2 * 320, y + i / 2 * 26, i == _skill ? Gold : Ink);
-        }
-    }
-    private void DrawPanel(int w, int h)
-    {
-        var box = new Rectangle(48, 70, w - 96, h - 130); Fill(box, new(24, 31, 37));
-        int x = box.X + 24, y = box.Y + 20, width = box.Width - 48;
-        Text(_panel.ToUpperInvariant(), x, y, Gold, 2); y += 42;
-        if (_panel == "guide")
-        {
-            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X queues digging. Materials are reserved; work takes time and fatigue affects workers.", "R spends an hour resting at camp; danger interrupts. O gathers food; Period waits.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses for choices; completed rounds cost a minute. 1-6 skills; click targets.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "K assigns/cancels work; C crafts at camp; P repairs hovered structures. I manages gear.", "Combat labels: G guard, B burn, L bleed, M mark, S stun. J shows enemy tactics."];
-            foreach (string line in lines) y += Wrap(line, x, y, width);
-        }
-        else if (_panel == "person")
-        {
-            var a = _session.State.Actors.Single(a => a.Id == _person);
-            _sprites.Fit(_batch, a.Sprite, new(x, y, 96, 96), Ink); y += 106;
-            y += Wrap(_notice, x, y, width); y += 20;
-            Text($"Hunger {a.Body.Hunger:0}  Fatigue {a.Body.Fatigue:0}  Wounds {a.Body.Wounds}  Trust {_session.Party.First().Trust.GetValueOrDefault(a.Id)}", x, y, Muted); y += 26;
-            if (a.Memories.LastOrDefault() is { } memory) { y += Wrap(memory.Text, x, y, width, Muted); y += 8; }
-            int number = 1;
-            foreach (var interaction in _session.Interactions(a.Id).Take(6))
-            {
-                string cost = interaction.Cost.Count == 0 ? "" : " / " + string.Join(", ", interaction.Cost.Select(p => p.Value + " " + _session.Content.Get<ItemDefinition>(p.Key).Name));
-                Text($"{number++}  {interaction.Name}{cost}", x, y, Gold); y += 28;
-            }
-            Text("Their former job will be vacant if they join.", x, y, Muted);
-        }
-        else if (_panel == "trade")
-        {
-            var town = _session.Plan.Towns.FirstOrDefault(t => _session.State.Position.Distance(t.Center) <= 28);
-            if (town == null) Text("Reach a town to trade.", x, y);
-            else
-            {
-                Text(town.Name, x, y); y += 32; int i = 1;
-                foreach (var (item, stock) in _session.State.Towns[town.Id].Stocks) { Text($"{i++}  {item,-10} stock {stock,-5} price {_session.State.Towns[town.Id].Price(item)} gold", x, y); y += 30; }
-                Text("1-4 buys one. Shift+1-4 sells one at half the asking price.", x, y + 12, Muted);
-            }
-        }
-        else if (_panel == "inventory")
-        {
-            var party = _session.Party.ToArray(); var member = party[_packMember % party.Length];
-            Text(member.Name + " / Tab changes companion", x, y, Gold); y += 28;
-            Text($"Food {_session.Count("food")}  Medicine {_session.Count("medicine")}  Gold {_session.Count("gold")}  Wood {_session.Count("wood")}  Stone {_session.Count("stone")}", x, y, Gold); y += 26;
-            Text($"HP {member.Health}/{member.MaxHealth}  Power {member.Power}  Armour {member.Armor}  Speed {member.Speed}", x, y); y += 28;
-            Text($"Hunger {member.Body.Hunger:0}/100  Fatigue {member.Body.Fatigue:0}/100  Wounds {member.Body.Wounds}  Stress {member.Stress}", x, y, Muted); y += 26;
-            Text("Equipped: " + string.Join(", ", member.Equipment.Values.Select(e => _session.Content.Get<ItemDefinition>(e.Item).Name)), x, y, Muted); y += 30;
-            int index = 0;
-            foreach (var item in _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none"))
-            {
-                Text($"{(index == _packItem ? "> " : "  ")}{item.Name}  x{_session.Count(item.Stack)}  [{item.Slot}]  HP+{item.Health} P+{item.Power} A+{item.Armor} S+{item.Speed}", x, y, index++ == _packItem ? Gold : Ink); y += 24;
-            }
-            y += 8; Text("Up/Down select gear; Enter equips; U removes that slot.", x, y, Muted); y += 28;
-            Text("1-4 revives a downed member; Shift+1-4 abandons permanently.", x, y, Muted);
-            y += 26; Text("D parts ways with the selected companion in their home town.", x, y, Muted);
-            if (member.Memories.LastOrDefault() is { } memory) Wrap(memory.Text, x, y + 28, width, Muted);
-        }
-        else if (_panel == "work")
-        {
-            Text("Up/Down selects an order; Tab chooses a worker; Enter assigns; C cancels/refunds.", x, y, Muted); y += 30;
-            var workers = WorkCandidates();
-            if (workers.Length > 0) { Text("Selected worker: " + workers[_workerIndex % workers.Length].Name, x, y, Gold); y += 30; }
-            _workIndex %= Math.Max(1, _session.State.Work.Count); int index = 0;
-            foreach (var order in _session.State.Work.Skip(Math.Max(0, _workIndex - 8)).Take(10))
-            {
-                bool selected = _session.State.Work.IndexOf(order) == _workIndex % _session.State.Work.Count;
-                Text($"{(selected ? ">" : " ")} #{order.Id} {order.Kind} ({order.Target.X},{order.Target.Y}) {order.Progress:0}/{order.Required:0}", x, y, selected ? Gold : Ink); y += 22;
-                Text(order.Status, x + 16, y, Muted); y += 26; index++;
-            }
-            if (index == 0) Wrap("No pending work. B builds, X digs, P repairs the hovered structure, O gathers food. Close this panel and resume time or press Period to wait.", x, y, width);
-        }
-        else if (_panel == "craft")
-        {
-            Text("Prepare equipment and supplies beside a serviceable camp.", x, y, Muted); y += 32; int number = 1;
-            foreach (var recipe in CraftRecipes().Take(9))
-            {
-                Text($"{number++} {recipe.Name} / {recipe.Work} work", x, y, Gold); y += 26;
-                Text(string.Join(", ", recipe.Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name)), x, y, Muted); y += 32;
-            }
-        }
-        else if (_panel == "journal")
-        {
-            y += Wrap(_session.FinalObjective, x, y, width, Gold); y += 12;
-            var encounterBoss = _session.State.Battle?.ActorIds.Select(id => _session.State.Actors.Single(a => a.Id == id)).FirstOrDefault(a => _session.Content.Entries[a.Archetype] is BossDefinition);
-            var boss = _session.Content.Get<BossDefinition>((encounterBoss ?? _session.FinalBoss).Archetype);
-            y += Wrap(boss.Tactics + " " + boss.Weakness, x, y, width, Muted); y += 12;
-            y += Wrap($"Main arc: {_session.State.Arc.Status}. {_session.State.Arc.Objective}", x, y, width, Gold); y += 14;
-            foreach (var task in _session.State.Tasks.Where(t => !t.Complete).Take(3)) y += Wrap(task.Description + (task.RoadId == null ? " V delivers at the town." : ""), x, y, width, Muted);
-            foreach (string line in _session.State.Journal.AsEnumerable().Reverse().Skip(_journalOffset).Take(10)) { y += Wrap(line, x, y, width); if (y > box.Bottom - 55) break; }
-            Text("PageUp / PageDown scroll history", x, box.Bottom - 50, Muted);
-        }
-        else if (_panel == "map")
-        {
-            Text("Known places / surface", x, y, Muted); y += 30;
-            var region = new Rectangle(x, y, Math.Min(width, 900), box.Bottom - y - 45);
-            Fill(region, new(12, 22, 27));
-            foreach (var d in _session.State.Chunks.Where(c => c.Key.Floor == 0 && c.Discovered.Count > 0))
-                Fill(new(region.X + d.Key.X * region.Width / 64, region.Y + d.Key.Y * region.Height / 64, Math.Max(2, region.Width / 64), Math.Max(2, region.Height / 64)), new(70, 86, 74));
-            foreach (var town in _session.Plan.Towns.Where(t => _session.Chunks.Seen(t.Center))) Text(town.Name, region.X + town.Center.X * region.Width / WorldPlan.Size, region.Y + town.Center.Y * region.Height / WorldPlan.Size, Gold);
-            var p = _session.State.Position; Fill(new(region.X + p.X * region.Width / WorldPlan.Size, region.Y + p.Y * region.Height / WorldPlan.Size, 5, 5), Ink);
-        }
-        else if (_panel == "inspector") DrawInspector(x, y, width);
-        Text("Escape closes | world paused", x, box.Bottom - 25, Muted);
     }
     private void DrawInspector(int x, int y, int width)
     {
-        Text($"Generation v{WorldPlan.GenerationVersion} | {_session.Chunks.ResidentCount}/25 chunks | {_session.Chunks.Generator.CachedFootprints}/8 footprints", x, y); y += 26;
-        Text($"Samples {SampleLibrary.Default.Hash[..20]} | pattern size {SampleLibrary.Default.PatternSize}", x, y, Muted); y += 26;
-        int index = 0;
+        Text($"Generation v{WorldPlan.GenerationVersion} / {_session.Chunks.ResidentCount}/25 chunks / {_session.Chunks.Generator.CachedFootprints}/8 footprints", x, y); y += 24;
+        Text($"Samples {SampleLibrary.Default.Hash[..20]} / learned 3x3 patterns", x, y, Muted); y += 28;
+        int column = 0;
         foreach (var sample in SampleLibrary.Default.Samples)
         {
-            int sx = x + index * 180; Text(sample.Id, sx, y, Gold); int sy = y + 24;
-            foreach (string row in sample.Rows) { Text(row, sx, sy, Muted); sy += 16; } index++;
+            int sx = x + column++ * 144; Text(sample.Id, sx, y, Gold, .8f); int sy = y + 22;
+            foreach (string row in sample.Rows) { Text(row, sx, sy, Muted, .65f); sy += 11; }
         }
-        y += 270;
         var p = _session.State.Position with { Floor = 0 };
         var town = _session.Plan.Towns.FirstOrDefault(t => Math.Abs(t.Center.X - p.X) < 32 && Math.Abs(t.Center.Y - p.Y) < 32 && _session.State.Position.Floor == 0);
         var site = _session.Plan.Sites.FirstOrDefault(t => Math.Abs(t.Center.X - p.X) < 32 && Math.Abs(t.Center.Y - p.Y) < 32);
-        if (town == null && site == null) { Wrap("Natural field: coordinate noise + river + biome; public road constraints override terrain. No worldwide WFC pass.", x, y, width); return; }
-        var footprint = _session.Chunks.Generator.GenerateFootprint(town != null, town?.Id ?? site!.Id, _session.State.Position.Floor);
-        var trace = footprint.Trace;
-        int mx = x + 560, my = y - 270;
-        Text(_inspectStage == 0 ? "Raw structure" : _inspectStage == 1 ? "Final layout" : "Repairs in gold", mx, my, Gold); my += 24;
+        if (town == null && site == null) { Wrap("Natural field: coherent noise, river and biome, overridden by public roads. Use World map for the overview.", x, y + 190, width); return; }
+        var footprint = _session.Chunks.Generator.GenerateFootprint(town != null, town?.Id ?? site!.Id, _session.State.Position.Floor); var trace = footprint.Trace;
+        int mx = x + width - 260, my = y + 24;
+        Text(new[] { "Raw structure", "Final layout", "Repairs in gold" }[_inspectStage], mx, y, Gold);
         for (int cell = 0; cell < 4096; cell++)
         {
-            Material m = _inspectStage == 0 ? footprint.RawCells[cell] : footprint.Cells[cell];
-            var color = m == Material.Wall ? new Color(149, 145, 131) : m == Material.Door ? new Color(131, 100, 63) : new Color(46, 56, 58);
+            var material = _inspectStage == 0 ? footprint.RawCells[cell] : footprint.Cells[cell];
+            var color = material == Material.Wall ? new Color(149, 145, 131) : material == Material.Door ? new Color(131, 100, 63) : new Color(46, 56, 58);
             if (_inspectStage == 2 && footprint.RawCells[cell] != footprint.Cells[cell]) color = Gold;
-            Fill(new(mx + cell % 64 * 3, my + cell / 64 * 3, 3, 3), color);
+            Fill(new(mx + cell % 64 * 4, my + cell / 64 * 4, 4, 4), color);
         }
-        Text("Tab changes stage", mx, my + 200, Muted);
-        Wrap($"{town?.Name ?? site!.Name}: {trace.Layout}. Sample {trace.Sample}; {trace.PatternCount} learned patterns. WFC attempts {trace.Attempts}; observations {trace.Observations}; propagations {trace.Propagations}. Fallback regions {trace.FallbackRegions}. Repaired cells {trace.RepairedCells}. Whole-site generation preserves connected floors and stair links.", x, y, width);
-    }
-    private void DrawWipe(int w, int h)
-    {
-        var box = new Rectangle(70, h / 2 - 100, w - 140, 230); Fill(box, new(44, 27, 31));
-        Text("THE EXPEDITION HAS ENDED", box.X + 24, box.Y + 22, Gold, 2);
-        Wrap(_session.DeathPending ? "Deaths await a successful save. F5 retries before continuation is available." : "Your companions are permanently dead. Their belongings remain where they fell; the world remembers them.", box.X + 24, box.Y + 72, box.Width - 48);
-        Text("N  New traveller in this world", box.X + 24, box.Y + 142);
-        Text("Shift+N  Fresh world", box.X + 24, box.Y + 174, Muted);
+        Wrap($"{town?.Name ?? site!.Name}: {trace.Layout}. Sample {trace.Sample}; {trace.PatternCount} patterns. WFC attempts {trace.Attempts}; observations {trace.Observations}; fallback regions {trace.FallbackRegions}; repaired cells {trace.RepairedCells}. Connected floors and stair links are protected.", x, y + 194, Math.Max(280, width - 300));
     }
     protected override void Dispose(bool disposing)
     {
