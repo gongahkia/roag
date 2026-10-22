@@ -1,6 +1,6 @@
 # Expedition systems expansion
 
-Approved 2026-10-22 from the five-point attachment and the preceding recommendation. This is the implementation and completion checklist, not a claim that the features below already exist. Preserve mouse-first delegation, four generated companions, shared needs, turn-based party combat, open exploration, solid collisions, dungeon privacy and safe save rejection.
+Approved 2026-10-22 from the five-point attachment and the preceding recommendation. Completed and audited against the approved scope on 2026-10-22; the evidence below distinguishes implementation checks from long-form balance playtesting. Preserve mouse-first delegation, four generated companions, shared needs, turn-based party combat, open exploration, solid collisions, dungeon privacy and safe save rejection.
 
 ## Required outcomes
 
@@ -11,8 +11,8 @@ Approved 2026-10-22 from the five-point attachment and the preceding recommendat
 - [x] Rabbits flee, spiders defend nests, bees defend valuable gathering places and bats inhabit caves. Local collision, visibility, danger feedback and actual encounters respect these behaviours.
 - [x] Generated trapped storerooms, poisoned springs and guarded crossings offer appropriate disarm/repair/negotiate/fight/tunnel approaches. Reuse trap/lever/fountain art. All outcomes and rewards are persistent; no repeated reward exploitation or mandatory global unlocks.
 - [x] Cooperative abilities work between generated companions, with explicit participant/cost rules and the existing paused turn-based combat.
-- [ ] Each new content family has stable IDs, strict validation/references, schema/scaffold/removal support, real runtime previews and authoring documentation. Review/dogfood tooling at each milestone.
-- [ ] Reproducible seed/scenario checks, gameplay/save/collision regressions, native mouse acceptance and inspected screenshots cover the full expansion. Audit each requirement against actual evidence before completion.
+- [x] Each new content family has stable IDs, strict validation/references, schema/scaffold/removal support, real runtime previews and authoring documentation. Review/dogfood tooling at each milestone.
+- [x] Reproducible seed/scenario checks, gameplay/save/collision regressions, native mouse acceptance and inspected screenshots cover the full expansion. Audit each requirement against actual evidence before completion.
 
 ## Implementation stages
 
@@ -23,7 +23,9 @@ Approved 2026-10-22 from the five-point attachment and the preceding recommendat
 
 Use cohesive atomic local commits throughout. New mechanics/content may require a new campaign because the game pins the gameplay content hash; old/incompatible saves must fail safely without overwrite. No migration or player-save modification is authorized or needed for verification. Do not replace source artwork or historical IDs.
 
-## Evidence and remaining work
+## Recorded milestone evidence
+
+These entries record the state at each checkpoint. The completed acceptance audit follows them.
 
 Planning checkpoint: current baseline `ff4489d`; 308 .NET tests and 56 native mouse checks were recorded for the prior UI milestone. Those results do not verify this expansion. All implementation requirements above remain pending.
 
@@ -38,3 +40,21 @@ Wildlife milestone: 352 Release tests passed, including 13 new habitat/behaviour
 Situation milestone: all 372 Release tests passed, including twenty new approach/work/save/content regressions. The eight-seed audit passed 80 approach/claim scenarios and all 326 generated side-wall/bridge checks. Native input passed six checks for contextual disarming, work completion, reward persistence and physical tunnelling; the discovery panel capture was inspected. All three new templates are in normal generation, keep local identities and have real alternative resolution paths. Tooling/schema/references cover 205 definitions across 19 families. Cooperative abilities and the final integrated audit remain required.
 
 Cooperative combat milestone: all 395 Release tests passed, including 23 new action/save/content/mouse cases. Native acceptance passed nine checks for helper selection/cancellation, mana and action costs, targeting, exact pending-action saves, one-minute round advancement and group recovery. Inspected helper/recovery captures at 1024×720. Both new ability previews run the real resolver; reference-safe removal correctly refuses the configured ability. Schema/tooling now report 207 definitions / 19 families. The final integrated audit remains pending.
+
+## Final requirement audit — 2026-10-22
+
+| Approved requirement | Implementation and direct evidence |
+| --- | --- |
+| Regional gathering, depletion, recovery and delegated selection | `WorldResources`, ten authored resource types, contextual/drag work and ingredient/tool sprites. Resource tests exercise natural nodes, concurrent distinct workers, exact saves/cache eviction, exhaustion/regrowth and finite ore. Native resource checks cover actual clicks, stock, reload, pack sprites and recovery feedback. |
+| Digging and tools | Dig orders reserve no food; ordinary work/needs still advance. Tool bonuses are separate from equipment stats and affect actual digging/mining/fishing progress. Designation, resource, equipment and native delegation tests verify these paths. |
+| Camps and useful party preparation | Seven authored duties cover cooking, treatment, watch and stories. Camp tests execute concurrent workers, combat protections, cooldowns and real site clues. Native camp input completes duties, reloads preparations and opens voiced two-portrait stories. |
+| Meaningful generated equipment | Seven bounded effects; Warden's shield, Ember staff and work tools use actual handlers. Equipment tests verify numeric effects, once-per-round cover, seeded variety, ownership and exact claim/equip/storage saves. Native reward selection shows sprites/effects and preserves the chosen identity. |
+| Distinct wildlife | Four authored species and saved habitats; movement/contact tests cover fleeing, territorial pursuit/return, cave habitats, hidden-information rules and persistent ingredient remains. Eight-seed audit: 24 defender/roost encounters, eight rabbit escapes and eight distinct habitats per species. Native hunting/reward/reload checks pass. |
+| Situations with alternatives | Three generated templates support ten applicable approach combinations through actual work, combat, negotiation or digging. Eight-seed audit passes 80 approach/claim scenarios and all 326 generated side-wall/bridge checks. Tests verify physical bypasses, payment/refunds, retreat hostility and one-time rewards. Native disarming and tunnelling pass. No global access gate was added. |
+| Cooperative generated companions | Twin strike and Shared aid use any eligible generated companions, charge both mana pools and consume both actions. Twenty-three additional tests cover costs, previews, invalid actions, status ticks, exact saved continuation and mouse controls. Nine focused native checks pass; the full run includes them. |
+| Authoring tools and assets | 207 valid definitions across 19 families; schema freshness and reference/removal tests pass. Temporary copies successfully scaffold, validate, inspect, reference and remove resource/camp/affix definitions; removal of a configured cooperative ability is refused. Runtime previews exercise each added handler. Thirteen existing sprites were newly bound; original artwork/IDs remain intact. Catalog generation check and all 38 catalog tests pass. |
+| Preserved safeguards and integrated acceptance | All 395 Release .NET tests pass. All 90 native mouse checks pass across nine scenarios, including formation, collisions, pause, rejected loads, exact state/rewards, retreat and final-boss completion. Headless recruitment/camp/trade/resource conservation passes over 950 ticks with 11/25 resident chunks. Eight-seed exploration audit passes with 240–253 discoveries per world. |
+
+Final reports, test logs and captures are under ignored `artifacts/integration/expansion-*`; earlier wildlife/situation/preview reports remain there too. Inspected final resource-tree, camp-duty, equipment-choice, wildlife-reward, discovery-approach and cooperative-recovery captures at 1024×720. Native checks ran under X11/software GL with isolated temporary saves. No player save was modified; no remote changes were published.
+
+All approved implementation outcomes are complete. Wildlife is bounded habitat behaviour, not a breeding/food-web simulation; ingredients regenerate according to their individual definitions, while minerals and defeated wildlife do not. Audits establish mechanics, persistence and sampled generation. Long-form difficulty, travel pacing, resource abundance and subjective enjoyment remain playtest questions, not claims made by these checks.

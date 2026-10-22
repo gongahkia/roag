@@ -1,5 +1,18 @@
 # Vagabonds verification
 
+## Completed expedition expansion — 2026-10-22
+
+- **395/395 Release .NET tests** and **38/38 catalog tests** passed on the final implementation. Logs are `artifacts/integration/expansion-tests-final.log` and `expansion-catalog-tests-final.log`. Build had zero warnings/errors; schema freshness is covered by the developer tests.
+- **90/90 native mouse checks across nine scenarios** passed under Xvfb/X11/software GL. The full run includes baseline exploration/formation/collision/safe-load behavior, gathering, wildlife, discovery alternatives, camps, equipment rewards, retreat, cooperative combat and final-boss completion. Report/captures: `artifacts/integration/expansion-native-final/`. Inspected the final resource tree, camp duties, equipment choices, wildlife reward, discovery approaches and cooperative recovery captures at the minimum 1024×720 size.
+- `audit-exploration --seed 42 --samples 8` passed with 240–253 discoveries per world; report/SVG: `expansion-exploration-final.*`. The wildlife milestone's eight-seed report proves 24 encounters/eight escapes and distinct habitats; the situation report proves 80 real approach/claim paths and all 326 sampled generated side-wall/bridge features.
+- Final `--world-headless --seed 42` passed recruitment, camp construction/rest, trade and resource conservation over 950 ticks; 11 resident chunks remained within capacity 25. Report: `expansion-headless-final.json`. These are Core timings and simulation checks, not a graphical performance benchmark.
+- `build_game_catalog.py --check` passed. The full catalog suite initially exposed a stale binding count from before 13 formerly unused sprites were bound. Updated that expected inventory (88 historical preview bindings / 6,861 unused sprites), retaining 7,115 source sprites, 11,887 records and the 166 historical Ithica selections; the complete rerun passed.
+- Tooling review reports **207 valid definitions / 19 families**. The three new content families (resource/camp/affix) were scaffolded, validated, inspected, referenced and removed through the real CLI in a temporary content copy. Configured cooperative-ability removal was correctly refused. Schema and real runtime previews cover all new mechanics; `expansion-authoring-final.json` records these checks.
+
+The approved scope is reconciled requirement by requirement in [EXPEDITION_SYSTEMS.md](EXPEDITION_SYSTEMS.md). Local atomic commits contain the implementation; no player save or remote repository was modified. Earlier saves with a different gameplay content hash remain safely rejected. Use an explicit new campaign for the expansion. Long-form balance, subjective enjoyment and native Windows/macOS execution remain untested; wildlife uses bounded persistent habitats rather than reproduction or a full food web.
+
+The sections below preserve earlier milestone results and their then-current limitations.
+
 ## Illustrated management panels and excavation feedback (2026-10-22)
 
 Release build passed with zero warnings/errors and **308 .NET tests** passed. Added cases reproduce six selected rock tiles with two food, verify the visible four-food requirement, no-cost rejection, contextual gathering with retained selection and partial affordable designation. Presentation cases cover four-member Party and Work controls at 1024×720 and 1908×1120, sprite bounds, authored item/worker identities, state preservation, and conservative journal portrait matching. All **24 mouse-client tests** passed again after final presentation adjustments.
