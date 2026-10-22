@@ -90,6 +90,7 @@ internal sealed partial class WorldGame : Game
                 var foe = preview.Units.First(u => !u.Friendly); foe.Burn = 3; foe.Bleed = 2; foe.Mark = 2; foe.Stun = 1; foe.Guarding = true;
             }
         }
+        if (_session.IsInCombat) _notice = "Choose an ability, then a fighter. Read enemy intentions before committing.";
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Vagabonds - the living world"; Window.AllowUserResizing = true;
         Window.ClientSizeChanged += (_, _) =>

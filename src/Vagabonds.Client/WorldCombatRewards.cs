@@ -31,7 +31,7 @@ internal sealed partial class WorldGame
             Text(Short(member.Name, columns), rect.X + 12, rect.Y + 12, alive ? Ink : accent);
             Text(Short(_session.Class(member).Name + " / L" + member.Level + (levelled ? " / LEVEL UP" : ""), columns), rect.X + 12, rect.Y + 33, levelled ? Gold : Muted);
 
-            int portrait = Math.Min(96, Math.Max(64, rect.Width / 3));
+            int portrait = Math.Max(48, Math.Min(Math.Min(96, rect.Height - 98), Math.Max(64, rect.Width / 3)) / 12 * 12);
             _sprites.Fit(_batch, member.Sprite, new(rect.X + 10, rect.Y + 57, portrait, portrait), alive ? Ink : accent * .7f);
             int statsX = rect.X + portrait + 24, statsWidth = Math.Max(16, rect.Right - statsX - 12);
             Text("HP " + member.Health + "/" + member.MaxHealth, statsX, rect.Y + 61, alive ? Ink : accent);
