@@ -31,11 +31,13 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | ability | Target, mana, power, registered effect and status duration |
 | interaction | Registered action, maximum distance, item costs and effect amount |
 | item | Inventory key, value, appearance, equipment slot and stat modifiers |
-| recipe | Buildable material, reserved item costs and required work |
+| recipe | Buildable material or camp crafting output, reserved item costs, required work and output amount |
+| simulation | Shared hunger/fatigue/rest, meal thresholds, structure wear, memory duration and forage work |
+| incident | Registered eligibility condition, effect, mood and cooldown |
 | generation | Four-floor layout selection per site purpose and biome tree/rock/water profiles; shared by runtime and audit |
 | boss / variant | Authored identity/tactics/weakness, stats, conditional behaviour phases, minions and variation pools |
 
-Bosses, enemy behaviours, equipment, character creation, party abilities and conversations use the content catalog at runtime. Timed recipes are the next checkpoint. Enemy rules select weighted eligible actions at the start of each round; cadence, health threshold and phase conditions apply then. Intentions persist through saves; a dead chosen target wastes a single-target action. Enemy medicine/retreat handlers are rejected. `game.enemyFallback` must reference a free damaging attack.
+Bosses, enemy behaviours, equipment, character creation, party abilities and conversations use the content catalog at runtime. Timed recipes, reservations, work/cancellation and crafting now use the same definitions. Enemy rules select weighted eligible actions at the start of each round; cadence, health threshold and phase conditions apply then. Intentions persist through saves; a dead chosen target wastes a single-target action. Enemy medicine/retreat handlers are rejected. `game.enemyFallback` must reference a free damaging attack.
 
 ## Validation and previews
 
@@ -69,3 +71,9 @@ WFC is retained for towns/ruins. Registered structural algorithms are `bsp-worki
 ## Preview authored encounters
 
 `./dev preview encounter boss.briar-matriarch --seed 42` runs a generated four-member party against the actual boss factory, variant, minions, intentions and resolver for up to four rounds. It reports actions, health, intentions and shared ticks without saving. This is a deterministic diagnostic using basic attacks, not a combat-balance claim. Every shipped archetype is exercised by the suite. `--scene world-boss` provides the graphical preview at the selected seed. Equipment snapshots preserve item identity and resolved modifiers across saves; swaps return previous equipment to the shared pack.
+
+## Exercise work and shared simulation
+
+`./dev preview recipe recipe.field-medicine --seed 42` queues real work with paid reservations and reports actual progress, output and body effects. `./dev preview simulation simulation.shared --seed 42` assigns a generated resident, advances work, then recruits the same actor. `./dev preview incident incident.helping-hands --seed 42` isolates an incident with explicit eligible fixture conditions and executes its real shared-clock handler. These commands do not save. Every shipped work recipe and incident is exercised by tests.
+
+Simulation profiles apply to everyone; level and traits augment the shared rates. Incident conditions are `hunger`, `exhaustion`, `injury`, `craft`, `trust`; handlers are `memory`, `rest`, `aid`. Aid consumes actual town medicine. Memories are bounded/expiring, trust is directional, and repeated identical conversations have a memory cooldown. A recipe with `output` crafts that item at camp; one without it constructs `material`. Construction receipts record exact paid stacks for dismantling; changing authoring defaults never invents a new refund. New recipe outputs need valid item IDs and new mechanics need registered Core handlers.

@@ -21,7 +21,7 @@ public sealed partial class WorldSession
         if (interaction == null || actor == null || actor.Position.Distance(State.Position) > interaction.Distance) return new(false, "Approach someone who offers this interaction.");
         var costs = interaction.Cost.Select(p => (Stack: Content.Get<ItemDefinition>(p.Key).Stack, p.Value)).ToArray();
         if (costs.Any(p => Count(p.Stack) < p.Value)) return new(false, "You cannot afford this interaction.");
-        var injured = Party.Where(a => a.Life == LifeState.Alive && a.Health < a.MaxHealth).MinBy(a => a.Health / (double)a.MaxHealth);
+        var injured = Party.Where(a => a.Life == LifeState.Alive && (a.Health < a.MaxHealth || a.Body.Wounds > 0)).MinBy(a => a.Health / (double)a.MaxHealth);
         if (interaction.Action == "heal" && injured == null) return new(false, "No conscious traveller needs treatment.");
         if (interaction.Action == "recruit" && State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
         // Every check precedes costs or effects. Interactions never consume RNG.

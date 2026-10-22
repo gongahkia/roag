@@ -82,6 +82,7 @@ public sealed partial class WorldSession
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
             if (worker == null) { order.Worker = 0; order.Status = "Assign a worker"; continue; }
             if (State.Battle?.ActorIds.Contains(worker.Id) == true) { order.Status = "Worker in combat"; continue; }
+            if (order.Kind == WorkKind.Forage && worker.Body.ForageAfter > State.Tick) { order.Status = "Gathering grounds recovering"; continue; }
             if (worker.Body.RestUntil > State.Tick || worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
             { order.Status = "Worker needs food, rest or treatment"; continue; }
             if (worker.Position.Distance(order.Target) > 1)
@@ -90,7 +91,7 @@ public sealed partial class WorldSession
                 if (!worker.Recruited && State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor) worker.Position = LocalStep(worker.Position, order.Target);
                 continue;
             }
-            if (order.Kind == WorkKind.Build && !Materials.Walkable(order.After) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
+            if (order.Kind is WorkKind.Build or WorkKind.Dig && !Materials.Walkable(order.After) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
             { order.Status = "Clear the target cell"; continue; }
             order.Status = "Working: " + worker.Name; double amount = WorkRate(worker);
             order.Progress += amount; worker.Body.WorkDone += amount;

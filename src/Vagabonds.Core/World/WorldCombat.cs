@@ -32,6 +32,11 @@ public sealed partial class WorldSession
     private void NewCombatRound()
     {
         var b = State.Battle!;
+        foreach (var unit in b.Units)
+        {
+            var actor = State.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
+            unit.Power = actor.Power; unit.Speed = actor.Speed; unit.Armor = actor.Armor;
+        }
         b.Order = b.Units.Where(u => u.Alive).Select(u => (u.Id, Roll: u.Speed + CombatRoll(3))).OrderByDescending(v => v.Roll).ThenBy(v => v.Id).Select(v => v.Id).ToList();
         b.TurnIndex = 0;
         PlanEnemies();
@@ -89,7 +94,7 @@ public sealed partial class WorldSession
             TargetKind.AllAllies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
             TargetKind.Self => [u], _ => new[] { target! }
         };
-        ResolveAbility(u, skill, targets, actor.Level - 1 + Math.Max(0, u.Power - 6));
+        ResolveAbility(u, skill, targets, actor.Level - 1 + u.Power - 6);
         SyncCombat();
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
         return new(true, $"{u.Name}: {skill.Name}.");
@@ -162,7 +167,7 @@ public sealed partial class WorldSession
             if (a.Life == LifeState.Alive && !u.Alive)
             {
                 a.Body.Wounds = Math.Min(10, a.Body.Wounds + 1);
-                foreach (var other in Party.Where(p => p.Id != a.Id && p.Life == LifeState.Alive)) Remember(other, "fallen-companion", a.Name + " fell in the fighting.", -8, a.Id);
+                foreach (var other in State.Actors.Where(p => p.Id != a.Id && p.Life == LifeState.Alive && (p.FriendId == a.Id || p.Trust.GetValueOrDefault(a.Id) > 0 || p.Recruited && a.Recruited))) Remember(other, "fallen-friend", a.Name + " fell in the fighting.", -8, a.Id);
             }
             a.Life = u.Alive ? LifeState.Alive : u.Friendly ? LifeState.Downed : LifeState.Dead;
         }

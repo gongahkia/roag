@@ -24,7 +24,7 @@ public sealed partial class WorldSession
         foreach (var actor in State.Actors.Where(a => a.Life == LifeState.Alive))
         {
             var body = actor.Body; bool fighting = State.Battle?.ActorIds.Contains(actor.Id) == true;
-            bool working = HasWork(actor);
+            bool working = HasWork(actor) || body.ForageProgress > 0;
             if (!actor.Recruited && !fighting && body.Fatigue >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
             bool resting = !fighting && body.RestUntil > State.Tick;
             body.Hunger = Math.Min(100, body.Hunger + settings.HungerPerTick);
@@ -32,9 +32,9 @@ public sealed partial class WorldSession
             body.Fatigue = Math.Clamp(body.Fatigue + (resting ? -settings.RestPerTick : fatigueRate * (working ? 2 : 1)), 0, 100);
             if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
             // Unmanaged people/creatures can spend time gathering food using the same forage work cost.
-            if (!actor.Recruited && !fighting && !working && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
+            if (!actor.Recruited && !fighting && !HasWork(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
             {
-                body.ForageProgress++;
+                double forage = WorkRate(actor); body.ForageProgress += forage; body.WorkDone += forage;
                 if (body.ForageProgress >= settings.ForageWork)
                 {
                     body.ForageProgress = 0; body.ForageAfter = State.Tick + TicksPerHour;

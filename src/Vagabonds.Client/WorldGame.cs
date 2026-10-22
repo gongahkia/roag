@@ -31,6 +31,7 @@ internal sealed class WorldGame : Game
     private int _skill, _combatTarget = -1, _journalOffset;
     private int _inspectStage;
     private int _packMember, _packItem;
+    private int _workIndex, _workerIndex;
     private readonly Queue<WorldPosition> _route = [];
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
@@ -152,6 +153,7 @@ internal sealed class WorldGame : Game
             {
                 var party = _session.Party.ToArray();
                 if (Press(Keys.Tab)) _packMember = (_packMember + 1) % party.Length;
+                if (Press(Keys.D)) Execute(new(WorldCommandKind.Dismiss, ActorId: party[_packMember % party.Length].Id));
                 var equipment = _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
                 if (equipment.Length > 0 && Press(Keys.Down)) _packItem = (_packItem + 1) % equipment.Length;
                 if (equipment.Length > 0 && Press(Keys.Up)) _packItem = (_packItem + equipment.Length - 1) % equipment.Length;
@@ -165,6 +167,25 @@ internal sealed class WorldGame : Game
                 if (Press(Keys.PageUp)) _journalOffset += 6;
                 if (Press(Keys.PageDown)) _journalOffset = Math.Max(0, _journalOffset - 6);
             }
+            else if (_panel == "work")
+            {
+                var orders = _session.State.Work; _workIndex %= Math.Max(1, orders.Count);
+                var workers = WorkCandidates();
+                if (orders.Count > 0)
+                {
+                    if (Press(Keys.Down)) _workIndex = (_workIndex + 1) % orders.Count;
+                    if (Press(Keys.Up)) _workIndex = (_workIndex + orders.Count - 1) % orders.Count;
+                    var order = orders[_workIndex % orders.Count];
+                    if (Press(Keys.Tab) && workers.Length > 0) _workerIndex = (_workerIndex + 1) % workers.Length;
+                    if (Press(Keys.Enter) && workers.Length > 0) Execute(new(WorldCommandKind.AssignWork, ActorId: workers[_workerIndex % workers.Length].Id, WorkId: order.Id));
+                    if (Press(Keys.C)) Execute(new(WorldCommandKind.CancelWork, WorkId: order.Id));
+                }
+            }
+            else if (_panel == "craft")
+            {
+                var recipes = CraftRecipes();
+                for (int i = 0; i < Math.Min(9, recipes.Length); i++) if (Press(Keys.D1 + i)) Execute(new(WorldCommandKind.Craft, Item: recipes[i].Id));
+            }
             else if (_panel == "inspector" && Press(Keys.Tab)) _inspectStage = (_inspectStage + 1) % 3;
             else if (_panel.Length == 0)
             {
@@ -174,6 +195,11 @@ internal sealed class WorldGame : Game
                 if (_tool == "build") for (int i = 0; i < 6; i++) if (Press(Keys.D1 + i)) _build = BuildChoices[i];
                 if (Press(Keys.E) || Press(Keys.Enter)) Interact();
                 if (Press(Keys.R)) Execute(new(WorldCommandKind.Camp));
+                if (Press(Keys.K)) Toggle("work");
+                if (Press(Keys.C)) Toggle("craft");
+                if (Press(Keys.O)) Execute(new(WorldCommandKind.Forage));
+                if (Press(Keys.P) && _pointer.Cell is { } repair) Execute(new(WorldCommandKind.Repair, repair));
+                if (Press(Keys.OemPeriod)) Execute(new(WorldCommandKind.Wait, Amount: keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift) ? 300 : 5));
                 if (Press(Keys.F)) Execute(new(WorldCommandKind.ResolveArc));
                 if (Press(Keys.V)) Execute(new(WorldCommandKind.CompleteDelivery));
                 if (Press(Keys.G) || Press(Keys.H))
@@ -210,6 +236,8 @@ internal sealed class WorldGame : Game
         _keyboard = keys; _mouse = mouse; base.Update(gameTime);
     }
     private void Toggle(string panel) { _panel = _panel == panel ? "" : panel; _route.Clear(); }
+    private Actor[] WorkCandidates() => _session.State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && a.Position.Distance(_session.State.Position) <= 100).OrderByDescending(a => a.Recruited).ThenBy(a => a.Id).ToArray();
+    private RecipeDefinition[] CraftRecipes() => _session.Content.Game.Recipes.Select(_session.Content.Get<RecipeDefinition>).Where(r => r.Output != null).ToArray();
     private void PersonAction(InteractionDefinition interaction)
     {
         var result = _session.PerformInteraction(_person, interaction.Id); _notice = result.Message;
@@ -413,6 +441,11 @@ internal sealed class WorldGame : Game
         }
         foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position)))
             _sprites.Draw(_batch, "chest", TileRect(cache.Position), Gold);
+        foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
+        {
+            var rect = TileRect(order.Target); FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * order.Progress / order.Required)), 3), Gold);
+            FillClipped(new(rect.Left + 2, rect.Bottom - 5, Math.Max(2, rect.Width - 4), 2), Gold * .5f);
+        }
         int slot = 0;
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
@@ -468,7 +501,7 @@ internal sealed class WorldGame : Game
         int bottom = _map.Bottom + 12;
         Wrap(_notice.Length > 150 ? _notice[..147] + "..." : _notice, 20, bottom, w - 370); bottom += 42;
         Text("WASD move  E speak/stairs  Space pause  I pack  J journal  M map", 20, Math.Min(bottom, h - 48), Muted);
-        Text(_tool == "build" ? $"BUILD {_build} | 1 wall 2 floor 3 door 4 bridge 5 store 6 camp | click adjacent" : _tool == "dig" ? "DIG | click adjacent rock, wall or tree | food pays for the work" : "B build  X dig  R rest  F resolve arc  F1 guide  F3 inspect  F5 save  F9 load", 20, h - 24, _tool.Length > 0 ? Gold : Muted);
+        Text(_tool == "build" ? $"BUILD {_build} | 1 wall 2 floor 3 door 4 bridge 5 store 6 camp | click adjacent" : _tool == "dig" ? "DIG | click adjacent rock, wall or tree | food pays for the work" : "B build  X dig  K work  C craft  O forage  . wait  R rest  F1 help", 20, h - 24, _tool.Length > 0 ? Gold : Muted);
     }
     private Rectangle UnitRect(CombatUnit unit)
     {
@@ -502,7 +535,7 @@ internal sealed class WorldGame : Game
         Text(_panel.ToUpperInvariant(), x, y, Gold, 2); y += 42;
         if (_panel == "guide")
         {
-            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X digs adjacent walls, rock and trees; food funds work and materials are recovered.", "R rests at a camp. G stores one wood; H retrieves it from adjacent storage.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses the world: 1-6 uses a skill; click a fighter to choose its target.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "Escape closes a panel or tool. F3 opens generation inspection."];
+            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X queues digging. Materials are reserved; work takes time and fatigue affects workers.", "R spends an hour resting at camp; danger interrupts. O gathers food; Period waits.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses for choices; completed rounds cost a minute. 1-6 skills; click targets.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "K assigns/cancels work; C crafts at camp; P repairs hovered structures. I manages gear."];
             foreach (string line in lines) y += Wrap(line, x, y, width);
         }
         else if (_panel == "person")
@@ -510,6 +543,8 @@ internal sealed class WorldGame : Game
             var a = _session.State.Actors.Single(a => a.Id == _person);
             _sprites.Fit(_batch, a.Sprite, new(x, y, 96, 96), Ink); y += 106;
             y += Wrap(_notice, x, y, width); y += 20;
+            Text($"Hunger {a.Body.Hunger:0}  Fatigue {a.Body.Fatigue:0}  Wounds {a.Body.Wounds}  Trust {_session.Party.First().Trust.GetValueOrDefault(a.Id)}", x, y, Muted); y += 26;
+            if (a.Memories.LastOrDefault() is { } memory) { y += Wrap(memory.Text, x, y, width, Muted); y += 8; }
             int number = 1;
             foreach (var interaction in _session.Interactions(a.Id).Take(6))
             {
@@ -534,6 +569,7 @@ internal sealed class WorldGame : Game
             var party = _session.Party.ToArray(); var member = party[_packMember % party.Length];
             Text(member.Name + " / Tab changes companion", x, y, Gold); y += 28;
             Text($"HP {member.Health}/{member.MaxHealth}  Power {member.Power}  Armour {member.Armor}  Speed {member.Speed}", x, y); y += 28;
+            Text($"Hunger {member.Body.Hunger:0}/100  Fatigue {member.Body.Fatigue:0}/100  Wounds {member.Body.Wounds}  Stress {member.Stress}", x, y, Muted); y += 26;
             Text("Equipped: " + string.Join(", ", member.Equipment.Values.Select(e => _session.Content.Get<ItemDefinition>(e.Item).Name)), x, y, Muted); y += 30;
             int index = 0;
             foreach (var item in _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none"))
@@ -542,6 +578,31 @@ internal sealed class WorldGame : Game
             }
             y += 8; Text("Up/Down select gear; Enter equips; U removes that slot.", x, y, Muted); y += 28;
             Text("1-4 revives a downed member; Shift+1-4 abandons permanently.", x, y, Muted);
+            y += 26; Text("D parts ways with the selected companion in their home town.", x, y, Muted);
+            if (member.Memories.LastOrDefault() is { } memory) Wrap(memory.Text, x, y + 28, width, Muted);
+        }
+        else if (_panel == "work")
+        {
+            Text("Up/Down selects an order; Tab chooses a worker; Enter assigns; C cancels/refunds.", x, y, Muted); y += 30;
+            var workers = WorkCandidates();
+            if (workers.Length > 0) { Text("Selected worker: " + workers[_workerIndex % workers.Length].Name, x, y, Gold); y += 30; }
+            _workIndex %= Math.Max(1, _session.State.Work.Count); int index = 0;
+            foreach (var order in _session.State.Work.Skip(Math.Max(0, _workIndex - 8)).Take(10))
+            {
+                bool selected = _session.State.Work.IndexOf(order) == _workIndex % _session.State.Work.Count;
+                Text($"{(selected ? ">" : " ")} #{order.Id} {order.Kind} ({order.Target.X},{order.Target.Y}) {order.Progress:0}/{order.Required:0}", x, y, selected ? Gold : Ink); y += 22;
+                Text(order.Status, x + 16, y, Muted); y += 26; index++;
+            }
+            if (index == 0) Wrap("No pending work. B builds, X digs, P repairs the hovered structure, O gathers food. Close this panel and resume time or press Period to wait.", x, y, width);
+        }
+        else if (_panel == "craft")
+        {
+            Text("Prepare equipment and supplies beside a serviceable camp.", x, y, Muted); y += 32; int number = 1;
+            foreach (var recipe in CraftRecipes().Take(9))
+            {
+                Text($"{number++} {recipe.Name} / {recipe.Work} work", x, y, Gold); y += 26;
+                Text(string.Join(", ", recipe.Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name)), x, y, Muted); y += 32;
+            }
         }
         else if (_panel == "journal")
         {

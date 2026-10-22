@@ -135,7 +135,7 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.Move:
                 if (!near || command.Target == State.Position || !Materials.Walkable(Chunks.At(command.Target))) return new(false, "That way is blocked.");
                 State.Position = command.Target;
-                foreach (var a in Party) a.Position = State.Position;
+                foreach (var a in Party) { a.Position = State.Position; a.Body.RestUntil = 0; }
                 Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
             case WorldCommandKind.Interact:
                 if (target != null && State.Position.Distance(target.Position) <= 2 && target.Life == LifeState.Alive)
@@ -158,7 +158,7 @@ public sealed partial class WorldSession : IGameSession
                 if (target == null || target.Kind != ActorKind.Person || target.Life != LifeState.Alive || target.Recruited || State.Position.Distance(target.Position) > 2) return new(false, "Speak to an available inhabitant nearby.");
                 if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
-                target.Recruited = true;
+                target.Recruited = true; target.Body.ForageProgress = 0;
                 Remember(target, "recruited", "I set out with a new travelling party.", 5);
                 target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
@@ -171,7 +171,7 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
             case WorldCommandKind.CancelWork: return CancelWork(command.WorkId);
             case WorldCommandKind.Dismiss:
-                if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Alive || State.Party.Count < 2 || State.Position.Distance(Plan.Towns[target.HomeTown].Center) > 28)
+                if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Alive || !Party.Any(a => a.Id != target.Id && a.Life == LifeState.Alive) || State.Position.Distance(Plan.Towns[target.HomeTown].Center) > 28)
                     return new(false, "Return to a companion's home town with another living traveller before parting ways.");
                 State.Party.Remove(target.Id); target.Recruited = false; State.Towns[target.HomeTown].Vacancies = Math.Max(0, State.Towns[target.HomeTown].Vacancies - 1);
                 Remember(target, "returned-home", "I returned to my old work, changed by the journey.", 5); return new(true, target.Name + " returned to their old job with their history and equipment.");

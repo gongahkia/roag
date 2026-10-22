@@ -13,6 +13,16 @@ public static class DeveloperEntry
         try
         {
             string Value(string flag, string fallback) { int index = Array.IndexOf(args, flag); return index < 0 ? fallback : index + 1 < args.Length ? args[index + 1] : throw new ArgumentException("Missing " + flag); }
+            var valueFlags = new[] { "--content", "--seed", "--output", "--id", "--samples" };
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
+                if (valueFlags.Contains(args[i]))
+                {
+                    if (++i >= args.Length || args[i].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException("Missing option value.");
+                }
+                else if (args[i] is not ("--replace" or "--apply")) throw new ArgumentException("Unknown option: " + args[i]);
+            }
             string root = Path.GetFullPath(Value("--content", "content"));
             int seed = int.Parse(Value("--seed", "42"), System.Globalization.CultureInfo.InvariantCulture);
             var catalog = ContentCatalog.LoadDirectory(root);
@@ -56,9 +66,13 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind == "encounter") Print(EncounterPreview.Run(catalog, id, seed));
+                if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
+                else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
+                else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
+                else if (kind == "encounter") Print(EncounterPreview.Run(catalog, id, seed));
                 else if (kind == "generation")
                 {
+                    catalog = SimulationPreview.WithGame(catalog, g => g["generation"] = catalog.Get<GenerationDefinition>(id).Id);
                     var plan = WorldPlan.Generate(seed);
                     var generator = new ChunkGenerator(plan, catalog);
                     Print(plan.Sites.Take(4).Select(s => new { s.Purpose, floors = Enumerable.Range(0, 4).Select(f => generator.GenerateFootprint(false, s.Id, f).Trace) }));
@@ -83,6 +97,7 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
@@ -96,7 +111,8 @@ public static class DeveloperEntry
                 WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
                 Print(new { reportPath = output + ".json", comparison = output + ".svg", audit.Report }); return audit.Report.Connected ? 0 : 1;
             }
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview character|ability|interaction ID [--seed N]", "review-tooling" },
+            if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview character|ability|interaction|generation|encounter|recipe|simulation|incident ID [--seed N]", "audit-world --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException)

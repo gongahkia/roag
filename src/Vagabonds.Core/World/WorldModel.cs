@@ -246,7 +246,7 @@ public sealed class BodyState
     [JsonRequired] public int Wounds { get; set; }
     [JsonRequired] public long RestUntil { get; set; }
     [JsonRequired] public long ForageAfter { get; set; }
-    [JsonRequired] public int ForageProgress { get; set; }
+    [JsonRequired] public double ForageProgress { get; set; }
     [JsonRequired] public double WorkDone { get; set; }
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);

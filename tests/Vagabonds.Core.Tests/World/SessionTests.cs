@@ -12,8 +12,10 @@ public sealed class SessionTests
     {
         var s = Open(); var p = s.State.Position.Offset(1, 0); int stone = s.Count("stone");
         s.Chunks.Edit(p, Material.Floor); Assert.True(s.Submit(new(WorldCommandKind.Build, p, Material: Material.Wall)).Success);
+        Assert.True(s.Submit(new(WorldCommandKind.Wait, Amount: 40)).Success);
         s.State.Inventory["food"] = 0;
         Assert.True(s.Submit(new(WorldCommandKind.Dig, p)).Success);
+        Assert.True(s.Submit(new(WorldCommandKind.Wait, Amount: 40)).Success);
         Assert.Equal(stone, s.Count("stone")); Assert.True(Materials.Walkable(s.Chunks.At(p)));
     }
     [Fact]
@@ -67,10 +69,12 @@ public sealed class SessionTests
     {
         var s = Open(); var p = s.State.Position.Offset(1, 0); s.Chunks.Edit(p, Material.Floor);
         Assert.True(s.Submit(new(WorldCommandKind.Build, p, Material: Material.Storage)).Success);
+        Assert.True(s.Submit(new(WorldCommandKind.Wait, Amount: 40)).Success);
         Assert.True(s.Submit(new(WorldCommandKind.Store, p, Item: "wood", Amount: 3)).Success);
         Assert.False(s.Submit(new(WorldCommandKind.Dig, p)).Success);
         Assert.True(s.Submit(new(WorldCommandKind.Take, p, Item: "wood", Amount: 3)).Success);
         Assert.True(s.Submit(new(WorldCommandKind.Dig, p)).Success);
+        Assert.True(s.Submit(new(WorldCommandKind.Wait, Amount: 40)).Success);
         Assert.True(Materials.Walkable(s.Chunks.At(p)));
         var destination = s.State.Position.Offset(2, 0); s.Chunks.Edit(destination, Material.Floor); s.Reveal();
         Assert.All(s.Route(destination), cell => Assert.True(s.Chunks.Seen(cell)));

@@ -108,11 +108,11 @@ public sealed partial class WorldSession
         }
         foreach (var town in State.Towns)
         {
-            var workers = State.Actors.Where(a => a.Kind == ActorKind.Person && a.HomeTown == town.Id && a.Life == LifeState.Alive && !a.Recruited && !HasWork(a) && a.Body.RestUntil <= State.Tick && a.Body.Fatigue < 75 && a.Body.Hunger < Simulation.StarveAt).ToArray();
+            var workers = State.Actors.Where(a => a.Kind == ActorKind.Person && a.HomeTown == town.Id && a.Life == LifeState.Alive && !a.Recruited && !HasWork(a) && a.Body.RestUntil <= State.Tick && a.Body.Fatigue < 75 && a.Body.ForageProgress == 0 && a.Body.Hunger < Simulation.StarveAt).ToArray();
             Produce("food", "farmer", 12); Produce("wood", "woodcutter", 9); Produce("stone", "quarrier", 8); Produce("medicine", "healer", 3);
             int population = 6; // Unmodeled residents; named actors eat through the shared body rules.
             int eaten = Math.Min(population, town.Stocks["food"]); town.Stocks["food"] -= eaten; State.ResourcesConsumed += eaten;
-            if (eaten < population)
+            if (eaten < population || town.Stocks["food"] < (workers.Length + population) * 2)
             {
                 town.Shortage++;
                 if (town.Shortage == 1 || town.Shortage % 8 == 0) Log($"Food shortage in {Plan.Towns[town.Id].Name}: suppliers need escorts or deliveries. Food costs {town.Price("food")} gold.");

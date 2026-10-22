@@ -77,15 +77,40 @@ public sealed partial class WorldSession
         if (s.Tick is < 0 or > 1000000000000 || !plan.Contains(s.Position) || s.Actors == null || s.Party == null || s.Inventory == null || s.Towns == null || s.Factions == null || s.Journal == null || s.Arc == null || s.VisitedSites == null || s.Tasks == null) throw new InvalidDataException("Invalid world state.");
         if (s.Actors.Count is < 1 or > 10000 || s.Actors.Any(a => a == null) || s.Actors.Select(a => a.Id).Distinct().Count() != s.Actors.Count || s.NextActorId <= s.Actors.Max(a => a.Id) || s.Party.Count is < 1 or > 4 || s.Party.Distinct().Count() != s.Party.Count || s.CombatRandom == 0) throw new InvalidDataException("Invalid actor identities.");
         foreach (var a in s.Actors)
-            if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Equipment == null || a.Equipment.Any(e => e.Value == null) || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
+            if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Body == null || a.Memories == null || a.Trust == null || a.Equipment == null || a.Equipment.Any(e => e.Value == null) || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
         foreach (var actor in s.Actors)
             if (actor.Archetype == null || !ContentCatalog.Default.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not (CharacterDefinition or BossDefinition)
-                || actor.BaseHealth is < 1 or > 2000 || actor.BaseMana is < 0 or > 500 || actor.BaseArmor is < 0 or > 30 || actor.BasePower is < 0 or > 100 || actor.BaseSpeed is < 1 or > 30
+                || actor.BaseHealth is < 1 or > 3000 || actor.BaseMana is < 0 or > 500 || actor.BaseArmor is < 0 or > 30 || actor.BasePower is < 0 or > 100 || actor.BaseSpeed is < 1 or > 30
                 || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !ContentCatalog.Default.Entries.ContainsKey(actor.TraitId))
                 throw new InvalidDataException("Invalid content-backed actor state.");
+        var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
+        var stacks = ContentCatalog.Default.All<ItemDefinition>().Select(i => i.Stack).ToHashSet();
         foreach (var actor in s.Actors)
         {
-            if (actor.VariantId == null || actor.VariantId.Length > 0 && !ContentCatalog.Default.Entries.TryGetValue(actor.VariantId, out _)
+            var body = actor.Body;
+            if (new[] { body.Hunger, body.Fatigue }.Any(v => !double.IsFinite(v) || v < 0 || v > 100) || body.Wounds is < 0 or > 10
+                || body.RestUntil < 0 || body.ForageAfter < 0 || !double.IsFinite(body.ForageProgress) || body.ForageProgress is < 0 or > 300 || !double.IsFinite(body.WorkDone) || body.WorkDone < 0
+                || actor.Stress is < 0 or > 100 || actor.Memories.Count > 12 || actor.Memories.Any(m => m == null || string.IsNullOrWhiteSpace(m.Key) || m.Text == null || m.Text.Length > 512
+                    || m.Tick < 0 || m.Tick > s.Tick || m.Until < m.Tick || m.Mood is < -20 or > 20 || m.Other != 0 && !actorIds.Contains(m.Other))
+                || actor.Trust.Any(t => !actorIds.Contains(t.Key) || t.Value is < -100 or > 100)) throw new InvalidDataException("Invalid actor needs or memories.");
+        }
+        bool StackValid(Dictionary<string, int>? values) => values != null && values.All(p => stacks.Contains(p.Key) && p.Value is >= 0 and <= 9999);
+        if (s.Work == null || s.Structures == null || s.NextWorkId < 1 || s.IncidentRandom == 0 || s.IncidentAfter == null || s.Work.Count > 64
+            || s.Work.Select(w => w?.Id).Distinct().Count() != s.Work.Count
+            || s.Work.Any(w => w == null || w.Id < 1 || w.Id >= s.NextWorkId || !Enum.IsDefined(w.Kind) || !plan.Contains(w.Target)
+                || w.Before is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(w.Before) || !Enum.IsDefined(w.After)
+                || w.Kind == WorkKind.Build && w.After is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)
+                || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
+                || w.Worker != 0 && !actorIds.Contains(w.Worker) || !StackValid(w.Reserved) || !StackValid(w.Yield) || w.Status == null
+                || w.Kind is WorkKind.Build or WorkKind.Craft && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var recipe) || recipe is not RecipeDefinition))
+            || s.Work.Where(w => w.Worker != 0).GroupBy(w => w.Worker).Any(g => g.Count() > 1)
+            || s.Structures.Any(b => b == null || !plan.Contains(b.Position) || !Enum.IsDefined(b.Material) || b.Material is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(b.Foundation)
+                || !StackValid(b.Cost) || !double.IsFinite(b.Condition) || b.Condition is < 0 or > 100)
+            || s.Structures.Select(b => b.Position).Distinct().Count() != s.Structures.Count
+            || s.IncidentAfter.Any(p => !ContentCatalog.Default.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
+        foreach (var actor in s.Actors)
+        {
+            if (actor.VariantId == null || actor.VariantId.Length > 0 && (!ContentCatalog.Default.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
                 || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition))
                 throw new InvalidDataException("Invalid encounter identity.");
             foreach (var (slot, gear) in actor.Equipment)
