@@ -27,9 +27,10 @@ public static class WorldDiagnostics
     {
         var s = WorldSession.Create(seed);
         var person = s.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).MinBy(a => a.Position.Distance(s.State.Position))!;
-        foreach (var p in s.Route(person.Position)) s.Submit(new(WorldCommandKind.Move, p));
+        foreach (var p in s.RouteToAdjacent(person.Position, 2)) s.Submit(new(WorldCommandKind.Move, p));
         var recruit = s.Submit(new(WorldCommandKind.Recruit, ActorId: person.Id));
-        var build = s.Submit(new(WorldCommandKind.Build, s.State.Position, Material: Material.Camp));
+        var camp = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) }.Select(d => s.State.Position.Offset(d.Item1, d.Item2)).First(p => s.CanEnter(p));
+        var build = s.Submit(new(WorldCommandKind.Build, camp, Material: Material.Camp));
         s.Submit(new(WorldCommandKind.Wait, Amount: 50));
         var rest = s.Submit(new(WorldCommandKind.Camp));
         var trade = s.Submit(new(WorldCommandKind.Buy, Item: "food", Amount: 3));

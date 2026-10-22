@@ -26,16 +26,19 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Click ground | Start travelling immediately; the selected route stays gold |
 | Click a person, cache, chest or stairs | Approach along observed ground, then interact automatically |
 | Play / Pause | Resume / pause time; pausing stops travel |
-| Stop / right-click | Cancel travel and targeting; right-click also closes a panel |
-| Interact | Interact with a nearby cache, person or stairs |
+| Left-drag | Select a rectangle of observed tiles (up to 256) |
+| Right-click terrain / selection | Stop travel and open relevant actions at the cursor |
+| Right-click a panel | Close the panel |
+| Stop | Stop travel and automatic work approach; assigned workers can continue |
 | Conversation buttons | Recruit, trade, hear stories, share meals or receive treatment when offered |
 | Buy 1 / Sell 1 | Trade the selected supply for its displayed price |
 | Party | Click a companion and equipment, then Equip / Remove slot; revive, part ways or abandon when eligible |
-| Build | Choose a structure, then click adjacent ground |
-| Dig / Actions → Repair | Click adjacent terrain or an owned structure |
+| Cursor menu → Build / Dig / Repair | Queue work on the chosen tile or selection; the party approaches automatically |
 | Work | Select an order and worker, then Assign; Cancel and refund returns reservations |
-| Craft | Click a camp recipe to reserve supplies and begin work |
-| Actions | Rest at camp, wait one minute/hour, gather food, repair, access storage, present evidence or deliver food |
+| Right-click camp → Craft / Rest | Choose a recipe or rest beside that camp |
+| Actions | Wait one minute/hour or gather food |
+| Right-click a townsperson | Speak, present side-arc evidence or deliver requested food when applicable |
+| Right-click a companion → Lead | Change the leader without moving anyone; choose the last companion to reverse the formation |
 | Storage → Store 1 / Take 1 | Transfer actual supplies between the pack and chest |
 | Journal / Tactics | Final threat, boss tactics, optional side arc and paged history |
 | World map | Overview of known places across the large world |
@@ -49,17 +52,17 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 
 Clicking a reachable destination starts travel even while paused. Opening a panel stops the selected route and freezes time; closing it restores the previous running/paused state. Disabled buttons consume clicks. In combat, selecting a targeted ability alone spends no turn or random state; click its intended fighter to act.
 
-The selector also marks build/dig targets. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid. The world remains **4096×4096**. Normal exploration starts at 36–64 pixels per tile (larger on very large displays), with a minimum of 24 pixels and at most 48 columns / 32 rows visible; use World map for an overview.
+Selected tiles remain highlighted until you act, dismiss the menu, or begin another selection. Clicking an unavailable destination opens its context menu. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid. The world remains **4096×4096**. Normal exploration starts at 36–64 pixels per tile (larger on very large displays), with a minimum of 24 pixels and at most 48 columns / 32 rows visible; use World map for an overview.
 
 Outdoors, the entire local view is clear, including terrain and inhabitants behind walls. The world map records observed places without revealing distant towns. Underground keeps exploration fog, line of sight and dim remembered terrain. Zooming out observes more outdoor ground, within the local view limit.
 
-Click routes cannot cross unknown ground. Building, gathering and excavation take work; reservations are paid immediately and terrain/output changes on completion. Stay nearby and resume time or wait; Work can assign a background resident instead. Cancelled/invalidated orders refund their reservations once. Natural excavation costs food according to hardness and yields materials. Dismantling owned structures refunds their recorded construction materials without food, so a misplaced structure cannot trap you after supplies run out. Water needs a bridge. Storage transfers keep actual quantities. Stairs cannot be removed or built over, and excavation cannot create vertical shafts. Walking through doors is automatic.
+Click routes cannot cross unknown ground. Building, gathering and excavation take work; reservations are paid immediately and terrain/output changes on completion. Cursor orders guide the party along observed free ground to work beside each target; Work can assign a background resident instead. Unreachable orders wait for access. Up to 64 work orders can be pending; invalid or unaffordable tiles are skipped with feedback. Orders and automatic approach intent survive saving. Pause freezes work; Stop or a new map click stops automatic approach. Right-click queued tiles to resume or cancel their orders. Cancelled/invalidated orders refund their reservations once. Natural excavation costs food according to hardness and yields materials. Dismantling owned structures refunds their recorded construction materials without food, so a misplaced structure cannot trap you after supplies run out. Characters, camp furniture, storage, unopened chests, solid landmarks and barrels block walking. Routes go around observed obstacles and stop if someone moves into their path. Barrels can be dismantled; landmark furniture stays protected. Roads, doors, stairs, bridges, bones and other flat decorations remain walkable. Water needs a bridge. Storage transfers keep actual quantities. Stairs cannot be removed or built over, and excavation cannot create vertical shafts. Walking through doors is automatic.
 
 ## Companions, consequences and stories
 
-Everyone follows shared hunger, fatigue and wound rules. The party eats carried food; residents eat stocks/cargo or spend time gathering. Actions → Gather food queues gathering for the party. Exhaustion and wounds reduce speed/power/work. Actions → Rest takes time to recover, while healers/medicine help injuries. Camps wear and can be repaired through Actions → Repair. Memories affect stress and work, and shared meals/conversations build trust with a cooldown. A dismissed companion retains their identity, body, equipment and history.
+Everyone follows shared hunger, fatigue and wound rules. The party eats carried food; residents eat stocks/cargo or spend time gathering. Actions → Gather food queues gathering for the party. Exhaustion and wounds reduce speed/power/work. Right-click camp → Rest takes time to recover, while healers/medicine help injuries. Camps wear and can be repaired through their right-click Repair action. Memories affect stress and work, and shared meals/conversations build trust with a cooldown. A dismissed companion retains their identity, body, equipment and history.
 
-Each party member stands on a separate walkable tile and follows the leader with their own smooth movement and facing. Followers can round corners and reverse in narrow corridors; downed companions remain with the group on their own tiles. Recruitment, stairs and retreat keep everyone separated. Removing the leader promotes the next companion where they stand. Compatible saves with the former stacked formation spread the party out on load, without changing the save file until you save normally.
+Each party member stands on a separate walkable tile and follows the leader with their own smooth movement and facing. Followers round corners without passing through other characters. To turn back in a narrow corridor, right-click the last companion and choose Lead; downed companions remain with the group on their own tiles. Recruitment, stairs and retreat keep everyone separated. Removing the leader promotes the next companion where they stand. Compatible saves with the former stacked formation spread the party out on load, without changing the save file until you save normally.
 
 Inhabitants have generated classes, backgrounds, traits, motivations, friends and jobs. Recruiting someone removes them from their town's workforce, affecting production or protection. Towns produce and consume goods, caravans carry actual cargo, shortages raise prices, and guard vacancies expose faction roads to raids. Blocking a complete road width causes caravans to reroute or wait; repair requests and shortages appear in the journal. Restoring access lets supply recover.
 

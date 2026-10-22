@@ -188,6 +188,7 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
             ? landmark == Material.Earth && original == Material.Water ? Material.Bridge : landmark : original;
     }
     public bool Seen(WorldPosition p) => plan.Contains(p) && _deltas.TryGetValue(p.Chunk, out var delta) && delta.Discovered.Contains(p.LocalIndex);
+    public bool IsEdited(WorldPosition p) => _deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.ContainsKey(p.LocalIndex);
     public ChunkDelta Delta(ChunkKey key)
     {
         if (_deltas.TryGetValue(key, out var delta)) return delta;

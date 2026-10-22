@@ -24,9 +24,8 @@ internal sealed partial class WorldGame : Game
     private readonly MapCamera _camera = new();
     private Rectangle _map, _side;
     private MouseState _mouse;
-    private string _panel = "", _tool = "", _notice = "Click the ground to travel. Click people or objects to approach and interact.";
+    private string _panel = "", _notice = "Click the ground to travel. Click people or objects to approach and interact.";
     private long _person;
-    private Material _build = Material.Wall;
     private int _skill, _combatTarget = -1, _journalOffset;
     private int _inspectStage;
     private int _packMember, _packItem;
@@ -47,7 +46,6 @@ internal sealed partial class WorldGame : Game
     private readonly List<double> _frames = [];
     private long _lastDraw;
     private static readonly Color Ink = new(222, 214, 189), Muted = new(151, 154, 150), Gold = new(234, 187, 94), Panel = new(27, 33, 38);
-    private static readonly Material[] BuildChoices = [Material.Wall, Material.Floor, Material.Door, Material.Bridge, Material.Storage, Material.Camp];
     public WorldGame(Options options, WorldSession session)
     {
         _options = options; _session = session; _autoSave = !options.Preview;
@@ -110,31 +108,45 @@ internal sealed partial class WorldGame : Game
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         if (IsActive && !_options.WorldSmoke)
         {
-            bool click = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
-            if (click)
+            bool press = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
+            if (press)
             {
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
                 if (control != null) { if (control.Enabled) ActivateControl(control.Id); else _notice = control.DisabledReason; }
+                else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
                     if (_session.IsInCombat) CombatClick(mouse.Position);
-                    else if (_map.Contains(mouse.Position)) ClickMap(mouse);
+                    else if (_map.Contains(mouse.Position)) BeginSelection(mouse.Position);
                 }
             }
-            if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released) ClosePanel();
-            if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !_session.IsInCombat && _map.Contains(mouse.Position))
+            UpdateSelection(mouse);
+            if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released)
+            {
+                if (_panel.Length > 0 || _session.IsInCombat || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
+                else OpenContext(mouse.Position);
+            }
+            if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !_session.IsInCombat && _map.Contains(mouse.Position))
                 Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
         }
+        else if (!IsActive) { _dragStart = null; _dragging = false; }
+        if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
-        _session.ModalOpen = _panel.Length > 0;
+        _session.ModalOpen = _panel.Length > 0 || PointerModal;
         _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
         {
-            if (!Execute(new(WorldCommandKind.Move, next))) StopTravel();
+            if (!Execute(new(WorldCommandKind.Move, next))) { StopTravel(); _notice += " Click again to route around the obstruction."; }
             _moveTimer = 0;
             if (!_session.IsInCombat) FinishApproach();
         }
-        _session.ModalOpen = _panel.Length > 0;
+        _session.ModalOpen = _panel.Length > 0 || PointerModal;
+        if (!_session.Frozen && _moveTimer >= MoveDuration && _route.Count == 0 && _pendingInteraction == null && _session.State.Work.Any(w => w.PartyApproach))
+        {
+            var result = _session.ApproachDesignatedWork();
+            if (result.Message.Length > 0 && result.Message != "Moved.") _notice = result.Message;
+            _moveTimer = 0;
+        }
         // Long stalls/focus changes discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (_session.IsInCombat)
@@ -143,7 +155,7 @@ internal sealed partial class WorldGame : Game
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
-        CollectCombatFeedback(); _session.ModalOpen = _panel.Length > 0;
+        CollectCombatFeedback(); _session.ModalOpen = _panel.Length > 0 || PointerModal;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
@@ -163,36 +175,14 @@ internal sealed partial class WorldGame : Game
         try { var result = _session.Submit(command); _notice = result.Message; return result.Success; }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message + " Use Save to retry."; return false; }
     }
-    private void Interact()
-    {
-        var cache = _session.State.Loot.FirstOrDefault(c => !c.Taken && c.Position.Distance(_session.State.Position) <= 1);
-        if (cache != null) { OpenLoot(cache.Position); return; }
-        var person = _session.NearbyPerson();
-        if (person != null)
-        {
-            _person = person.Id; Execute(new(WorldCommandKind.Interact, ActorId: person.Id)); _panel = "person"; _route.Clear(); return;
-        }
-        var cells = new[] { _session.State.Position }.Concat(WorldSession.Directions.Select(d => _session.State.Position.Offset(d.X, d.Y)));
-        var stair = cells.FirstOrDefault(p => _session.Chunks.At(p) is Material.StairsDown or Material.StairsUp, _session.State.Position);
-        Execute(new(WorldCommandKind.Interact, stair)); _camera.Center = Vector2.Zero; _route.Clear();
-    }
     private void ClickMap(MouseState mouse)
     {
         UpdatePointer(mouse.Position);
         if (_pointer.Cell is not { } p) return;
         if (!_session.Chunks.Seen(p)) { _notice = "Explore this ground first."; return; }
-        if (_tool is "build" or "dig" or "repair")
-        {
-            var kind = _tool == "build" ? WorldCommandKind.Build : _tool == "dig" ? WorldCommandKind.Dig : WorldCommandKind.Repair;
-            if (Execute(new(kind, p, Material: _build))) _session.Paused = false;
-            return;
-        }
-        var plan = WorldMouseNavigation.Plan(_session, _pointer.NavigationCell ?? p); StopTravel();
-        if (!plan.Reachable) { _notice = plan.Reason; return; }
-        _pendingInteraction = plan.Interaction;
-        foreach (var cell in plan.Path) _route.Enqueue(cell);
-        if (_route.Count > 0) { _session.Paused = false; _notice = "Travelling. Right-click or Pause stops the party."; }
-        else FinishApproach();
+        var plan = WorldMouseNavigation.Plan(_session, _pointer.NavigationCell ?? p);
+        if (!plan.Reachable) { _notice = plan.Reason; OpenContext(mouse.Position); return; }
+        BeginApproach(plan);
     }
 
     private void CombatClick(Point pointer)
@@ -219,8 +209,8 @@ internal sealed partial class WorldGame : Game
         try
         {
             var replacement = WorldSession.Load(_options.Save);
-            _session = replacement; _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
-            _tool = ""; _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
+            _session = replacement; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
+            _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null;
             _notice = "World restored and paused. Click a destination or Play to continue.";
         }
@@ -254,7 +244,7 @@ internal sealed partial class WorldGame : Game
         {
             if (actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
             if (!_actorMotions.TryGetValue(actor.Id, out var motion)) _actorMotions[actor.Id] = motion = new();
-            motion.Observe(actor.Position, actor.Recruited ? MoveDuration : 1); motion.Advance(elapsed);
+            motion.Observe(actor.Position, actor.Recruited || actor.Kind == ActorKind.Caravan ? MoveDuration : 1); motion.Advance(elapsed);
         }
     }
     private Rectangle ActorRect(Vector2 position)
@@ -264,18 +254,13 @@ internal sealed partial class WorldGame : Game
     }
     private void UpdatePointer(Point point)
     {
-        WorldPosition? actorCell = null;
-        if (_tool.Length == 0)
-        {
-            var actor = _session.State.Actors.LastOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
-                && _actorMotions.TryGetValue(a.Id, out var motion)
-                && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
-                && ActorRect(motion.Position).Contains(point));
-            actorCell = actor?.Position;
-        }
+        var actor = _session.State.Actors.LastOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
+            && _actorMotions.TryGetValue(a.Id, out var motion)
+            && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
+            && ActorRect(motion.Position).Contains(point));
         _pointer.Update(_session, _camera, point,
-            enabled: _panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
-            navigationEnabled: _tool.Length == 0, interactionCell: actorCell);
+            enabled: _panel.Length == 0 && !PointerModal && !_session.IsInCombat && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
+            interactionCell: actor?.Position);
     }
     protected override void Draw(GameTime gameTime)
     {
@@ -289,6 +274,7 @@ internal sealed partial class WorldGame : Game
         DrawHud(w, h);
         if (_session.IsInCombat) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
+        DrawContext();
         DrawMouseControls(w, h);
         DrawHoverFeedback();
         WriteUiReport(w, h);
@@ -336,8 +322,7 @@ internal sealed partial class WorldGame : Game
             Fill(rect, background * light);
             string? sprite = material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0
                 ? Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]) : null;
-            string? prop = ground && WorldRandom.Hash(_session.Seed, x, y, 999) % (culture < 0 ? 33 : 61) == 0
-                ? culture < 0 ? "shrub" : _session.State.Position.Floor > 0 ? "bones" : "barrel" : null;
+            string? prop = _session.ObjectAt(p) is { Kind: "decoration" } decoration ? decoration.Sprite : null;
             _terrain.Add((rect, sprite, tint * light * (ground ? .32f : 1), prop, light, material == Material.Door));
         }
         // Backgrounds, terrain and props are separate layers so texture sorting preserves their order.
@@ -384,10 +369,11 @@ internal sealed partial class WorldGame : Game
             var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position);
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
+        DrawSelection();
         if (_pointer.Cell is { } cell)
         {
             var rect = TileRect(cell);
-            bool blocked = _tool.Length > 0 ? _session.TargetBlockReason(_tool == "build" ? WorldCommandKind.Build : _tool == "repair" ? WorldCommandKind.Repair : WorldCommandKind.Dig, cell, _build).Length > 0 : _pointer.Plan is { Reachable: false };
+            bool blocked = _pointer.Plan is { Reachable: false };
             Color selector = blocked ? new(225, 127, 110) : Gold; FillClipped(rect, selector * .1f);
             int edge = Math.Clamp(rect.Width / 3, 3, 12), stroke = rect.Width >= 16 ? 2 : 1;
             foreach (int x in new[] { rect.Left, rect.Right - edge })

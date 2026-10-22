@@ -52,12 +52,14 @@ public sealed class SessionTests
         Assert.Equal(initial + s.State.ResourcesProduced - s.State.ResourcesConsumed - s.State.ResourcesLost, s.AccountedResources());
         Assert.Contains(s.State.Actors, a => a.Kind == ActorKind.Caravan && a.Traveling);
     }
-    [Fact]
-    public void BlockingRoadsChangesRegionalRoutingAndRepairRestoresIt()
+    [Theory]
+    [InlineData(Material.Wall)]
+    [InlineData(Material.Camp)]
+    public void BlockingRoadsChangesRegionalRoutingAndRepairRestoresIt(Material barrier)
     {
         var s = Open(); var road = s.Plan.Roads[0];
         var p = road.A.Offset(50, 0);
-        for (int y = -1; y <= 1; y++) s.Chunks.Edit(p.Offset(0, y), Material.Wall);
+        for (int y = -1; y <= 1; y++) s.Chunks.Edit(p.Offset(0, y), barrier);
         Assert.True(s.RoadBlocked(road));
         Assert.DoesNotContain(road.Id, s.RegionalRoute(road.FromTown, road.ToTown));
         Assert.NotEmpty(s.RegionalRoute(road.FromTown, road.ToTown));

@@ -89,26 +89,29 @@ public sealed partial class WorldSession
         var recipe = Content.Game.Recipes.Select(Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Output == null && r.Material == material);
         return recipe == null ? "No construction recipe is available." : MissingSupplies(recipe.Cost);
     }
-    public string TargetBlockReason(WorldCommandKind kind, WorldPosition target, Material build = Material.Wall)
+    public string TargetBlockReason(WorldCommandKind kind, WorldPosition target, Material build = Material.Wall, bool requireAdjacent = true)
     {
         if (!Plan.Contains(target) || !Chunks.Seen(target)) return "Choose observed ground first.";
-        if (State.Position.Distance(target) > 1) return "Approach adjacent ground before using this tool.";
+        if (State.Position.Distance(target) > (requireAdjacent ? 1 : 100)) return requireAdjacent ? "Approach adjacent ground before using this tool." : "Choose tiles within 100 steps on this floor.";
         var before = Chunks.At(target); var owned = State.Structures.FirstOrDefault(s => s.Position == target);
         if (before is Material.StairsDown or Material.StairsUp) return "Stairs are protected.";
         if (State.Work.Any(w => w.Target == target)) return "A work order already occupies this cell.";
         if (State.Work.Count >= 64) return "The work list is full.";
+        var prop = ObjectAt(target);
+        if (prop is { Kind: "discovery" or "loot" } && kind is WorldCommandKind.Build or WorldCommandKind.Dig) return "Investigate this landmark or recover its supplies first; it cannot be dismantled.";
         if (kind == WorldCommandKind.Build)
         {
+            if (prop is { Solid: true }) return "Clear the solid object before building here.";
             if (owned != null || before == build) return "Dismantle the existing structure before replacing it.";
-            if (!Materials.Walkable(before) && before != Material.Water || before == Material.Water && build != Material.Bridge) return "Build on clear ground; water requires a bridge.";
-            if (!Materials.Walkable(build) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == target)) return "Someone is standing on the construction site.";
+            if (!GroundOpen(target) && before != Material.Water || before == Material.Water && build != Material.Bridge) return "Build on clear ground; water requires a bridge.";
+            if ((!Materials.Walkable(build) || build == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == target)) return "Someone is standing on the construction site.";
             return RecipeSuppliesReason(build);
         }
         if (kind == WorldCommandKind.Dig)
         {
-            if (owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
+            if (prop is not { Removable: true } && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
             if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == target.Chunk)?.Storage.GetValueOrDefault(target.LocalIndex)?.Values.Any(v => v > 0) == true) return "Empty the storage before dismantling it.";
-            int food = owned == null ? Materials.Hardness(before) : 0;
+            int food = owned == null ? prop is { Removable: true } ? 1 : Materials.Hardness(before) : 0;
             return Count("food") < food ? $"Excavation needs {food} food; {Count("food")} carried." : "";
         }
         if (kind == WorldCommandKind.Repair)

@@ -265,6 +265,7 @@ public sealed class WorkOrder
     [JsonRequired] public Dictionary<string, int> Reserved { get; set; } = [];
     [JsonRequired] public Dictionary<string, int> Yield { get; set; } = [];
     [JsonRequired] public string Status { get; set; } = "Waiting";
+    public bool PartyApproach { get; set; }
 }
 public sealed class BuiltStructure
 {

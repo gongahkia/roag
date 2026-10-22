@@ -13,7 +13,7 @@ public static class SimulationPreview
         var s = WorldSession.Create(seed, content);
         if (recipe.Output != null)
         {
-            s.Submit(new(WorldCommandKind.Build, s.State.Position, Material: Material.Camp));
+            s.Submit(new(WorldCommandKind.Build, s.State.Position.Offset(1, 0), Material: Material.Camp));
             s.Submit(new(WorldCommandKind.Wait, Amount: 50));
         }
         var before = new Dictionary<string, int>(s.State.Inventory);

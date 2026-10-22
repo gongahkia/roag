@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
@@ -56,6 +56,7 @@ public sealed partial class WorldSession : IGameSession
         foreach (var road in plan.Roads)
         {
             var caravan = ActorFactory.Create(content, content.Game.Caravan, seed, 20000 + road.Id, road.A, road.FromTown, faction: plan.Towns[road.FromTown].FactionId);
+            caravan.Position = road.A.Offset((road.Id % 3 - 1) * 3, 7 + road.Id % 2 * 3);
             caravan.Name = "Caravan of " + plan.Towns[road.FromTown].Name; caravan.DestinationTown = road.ToTown; caravan.NextTravelTick = 100 + road.Id * 7;
             s.Actors.Add(caravan);
         }
@@ -68,6 +69,7 @@ public sealed partial class WorldSession : IGameSession
         session.NewLoneHero();
         session.PopulateAdventures();
         session.PopulateDiscoveries();
+        session.PrepareLocalCollision(force: true); session.Reveal();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
         s.Arc = new() { Kind = (ArcKind)rng.Next(3), TownId = townId, SiteId = siteId, PatronId = 1000 + townId * 16 + 7 };
@@ -84,7 +86,7 @@ public sealed partial class WorldSession : IGameSession
         var hero = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, State.Position, town.Id, town.Culture, town.FactionId);
         hero.Job = "traveller"; hero.Position = State.Position; hero.Recruited = true;
         State.Actors.Add(hero); State.Party.Add(hero.Id); State.AwaitingContinuation = false;
-        Reveal();
+        PrepareLocalCollision(force: true); Reveal();
     }
     public int AdvanceFrame(TimeSpan elapsed)
     {
@@ -136,11 +138,13 @@ public sealed partial class WorldSession : IGameSession
                 if (target == null || !State.Party.Contains(target.Id) || !target.Equipment.TryGetValue(command.Item, out var gear)) return new(false, "Choose an occupied equipment slot.");
                 Add(Content.Get<ItemDefinition>(gear.Item).Stack, 1); target.Equipment.Remove(command.Item); target.Health = Math.Min(target.Health, target.MaxHealth); return new(true, "Equipment returned to the pack.");
             case WorldCommandKind.Move:
-                if (!near || command.Target == State.Position || !Materials.Walkable(Chunks.At(command.Target))) return new(false, "That way is blocked.");
+                if (!near || command.Target == State.Position) return new(false, "Choose an adjacent tile.");
+                string collision = MovementBlockReason(command.Target, State.Party[0]);
+                if (collision.Length > 0) return new(false, collision);
                 if (!TryPartyStep(command.Target, out var step)) return new(false, "The party needs room to follow. Open a passage or choose another step.");
                 ApplyPartyPlacement(command.Target, step);
                 foreach (var a in Party) a.Body.RestUntil = 0;
-                Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
+                PrepareLocalCollision(); Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
             case WorldCommandKind.Interact:
                 if (target != null && State.Position.Distance(target.Position) <= 2 && target.Life == LifeState.Alive)
                 {
@@ -156,7 +160,7 @@ public sealed partial class WorldSession : IGameSession
                     if (!Plan.Contains(arrival) || !Materials.Walkable(Chunks.At(arrival))) return new(false, "The stair is obstructed.");
                     if (!TryPartyPlacement(arrival, out var landing)) return new(false, "The destination needs enough walkable space for every companion.");
                     ApplyPartyPlacement(arrival, landing);
-                    Chunks.Prefetch(arrival); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
+                    Chunks.Prefetch(arrival); PrepareLocalCollision(); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
                 }
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
             case WorldCommandKind.Recruit:
@@ -176,6 +180,11 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.Wait: return Wait(command.Amount);
             case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
             case WorldCommandKind.CancelWork: return CancelWork(command.WorkId);
+            case WorldCommandKind.LeadParty:
+                if (target == null || !target.Recruited || target.Life != LifeState.Alive || !State.Party.Contains(target.Id)) return new(false, "Choose a conscious companion.");
+                if (State.Party[^1] == target.Id) State.Party.Reverse();
+                else { State.Party.Remove(target.Id); State.Party.Insert(0, target.Id); }
+                UpdatePartyLeader(); return new(true, target.Name + " now leads the party.");
             case WorldCommandKind.Dismiss:
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Alive || !Party.Any(a => a.Id != target.Id && a.Life == LifeState.Alive) || State.Position.Distance(Plan.Towns[target.HomeTown].Center) > 28)
                     return new(false, "Return to a companion's home town with another living traveller before parting ways.");
@@ -277,6 +286,7 @@ public sealed partial class WorldSession : IGameSession
     public IReadOnlyList<WorldPosition> Route(WorldPosition destination)
     {
         if (destination.Floor != State.Position.Floor || !Chunks.Seen(destination)) return [];
+        var occupied = State.Actors.Where(a => a.Life != LifeState.Dead && a.Id != State.Party[0] && Visible.Contains(a.Position)).Select(a => a.Position).ToHashSet();
         var previous = new Dictionary<WorldPosition, WorldPosition>(); var queue = new Queue<WorldPosition>();
         queue.Enqueue(State.Position); previous[State.Position] = State.Position;
         while (queue.TryDequeue(out var current) && previous.Count < 16384)
@@ -290,7 +300,7 @@ public sealed partial class WorldSession : IGameSession
             foreach (var (x, y) in Directions)
             {
                 var next = current.Offset(x, y);
-                if (previous.ContainsKey(next) || !Chunks.Seen(next) || !Materials.Walkable(Chunks.At(next))) continue;
+                if (previous.ContainsKey(next) || !Chunks.Seen(next) || occupied.Contains(next) || !GroundOpen(next)) continue;
                 previous[next] = current; queue.Enqueue(next);
             }
         }
@@ -319,13 +329,14 @@ public sealed partial class WorldSession : IGameSession
             }
             else destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);
             var next = rng.Next(2) == 0 ? a.Position.Offset(Math.Sign(destination.X - a.Position.X), 0) : a.Position.Offset(0, Math.Sign(destination.Y - a.Position.Y));
-            if (next == a.Position || !Materials.Walkable(Chunks.At(next))) next = LocalStep(a.Position, destination);
-            if (Plan.Contains(next) && Materials.Walkable(Chunks.At(next))) a.Position = next;
+            if (next == a.Position || !CanEnter(next, a.Id)) next = LocalStep(a.Position, destination, a.Id);
+            if (CanEnter(next, a.Id)) a.Position = next;
         }
         Contact();
     }
-    private WorldPosition LocalStep(WorldPosition start, WorldPosition destination)
+    private WorldPosition LocalStep(WorldPosition start, WorldPosition destination, long actorId = 0)
     {
+        var occupied = State.Actors.Where(a => a.Life != LifeState.Dead && a.Id != actorId).Select(a => a.Position).ToHashSet();
         var open = new PriorityQueue<WorldPosition, (int Score, int Tie)>();
         var previous = new Dictionary<WorldPosition, WorldPosition> { [start] = start };
         var costs = new Dictionary<WorldPosition, int> { [start] = 0 };
@@ -338,7 +349,7 @@ public sealed partial class WorldSession : IGameSession
             foreach (var (x, y) in Directions)
             {
                 var next = current.Offset(x, y); int cost = costs[current] + 1;
-                if (!Plan.Contains(next) || next.Distance(start) > 24 || !Materials.Walkable(Chunks.At(next)) || costs.TryGetValue(next, out int old) && old <= cost) continue;
+                if (!Plan.Contains(next) || next.Distance(start) > 24 || occupied.Contains(next) || !GroundOpen(next) || costs.TryGetValue(next, out int old) && old <= cost) continue;
                 costs[next] = cost; previous[next] = current; open.Enqueue(next, (cost + next.Distance(destination), tie++));
             }
         }

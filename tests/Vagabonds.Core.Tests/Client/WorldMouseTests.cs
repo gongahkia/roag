@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Vagabonds.Client;
 using Vagabonds.Core.World;
 using Vagabonds.Graphics;
@@ -20,7 +21,7 @@ public sealed class WorldMouseTests
         Field("_controls").SetValue(client, new List<WorldMouseControl>()); Field("_route").SetValue(client, new Queue<WorldPosition>());
         Field("_camera").SetValue(client, new MapCamera { Viewport = new(16, 84, 674, 490) });
         Field("_map").SetValue(client, new Rectangle(16, 84, 674, 490)); Field("_side").SetValue(client, new Rectangle(706, 84, 302, 620));
-        Field("_panel").SetValue(client, ""); Field("_tool").SetValue(client, ""); return client;
+        Field("_panel").SetValue(client, ""); return client;
     }
     private static List<WorldMouseControl> Controls(WorldGame client, string panel)
     {
@@ -81,8 +82,8 @@ public sealed class WorldMouseTests
     {
         var session = WorldSession.Create(42); var client = Client(session);
         var normal = Controls(client, "");
-        foreach (string id in new[] { "pause", "save", "load", "panel:game", "interact", "panel:inventory", "panel:journal", "panel:map", "panel:actions", "panel:build", "tool:dig", "panel:work", "panel:craft", "stop", "zoom:default" }) Assert.Contains(normal, c => c.Id == id);
-        foreach (string panel in new[] { "", "inventory", "trade", "build", "work", "craft", "actions", "guide", "map", "journal", "inspector", "game" })
+        foreach (string id in new[] { "pause", "save", "load", "panel:game", "panel:inventory", "panel:journal", "panel:map", "panel:actions", "panel:work", "stop", "zoom:default" }) Assert.Contains(normal, c => c.Id == id);
+        foreach (string panel in new[] { "", "inventory", "trade", "work", "craft", "actions", "guide", "map", "journal", "inspector", "game" })
         {
             var controls = Controls(client, panel);
             Assert.All(controls, c => Assert.True(new Rectangle(0, 0, 1024, 720).Contains(c.Bounds), panel + ": " + c.Id));
@@ -90,8 +91,7 @@ public sealed class WorldMouseTests
                 Assert.False(controls[i].Bounds.Intersects(controls[j].Bounds), panel + ": " + controls[i].Id + " / " + controls[j].Id);
             if (panel.Length > 0) Assert.Contains(controls, c => c.Id == "close");
         }
-        Assert.Equal(6, Controls(client, "build").Count(c => c.Id.StartsWith("build:", StringComparison.Ordinal)));
-        Assert.Contains(Controls(client, "actions"), c => c.Id == "rest");
+        Assert.DoesNotContain(Controls(client, "actions"), c => c.Id == "rest");
         Assert.Contains(Controls(client, "actions"), c => c.Id == "wait:300");
     }
     [Fact]
@@ -105,7 +105,7 @@ public sealed class WorldMouseTests
     public void WorkerSelectionStaysUsableWhenAvailablePeopleChange()
     {
         var session = WorldSession.Create(42); var client = Client(session);
-        Assert.True(session.Submit(new(WorldCommandKind.Build, session.State.Position, Material: Material.Camp)).Success);
+        Assert.True(session.Submit(new(WorldCommandKind.Build, session.State.Position.Offset(1, 0), Material: Material.Camp)).Success);
         Field("_workerIndex").SetValue(client, 500);
         Field("_workerPage").SetValue(client, 500);
         var selected = Controls(client, "work").Single(c => c.Id.StartsWith("worker:", StringComparison.Ordinal) && c.Selected);
@@ -121,7 +121,7 @@ public sealed class WorldMouseTests
         string before = JsonSerializer.Serialize(session.State);
         var info = WorldInspection.Inspect(session, person.Position);
         Assert.Equal(person.Name, info.Title); Assert.Contains("speak", info.Action); Assert.Contains("HP", info.Detail);
-        Assert.Contains("Dig", WorldInspection.Inspect(session, rock).Reason);
+        Assert.Contains("dig", WorldInspection.Inspect(session, rock).Reason);
         Assert.Equal(before, JsonSerializer.Serialize(session.State));
         var unknown = origin.Offset(80, 80); person.Position = unknown; before = JsonSerializer.Serialize(session.State);
         var hidden = WorldInspection.Inspect(session, unknown);
@@ -195,4 +195,57 @@ public sealed class WorldMouseTests
         Assert.True(camera.CellSize >= 24); Assert.True(width / camera.CellSize <= 48.01f); Assert.True(height / camera.CellSize <= 32.01f);
         WorldCameraScale.Apply(camera, reset: true); Assert.True(camera.CellSize >= 36);
     }
+    [Fact]
+    public void ContextOffersRelevantActionsAndExplainsUnavailableWorkWithoutMutatingState()
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var rock = session.State.Position.Offset(4, 0);
+        session.Chunks.Edit(rock, Material.Rock); session.State.Inventory["food"] = 0;
+        string before = JsonSerializer.Serialize(session.State);
+        var options = WorldContextActions.Options(session, [rock]);
+        Assert.Contains(options, o => o.Id == "dig" && o.Reason.Contains("food", StringComparison.Ordinal));
+        Assert.DoesNotContain(options, o => o.Id is "build" or "rest" or "craft");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var ground = session.State.Position.Offset(0, 2);
+        Assert.Contains(WorldContextActions.Options(session, [ground]), o => o.Id == "build");
+        Assert.DoesNotContain(WorldContextActions.Options(session, [ground]), o => o.Id == "dig");
+    }
+    [Fact]
+    public void DragSelectsObservedTilesWithoutWalkingAndCapsLargeSelections()
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var origin = session.State.Position;
+        var selection = new WorldTileSelection(); var unknown = origin.Offset(70, 0);
+        selection.Rectangle(session, unknown, unknown.Offset(2, 2)); Assert.Empty(selection.Cells);
+        selection.Rectangle(session, origin, origin.Offset(16, 16)); Assert.True(selection.TooLarge); Assert.Empty(selection.Cells);
+        var client = Client(session); var camera = (MapCamera)Field("_camera").GetValue(client)!;
+        camera.Center = new(origin.X + .5f, origin.Y + .5f); camera.Reset(36);
+        var start = camera.WorldToScreen(new(origin.X + 1.5f, origin.Y + 1.5f)).ToPoint();
+        var end = camera.WorldToScreen(new(origin.X + 3.5f, origin.Y + 2.5f)).ToPoint();
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "BeginSelection", start);
+        Invoke(client, "UpdateSelection", new MouseState(end.X, end.Y, 0, ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
+        Invoke(client, "UpdateSelection", new MouseState(start.X, start.Y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
+        selection = (WorldTileSelection)Field("_selection").GetValue(client)!;
+        Assert.Equal(6, selection.Cells.Count); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.Empty((Queue<WorldPosition>)Field("_route").GetValue(client)!);
+        Invoke(client, "OpenContext", start); Assert.Equal(6, ((WorldPosition[])Field("_contextCells").GetValue(client)!).Length);
+    }
+    [Fact]
+    public void CursorMenusAndBuildSubmenusStayInsideTheMinimumMapAtEveryCorner()
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        var map = (Rectangle)Field("_map").GetValue(client)!;
+        foreach (var corner in new[] { map.Location, new Point(map.Right - 1, map.Top), new Point(map.Left, map.Bottom - 1), new Point(map.Right - 1, map.Bottom - 1) })
+        {
+            Field("_contextCells").SetValue(client, new[] { session.State.Position.Offset(1, 0) }); Field("_contextAnchor").SetValue(client, corner);
+            foreach (bool building in new[] { false, true })
+            {
+                Field("_contextBuilding").SetValue(client, building);
+                var controls = Controls(client, "").Where(c => c.Id.StartsWith("context:", StringComparison.Ordinal)).ToArray();
+                Assert.NotEmpty(controls); Assert.All(controls, c => Assert.True(map.Contains(c.Bounds), c.Id));
+                Assert.True(map.Contains((Rectangle)Field("_contextBox").GetValue(client)!));
+                for (int a = 0; a < controls.Length; a++) for (int b = a + 1; b < controls.Length; b++) Assert.False(controls[a].Bounds.Intersects(controls[b].Bounds));
+            }
+        }
+    }
+
 }

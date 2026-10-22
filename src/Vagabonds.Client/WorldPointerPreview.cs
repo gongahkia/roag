@@ -11,6 +11,7 @@ internal sealed class WorldPointerPreview
     private WorldPosition _origin;
     private long _navigationRevision, _discoveredCount;
     private bool _navigationEnabled;
+    private ulong _occupancy;
     private WorldClickIntent? _intent;
     public WorldPosition? Cell { get; private set; }
     public WorldPosition? NavigationCell { get; private set; }
@@ -26,10 +27,11 @@ internal sealed class WorldPointerPreview
         long discovered = session.State.Chunks.Sum(c => (long)c.Discovered.Count);
         var target = interactionCell ?? cell;
         var intent = WorldMouseNavigation.Intent(session, target);
-        if (intent == _intent && NavigationCell == target && ReferenceEquals(_session, session) && Cell == cell && _origin == session.State.Position &&
+        ulong occupancy = session.OccupancyFingerprint();
+        if (occupancy == _occupancy && intent == _intent && NavigationCell == target && ReferenceEquals(_session, session) && Cell == cell && _origin == session.State.Position &&
             _navigationRevision == session.State.NavigationRevision && _discoveredCount == discovered && _navigationEnabled == navigationEnabled) return;
 
-        _intent = intent; _session = session; _origin = session.State.Position; Cell = cell; NavigationCell = target;
+        _occupancy = occupancy; _intent = intent; _session = session; _origin = session.State.Position; Cell = cell; NavigationCell = target;
         _navigationRevision = session.State.NavigationRevision; _discoveredCount = discovered; _navigationEnabled = navigationEnabled;
         Plan = navigationEnabled ? WorldMouseNavigation.Plan(session, target) : null;
         Path = Plan?.Path ?? [];

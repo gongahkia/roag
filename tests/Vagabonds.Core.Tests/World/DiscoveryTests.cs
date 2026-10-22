@@ -37,8 +37,14 @@ public sealed class DiscoveryTests
         var s = WorldSession.Create(42); var camp = s.State.Discoveries.First(d => d.TownId == 0 && d.Context == "settlement");
         Assert.Equal("camp", s.Content.Get<DiscoveryDefinition>(camp.Definition).Action);
         var road = s.Plan.Roads[0]; int distance = road.A.Distance(camp.Anchor);
-        foreach (int step in Enumerable.Range(1, distance)) Assert.True(s.Submit(new(WorldCommandKind.Move, DiscoveryPlacement.Along(road, step))).Success);
-        foreach (var p in DiscoveryPlacement.Trail(camp.Anchor, camp.Position).Skip(1)) Assert.True(s.Submit(new(WorldCommandKind.Move, p)).Success);
+        var waypoints = Enumerable.Range(1, distance).Select(step => DiscoveryPlacement.Along(road, step))
+            .Concat(DiscoveryPlacement.Trail(camp.Anchor, camp.Position).Skip(1).SkipLast(1));
+        foreach (var p in waypoints)
+        {
+            if (!s.CanEnter(p)) continue; // Walk around people and solid roadside props.
+            var path = s.Route(p); Assert.NotEmpty(path);
+            foreach (var cell in path) { var moved = s.Submit(new(WorldCommandKind.Move, cell)); Assert.True(moved.Success, moved.Message); }
+        }
         var result = s.Submit(new(WorldCommandKind.Discover, camp.Position)); Assert.True(result.Success);
         Assert.Contains(s.Plan.Towns[camp.TownId].Name, result.Message);
         Assert.Contains(s.State.Actors.Single(a => a.Id == camp.WitnessId).Name, result.Message);
@@ -82,7 +88,7 @@ public sealed class DiscoveryTests
         try
         {
             var s = WorldSession.Create(42); var d = s.State.Discoveries.First(d => d.Enemies.Length == 0 && s.State.Loot.Any(c => c.Id == d.Id && c.Choices.Length == 3));
-            Position(s, d.Position); Assert.True(s.Submit(new(WorldCommandKind.Discover, d.Position)).Success);
+            Position(s, d.Position.Offset(0, 1)); Assert.True(s.Submit(new(WorldCommandKind.Discover, d.Position)).Success);
             var cache = s.State.Loot.Single(c => c.Id == d.Id); Assert.True(s.Submit(new(WorldCommandKind.Loot, d.Position, Item: cache.Choices[0])).Success);
             var edited = d.Position.Offset(0, 1); s.Chunks.Edit(edited, Material.Floor);
             for (int i = 0; i < 40; i++) s.Chunks.Get(new(i, 50));

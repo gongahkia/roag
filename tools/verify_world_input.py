@@ -56,7 +56,7 @@ def main():
                 if ui and predicate(ui): return ui
                 time.sleep(.05)
             raise RuntimeError('UI readiness timed out: ' + json.dumps(self.ui())[:1500])
-        def point(self, px, py):
+        def point(self, px, py, button=1):
             px, py = round(px), round(py)
             for attempt in range(3):
                 if attempt > 0 or not self.ui().get('focused', False):
@@ -67,14 +67,31 @@ def main():
                     break
                 except RuntimeError:
                     if attempt == 2: raise
-            x('mousedown', 1); time.sleep(.1); x('mouseup', 1); time.sleep(.12)
+            x('mousedown', button); time.sleep(.1); x('mouseup', button); time.sleep(.12)
         def click(self, identifier):
             ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
             button = next(c for c in ui['controls'] if c['id'] == identifier); r = button['bounds']
             self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
-        def tile(self, px, py):
+        def tile_point(self, px, py):
             ui = self.ui(); r = ui['map']; camera = ui['camera']
-            self.point(r['x'] + r['width'] // 2 + (px + .5 - camera['x']) * camera['cellSize'], r['y'] + r['height'] // 2 + (py + .5 - camera['y']) * camera['cellSize'])
+            return (r['x'] + r['width'] // 2 + (px + .5 - camera['x']) * camera['cellSize'], r['y'] + r['height'] // 2 + (py + .5 - camera['y']) * camera['cellSize'])
+        def tile(self, px, py, button=1):
+            self.point(*self.tile_point(px, py), button=button)
+        def context(self, cell):
+            self.tile(cell['x'], cell['y'], button=3); self.wait(lambda u: u['context'] is not None)
+        def free_cell(self, distance=1):
+            ui = self.ui(); p = ui['position']
+            return next(c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['prop'] is None and abs(c['x'] - p['x']) + abs(c['y'] - p['y']) == distance)
+        def drag(self, start, end):
+            self.formation()
+            a = self.tile_point(start['x'], start['y']); b = self.tile_point(end['x'], end['y'])
+            x('windowfocus', '--sync', self.window); x('mousemove', '--window', self.window, round(a[0]), round(a[1])); time.sleep(.12)
+            x('mousedown', 1); time.sleep(.12)
+            try:
+                for i in range(1, 7):
+                    x('mousemove', '--window', self.window, round(a[0] + (b[0] - a[0]) * i / 6), round(a[1] + (b[1] - a[1]) * i / 6)); time.sleep(.06)
+            finally: x('mouseup', 1)
+            self.wait(lambda u: len(u['selection']) > 0 and not u['selecting'])
         def pause(self):
             if not self.ui()['paused']: self.click('pause')
         def save(self):
@@ -131,6 +148,10 @@ def main():
             for _ in range(12): client.click('zoom:out')
             ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
             client.click('zoom:default')
+            ui = client.ui(); origin = ui['position']; barrel = next(c for c in ui['cells'] if c['prop'] == 'Barrel')
+            client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
+            check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
+            client.click('context:clear')
             ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
             person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
             client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
@@ -142,7 +163,7 @@ def main():
             client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person'); client.click('conversation:interaction.recruit'); client.pause()
             recruited = client.save()['state']; check('mouseRecruitment', len(recruited['party']) == 2)
             check('recruitedMembersStandOnSeparateTiles', client.formation()); client.capture('formation-recruited')
-            client.click('panel:build'); client.click('build:Camp'); ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y'])
+            camp = client.free_cell(); client.context(camp); client.click('context:build'); client.click('context:construct:Camp')
             client.click('panel:work'); queued = client.save()['state']
             check('mouseReservationBeforeCompletion', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
             ui = client.ui(); worker = next(c for c in ui['controls'] if c['id'].startswith('worker:') and int(c['id'].split(':')[1]) not in queued['party'])
@@ -150,12 +171,12 @@ def main():
             check('mouseWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party']); client.capture('work')
             client.click('close'); client.pause(); client.click('panel:actions'); client.click('wait:300')
             built = client.save()['state']; check('mouseTimedConstruction', not built['work'] and len(built['structures']) == 1)
-            client.click('panel:build'); client.click('build:Wall'); ui = client.ui(); client.tile(ui['position']['x'] + 1, ui['position']['y'])
+            wall = client.free_cell(); client.context(wall); client.click('context:build'); client.click('context:construct:Wall')
             client.click('panel:work'); client.click('cancel-work'); client.click('close'); client.pause()
             cancelled = client.save()['state']; check('mouseCancellationRefund', not cancelled['work'] and cancelled['inventory']['stone'] == initial['inventory']['stone'])
-            client.click('panel:actions'); client.click('rest'); rested = client.save()['state']
+            client.context(camp); client.click('context:rest'); rested = client.save()['state']
             check('mouseTimedRest', rested['tick'] == cancelled['tick'] + 300)
-            client.click('panel:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
+            client.context(camp); client.click('context:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
             crafted = client.save()['state']; recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
             equipment = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json') if json.loads(p.read_text()).get('slot', 'none') != 'none'), key=lambda d: d['id'])
             index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
@@ -165,7 +186,29 @@ def main():
             client.capture('party'); client.click('close'); client.click('panel:map'); client.capture('world-map'); client.click('close')
             client.click('panel:journal'); client.click('history:6'); client.click('history:-6'); client.capture('journal')
             check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused']); client.click('close')
-            ui = client.ui(); origin = ui['position']; client.tile(origin['x'] - 2, origin['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
+            # Real drag/right-click gestures drive batch work and saved approach intent.
+            client.pause(); client.formation(); ui = client.ui(); origin = ui['position']
+            free = {(c['x'], c['y']): c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['prop'] is None and c['material'] in ('Earth', 'Grass')}
+            first = next(c for c in free.values() if 3 <= abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) <= 4 and (c['x'] + 1, c['y']) in free)
+            second = free[(first['x'] + 1, first['y'])]
+            client.drag(first, second); check('dragSelectsWithoutMoving', len(client.ui()['selection']) == 2 and client.ui()['position'] == origin and client.ui()['routeCount'] == 0)
+            client.context(first); client.capture('context-selection')
+            check('rightClickRetainsSelection', len(client.ui()['selection']) == 2 and any(c['id'] == 'context:build' for c in client.ui()['controls']))
+            client.click('context:build'); client.capture('context-build'); client.click('context:construct:Floor')
+            client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause(); client.formation()
+            paved = client.save()['state']; check('batchConstructionApproachesAndFinishes', all(any(b['position']['x'] == c['x'] and b['position']['y'] == c['y'] for b in paved['structures']) for c in (first, second)) and client.ui()['position'] != origin)
+            client.drag(first, second); client.context(first); client.click('context:dig'); client.pause()
+            pending = client.save()['state']; check('batchDigReservationsSaved', len(pending['work']) == 2 and all(w['partyApproach'] for w in pending['work']))
+            client.click('load'); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
+            client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause()
+            dug = client.save()['state']; check('batchDigResumesAfterLoadAndRefundsMaterials', dug['inventory']['stone'] == paved['inventory']['stone'] + 4 and len(dug['structures']) == len(paved['structures']) - 2)
+            origin = client.ui()['position']; client.context(client.free_cell())
+            r = client.ui()['map']; client.point(r['x'] + 3, r['y'] + r['height'] - 3)
+            check('contextDismissConsumesClick', client.ui()['context'] is None and client.ui()['routeCount'] == 0 and client.ui()['position'] == origin)
+            companion = client.ui()['party'][-1]; old_cells = {(a['id'], a['x'], a['y']) for a in client.ui()['party']}
+            client.context(companion); client.click('context:lead'); client.formation()
+            check('mouseChangesLeaderWithoutCrossingMembers', client.ui()['party'][0]['id'] == companion['id'] and {(a['id'], a['x'], a['y']) for a in client.ui()['party']} == old_cells)
+            ui = client.ui(); origin = ui['position']; destination = client.free_cell(distance=2); client.tile(destination['x'], destination['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
             moved = client.save()['state']; check('mouseTravelStartsWithoutKeyboard', moved['position'] != equipped['position'])
             check('mouseTravelPreservesPartyFormation', client.formation()); client.capture('formation-following')
             # Isolate world-interaction rendering/input at a real site's already-generated content.

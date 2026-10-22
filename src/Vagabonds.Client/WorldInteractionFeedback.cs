@@ -10,30 +10,25 @@ internal sealed record WorldHoverInfo(string Title, string Detail, string Action
 
 internal static class WorldInspection
 {
-    public static WorldHoverInfo Inspect(WorldSession session, WorldPosition cell, string tool = "", Material build = Material.Wall, WorldClickPlan? cachedPlan = null)
+    public static WorldHoverInfo Inspect(WorldSession session, WorldPosition cell, WorldClickPlan? cachedPlan = null)
     {
         if (!session.Chunks.Seen(cell)) return new("Unexplored ground", "Its terrain and inhabitants are unknown.", "Explore toward the visible edge", "Choose observed ground first.", "unknown");
         var material = session.Chunks.At(cell);
-        if (tool.Length > 0)
-        {
-            string reason = session.TargetBlockReason(tool == "build" ? WorldCommandKind.Build : tool == "repair" ? WorldCommandKind.Repair : WorldCommandKind.Dig, cell, build);
-            return new((tool == "build" ? "Build " + build : tool == "repair" ? "Repair" : "Dig") + " / " + material,
-                "Target " + cell.X + ", " + cell.Y + ". Work takes time; supplies are reserved when queued.", "Click to queue work", reason, "tool");
-        }
-        var actor = session.State.Actors.LastOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && a.Position == cell && session.Visible.Contains(cell));
+        var actor = session.State.Actors.LastOrDefault(a => a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null)
         {
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
             bool hostile = actor.Kind is ActorKind.Beast or ActorKind.Raider;
             string detail = hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
-            return WithRoute(actor.Name, detail, hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : "person");
+            return WithRoute(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : "person");
         }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
         if (discovery != null) return WithRoute(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."
             : session.DiscoveryGuarded(discovery) ? "An inhabited landmark. Living foes guard its supplies." : "A local landmark connected to " + session.Plan.Towns[discovery.TownId].Name + ".", "Approach and investigate", "discovery");
         if (session.Visible.Contains(cell) && session.State.Loot.Any(c => c.Position == cell && !c.Taken)) return WithRoute("Unopened cache", "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
-        string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Approach; use Actions to rest", _ => "Travel here" };
+        if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithRoute(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
+        string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Right-click to approach, rest or craft", _ => "Travel here" };
         return WithRoute(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + session.Plan.BiomeAt(cell.X, cell.Y) + ".", action, "terrain");
         WorldHoverInfo WithRoute(string title, string detail, string action, string kind)
         { var plan = cachedPlan ?? WorldMouseNavigation.Plan(session, cell); return new(title, detail, action, plan.Reachable ? "" : plan.Reason, kind); }
@@ -102,6 +97,7 @@ internal sealed partial class WorldGame
     private void DrawHoverFeedback()
     {
         _hover = null;
+        if (PointerModal) return;
         var control = WorldMouseControl.Hit(_controls, _mouse.Position);
         bool hand = control is { Enabled: true };
         if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation && control == null)
@@ -119,7 +115,7 @@ internal sealed partial class WorldGame
             }
             else if (_pointer.Cell is { } cell)
             {
-                _hover = WorldInspection.Inspect(_session, _pointer.NavigationCell ?? cell, _tool, _build, _pointer.Plan); hand = _hover.Reason.Length == 0;
+                _hover = WorldInspection.Inspect(_session, _pointer.NavigationCell ?? cell, _pointer.Plan); hand = _hover.Reason.Length == 0;
             }
         }
         string mode = hand ? "hand" : "arrow";

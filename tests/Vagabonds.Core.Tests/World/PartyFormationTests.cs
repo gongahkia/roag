@@ -14,10 +14,14 @@ public sealed class PartyFormationTests : IDisposable
     {
         var s = WorldSession.Create(42);
         for (int y = -9; y <= 9; y++) for (int x = -9; x <= 9; x++) s.Chunks.Edit(s.State.Position.Offset(x, y), Material.Floor);
+        int parked = 0;
+        foreach (var actor in s.State.Actors.Where(a => !a.Recruited && a.Position.Distance(s.State.Position) < 20))
+        { actor.Position = s.State.Position.Offset(30 + parked++, 0); s.Chunks.Edit(actor.Position, Material.Floor); }
         foreach (var person in s.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(size - 1).ToArray())
         {
-            person.Position = s.State.Position;
+            person.Position = s.State.Position.Offset(0, -1);
             Assert.True(s.Submit(new(WorldCommandKind.Recruit, ActorId: person.Id)).Success);
+            person.Position = s.State.Position.Offset(1 - s.State.Party.Count, 0);
             AssertFormation(s);
         }
         s.Reveal(); return s;
@@ -43,14 +47,14 @@ public sealed class PartyFormationTests : IDisposable
     public void RecruitmentAndEveryWalkingStepKeepSeparateCellsWithoutTeleportingOrSpendingTime()
     {
         var s = Group(); var origin = s.State.Position;
-        var route = new[] { (1, 0), (2, 0), (2, 1), (2, 2), (1, 2), (0, 2), (0, 1), (0, 0), (0, -1), (0, 0) };
+        var route = new[] { (1, 0), (2, 0), (2, 1), (2, 2), (1, 2), (0, 2), (0, 1), (0, 0), (0, -1), (0, -2) };
         uint random = s.State.CombatRandom; long tick = s.State.Tick;
         s.Party.Last().Life = LifeState.Downed; s.Party.Last().Health = 0;
         foreach (var (x, y) in route)
         {
             var previous = s.Party.ToDictionary(a => a.Id, a => a.Position);
             var next = origin.Offset(x, y); Assert.True(s.Chunks.Seen(next));
-            Assert.True(s.Submit(new(WorldCommandKind.Move, next)).Success);
+            var moved = s.Submit(new(WorldCommandKind.Move, next)); Assert.True(moved.Success, next + ": " + moved.Message);
             AssertFormation(s);
             Assert.All(s.Party, a => { Assert.InRange(a.Position.Distance(previous[a.Id]), 0, 1); Assert.True(s.Chunks.Seen(a.Position)); });
         }
@@ -70,12 +74,24 @@ public sealed class PartyFormationTests : IDisposable
         var members = s.Party.ToArray();
         for (int i = 0; i < members.Length; i++) members[i].Position = origin.Offset(-i, 0);
         s.Reveal();
-        foreach (var next in corridor.Skip(4).Concat(corridor.Reverse().Skip(1).Take(6)))
+        foreach (var next in corridor.Skip(4))
         {
             var before = s.Party.ToDictionary(a => a.Id, a => a.Position);
-            Assert.True(s.Submit(new(WorldCommandKind.Move, next)).Success);
+            var moved = s.Submit(new(WorldCommandKind.Move, next)); Assert.True(moved.Success, next + ": " + moved.Message);
             AssertFormation(s);
             Assert.All(s.Party, a => { Assert.Contains(a.Position, corridor); Assert.InRange(a.Position.Distance(before[a.Id]), 0, 1); });
+        }
+        string blocked = JsonSerializer.Serialize(s.State);
+        Assert.False(s.Submit(new(WorldCommandKind.Move, s.Party.Skip(1).First().Position)).Success);
+        Assert.Equal(blocked, JsonSerializer.Serialize(s.State));
+        var oldCells = s.Party.ToDictionary(a => a.Id, a => a.Position);
+        Assert.True(s.Submit(new(WorldCommandKind.LeadParty, ActorId: s.Party.Last().Id)).Success);
+        Assert.All(s.Party, a => Assert.Equal(oldCells[a.Id], a.Position));
+        int index = Array.IndexOf(corridor, s.State.Position);
+        foreach (var next in corridor.Take(index).Reverse())
+        {
+            var moved = s.Submit(new(WorldCommandKind.Move, next)); Assert.True(moved.Success, next + ": " + moved.Message);
+            AssertFormation(s);
         }
     }
 
@@ -105,7 +121,7 @@ public sealed class PartyFormationTests : IDisposable
         int flee = s.ActiveSkills().Select((skill, index) => (skill, index)).Single(p => p.skill.Effect == "flee").index;
         Assert.True(s.Act(flee).Success); Assert.False(s.IsInCombat);
         Assert.Equal(5, s.State.Position.Distance(origin)); AssertFormation(s);
-        Assert.True(s.Submit(new(WorldCommandKind.Move, s.State.Position.Offset(1, 0))).Success); AssertFormation(s);
+        Assert.True(s.Submit(new(WorldCommandKind.Move, new[] { (1, 0), (-1, 0), (0, 1), (0, -1) }.Select(d => s.State.Position.Offset(d.Item1, d.Item2)).First(p => s.CanEnter(p)))).Success); AssertFormation(s);
     }
 
     [Theory]
@@ -124,7 +140,7 @@ public sealed class PartyFormationTests : IDisposable
     public void EnemiesCanContactASeparatedFollower()
     {
         var s = Group(2); var origin = s.State.Position; s.Party.Last().Position = origin.Offset(-3, 0);
-        var enemy = s.State.Actors.First(a => a.Kind == ActorKind.Beast); enemy.Position = origin.Offset(-3, 0);
+        var enemy = s.State.Actors.First(a => a.Kind == ActorKind.Beast); enemy.Position = origin.Offset(-2, 1);
         Assert.True(s.Submit(new(WorldCommandKind.Move, origin.Offset(1, 0))).Success);
         Assert.True(s.IsInCombat); AssertFormation(s);
     }
@@ -136,8 +152,13 @@ public sealed class PartyFormationTests : IDisposable
         Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
         for (int i = 0; i < 6; i++)
         {
+            if (i == 3)
+            {
+                s.Submit(new(WorldCommandKind.LeadParty, ActorId: s.Party.Last().Id));
+                loaded.Submit(new(WorldCommandKind.LeadParty, ActorId: loaded.Party.Last().Id));
+            }
             var next = s.State.Position.Offset(i < 3 ? 1 : -1, 0);
-            Assert.True(s.Submit(new(WorldCommandKind.Move, next)).Success);
+            var moved = s.Submit(new(WorldCommandKind.Move, next)); Assert.True(moved.Success, next + ": " + moved.Message);
             Assert.True(loaded.Submit(new(WorldCommandKind.Move, next)).Success);
             Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State)); AssertFormation(loaded);
         }

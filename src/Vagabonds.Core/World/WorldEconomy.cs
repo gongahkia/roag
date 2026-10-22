@@ -16,13 +16,13 @@ public sealed partial class WorldSession
     {
         foreach (var delta in State.Chunks.Where(c => c.Key.Floor == 0)) foreach (var (index, material) in delta.Edits)
         {
-            if (Materials.Walkable(material)) continue;
+            if (Materials.Walkable(material) && material != Material.Camp) continue;
             var p = new WorldPosition(delta.Key.X * 64 + index % 64, delta.Key.Y * 64 + index / 64);
             if (!road.Contains(p, 0)) continue;
             bool horizontal = p.Y == road.A.Y && p.X != road.B.X;
             var a = p.Offset(horizontal ? 0 : -1, horizontal ? -1 : 0);
             var b = p.Offset(horizontal ? 0 : 1, horizontal ? 1 : 0);
-            if (!Materials.Walkable(Chunks.At(a)) && !Materials.Walkable(Chunks.At(b))) return true;
+            if (!GroundOpen(a) && !GroundOpen(b)) return true;
         }
         return false;
     }
@@ -51,7 +51,7 @@ public sealed partial class WorldSession
             int destination = a.DestinationTown!.Value;
             if (State.Tick < a.NextTravelTick)
             {
-                if (a.Traveling && State.Tick % 5 == 0) a.Position = CaravanPosition(a);
+                if (a.Traveling && (State.Tick % 5 == 0 || a.Position.Distance(State.Position) <= 120)) MoveCaravanSafely(a, CaravanPosition(a));
                 continue;
             }
             if (a.Traveling)
@@ -63,8 +63,11 @@ public sealed partial class WorldSession
                     a.Route = reroute; a.DepartureTick = State.Tick; a.NextTravelTick = State.Tick + a.Route.Sum(id => Plan.Roads[id].Length); continue;
                 }
                 var town = State.Towns[destination];
+                var arrival = Plan.Towns[destination].Center;
+                if (a.Position.Distance(State.Position) <= 120 && a.Position.Distance(arrival) > 2)
+                { MoveCaravanSafely(a, arrival); continue; }
                 foreach (var (item, count) in a.Cargo) town.Stocks[item] = town.Stocks.GetValueOrDefault(item) + count;
-                a.Cargo.Clear(); a.Position = Plan.Towns[destination].Center; a.DestinationTown = a.HomeTown; a.HomeTown = destination; a.Traveling = false; a.Route.Clear(); a.NextTravelTick = State.Tick + 300;
+                a.Cargo.Clear(); MoveCaravanSafely(a, Plan.Towns[destination].Center); a.DestinationTown = a.HomeTown; a.HomeTown = destination; a.Traveling = false; a.Route.Clear(); a.NextTravelTick = State.Tick + 300;
                 continue;
             }
             var route = RegionalRoute(a.HomeTown, destination);
@@ -134,7 +137,7 @@ public sealed partial class WorldSession
         }
         // Patrols are persistent people, not duplicate actors created when chunks become active.
         foreach (var guard in State.Actors.Where(a => a.Job == "guard" && !HasWork(a) && !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(State.Position) > 100))
-            guard.Position = Plan.Towns[guard.HomeTown].Center.Offset((epoch % 5 - 2) * 4, 12);
+            { var destination = Plan.Towns[guard.HomeTown].Center.Offset((epoch % 5 - 2) * 4, 12); if (OccupantAt(destination, guard.Id) == null && (destination.Distance(State.Position) > 120 || GroundOpen(destination))) guard.Position = destination; }
     }
     private ActionResult Trade(WorldCommand command)
     {

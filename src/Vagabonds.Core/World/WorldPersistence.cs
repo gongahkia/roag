@@ -72,6 +72,7 @@ public sealed partial class WorldSession
         ValidateState(plan, state);
         var session = new WorldSession(plan, state) { SavePath = Path.GetFullPath(path), Paused = true };
         session.RestorePartyFormation();
+        session.PrepareLocalCollision(force: true); session.Reveal();
         return session;
     }
     private static void ValidateState(WorldPlan plan, WorldState s)

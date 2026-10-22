@@ -66,4 +66,17 @@ public sealed class WorldPointerTests
         pointer.Update(session, camera, new(0, 0)); Assert.Null(pointer.Cell);
         pointer.Update(session, camera, screen); Assert.NotEmpty(pointer.Path);
     }
+    [Fact]
+    public void MovingOccupantsInvalidateAStationaryCursorPreview()
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var origin = session.State.Position;
+        var target = origin.Offset(3, 0); var camera = Camera(session); var pointer = new WorldPointerPreview();
+        pointer.Update(session, camera, Screen(camera, target)); Assert.Equal(3, pointer.Path.Count);
+        var actor = session.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited); actor.Position = origin.Offset(1, 0);
+        string before = JsonSerializer.Serialize(session.State);
+        pointer.Update(session, camera, Screen(camera, target)); Assert.DoesNotContain(actor.Position, pointer.Path); Assert.True(pointer.Path.Count > 3);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        actor.Position = origin.Offset(0, 3); pointer.Update(session, camera, Screen(camera, target)); Assert.Equal(3, pointer.Path.Count);
+    }
+
 }

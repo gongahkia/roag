@@ -52,12 +52,12 @@ internal sealed partial class WorldGame
         return lines.ToArray();
     }
     private void StopTravel() { _route.Clear(); _pendingInteraction = null; }
-    private void ClosePanel() { _panel = ""; _tool = ""; StopTravel(); }
+    private void ClosePanel() { _contextCells = null; _panel = ""; StopTravel(); }
     private void Zoom(int direction) { _camera.ZoomAt(_map.Center.ToVector2(), direction); UpdateView(); }
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        _session = WorldSession.Create(WorldStartup.FreshSeed()); if (_autoSave) _session.SavePath = _options.Save;
+        _session = WorldSession.Create(WorldStartup.FreshSeed()); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
         _waypoint = null;
         _notice = "A fresh world begins. Click the ground to travel or choose Play.";
@@ -65,8 +65,10 @@ internal sealed partial class WorldGame
     private void FinishApproach()
     {
         if (_pendingInteraction is not { } intent) return;
-        var actor = intent.Actor == 0 ? null : _session.State.Actors.FirstOrDefault(a => a.Id == intent.Actor && a.Life == LifeState.Alive);
+        var actor = intent.Actor == 0 ? null : _session.State.Actors.FirstOrDefault(a => a.Id == intent.Actor && a.Life != LifeState.Dead);
         if (intent.Actor != 0 && actor == null) { StopTravel(); return; }
+        if (intent.Kind == "party")
+        { StopTravel(); _packMember = _session.State.Party.IndexOf(intent.Actor); _panel = "inventory"; return; }
         var cell = actor?.Position ?? intent.Cell;
         int range = intent.Kind is "person" or "actor" ? 2 : 1;
         if (cell.Distance(_session.State.Position) > range)
@@ -88,6 +90,8 @@ internal sealed partial class WorldGame
             if (Execute(new(WorldCommandKind.Discover, cell))) { _discoveryId = _session.State.Discoveries.Single(d => d.Position == cell).Id; _panel = "discovery"; }
         }
         else if (intent.Kind == "storage") { _storage = cell; _storagePage = 0; _panel = "storage"; }
+        else if (intent.Kind == "rest") Execute(new(WorldCommandKind.Camp));
+        else if (intent.Kind == "craft") _panel = "craft";
         else if (intent.Kind == "stairs") Execute(new(WorldCommandKind.Interact, cell));
     }
     private void BuildMouseControls(int w, int h)
@@ -132,14 +136,6 @@ internal sealed partial class WorldGame
                     {
                         Add("interactionpage:-1", "Previous", x, box.Bottom - 88, 112, enabled: _interactionPage > 0);
                         Add("interactionpage:1", "Next", x + 120, box.Bottom - 88, 96, enabled: (_interactionPage + 1) * 6 < interactions.Count);
-                    }
-                    break;
-                case "build":
-                    for (int i = 0; i < BuildChoices.Length; i++)
-                    {
-                        var material = BuildChoices[i]; var recipe = _session.Content.Game.Recipes.Select(_session.Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Output == null && r.Material == material);
-                        string cost = recipe == null ? "Unavailable" : string.Join(", ", recipe.Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name));
-                        Add("build:" + material, material + " / " + cost, x + i % 2 * (width / 2 + 4), y + 42 + i / 2 * 58, width / 2 - 8, 42, recipe != null && _session.RecipeSuppliesReason(material).Length == 0, tip: recipe?.Description ?? "", reason: _session.RecipeSuppliesReason(material));
                     }
                     break;
                 case "trade":
@@ -217,8 +213,8 @@ internal sealed partial class WorldGame
                     }
                     break;
                 case "actions":
-                    string[] actionIds = ["rest", "wait:5", "wait:300", "forage", "tool:repair", "storage", "side-arc", "delivery"];
-                    string[] actionLabels = ["Rest at camp / 1 hour", "Wait / 1 minute", "Wait / 1 hour", "Gather food", "Repair a structure", "Open nearby storage", "Present side-arc evidence", "Deliver requested food"];
+                    string[] actionIds = ["wait:5", "wait:300", "forage"];
+                    string[] actionLabels = ["Wait / 1 minute", "Wait / 1 hour", "Gather food"];
                     for (int i = 0; i < actionIds.Length; i++) Add(actionIds[i], actionLabels[i], x + i % 2 * (width / 2 + 4), y + i / 2 * 54, width / 2 - 8, 42, DisabledControlReason(actionIds[i]).Length == 0);
                     break;
                 case "discovery":
@@ -290,21 +286,22 @@ internal sealed partial class WorldGame
             }
             return;
         }
-        string[] barIds = ["interact", "panel:inventory", "panel:journal", "panel:map", "panel:actions", "panel:build", "tool:dig", "panel:work", "panel:craft", "stop"];
-        string[] barLabels = ["Interact", "Party", "Journal", "World map", "Actions", "Build", "Dig", "Work", "Craft", "Stop"];
-        int buttonWidth = (_map.Width - 32) / 5;
-        for (int i = 0; i < barIds.Length; i++) Add(barIds[i], barLabels[i], _map.X + i % 5 * (buttonWidth + 8), h - 94 + i / 5 * 44, buttonWidth, 36, selected: barIds[i] == "tool:" + _tool);
+        string[] barIds = ["panel:inventory", "panel:journal", "panel:map", "panel:actions", "panel:work", "stop"];
+        string[] barLabels = ["Party", "Journal", "World map", "Actions", "Work", "Stop"];
+        int buttonWidth = (_map.Width - 16) / 3;
+        for (int i = 0; i < barIds.Length; i++) Add(barIds[i], barLabels[i], _map.X + i % 3 * (buttonWidth + 8), h - 94 + i / 3 * 44, buttonWidth, 36);
         Add("zoom:out", "-", _map.Right - 172, _map.Top + 10, 36, 32, tip: "Zoom out; exploration keeps readable tiles.");
         Add("zoom:in", "+", _map.Right - 128, _map.Top + 10, 36, 32);
         Add("zoom:default", "View", _map.Right - 84, _map.Top + 10, 76, 32, tip: "Restore the RPG exploration camera.");
+        BuildContextControls();
     }
     private void ActivateControl(string id)
     {
         string argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";
         string action = id.Split(':', 2)[0];
-        if (action == "panel") { Toggle(argument); return; }
+        if (action == "context") { ActivateContext(argument); return; }
+        if (action == "panel") { _contextCells = null; Toggle(argument); return; }
         if (action == "zoom") { if (argument == "default") WorldCameraScale.Apply(_camera, reset: true); else Zoom(argument == "in" ? 1 : -1); return; }
-        if (action == "tool") { StopTravel(); _panel = ""; _tool = _tool == argument ? "" : argument; _notice = "Click adjacent terrain to " + _tool + ". Right-click cancels."; return; }
         switch (action)
         {
             case "close": ClosePanel(); break;
@@ -313,9 +310,7 @@ internal sealed partial class WorldGame
                 if (_session.Paused) StopTravel(); _notice = _session.Paused ? "Paused. Click a destination to travel again." : "Time is running."; break;
             case "save": TrySave(); break;
             case "load": TryLoad(); break;
-            case "stop": StopTravel(); _tool = ""; _notice = "Travel stopped."; break;
-            case "interact": Interact(); break;
-            case "build": _build = Enum.Parse<Material>(argument); _panel = ""; _tool = "build"; StopTravel(); _notice = "Click adjacent ground to build " + _build.ToString().ToLowerInvariant() + "."; break;
+            case "stop": StopTravel(); _session.StopPartyWorkApproach(); ClearWorldSelection(); _notice = "Travel stopped. Assigned workers can keep working; cancel orders in Work."; break;
             case "conversation": PersonAction(_session.Content.Get<InteractionDefinition>(argument)); break;
             case "discovery-loot": OpenLoot(_session.State.Discoveries.Single(d => d.Id == _discoveryId).Position); break;
             case "discovery-fight":
@@ -399,7 +394,6 @@ internal sealed partial class WorldGame
         Fill(new(_map.X, ny, _map.Width, 36), new(16, 22, 27));
         string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip : _notice;
         if (hot == null && _waypoint is { } destination) notice = "Waypoint: " + WorldSession.Direction(_session.State.Position, destination) + ", " + destination.Distance(_session.State.Position with { Floor = 0 }) + " surface tiles. " + notice;
-        if (_tool.Length > 0 && hot == null) notice = (_tool == "build" ? "Build " + _build : _tool) + ": click adjacent ground. Right-click cancels. " + notice;
         Wrap(Short(notice, 150), _map.X + 4, ny + 2, _map.Width - 8, hot != null ? Gold : Ink);
     }
     private void WriteUiReport(int w, int h)
@@ -408,11 +402,18 @@ internal sealed partial class WorldGame
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
         string serialized = JsonSerializer.Serialize(new
         {
-            width = w, height = h, panel = _panel, tool = _tool, paused = _session.Paused, frozen = _session.Frozen,
+            width = w, height = h, panel = _panel, paused = _session.Paused, frozen = _session.Frozen,
             focused = IsActive, pointer = new { x = _mouse.X, y = _mouse.Y },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             routeCount = _route.Count, notice = _notice,
+            context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding },
+            selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
+            selecting = _dragStart != null,
+            cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
+                material = _session.Chunks.At(p).ToString(), groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
+                prop = _session.ObjectAt(p)?.Name }),
+            work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach }),
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),

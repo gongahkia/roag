@@ -83,7 +83,7 @@ public sealed class SimulationTests : IDisposable
     {
         var s = WorldSession.Create(42); var p = s.State.Position.Offset(1, 0); s.Chunks.Edit(p, Material.Floor);
         var hero = s.Party.First(); hero.Body.Hunger = 30; hero.Body.Fatigue = 40; hero.Body.Wounds = 2;
-        var npc = s.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited); npc.Position = s.State.Position;
+        var npc = s.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited); npc.Position = s.State.Position.Offset(0, 1);
         s.PerformInteraction(npc.Id, "interaction.stories"); s.Submit(new(WorldCommandKind.Build, p, Material: Material.Wall)); Wait(s, 3);
         s.Save(Slot); var loaded = WorldSession.Load(Slot); Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
         Wait(s, 300); Wait(loaded, 300); Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
@@ -91,7 +91,7 @@ public sealed class SimulationTests : IDisposable
     [Fact]
     public void RestAdvancesSharedTimeAndDangerInterruptsWaiting()
     {
-        var s = WorldSession.Create(42, ContentTests.Edited("game.vagabonds", n => n["incidents"] = new JsonArray())); s.Submit(new(WorldCommandKind.Build, s.State.Position, Material: Material.Camp)); Wait(s);
+        var s = WorldSession.Create(42, ContentTests.Edited("game.vagabonds", n => n["incidents"] = new JsonArray())); s.Submit(new(WorldCommandKind.Build, s.State.Position.Offset(1, 0), Material: Material.Camp)); Wait(s);
         var hero = s.Party.First(); hero.Health = 10; hero.Body.Fatigue = 80; hero.Body.Wounds = 2; s.State.Inventory["food"] = 10;
         long before = s.State.Tick; Assert.True(s.Submit(new(WorldCommandKind.Camp)).Success);
         Assert.Equal(before + 300, s.State.Tick); Assert.True(hero.Health > 10); Assert.True(hero.Body.Fatigue < 50); Assert.Equal(1, hero.Body.Wounds);
@@ -101,7 +101,7 @@ public sealed class SimulationTests : IDisposable
     [Fact]
     public void WornCampsCanBeRepairedAndRecipesProduceActualSupplies()
     {
-        var s = WorldSession.Create(42); s.Submit(new(WorldCommandKind.Build, s.State.Position, Material: Material.Camp)); Wait(s);
+        var s = WorldSession.Create(42); s.Submit(new(WorldCommandKind.Build, s.State.Position.Offset(1, 0), Material: Material.Camp)); Wait(s);
         var camp = Assert.Single(s.State.Structures); camp.Condition = 20; string before = JsonSerializer.Serialize(s.State);
         Assert.False(s.Submit(new(WorldCommandKind.Camp)).Success); Assert.Equal(before, JsonSerializer.Serialize(s.State));
         Assert.True(s.Submit(new(WorldCommandKind.Repair, camp.Position)).Success); Wait(s, 30); Assert.True(camp.Condition > 95);

@@ -5,30 +5,31 @@ namespace Vagabonds.Core.World;
 
 public sealed partial class WorldSession
 {
-    private ActionResult QueueBuild(WorldCommand command)
+    private ActionResult QueueBuild(WorldCommand command, bool designated = false)
     {
         var p = command.Target;
-        if (!Plan.Contains(p) || p.Distance(State.Position) > 1 || !Chunks.Seen(p)) return new(false, "Choose observed adjacent ground.");
+        if (!Plan.Contains(p) || p.Distance(State.Position) > (designated ? 100 : 1) || !Chunks.Seen(p)) return new(false, "Choose observed adjacent ground.");
         var before = Chunks.At(p);
         var recipe = Content.Game.Recipes.Select(Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Output == null && r.Material == command.Material);
         if (recipe == null || before is Material.StairsDown or Material.StairsUp || before == command.Material || State.Structures.Any(s => s.Position == p)
-            || !Materials.Walkable(before) && before != Material.Water || before == Material.Water && command.Material != Material.Bridge)
+            || !GroundOpen(p) && before != Material.Water || before == Material.Water && command.Material != Material.Bridge)
             return new(false, "Choose clear ground, or bridge water; preserve stairs. Dismantle owned structures before replacing them.");
-        if (!Materials.Walkable(command.Material) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == p)) return new(false, "Someone is standing there.");
-        return QueueWork(new() { Kind = WorkKind.Build, Definition = recipe.Id, Target = p, Before = before, After = command.Material, Required = recipe.Work,
+        if ((!Materials.Walkable(command.Material) || command.Material == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == p)) return new(false, "Someone is standing there.");
+        return QueueWork(new() { Kind = WorkKind.Build, PartyApproach = designated, Definition = recipe.Id, Target = p, Before = before, After = command.Material, Required = recipe.Work,
             Reserved = RecipeCost(recipe) });
     }
     private Dictionary<string, int> RecipeCost(RecipeDefinition recipe) => recipe.Cost.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value);
-    private ActionResult QueueDig(WorldPosition p)
+    private ActionResult QueueDig(WorldPosition p, bool designated = false)
     {
-        if (!Plan.Contains(p) || State.Position.Distance(p) > 1 || !Chunks.Seen(p)) return new(false, "Choose observed adjacent terrain.");
+        if (!Plan.Contains(p) || State.Position.Distance(p) > (designated ? 100 : 1) || !Chunks.Seen(p)) return new(false, "Choose observed adjacent terrain.");
         var before = Chunks.At(p); var owned = State.Structures.FirstOrDefault(s => s.Position == p);
-        if (owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
+        bool prop = ObjectAt(p) is { Removable: true };
+        if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
         if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
-        int hardness = Materials.Hardness(before);
-        return QueueWork(new() { Kind = WorkKind.Dig, Target = p, Before = before, After = owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
+        int hardness = prop ? 1 : Materials.Hardness(before);
+        return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
             Required = hardness * 5, Reserved = owned != null ? [] : new() { ["food"] = hardness },
-            Yield = owned != null ? new(owned.Cost) : new() { [Materials.Yield(before)] = hardness + 1 } });
+            Yield = owned != null ? new(owned.Cost) : new() { [prop ? "wood" : Materials.Yield(before)] = prop ? 1 : hardness + 1 } });
     }
     private ActionResult QueueCraft(string id)
     {
@@ -38,11 +39,11 @@ public sealed partial class WorldSession
         return QueueWork(new() { Kind = WorkKind.Craft, Definition = recipe.Id, Target = station, Before = Material.Camp, After = Material.Camp, Required = recipe.Work,
             Reserved = RecipeCost(recipe), Yield = new() { [Content.Get<ItemDefinition>(recipe.Output!).Stack] = recipe.Amount } });
     }
-    private ActionResult QueueRepair(WorldPosition p)
+    private ActionResult QueueRepair(WorldPosition p, bool designated = false)
     {
         var structure = State.Structures.FirstOrDefault(s => s.Position == p);
-        if (structure == null || structure.Condition >= 95 || State.Position.Distance(p) > 1) return new(false, "Choose an adjacent worn structure.");
-        return QueueWork(new() { Kind = WorkKind.Repair, Target = p, Before = structure.Material, After = structure.Material, Required = 12,
+        if (structure == null || structure.Condition >= 95 || State.Position.Distance(p) > (designated ? 100 : 1)) return new(false, "Choose an adjacent worn structure.");
+        return QueueWork(new() { Kind = WorkKind.Repair, PartyApproach = designated, Target = p, Before = structure.Material, After = structure.Material, Required = 12,
             Reserved = new() { [structure.Material is Material.Wall or Material.Floor ? "stone" : "wood"] = 1 } });
     }
     private ActionResult QueueForage()
@@ -55,7 +56,7 @@ public sealed partial class WorldSession
         if (State.Work.Count >= 64 || State.Work.Any(w => w.Target == order.Target)) return new(false, "A work order already occupies this cell, or the work list is full.");
         if (order.Reserved.Any(p => Count(p.Key) < p.Value)) return new(false, "Required supplies: " + string.Join(", ", order.Reserved.Select(p => p.Value + " " + p.Key)) + ".");
         foreach (var (item, amount) in order.Reserved) Add(item, -amount);
-        order.Id = State.NextWorkId++; order.Worker = Party.FirstOrDefault(a => a.Life == LifeState.Alive && !HasWork(a))?.Id ?? 0;
+        order.Id = State.NextWorkId++; order.Worker = (order.PartyApproach ? Party.Take(1) : Party).FirstOrDefault(a => a.Life == LifeState.Alive && !HasWork(a))?.Id ?? 0;
         State.Work.Add(order);
         return new(true, $"{order.Kind} queued; supplies reserved. Play or Wait advances work; Work assigns workers or cancels orders.");
     }
@@ -88,10 +89,10 @@ public sealed partial class WorldSession
             if (worker.Position.Distance(order.Target) > 1)
             {
                 order.Status = worker.Recruited ? "Move the party closer" : "Worker approaching";
-                if (!worker.Recruited && State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor) worker.Position = LocalStep(worker.Position, order.Target);
+                if (!worker.Recruited && State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor) worker.Position = LocalStep(worker.Position, order.Target, worker.Id);
                 continue;
             }
-            if (order.Kind is WorkKind.Build or WorkKind.Dig && !Materials.Walkable(order.After) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
+            if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
             { order.Status = "Clear the target cell"; continue; }
             order.Status = "Working: " + worker.Name; double amount = WorkRate(worker);
             order.Progress += amount; worker.Body.WorkDone += amount;

@@ -16,10 +16,10 @@ internal sealed partial class WorldGame
         {
             case "guide":
                 string[] paragraphs = [
-                    "Click observed ground to travel; the teal preview becomes a gold route. Click people, stairs, caches or storage to approach and interact. Right-click stops travel or closes a panel.",
+                    "Click observed ground to travel; the teal preview becomes a gold route. Click people, stairs, caches or storage to approach and interact. Drag to select tiles; right-click opens actions at the cursor. Right-click a panel to close it.",
                     "Play/Pause controls world time. Panels pause it while you choose. Use World map for the large-scale overview; the +/- and View buttons control the closer exploration camera. The mouse wheel also zooms.",
                     "Party manages companions and equipment. Conversations offer recruitment, stories, trade and treatment. Everyone needs food and rest; wounds and exhaustion affect combat and work.",
-                    "Build chooses a structure, then click adjacent ground. Dig and Repair also target adjacent terrain. Work assigns workers or cancels reservations. Craft prepares supplies beside a camp. Actions offers rest, gathering, waiting and side-arc tasks.",
+                    "Right-click terrain or a selection to build, dig or repair. Supplies are reserved and the party approaches automatically. Work assigns workers or cancels orders. Right-click a camp to rest or craft. Actions offers gathering and waiting.",
                     "In battle, click an ability, then its enemy or companion target. Self/group abilities execute when clicked. Choices cost no time; completed rounds advance one minute. Enemy intentions are visible, and Tactics describes bosses.",
                     "All dungeons and the selected final threat are available from the start. Defeating that boss completes the run. A party wipe causes permanent death; the ending offers a new traveller or a fresh world. Save/Load and the window close button are available without keyboard input."
                 ];
@@ -99,12 +99,9 @@ internal sealed partial class WorldGame
                     Wrap(entry.Detail, x, ey + 20, width, Muted); ey += 52;
                 }
                 break;
-            case "build":
-                Wrap("Choose a structure, then click adjacent observed ground. Supplies are reserved immediately; the structure appears when work is finished. Use Work to assign a resident or cancel and refund it.", x, y - 4, width, Muted);
-                break;
             case "work":
                 Text("PENDING ORDERS", x, y, Gold); Text("AVAILABLE PEOPLE", x + width / 2 + 8, y, Gold);
-                if (_session.State.Work.Count == 0) Wrap("No pending work. Choose Build, Dig, Craft or Gather food.", x, y + 40, width / 2 - 24, Muted);
+                if (_session.State.Work.Count == 0) Wrap("No pending work. Right-click terrain for building or digging, a camp for crafting, or use Actions to gather food.", x, y + 40, width / 2 - 24, Muted);
                 if (SelectedWork() is { } work) Wrap(work.Status + ". Click a worker and Assign, or cancel to return reserved supplies.", x, y + 336, width, Muted);
                 break;
             case "craft":
