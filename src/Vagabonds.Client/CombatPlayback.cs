@@ -70,7 +70,9 @@ internal sealed class CombatPlayback
             TargetKind.Self => [source],
             _ => target >= 0 && target < before.ActorIds.Count ? [before.ActorIds[target]] : [source]
         };
-        _beats.Enqueue(new(skill.Id, skill.Name, skill.Effect, source, targets,
+        targets = targets.Where(id => before.Units[before.ActorIds.IndexOf(id)].Alive).ToArray();
+        string label = targets.Length == 0 ? skill.Name + " / no living target" : skill.Name;
+        _beats.Enqueue(new(skill.Id, label, skill.Effect, source, targets,
             helper >= 0 ? before.ActorIds[helper] : 0, primary.ToArray(), CombatVisualProfiles.Default.Resolve(skill.Id, skill.Effect, skill.Cooperative)));
         foreach (var group in subsequent)
         {

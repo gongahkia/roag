@@ -21,6 +21,7 @@ public sealed class WorldMouseTests
         Field("_controls").SetValue(client, new List<WorldMouseControl>()); Field("_route").SetValue(client, new Queue<WorldPosition>());
         Field("_camera").SetValue(client, new MapCamera { Viewport = new(16, 84, 674, 490) });
         Field("_map").SetValue(client, new Rectangle(16, 84, 674, 490)); Field("_side").SetValue(client, new Rectangle(706, 84, 302, 620));
+        Field("_combatFloats").SetValue(client, Activator.CreateInstance(Field("_combatFloats").FieldType));
         Field("_panel").SetValue(client, ""); return client;
     }
     private static List<WorldMouseControl> Controls(WorldGame client, string panel)
@@ -212,6 +213,20 @@ public sealed class WorldMouseTests
         var enemy = session.State.Battle!.Units.First(u => !u.Friendly && u.Alive); int hp = enemy.Health;
         var rect = (Rectangle)Invoke(client, "UnitRect", enemy)!; Invoke(client, "CombatClick", rect.Center);
         Assert.True(enemy.Health < hp); Assert.NotEqual(before, JsonSerializer.Serialize(session.State));
+    }
+    [Fact]
+    public void SkippingAWinningHitOpensRewardsBeforeTheSameFramesWorldAdvance()
+    {
+        var session = WorldSession.Create(42); CooperationPreview.Prepare(session); session.Paused = false;
+        var battle = session.State.Battle!; var enemy = battle.Units.First(u => !u.Friendly); enemy.Health = 1;
+        session.State.Actors.Single(a => a.Id == battle.ActorIds[enemy.Id]).Health = 1;
+        var client = Client(session); var rect = (Rectangle)Invoke(client, "UnitRect", enemy)!;
+        Invoke(client, "CombatClick", rect.Center); Assert.Null(session.State.Battle);
+        var playback = (CombatPlayback)Field("_combatPlayback").GetValue(client)!; Assert.True(playback.RewardPending);
+        long tick = session.State.Tick; Invoke(client, "ActivateControl", "combat-skip");
+        Assert.Equal("spoils", Field("_panel").GetValue(client)); Assert.False(playback.Completed);
+        session.ModalOpen = WorldGame.PanelPausesTime((string)Field("_panel").GetValue(client)!);
+        session.AdvanceFrame(TimeSpan.FromSeconds(.2)); Assert.Equal(tick, session.State.Tick);
     }
     [Theory]
     [InlineData(674, 490)]

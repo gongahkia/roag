@@ -109,6 +109,20 @@ public sealed class CombatPlaybackTests
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
+    [Fact]
+    public void AFixedEnemyPlanAgainstAFallenCompanionHasNoVisualHitTarget()
+    {
+        var s = Fight(); var b = s.State.Battle!; var enemy = b.Units[Enemy(s)];
+        foreach (var ally in b.Units.Where(u => u.Friendly)) { while (s.State.Battle!.Active.Friendly && s.State.Battle.Active.Id == ally.Id) s.Act(3); }
+        Assert.False(b.Active.Friendly);
+        b.Units[0].Health = 0; var actor = s.State.Actors.Single(a => a.Id == b.ActorIds[0]); actor.Health = 0; actor.Life = LifeState.Downed;
+        b.Plans[enemy.Id] = new("ability.strike", 0);
+        var skill = s.Content.Get<Vagabonds.Core.Content.AbilityDefinition>("ability.strike").AsSkill(); var p = new CombatPlayback();
+        Assert.True(p.Resolve(s, skill, s.AdvanceEnemy, 0).Success);
+        Assert.Empty(p.Current!.Targets); Assert.Contains("no living target", p.Current.Label);
+        Assert.DoesNotContain(p.Current.Events, e => e.Kind == "damage");
+        string resolved = State(s); Finish(p); Assert.Equal(resolved, State(s));
+    }
     [Theory]
     [InlineData(1024, 720)] [InlineData(1440, 900)] [InlineData(1920, 1080)]
     public void EightStableTargetAreasFitTheStageAndNeverOverlap(int width, int height)

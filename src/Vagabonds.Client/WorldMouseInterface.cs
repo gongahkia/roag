@@ -385,7 +385,7 @@ internal sealed partial class WorldGame
             case "combat-speed": _combatSpeed = _combatSpeed > 1 ? 1 : 2; SaveConversationSettings(); break;
             case "combat-motion": _reducedMotion = !_reducedMotion; SaveConversationSettings(); break;
             case "combat-volume": _combatVolume = _combatVolume >= .99f ? 0 : Math.Min(1, _combatVolume + .3f); _combatAudio?.Stop(); SaveConversationSettings(); break;
-            case "combat-skip": Playback.Skip(); _combatAudio?.Stop(); _combatFloats.Clear(); break;
+            case "combat-skip": Playback.Skip(); _combatAudio?.Stop(); _combatFloats.Clear(); CompleteCombatPlayback(); break;
             case "close": ClosePanel(); break;
             case "pause":
                 _session.Paused = !_session.Paused;

@@ -30,21 +30,24 @@ internal sealed partial class WorldGame
         bool paused = !IsActive || _panel.Length > 0;
         if (!paused) _combatVisualTime += Math.Clamp(elapsed, 0, .2) * _combatSpeed;
         string cue = Playback.Current?.Profile.Sound ?? "slash";
+        bool hasTarget = Playback.Current?.Targets.Length > 0;
         Playback.Advance(elapsed, _combatSpeed, paused);
         var impacts = Playback.DrainImpacts();
         foreach (var e in impacts) ShowCombatEvent(e);
-        if (impacts.Length > 0 && _combatVolume > 0)
+        if (impacts.Length > 0 && hasTarget && _combatVolume > 0)
         {
             _combatAudio ??= new();
             _combatAudio.Play(cue, _combatVolume);
         }
         if (paused) _combatAudio?.Stop();
-        if (Playback.Completed)
-        {
-            if (Playback.RewardPending && !_session.State.Endgame.Victory) { _panel = "spoils"; StopTravel(); }
-            Playback.AcknowledgeCompletion(); _enemyTimer = 0;
-        }
+        CompleteCombatPlayback();
         _combatFloats.RemoveAll(e => _combatVisualTime - e.Born > 1.35);
+    }
+    private void CompleteCombatPlayback()
+    {
+        if (!Playback.Completed) return;
+        if (Playback.RewardPending && !_session.State.Endgame.Victory) { _panel = "spoils"; StopTravel(); }
+        Playback.AcknowledgeCompletion(); _enemyTimer = 0;
     }
     private void ResolveEnemyPresentation()
     {
