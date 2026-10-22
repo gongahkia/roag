@@ -9,7 +9,7 @@ Vagabonds is the fantasy party RPG extracted from Ithica at `c87d480`, now exten
 | Area | Current implementation |
 | --- | --- |
 | Runtime | C# / .NET 10, MonoGame DesktopGL 3.8.6; graphics-free deterministic Core |
-| Launch | Resume selected world/legacy slot if present; absent slot or explicit `--new` starts a world |
+| Launch | Single game launcher `./vagabonds.sh`; resume selected world/legacy slot if present; absent slot or explicit `--new` starts a world |
 | Geography | Finite 4096×4096 surface, three underground floors; 64×64 tile chunks |
 | Content | 24 towns, six cultures/factions, six seeded biome provinces, 48 adventure sites |
 | Generation | Seeded settlement/site placement, road loops, gradient-noise terrain, WFC ruins/towns, BSP workings/forts, caverns and ring sanctuaries |

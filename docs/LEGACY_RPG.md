@@ -2,7 +2,7 @@
 
 This guide covers existing `lantern-rpg` saves and the explicit town/forest/crypt/battle/victory previews. Normal new games use the finite world described in [RPG.md](RPG.md). This is the independent fantasy RPG extracted into Vagabonds. The lunar colony remains in Ithica. Read [PROJECT_STATE.md](PROJECT_STATE.md) for current ownership, saves and executed verification.
 
-This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains in the separate Ithica repository; `./play.sh` here opens Vagabonds.
+This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains in the separate Ithica repository; `./vagabonds.sh` here opens Vagabonds.
 
 ![Turn-based encounter in Ashwood](images/lantern-battle.png)
 
@@ -13,12 +13,12 @@ This playable party RPG explores the same artwork as the colony prototype. Explo
 Requires the same .NET 10 SDK as the colony prototype. From the repository:
 
 ```sh
-./rpg.sh
-./rpg.sh --load
-./rpg.sh --demo
-./rpg.sh --scene forest
-./rpg.sh --scene crypt
-./rpg.sh --scene atlas
+./vagabonds.sh
+./vagabonds.sh --load
+./vagabonds.sh --demo
+./vagabonds.sh --scene forest
+./vagabonds.sh --scene crypt
+./vagabonds.sh --scene atlas
 ```
 
 On Windows: `dotnet run --project src/Vagabonds.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
@@ -77,8 +77,8 @@ Off-road fire, spores and corruption evolve every four successful steps or waits
 Version-two saves preserve actual maps and evolving fields. Existing version-one saves retain their original authored layouts without hazards; start a new expedition to see the new generator.
 
 ```sh
-./rpg.sh --generation-report --seed 42
-./rpg.sh --validate-seeds 1000 --seed 0
+./vagabonds.sh --generation-report --seed 42
+./vagabonds.sh --validate-seeds 1000 --seed 0
 ```
 
 ## Party and battle rules
@@ -96,7 +96,7 @@ Guard halves incoming damage until the unit's next turn. Burn and bleed deal dam
 
 ## Explore the sprites
 
-Press **F2** inside the game, or run `./rpg.sh --scene atlas`. Type to search neutral artwork descriptions, subjects and IDs. Typed filters include `subject:ghost confidence:high` and `color:green type:actor`. Game interpretations/ideas require the optional Game notes control or `game:true`. F3 cycles packs, F6/Tab types, F8 colors, F10 sorts and F7 optional usage; Shift reverses cycling. F1 opens query help, F9 resets filters, and F4 switches the preview palette. Arrows select entries; Page Up/Down or the wheel pages through the grid. Scroll over the detail panel to read long notes. Esc clears search, then returns to play; F2 also returns directly.
+Press **F2** inside the game, or run `./vagabonds.sh --scene atlas`. Type to search neutral artwork descriptions, subjects and IDs. Typed filters include `subject:ghost confidence:high` and `color:green type:actor`. Game interpretations/ideas require the optional Game notes control or `game:true`. F3 cycles packs, F6/Tab types, F8 colors, F10 sorts and F7 optional usage; Shift reverses cycling. F1 opens query help, F9 resets filters, and F4 switches the preview palette. Arrows select entries; Page Up/Down or the wheel pages through the grid. Scroll over the detail panel to read long notes. Esc clears search, then returns to play; F2 also returns directly.
 
 The native viewer has all **7,115 occupied regions** from Urizen, Godot node icons, and keyboard/controller prompts. Merely registering or viewing an image is not counted as a gameplay binding. Some entries are fragments, uncertain figures, or sparse marks, rather than independently usable objects. Controller art is available for inspection; controller input is not implemented.
 
@@ -111,8 +111,8 @@ The [binding table](../assets/reference/rpg-bindings.md) lists every RPG alias a
 ```sh
 ./tools/dotnet.sh build Vagabonds.sln --configuration Release
 ./tools/dotnet.sh test Vagabonds.sln --configuration Release --no-build
-./rpg.sh --headless
-./rpg.sh --smoke-test --screenshot /tmp/lantern-smoke.png
+./vagabonds.sh --headless
+./vagabonds.sh --smoke-test --screenshot /tmp/lantern-smoke.png
 python3 tools/build_game_catalog.py --check
 ```
 

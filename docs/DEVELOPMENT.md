@@ -4,7 +4,7 @@ Read [PROJECT_STATE.md](PROJECT_STATE.md) before working. Update it alongside be
 
 Vagabonds is one fantasy party RPG, incorporating selected systems from Ithica's replayed history. Follow [INTEGRATION.md](INTEGRATION.md) for the user-approved direction and unresolved design choices. Adapt mechanics to Vagabonds' lore and bindings. The pinned local Ithica reference is development-only; keep this game runnable with its own source, assets, catalog, mappings and project references, without asset symlinks, submodules or runtime paths into the reference checkout.
 
-Keep graphics-free deterministic rules in Core and presentation/input in Client. Preserve invalid-action no-cost behavior, independent map/combat RNG, reachable quest prerequisites, persistent maps and exact saved continuation. Normal launcher: `vagabonds.sh`; `play.sh` and `rpg.sh` forward to it.
+Keep graphics-free deterministic rules in Core and presentation/input in Client. Preserve invalid-action no-cost behavior, independent map/combat RNG, reachable quest prerequisites, persistent maps and exact saved continuation. Use `./vagabonds.sh` to launch the game and `./dev` for developer tools. Both use `tools/dotnet.sh`; `tools/setup-dotnet.sh` provides the optional SDK installer.
 
 Preserve original source images, IDs, crops, provenance and uncertain identities. Edit authoring inputs and regenerate derived catalogs. Historical `ithica-*` asset filenames/catalog fields, original pack names and `lantern-rpg` save identifiers are intentional origin/compatibility records; do not globally rename them. New saves belong under `~/.vagabonds/`, and legacy imports must leave their source untouched.
 

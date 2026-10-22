@@ -1,18 +1,18 @@
 # Vagabonds procedural generation
 
-This records Vagabonds’ fantasy RPG generation and quest guarantees. The original algorithms, protected approaches and legacy save fallback are preserved from the source prototype.
+This records the retained legacy RPG generation and quest guarantees. For the current finite world's generation, see [WORLD.md](WORLD.md). The original algorithms, protected approaches and legacy save fallback are preserved from the source prototype.
 
 New RPG expeditions use a reproducible hybrid generator. Hearth keeps its streets, houses and services; Ashwood gets cellular forest/pond terrain and reserved routes; the Abbey gets a connected room graph, socket-based Wave Function Collapse (WFC), and cellular erosion. The original five encounters and return-home quest remain playable. The lunar colony simulation belongs to the separate Ithica repository.
 
 ![Generated Abbey rooms after exploring northern and southern branches](images/lantern-crypt.png)
 
 ```sh
-./rpg.sh --new --seed 42
-./rpg.sh --seed 1337 --scene forest
-./rpg.sh --seed 7 --scene crypt
-./rpg.sh --generation-report --seed 42
-./rpg.sh --validate-seeds 1000 --seed 0
-./rpg.sh --headless --seed 1337
+./vagabonds.sh --scene town --seed 42
+./vagabonds.sh --seed 1337 --scene forest
+./vagabonds.sh --seed 7 --scene crypt
+./vagabonds.sh --generation-report --seed 42
+./vagabonds.sh --validate-seeds 1000 --seed 0
+./vagabonds.sh --headless --seed 1337
 ```
 
 Report, validation and headless modes open no window and write no player save. `--validate-seeds N` checks consecutive signed 32-bit seeds, wrapping deterministically at the integer boundary; N must be 1–10,000. The report includes dimensions, terrain counts, algorithm/version, every room's sockets/style, WFC observation/propagation counts, fallback status and quest validation. Preview scenes do not autosave. Loading an existing expedition preserves its maps instead of applying a new seed.
@@ -72,7 +72,7 @@ To extend a theme: inspect the exact crop and neighboring fragments, add an alia
 python3 tools/build_game_catalog.py
 ./tools/dotnet.sh build Vagabonds.sln --configuration Release
 ./tools/dotnet.sh test Vagabonds.sln --configuration Release --no-build
-./rpg.sh --validate-seeds 1000 --seed 0
+./vagabonds.sh --validate-seeds 1000 --seed 0
 python3 tools/build_game_catalog.py --check
 ```
 

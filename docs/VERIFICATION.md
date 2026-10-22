@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Launcher cleanup (2026-10-22)
+
+Removed the two redundant forwarding launchers and updated current guides to use `./vagabonds.sh`; archived Ithica documentation retains its historical commands. Shell syntax checks passed for the game launcher, `dev` and both SDK helpers. The game launcher's `--help` succeeded from `/tmp`, and `./dev help` succeeded from the checkout. No references to removed launchers remain outside the historical archive. `git diff --check` passed. These checks used no player saves; gameplay tests were not rerun for this script/documentation cleanup.
+
 ## Solid collision, cursor menus and tile selection (2026-10-22)
 
 Release publish and **277 .NET tests** passed. New cases cover solid terrain/props, walkable roads/bridges/stairs, character occupancy, local actor separation during simulation, occupied stair landings, route/hover invalidation without consulting hidden actors, persistent barrel dismantling, partial affordable designations, duplicate/oversized/unknown selections, cancellation refunds, automatic seam excavation with exact saved continuation, blocked approaches and construction waiting for an occupied target. Existing formation cases now verify that reversal uses an explicit leader change instead of swapping through companions. Client cases cover contextual availability, disabled reasons, drag release without accidental movement, and popup/submenu bounds at every corner of the minimum window.

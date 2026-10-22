@@ -15,7 +15,7 @@ Install the .NET 10 SDK, or use the optional per-user installer:
 ./vagabonds.sh --new --seed 1337
 ```
 
-`play.sh` and `rpg.sh` are aliases. On Windows or with a system SDK, run `dotnet run --project src/Vagabonds.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
+`vagabonds.sh` is the game launcher. On Windows or with a system SDK, run `dotnet run --project src/Vagabonds.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
 
 Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a new expedition when it does not. `--save PATH` selects another slot. `--new [--seed N]` explicitly starts over; saving or quitting then replaces the selected save. `--load` requires an existing save. Preview scenes and frame-limited captures do not autosave. To copy an existing fantasy RPG save into the new save slot without changing its source:
 
