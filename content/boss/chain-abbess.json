@@ -1,0 +1,54 @@
+{
+  "kind": "boss",
+  "id": "boss.chain-abbess",
+  "name": "Chain Abbess",
+  "family": "oathbound dead",
+  "sprite": "bandit",
+  "description": "A guardian of the oathbound dead; its realm changes with every world.",
+  "weakness": "Break attendants and guard on interruption rounds.",
+  "tactics": "Interrupt pressures strongest targets; dread is eligible every 3 rounds. Below 50% health, hex and rally host enter its repertoire.",
+  "health": 202,
+  "power": 10,
+  "armor": 3,
+  "speed": 6,
+  "phasePercent": 50,
+  "behaviors": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.dread",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.hex",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.interrupt",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.rally-host",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ravenous",
+    "variant.swift",
+    "variant.ancient"
+  ]
+}

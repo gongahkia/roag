@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.obsidian-weaver",
+  "name": "Obsidian Weaver",
+  "family": "stone dreams",
+  "sprite": "wisp",
+  "description": "A guardian of the stone dreams; its realm changes with every world.",
+  "weakness": "Cleanse marks before its draining phase.",
+  "tactics": "Hex pressures stressed targets; drain is eligible every 4 rounds. Below 55% health, scorch and guard enter its repertoire.",
+  "health": 224,
+  "power": 11,
+  "armor": 4,
+  "speed": 7,
+  "phasePercent": 55,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.drain",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.scorch",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp",
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.swift",
+    "variant.ancient",
+    "variant.emberborne"
+  ]
+}

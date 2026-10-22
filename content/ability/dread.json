@@ -5,7 +5,7 @@
   "sprite": "wisp",
   "mana": 0,
   "target": "Enemy",
-  "power": 8,
+  "power": 3,
   "effect": "dread",
   "duration": 3,
   "description": "Dread."

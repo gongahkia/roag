@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.moonless-bride",
+  "name": "Moonless Bride",
+  "family": "lost royalty",
+  "sprite": "wisp",
+  "description": "A guardian of the lost royalty; its realm changes with every world.",
+  "weakness": "Calm the stressed traveller and defeat attendants first.",
+  "tactics": "Dread pressures stressed targets; drain is eligible every 4 rounds. Below 55% health, interrupt and rally host enter its repertoire.",
+  "health": 180,
+  "power": 11,
+  "armor": 4,
+  "speed": 4,
+  "phasePercent": 55,
+  "behaviors": [
+    {
+      "ability": "ability.dread",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.drain",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.dread",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.rally-host",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp",
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.swift",
+    "variant.ancient",
+    "variant.emberborne"
+  ]
+}

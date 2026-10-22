@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1);
 
 public sealed partial class WorldSession : IGameSession
@@ -18,7 +18,7 @@ public sealed partial class WorldSession : IGameSession
     public bool Paused { get; set; } = true;
     public bool ModalOpen { get; set; }
     public bool Focused { get; set; } = true;
-    public bool Frozen => Paused || ModalOpen || !Focused || IsInCombat || State.AwaitingContinuation || DeathPending;
+    public bool Frozen => Paused || ModalOpen || !Focused || IsInCombat || State.AwaitingContinuation || DeathPending || State.Endgame.Victory;
     public bool DeathPending { get; private set; }
     public string? SavePath { get; set; }
     public HashSet<WorldPosition> Visible { get; } = [];
@@ -66,6 +66,7 @@ public sealed partial class WorldSession : IGameSession
         }
         var session = new WorldSession(plan, s, content);
         session.NewLoneHero();
+        session.PopulateAdventures();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
         s.Arc = new() { Kind = (ArcKind)rng.Next(3), TownId = townId, SiteId = siteId, PatronId = 1000 + townId * 16 + 7 };
@@ -99,16 +100,25 @@ public sealed partial class WorldSession : IGameSession
         int advanced = 0;
         while (advanced < count && !Frozen)
         {
-            State.Tick++; advanced++;
-            if (State.Tick % 5 == 0) MoveActors();
-            AdvanceCaravans();
-            if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
-            if (State.Tick % 50 == 0) CheckArc();
+            AdvanceWorldTick(); advanced++;
         }
         return advanced;
     }
+    private void AdvanceWorldTick()
+    {
+        State.Tick++;
+        if (State.Tick % 5 == 0) MoveActors();
+        AdvanceCaravans();
+        if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
+        if (State.Tick % 50 == 0) CheckArc();
+    }
+    private void AdvanceCombatClock()
+    {
+        for (int i = 0; i < TicksPerSecond; i++) AdvanceWorldTick();
+    }
     public ActionResult Submit(WorldCommand command)
     {
+        if (State.Endgame.Victory) return new(false, "This expedition is complete. Start a new world to play again.");
         if (DeathPending) return new(false, "Save the recorded deaths before continuing.");
         if (State.AwaitingContinuation && command.Kind != WorldCommandKind.Continue) return new(false, "The expedition has ended. Continue with a new traveller or begin a fresh world.");
         if (IsInCombat) return new(false, "Finish the encounter first.");
@@ -116,6 +126,11 @@ public sealed partial class WorldSession : IGameSession
         bool near = Plan.Contains(command.Target) && State.Position.Distance(command.Target) <= 1;
         switch (command.Kind)
         {
+            case WorldCommandKind.Loot: return Loot(command.Target);
+            case WorldCommandKind.Equip: return Equip(command.ActorId, command.Item);
+            case WorldCommandKind.Unequip:
+                if (target == null || !State.Party.Contains(target.Id) || !target.Equipment.TryGetValue(command.Item, out var gear)) return new(false, "Choose an occupied equipment slot.");
+                Add(Content.Get<ItemDefinition>(gear.Item).Stack, 1); target.Equipment.Remove(command.Item); target.Health = Math.Min(target.Health, target.MaxHealth); return new(true, "Equipment returned to the pack.");
             case WorldCommandKind.Move:
                 if (!near || command.Target == State.Position || !Materials.Walkable(Chunks.At(command.Target))) return new(false, "That way is blocked.");
                 State.Position = command.Target;
@@ -282,7 +297,7 @@ public sealed partial class WorldSession : IGameSession
     {
         foreach (var a in State.Actors)
         {
-            if (a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
+            if (a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);
             WorldPosition destination;
             if (a.Kind == ActorKind.Person)

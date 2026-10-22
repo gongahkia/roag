@@ -31,4 +31,5 @@ Each checkpoint requires implementation, meaningful automated checks, usable dev
 
 - Checkpoint 1 committed as `2bbf9dc`: runtime content and unified authoring commands.
 - Checkpoint 2 implemented: generation profiles, purpose-specific layouts, coherent terrain and reproducible multi-seed JSON/SVG audits. Executed evidence is recorded in VERIFICATION.md.
-- Combat/bosses and shared actor work/simulation remain the following checkpoints.
+- Checkpoint 3 implemented: 48 archetypes/variants, saved authored intentions, open endgame/victory, loot/equipment and completed-round time.
+- Shared actor work/simulation remains the following checkpoint.

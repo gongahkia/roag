@@ -1,0 +1,54 @@
+{
+  "kind": "boss",
+  "id": "boss.underking",
+  "name": "Underking",
+  "family": "deep swarms",
+  "sprite": "skeleton",
+  "description": "A guardian of the deep swarms; its realm changes with every world.",
+  "weakness": "Cleanse marks and calm fear before the sweeping phase.",
+  "tactics": "Hex pressures strongest targets; dread is eligible every 3 rounds. Below 40% health, sweep and purify enter its repertoire.",
+  "health": 290,
+  "power": 8,
+  "armor": 1,
+  "speed": 4,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.dread",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.purify",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ravenous",
+    "variant.swift",
+    "variant.ancient"
+  ]
+}

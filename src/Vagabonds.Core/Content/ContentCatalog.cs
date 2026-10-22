@@ -104,6 +104,7 @@ public sealed class ContentCatalog
                 {
                     if (r == null) { Error(field, "A rule cannot be null."); continue; }
                     Ref<AbilityDefinition>(field, r.Ability); Range(field, r.Weight, 1, 100); Range(field, r.Every, 1, 20);
+                    if (r.Ability != null && _entries.TryGetValue(r.Ability, out var entry) && entry is AbilityDefinition ability && ability.Effect is "flee" or "potion") Error(field, "Enemy rules cannot use party-only retreat or inventory medicine.");
                     Range(field, r.FromRound, 1, 100); Range(field, r.BelowHealthPercent, 1, 100);
                     if (r.Target is not ("random" or "weakest" or "strongest" or "stressed")) Error(field, "Unknown targeting rule.");
                 }
@@ -115,6 +116,8 @@ public sealed class ContentCatalog
             {
                 case GameDefinition g:
                     Ref<GenerationDefinition>("generation", g.Generation);
+                    Ref<AbilityDefinition>("enemyFallback", g.EnemyFallback);
+                    if (g.EnemyFallback != null && _entries.TryGetValue(g.EnemyFallback, out var fallback) && fallback is AbilityDefinition f && (f.Mana != 0 || f.Target != Expeditions.TargetKind.Enemy || f.Effect != "damage")) Error("enemyFallback", "Fallback must be a free, single-target damaging attack.");
                     foreach (var id in new[] { g.Traveller, g.Villager, g.Healer, g.Beast, g.Raider, g.Caravan }) Ref<CharacterDefinition>("characters", id);
                     if (g.Classes == null || g.CommonAbilities == null || g.Bosses == null || g.Recipes == null) { Error("classes", "Game pools cannot be null."); break; }
                     if (g.Classes.Length != 4 || g.CommonAbilities.Length != 3 || g.Bosses.Length == 0) Error("classes", "Provide four classes, three common actions and at least one boss.");

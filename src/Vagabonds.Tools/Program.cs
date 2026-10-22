@@ -56,7 +56,8 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind == "generation")
+                if (kind == "encounter") Print(EncounterPreview.Run(catalog, id, seed));
+                else if (kind == "generation")
                 {
                     var plan = WorldPlan.Generate(seed);
                     var generator = new ChunkGenerator(plan, catalog);
@@ -75,7 +76,7 @@ public static class DeveloperEntry
                     long tick = game.State.Tick; uint rng = game.State.CombatRandom; var result = game.PerformInteraction(actor.Id, id);
                     Print(new { seed, actor.Name, result, tickBefore = tick, tickAfter = game.State.Tick, randomUnchanged = rng == game.State.CombatRandom, game.State.Inventory, party = game.Party });
                 }
-                else throw new ArgumentException("Preview character, ability, interaction or generation.");
+                else throw new ArgumentException("Preview character, ability, interaction generation or encounter.");
                 return 0;
             }
             if (command == "review-tooling")

@@ -5,7 +5,7 @@
   "sprite": "wisp",
   "mana": 0,
   "target": "Enemy",
-  "power": 0,
+  "power": 5,
   "effect": "drain",
   "duration": 3,
   "description": "Drain."

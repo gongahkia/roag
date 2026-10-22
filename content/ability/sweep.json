@@ -5,7 +5,7 @@
   "sprite": "arc",
   "mana": 0,
   "target": "AllEnemies",
-  "power": 0,
+  "power": 4,
   "effect": "damage",
   "duration": 3,
   "description": "Sweep."

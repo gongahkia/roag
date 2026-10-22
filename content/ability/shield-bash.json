@@ -7,6 +7,6 @@
   "target": "Enemy",
   "power": 6,
   "effect": "stun",
-  "duration": 3,
+  "duration": 1,
   "description": "Shield bash."
 }

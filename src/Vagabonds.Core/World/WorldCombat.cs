@@ -7,20 +7,22 @@ public sealed partial class WorldSession
 {
     public void StartBattle(long enemyId)
     {
-        if (IsInCombat || State.AwaitingContinuation) return;
+        if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var enemy = State.Actors.FirstOrDefault(a => a.Id == enemyId && a.Life == LifeState.Alive && a.Kind is ActorKind.Raider or ActorKind.Beast);
         if (enemy == null) return;
         var battle = new WorldBattle();
         foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) AddUnit(a, true);
         // A lone traveller meets one foe; larger parties can draw in nearby enemies.
         AddUnit(enemy, false);
-        if (State.Party.Count > 1) foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.Kind is ActorKind.Beast or ActorKind.Raider && a.Life == LifeState.Alive && a.Position.Distance(enemy.Position) < 8).Take(State.Party.Count - 1)) AddUnit(a, false);
+        if (enemy.EncounterLeader > 0)
+            foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == enemy.EncounterLeader && a.Life == LifeState.Alive).Take(3)) AddUnit(a, false);
+        else if (State.Party.Count > 1) foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == 0 && a.Kind is ActorKind.Beast or ActorKind.Raider && a.Life == LifeState.Alive && a.Position.Distance(enemy.Position) < 8).Take(State.Party.Count - 1)) AddUnit(a, false);
         State.Battle = battle; NewCombatRound(); BeginCombatTurn();
         void AddUnit(Actor a, bool friendly)
         {
             int index = battle.Units.Count;
             battle.ActorIds.Add(a.Id);
-            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.BaseArmor, Speed = a.BaseSpeed, Power = a.BasePower, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
+            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.Armor, Speed = a.Speed, Power = a.Power, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
         }
     }
     private int CombatRoll(int max)
@@ -32,11 +34,7 @@ public sealed partial class WorldSession
         var b = State.Battle!;
         b.Order = b.Units.Where(u => u.Alive).Select(u => (u.Id, Roll: u.Speed + CombatRoll(3))).OrderByDescending(v => v.Roll).ThenBy(v => v.Id).Select(v => v.Id).ToList();
         b.TurnIndex = 0;
-        foreach (var enemy in b.Units.Where(u => !u.Friendly && u.Alive))
-        {
-            enemy.Intent = enemy.Sprite == "wolf" && b.Round % 2 == 0 ? IntentKind.Bleed : b.Round % 3 == 0 ? IntentKind.Guard : IntentKind.Strike;
-            var allies = b.Units.Where(u => u.Friendly && u.Alive).ToArray(); enemy.IntentTarget = allies[CombatRoll(allies.Length)].Id;
-        }
+        PlanEnemies();
     }
     private void BeginCombatTurn()
     {
@@ -57,7 +55,7 @@ public sealed partial class WorldSession
     {
         var b = State.Battle!;
         b.TurnIndex++;
-        if (b.TurnIndex >= b.Order.Count) { b.Round++; NewCombatRound(); }
+        if (b.TurnIndex >= b.Order.Count) { AdvanceCombatClock(); b.Round++; NewCombatRound(); }
     }
     public IReadOnlyList<Skill> ActiveSkills()
     {
@@ -91,7 +89,7 @@ public sealed partial class WorldSession
             TargetKind.AllAllies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
             TargetKind.Self => [u], _ => new[] { target! }
         };
-        ResolveAbility(u, skill, targets, actor.Level - 1);
+        ResolveAbility(u, skill, targets, actor.Level - 1 + Math.Max(0, u.Power - 6));
         SyncCombat();
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
         return new(true, $"{u.Name}: {skill.Name}.");
@@ -127,12 +125,20 @@ public sealed partial class WorldSession
     {
         if (State.Battle is not { } b || b.Active.Friendly) return new(false, "It is your turn.");
         var u = b.Active;
-        var target = b.Units.FirstOrDefault(t => t.Id == u.IntentTarget && t.Friendly && t.Alive) ?? b.Units.First(t => t.Friendly && t.Alive);
-        if (u.Intent == IntentKind.Guard) u.Guarding = true;
-        else { Damage(target, u.Power + CombatRoll(3)); target.Stress = Math.Min(100, target.Stress + 3); if (u.Intent == IntentKind.Bleed && target.Alive) target.Bleed = 2; }
+        var planned = b.Plans[u.Id]; var ability = Content.Get<AbilityDefinition>(planned.Ability); var skill = ability.AsSkill();
+        var target = b.Units[planned.Target];
+        // Intent is fixed at the start of the round. A fallen target wastes this action.
+        var targets = skill.Target switch
+        {
+            TargetKind.AllEnemies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
+            TargetKind.AllAllies => b.Units.Where(t => !t.Friendly && t.Alive).ToArray(),
+            TargetKind.Self => [u], _ => target.Alive ? new[] { target } : []
+        };
+        u.Mana -= skill.Mana;
+        ResolveAbility(u, skill, targets, u.Power - 6);
         SyncCombat();
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
-        return new(true, $"{u.Name}: {u.Intent}.");
+        return new(true, $"{u.Name}: {skill.Name}.");
     }
     private void Damage(CombatUnit target, int amount)
     {
@@ -157,9 +163,11 @@ public sealed partial class WorldSession
     private bool CheckBattleEnd()
     {
         var b = State.Battle!;
-        if (b.Units.Any(u => u.Friendly && u.Alive) && b.Units.Any(u => !u.Friendly && u.Alive)) return false;
+        bool finalDefeated = b.ActorIds.Contains(State.Endgame.ActorId) && !b.Units[b.ActorIds.IndexOf(State.Endgame.ActorId)].Alive;
+        if (!finalDefeated && b.Units.Any(u => u.Friendly && u.Alive) && b.Units.Any(u => !u.Friendly && u.Alive)) return false;
         SyncCombat();
         bool victory = b.Units.Any(u => u.Friendly && u.Alive);
+        if (b.TurnIndex == b.Order.Count - 1) AdvanceCombatClock();
         State.Battle = null;
         if (victory)
         {
@@ -169,6 +177,8 @@ public sealed partial class WorldSession
                 a.Experience += 12;
                 if (a.Experience >= a.Level * 30) { a.Experience -= a.Level * 30; a.Level++; a.Health = Math.Min(a.MaxHealth, a.Health + 6); a.Mana = Math.Min(a.MaxMana, a.Mana + 3); }
             }
+            if (State.Actors.Single(a => a.Id == State.Endgame.ActorId).Life == LifeState.Dead)
+            { State.Endgame.Victory = true; Paused = true; Log("The final threat has fallen. Your expedition is complete."); }
             Log("Encounter won. Fallen companions can be revived with medicine or deliberately abandoned.");
         }
         else

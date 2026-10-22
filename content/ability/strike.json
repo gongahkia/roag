@@ -5,7 +5,7 @@
   "sprite": "sword",
   "mana": 0,
   "target": "Enemy",
-  "power": 0,
+  "power": 6,
   "effect": "damage",
   "duration": 3,
   "description": "Strike."

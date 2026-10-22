@@ -1,0 +1,54 @@
+{
+  "kind": "boss",
+  "id": "boss.frostbound-king",
+  "name": "Frostbound King",
+  "family": "winter beasts",
+  "sprite": "skeleton",
+  "description": "A guardian of the winter beasts; its realm changes with every world.",
+  "weakness": "Attack before its late-round rally; calm stressed allies.",
+  "tactics": "Interrupt pressures strongest targets; guard is eligible every 3 rounds. Below 40% health, dread and rally host enter its repertoire.",
+  "health": 224,
+  "power": 8,
+  "armor": 1,
+  "speed": 5,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.dread",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.interrupt",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.rally-host",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ravenous",
+    "variant.swift",
+    "variant.ancient"
+  ]
+}

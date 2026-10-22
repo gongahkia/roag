@@ -1,0 +1,52 @@
+{
+  "kind": "boss",
+  "id": "boss.red-huntsman",
+  "name": "Red Huntsman",
+  "family": "night hunters",
+  "sprite": "bandit",
+  "description": "A guardian of the night hunters; its realm changes with every world.",
+  "weakness": "Keep the weakest traveller healed; remove bleeding.",
+  "tactics": "Rend pressures strongest targets; hex is eligible every 3 rounds. Below 55% health, interrupt and guard enter its repertoire.",
+  "health": 290,
+  "power": 11,
+  "armor": 4,
+  "speed": 8,
+  "phasePercent": 55,
+  "behaviors": [
+    {
+      "ability": "ability.rend",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.hex",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.rend",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.emberborne",
+    "variant.ironbound",
+    "variant.mournful"
+  ]
+}

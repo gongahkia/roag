@@ -5,8 +5,8 @@
   "sprite": "shield",
   "mana": 0,
   "target": "Enemy",
-  "power": 0,
+  "power": 2,
   "effect": "stun",
-  "duration": 3,
+  "duration": 1,
   "description": "Interrupt."
 }

@@ -35,7 +35,7 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | generation | Four-floor layout selection per site purpose and biome tree/rock/water profiles; shared by runtime and audit |
 | boss / variant | Authored identity/tactics/weakness, stats, conditional behaviour phases, minions and variation pools |
 
-Boss/recipe/equipment definitions establish their content contracts; their complete gameplay systems are tracked as subsequent checkpoints in INTEGRATION.md. Character creation, party abilities and configured conversations already use the content catalog.
+Bosses, enemy behaviours, equipment, character creation, party abilities and conversations use the content catalog at runtime. Timed recipes are the next checkpoint. Enemy rules select weighted eligible actions at the start of each round; cadence, health threshold and phase conditions apply then. Intentions persist through saves; a dead chosen target wastes a single-target action. Enemy medicine/retreat handlers are rejected. `game.enemyFallback` must reference a free damaging attack.
 
 ## Validation and previews
 
@@ -65,3 +65,7 @@ At each substantial milestone, inspect `review-tooling` and evaluate actual auth
 `./dev preview generation generation.world --seed 42` exercises the configured algorithms. `./dev audit-world --seed 40 --samples 8 --output artifacts/world-audit` writes JSON measurements and an SVG sheet; use `--replace` deliberately for an existing output. It reports raw/final hashes, open-cell density, components, stairs, fallbacks and repairs separately. Inspect the sheet alongside the numbers: distinct hashes alone do not establish interesting worlds.
 
 WFC is retained for towns/ruins. Registered structural algorithms are `bsp-workings`, `bsp-fort`, `caverns` and `ring-sanctuary`; profiles select these without changing code. New algorithms require a Core implementation and validation registration. The gradient-noise implementation was adapted from the pinned Ithica `070558d` source; there is no runtime dependency on that checkout. Macro placement and connected road loops remain Core invariants.
+
+## Preview authored encounters
+
+`./dev preview encounter boss.briar-matriarch --seed 42` runs a generated four-member party against the actual boss factory, variant, minions, intentions and resolver for up to four rounds. It reports actions, health, intentions and shared ticks without saving. This is a deterministic diagnostic using basic attacks, not a combat-balance claim. Every shipped archetype is exercised by the suite. `--scene world-boss` provides the graphical preview at the selected seed. Equipment snapshots preserve item identity and resolved modifiers across saves; swaps return previous equipment to the shared pack.

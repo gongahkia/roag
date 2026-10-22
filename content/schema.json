@@ -778,6 +778,9 @@
         "generation": {
           "type": "string"
         },
+        "enemyFallback": {
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -816,6 +819,7 @@
         "recipes",
         "inventory",
         "generation",
+        "enemyFallback",
         "id",
         "name"
       ],

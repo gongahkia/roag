@@ -77,12 +77,27 @@ public sealed partial class WorldSession
         if (s.Tick is < 0 or > 1000000000000 || !plan.Contains(s.Position) || s.Actors == null || s.Party == null || s.Inventory == null || s.Towns == null || s.Factions == null || s.Journal == null || s.Arc == null || s.VisitedSites == null || s.Tasks == null) throw new InvalidDataException("Invalid world state.");
         if (s.Actors.Count is < 1 or > 10000 || s.Actors.Any(a => a == null) || s.Actors.Select(a => a.Id).Distinct().Count() != s.Actors.Count || s.NextActorId <= s.Actors.Max(a => a.Id) || s.Party.Count is < 1 or > 4 || s.Party.Distinct().Count() != s.Party.Count || s.CombatRandom == 0) throw new InvalidDataException("Invalid actor identities.");
         foreach (var a in s.Actors)
-            if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
+            if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Equipment == null || a.Equipment.Any(e => e.Value == null) || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
         foreach (var actor in s.Actors)
-            if (actor.Archetype == null || !ContentCatalog.Default.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not CharacterDefinition
+            if (actor.Archetype == null || !ContentCatalog.Default.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not (CharacterDefinition or BossDefinition)
                 || actor.BaseHealth is < 1 or > 2000 || actor.BaseMana is < 0 or > 500 || actor.BaseArmor is < 0 or > 30 || actor.BasePower is < 0 or > 100 || actor.BaseSpeed is < 1 or > 30
                 || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !ContentCatalog.Default.Entries.ContainsKey(actor.TraitId))
                 throw new InvalidDataException("Invalid content-backed actor state.");
+        foreach (var actor in s.Actors)
+        {
+            if (actor.VariantId == null || actor.VariantId.Length > 0 && !ContentCatalog.Default.Entries.TryGetValue(actor.VariantId, out _)
+                || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition))
+                throw new InvalidDataException("Invalid encounter identity.");
+            foreach (var (slot, gear) in actor.Equipment)
+            {
+                var item = ContentCatalog.Default.Get<ItemDefinition>(gear.Item);
+                if (item.Slot != slot || slot == "none" || gear != new EquipmentState(item.Id, item.Health, item.Power, item.Armor, item.Speed)) throw new InvalidDataException("Invalid equipped item.");
+            }
+        }
+        if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
+            || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
+            || s.Loot == null || s.Loot.Count > 192 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !ContentCatalog.Default.All<ItemDefinition>().Any(i => i.Stack == p.Key)))
+            || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {
             if (caravan.DestinationTown == null || caravan.DestinationTown == caravan.HomeTown || caravan.Traveling && caravan.Route.Count == 0) throw new InvalidDataException("Invalid caravan destination/route.");
@@ -101,7 +116,10 @@ public sealed partial class WorldSession
         if (s.AwaitingContinuation ? party.Any(a => a.Life != LifeState.Dead) : !party.Any(a => a.Life == LifeState.Alive)) throw new InvalidDataException("Invalid party life state.");
         if (s.Battle is { } b)
         {
-            if (s.AwaitingContinuation || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
+            if (s.AwaitingContinuation || b.Plans == null || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
+            if (b.Plans.Count > 4 || b.Plans.Any(p => p.Key < 0 || p.Key >= b.Units.Count || b.Units[p.Key].Friendly || p.Value == null || p.Value.Target < 0 || p.Value.Target >= b.Units.Count
+                || !ContentCatalog.Default.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion")
+                || b.Units.Any(u => !u.Friendly && u.Alive && !b.Plans.ContainsKey(u.Id))) throw new InvalidDataException("Invalid enemy intentions.");
             if (b.Round is < 1 or > 100000 || b.Units.Any(u => u.MaxHealth is < 1 or > 10000 || u.MaxMana is < 0 or > 10000 || u.Stress is < 0 or > 100 || u.Armor is < 0 or > 1000 || u.Speed is < 0 or > 1000 || u.Power is < 0 or > 1000 || u.Burn is < 0 or > 1000 || u.Bleed is < 0 or > 1000 || u.Mark is < 0 or > 1000 || u.Stun is < 0 or > 1000 || !Enum.IsDefined(u.Intent))) throw new InvalidDataException("Invalid combat statistics.");
         }
     }

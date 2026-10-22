@@ -1,0 +1,54 @@
+{
+  "kind": "boss",
+  "id": "boss.ashen-cartographer",
+  "name": "Ashen Cartographer",
+  "family": "ember cults",
+  "sprite": "bandit",
+  "description": "A guardian of the ember cults; its realm changes with every world.",
+  "weakness": "Keep marks and burns from accumulating on one traveller.",
+  "tactics": "Hex pressures stressed targets; scorch is eligible every 4 rounds. Below 50% health, dread and purify enter its repertoire.",
+  "health": 180,
+  "power": 10,
+  "armor": 3,
+  "speed": 8,
+  "phasePercent": 50,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.scorch",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.dread",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.purify",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.ironbound",
+    "variant.mournful",
+    "variant.ravenous"
+  ]
+}

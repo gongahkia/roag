@@ -5,6 +5,15 @@ namespace Vagabonds.Core.Content;
 
 public static class ActorFactory
 {
+    public static Actor CreateBoss(ContentCatalog content, string archetype, string variantId, long id, WorldPosition position, int town, int culture = 0, int faction = 0)
+    {
+        var d = content.Get<BossDefinition>(archetype); var v = content.Get<VariantDefinition>(variantId);
+        var boss = new Actor { Id = id, Name = v.Name + " " + d.Name, Kind = ActorKind.Raider, Archetype = d.Id,
+            VariantId = v.Id, EncounterLeader = id, SpriteId = d.Sprite!, BaseHealth = d.Health * v.HealthPercent / 100,
+            BaseMana = d.Mana, BaseArmor = Math.Max(0, d.Armor + v.Armor), BasePower = Math.Max(1, d.Power + v.Power),
+            BaseSpeed = Math.Max(1, d.Speed + v.Speed), Position = position, HomeTown = town, Culture = culture, FactionId = faction, Job = "dungeon guardian" };
+        boss.Health = boss.MaxHealth; boss.Mana = boss.MaxMana; return boss;
+    }
     public static Actor Create(ContentCatalog content, string archetype, int seed, long id, WorldPosition position, int town, int culture = 0, int faction = 0)
     {
         var d = content.Get<CharacterDefinition>(archetype);

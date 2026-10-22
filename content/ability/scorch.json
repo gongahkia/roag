@@ -5,7 +5,7 @@
   "sprite": "ember",
   "mana": 0,
   "target": "Enemy",
-  "power": 0,
+  "power": 3,
   "effect": "burn",
   "duration": 3,
   "description": "Scorch."

@@ -166,6 +166,9 @@ public sealed class WorldPlan
 
 public sealed class Actor
 {
+    public string VariantId { get; set; } = "";
+    public long EncounterLeader { get; set; }
+    public Dictionary<string, EquipmentState> Equipment { get; set; } = [];
     public string Archetype { get; set; } = "";
     public string TraitId { get; set; } = "";
     public int BaseHealth { get; set; }
@@ -226,9 +229,27 @@ public sealed class Actor
     public bool Traveling { get; set; }
     [JsonRequired]
     public List<int> Route { get; set; } = [];
-    public int MaxHealth => BaseHealth > 0 ? BaseHealth + (Level - 1) * 6 : Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30;
+    public int MaxHealth => (BaseHealth > 0 ? BaseHealth + (Level - 1) * 6 : Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30) + Equipment.Values.Sum(e => e.Health);
     public int MaxMana => BaseHealth > 0 ? BaseMana + (Level - 1) * 3 : new Hero { Role = Role, Level = Level }.MaxMana;
     public string Sprite => SpriteId.Length > 0 ? SpriteId : Kind switch { ActorKind.Beast => "wolf", ActorKind.Raider => "bandit", ActorKind.Caravan => "merchant", _ => new Hero { Role = Role }.Sprite };
+    public int Armor => BaseArmor + Equipment.Values.Sum(e => e.Armor);
+    public int Power => BasePower + Equipment.Values.Sum(e => e.Power);
+    public int Speed => Math.Max(1, BaseSpeed + Equipment.Values.Sum(e => e.Speed));
+}
+
+public sealed record EquipmentState(string Item, int Health, int Power, int Armor, int Speed);
+public sealed class LootCache
+{
+    public required string Id { get; set; }
+    public required WorldPosition Position { get; set; }
+    public required Dictionary<string, int> Contents { get; set; }
+    public bool Taken { get; set; }
+}
+public sealed class EndgameState
+{
+    public required long ActorId { get; set; }
+    public required int SiteId { get; set; }
+    public bool Victory { get; set; }
 }
 
 public sealed class TownState
@@ -299,6 +320,8 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    [JsonRequired] public EndgameState Endgame { get; set; } = null!;
+    [JsonRequired] public List<LootCache> Loot { get; set; } = [];
     [JsonRequired]
     public long Tick { get; set; }
     [JsonRequired]
@@ -345,6 +368,7 @@ public sealed class WorldState
 
 public sealed class WorldBattle
 {
+    [JsonRequired] public Dictionary<int, PlannedAbility> Plans { get; set; } = [];
     [JsonRequired]
     public List<CombatUnit> Units { get; set; } = [];
     [JsonRequired]
@@ -357,6 +381,7 @@ public sealed class WorldBattle
     public int Round { get; set; } = 1;
     [JsonIgnore] public CombatUnit Active => Units[Order[TurnIndex]];
 }
+public sealed record PlannedAbility(string Ability, int Target);
 
 public interface IGameSession
 {

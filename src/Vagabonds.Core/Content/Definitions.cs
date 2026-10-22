@@ -39,6 +39,7 @@ public sealed class GameDefinition : ContentDefinition
     public required string[] Recipes { get; set; }
     public required Dictionary<string, int> Inventory { get; set; }
     public required string Generation { get; set; }
+    public required string EnemyFallback { get; set; }
 }
 
 public sealed class GenerationDefinition : ContentDefinition

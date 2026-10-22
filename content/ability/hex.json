@@ -5,7 +5,7 @@
   "sprite": "mark",
   "mana": 0,
   "target": "Enemy",
-  "power": 0,
+  "power": 2,
   "effect": "mark",
   "duration": 3,
   "description": "Hex."

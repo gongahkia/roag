@@ -1,0 +1,52 @@
+{
+  "kind": "boss",
+  "id": "boss.rime-stag",
+  "name": "Rime Stag",
+  "family": "winter beasts",
+  "sprite": "wolf",
+  "description": "A guardian of the winter beasts; its realm changes with every world.",
+  "weakness": "Guard before its charge; heal between interrupted turns.",
+  "tactics": "Interrupt pressures stressed targets; rend is eligible every 4 rounds. Below 45% health, sweep and guard enter its repertoire.",
+  "health": 290,
+  "power": 9,
+  "armor": 2,
+  "speed": 4,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.rend",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.interrupt",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.swift",
+    "variant.ancient",
+    "variant.emberborne"
+  ]
+}

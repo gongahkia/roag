@@ -1,0 +1,54 @@
+{
+  "kind": "boss",
+  "id": "boss.ragged-monarch",
+  "name": "Ragged Monarch",
+  "family": "lost royalty",
+  "sprite": "bandit",
+  "description": "A guardian of the lost royalty; its realm changes with every world.",
+  "weakness": "Remove marks and bleeding; exploit its guarding turns.",
+  "tactics": "Strike pressures weakest targets; hex is eligible every 2 rounds. Below 40% health, rend and guard enter its repertoire.",
+  "health": 202,
+  "power": 8,
+  "armor": 1,
+  "speed": 5,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.strike",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.hex",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.rend",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ]
+}

@@ -30,6 +30,7 @@ internal sealed class WorldGame : Game
     private Material _build = Material.Wall;
     private int _skill, _combatTarget = -1, _journalOffset;
     private int _inspectStage;
+    private int _packMember, _packItem;
     private readonly Queue<WorldPosition> _route = [];
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
@@ -53,11 +54,11 @@ internal sealed class WorldGame : Game
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
-        if (!options.Load && options.Scene == "world-battle")
+        if (!options.Load && options.Scene is "world-battle" or "world-boss")
         {
             foreach (var person in _session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(3).ToArray())
             { person.Position = _session.State.Position; _session.Submit(new(WorldCommandKind.Recruit, ActorId: person.Id)); }
-            _session.StartBattle(_session.State.Actors.First(a => a.Kind == ActorKind.Beast).Id);
+            _session.StartBattle(options.Scene == "world-boss" ? _session.FinalBoss.Id : _session.State.Actors.First(a => a.Kind == ActorKind.Beast).Id);
         }
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Vagabonds - the living world"; Window.AllowUserResizing = true;
@@ -112,14 +113,22 @@ internal sealed class WorldGame : Game
             if (Press(Keys.I)) Toggle("inventory");
             if (Press(Keys.J)) Toggle("journal");
             if (Press(Keys.M)) Toggle("map");
-            if (_session.State.AwaitingContinuation)
+            if (_session.State.Endgame.Victory)
+            {
+                if (Press(Keys.N))
+                {
+                    _session = WorldSession.Create(WorldStartup.FreshSeed()); if (_autoSave) _session.SavePath = _options.Save;
+                    _panel = ""; _route.Clear(); _camera.Center = Vector2.Zero; _notice = "A fresh world begins. Space resumes.";
+                }
+            }
+            else if (_session.State.AwaitingContinuation)
             {
                 if (Press(Keys.N))
                 {
                     if (_session.DeathPending) { _notice = "F5 must persist the deaths before starting another expedition."; _keyboard = keys; _mouse = mouse; return; }
                     if (keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift))
                     {
-                        _session = WorldSession.Create(unchecked(_session.Seed + 1)); if (_autoSave) _session.SavePath = _options.Save;
+                        _session = WorldSession.Create(WorldStartup.FreshSeed()); if (_autoSave) _session.SavePath = _options.Save;
                         _notice = "A fresh world begins. Space resumes.";
                     }
                     else Execute(new(WorldCommandKind.Continue));
@@ -142,6 +151,12 @@ internal sealed class WorldGame : Game
             else if (_panel == "inventory")
             {
                 var party = _session.Party.ToArray();
+                if (Press(Keys.Tab)) _packMember = (_packMember + 1) % party.Length;
+                var equipment = _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
+                if (equipment.Length > 0 && Press(Keys.Down)) _packItem = (_packItem + 1) % equipment.Length;
+                if (equipment.Length > 0 && Press(Keys.Up)) _packItem = (_packItem + equipment.Length - 1) % equipment.Length;
+                if (equipment.Length > 0 && Press(Keys.Enter)) Execute(new(WorldCommandKind.Equip, ActorId: party[_packMember % party.Length].Id, Item: equipment[_packItem].Id));
+                if (equipment.Length > 0 && Press(Keys.U)) Execute(new(WorldCommandKind.Unequip, ActorId: party[_packMember % party.Length].Id, Item: equipment[_packItem].Slot));
                 for (int i = 0; i < party.Length; i++) if (Press(Keys.D1 + i))
                     Execute(new(keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift) ? WorldCommandKind.Abandon : WorldCommandKind.Revive, ActorId: party[i].Id));
             }
@@ -208,6 +223,8 @@ internal sealed class WorldGame : Game
     }
     private void Interact()
     {
+        var cache = _session.State.Loot.FirstOrDefault(c => !c.Taken && c.Position.Distance(_session.State.Position) <= 1);
+        if (cache != null) { Execute(new(WorldCommandKind.Loot, cache.Position)); return; }
         var person = _session.NearbyPerson();
         if (person != null)
         {
@@ -315,6 +332,13 @@ internal sealed class WorldGame : Game
         if (_session.IsInCombat) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
         if (_session.State.AwaitingContinuation) DrawWipe(w, h);
+        if (_session.State.Endgame.Victory)
+        {
+            var box = new Rectangle(60, h / 2 - 100, w - 120, 200); Fill(box, Panel);
+            Text("EXPEDITION COMPLETE", box.X + 24, box.Y + 24, Gold, 2);
+            Wrap(_session.FinalBoss.Name + " has fallen. Your party ended this world's final threat.", box.X + 24, box.Y + 78, box.Width - 48);
+            Text("F5 saves this ending. N begins a new generated world.", box.X + 24, box.Y + 150, Ink);
+        }
         _batch.End(); GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();
         if (_lastDraw > 0 && _frames.Count < 10000) _frames.Add(Stopwatch.GetElapsedTime(_lastDraw).TotalMilliseconds); _lastDraw = Stopwatch.GetTimestamp();
@@ -325,7 +349,7 @@ internal sealed class WorldGame : Game
             Capture();
             if (_options.WorldSmoke)
             {
-                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene == "world-battle" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
+                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene is "world-battle" or "world-boss" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
                 Console.WriteLine(JsonSerializer.Serialize(new { worldSmoke = checks.Values.All(c => c) ? "passed" : "failed", checks, frames = _draws, updateP95Ms = Percentile(_updates), frameP95Ms = Percentile(_frames), averageFramesPerSecond = _draws / _runtime.Elapsed.TotalSeconds, residentChunks = _session.Chunks.ResidentCount }));
                 if (checks.Values.Any(c => !c)) throw new InvalidDataException("Native world smoke check failed.");
             }
@@ -387,6 +411,8 @@ internal sealed class WorldGame : Game
             var rect = ActorRect(motion.Position); if (!_map.Intersects(rect)) continue;
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
+        foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position)))
+            _sprites.Draw(_batch, "chest", TileRect(cache.Position), Gold);
         int slot = 0;
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
@@ -438,7 +464,7 @@ internal sealed class WorldGame : Game
         Text($"Food {_session.Count("food")}  Gold {_session.Count("gold")}", x, y, Gold); y += 22;
         Text($"Wood {_session.Count("wood")}  Stone {_session.Count("stone")}", x, y, Muted); y += 22;
         Text($"Medicine {_session.Count("medicine")}", x, y, Muted); y += 34;
-        if (y < _side.Bottom - 100) { Text(_session.State.Arc.Status == ArcStatus.Active ? "A CHANGING WORLD" : _session.State.Arc.Status.ToString().ToUpperInvariant(), x, y, Gold); y += 26; Wrap(_session.State.Arc.Objective, x, y, _side.Width - 28); }
+        if (y < _side.Bottom - 100) { Text("THE FINAL THREAT", x, y, Gold); y += 26; Wrap(_session.FinalObjective, x, y, _side.Width - 28); }
         int bottom = _map.Bottom + 12;
         Wrap(_notice.Length > 150 ? _notice[..147] + "..." : _notice, 20, bottom, w - 370); bottom += 42;
         Text("WASD move  E speak/stairs  Space pause  I pack  J journal  M map", 20, Math.Min(bottom, h - 48), Muted);
@@ -454,13 +480,14 @@ internal sealed class WorldGame : Game
     {
         Fill(_map, new Color(14, 19, 25) * .96f); var b = _session.State.Battle!;
         Text($"ENCOUNTER  /  ROUND {b.Round}", _map.X + 24, _map.Y + 18, Gold);
-        Text(b.Active.Name + "'s turn", _map.X + 24, _map.Y + 42);
+        Text(b.Active.Name + "'s turn / J tactics", _map.X + 24, _map.Y + 42);
         foreach (var unit in b.Units)
         {
             var r = UnitRect(unit); Fill(r, unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
             _sprites.Fit(_batch, unit.Sprite, new(r.X + 8, r.Y + 8, 48, 48), unit.Alive ? Ink : Muted * .4f);
-            Text(unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
-            Text(unit.Friendly ? $"MP {unit.Mana} {unit.Conditions}" : $"{unit.Intent} {unit.Conditions}", r.X + 64, r.Y + 48, Muted);
+            Text(unit.Name.Length > 25 ? unit.Name[..22] + "..." : unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
+            string detail = unit.Friendly ? $"MP {unit.Mana} {unit.Conditions}" : _session.EnemyIntent(unit.Id);
+            Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
         }
         if (b.Active.Friendly)
         {
@@ -504,13 +531,24 @@ internal sealed class WorldGame : Game
         }
         else if (_panel == "inventory")
         {
-            foreach (var (item, amount) in _session.State.Inventory) { Text($"{item}: {amount}", x, y); y += 26; }
-            y += 20; int i = 1;
-            foreach (var a in _session.Party) { Text($"{i++}  {a.Name}: {a.Life}", x, y); y += 28; }
-            y += Wrap("Press a downed companion's number to spend one medicine and revive them. Shift plus their number deliberately abandons them and records permanent death immediately.", x, y + 12, width, Muted);
+            var party = _session.Party.ToArray(); var member = party[_packMember % party.Length];
+            Text(member.Name + " / Tab changes companion", x, y, Gold); y += 28;
+            Text($"HP {member.Health}/{member.MaxHealth}  Power {member.Power}  Armour {member.Armor}  Speed {member.Speed}", x, y); y += 28;
+            Text("Equipped: " + string.Join(", ", member.Equipment.Values.Select(e => _session.Content.Get<ItemDefinition>(e.Item).Name)), x, y, Muted); y += 30;
+            int index = 0;
+            foreach (var item in _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none"))
+            {
+                Text($"{(index == _packItem ? "> " : "  ")}{item.Name}  x{_session.Count(item.Stack)}  [{item.Slot}]  HP+{item.Health} P+{item.Power} A+{item.Armor} S+{item.Speed}", x, y, index++ == _packItem ? Gold : Ink); y += 24;
+            }
+            y += 8; Text("Up/Down select gear; Enter equips; U removes that slot.", x, y, Muted); y += 28;
+            Text("1-4 revives a downed member; Shift+1-4 abandons permanently.", x, y, Muted);
         }
         else if (_panel == "journal")
         {
+            y += Wrap(_session.FinalObjective, x, y, width, Gold); y += 12;
+            var encounterBoss = _session.State.Battle?.ActorIds.Select(id => _session.State.Actors.Single(a => a.Id == id)).FirstOrDefault(a => _session.Content.Entries[a.Archetype] is BossDefinition);
+            var boss = _session.Content.Get<BossDefinition>((encounterBoss ?? _session.FinalBoss).Archetype);
+            y += Wrap(boss.Tactics + " " + boss.Weakness, x, y, width, Muted); y += 12;
             y += Wrap($"Main arc: {_session.State.Arc.Status}. {_session.State.Arc.Objective}", x, y, width, Gold); y += 14;
             foreach (var task in _session.State.Tasks.Where(t => !t.Complete).Take(3)) y += Wrap(task.Description + (task.RoadId == null ? " V delivers at the town." : ""), x, y, width, Muted);
             foreach (string line in _session.State.Journal.AsEnumerable().Reverse().Skip(_journalOffset).Take(10)) { y += Wrap(line, x, y, width); if (y > box.Bottom - 55) break; }
