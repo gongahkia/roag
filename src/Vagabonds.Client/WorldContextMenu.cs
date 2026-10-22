@@ -85,7 +85,7 @@ internal static class WorldContextActions
         if (cells.Any(c => session.Chunks.At(c) is Material.Grass or Material.Earth or Material.Floor or Material.Water or Material.Bridge && session.ObjectAt(c) is not { Solid: true }))
             options.Add(new("build", "Build..."));
         if (session.State.Work.Any(w => cells.Contains(w.Target)))
-        { options.Add(new("work", "Manage work here")); options.Add(new("resume", "Resume party work here")); options.Add(new("cancel", "Cancel selected orders")); }
+        { options.Add(new("work", "Manage work here")); options.Add(new("resume", "Resume party work here")); options.Add(new("suspend", "Suspend selected work")); options.Add(new("cancel", "Cancel selected orders")); }
         options.Add(new("clear", cells.Count > 1 ? "Clear selection" : "Close"));
         return options;
     }
@@ -112,7 +112,7 @@ internal sealed partial class WorldGame
     private void ClearWorldSelection() { _dragStart = null; _dragging = false; _contextCells = null; _contextBuilding = false; Selection.Clear(); }
     private void BeginSelection(Point point)
     {
-        StopTravel(); _session.StopPartyWorkApproach();
+        StopTravel();
         _dragScreen = point; _dragStart = PointerCell(point); _dragging = false; Selection.Clear();
     }
     private void UpdateSelection(MouseState mouse)
@@ -134,7 +134,7 @@ internal sealed partial class WorldGame
     }
     private void OpenContext(Point point)
     {
-        StopTravel(); _session.StopPartyWorkApproach(); _dragStart = null;
+        StopTravel(); _dragStart = null;
         var cell = PointerCell(point);
         if (!_session.Chunks.Seen(cell)) { Selection.Clear(); _contextCells = null; _notice = "Explore this ground before selecting actions."; return; }
         if (!Selection.Cells.Contains(cell)) Selection.Single(cell);
@@ -176,9 +176,12 @@ internal sealed partial class WorldGame
                 var route = _session.RouteToAdjacent(p); bool reachable = route.Count > 0 || _session.State.Position.Distance(p) <= 1;
                 BeginApproach(new(route, new(action, p), reachable, "No free approach reaches this camp.")); break;
             case "work":
-                _workIndex = _session.State.Work.FindIndex(w => cells.Contains(w.Target)); _panel = "work"; break;
+                _selectedWorkId = _session.State.Work.FirstOrDefault(w => cells.Contains(w.Target))?.Id ?? 0; _panel = "work"; break;
+            case "suspend":
+                foreach (var order in _session.State.Work.Where(w => cells.Contains(w.Target))) _session.Submit(new(WorldCommandKind.ConfigureWork, WorkId: order.Id, Item: "suspend"));
+                _notice = "Selected work suspended; supplies and progress retained."; break;
             case "resume":
-                foreach (var order in _session.State.Work.Where(w => cells.Contains(w.Target))) order.PartyApproach = true;
+                foreach (var order in _session.State.Work.Where(w => cells.Contains(w.Target))) _session.Submit(new(WorldCommandKind.ConfigureWork, WorkId: order.Id, Item: "resume"));
                 _session.Paused = false; _notice = "Resuming the selected work."; break;
             case "cancel":
                 int count = 0;

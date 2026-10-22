@@ -21,7 +21,7 @@ public sealed partial class WorldSession
         return true;
     }
     private static void ChangeTrust(Actor actor, Actor other, int amount) => actor.Trust[other.Id] = Math.Clamp(actor.Trust.GetValueOrDefault(other.Id) + amount, -100, 100);
-    private bool HasWork(Actor actor) => State.Work.Any(w => w.Worker == actor.Id);
+    private bool HasWork(Actor actor) => State.Work.Any(w => w.Worker == actor.Id && !w.Suspended);
     public double WorkRate(Actor actor) => (Disposition(actor)?.WorkPercent ?? 100) / 100.0 * Math.Min(2, 1 + (actor.Level - 1) * .02)
         * (actor.Body.Wounds > 0 ? .75 : 1) * (actor.Stress >= 60 ? .75 : 1);
     private void AdvanceBodies()

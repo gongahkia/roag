@@ -17,26 +17,18 @@ internal sealed partial class WorldGame
             case "guide":
                 string[] paragraphs = [
                     "Click observed ground to travel; the teal preview becomes a gold route. Click people, stairs, caches or storage to approach and interact. Drag to select tiles; right-click opens actions at the cursor. Right-click a panel to close it.",
-                    "Play/Pause controls world time. Panels pause it while you choose. Use World map for the large-scale overview; the +/- and View buttons control the closer exploration camera. The mouse wheel also zooms.",
+                    "Play/Pause controls world time. Conversations and reference panels pause. Party and Work keep time running until you press Pause. Use World map for the large-scale overview; the +/- and View buttons control the closer exploration camera. The mouse wheel also zooms.",
                     "Party manages companions and equipment. Conversations offer recruitment, stories, trade and treatment. Everyone needs food and rest; wounds and exhaustion affect combat and work.",
-                    "Right-click terrain or a selection to build, dig or repair. Supplies are reserved and the party approaches automatically. Work assigns workers or cancels orders. Right-click a camp to rest or craft. Actions offers gathering and waiting.",
+                    "Right-click terrain or a selection to build, dig or repair. Supplies are reserved and available companions take separate jobs within a 16-tile rally area. Work assigns workers or cancels orders. Right-click a camp to rest or craft. Actions offers gathering and waiting.",
                     "In battle, click an ability, then its enemy or companion target. Self/group abilities execute when clicked. Choices cost no time; completed rounds advance one minute. Enemy intentions are visible, and Tactics describes bosses.",
                     "All dungeons and the selected final threat are available from the start. Defeating that boss completes the run. A party wipe causes permanent death; the ending offers a new traveller or a fresh world. Save/Load and the window close button are available without keyboard input."
                 ];
                 foreach (string paragraph in paragraphs) { y += Wrap(paragraph, x, y, width); y += 10; }
                 break;
             case "game":
-                Wrap("Mouse controls exploration, conversations, work, equipment and combat. Panels pause world time. Save preserves your current expedition; Load restores the selected slot.", x + 390, y, width - 390, Muted);
+                Wrap("Mouse controls exploration, conversations, work, equipment and combat. Conversations pause world time; Party and Work keep it running. Save preserves your current expedition; Load restores the selected slot.", x + 390, y, width - 390, Muted);
                 break;
-            case "person":
-                var actor = _session.State.Actors.FirstOrDefault(a => a.Id == _person);
-                if (actor == null) break;
-                _sprites.Fit(_batch, actor.Sprite, new(x, y, 64, 64), Ink);
-                Text(actor.Name + " / " + _session.Class(actor).Name, x + 80, y, Gold);
-                Wrap(actor.Trait + " " + actor.Background + "; hopes to " + actor.Motivation + ".", x + 80, y + 24, width - 80);
-                Text($"Hunger {actor.Body.Hunger:0}  Fatigue {actor.Body.Fatigue:0}  Wounds {actor.Body.Wounds}  Trust {_session.Party.First().Trust.GetValueOrDefault(actor.Id)}", x, y + 80, Muted);
-                Wrap(actor.Memories.LastOrDefault()?.Text ?? "Their usual job is " + actor.Job + ". Recruitment leaves that post vacant.", x, y + 110, width, Muted);
-                break;
+            case "person": DrawConversation(box); break;
             case "trade":
                 var town = _session.Plan.Towns.FirstOrDefault(t => _session.State.Position.Distance(t.Center) <= 28);
                 if (town == null) { Wrap("Approach a town to trade.", x, y, width); break; }
@@ -102,7 +94,8 @@ internal sealed partial class WorldGame
             case "work":
                 Text("PENDING ORDERS", x, y, Gold); Text("AVAILABLE PEOPLE", x + width / 2 + 8, y, Gold);
                 if (_session.State.Work.Count == 0) Wrap("No pending work. Right-click terrain for building or digging, a camp for crafting, or use Actions to gather food.", x, y + 40, width / 2 - 24, Muted);
-                if (SelectedWork() is { } work) Wrap(work.Status + ". Click a worker and Assign, or cancel to return reserved supplies.", x, y + 336, width, Muted);
+                if (SelectedWork() is { } work) Wrap(work.Status + ". " + (work.PinnedWorker ? "Named worker." : "Automatic party assignment.") + " Time runs here; Pause to inspect safely.", x, y + 286, width, Muted);
+                else if (_session.State.Work.Count > 0) Wrap("Select an order to inspect or change it. Time runs here; Pause to inspect safely.", x, y + 286, width, Muted);
                 break;
             case "craft":
                 Text("Requires a serviceable camp. Click a recipe to reserve supplies and begin work.", x, y, Muted);

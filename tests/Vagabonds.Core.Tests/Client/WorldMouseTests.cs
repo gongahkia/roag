@@ -106,11 +106,41 @@ public sealed class WorldMouseTests
     {
         var session = WorldSession.Create(42); var client = Client(session);
         Assert.True(session.Submit(new(WorldCommandKind.Build, session.State.Position.Offset(1, 0), Material: Material.Camp)).Success);
-        Field("_workerIndex").SetValue(client, 500);
-        Field("_workerPage").SetValue(client, 500);
+        Field("_workerPage").SetValue(client, 0);
         var selected = Controls(client, "work").Single(c => c.Id.StartsWith("worker:", StringComparison.Ordinal) && c.Selected);
         Invoke(client, "ActivateControl", "assign");
         Assert.Equal(long.Parse(selected.Id[7..], System.Globalization.CultureInfo.InvariantCulture), session.State.Work.Single().Worker);
+    }
+    [Fact]
+    public void ConversationChoicesWaitForSpeechAndPaidEffectsRunOncePerChoice()
+    {
+        var session = WorldSession.Create(42); var client = Client(session);
+        var actor = session.State.Actors.First(a => session.Interactions(a.Id).Any(i => i.Action == "share-meal"));
+        actor.Position = session.State.Position.Offset(1, 0); Field("_person").SetValue(client, actor.Id);
+        string before = JsonSerializer.Serialize(session.State);
+        var controls = Controls(client, "person"); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.DoesNotContain(controls, c => c.Id.StartsWith("conversation:", StringComparison.Ordinal));
+        for (int i = 0; i < 10 && ((DialoguePlayback)Field("_dialogue").GetValue(client)!).Finished == false; i++) Invoke(client, "AdvanceDialogue");
+        controls = Controls(client, "person"); Assert.Contains(controls, c => c.Id == "conversation:interaction.meal");
+        int food = session.Count("food"); Invoke(client, "ActivateControl", "conversation:interaction.meal");
+        Assert.Equal(food - 1, session.Count("food")); before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateControl", "conversation:interaction.meal"); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "AdvanceDialogue"); Invoke(client, "AdvanceDialogue"); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        foreach (var control in Controls(client, "person")) Assert.True(new Rectangle(0, 0, 1024, 720).Contains(control.Bounds));
+        Invoke(client, "ClosePanel"); Assert.Null(Field("_dialogue").GetValue(client));
+    }
+    [Fact]
+    public void FinishingASelectedJobDoesNotRetargetAnAssignmentOrCancellation()
+    {
+        var session = WorldSession.Create(42); var client = Client(session);
+        session.State.Inventory["stone"] = 100;
+        var targets = new[] { session.State.Position.Offset(1, 0), session.State.Position.Offset(-1, 0) };
+        foreach (var p in targets) session.Chunks.Edit(p, Material.Floor);
+        session.DesignateWork(WorldCommandKind.Build, targets, Material.Wall);
+        Controls(client, "work"); long selected = (long)Field("_selectedWorkId").GetValue(client)!;
+        session.Submit(new(WorldCommandKind.CancelWork, WorkId: selected));
+        Invoke(client, "ActivateControl", "cancel-work"); Assert.Single(session.State.Work);
+        Assert.False(Controls(client, "work").Single(c => c.Id == "assign").Enabled);
     }
     [Fact]
     public void InspectionExplainsVisiblePeopleAndBlockedTerrainWithoutRevealingUnknownActors()

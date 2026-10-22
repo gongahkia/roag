@@ -14,7 +14,7 @@ Normal launch resumes the selected slot if present; a missing slot starts a new 
 
 Existing `lantern-rpg` saves open the original three-area game with its original rules. [Legacy campaign guide](LEGACY_RPG.md) documents those controls. `--import-legacy PATH` validates and copies an old RPG save without changing the source. Lunar field sessions are rejected by both clients.
 
-New and loaded worlds begin **paused**. Click Play to resume time, or click a reachable destination to start travelling. New ordinary runs use a fresh seed unless you specify one. One real second represents one game minute. Conversations, menus, combat choices and focus loss pause simulation; completed combat rounds advance one minute. Closing a menu resumes the previous pause state. There is no offline progression.
+New and loaded worlds begin **paused**. Click Play to resume time, or click a reachable destination to start travelling. New ordinary runs use a fresh seed unless you specify one. One real second represents one game minute. Conversations, reference/game menus, combat choices and focus loss pause simulation; Party and Work panels run until you press Pause; completed combat rounds advance one minute. Closing a menu resumes the previous pause state. There is no offline progression.
 
 ## Controls
 
@@ -29,12 +29,12 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Left-drag | Select a rectangle of observed tiles (up to 256) |
 | Right-click terrain / selection | Stop travel and open relevant actions at the cursor |
 | Right-click a panel | Close the panel |
-| Stop | Stop travel and automatic work approach; assigned workers can continue |
+| Stop | Stop travel and suspend party work; resume orders in Work or at the cursor |
 | Conversation buttons | Recruit, trade, hear stories, share meals or receive treatment when offered |
 | Buy 1 / Sell 1 | Trade the selected supply for its displayed price |
 | Party | Click a companion and equipment, then Equip / Remove slot; revive, part ways or abandon when eligible |
-| Cursor menu → Build / Dig / Repair | Queue work on the chosen tile or selection; the party approaches automatically |
-| Work | Select an order and worker, then Assign; Cancel and refund returns reservations |
+| Cursor menu → Build / Dig / Repair | Queue work on the chosen tile or selection; available companions take separate local jobs |
+| Work | Automatic or named workers; priority, suspend/resume and cancel/refund; time keeps running |
 | Right-click camp → Craft / Rest | Choose a recipe or rest beside that camp |
 | Actions | Wait one minute/hour or gather food |
 | Right-click a townsperson | Speak, present side-arc evidence or deliver requested food when applicable |
@@ -50,7 +50,7 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Ending buttons | New traveller in the same world after a wipe, or begin a fresh world |
 | Window close | Save and quit normal play |
 
-Clicking a reachable destination starts travel even while paused. Opening a panel stops the selected route and freezes time; closing it restores the previous running/paused state. Disabled buttons consume clicks. In combat, selecting a targeted ability alone spends no turn or random state; click its intended fighter to act.
+Clicking a reachable destination starts travel even while paused. Opening a panel stops the selected travel route. Party and Work keep the world running; other panels freeze time. Play/Pause remains available without closing the panel. Conversations always pause. Disabled buttons consume clicks. In combat, selecting a targeted ability alone spends no turn or random state; click its intended fighter to act.
 
 Selected tiles remain highlighted until you act, dismiss the menu, or begin another selection. Clicking an unavailable destination opens its context menu. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid. The world remains **4096×4096**. Normal exploration starts at 36–64 pixels per tile (larger on very large displays), with a minimum of 24 pixels and at most 48 columns / 32 rows visible; use World map for an overview.
 
@@ -91,3 +91,11 @@ The optional side arc uses trade conflict, blight or succession premises, referr
 Explicit scenes, UI reports and frame-limited captures ignore the player slot and disable automatic saving. `--load` explicitly reads the selected slot. The Save button saves explicitly; successful Load resumes autosaving. Preview scene preparation is for inspection and is never a campaign migration. The old `--headless`, `--validate-seeds`, `--generation-report` and `--smoke-test` retain legacy coverage.
 
 Menu → World inspector shows authored WFC samples, learned pattern counts, constraints, attempts, fallback counts, repairs, cache bounds and raw/final footprint diagrams. It is an inspector, not a painting editor. [WORLD.md](WORLD.md) describes the layered generation and simulation architecture. [VERIFICATION.md](VERIFICATION.md) records measured checks and performance limits.
+
+## Conversations and delegated work
+
+Click a person to approach and talk. Both participants appear at a larger size, face one another and take turns speaking. The current speaker bobs while the text appears and makes original synthesized speech sounds. Click the text or Show full line to reveal the rest, then Continue to advance. Choices appear after the greeting or reply. A choice applies its cost/effect once; skipping speech never repeats it. Voice cycles through volume levels including mute; Motion switches to Reduced. These preferences are saved beside your slot, separately from game state.
+
+Left-drag observed tiles and right-click to designate Build, Dig or Repair. Available party members automatically take distinct reachable jobs within a **16-tile rally radius**, shown on the map. The four-member limit and shared pack still apply. They return toward the rally when idle. Work lists current workers and waiting reasons. Click an order to change Low/Normal/High priority, suspend it, resume it, assign a named person or return it to automatic assignment. Supplies are reserved when orders are accepted; unaffordable cells are reported/skipped. Cancel returns reservations once; suspension retains progress and supplies. Named assignments retain that person while suspended.
+
+Inspecting tiles or opening panels does not cancel jobs. A travel click temporarily brings companions along and moves the rally; work resumes when travel stops. Orders outside the rally wait until you move closer. Workers respect occupied tiles, observed routes, rest and wounds. An enemy contacting any member interrupts work for the usual shared turn-based battle. Retreat suspends party jobs; resume them deliberately when the area is safe.

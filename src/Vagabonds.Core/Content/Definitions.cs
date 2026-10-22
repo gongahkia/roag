@@ -11,6 +11,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(NamesDefinition), "names")]
 [JsonDerivedType(typeof(TraitDefinition), "trait")]
 [JsonDerivedType(typeof(InteractionDefinition), "interaction")]
+[JsonDerivedType(typeof(DialogueDefinition), "dialogue")]
 [JsonDerivedType(typeof(ItemDefinition), "item")]
 [JsonDerivedType(typeof(RecipeDefinition), "recipe")]
 [JsonDerivedType(typeof(BossDefinition), "boss")]
@@ -195,4 +196,17 @@ public sealed class RecipeDefinition : ContentDefinition
     public required Dictionary<string, int> Cost { get; set; }
     public string? Output { get; set; }
     public int Amount { get; set; } = 1;
+}
+
+/// <summary>Presentation-only text; interaction mechanics remain in InteractionDefinition.</summary>
+public sealed class DialogueDefinition : ContentDefinition
+{
+    public string? Interaction { get; set; }
+    public DialogueVariant[] Variants { get; set; } = [];
+}
+public sealed class DialogueVariant
+{
+    public string When { get; set; } = "always";
+    public string Player { get; set; } = "";
+    public required string[] Replies { get; set; }
 }

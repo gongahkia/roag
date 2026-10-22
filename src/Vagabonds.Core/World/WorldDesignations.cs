@@ -31,33 +31,8 @@ public sealed partial class WorldSession
 
     public void StopPartyWorkApproach()
     {
-        foreach (var order in State.Work) order.PartyApproach = false;
-    }
-
-    /// <summary>Advance the saved work-travel intent by one ordinary player step. Time is driven by the client.</summary>
-    public ActionResult ApproachDesignatedWork()
-    {
-        if (Frozen) return new(false, "Work travel is paused.");
-        var orders = State.Work.Where(w => w.PartyApproach).OrderBy(w => w.Id).ToArray();
-        if (orders.Length == 0) return new(false, "");
-        foreach (var order in orders)
-        {
-            var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
-            if (worker is { Recruited: false }) { order.PartyApproach = false; continue; }
-            var leader = Party.First();
-            if (leader.Life != LifeState.Alive) { order.Status = "Choose a conscious party leader"; return new(false, order.Status); }
-            if (worker != leader)
-            {
-                if (State.Work.Any(w => w.Id != order.Id && w.Worker == leader.Id)) continue;
-                order.Worker = leader.Id;
-            }
-            if (leader.Position.Distance(order.Target) <= 1) return new(false, "");
-            var route = RouteToAdjacent(order.Target);
-            if (route.Count > 0) return Submit(new(WorldCommandKind.Move, route[0]));
-            // A later order may open access to this one (for example a selected rock seam).
-            order.Worker = 0; order.Status = "No free observed approach; open access or move a blocking character";
-        }
-        return new(false, "Waiting for a free approach to the selected work.");
+        foreach (var order in State.Work.Where(o => o.Worker == 0 || Party.Any(a => a.Id == o.Worker)))
+        { if (!order.PinnedWorker) order.Worker = 0; order.Suspended = true; order.PartyApproach = false; order.Status = "Suspended"; }
     }
 
     public IReadOnlyList<WorldPosition> RouteToAdjacent(WorldPosition target, int range = 1)

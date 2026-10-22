@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -29,6 +29,7 @@ public sealed class ContentCatalog
     public List<ContentIssue> Issues { get; } = [];
     public List<ContentReference> References { get; } = [];
     public string Hash { get; private set; } = "";
+    public string PresentationHash { get; private set; } = "";
     public ClassDefinition[] Classes => All<ClassDefinition>().OrderBy(c => c.Role).ToArray();
     public GameDefinition Game => Get<GameDefinition>("game.vagabonds");
     public IEnumerable<T> All<T>() where T : ContentDefinition => _entries.Values.OfType<T>().OrderBy(e => e.Id, StringComparer.Ordinal);
@@ -39,7 +40,7 @@ public sealed class ContentCatalog
     public static string Kind(ContentDefinition d) => d switch
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
-        InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
+        DialogueDefinition => "dialogue", InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
         TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
@@ -50,7 +51,7 @@ public sealed class ContentCatalog
     }
     public static ContentCatalog Load(IEnumerable<(string File, string Text)> documents)
     {
-        var catalog = new ContentCatalog(); var canonical = new StringBuilder();
+        var catalog = new ContentCatalog(); var canonical = new StringBuilder(); var presentation = new StringBuilder();
         foreach (var (file, text) in documents.OrderBy(d => d.File, StringComparer.Ordinal))
         {
             try
@@ -60,12 +61,19 @@ public sealed class ContentCatalog
                 { catalog.Issues.Add(new(file, "id", "Use a stable kind.name identifier in lowercase.")); continue; }
                 if (!entry.Id.StartsWith(Kind(entry) + ".", StringComparison.Ordinal)) catalog.Issues.Add(new(file, "id", "Identifier prefix must match kind."));
                 if (!catalog._entries.TryAdd(entry.Id, entry)) catalog.Issues.Add(new(file, "id", "Duplicate identifier: " + entry.Id));
-                else { catalog._sources[entry.Id] = file; canonical.Append(JsonSerializer.Serialize(entry, Json)); }
+                else
+                {
+                    catalog._sources[entry.Id] = file;
+                    // Dialogue is side-effect-free presentation. Editing speech must not
+                    // invalidate terrain, actors or reserved work in existing saves.
+                    (entry is DialogueDefinition ? presentation : canonical).Append(JsonSerializer.Serialize(entry, Json));
+                }
             }
             catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException)
             { catalog.Issues.Add(new(file, "$", e.Message)); }
         }
         catalog.Hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
+        catalog.PresentationHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(presentation.ToString())));
         catalog.Validate(); return catalog;
     }
     private static ContentCatalog Embedded()
@@ -199,6 +207,24 @@ public sealed class ContentCatalog
                 case TraitDefinition t:
                     if (t.Value is not ("craft" or "discovery" or "fellowship" or "security") || t.Aversion is not ("overwork" or "confinement" or "conflict" or "danger")) Error("value", "Unknown disposition.");
                     Range("workPercent", t.WorkPercent, 50, 150); Range("fatiguePercent", t.FatiguePercent, 50, 150); break;
+                case DialogueDefinition dialogue:
+                    Ref<InteractionDefinition>("interaction", dialogue.Interaction, optional: true);
+                    if (_entries.Values.OfType<DialogueDefinition>().Count(d => d.Interaction == dialogue.Interaction) != 1) Error("interaction", "One dialogue per interaction, plus one greeting without an interaction.");
+                    if (dialogue.Variants == null || dialogue.Variants.Length is < 1 or > 16) { Error("variants", "Provide 1..16 variants."); break; }
+                    if (!dialogue.Variants.Any(v => v?.When == "always")) Error("variants", "Include an always fallback.");
+                    foreach (var v in dialogue.Variants)
+                    {
+                        if (v == null || v.Player == null || v.Replies == null || v.Replies.Length is < 1 or > 6) { Error("variants", "Provide a player line and 1..6 replies."); continue; }
+                        if (v.When is not ("always" or "trusted" or "injured" or "hungry" or "craft" or "security" or "discovery" or "fellowship")) Error("variants.when", "Unknown dialogue condition.");
+                        foreach (string line in v.Replies.Prepend(v.Player))
+                        {
+                            if (line == null || line.Length > 400) { Error("variants", "Lines must be non-null and at most 400 characters."); continue; }
+                            foreach (Match token in Regex.Matches(line, "\\{([^{}]+)\\}"))
+                                if (!World.WorldDialogue.Tokens.Contains(token.Groups[1].Value)) Error("variants", "Unknown dialogue token: " + token.Value);
+                        }
+                        if (v.Replies.Any(string.IsNullOrWhiteSpace)) Error("variants.replies", "Replies cannot be blank.");
+                    }
+                    break;
                 case InteractionDefinition i:
                     if (!Actions.Contains(i.Action)) Error("action", "Unknown registered action: " + i.Action);
                     Range("distance", i.Distance, 1, 3); Range("amount", i.Amount, 0, 100); Cost("cost", i.Cost); break;

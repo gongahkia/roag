@@ -1,0 +1,15 @@
+{
+  "kind": "dialogue",
+  "id": "dialogue.trade",
+  "name": "Trade dialogue",
+  "variants": [
+    {
+      "when": "always",
+      "player": "We could use supplies for the road. What can we trade?",
+      "replies": [
+        "Of course. Let us see what you need and what the town can spare."
+      ]
+    }
+  ],
+  "interaction": "interaction.trade"
+}

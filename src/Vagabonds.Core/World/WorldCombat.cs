@@ -91,9 +91,11 @@ public sealed partial class WorldSession
             {
                 var retreat = State.Position.Offset(direction.X * 5, direction.Y * 5);
                 if (!TryPartyPlacement(retreat, out var positions)) continue;
-                ApplyPartyPlacement(retreat, positions); break;
+                ApplyPartyPlacement(retreat, positions);
+                if (State.WorkRally != null) State.WorkRally = retreat;
+                break;
             }
-            Reveal(); return new(true, "Retreated. Enemies retain their wounds.");
+            StopPartyWorkApproach(); Reveal(); return new(true, "Retreated. Enemies retain their wounds.");
         }
         if (skill.Effect == "potion") Add("medicine", -1);
         var targets = skill.Target switch

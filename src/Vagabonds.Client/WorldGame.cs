@@ -29,7 +29,6 @@ internal sealed partial class WorldGame : Game
     private int _skill, _combatTarget = -1, _journalOffset;
     private int _inspectStage;
     private int _packMember, _packItem;
-    private int _workIndex, _workerIndex;
     private readonly Queue<WorldPosition> _route = [];
     private WorldClickIntent? _pendingInteraction;
     private readonly WorldPointerPreview _pointer = new();
@@ -48,7 +47,7 @@ internal sealed partial class WorldGame : Game
     private static readonly Color Ink = new(222, 214, 189), Muted = new(151, 154, 150), Gold = new(234, 187, 94), Panel = new(27, 33, 38);
     public WorldGame(Options options, WorldSession session)
     {
-        _options = options; _session = session; _autoSave = !options.Preview;
+        _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-site")
@@ -113,6 +112,7 @@ internal sealed partial class WorldGame : Game
             {
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
                 if (control != null) { if (control.Enabled) ActivateControl(control.Id); else _notice = control.DisabledReason; }
+                else if (_panel == "person" && SpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
@@ -132,7 +132,7 @@ internal sealed partial class WorldGame : Game
         else if (!IsActive) { _dragStart = null; _dragging = false; }
         if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
-        _session.ModalOpen = _panel.Length > 0 || PointerModal;
+        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
         _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
         {
@@ -140,36 +140,29 @@ internal sealed partial class WorldGame : Game
             _moveTimer = 0;
             if (!_session.IsInCombat) FinishApproach();
         }
-        _session.ModalOpen = _panel.Length > 0 || PointerModal;
-        if (!_session.Frozen && _moveTimer >= MoveDuration && _route.Count == 0 && _pendingInteraction == null && _session.State.Work.Any(w => w.PartyApproach))
-        {
-            var result = _session.ApproachDesignatedWork();
-            if (result.Message.Length > 0 && result.Message != "Moved.") _notice = result.Message;
-            _moveTimer = 0;
-        }
+        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
+        _session.PartyTravelling = _route.Count > 0 || _pendingInteraction != null;
+        bool wasInCombat = _session.IsInCombat;
         // Long stalls/focus changes discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (_session.IsInCombat)
         {
+            if (!wasInCombat && _panel is "work" or "inventory") ClosePanel();
             StopTravel(); _enemyTimer += gameTime.ElapsedGameTime.TotalSeconds;
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
-        CollectCombatFeedback(); _session.ModalOpen = _panel.Length > 0 || PointerModal;
+        UpdateConversation(gameTime.ElapsedGameTime.TotalSeconds);
+        CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
         _mouse = mouse; base.Update(gameTime);
     }
-    private void Toggle(string panel) { _panel = _panel == panel ? "" : panel; StopTravel(); }
+    internal static bool PanelPausesTime(string panel) => panel.Length > 0 && panel is not ("work" or "inventory");
+    private void Toggle(string panel) { string next = _panel == panel ? "" : panel; ClosePanel(); _panel = next; }
     private Actor[] WorkCandidates() => _session.State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && a.Position.Distance(_session.State.Position) <= 100).OrderByDescending(a => a.Recruited).ThenBy(a => a.Id).ToArray();
     private RecipeDefinition[] CraftRecipes() => _session.Content.Game.Recipes.Select(_session.Content.Get<RecipeDefinition>).Where(r => r.Output != null).ToArray();
-    private void PersonAction(InteractionDefinition interaction)
-    {
-        var result = _session.PerformInteraction(_person, interaction.Id); _notice = result.Message;
-        if (result.Success && interaction.Action == "recruit") _panel = "";
-        else if (result.Success && interaction.Action == "trade") _panel = "trade";
-    }
     private bool Execute(WorldCommand command)
     {
         try { var result = _session.Submit(command); _notice = result.Message; return result.Success; }
@@ -209,9 +202,9 @@ internal sealed partial class WorldGame : Game
         try
         {
             var replacement = WorldSession.Load(_options.Save);
-            _session = replacement; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
+            _session = replacement; _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
-            _waypoint = null;
+            _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
             _notice = "World restored and paused. Click a destination or Play to continue.";
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
@@ -369,6 +362,21 @@ internal sealed partial class WorldGame : Game
             var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position);
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
+        if (_panel.Length == 0 && !_session.IsInCombat && _session.State.WorkRally is { } rally)
+        {
+            var tint = new Color(113, 187, 195);
+            for (int dx = -WorldSession.WorkRallyRadius; dx <= WorldSession.WorkRallyRadius; dx++)
+                foreach (int dy in new[] { WorldSession.WorkRallyRadius - Math.Abs(dx), -WorldSession.WorkRallyRadius + Math.Abs(dx) }.Distinct())
+                {
+                    var edge = rally.Offset(dx, dy); if (!_session.Chunks.Seen(edge)) continue;
+                    var r = TileRect(edge); FillClipped(new(r.X, r.Y, r.Width, 2), tint * .4f);
+                }
+            if (_session.Chunks.Seen(rally))
+            {
+                var r = TileRect(rally); FillClipped(new(r.Center.X - 3, r.Center.Y - 3, 6, 6), tint);
+                Text("RALLY", r.Right + 2, r.Center.Y - 4, tint);
+            }
+        }
         DrawSelection();
         if (_pointer.Cell is { } cell)
         {
@@ -478,7 +486,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

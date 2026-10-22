@@ -37,14 +37,13 @@ public sealed class WorldDesignationTests : IDisposable
         foreach (var p in seam) s.Chunks.Edit(p, Material.Rock);
         s.State.Inventory["food"] = 100; s.Reveal(); s.Paused = false;
         Assert.Equal(3, s.DesignateWork(WorldCommandKind.Dig, seam.Reverse()).Queued);
-        Assert.True(s.ApproachDesignatedWork().Success); s.AdvanceTicks(2);
+        Assert.Equal(2, s.AdvanceTicks(2));
         var slot = Path.Combine(_directory, "work.json"); s.Save(slot); var loaded = WorldSession.Load(slot); loaded.Paused = false;
         Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
         for (int i = 0; i < 160 && s.State.Work.Count > 0; i++)
         {
-            var old = s.State.Position; s.ApproachDesignatedWork(); loaded.ApproachDesignatedWork();
+            var old = s.State.Position; s.AdvanceTicks(1); loaded.AdvanceTicks(1);
             Assert.InRange(old.Distance(s.State.Position), 0, 1);
-            s.AdvanceTicks(1); loaded.AdvanceTicks(1);
             Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
         }
         Assert.Empty(s.State.Work); Assert.All(seam, p => Assert.Equal(Material.Earth, s.Chunks.At(p)));
@@ -55,11 +54,11 @@ public sealed class WorldDesignationTests : IDisposable
         var s = WorldCollisionTests.Arena(); var origin = s.State.Position; var p = origin.Offset(4, 0); s.Chunks.Edit(p, Material.Rock);
         foreach (var d in WorldSession.Directions) s.Chunks.Edit(origin.Offset(d.X, d.Y), Material.Wall);
         Assert.Equal(1, s.DesignateWork(WorldCommandKind.Dig, [p]).Queued); s.Paused = false;
-        Assert.False(s.ApproachDesignatedWork().Success); Assert.Equal(origin, s.State.Position);
+        s.AdvanceTicks(1); Assert.Equal(origin, s.State.Position);
         int food = s.Count("food"); s.StopPartyWorkApproach(); var order = Assert.Single(s.State.Work);
         Assert.False(order.PartyApproach); Assert.Equal(food, s.Count("food"));
-        s.Chunks.Edit(origin.Offset(1, 0), Material.Floor); Assert.False(s.ApproachDesignatedWork().Success);
-        order.PartyApproach = true; Assert.True(s.ApproachDesignatedWork().Success);
+        s.Chunks.Edit(origin.Offset(1, 0), Material.Floor); s.AdvanceTicks(1); Assert.Equal(origin, s.State.Position);
+        s.Submit(new(WorldCommandKind.ConfigureWork, WorkId: order.Id, Item: "resume")); s.AdvanceTicks(1); Assert.NotEqual(origin, s.State.Position);
     }
     [Fact]
     public void ConstructionCannotFinishOnAnActorWhoArrivesAfterDesignation()

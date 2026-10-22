@@ -95,7 +95,7 @@ public sealed partial class WorldSession
         return assigned;
         bool Assign(int index)
         {
-            if (index == members.Length) return true;
+            if (index == members.Length) return State.WorkRally == null || layout.Values.All(p => p.Distance(destination) <= WorkRallyRadius);
             var member = members[index];
             foreach (var p in candidates[member.Id])
             {

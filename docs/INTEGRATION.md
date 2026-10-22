@@ -17,6 +17,8 @@ The user authorized implementation on 2026-10-22 after the history replay. Vagab
 
 Later input preference: the world client is mouse-only, with visible controls for every action. Keep the 4096×4096 world and use a closer RPG exploration camera; the world map supplies the overview. Existing legacy controls and source sprite bindings remain intact.
 
+Later approved interaction model: any available party member automatically claims designated local work, with optional named assignments. Keep four active members and a shared pack; workers stay in a local rally area and danger starts the shared party encounter. Conversations pause time; Party/Work run unless explicitly paused. Conversations use large facing sprites, authored text, speaking motion and original synthesized voices with volume/reduced-motion controls.
+
 Clarified: everyone follows the same needs, fatigue and injury rules. Class, level, equipment and traits augment those shared defaults; party members do not become a separate simulated species.
 
 ## Implementation checkpoints

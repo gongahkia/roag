@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
@@ -80,7 +80,7 @@ public sealed partial class WorldSession : IGameSession
     }
     private void NewLoneHero()
     {
-        State.Party.Clear(); State.PartyOrdinal++;
+        State.Party.Clear(); State.PartyOrdinal++; State.WorkRally = null; PartyTravelling = false;
         var town = Plan.Towns.MinBy(t => t.Center.Distance(State.Position with { Floor = 0 }))!;
         State.Position = town.Center;
         var hero = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, State.Position, town.Id, town.Culture, town.FactionId);
@@ -110,7 +110,7 @@ public sealed partial class WorldSession : IGameSession
     private void AdvanceWorldTick()
     {
         State.Tick++;
-        AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
+        Contact(); AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
@@ -143,6 +143,7 @@ public sealed partial class WorldSession : IGameSession
                 if (collision.Length > 0) return new(false, collision);
                 if (!TryPartyStep(command.Target, out var step)) return new(false, "The party needs room to follow. Open a passage or choose another step.");
                 ApplyPartyPlacement(command.Target, step);
+                if (State.WorkRally != null) State.WorkRally = command.Target;
                 foreach (var a in Party) a.Body.RestUntil = 0;
                 PrepareLocalCollision(); Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
             case WorldCommandKind.Interact:
@@ -160,6 +161,7 @@ public sealed partial class WorldSession : IGameSession
                     if (!Plan.Contains(arrival) || !Materials.Walkable(Chunks.At(arrival))) return new(false, "The stair is obstructed.");
                     if (!TryPartyPlacement(arrival, out var landing)) return new(false, "The destination needs enough walkable space for every companion.");
                     ApplyPartyPlacement(arrival, landing);
+                    if (State.WorkRally != null) State.WorkRally = arrival;
                     Chunks.Prefetch(arrival); PrepareLocalCollision(); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
                 }
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
@@ -169,6 +171,7 @@ public sealed partial class WorldSession : IGameSession
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
                 if (!TryPartyPlacement(State.Position, Party.Append(target).ToArray(), true, out var recruitedPositions)) return new(false, "The new companion needs a free walkable tile nearby.");
                 target.Recruited = true; target.Body.ForageProgress = 0;
+                foreach (var job in State.Work.Where(o => o.Worker == target.Id)) job.PartyApproach = true;
                 Remember(target, "recruited", "I set out with a new travelling party.", 5);
                 State.Party.Add(target.Id); ApplyPartyPlacement(State.Position, recruitedPositions); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
@@ -178,6 +181,7 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.Craft: return QueueCraft(command.Item);
             case WorldCommandKind.Forage: return QueueForage();
             case WorldCommandKind.Wait: return Wait(command.Amount);
+            case WorldCommandKind.ConfigureWork: return ConfigureWork(command.WorkId, command.Item, command.Amount);
             case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
             case WorldCommandKind.CancelWork: return CancelWork(command.WorkId);
             case WorldCommandKind.LeadParty:

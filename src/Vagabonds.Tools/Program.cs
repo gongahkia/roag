@@ -66,8 +66,10 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind == "discovery") Print(ExplorationPreview.Discovery(catalog, id, seed));
+                if (kind == "dialogue") Print(DialoguePreview.Run(catalog, id, seed));
+                else if (kind == "discovery") Print(ExplorationPreview.Discovery(catalog, id, seed));
                 else if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
+                else if (kind == "party-work") Print(PartyWorkPreview.Run(catalog, seed));
                 else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
                 else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
@@ -92,14 +94,14 @@ public static class DeveloperEntry
                     long tick = game.State.Tick; uint rng = game.State.CombatRandom; var result = game.PerformInteraction(actor.Id, id);
                     Print(new { seed, actor.Name, result, tickBefore = tick, tickAfter = game.State.Tick, randomUnchanged = rng == game.State.CombatRandom, game.State.Inventory, party = game.Party });
                 }
-                else throw new ArgumentException("Preview character, ability, interaction generation or encounter.");
+                else throw new ArgumentException("Choose a registered content preview, encounter or party-work. Use review-tooling to list previews.");
                 return 0;
             }
             if (command == "review-tooling")
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "party-work" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
@@ -146,6 +148,7 @@ public static class DeveloperEntry
         ContentDefinition template = kind switch
         {
             "ability" => new AbilityDefinition { Id = id, Name = "New ability", Sprite = "sword", Effect = "damage", Power = 6 },
+            "dialogue" => new DialogueDefinition { Id = id, Name = "New dialogue", Interaction = "interaction.stories", Variants = [new() { Player = "Tell me your story.", Replies = ["I hope to {motivation}."] }] },
             "interaction" => new InteractionDefinition { Id = id, Name = "New conversation", Action = "converse" },
             "item" => new ItemDefinition { Id = id, Name = "New item", Sprite = "chest", Stack = id },
             "trait" => new TraitDefinition { Id = id, Name = "New trait" },

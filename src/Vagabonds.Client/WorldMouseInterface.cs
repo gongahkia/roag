@@ -29,7 +29,9 @@ internal sealed partial class WorldGame
     private static string Short(string text, int count) => text.Length > count ? text[..Math.Max(1, count - 3)] + "..." : text;
     private ItemDefinition[] EquipmentChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
     private Actor SelectedMember() { var party = _session.Party.ToArray(); return party[_packMember % party.Length]; }
-    private WorkOrder? SelectedWork() => _session.State.Work.ElementAtOrDefault(_workIndex % Math.Max(1, _session.State.Work.Count));
+    private long _selectedWorkId, _selectedWorkerId;
+    private Actor? SelectedWorker() => _selectedWorkerId == 0 ? WorkCandidates().FirstOrDefault() : WorkCandidates().FirstOrDefault(a => a.Id == _selectedWorkerId);
+    private WorkOrder? SelectedWork() => _selectedWorkId == 0 ? _session.State.Work.FirstOrDefault() : _session.State.Work.FirstOrDefault(o => o.Id == _selectedWorkId);
     private Dictionary<string, int> StoredItems() => _session.State.Chunks.FirstOrDefault(c => c.Key == _storage.Chunk)?.Storage.GetValueOrDefault(_storage.LocalIndex) ?? [];
     private string[] StorageItems() => _session.State.Inventory.Keys.Concat(StoredItems().Keys).Distinct().Where(i => _session.Count(i) > 0 || StoredItems().GetValueOrDefault(i) > 0).Order(StringComparer.Ordinal).ToArray();
     private string[] JournalLines(int width)
@@ -51,15 +53,15 @@ internal sealed partial class WorldGame
         }
         return lines.ToArray();
     }
-    private void StopTravel() { _route.Clear(); _pendingInteraction = null; }
-    private void ClosePanel() { _contextCells = null; _panel = ""; StopTravel(); }
+    private void StopTravel() { _route.Clear(); _pendingInteraction = null; _session.PartyTravelling = false; }
+    private void ClosePanel() { _dialogue = null; _afterDialogue = ""; _voice?.Stop(); _contextCells = null; _panel = ""; StopTravel(); }
     private void Zoom(int direction) { _camera.ZoomAt(_map.Center.ToVector2(), direction); UpdateView(); }
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
         _session = WorldSession.Create(WorldStartup.FreshSeed()); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
-        _waypoint = null;
+        _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Click the ground to travel or choose Play.";
     }
     private void FinishApproach()
@@ -82,7 +84,7 @@ internal sealed partial class WorldGame
             return;
         }
         StopTravel();
-        if (intent.Kind == "person") { _person = intent.Actor; _interactionPage = 0; Execute(new(WorldCommandKind.Interact, ActorId: intent.Actor)); _panel = "person"; }
+        if (intent.Kind == "person") { _person = intent.Actor; _interactionPage = 0; Execute(new(WorldCommandKind.Interact, ActorId: intent.Actor)); _panel = "person"; _dialogue = null; _afterDialogue = ""; EnsureConversation(); }
         else if (intent.Kind is "enemy" or "actor") Execute(new(WorldCommandKind.Interact, ActorId: intent.Actor));
         else if (intent.Kind == "loot") OpenLoot(cell);
         else if (intent.Kind == "discovery")
@@ -100,7 +102,7 @@ internal sealed partial class WorldGame
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "")
             => _controls.Add(new(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id)));
         bool ended = _session.State.Endgame.Victory || _session.State.AwaitingContinuation;
-        Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !_session.IsInCombat, tip: "Pause stops travel. Play closes the current panel and resumes time.");
+        Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !_session.IsInCombat, tip: "Pause stops travel. Work and Party stay open while time runs. Conversations remain paused.");
         Add("save", "Save", w - 284, 16, 84); Add("load", "Load", w - 192, 16, 84); Add("panel:game", "Menu", w - 100, 16, 84);
         var box = PanelBox(w, h); int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
         if (ended && _panel != "game")
@@ -124,18 +126,27 @@ internal sealed partial class WorldGame
                     for (int i = 0; i < ids.Length; i++) Add(ids[i], labels[i], x, y + i * 52, Math.Min(360, width), 40);
                     break;
                 case "person":
+                    EnsureConversation();
+                    Add("voice-volume", $"Voice: {_voiceVolume:P0}", box.Right - 450, box.Top + 12, 140, tip: _voice?.Unavailable == true ? "No audio device available. Dialogue remains readable." : "Cycle speech volume; 0% mutes voices.");
+                    Add("speech-motion", _reducedMotion ? "Motion: Reduced" : "Motion: Full", box.Right - 300, box.Top + 12, 188);
+                    var speech = SpeechBox(box);
+                    if (_dialogue?.Finished != true)
+                    {
+                        Add("dialogue-next", _dialogue?.Speaking == true ? "Show full line" : "Continue", speech.Right - 164, speech.Bottom - 36, 152, 30);
+                        break;
+                    }
                     var interactions = _session.Interactions(_person);
                     _interactionPage = Math.Clamp(_interactionPage, 0, Math.Max(0, (interactions.Count - 1) / 6));
                     for (int row = 0; row < Math.Min(6, interactions.Count - _interactionPage * 6); row++)
                     {
                         int i = row; var interaction = interactions[_interactionPage * 6 + row]; string cost = string.Join(", ", interaction.Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name));
-                        Add("conversation:" + interaction.Id, interaction.Name + (cost.Length > 0 ? " / " + cost : ""), x + i % 2 * (width / 2 + 4), y + 154 + i / 2 * 44, width / 2 - 8, 36,
+                        Add("conversation:" + interaction.Id, interaction.Name + (cost.Length > 0 ? " / " + cost : ""), x + i % 2 * (width / 2 + 4), box.Bottom - 140 + i / 2 * 40, width / 2 - 8, 36,
                             _session.InteractionBlockReason(_person, interaction.Id).Length == 0, tip: interaction.Description);
                     }
                     if (interactions.Count > 6)
                     {
-                        Add("interactionpage:-1", "Previous", x, box.Bottom - 88, 112, enabled: _interactionPage > 0);
-                        Add("interactionpage:1", "Next", x + 120, box.Bottom - 88, 96, enabled: (_interactionPage + 1) * 6 < interactions.Count);
+                        Add("interactionpage:-1", "Previous", speech.Right - 240, speech.Bottom - 36, 112, enabled: _interactionPage > 0);
+                        Add("interactionpage:1", "Next", speech.Right - 120, speech.Bottom - 36, 96, enabled: (_interactionPage + 1) * 6 < interactions.Count);
                     }
                     break;
                 case "trade":
@@ -177,25 +188,30 @@ internal sealed partial class WorldGame
                     break;
                 case "work":
                     var workers = WorkCandidates(); var orders = _session.State.Work;
-                    _workerIndex = Math.Clamp(_workerIndex, 0, Math.Max(0, workers.Length - 1));
-                    _workPage = Math.Clamp(_workPage, 0, Math.Max(0, (orders.Count - 1) / 6));
-                    _workerPage = Math.Clamp(_workerPage, 0, Math.Max(0, (workers.Length - 1) / 6));
+                    if (_selectedWorkId == 0) _selectedWorkId = orders.FirstOrDefault()?.Id ?? 0;
+                    if (_selectedWorkerId == 0) _selectedWorkerId = workers.FirstOrDefault()?.Id ?? 0;
+                    _workPage = Math.Clamp(_workPage, 0, Math.Max(0, (orders.Count - 1) / 5));
+                    _workerPage = Math.Clamp(_workerPage, 0, Math.Max(0, (workers.Length - 1) / 5));
                     int leftWidth = width / 2 - 12, rightX = x + width / 2 + 8;
-                    for (int i = 0; i < Math.Min(6, orders.Count - _workPage * 6); i++)
+                    for (int i = 0; i < Math.Min(5, orders.Count - _workPage * 5); i++)
                     {
-                        var order = orders[_workPage * 6 + i];
-                        Add("work:" + order.Id, $"#{order.Id} {order.Kind} {order.Progress:0}/{order.Required:0}", x, y + 28 + i * 42, leftWidth, 36, selected: SelectedWork()?.Id == order.Id, tip: order.Status);
+                        var order = orders[_workPage * 5 + i];
+                        Add("work:" + order.Id, $"#{order.Id} {order.Kind} {order.Progress:0}/{order.Required:0}" + (order.Worker != 0 ? " / " + _session.State.Actors.FirstOrDefault(a => a.Id == order.Worker)?.Name : " / waiting"), x, y + 28 + i * 42, leftWidth, 36, selected: SelectedWork()?.Id == order.Id, tip: order.Status);
                     }
-                    for (int i = 0; i < Math.Min(6, workers.Length - _workerPage * 6); i++)
+                    for (int i = 0; i < Math.Min(5, workers.Length - _workerPage * 5); i++)
                     {
-                        var worker = workers[_workerPage * 6 + i];
-                        Add("worker:" + worker.Id, worker.Name + " / " + worker.Job, rightX, y + 28 + i * 42, leftWidth, 36, selected: workers[_workerIndex % workers.Length].Id == worker.Id, tip: $"Fatigue {worker.Body.Fatigue:0}; wounds {worker.Body.Wounds}. One order per person.");
+                        var worker = workers[_workerPage * 5 + i];
+                        Add("worker:" + worker.Id, worker.Name + " / " + worker.Job, rightX, y + 28 + i * 42, leftWidth, 36, selected: _selectedWorkerId == worker.Id, tip: $"Fatigue {worker.Body.Fatigue:0}; wounds {worker.Body.Wounds}. One order per person.");
                     }
-                    Add("workpage:-1", "Previous", x, y + 288, 112, enabled: _workPage > 0); Add("workpage:1", "Next", x + 120, y + 288, 96, enabled: (1 + _workPage) * 6 < orders.Count);
-                    Add("workerpage:-1", "Previous", rightX, y + 288, 112, enabled: _workerPage > 0); Add("workerpage:1", "Next", rightX + 120, y + 288, 96, enabled: (1 + _workerPage) * 6 < workers.Length);
-                    string assignment = _session.CommandBlockReason(new(WorldCommandKind.AssignWork, ActorId: workers.ElementAtOrDefault(_workerIndex)?.Id ?? 0, WorkId: SelectedWork()?.Id ?? 0));
-                    Add("assign", "Assign selected worker", x, box.Bottom - 88, 256, enabled: assignment.Length == 0, reason: assignment);
-                    Add("cancel-work", "Cancel and refund", x + 268, box.Bottom - 88, 224, enabled: SelectedWork() != null);
+                    Add("workpage:-1", "Previous", x, y + 244, 112, enabled: _workPage > 0); Add("workpage:1", "Next", x + 120, y + 244, 96, enabled: (1 + _workPage) * 5 < orders.Count);
+                    Add("workerpage:-1", "Previous", rightX, y + 244, 112, enabled: _workerPage > 0); Add("workerpage:1", "Next", rightX + 120, y + 244, 96, enabled: (1 + _workerPage) * 5 < workers.Length);
+                    string assignment = _session.CommandBlockReason(new(WorldCommandKind.AssignWork, ActorId: SelectedWorker()?.Id ?? 0, WorkId: SelectedWork()?.Id ?? 0));
+                    Add("assign", "Assign selected worker", x, box.Bottom - 104, 256, enabled: assignment.Length == 0, reason: assignment);
+                    Add("cancel-work", "Cancel and refund", x + 268, box.Bottom - 104, 224, enabled: SelectedWork() != null);
+                    var selectedOrder = SelectedWork();
+                    Add("work-setting:" + (selectedOrder?.Suspended == true ? "resume" : "suspend"), selectedOrder?.Suspended == true ? "Resume" : "Suspend", x, box.Bottom - 60, 140, enabled: selectedOrder != null);
+                    Add("work-setting:priority", "Priority: " + new[] { "Low", "Normal", "High" }[selectedOrder?.Priority ?? 1], x + 152, box.Bottom - 60, 200, enabled: selectedOrder != null);
+                    Add("work-setting:automatic", "Automatic worker", x + 364, box.Bottom - 60, 220, enabled: selectedOrder != null);
                     break;
                 case "craft":
                     var recipes = CraftRecipes();
@@ -306,12 +322,15 @@ internal sealed partial class WorldGame
         {
             case "close": ClosePanel(); break;
             case "pause":
-                _session.Paused = !_session.Paused; _panel = "";
+                _session.Paused = !_session.Paused;
                 if (_session.Paused) StopTravel(); _notice = _session.Paused ? "Paused. Click a destination to travel again." : "Time is running."; break;
             case "save": TrySave(); break;
             case "load": TryLoad(); break;
-            case "stop": StopTravel(); _session.StopPartyWorkApproach(); ClearWorldSelection(); _notice = "Travel stopped. Assigned workers can keep working; cancel orders in Work."; break;
-            case "conversation": PersonAction(_session.Content.Get<InteractionDefinition>(argument)); break;
+            case "stop": StopTravel(); _session.StopPartyWorkApproach(); ClearWorldSelection(); _notice = "Travel stopped and party work suspended. Resume or cancel orders in Work."; break;
+            case "dialogue-next": AdvanceDialogue(); break;
+            case "voice-volume": _voiceVolume = _voiceVolume >= .99f ? 0 : Math.Min(1, (float)Math.Round(_voiceVolume * 4 + 1) / 4); _voice?.Stop(); SaveConversationSettings(); break;
+            case "speech-motion": _reducedMotion = !_reducedMotion; SaveConversationSettings(); break;
+            case "conversation": ChooseDialogue(_session.Content.Get<InteractionDefinition>(argument)); break;
             case "discovery-loot": OpenLoot(_session.State.Discoveries.Single(d => d.Id == _discoveryId).Position); break;
             case "discovery-fight":
                 var foe = _session.State.Discoveries.Single(d => d.Id == _discoveryId).Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).First(a => a.Life == LifeState.Alive);
@@ -335,12 +354,14 @@ internal sealed partial class WorldGame
                 if (EquipmentChoices().ElementAtOrDefault(_packItem) is { } equipped) Execute(new(WorldCommandKind.Unequip, ActorId: SelectedMember().Id, Item: equipped.Slot)); break;
             case "revive": case "dismiss": case "abandon":
                 Execute(new(action == "revive" ? WorldCommandKind.Revive : action == "dismiss" ? WorldCommandKind.Dismiss : WorldCommandKind.Abandon, ActorId: SelectedMember().Id)); break;
-            case "work": _workIndex = _session.State.Work.FindIndex(o => o.Id == long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture)); break;
-            case "worker": _workerIndex = Array.FindIndex(WorkCandidates(), a => a.Id == long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture)); break;
+            case "work": _selectedWorkId = long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "worker": _selectedWorkerId = long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "workpage": _workPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "workerpage": _workerPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "assign":
-                if (SelectedWork() is { } order && WorkCandidates().ElementAtOrDefault(_workerIndex) is { } worker) Execute(new(WorldCommandKind.AssignWork, ActorId: worker.Id, WorkId: order.Id)); break;
+                if (SelectedWork() is { } order && SelectedWorker() is { } worker) Execute(new(WorldCommandKind.AssignWork, ActorId: worker.Id, WorkId: order.Id)); break;
+            case "work-setting":
+                if (SelectedWork() is { } configured) Execute(new(WorldCommandKind.ConfigureWork, WorkId: configured.Id, Item: argument == "priority" ? "priority" : argument, Amount: (configured.Priority + 1) % 3)); break;
             case "cancel-work": if (SelectedWork() is { } pending) Execute(new(WorldCommandKind.CancelWork, WorkId: pending.Id)); break;
             case "craft":
                 if (Execute(new(WorldCommandKind.Craft, Item: argument))) { _panel = ""; _session.Paused = false; } break;
@@ -413,7 +434,9 @@ internal sealed partial class WorldGame
             cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
                 material = _session.Chunks.At(p).ToString(), groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
                 prop = _session.ObjectAt(p)?.Name }),
-            work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach }),
+            work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker }),
+            rally = _session.State.WorkRally,
+            dialogue = _panel != "person" || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),

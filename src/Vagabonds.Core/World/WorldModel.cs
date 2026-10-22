@@ -266,6 +266,9 @@ public sealed class WorkOrder
     [JsonRequired] public Dictionary<string, int> Yield { get; set; } = [];
     [JsonRequired] public string Status { get; set; } = "Waiting";
     public bool PartyApproach { get; set; }
+    public bool Suspended { get; set; }
+    public bool PinnedWorker { get; set; }
+    public int Priority { get; set; } = 1;
 }
 public sealed class BuiltStructure
 {
@@ -386,6 +389,7 @@ public sealed class WorldState
     [JsonRequired] public EncounterReward? LastEncounterReward { get; set; }
     [JsonRequired] public List<WorkOrder> Work { get; set; } = [];
     [JsonRequired] public List<BuiltStructure> Structures { get; set; } = [];
+    public WorldPosition? WorkRally { get; set; }
     [JsonRequired] public long NextWorkId { get; set; } = 1;
     [JsonRequired] public uint IncidentRandom { get; set; } = 1;
     [JsonRequired] public Dictionary<string, long> IncidentAfter { get; set; } = [];

@@ -30,6 +30,7 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | class | Role slot, base stats, sprite and three class abilities |
 | ability | Target, mana, power, registered effect and status duration |
 | interaction | Registered action, maximum distance, item costs and effect amount |
+| dialogue | Presentation-only interaction reference, conditional player/reply variants and world tokens |
 | item | Inventory key, value, appearance, equipment slot and stat modifiers |
 | recipe | Buildable material or camp crafting output, reserved item costs, required work and output amount |
 | simulation | Shared hunger/fatigue/rest, meal thresholds, structure wear, memory duration and forage work |
@@ -51,7 +52,7 @@ After changing the C# definition types, regenerate the schema explicitly:
 
 The test suite checks that the tracked schema matches the exporter. `--content DIRECTORY` previews/validates an isolated content copy. Preview results include the actual generated identity/stats or the result of a real interaction command. Interaction previews preserve logical time and random state, pay actual inventory costs, and use no player save.
 
-Content definitions describe possible people. Campaign actors retain their own identities, resolved stats and changing state. World saves pin the content hash; incompatible content fails safely before replacing an active session. This development expansion uses world save version two and does not migrate earlier world slots. Use an explicit new slot/run after content changes; never delete a player's selected save as a development shortcut.
+Content definitions describe possible people. Campaign actors retain their own identities, resolved stats and changing state. World saves pin the content hash; incompatible content fails safely before replacing an active session. This development expansion uses world save version three and does not migrate earlier world slots. Use an explicit new slot/run after content changes; never delete a player's selected save as a development shortcut.
 
 ## Extend a mechanic
 
@@ -80,13 +81,13 @@ Simulation profiles apply to everyone; level and traits augment the shared rates
 
 ## Complete preview coverage and native acceptance
 
-All fourteen content families have a runtime context: `preview character`, `class`, `names`, `trait`, `ability`, `interaction`, `item`, `recipe`, `generation`, `simulation`, `incident`, `variant`, `game`, and `encounter` for a boss ID. For example, `./dev preview item item.chainmail --seed 42` actually equips the item; `preview trait trait.stubborn` exercises shared work/fatigue, and `preview variant variant.swift` uses an actual boss encounter. Ability previews now resolve the effect in a supplied half-health/stressed traveller fixture, rather than just echoing JSON. Read the diagnostic setup in each report; these are reproducible mechanisms, not balance scores.
+All sixteen content families have a runtime context: `preview character`, `class`, `names`, `trait`, `ability`, `interaction`, `item`, `recipe`, `generation`, `simulation`, `incident`, `variant`, `game`, `discovery`, `dialogue`, and `encounter` for a boss ID. For example, `./dev preview item item.chainmail --seed 42` actually equips the item; `preview trait trait.stubborn` exercises shared work/fatigue, and `preview variant variant.swift` uses an actual boss encounter. Ability previews now resolve the effect in a supplied half-health/stressed traveller fixture, rather than just echoing JSON. Read the diagnostic setup in each report; these are reproducible mechanisms, not balance scores.
 
 CLI typos, invalid numeric flags and invalid/path-like IDs fail explicitly. Scaffolding validates the stable ID before deriving its path. The tooling review was dogfooded against authoring, generation, every boss, every recipe/incident and actual native input; counts remain consistency indicators rather than quality ratings.
 
 After a Release build, `./dev verify-native` runs mouse-only X11/WSLg acceptance (requires xdotool, ffmpeg and DISPLAY). `--dll PATH` selects a published application; `--output DIRECTORY` selects reports/captures. All saves live in a temporary directory. Checks cover ignored gameplay keys, close-camera bounds, automatic approach/conversation/trade/recruitment, reservations/assignment/refunds, timed rest/crafting, equipment, travel, caches/stairs, rejected Load preservation, combat choices/targeting, an explicitly wounded-boss victory fixture and a fresh run. It is a local input check rather than a balance playthrough or cross-platform CI claim.
 
-`--ui-report PATH` writes an atomic development snapshot of control IDs, bounds, enabled/selected states, visible actors, visible cells/materials/solid props/occupancy, context-menu bounds, tile selections, work/approach flags, camera, route, clock, focus/cursor and battle targets. It defaults to preview isolation: no player save is opened or autosaved unless explicitly loaded/saved. The native verifier uses these semantic targets instead of brittle pixel coordinates or keyboard shortcuts. It selects its own process window, waits for rendering/load completion and confirms focus and the actual in-game cursor position before pressing a mouse button; failed runs retain diagnostic UI/captures. New mouse controls need stable IDs so this same verifier can exercise them. The tooling review retains the shared authoring/preview commands and upgrades this repeatedly used native workflow. Its tile/context/drag helpers exercise bulk building, saved digging continuation, click-consumed dismissal and leader changes through real mouse events. Recipe and headless scenarios build camps beside characters and approach recruits without entering occupied cells.
+`--ui-report PATH` writes an atomic development snapshot of control IDs, bounds, enabled/selected states, visible actors, visible cells/materials/solid props/occupancy, context-menu bounds, tile selections, work assignments/status/priority/suspension, rally, dialogue speaker/text/voice state, camera, route, clock, focus/cursor and battle targets. It defaults to preview isolation: no player save is opened or autosaved unless explicitly loaded/saved. The native verifier uses these semantic targets instead of brittle pixel coordinates or keyboard shortcuts. It selects its own process window, waits for rendering/load completion and confirms focus and the actual in-game cursor position before pressing a mouse button; failed runs retain diagnostic UI/captures. New mouse controls need stable IDs so this same verifier can exercise them. The tooling review retains the shared authoring/preview commands and upgrades this repeatedly used native workflow. Its tile/context/drag helpers exercise bulk building, saved digging continuation, click-consumed dismissal and leader changes through real mouse events. Recipe and headless scenarios build camps beside characters and approach recruits without entering occupied cells.
 
 For an isolated Linux display when desktop focus interrupts automation (requires Xvfb/Mesa):
 
@@ -95,3 +96,19 @@ SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s '-screen 0 1920x1200x
 ```
 
 This still runs the actual MonoGame client, mouse events, rendered panels and save commands. Software-rendered timings are unsuitable for desktop performance comparisons.
+
+## Author speech and inspect delegated work
+
+```sh
+./dev content inspect dialogue.stories
+./dev content references interaction.stories
+./dev preview dialogue dialogue.stories --seed 42
+./dev preview dialogue dialogue.rumours --seed 1337
+./dev preview party-work --seed 42
+```
+
+Edit the existing `content/dialogue/*.json` definition for an interaction; one definition maps to each interaction and the sole definition without `interaction` supplies greetings. Variants have `when`, optional `player` and 1–6 `replies`. Include an `always` fallback. Other supported conditions are `trusted`, `injured`, `hungry` and disposition values `craft`, `security`, `discovery`, `fellowship`. Eligible specific variants take precedence; stable actor hashing selects among them without advancing any simulation RNG. Lines are capped at 400 authored characters and paginate after token expansion. Supported tokens: `{name}`, `{player}`, `{background}`, `{motivation}`, `{job}`, `{friend}`, `{town}`, `{faction}`, `{result}`. `{background}` includes its a/an article and `{motivation}` uses first-person possessives for spoken lines. `{result}` is the actual once-applied interaction result, including local rumour coordinates and facts. New interaction mechanics still require a Core handler; dialogue cannot execute commands.
+
+Dialogue previews apply the referenced interaction in an isolated real world, then verify speech resolution leaves that world unchanged. Text-only changes preserve the gameplay content hash and compatible saves; their separate presentation hash tracks revisions. Changing interaction costs or mechanics still changes the required gameplay hash. The seven dialogue sets cover greetings and every existing interaction. Scaffolding supplies a starting template; choose an unused interaction reference or edit the corresponding existing set before validation.
+
+`preview party-work` generates four real companions and queues four local excavations, reporting concurrent workers, collision/rally invariants, completion and individual work. The native verifier now advances dialogue through semantic controls, checks speaker changes and settings, and verifies independent workers and running time in Party/Work. It uses explicit Pause for reservation snapshots. This replaces manual timing assumptions that stopped working once management panels became live. Automated checks establish sequencing/consistency, not pleasing voice timbre or long-form dialogue quality; those still need listening and playtesting.

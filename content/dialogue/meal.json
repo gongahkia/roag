@@ -1,0 +1,15 @@
+{
+  "kind": "dialogue",
+  "id": "dialogue.meal",
+  "name": "Meal dialogue",
+  "variants": [
+    {
+      "when": "always",
+      "player": "Sit with us. We have enough to share a meal.",
+      "replies": [
+        "Thank you. A shared meal makes even a difficult day a little easier."
+      ]
+    }
+  ],
+  "interaction": "interaction.meal"
+}
