@@ -4,8 +4,8 @@ Approved 2026-10-22 from the five-point attachment and the preceding recommendat
 
 ## Required outcomes
 
-- [ ] Actual harvestable fruit trees, fishing banks and mineral deposits, varied by region; visible depletion and explicit recovery rules; right-click and drag-selection work distributed among companions. Use the unused apple/cherry/meat/egg and tool artwork where applicable.
-- [ ] Digging uses work, fatigue and ordinary hunger instead of upfront food per tile. Tools visibly affect relevant work. Resource depletion, jobs and recovery continue exactly across saves and cache eviction.
+- [x] Actual harvestable fruit trees, fishing banks and mineral deposits, varied by region; visible depletion and explicit recovery rules; right-click and drag-selection work distributed among companions. Use the unused apple/cherry/meat/egg and tool artwork where applicable.
+- [x] Digging uses work, fatigue and ordinary hunger instead of upfront food per tile. Tools visibly affect relevant work. Resource depletion, jobs and recovery continue exactly across saves and cache eviction.
 - [ ] Existing camps support assigned cooking, treatment and watch duty; meals prepare the party for specific threats; companions react to recent events or share actionable discoveries. Existing rest/crafting remains useful.
 - [ ] Equipment gains bounded, readable effects: protection of wounded allies, improved burning attacks and faster excavation. Generated rewards combine authored, validated effects and offer meaningful choices.
 - [ ] Rabbits flee, spiders defend nests, bees defend valuable gathering places and bats inhabit caves. Local collision, visibility, danger feedback and actual encounters respect these behaviours.
@@ -26,3 +26,5 @@ Use cohesive atomic local commits throughout. New mechanics/content may require 
 ## Evidence and remaining work
 
 Planning checkpoint: current baseline `ff4489d`; 308 .NET tests and 56 native mouse checks were recorded for the prior UI milestone. Those results do not verify this expansion. All implementation requirements above remain pending.
+
+Stage one evidence: 318 Release .NET tests passed; nine resource cases plus a multi-companion batch cover normal dispatch, exact saves, cache eviction, finite ore, read-only inspection, invalid content, cancellation and optional tool effects. Native acceptance passed 59 checks including real mouse gathering, depleted-stock loading, ingredient sprites and recovery feedback. Inspected the native full/depleted/pack captures and improved resource markers to retain tree/rock/water silhouettes; the revised marker capture is also inspected. `build_game_catalog.py --check`, resource previews for apple trees/fishing/deep iron, schema generation and tooling review passed (176 definitions, 17 content families). Later-stage checkboxes remain pending.

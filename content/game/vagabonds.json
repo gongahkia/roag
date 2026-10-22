@@ -78,14 +78,18 @@
     "recipe.camp",
     "recipe.field-medicine",
     "recipe.camp-weapon",
-    "recipe.camp-armor"
+    "recipe.camp-armor",
+    "recipe.pickaxe",
+    "recipe.fishing-rod"
   ],
   "inventory": {
     "item.food": 8,
     "item.wood": 20,
     "item.stone": 12,
     "item.medicine": 3,
-    "item.gold": 25
+    "item.gold": 25,
+    "item.pickaxe": 1,
+    "item.fishing-rod": 1
   },
   "generation": "generation.world",
   "enemyFallback": "ability.strike",
@@ -110,5 +114,16 @@
     "discovery.road-blockade",
     "discovery.mourning-garden",
     "discovery.cistern"
+  ],
+  "resources": [
+    "resource.apple-tree",
+    "resource.cherry-tree",
+    "resource.fishing-bank",
+    "resource.iron-deposit",
+    "resource.marsh-herbs",
+    "resource.wild-nest",
+    "resource.honey-tree",
+    "resource.cave-mushrooms",
+    "resource.deep-iron"
   ]
 }

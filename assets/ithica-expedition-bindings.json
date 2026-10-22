@@ -100,6 +100,19 @@
     "hazard-fire": "urizen-onebit-r42-c006",
     "hazard-spores": "urizen-onebit-r10-c003",
     "hazard-corruption": "urizen-onebit-r09-c001",
-    "resident": "urizen-onebit-r00-c105"
+    "resident": "urizen-onebit-r00-c105",
+    "apple": "urizen-onebit-r17-c003",
+    "cherry": "urizen-onebit-r17-c006",
+    "meat": "urizen-onebit-r17-c001",
+    "egg": "urizen-onebit-r17-c008",
+    "pickaxe": "urizen-onebit-r31-c001",
+    "fishing-rod": "urizen-onebit-r31-c003",
+    "rabbit": "urizen-onebit-r16-c003",
+    "spider": "urizen-onebit-r15-c002",
+    "bee": "urizen-onebit-r15-c003",
+    "bat": "urizen-onebit-r14-c008",
+    "trap": "urizen-onebit-r21-c026",
+    "lever": "urizen-onebit-r17-c056",
+    "fountain": "urizen-onebit-r40-c020"
   }
 }

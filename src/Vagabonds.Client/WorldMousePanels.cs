@@ -42,6 +42,7 @@ internal sealed partial class WorldGame
                 }
                 break;
             case "inventory": DrawInventorySummary(box); break;
+            case "supplies": Text("Ingredients and supplies shared by the expedition.", x, y, Muted); break;
             case "discovery":
                 if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
                 {

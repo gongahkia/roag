@@ -28,7 +28,7 @@ public sealed partial class WorldSession
         if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
         int hardness = prop ? 1 : Materials.Hardness(before);
         return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
-            Required = hardness * 5, Reserved = owned != null ? [] : new() { ["food"] = ExcavationFoodCost(p) },
+            Required = hardness * 5, Reserved = [],
             Yield = owned != null ? new(owned.Cost) : new() { [prop ? "wood" : Materials.Yield(before)] = prop ? 1 : hardness + 1 } });
     }
     private ActionResult QueueCraft(string id)
@@ -81,7 +81,7 @@ public sealed partial class WorldSession
         DispatchPartyWork();
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
-            if (Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
+            if (Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
             { CancelWork(order.Id); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
@@ -105,7 +105,7 @@ public sealed partial class WorldSession
             }
             if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
             { order.Status = "Clear the target cell"; continue; }
-            order.Status = "Working: " + worker.Name; double amount = WorkRate(worker);
+            order.Status = "Working: " + worker.Name; double amount = WorkRate(worker) * WorkMultiplier(worker, order);
             order.Progress += amount; worker.Body.WorkDone += amount;
             if (order.Progress < order.Required) continue;
             switch (order.Kind)
@@ -117,6 +117,7 @@ public sealed partial class WorldSession
                     Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target); break;
                 case WorkKind.Repair:
                     State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
+                case WorkKind.Harvest: HarvestResource(order.Target); break;
                 case WorkKind.Forage: worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
             }
             foreach (var (item, count) in order.Yield) Add(item, count);

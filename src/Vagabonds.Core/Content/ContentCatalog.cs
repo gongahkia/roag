@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -41,7 +41,7 @@ public sealed class ContentCatalog
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
         DialogueDefinition => "dialogue", InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
-        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", _ => throw new ArgumentException("Unknown content type.")
+        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", ResourceDefinition => "resource", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
     {
@@ -124,6 +124,8 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    if (g.Resources == null || g.Resources.Length == 0) Error("resources", "Provide a resource pool.");
+                    else foreach (var id in g.Resources) Ref<ResourceDefinition>("resources", id);
                     if (g.Discoveries == null || g.Discoveries.Length == 0) Error("discoveries", "Provide a discovery pool.");
                     else foreach (var id in g.Discoveries) Ref<DiscoveryDefinition>("discoveries", id);
                     Ref<GenerationDefinition>("generation", g.Generation);
@@ -171,6 +173,15 @@ public sealed class ContentCatalog
                     foreach (var id in dsc.Enemies)
                     { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider)) Error("enemies", "Use hostile characters."); }
                     break;
+                case ResourceDefinition resource:
+                    if (resource.Sprite == null || !bindings.Contains(resource.DepletedSprite ?? "")) Error("depletedSprite", "Resources need full and depleted sprite bindings.");
+                    if (resource.Biomes == null || resource.Biomes.Length == 0 || resource.Biomes.Any(b => !Enum.IsDefined(b)) || resource.Biomes.Distinct().Count() != resource.Biomes.Length) Error("biomes", "Provide distinct known biomes.");
+                    if (resource.Terrain is not (World.Material.Tree or World.Material.Water or World.Material.Rock or World.Material.Grass or World.Material.Floor)) Error("terrain", "Use natural tree, water, rock, grass or cave floor.");
+                    Range("chancePerThousand", resource.ChancePerThousand, 1, 400); Range("capacity", resource.Capacity, 1, 12);
+                    Range("work", resource.Work, 5, 300); Range("regrowTicks", resource.RegrowTicks, 0, 72000);
+                    if (resource.Activity is not ("harvest" or "fish" or "mine")) Error("activity", "Use harvest, fish or mine.");
+                    if (resource.Yield == null || resource.Yield.Count == 0) Error("yield", "Provide a resource yield.");
+                    Cost("yield", resource.Yield); break;
                 case SimulationDefinition m:
                     if (new[] { m.HungerPerTick, m.FatiguePerTick, m.RestPerTick, m.StructureWearPerTick }.Any(v => !double.IsFinite(v) || v < 0 || v > 1)) Error("hungerPerTick", "Rates must be finite in 0..1.");
                     Range("mealAt", m.MealAt, 10, 60); Range("mealReduction", m.MealReduction, 10, 60); Range("starveAt", m.StarveAt, 70, 100);
@@ -230,7 +241,11 @@ public sealed class ContentCatalog
                     Range("distance", i.Distance, 1, 3); Range("amount", i.Amount, 0, 100); Cost("cost", i.Cost); break;
                 case ItemDefinition i:
                     if (string.IsNullOrWhiteSpace(i.Stack) || !Regex.IsMatch(i.Stack, "^[a-z][a-z0-9.-]*$")) Error("stack", "Use a stable inventory key.");
-                    if (i.Slot is not ("none" or "weapon" or "armor" or "charm")) Error("slot", "Unknown equipment slot.");
+                    if (i.Slot is not ("none" or "weapon" or "armor" or "charm" or "tool")) Error("slot", "Unknown equipment slot.");
+                    if (i.WorkBonuses == null) Error("workBonuses", "Work bonuses cannot be null.");
+                    else foreach (var (activity, bonus) in i.WorkBonuses)
+                    { if (activity is not ("dig" or "build" or "repair" or "craft" or "harvest" or "fish" or "mine")) Error("workBonuses", "Unknown work activity."); Range("workBonuses", bonus, 1, 100); }
+                    if (i.Slot == "none" && i.WorkBonuses?.Count > 0) Error("workBonuses", "Only equipped items grant bonuses.");
                     Range("health", i.Health, 0, 100); Range("power", i.Power, 0, 30); Range("armor", i.Armor, 0, 15); Range("speed", i.Speed, 0, 15); Range("value", i.Value, 0, 1000); break;
                 case RecipeDefinition r:
                     if (r.Material is not (World.Material.Wall or World.Material.Floor or World.Material.Door or World.Material.Bridge or World.Material.Storage or World.Material.Camp)) Error("material", "Choose a buildable material.");

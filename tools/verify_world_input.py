@@ -159,17 +159,13 @@ def main():
             client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
             check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
             client.click('context:clear')
-            # Exercise the disabled action and its recovery using an isolated low-food slot.
+            # Digging spends ordinary work time, never an upfront food charge.
             baseline = json.loads(slot.read_text()); depleted = json.loads(json.dumps(baseline))
             depleted['state']['inventory']['food'] = 0
             slot.write_text(json.dumps(depleted)); client.click('load'); client.context(barrel)
             ui = client.ui(); dig = next(c for c in ui['controls'] if c['id'] == 'context:dig')
-            check('digExplainsMissingFoodInsideCursorMenu', not dig['enabled'] and any('food' in line for line in ui['context']['hint']))
-            client.capture('context-food'); client.click('context:forage')
-            client.wait(lambda u: not u['work']); client.pause()
-            check('contextGatherPreservesSelectionAndRestoresDigging', len(client.ui()['selection']) == 1)
-            client.context(barrel); check('digAvailableAfterGathering', next(c for c in client.ui()['controls'] if c['id'] == 'context:dig')['enabled'])
-            client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
+            check('digWorksWithoutFoodAndExplainsWorkCost', dig['enabled'] and 'no food is reserved' in dig['tip'])
+            client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
             ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
             person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
             client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
@@ -268,6 +264,25 @@ def main():
             check('surfaceLandingHasSeparatePartyTiles', client.formation())
             before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
             check('mouseRejectedLoadPreservesState', before == restored)
+        finally: client.close()
+        client = Client('world-resources', slot)
+        try:
+            ui = client.ui(); origin = ui['position']
+            fruit = next(c for c in ui['cells'] if c['resource'] and c['resource']['id'] == 'resource.apple-tree' and abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) == 1)
+            client.context(fruit); client.capture('resource-tree')
+            check('resourceContextHasHarvest', any(c['id'] == 'context:harvest' and c['enabled'] for c in client.ui()['controls']))
+            client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
+            harvested = client.save(); check('mouseHarvestPersistsStockAndIngredients', harvested['state']['inventory'].get('apple', 0) == 2)
+            client.click('load'); remaining = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']['available']
+            check('resourceStockSurvivesMouseLoad', remaining == fruit['resource']['available'] - 1)
+            client.click('panel:inventory'); client.click('panel:supplies'); client.capture('ingredients-pack')
+            check('packIllustratesHarvestedIngredients', any(c['id'] == 'supply:item.apple' and c['sprite'] == 'apple' and 'x2' in c['label'] for c in client.ui()['controls']))
+            client.click('close')
+            for _ in range(remaining):
+                client.context(fruit); client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
+            client.context(fruit); client.capture('resource-depleted')
+            harvest = next(c for c in client.ui()['controls'] if c['id'] == 'context:harvest')
+            check('exhaustedResourceExplainsRecovery', not harvest['enabled'] and 'recovers' in harvest['reason'])
         finally: client.close()
         client = Client('world-battle', slot)
         try:

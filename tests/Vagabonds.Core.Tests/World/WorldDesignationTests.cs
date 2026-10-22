@@ -9,7 +9,7 @@ public sealed class WorldDesignationTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "vagabonds-orders-" + Guid.NewGuid().ToString("N"));
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
     [Fact]
-    public void SelectionQueuesOnlyAffordableValidObservedTargetsAndRefundsOnce()
+    public void DigSelectionNeedsNoUpfrontFoodAndCancellationCannotCreateSupplies()
     {
         var s = WorldCollisionTests.Arena(); var origin = s.State.Position; s.State.Inventory["food"] = 4;
         var targets = Enumerable.Range(2, 3).Select(x => origin.Offset(x, 0)).ToArray();
@@ -19,9 +19,9 @@ public sealed class WorldDesignationTests : IDisposable
         Assert.Equal(chunks, JsonSerializer.Serialize(s.State.Chunks));
         uint random = s.State.CombatRandom; long tick = s.State.Tick;
         var result = s.DesignateWork(WorldCommandKind.Dig, targets.Concat(targets));
-        Assert.Equal(1, result.Queued); Assert.Equal(2, result.Skipped); Assert.Equal(0, s.Count("food"));
+        Assert.Equal(3, result.Queued); Assert.Equal(0, result.Skipped); Assert.Equal(4, s.Count("food"));
         Assert.Equal(random, s.State.CombatRandom); Assert.Equal(tick, s.State.Tick);
-        long id = s.State.Work.Single().Id; Assert.True(s.Submit(new(WorldCommandKind.CancelWork, WorkId: id)).Success);
+        long id = s.State.Work.First().Id; Assert.True(s.Submit(new(WorldCommandKind.CancelWork, WorkId: id)).Success);
         Assert.Equal(4, s.Count("food")); string before = JsonSerializer.Serialize(s.State);
         Assert.False(s.Submit(new(WorldCommandKind.CancelWork, WorkId: id)).Success); Assert.Equal(before, JsonSerializer.Serialize(s.State));
         Assert.Equal(0, s.DesignateWork(WorldCommandKind.Build, Enumerable.Range(0, 257).Select(x => origin.Offset(x, 0))).Queued);

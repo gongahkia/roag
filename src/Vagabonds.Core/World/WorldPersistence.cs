@@ -67,10 +67,30 @@ public sealed partial class WorldSession
             if (Convert.ToHexString(SHA256.HashData(data)) != reference.Hash) throw new InvalidDataException("Chunk snapshot checksum mismatch.");
             var delta = JsonSerializer.Deserialize<ChunkDelta>(data, SaveOptions) ?? throw new InvalidDataException("Empty chunk snapshot.");
             if (delta.Key != reference.Key || !plan.Contains(new(delta.Key.X * 64, delta.Key.Y * 64, delta.Key.Floor)) || delta.Edits == null || delta.Discovered == null || delta.Storage == null || delta.Edits.Count > 4096 || delta.Discovered.Any(i => i is < 0 or >= 4096) || delta.Edits.Any(e => e.Key is < 0 or >= 4096 || !Enum.IsDefined(e.Value)) || delta.Storage.Any(s => s.Key is < 0 or >= 4096 || s.Value == null || s.Value.Any(e => e.Value < 0))) throw new InvalidDataException("Invalid chunk snapshot.");
+            if (delta.Resources == null || delta.Resources.Count > 4096 || delta.Resources.Any(r => r.Key is < 0 or >= 4096 || r.Value == null
+                || !ContentCatalog.Default.Entries.TryGetValue(r.Value.Definition, out var entry) || entry is not ResourceDefinition resource
+                || r.Value.Remaining < 0 || r.Value.Remaining >= resource.Capacity || r.Value.RecoverAt < 0
+                || r.Value.Remaining > 0 && r.Value.RecoverAt != 0 || resource.RegrowTicks == 0 && r.Value.RecoverAt != 0
+                || r.Value.Remaining == 0 && resource.RegrowTicks > 0 && (r.Value.RecoverAt == 0 || r.Value.RecoverAt > state.Tick + resource.RegrowTicks)))
+                throw new InvalidDataException("Invalid resource stock.");
             state.Chunks.Add(delta);
         }
         ValidateState(plan, state);
         var session = new WorldSession(plan, state) { SavePath = Path.GetFullPath(path), Paused = true };
+        foreach (var chunk in state.Chunks)
+            foreach (var (index, stock) in chunk.Resources)
+            {
+                var p = new WorldPosition(chunk.Key.X * 64 + index % 64, chunk.Key.Y * 64 + index / 64, chunk.Key.Floor);
+                if (!session.Chunks.IsEdited(p) && session.ResourceAt(p)?.Definition.Id != stock.Definition) throw new InvalidDataException("Resource stock does not match its world location.");
+            }
+        foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Harvest))
+        {
+            if (!ContentCatalog.Default.Entries.TryGetValue(order.Definition, out var entry) || entry is not ResourceDefinition resource
+                || session.ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != resource.Id
+                || order.Required != resource.Work || order.Reserved.Count != 0 || order.Before != order.After
+                || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(ContentCatalog.Default.Get<ItemDefinition>(y.Key).Stack) != y.Value))
+                throw new InvalidDataException("Invalid resource work order.");
+        }
         session.RestorePartyFormation();
         session.PrepareLocalCollision(force: true); session.Reveal();
         return session;

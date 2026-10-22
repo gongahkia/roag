@@ -232,7 +232,7 @@ public sealed class WorldMouseTests
         session.Chunks.Edit(rock, Material.Rock); session.State.Inventory["food"] = 0;
         string before = JsonSerializer.Serialize(session.State);
         var options = WorldContextActions.Options(session, [rock]);
-        Assert.Contains(options, o => o.Id == "dig" && o.Reason.Contains("food", StringComparison.Ordinal));
+        Assert.Contains(options, o => o.Id == "dig" && o.Reason.Length == 0);
         Assert.DoesNotContain(options, o => o.Id is "build" or "rest" or "craft");
         Assert.Equal(before, JsonSerializer.Serialize(session.State));
         var ground = session.State.Position.Offset(0, 2);
@@ -240,28 +240,22 @@ public sealed class WorldMouseTests
         Assert.DoesNotContain(WorldContextActions.Options(session, [ground]), o => o.Id == "dig");
     }
     [Fact]
-    public void SixRockTilesExplainFoodShortageAndGatheringRetainsTheSelection()
+    public void SixRockTilesCanBeDesignatedWithoutFoodAndExplainOrdinaryNeeds()
     {
         var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
         var rocks = Enumerable.Range(2, 6).Select(x => session.State.Position.Offset(x, 0)).ToArray();
         foreach (var rock in rocks) session.Chunks.Edit(rock, Material.Rock);
-        session.State.Inventory["food"] = 2;
+        session.State.Inventory["food"] = 0;
         Field("_contextCells").SetValue(client, rocks); Field("_contextAnchor").SetValue(client, new Point(600, 480));
         var selection = new WorldTileSelection(); selection.Rectangle(session, rocks[0], rocks[^1]); Field("_selection").SetValue(client, selection);
         string before = JsonSerializer.Serialize(session.State);
         var dig = Controls(client, "").Single(c => c.Id == "context:dig");
-        Assert.False(dig.Enabled); Assert.Contains("4 food; 2 carried", dig.DisabledReason);
-        Assert.Contains("4 food; 2 carried", string.Join(" ", (string[])Field("_contextHint").GetValue(client)!));
+        Assert.True(dig.Enabled); Assert.Contains("no food is reserved", dig.Tip);
         Assert.Equal(before, JsonSerializer.Serialize(session.State));
-        Assert.Equal(0, session.DesignateWork(WorldCommandKind.Dig, rocks).Queued);
-        Assert.Equal(before, JsonSerializer.Serialize(session.State));
-        Invoke(client, "ActivateControl", "context:forage");
-        Assert.Equal(rocks, selection.Cells); Assert.Null(Field("_contextCells").GetValue(client));
-        for (int i = 0; i < 80 && session.State.Work.Count > 0; i++) session.AdvanceTicks(1);
-        Assert.Empty(session.State.Work); Assert.Equal(4, session.Count("food"));
-        Assert.Empty(WorldContextActions.Options(session, rocks).Single(o => o.Id == "dig").Reason);
-        Assert.Equal(1, session.DesignateWork(WorldCommandKind.Dig, rocks).Queued);
-        Assert.Equal(0, session.Count("food"));
+        Invoke(client, "ActivateControl", "context:dig");
+        Assert.Empty(selection.Cells); Assert.Null(Field("_contextCells").GetValue(client));
+        Assert.Equal(6, session.State.Work.Count); Assert.Equal(0, session.Count("food"));
+        Assert.All(session.State.Work, w => Assert.Empty(w.Reserved));
     }
     [Theory]
     [InlineData(1024, 720)] [InlineData(1908, 1120)]

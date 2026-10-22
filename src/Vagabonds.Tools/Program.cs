@@ -69,6 +69,7 @@ public static class DeveloperEntry
                 if (kind == "dialogue") Print(DialoguePreview.Run(catalog, id, seed));
                 else if (kind == "discovery") Print(ExplorationPreview.Discovery(catalog, id, seed));
                 else if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
+                else if (kind == "resource") Print(ResourcePreview.Run(catalog, id, seed));
                 else if (kind == "party-work") Print(PartyWorkPreview.Run(catalog, seed));
                 else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
@@ -101,7 +102,7 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "party-work" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "resource", "party-work" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
@@ -157,6 +158,7 @@ public static class DeveloperEntry
             "boss" => c.Get<BossDefinition>(c.Game.Bosses[0]),
             "class" => c.All<ClassDefinition>().First(),
             "recipe" => c.All<RecipeDefinition>().First(),
+            "resource" => c.All<ResourceDefinition>().First(),
             "variant" => new VariantDefinition { Id = id, Name = "New variation" },
             "generation" => c.Get<GenerationDefinition>(c.Game.Generation),
             "simulation" => c.Get<SimulationDefinition>(c.Game.Simulation),

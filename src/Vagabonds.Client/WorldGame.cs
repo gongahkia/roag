@@ -50,6 +50,7 @@ internal sealed partial class WorldGame : Game
         _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
+        if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
         if (!options.Load && options.Scene == "world-discovery")
@@ -295,9 +296,10 @@ internal sealed partial class WorldGame : Game
         Directory.CreateDirectory(Path.GetDirectoryName(path)!); using var file = File.Create(path); _frame.SaveAsPng(file, _frame.Width, _frame.Height);
     }
     private static double Percentile(List<double> values) => values.Count == 0 ? 0 : values.Order().ElementAt((int)((values.Count - 1) * .95));
+    private readonly List<(Rectangle Rect, string Sprite, float Light)> _resourceIcons = [];
     private void DrawTerrain()
     {
-        Fill(_map, new(9, 16, 21)); _terrain.Clear();
+        Fill(_map, new(9, 16, 21)); _terrain.Clear(); _resourceIcons.Clear();
         var left = _camera.ScreenToWorld(new(_map.Left, _map.Top)); var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
         for (int y = (int)Math.Floor(left.Y); y <= (int)right.Y; y++) for (int x = (int)Math.Floor(left.X); x <= (int)right.X; x++)
         {
@@ -315,7 +317,17 @@ internal sealed partial class WorldGame : Game
             Fill(rect, background * light);
             string? sprite = material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0
                 ? Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]) : null;
-            string? prop = _session.ObjectAt(p) is { Kind: "decoration" } decoration ? decoration.Sprite : null;
+            var resource = _session.ResourceAt(p);
+            if (resource != null)
+            {
+                if (material is Material.Tree or Material.Rock or Material.Water)
+                {
+                    if (resource.Available > 0) _resourceIcons.Add((new(rect.Right - rect.Width / 2, rect.Top, rect.Width / 2, rect.Height / 2), resource.Sprite, light));
+                    else { sprite = resource.Definition.DepletedSprite; tint = Muted; }
+                }
+                else { sprite = resource.Sprite; tint = resource.Available > 0 ? Gold : Muted; ground = false; }
+            }
+            string? prop = resource == null && _session.ObjectAt(p) is { Kind: "decoration" } decoration ? decoration.Sprite : null;
             _terrain.Add((rect, sprite, tint * light * (ground ? .32f : 1), prop, light, material == Material.Door));
         }
         // Backgrounds, terrain and props are separate layers so texture sorting preserves their order.
@@ -329,6 +341,7 @@ internal sealed partial class WorldGame : Game
             if (tile.Door) Fill(new(tile.Rect.Center.X - 2, tile.Rect.Top + tile.Rect.Height / 3, 4, tile.Rect.Height / 2), Gold * .7f);
         }
         _batch.End(); _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        foreach (var resource in _resourceIcons) _sprites.Draw(_batch, resource.Sprite, resource.Rect, Gold * resource.Light);
         UpdatePointer(_mouse.Position);
         if (_panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation)
         {

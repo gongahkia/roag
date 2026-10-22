@@ -27,6 +27,8 @@ internal sealed partial class WorldGame
     private static readonly JsonSerializerOptions UiJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private Rectangle PanelBox(int w, int h) => new(32, 84, w - 64, h - 202);
     private static string Short(string text, int count) => text.Length > count ? text[..Math.Max(1, count - 3)] + "..." : text;
+    private int _suppliesPage;
+    private ItemDefinition[] SupplyChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot == "none").ToArray();
     private ItemDefinition[] EquipmentChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
     private Actor SelectedMember() { var party = _session.Party.ToArray(); return party[_packMember % party.Length]; }
     private long _selectedWorkId, _selectedWorkerId;
@@ -142,7 +144,19 @@ internal sealed partial class WorldGame
                         Add("sell:" + item, "Sell 1", box.Right - 132, y + 46 + i * 56, 96, 36, _session.Count(item) > 0);
                     }
                     break;
+                case "supplies":
+                    var supplies = SupplyChoices(); _suppliesPage = Math.Clamp(_suppliesPage, 0, Math.Max(0, (supplies.Length - 1) / 12));
+                    for (int row = 0; row < Math.Min(12, supplies.Length - _suppliesPage * 12); row++)
+                    {
+                        var supply = supplies[row + _suppliesPage * 12]; int sw = (width - 8) / 2;
+                        Add("supply:" + supply.Id, supply.Name + " / x" + _session.Count(supply.Stack), x + row % 2 * (sw + 8), y + 34 + row / 2 * 48, sw, 44,
+                            sprite: supply.Sprite, detail: supply.Description, tip: supply.Description, dimmed: _session.Count(supply.Stack) == 0);
+                    }
+                    Add("supplypage:-1", "Previous", x, box.Bottom - 88, 112, enabled: _suppliesPage > 0);
+                    Add("supplypage:1", "Next", x + 120, box.Bottom - 88, 96, enabled: (_suppliesPage + 1) * 12 < supplies.Length);
+                    Add("panel:inventory", "Party equipment", x + 224, box.Bottom - 88, 192); break;
                 case "inventory":
+                    Add("panel:supplies", "Shared pack", box.Right - 272, box.Y + 12, 152);
                     var party = _session.Party.ToArray(); var member = SelectedMember(); var items = EquipmentChoices();
                     int card = (width - 8 * (party.Length - 1)) / party.Length;
                     for (int i = 0; i < party.Length; i++) Add("party:" + i, party[i].Name, x + i * (card + 8), y, card, 72, selected: party[i].Id == member.Id,
@@ -334,6 +348,8 @@ internal sealed partial class WorldGame
             case "mark-linked-site": _waypoint = _session.Plan.Sites[_session.State.Discoveries.Single(d => d.Id == _discoveryId).SiteId].Center; _notice = "Dungeon destination marked. It is accessible now, with its existing dangers."; break;
             case "buy": case "sell": Execute(new(action == "buy" ? WorldCommandKind.Buy : WorldCommandKind.Sell, Item: argument)); break;
             case "party": _packMember = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "supplypage": _suppliesPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "supply": break;
             case "gearpage": _gearPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _packItem = _gearPage * 8; break;
             case "craftpage": _craftPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "interactionpage": _interactionPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
@@ -422,7 +438,7 @@ internal sealed partial class WorldGame
             selecting = _dragStart != null,
             cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
                 material = _session.Chunks.At(p).ToString(), groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
-                prop = _session.ObjectAt(p)?.Name }),
+                prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
             work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker }),
             rally = _session.State.WorkRally,
             dialogue = _panel != "person" || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
@@ -432,7 +448,7 @@ internal sealed partial class WorldGame
             party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
-            controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
+            controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
             battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly,
                 units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, bounds = Rect(UnitRect(u)) }) } : null

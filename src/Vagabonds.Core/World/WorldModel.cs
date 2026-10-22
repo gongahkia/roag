@@ -250,7 +250,7 @@ public sealed class BodyState
     [JsonRequired] public double WorkDone { get; set; }
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
-public enum WorkKind { Build, Dig, Repair, Craft, Forage }
+public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest }
 public sealed class WorkOrder
 {
     [JsonRequired] public long Id { get; set; }
@@ -369,6 +369,7 @@ public sealed class RegionalTask
     [JsonRequired]
     public bool Complete { get; set; }
 }
+public sealed record ResourceStock(string Definition, int Remaining, long RecoverAt);
 public sealed class ChunkDelta
 {
     [JsonRequired]
@@ -379,6 +380,7 @@ public sealed class ChunkDelta
     public HashSet<int> Discovered { get; set; } = [];
     [JsonRequired]
     public Dictionary<int, Dictionary<string, int>> Storage { get; set; } = [];
+    public Dictionary<int, ResourceStock> Resources { get; set; } = [];
 }
 public sealed class WorldState
 {

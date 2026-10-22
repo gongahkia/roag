@@ -28,6 +28,9 @@ internal static class WorldInspection
             : session.DiscoveryGuarded(discovery) ? "An inhabited landmark. Living foes guard its supplies." : "A local landmark connected to " + session.Plan.Towns[discovery.TownId].Name + ".", "Approach and investigate", "discovery");
         if (session.Visible.Contains(cell) && session.State.Loot.Any(c => c.Position == cell && !c.Taken)) return WithRoute("Unopened cache", "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithRoute(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
+        if (session.ResourceAt(cell) is { } resource)
+            return new(resource.Definition.Name, resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
+                "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Right-click to approach, rest or craft", _ => "Travel here" };
         return WithRoute(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + session.Plan.BiomeAt(cell.X, cell.Y) + ".", action, "terrain");
         WorldHoverInfo WithRoute(string title, string detail, string action, string kind)

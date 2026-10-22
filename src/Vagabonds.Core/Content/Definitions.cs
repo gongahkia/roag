@@ -21,6 +21,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(SimulationDefinition), "simulation")]
 [JsonDerivedType(typeof(IncidentDefinition), "incident")]
 [JsonDerivedType(typeof(DiscoveryDefinition), "discovery")]
+[JsonDerivedType(typeof(ResourceDefinition), "resource")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -47,6 +48,7 @@ public sealed class GameDefinition : ContentDefinition
     public required string Simulation { get; set; }
     public required string[] Incidents { get; set; }
     public string[] Discoveries { get; set; } = [];
+    public string[] Resources { get; set; } = [];
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
@@ -56,6 +58,19 @@ public sealed class DiscoveryDefinition : ContentDefinition
     public Dictionary<string, int> Supplies { get; set; } = [];
     public string[] Rewards { get; set; } = [];
     public string[] Enemies { get; set; } = [];
+}
+public sealed class ResourceDefinition : ContentDefinition
+{
+    public required Material Terrain { get; set; }
+    public required Biome[] Biomes { get; set; }
+    public bool Underground { get; set; }
+    public int ChancePerThousand { get; set; } = 80;
+    public int Capacity { get; set; } = 3;
+    public int Work { get; set; } = 20;
+    public int RegrowTicks { get; set; } = 1800;
+    public string Activity { get; set; } = "harvest";
+    public required string DepletedSprite { get; set; }
+    public required Dictionary<string, int> Yield { get; set; }
 }
 public sealed class SimulationDefinition : ContentDefinition
 {
@@ -188,6 +203,7 @@ public sealed class ItemDefinition : ContentDefinition
     public int Armor { get; set; }
     public int Speed { get; set; }
     public int Value { get; set; } = 2;
+    public Dictionary<string, int> WorkBonuses { get; set; } = [];
 }
 public sealed class RecipeDefinition : ContentDefinition
 {

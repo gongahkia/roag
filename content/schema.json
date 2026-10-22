@@ -532,6 +532,12 @@
         "value": {
           "type": "integer"
         },
+        "workBonuses": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
         "id": {
           "type": "string"
         },
@@ -883,6 +889,15 @@
             ]
           }
         },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "id": {
           "type": "string"
         },
@@ -1200,6 +1215,103 @@
       "required": [
         "action",
         "text",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "resource"
+        },
+        "terrain": {
+          "enum": [
+            "Grass",
+            "Tree",
+            "Water",
+            "Rock",
+            "Earth",
+            "Floor",
+            "Wall",
+            "Door",
+            "Bridge",
+            "StairsDown",
+            "StairsUp",
+            "Storage",
+            "Camp"
+          ]
+        },
+        "biomes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "Grassland",
+              "Forest",
+              "Marsh",
+              "Highland",
+              "Badland",
+              "Snow"
+            ]
+          }
+        },
+        "underground": {
+          "type": "boolean"
+        },
+        "chancePerThousand": {
+          "type": "integer"
+        },
+        "capacity": {
+          "type": "integer"
+        },
+        "work": {
+          "type": "integer"
+        },
+        "regrowTicks": {
+          "type": "integer"
+        },
+        "activity": {
+          "type": "string"
+        },
+        "depletedSprite": {
+          "type": "string"
+        },
+        "yield": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "terrain",
+        "biomes",
+        "depletedSprite",
+        "yield",
         "id",
         "name"
       ],

@@ -1,0 +1,26 @@
+{
+  "kind": "resource",
+  "id": "resource.fishing-bank",
+  "name": "Fishing bank",
+  "sprite": "fishing-rod",
+  "depletedSprite": "water",
+  "terrain": "Water",
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "chancePerThousand": 140,
+  "capacity": 3,
+  "work": 30,
+  "regrowTicks": 1800,
+  "activity": "fish",
+  "yield": {
+    "item.meat": 1,
+    "item.food": 1
+  },
+  "underground": false
+}

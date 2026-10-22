@@ -10,7 +10,7 @@ public sealed partial class WorldSession
     {
         if (IsInCombat || DeathPending || State.AwaitingContinuation || State.Endgame.Victory)
             return new(0, 0, "Finish the encounter or expedition first.");
-        if (kind is not (WorldCommandKind.Build or WorldCommandKind.Dig or WorldCommandKind.Repair)) return new(0, 0, "Choose construction, excavation or repair.");
+        if (kind is not (WorldCommandKind.Build or WorldCommandKind.Dig or WorldCommandKind.Repair or WorldCommandKind.Harvest)) return new(0, 0, "Choose construction, excavation or repair.");
         var targets = cells.Distinct().Take(257).ToArray();
         if (targets.Length > 256) return new(0, targets.Length, "Select at most 256 tiles at a time.");
         int queued = 0, skipped = 0; string reason = "";
@@ -21,7 +21,8 @@ public sealed partial class WorldSession
             ActionResult result = kind switch
             {
                 WorldCommandKind.Build => QueueBuild(new(kind, p, Material: material), designated: true),
-                WorldCommandKind.Dig => QueueDig(p, designated: true), _ => QueueRepair(p, designated: true)
+                WorldCommandKind.Dig => QueueDig(p, designated: true),
+                WorldCommandKind.Harvest => QueueHarvest(p, designated: true), _ => QueueRepair(p, designated: true)
             };
             if (result.Success) queued++; else { skipped++; reason = result.Message; }
         }

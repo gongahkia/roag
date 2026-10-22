@@ -6,19 +6,22 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
-**100 semantic aliases, 94 font glyphs, 191 distinct runtime-bound IDs.**
+**113 semantic aliases, 94 font glyphs, 204 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
 | abbot | urizen-onebit-r17-c203 | enemy / monk / prayer | author_metadata_visible_rgb_match / high | Author-matched monk/prayer figure cast as the Hollow Abbot boss. |
 | animal-bones | urizen-onebit-r38-c003 | bones / animal | author_metadata_visible_rgb_match / high | Render as animal bones; preserve the source identity and keep mechanics in game data. |
 | anvil | urizen-onebit-r25-c028 | anvil | author_metadata_visible_rgb_match / high | Render as anvil; preserve the source identity and keep mechanics in game data. |
+| apple | urizen-onebit-r17-c003 | food / apple | author_metadata_visible_rgb_match / high | Render as apple; preserve the source identity and keep mechanics in game data. |
 | arc | godot-white-thunder | thunder | publisher_filename / high | Render as arc; preserve the source identity and keep mechanics in game data. |
 | atlas | godot-white-grid | grid | publisher_filename / high | Render as atlas; preserve the source identity and keep mechanics in game data. |
 | bandit | urizen-onebit-r43-c105 | enemy / bandit / male | author_metadata_visible_rgb_match / high | Render as bandit; preserve the source identity and keep mechanics in game data. |
 | banner | urizen-onebit-r23-c031 | Awards, accessories, holy symbols and furniture R23 C031 | visual_region_and_silhouette / low | Heraldic/prop silhouette used for the party rally ability; no cloth simulation. |
 | barrel | urizen-onebit-r36-c011 | furniture / barrel; index=0 | author_metadata_visible_rgb_match / high | Render as barrel; preserve the source identity and keep mechanics in game data. |
+| bat | urizen-onebit-r14-c008 | animal / bat | author_metadata_visible_rgb_match / high | Render as bat; preserve the source identity and keep mechanics in game data. |
 | bed | urizen-onebit-r36-c000 | furniture / bed / single | author_metadata_visible_rgb_match / high | Render as bed; preserve the source identity and keep mechanics in game data. |
+| bee | urizen-onebit-r15-c003 | animal / bee | author_metadata_visible_rgb_match / high | Render as bee; preserve the source identity and keep mechanics in game data. |
 | bones | urizen-onebit-r38-c002 | bones / remains | author_metadata_visible_rgb_match / high | Render as bones; preserve the source identity and keep mechanics in game data. |
 | book | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as book; preserve the source identity and keep mechanics in game data. |
 | bookcase | urizen-onebit-r36-c002 | furniture / bookcase | author_metadata_visible_rgb_match / high | Render as bookcase; preserve the source identity and keep mechanics in game data. |
@@ -31,6 +34,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | campfire | urizen-onebit-r42-c000 | bonfire | author_metadata_visible_rgb_match / high | Render as campfire; preserve the source identity and keep mechanics in game data. |
 | candle | urizen-onebit-r42-c007 | light / candle | author_metadata_visible_rgb_match / high | Render as candle; preserve the source identity and keep mechanics in game data. |
 | cave-mouth | urizen-onebit-r03-c030 | cave | author_metadata_visible_rgb_match / high | Author-confirmed cave silhouette used as scenery; it does not create a fourth playable area or transition. |
+| cherry | urizen-onebit-r17-c006 | food / cherry | author_metadata_visible_rgb_match / high | Render as cherry; preserve the source identity and keep mechanics in game data. |
 | chest | urizen-onebit-r19-c026 | furniture / chest | author_metadata_visible_rgb_match / high | Render as chest; preserve the source identity and keep mechanics in game data. |
 | chest-open | urizen-onebit-r19-c027 | furniture / chest / open | author_metadata_visible_rgb_match / high | Render as chest open; preserve the source identity and keep mechanics in game data. |
 | coffin | urizen-onebit-r19-c029 | Chests, bows, siege and workshop parts R19 C029 | visual_region_and_silhouette / low | Unconfirmed chest/workshop silhouette used as a coffin-shaped crypt prop; this is not an author label. |
@@ -40,11 +44,14 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | cross | urizen-onebit-r25-c032 | chapel / cross | author_metadata_visible_rgb_match / high | Render as cross; preserve the source identity and keep mechanics in game data. |
 | crystal | urizen-onebit-r22-c002 | mineral / crystal; index=0 | author_metadata_visible_rgb_match / high | Author-confirmed diagonal crystal becomes decorative ruin treasure; no mining/crafting/reward interaction is implemented. |
 | dead-tree | urizen-onebit-r10-c005 | flora / tree / dead | author_metadata_visible_rgb_match / high | Render as dead tree; preserve the source identity and keep mechanics in game data. |
+| egg | urizen-onebit-r17-c008 | food / egg | author_metadata_visible_rgb_match / high | Render as egg; preserve the source identity and keep mechanics in game data. |
 | elder | urizen-onebit-r01-c187 | Figure row 01, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as elder; preserve the source identity and keep mechanics in game data. |
 | ember | urizen-onebit-r42-c006 | fire | author_metadata_visible_rgb_match / high | Render as ember; preserve the source identity and keep mechanics in game data. |
 | exit | godot-white-door | door | publisher_filename / high | Render as exit; preserve the source identity and keep mechanics in game data. |
+| fishing-rod | urizen-onebit-r31-c003 | tool / fishingrod | author_metadata_visible_rgb_match / high | Render as fishing rod; preserve the source identity and keep mechanics in game data. |
 | flagstone | urizen-onebit-r05-c004 | floor / flagged; index=0 | author_metadata_visible_rgb_match / high | Render as flagstone; preserve the source identity and keep mechanics in game data. |
 | flower | urizen-onebit-r10-c001 | flora / flower; index=1 | author_metadata_visible_rgb_match / high | Render as flower; preserve the source identity and keep mechanics in game data. |
+| fountain | urizen-onebit-r40-c020 | fountain | author_metadata_visible_rgb_match / high | Render as fountain; preserve the source identity and keep mechanics in game data. |
 | gate | urizen-onebit-r01-c012 | door / closed / bars | author_metadata_visible_rgb_match / high | Render as gate; preserve the source identity and keep mechanics in game data. |
 | gate-open | urizen-onebit-r01-c000 | door / open | author_metadata_visible_rgb_match / high | Render as gate open; preserve the source identity and keep mechanics in game data. |
 | grass | urizen-onebit-r05-c015 | floor / grass; index=0 | author_metadata_visible_rgb_match / high | Render as grass; preserve the source identity and keep mechanics in game data. |
@@ -63,15 +70,19 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | key | urizen-onebit-r45-c007 | key | author_metadata_visible_rgb_match / high | Render as key; preserve the source identity and keep mechanics in game data. |
 | lantern | urizen-onebit-r42-c005 | light / lantern | author_metadata_visible_rgb_match / high | Render as lantern; preserve the source identity and keep mechanics in game data. |
 | leaf | urizen-onebit-r09-c001 | flora / leafs | author_metadata_visible_rgb_match / high | Render as leaf; preserve the source identity and keep mechanics in game data. |
+| lever | urizen-onebit-r17-c056 | lever / right | author_metadata_visible_rgb_match / high | Render as lever; preserve the source identity and keep mechanics in game data. |
 | mage | urizen-onebit-r00-c187 | Figure row 00, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Staff-like held prop; no walking/casting animation sequence is assumed. |
 | mana | urizen-onebit-r04-c032 | potion / mana | author_metadata_visible_rgb_match / high | Render as mana; preserve the source identity and keep mechanics in game data. |
 | mark | godot-white-target | target | publisher_filename / high | Render as mark; preserve the source identity and keep mechanics in game data. |
+| meat | urizen-onebit-r17-c001 | food / meat | author_metadata_visible_rgb_match / high | Render as meat; preserve the source identity and keep mechanics in game data. |
 | merchant | urizen-onebit-r00-c198 | Figure row 00, profession column 94: bag-like hand prop | visual_region_and_silhouette / low | Render as merchant; preserve the source identity and keep mechanics in game data. |
 | mushroom | urizen-onebit-r10-c002 | flora / mushroom / toadstool | author_metadata_visible_rgb_match / high | Render as mushroom; preserve the source identity and keep mechanics in game data. |
 | path | urizen-onebit-r05-c001 | floor / dirt | author_metadata_visible_rgb_match / high | Render as path; preserve the source identity and keep mechanics in game data. |
+| pickaxe | urizen-onebit-r31-c001 | tool / pickaxe | author_metadata_visible_rgb_match / high | Render as pickaxe; preserve the source identity and keep mechanics in game data. |
 | pine | urizen-onebit-r08-c003 | flora / tree / spruce | author_metadata_visible_rgb_match / high | Render as pine; preserve the source identity and keep mechanics in game data. |
 | poplar | urizen-onebit-r08-c004 | flora / tree / poplar | author_metadata_visible_rgb_match / high | Author's poplar is a collidable/occluding Tree appearance in the cellular forest. |
 | potion | urizen-onebit-r04-c030 | potion / health | author_metadata_visible_rgb_match / high | Render as potion; preserve the source identity and keep mechanics in game data. |
+| rabbit | urizen-onebit-r16-c003 | animal / rabbit | author_metadata_visible_rgb_match / high | Render as rabbit; preserve the source identity and keep mechanics in game data. |
 | ranger | urizen-onebit-r01-c119 | Figure row 01, profession column 15: curved bow-like prop | visual_region_and_silhouette / low | Bow-like held prop; Vesper's role and abilities are game data. |
 | ration | urizen-onebit-r17-c000 | food / mushroom | author_metadata_visible_rgb_match / high | Render as ration; preserve the source identity and keep mechanics in game data. |
 | reed | urizen-onebit-r09-c006 | flora / cane | author_metadata_visible_rgb_match / high | Render as reed; preserve the source identity and keep mechanics in game data. |
@@ -91,6 +102,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | slime | urizen-onebit-r42-c108 | enemy / slime | author_metadata_visible_rgb_match / high | Render as slime; preserve the source identity and keep mechanics in game data. |
 | smith | urizen-onebit-r00-c174 | Figure row 00, profession column 70: large hammer-like tool | visual_region_and_silhouette / low | Render as smith; preserve the source identity and keep mechanics in game data. |
 | spark | urizen-onebit-r13-c030 | magic / sparkles | author_metadata_visible_rgb_match / high | Render as spark; preserve the source identity and keep mechanics in game data. |
+| spider | urizen-onebit-r15-c002 | animal / spider | author_metadata_visible_rgb_match / high | Render as spider; preserve the source identity and keep mechanics in game data. |
 | staff | urizen-onebit-r25-c039 | skullcane | author_metadata_visible_rgb_match / high | Author's skullcane used for the wand/arcane ability icon. |
 | stairs-down | urizen-onebit-r00-c023 | stairs / down | author_metadata_visible_rgb_match / high | Render as stairs down; preserve the source identity and keep mechanics in game data. |
 | stairs-up | urizen-onebit-r00-c024 | stairs / up | author_metadata_visible_rgb_match / high | Render as stairs up; preserve the source identity and keep mechanics in game data. |
@@ -98,6 +110,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | stone-alt | urizen-onebit-r05-c005 | floor / flagged; index=1 | author_metadata_visible_rgb_match / high | Render as stone alt; preserve the source identity and keep mechanics in game data. |
 | sword | urizen-onebit-r06-c030 | weapon / sword; index=0 | author_metadata_visible_rgb_match / high | Render as sword; preserve the source identity and keep mechanics in game data. |
 | table | urizen-onebit-r36-c019 | furniture / table | author_metadata_visible_rgb_match / high | Render as table; preserve the source identity and keep mechanics in game data. |
+| trap | urizen-onebit-r21-c026 | trap | author_metadata_visible_rgb_match / high | Render as trap; preserve the source identity and keep mechanics in game data. |
 | tree | urizen-onebit-r08-c001 | flora / tree / oak | author_metadata_visible_rgb_match / high | Render as tree; preserve the source identity and keep mechanics in game data. |
 | tuft | urizen-onebit-r09-c004 | flora / grass; index=1 | author_metadata_visible_rgb_match / high | Render as tuft; preserve the source identity and keep mechanics in game data. |
 | urn | urizen-onebit-r47-c003 | urn | author_metadata_visible_rgb_match / high | Render as urn; preserve the source identity and keep mechanics in game data. |
