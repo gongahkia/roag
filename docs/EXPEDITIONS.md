@@ -26,7 +26,7 @@ Outside combat, O refills suits with one water per person, H treats the selected
 
 The first rescue introduces travel and return without a mandatory battle. After recruitment, a salvage site offers an encounter and a usable component. Bring it home, then use U to build suit service on powered deck for 24 metal, 4 crystal and 1 component. Powered service equips more oxygen-efficient suits and reveals a deeper signal.
 
-Below the surface, restore the pump with two carried water, cycle the seal, resolve the heavier encounter and recover another component. The pump's persistent water supply helps the shelter. This is a practical continuing loop, without a named fantasy relic quest or an explained origin for everything observed.
+Below the surface, restore the pump with two carried water, cycle the seal, resolve the heavier encounter and recover another component. The pump's persistent water supply helps the shelter and resolves three deep readings near the station. Back home, use Deep Workings to survey, construct a powered pressure annex/refuge, operate a rig and turn ore into reinforcement/components. The first readings use the existing colony map; drilling has three finite layers, without walking z-levels. Priorities, shifts and rest determine who can staff the mine or maintain the shelter; stranded/carrying/off-duty residents cannot depart. Reinforced suit service further improves oxygen savings to 50% on later departures.
 
 ## Inspect safely
 

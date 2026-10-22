@@ -274,6 +274,7 @@ public sealed partial class Simulation
     }
     private void RemoveMachine(Machine machine)
     {
+        if (JobAt(machine.Cell) is { Kind: WorkKind.Maintain or WorkKind.Extract or WorkKind.Fabricate or WorkKind.Deepen or WorkKind.Reinforce } job) Cancel(job);
         _machines.Remove(machine);
         _machinesByCell.Remove(machine.Cell);
         _machineVersion++;
@@ -361,6 +362,11 @@ public sealed partial class Simulation
         }
         else if (tool == Tool.Build)
         {
+            if (!Enum.IsDefined(blueprint)) return new(false, "Choose a valid blueprint.");
+            if (blueprint == ModuleKind.Drill && DepositAt(i) is not { Surveyed: true })
+                return new(false, "Build an extraction rig on a surveyed deep reading.");
+            if (blueprint == ModuleKind.Fabricator && Extraction is null)
+                return new(false, "Restore the pump below to identify deep ore first.");
             if (blueprint == ModuleKind.Rtg)
             {
                 return new(false, "The starter RTG cannot be manufactured here.");
@@ -418,7 +424,7 @@ public sealed partial class Simulation
 
         if (job.Reserved)
         {
-            Resources += job.Kind == WorkKind.Maintain ? job.MaintenanceCost : Blueprint.Get(job.Blueprint).Cost;
+            Resources += job.Kind == WorkKind.Build ? Blueprint.Get(job.Blueprint).Cost : job.MaintenanceCost;
         }
 
         if (job.Assigned is int id)
@@ -459,7 +465,7 @@ public sealed partial class Simulation
         int count = World.Neighbors(job.Cell, targets), result = 0;
         for (int n = 0; n < count; n++)
         {
-            if (World.Walkable(targets[n]))
+            if (World.Walkable(targets[n]) && (job.Kind is not (WorkKind.Extract or WorkKind.Fabricate) || World.Breathable(targets[n], .38f)))
             {
                 targets[result++] = targets[n];
             }
@@ -603,7 +609,7 @@ public sealed partial class Simulation
         Generated = Demand = Capacity = Charge = 0;
         foreach (var group in _groups)
         {
-            float supply = 0, stored = 0, used = 0;
+            float supply = 0, stored = 0, used = 0, capacity = 0;
             int banks = 0;
             foreach (var m in group.Members)
             {
@@ -620,6 +626,7 @@ public sealed partial class Simulation
                 else if (m.Kind == ModuleKind.Battery)
                 {
                     stored += m.Energy;
+                    capacity += BatteryCapacity(m);
                     banks++;
                 }
             }
@@ -627,7 +634,7 @@ public sealed partial class Simulation
             foreach (var m in group.Consumers)
             {
                 if (!Operational(m)) { m.Powered = false; continue; }
-                float draw = Blueprint.Get(m.Kind).Power;
+                float draw = PowerDraw(m);
                 Demand += draw;
                 m.Powered = used + draw <= available + .00001f;
                 if (m.Powered)
@@ -637,10 +644,10 @@ public sealed partial class Simulation
             }
             if (advance && banks > 0)
             {
-                float energy = Math.Clamp(stored + Math.Min(16, supply - used) * .05f, 0, 240 * banks);
+                float energy = Math.Clamp(stored + Math.Min(16, supply - used) * .05f, 0, capacity);
                 foreach (var m in group.Banks)
                 {
-                    if (Operational(m)) m.Energy = energy / banks;
+                    if (Operational(m)) m.Energy = energy * BatteryCapacity(m) / capacity;
                 }
             }
             Generated += supply;
@@ -649,7 +656,7 @@ public sealed partial class Simulation
         {
             if (m.Kind == ModuleKind.Battery && Operational(m))
             {
-                Capacity += 240;
+                Capacity += BatteryCapacity(m);
                 Charge += m.Energy;
             }
         }
@@ -681,9 +688,9 @@ public sealed partial class Simulation
             {
                 World.Heat[i] += .5f;
             }
-            else if (m.Kind == ModuleKind.Oxygen && Resources.Water >= .014f)
+            else if (m.Kind == ModuleKind.Oxygen && Resources.Water >= .014f * (m.Reinforced ? .65f : 1))
             {
-                Resources -= new Stock(0, .014f, 0, 0);
+                Resources -= new Stock(0, .014f * (m.Reinforced ? .65f : 1), 0, 0);
                 World.Oxygen[i] = Math.Min(1, World.Oxygen[i] + .24f * Efficiency(m));
                 World.Heat[i] += Math.Max(0, (26 - World.Heat[i]) * .12f);
             }
@@ -692,7 +699,7 @@ public sealed partial class Simulation
                 bool tended = false;
                 foreach (var c in Crew)
                 {
-                    if (c.Alive && c.Location == ResidentLocation.Home && c.Role == "Botanist" && World.Distance(c.Cell, i) <= 2)
+                    if (c.Alive && c.Location == ResidentLocation.Home && !c.Incapacitated && c.CarryingResidentId is null && c.Role == "Botanist" && World.Distance(c.Cell, i) <= 2)
                     {
                         tended = true;
                         break;
@@ -726,6 +733,7 @@ public sealed partial class Simulation
                 _pathBudget = 64;
                 UpdatePower(true);
                 Production();
+                IndustrialTick();
                 SurvivorTick();
                 int crewCount = Crew.Count;
                 int start = crewCount > 0 ? (int)((Tick * 64) % crewCount) : 0;
@@ -742,6 +750,7 @@ public sealed partial class Simulation
                 StoryTick();
                 if (StoryEnabled) UpdatePower();
                 Events();
+                IndustrialTick();
             }
         }
         finally { _insideTick = false; }

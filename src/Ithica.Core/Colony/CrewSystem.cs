@@ -102,7 +102,8 @@ public sealed partial class Simulation
         target[0] = survivor.Cell;
         foreach (var c in Crew)
         {
-            if (!c.Alive || c.Location != ResidentLocation.Home || (crewId is int requested && c.Id != requested) || c.Expedition is not null || c.Rest || c.Health < 40 || c.Energy < 25 || c.Suit < 65)
+            if (!c.Alive || c.Location != ResidentLocation.Home || (crewId is int requested && c.Id != requested) || c.Expedition is not null || c.Rest || c.Incapacitated
+                || c.CarryingResidentId is not null || c.BreakUntil > Tick || !OnShift(c) || c.Health < 40 || c.Energy < 25 || c.Suit < 65)
             {
                 continue;
             }
@@ -288,6 +289,7 @@ public sealed partial class Simulation
         Array.Clear(_candidates);
         int found = 0, chunkWidth = (World.Width + 15) / 16, chunkHeight = (World.Height + 15) / 16;
         int cx = World.X(c.Cell) / 16, cy = World.Y(c.Cell) / 16, maxRadius = Math.Max(chunkWidth, chunkHeight);
+        for (int priority = 1; priority <= 3 && found < 8; priority++)
         for (int radius = 0; radius < maxRadius && found < 8; radius++)
         {
             for (int y = Math.Max(0, cy - radius); y <= Math.Min(chunkHeight - 1, cy + radius); y++)
@@ -306,13 +308,13 @@ public sealed partial class Simulation
 
                     foreach (var j in list)
                     {
-                        if (j.Assigned is not null || j.RetryAfter > Tick)
+                        if (j.Assigned is not null || j.RetryAfter > Tick || WorkPriority(c, j) != priority || !WorkEligible(c, j))
                         {
                             continue;
                         }
 
-                        int score = World.Distance(c.Cell, j.Cell) - (Specialist(c, j) ? 10 : 0), slot = Math.Min(found, 7);
-                        while (slot > 0 && _candidates[slot - 1] is { } previous && score < World.Distance(c.Cell, previous.Cell) - (Specialist(c, previous) ? 10 : 0))
+                        int score = WorkScore(c, j), slot = Math.Min(found, 7);
+                        while (slot > 0 && _candidates[slot - 1] is { } previous && score < WorkScore(c, previous))
                         {
                             if (slot < 8)
                             {
@@ -321,7 +323,7 @@ public sealed partial class Simulation
 
                             slot--;
                         }
-                        if (found < 8 || slot < 7 || _candidates[7] is null || score < World.Distance(c.Cell, _candidates[7]!.Cell) - (Specialist(c, _candidates[7]!) ? 10 : 0))
+                        if (found < 8 || slot < 7 || _candidates[7] is null || score < WorkScore(c, _candidates[7]!))
                         {
                             _candidates[slot] = j;
                         }
@@ -347,15 +349,22 @@ public sealed partial class Simulation
             j.RetryAfter = Tick + 30;
         }
     }
-    private static bool Specialist(Colonist c, WorkOrder j) => (j.Kind == WorkKind.Dig && c.Role == "Miner") || (j.Kind is WorkKind.Build or WorkKind.Maintain && c.Role == "Engineer");
+    private static bool Specialist(Colonist c, WorkOrder j) => (j.Kind is WorkKind.Dig or WorkKind.Extract or WorkKind.Deepen && c.Role == "Miner")
+        || (j.Kind is WorkKind.Build or WorkKind.Maintain or WorkKind.Fabricate or WorkKind.Reinforce && c.Role == "Engineer")
+        || (j.Kind == WorkKind.Rescue && c.Role == "Medic");
 
     private void Complete(Colonist c, WorkOrder job)
     {
         int cell = job.Cell;
-        if (job.Kind == WorkKind.Survey)
+        if (job.Kind is WorkKind.Fabricate or WorkKind.Deepen or WorkKind.Reinforce or WorkKind.Rescue)
+        {
+            CompleteIndustrial(c, job);
+        }
+        else if (job.Kind == WorkKind.Survey)
         {
             World.Reveal(cell, 7);
             SurveyStoryReward(cell);
+            SurveyDeposit(cell);
             if (StoryEnabled && c.Disposition?.Likes == CrewValue.Discovery) Remember(c, "discovery", "I mapped ground nobody here knew.", 7);
             Event(c.Name + " surveyed a new sector.", NoticeLevel.Good);
         }
@@ -511,6 +520,8 @@ public sealed partial class Simulation
             c.Health -= .12f;
             c.Morale = Math.Max(0, c.Morale - .1f);
         }
+        // A stranded injury requires hands-on recovery; it cannot heal through remote home care.
+        if (c.Incapacitated) c.Health -= .08f;
         if (c.Hunger >= 35 && breathable && Resources.Food >= 2)
         {
             Resources -= new Stock(0, 0, 2, 0);
@@ -523,6 +534,7 @@ public sealed partial class Simulation
             c.Health = 0;
             c.Activity = "Lost";
             Release(c);
+            c.CarryingResidentId = null;
             if (c.Expedition is int id)
             {
                 EndExpedition(c, Expeditions[id], c.Name + "'s rescue expedition was lost.");
@@ -541,6 +553,8 @@ public sealed partial class Simulation
 
             return;
         }
+        if (c.Incapacitated) { c.Activity = "Stranded / awaiting resident rescue"; return; }
+        if (CarryTick(c)) return;
         if (c.Expedition is not null)
         {
             RescueTick(c);
@@ -565,7 +579,8 @@ public sealed partial class Simulation
             c.Rest = true;
             Release(c);
         }
-        if (c.BreakUntil > Tick) c.Rest = true;
+        bool offShift = !OnShift(c);
+        if (c.BreakUntil > Tick || offShift) { if (c.Job is not null) Release(c); c.Rest = true; }
         if (c.Rest)
         {
             RefreshSafety();
@@ -576,7 +591,7 @@ public sealed partial class Simulation
                 c.Health = Math.Min(100, c.Health + (HasMedicalCare(c.Cell) ? .24f : .04f));
                 c.Charge = Math.Min(40, c.Charge + 1);
                 c.Morale = Math.Min(100, c.Morale + .025f);
-                if (c.Energy >= 94 && c.BreakUntil <= Tick)
+                if (c.Energy >= 94 && c.BreakUntil <= Tick && !offShift)
                 {
                     c.Rest = false;
                 }
@@ -593,6 +608,9 @@ public sealed partial class Simulation
             }
             return;
         }
+        if (c.Job is int previousJob && _jobsById.TryGetValue(previousJob, out var active) && (!WorkEligible(c, active)
+            || Tick % 8 == c.Id % 8 && _jobs.Any(j => j.Assigned is null && j.RetryAfter <= Tick && WorkEligible(c, j) && WorkPriority(c, j) < WorkPriority(c, active))))
+            Release(c);
         if (c.Job is int jobId)
         {
             if (!_jobsById.TryGetValue(jobId, out var job))
@@ -604,15 +622,21 @@ public sealed partial class Simulation
                 c.Path.Clear();
                 c.PathCursor = 0;
                 if (StoryEnabled) c.WorkTicks = Math.Min(1000000, c.WorkTicks + 1);
-                bool preferred = StoryEnabled && (c.Disposition?.Likes == CrewValue.Craft && job.Kind is WorkKind.Build or WorkKind.Maintain
-                    || c.Disposition?.Likes == CrewValue.Discovery && job.Kind is WorkKind.Dig or WorkKind.Survey);
-                job.Progress += (Specialist(c, job) ? .56f : .34f) * (.7f + c.Morale / 200) * (preferred ? 1.08f : 1);
+                var group = GroupOf(job.Kind);
+                bool preferred = StoryEnabled && (c.Disposition?.Likes == CrewValue.Craft && group is WorkGroup.Construction or WorkGroup.Maintenance or WorkGroup.Industry
+                    || c.Disposition?.Likes == CrewValue.Discovery && group is WorkGroup.Mining or WorkGroup.Survey);
+                float progress = (Specialist(c, job) ? .56f : .34f) * (.7f + c.Morale / 200) * (preferred ? 1.08f : 1);
+                if (IndustrialWork(c, job, progress)) return;
+                job.Progress += progress;
                 c.Activity = job.Kind switch
                 {
                     WorkKind.Dig => MiningActivities[(int)World.Tiles[job.Cell]],
                     WorkKind.Build => BuildingActivities[(int)job.Blueprint],
                     WorkKind.Salvage => "Salvaging",
                     WorkKind.Maintain => "Servicing " + Blueprint.Get(job.Blueprint).Name.ToLowerInvariant(),
+                    WorkKind.Reinforce => "Reinforcing " + Blueprint.Get(job.Blueprint).Name.ToLowerInvariant(),
+                    WorkKind.Deepen => "Lowering the extraction shaft",
+                    WorkKind.Rescue => "Stabilizing injured worker",
                     _ => "Surveying"
                 };
                 if (job.Progress >= job.Required)

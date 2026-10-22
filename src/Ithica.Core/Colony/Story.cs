@@ -112,7 +112,7 @@ public sealed partial class Simulation
 
     private Incident? Candidate(IncidentDefinition d)
     {
-        var home = Crew.Where(c => c.Alive && c.Location == ResidentLocation.Home && c.Expedition is null).OrderBy(c => c.Id).ToArray();
+        var home = Crew.Where(c => c.Alive && c.Location == ResidentLocation.Home && c.Expedition is null && !c.Incapacitated && c.CarryingResidentId is null).OrderBy(c => c.Id).ToArray();
         var incident = new Incident { DefinitionId = d.Id, OpenedAt = Tick, DueAt = Tick + d.Warning };
         Machine? machine = null;
         switch (d.Id)

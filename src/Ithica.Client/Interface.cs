@@ -75,6 +75,7 @@ public sealed partial class IthicaGame
         }
 
         if (cost.Components > 0) text += $" + {cost.Components:0} component";
+        if (cost.Ore > 0) text += $" + {cost.Ore:0} deep ore";
         return text;
     }
     private void StatCard(Rectangle r, string title, string value, string icon, Color color)
@@ -195,6 +196,7 @@ public sealed partial class IthicaGame
         Fill(_eventArea, Surface);
         Text("MISSION LOG", _eventArea.X + 14, _eventArea.Y + 10, Muted, .8f);
         if (Button(new(_eventArea.X + 132, _eventArea.Y + 4, 160, 32), $"REPORTS ({_sim.Story?.Pending.Count ?? 0})", tooltip: "Read station messages, warnings and work reports [I]")) { _modal = "incidents"; _incidentIndex = 0; }
+        if (Button(new(_eventArea.X + 302, _eventArea.Y + 4, 140, 40), "DEEP WORKINGS", tooltip: "Deposits, ore, industrial expansion and stranded workers")) _modal = "deposits";
         if (Button(new(_eventArea.Right - 110, _eventArea.Y + 4, 102, 40), "OPEN LOG", tooltip: "Open the full event log [E]"))
         {
             _panel = "log";
@@ -337,6 +339,9 @@ public sealed partial class IthicaGame
             y += 50;
             if (Button(new((int)x, (int)y, (int)w, 42), "PERSONAL FILE / MEMORIES")) _modal = "resident";
             y += 50;
+            if (Button(new((int)x, (int)y, (int)w, 42), "WORK / SHIFTS / REST")) _modal = "work";
+            y += 50;
+            if (c.Incapacitated && Button(new((int)x, (int)y, (int)w, 42), "QUEUE RESIDENT RESCUE")) QueueUI(() => Message(_campaign.OrderResidentRescue(c.Id)));
         }
         else
         {
@@ -361,7 +366,15 @@ public sealed partial class IthicaGame
                     if (Simulation.Serviceable(m) && Button(new((int)x, (int)y, (int)w, 40), "QUEUE SERVICE [M]", enabled: _sim.JobAt(cell) is null && (m.Condition < 99 || m.Health < 99 || m.Fault != MachineFault.None), tooltip: "2 metal for upkeep; 6 metal + 1 crystal for a major repair. A resident must finish the work."))
                         QueueUI(() => Message(_campaign.OrderMaintenance(cell)));
                     y += 50;
+                    if (Simulation.Serviceable(m) && Button(new((int)x, (int)y, (int)w, 40), "OPERATIONS / UPGRADES")) _modal = "industry";
+                    y += 48;
                     y += Wrap(Blueprint.Get(m.Kind).Description, x, y, w, Ink, .9f) + 12;
+                }
+                else if (_sim.DepositAt(cell) is { } deposit)
+                {
+                    y += Wrap(deposit.Surveyed ? $"DEEP DEPOSIT / DEPTH {deposit.Depth}\n{deposit.Remaining} ore remains. Build a rig here after extending power and breathable refuge." : "DEEP READING / Queue a survey on this cell to assess the deposit.", x, y, w, Amber, .9f) + 12;
+                    if (Button(new((int)x, (int)y, (int)w, 40), "DEEP WORKINGS")) _modal = "deposits";
+                    y += 48;
                 }
                 if (_sim.JobAt(cell) is { } job)
                 {
@@ -412,7 +425,7 @@ public sealed partial class IthicaGame
             y = Math.Max(y + 12, _sidebar.Bottom - 128);
             Text("NEXT", x, y, Muted, .8f); y += 24;
             y += Wrap(_campaign.Objective, x, y, w, Ink, .85f) + 12;
-            Text($"COMPONENTS / {_sim.Resources.Components:0}", x, y, Amber, .85f);
+            Text($"COMPONENTS {_sim.Resources.Components:0} / DEEP ORE {_sim.Resources.Ore:0}", x, y, Amber, .85f);
         }
     }
     private void CheckLine(bool done, string label, float x, float y)
@@ -444,6 +457,9 @@ public sealed partial class IthicaGame
         new("SOMETHING USEFUL", "Salvage outside can change what is possible at home.",
             "Recover a component from the salvage site and return it. B opens ordinary blueprints; U selects suit service. Build it on connected deck for 24 metal, 4 crystal and 1 component. Powered service equips more efficient suits and reveals another signal.",
             "Hull holds air; deck connects power. O shows pressure, heat and power.", "key-b"),
+        new("BUILD BEYOND THE SHELTER", "Deep ore makes safer machines possible. Every rig commits power and people.",
+            "Restore the pump below, then open Deep Workings. Survey a reading and build a rig on powered deck inside a breathable room, with a nearby sleeping pod. Operations / Upgrades controls production and repairs. Set resident priorities and shifts under Work / Shifts / Rest. Cautious drilling stops at 50% condition; worn equipment can strand its operator.",
+            "Use ore to reinforce machines or fabricate components. Another resident must recover an injured operator.", "key-b"),
         new("LEAVE SOME QUESTIONS OPEN", "There are marks below the dust. You do not yet know who left them.",
             "O refills field suits using carried water; H treats the selected resident, C rests, and T suppresses nearby interference. These actions spend time and supplies. I opens station messages and warnings; M queues service on a selected machine. F2 opens the sprite atlas. F5 saves and F9 loads the WHOLE campaign in either phase.",
             "T reopens this guide at home; F1 outside. Q saves and quits.", "key-s")
@@ -497,9 +513,10 @@ public sealed partial class IthicaGame
             Text("BUILD A FUTURE", r.X + 30, r.Y + 26, Ink, 1.7f);
             Text("SELECT A BLUEPRINT / MATERIALS ARE RESERVED ON PLACEMENT", r.X + 30, r.Y + 66, Muted, .8f);
             int cardW = (w - 72) / 2;
-            for (int n = 0; n < 10; n++)
+            var choices = _buildPage == 0 ? Blueprint.All.Take(10).ToArray() : Blueprint.All.Skip(11).ToArray();
+            for (int n = 0; n < choices.Length; n++)
             {
-                var bp = Blueprint.All[n];
+                var bp = choices[n];
                 var box = new Rectangle(r.X + 30 + (n % 2) * (cardW + 12), r.Y + 104 + (n / 2) * 88, cardW, 78);
                 if (Button(box, "", selected: _tool == Tool.Build && _blueprint == bp.Kind, modal: true, tooltip: bp.Description))
                 {
@@ -507,12 +524,14 @@ public sealed partial class IthicaGame
                 }
 
                 _sprites.Fit(_batch, bp.Sprite, new(box.X + 12, box.Y + 18, 34, 34), _sim.Resources.Covers(bp.Cost) ? Accent : Muted);
-                Text($"{(n + 1) % 10}  {bp.Name.ToUpperInvariant()}", box.X + 58, box.Y + 12, Ink, .9f);
+                Text(($"{(_buildPage == 0 ? ((n + 1) % 10).ToString() + "  " : "")}{bp.Name.ToUpperInvariant()}"), box.X + 58, box.Y + 12, Ink, .9f);
                 Text(Cost(bp.Cost), box.X + 58, box.Y + 37, _sim.Resources.Covers(bp.Cost) ? Muted : Danger, .8f);
                 Text(bp.Power > 0 ? $"{bp.Power:0} KW REQUIRED" : bp.Kind == ModuleKind.Solar ? "UP TO 12 KW" : "PASSIVE", box.X + 58, box.Y + 56, Muted, .7f);
             }
-            Text("U: SUIT SERVICE / 1 COMPONENT + 24 METAL + 4 CRYSTAL", r.X + 30, r.Bottom - 78, Amber, .8f);
-            if (Button(new(r.X + 30, r.Bottom - 55, 360, 40), "U  SUIT SERVICE", modal: true, enabled: _sim.Resources.Covers(Blueprint.Get(ModuleKind.SuitRack).Cost))) ChooseBlueprint(ModuleKind.SuitRack);
+            if (_buildPage == 1) Wrap("Restore the pump below, then survey a deep reading. Build an enclosed extension with connected deck, life support and a sleeping pod. Rigs need 8 kW initially; deeper layers need 12 and 16 kW. Workers must be on shift with Mining enabled.", r.X + 30, r.Y + 310, w - 60, Muted, .95f);
+            Text("BLUEPRINTS / PAGE " + (_buildPage + 1) + " OF 2", r.X + 30, r.Bottom - 78, Amber, .8f);
+            if (Button(new(r.X + 30, r.Bottom - 55, 260, 40), "U  SUIT SERVICE", modal: true, enabled: _sim.Resources.Covers(Blueprint.Get(ModuleKind.SuitRack).Cost))) ChooseBlueprint(ModuleKind.SuitRack);
+            if (Button(new(r.X + 300, r.Bottom - 55, 230, 40), _buildPage == 0 ? "INDUSTRIAL BLUEPRINTS" : "STATION BLUEPRINTS", modal: true)) _buildPage = 1 - _buildPage;
             if (Button(new(r.Right - 154, r.Bottom - 55, 124, 40), "CLOSE", modal: true))
             {
                 _modal = "";

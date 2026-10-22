@@ -8,13 +8,13 @@ public enum Terrain : byte
 }
 public enum ModuleKind : byte
 {
-    Wall, Floor, Airlock, Solar, Battery, Oxygen, Farm, Bunk, Medbay, Beacon, Rtg, SuitRack
+    Wall, Floor, Airlock, Solar, Battery, Oxygen, Farm, Bunk, Medbay, Beacon, Rtg, SuitRack, Drill, Fabricator
 }
 public enum ResidentLocation : byte { Home, Field }
 
 public enum WorkKind : byte
 {
-    Dig, Build, Salvage, Survey, Maintain
+    Dig, Build, Salvage, Survey, Maintain, Extract, Fabricate, Deepen, Reinforce, Rescue
 }
 public enum Tool : byte
 {
@@ -34,15 +34,15 @@ public enum NoticeLevel : byte
 }
 
 public readonly record struct Result(bool Success, string Message);
-public readonly record struct Stock(float Metal, float Water, float Food, float Crystal, float Components = 0)
+public readonly record struct Stock(float Metal, float Water, float Food, float Crystal, float Components = 0, float Ore = 0)
 {
-    public static Stock operator +(Stock a, Stock b) => new(a.Metal + b.Metal, a.Water + b.Water, a.Food + b.Food, a.Crystal + b.Crystal, a.Components + b.Components);
-    public static Stock operator -(Stock a, Stock b) => new(a.Metal - b.Metal, a.Water - b.Water, a.Food - b.Food, a.Crystal - b.Crystal, a.Components - b.Components);
-    public static Stock operator *(Stock a, float n) => new(a.Metal * n, a.Water * n, a.Food * n, a.Crystal * n, a.Components * n);
-    public bool Covers(Stock cost) => Metal >= cost.Metal && Water >= cost.Water && Food >= cost.Food && Crystal >= cost.Crystal && Components >= cost.Components;
+    public static Stock operator +(Stock a, Stock b) => new(a.Metal + b.Metal, a.Water + b.Water, a.Food + b.Food, a.Crystal + b.Crystal, a.Components + b.Components, a.Ore + b.Ore);
+    public static Stock operator -(Stock a, Stock b) => new(a.Metal - b.Metal, a.Water - b.Water, a.Food - b.Food, a.Crystal - b.Crystal, a.Components - b.Components, a.Ore - b.Ore);
+    public static Stock operator *(Stock a, float n) => new(a.Metal * n, a.Water * n, a.Food * n, a.Crystal * n, a.Components * n, a.Ore * n);
+    public bool Covers(Stock cost) => Metal >= cost.Metal && Water >= cost.Water && Food >= cost.Food && Crystal >= cost.Crystal && Components >= cost.Components && Ore >= cost.Ore;
     [JsonIgnore]
     public bool Valid => float.IsFinite(Metal) && float.IsFinite(Water) && float.IsFinite(Food) && float.IsFinite(Crystal)
-                                  && float.IsFinite(Components) && Metal >= 0 && Water >= 0 && Food >= 0 && Crystal >= 0 && Components >= 0;
+                                  && float.IsFinite(Components) && float.IsFinite(Ore) && Metal >= 0 && Water >= 0 && Food >= 0 && Crystal >= 0 && Components >= 0 && Ore >= 0;
 }
 
 public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float Work, float Power, string Description, string Sprite)
@@ -59,13 +59,17 @@ public sealed record Blueprint(ModuleKind Kind, string Name, Stock Cost, float W
         new(ModuleKind.Medbay, "Med station", new(20,0,0,6), 12, 2, "Treats nearby resting colonists when supplied with 2 kW.", "medbay"),
         new(ModuleKind.Beacon, "Earth uplink", new(60,0,0,20), 24, 5, "Send the founding charter once your colony is ready.", "beacon"),
         new(ModuleKind.Rtg, "Radioisotope generator", default, 0, -12, "The outpost's reliable 12 kW starter generator.", "rtg"),
-        new(ModuleKind.SuitRack, "Suit service", new(24,0,0,4,1), 16, 2, "A recovered component equips suits to use 35% less oxygen on their next departure. Opens a deeper signal.", "medbay")
+        new(ModuleKind.SuitRack, "Suit service", new(24,0,0,4,1), 16, 2, "A recovered component equips suits to use 35% less oxygen on their next departure. Opens a deeper signal.", "medbay"),
+        new(ModuleKind.Drill, "Extraction rig", new(24,0,0,4), 18, 8, "Build on a surveyed deep deposit. Needs a worker, breathable refuge and 8/12/16 kW at depths 1/2/3. Worn equipment can injure its operator.", "rtg"),
+        new(ModuleKind.Fabricator, "Component fabricator", new(24,0,0,4,1), 18, 5, "A worker turns 4 deep ore, 4 metal and 2 crystal into one component. Needs pressure and 5 kW.", "beacon")
     ];
     public static Blueprint Get(ModuleKind kind) => All[(int)kind];
 }
 
 public sealed class Machine
 {
+    public bool Enabled { get; set; } = true;
+    public bool Reinforced { get; set; }
     public float Condition { get; set; } = 100;
     public MachineFault Fault { get; set; }
     public int Id
@@ -97,6 +101,7 @@ public sealed class Machine
 
 public sealed class WorkOrder
 {
+    public int? TargetResidentId { get; set; }
     public Stock MaintenanceCost { get; set; }
     public int Id
     {
@@ -138,6 +143,9 @@ public sealed class WorkOrder
 
 public sealed class Colonist
 {
+    public CrewWorkSettings Work { get; set; } = new();
+    public bool Incapacitated { get; set; }
+    public int? CarryingResidentId { get; set; }
     public CrewDisposition? Disposition { get; set; }
     public List<CrewMemory> Memories { get; set; } = [];
     public List<CrewBond> Bonds { get; set; } = [];

@@ -33,7 +33,8 @@ The normal window is 1440×900, resizable down to 1024×720. Use `--window-size 
 3. Move with WASD/arrows or clicks. E interacts, Space waits. Every accepted action spends logical time; thinking spends none. Share supplies with the stranded person, then escort them to the return approach.
 4. Dismiss the paused arrival report. The survivor becomes a resident in breathable shelter and needs food, sleep and recovery. The same people can later work at home or leave together.
 5. Visit the newly available salvage site. Read enemy intentions, use 1–6 and click targets, recover a component and bring it home. U selects **suit service**, built on connected deck for 24 metal, 4 crystal and 1 component.
-6. Powered suit service equips more efficient suits and reveals a deeper signal. Repair useful equipment there while keeping the shelter alive. A failed return leaves carried salvage recoverable at its site.
+6. Powered suit service equips more efficient suits and reveals a deeper signal. Restore the pump there to supply water and identify deep deposits near the station. A failed return leaves carried salvage recoverable at its site.
+7. Open **Deep Workings**, survey a reading, then extend power and an enclosed breathable refuge with a sleeping pod. Build a rig on the deposit, assign workers, and use deep ore for reinforcement and component fabrication. Lower exhausted rigs for deeper layers and greater power/wear demands.
 
 D designates mining/salvage; B opens ordinary construction; P surveys; X cancels and refunds; V starts a rectangle. C shows residents, O cycles home overlays, and R locates distress. Outside, O refills suits, H treats a selected resident, C rests and T suppresses nearby exposure. These actions use supplies and time. [Full controls and current rules](docs/PROJECT_STATE.md#controls).
 
@@ -48,6 +49,10 @@ F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the compl
 ./ithica.sh --scene atlas
 ./ithica.sh --scene incidents --seed 2
 ./ithica.sh --scene resident
+./ithica.sh --scene work
+./ithica.sh --scene mining
+./ithica.sh --scene industry
+./ithica.sh --extraction-check --seed 42
 ./ithica.sh --story-check
 ./ithica.sh --headless
 ./ithica.sh --validate-seeds 1000 --seed -500
@@ -55,7 +60,7 @@ F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the compl
 ./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
 ```
 
-I opens station messages, warnings and work reports. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust.
+I opens station messages, warnings and work reports. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust. **Work / Shifts / Rest** sets priorities, duty hours, protected rest and drilling safety. A selected module’s **Operations / Upgrades** controls production, power, repairs and reinforcement; B → **Industrial Blueprints** selects rigs and fabricators. Cautious drilling stops before dangerous wear; permitting worn equipment can injure an exhausted operator and require another resident to carry them to safety.
 
 Surface terrain uses warped Perlin-style noise and craters; underground areas use branching BSP chambers with protected objectives. Existing saves retain their maps and recorded generation version. The SVG export is an internal comparison tool.
 
@@ -69,7 +74,7 @@ python3 tools/build_game_catalog.py --check
 ./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/ithica
 ```
 
-Core rules, generation and saves have no graphics dependency. [Architecture](docs/ARCHITECTURE.md) describes ownership; [performance](docs/PERFORMANCE.md) records workloads and limits. The current game has finite persistent sites, aggregate inventory and overlapping people; hauling, z-levels, rich social behavior and tactical movement remain future work.
+Core rules, generation and saves have no graphics dependency. [Architecture](docs/ARCHITECTURE.md) describes ownership; [performance](docs/PERFORMANCE.md) records workloads and limits. The current game has finite persistent sites and drilling layers, aggregate inventory and overlapping people; hauling, walking z-levels, rich social behavior and tactical movement remain future work.
 
 ## Art and tools
 

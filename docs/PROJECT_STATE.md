@@ -1,6 +1,6 @@
 # Ithica: project state and agent reference
 
-**Last reconciled: 2026-10-21.** This is the master source of truth for the implemented game, its rules and limits, data ownership and verification. Read it before changing the project. Update this document alongside affected behavior, content, formats or tooling. Source code and authored configuration implement behavior; catalog ideas remain proposals.
+**Last reconciled: 2026-10-22.** This is the master source of truth for the implemented game, its rules and limits, data ownership and verification. Read it before changing the project. Update this document alongside affected behavior, content, formats or tooling. Source code and authored configuration implement behavior; catalog ideas remain proposals.
 
 **Ithica is one playable C# / MonoGame lunar salvage colony game.** Start with one colonist, rescue people through controlled expeditions, bring the same residents home, recover useful components and build improvements that change later trips. The Moon remains recognizable; names and explanations stay sparse. The old fantasy RPG and Python prototypes remain explicit compatibility/regression references.
 
@@ -14,6 +14,7 @@
 - [Time contract](#time-contract)
 - [People supplies and recovery](#people-supplies-and-recovery)
 - [Colony systems](#colony-systems)
+- [Extraction and work assignments](#extraction-and-work-assignments)
 - [Station pressure and community](#station-pressure-and-community)
 - [Sites generation and hazards](#sites-generation-and-hazards)
 - [Field roles and encounters](#field-roles-and-encounters)
@@ -40,7 +41,9 @@
 | Site registry | Initial distress site; salvage after a rescue; deeper signal after powered suit service; additional distress sites arrive over time |
 | Enemies | 3 lunar stat/name variants using 2 appearances; 2 encounter templates |
 | Field abilities | 4 roles × 3 skills, plus guard, medical kit and retreat |
-| Colony modules | 12 definitions, 11 buildable; RTG is starter-only; suit service needs a recovered component |
+| Colony modules | 14 definitions, 13 buildable; RTG is starter-only; suit service/fabricator each need a recovered component |
+| Extraction | Pump discovery → 3 surveyable station deposits → powered pressure/refuge extensions → 3 finite layers per deposit → deep ore, reinforcement and component fabrication |
+| Work assignments | Six priorities per resident, five shift options, protected rest and cautious/worn drilling policies; actual worker recovery/carrying |
 | Station pressure | Usage/exposure wear, three repairable fault types, paid resident service jobs and prevention deadlines |
 | Community | Persistent preferences, bounded memories, directional trust, unequal-work disputes, protected breaks and reconciliation |
 | Incidents | 12 authored definitions / 24 responses across 8 families; hidden saved pacing, warnings, cooldowns and follow-ups |
@@ -49,7 +52,7 @@
 | Current sprite selection | 166 IDs including font/UI; 14 explicit field aliases/IDs; 75 additional preview-only IDs |
 | Catalog | Schema 5: generic artwork metadata/measured colors for every region; separate current/preview usage and preserved source evidence; all occupied artwork inspected; neutral offline/native queries verified |
 | Focused Urizen review | 104 preserved individual crop observations; no claim of a new manual identification of every sprite |
-| Tutorial / viewer | 6 sectioned lessons; full atlas with neutral search, filters/sort, evidence and optional game notes |
+| Tutorial / viewer | 7 sectioned lessons; full atlas with neutral search, filters/sort, evidence and optional game notes |
 | Verification | See the dated verification record below; historical prototype measurements remain separately identified |
 
 The combined loop is implemented. Larger armies, an endless world, physical hauling, z-levels and a rich social simulation are not part of this delivery.
@@ -90,6 +93,9 @@ The default window is 1440×900, minimum 1024×720. `--window-size 1024x720`, `-
 4. Share supplies with the stranded person, recover salvage or restore useful equipment. Return through the site's return approach.
 5. Deposit cargo and unused supplies once, recruit a living escort only in breathable shelter, and retain injuries/fatigue. Read the paused arrival report, then resume the previous colony pause/speed state.
 6. Use an actual recovered component to construct powered suit service. It equips departing residents to use 35% less suit oxygen and reveals the next signal. Below, a paid pump repair opens a seal and supplies home with water.
+7. Restoring that pump reveals three deep readings near the station. Survey a reading, extend connected deck and build an enclosed refuge, life support and an extraction rig.
+8. Assign mining, maintenance and industry priorities and shifts. Extract finite deep ore, reinforce station systems, and fabricate replacement components; lower exhausted rigs for greater power/wear commitments.
+9. Preventive service and cautious drilling avoid operator injuries. Allowing worn drilling can strand a tired resident; another resident must stabilize and carry them to breathable shelter.
 
 The first rescue supports Ada alone and has no mandatory battle. The first salvage encounter and component are a separate outing. Residents away cannot also work or tend farms at home. An empty shelter still runs machines; a living person outside counts toward survival.
 
@@ -153,8 +159,42 @@ The home retains seeded geology, mining/salvage/survey and rectangular orders; r
 | Earth uplink | Retained optional colony charter module, 60 metal + 20 crystal, 5 kW |
 | RTG | Reliable 12 kW starter generator; cannot be manufactured |
 | Suit service | 24 metal + 4 crystal + 1 component, 2 kW; improved field oxygen efficiency on departure and deeper-site discovery |
+| Extraction rig | 24 metal + 4 crystal, 18 work; surveyed deposit, pressure, refuge and worker; 8/12/16 kW at depth 1/2/3 |
+| Component fabricator | 24 metal + 4 crystal + 1 component, 18 work; 5 kW and breathable pressure; a paid worker recipe produces components from deep ore |
 
-The optional retained charter requires 3 rescues, cycle 3, 4 living crew, 20 food and a powered pressurized uplink. It is not the combined game's first-loop objective or a required ending. Stock includes metal, water, food, crystal and components. Delivery is abstract; there is no hauling or collision reservation, and people may share cells.
+The optional retained charter requires 3 rescues, cycle 3, 4 living crew, 20 food and a powered pressurized uplink. It is not the combined game's first-loop objective or a required ending. Stock includes metal, water, food, crystal, components and deep ore. Delivery is abstract; there is no hauling or collision reservation, and people may share cells.
+
+## Extraction and work assignments
+
+Implemented in [Extraction.cs](../src/Ithica.Core/Colony/Extraction.cs), [Workforce.cs](../src/Ithica.Core/Colony/Workforce.cs) and [IndustryPersistence.cs](../src/Ithica.Core/Colony/IndustryPersistence.cs). This is physical expansion on the existing colony map, with finite abstract drilling layers; it does not add walking z-levels or remote autonomous mines.
+
+**Discovery and support.** Restoring the below-site pump resolves three readings at offsets (+12,+6), (-12,-6), (+4,+8) from the home center. These initial prospects are fixed within the original cleared apron, independently of the terrain RNG. They are persisted, never regenerated or used to overwrite player terrain. A completed `Survey` order on the exact reading identifies its deposit. Mine existing surface rock first if necessary; an extraction rig then needs deck on that surveyed cell. No ore is awarded merely for discovery, construction or elapsed machine time.
+
+A working rig needs connected **8/12/16 kW** at depth **1/2/3**, local breathable pressure above .45, temperature 0–46 C, and a sleeping pod reachable within **six steps through breathable safe deck** (pod pressure above .5). Its operator must stand on adjacent breathable deck. This makes enclosure, life support, doors, power routing and actual travel relevant. Rigs/fabricators draw power while enabled even if awaiting a worker; their switch releases the load without canceling work/reservations. Life support and food retain higher electrical priority. Support loss preserves partial work; restoring it lets eligible workers resume.
+
+**Finite production and progression.** Each of the three deposits contains layers of **24, 48 and 72 ore** (144 total per deposit). Extraction takes **36/48/60 work** per batch and yields **4/6/8 deep ore plus the same amount of metal**, clamped to remaining stock. It uses the same resident work, morale, specialization, preferences, needs and pathfinding as construction. Exhaustion ends the extraction order. A paid **24-work** lowering order opens the next layer for **8 metal + 2 crystal**, then **16 metal + 4 crystal**; it requires working support and condition at least 50. Depth three has no fourth layer. This is deliberately bounded progression.
+
+| Use of deep ore | Reserved price and labor | Result |
+| --- | --- | --- |
+| Component fabrication | 4 ore + 4 metal + 2 crystal; 24 work on a supported fabricator | One component, once per order; none while unstaffed/offline |
+| Module reinforcement | 4 ore + 6 metal + 1 crystal; 18 work adjacent to a serviceable module | Half baseline/active drilling wear; does not substitute for a repair |
+| Reinforced life support | Same reinforcement order | Also uses 35% less production water |
+| Reinforced battery | Same reinforcement order | Also holds 360 instead of 240; mixed banks share charge by capacity |
+| Reinforced suit service | Same reinforcement order | Also equips departures for 50% rather than 35% oxygen savings |
+
+Paid jobs reserve exact inputs and refund once on cancellation or destroyed targets. Fabrication is an explicit single-component order. Service interrupts an active extraction order; restart drilling after repair. Industrial commands and staffing changes take no logical time or RNG; actual work advances only through campaign ticks.
+
+**Staffing.** Each living resident has priorities **0 disabled / 1 first / 2 normal / 3 last** for construction, mining, maintenance, survey, industry and rescue. Defaults are normal, with rescue first. Higher enabled priorities are considered before proximity/specialization; every eight ticks an available higher-priority order can interrupt lower-priority work. Changing priorities releases current work while retaining its progress and reservations. An unreachable urgent order receives the existing route retry delay.
+
+Shifts use the same 480-tick cycle: **Flexible** works as fit (historical default); **Day** works ticks 000–239; **Night** 240–479; **Extended** 000–399; **Rest** stays off duty. Off-duty residents release jobs and seek rest. Automatic exhaustion/safety and protected incident/player breaks take precedence. The roster can assign **120 ticks of protected rest** (Core supports 24–480). Changes to scheduling do not erase fatigue or health needs. Off-duty, protected-rest, stranded and carrying residents cannot depart on expeditions. An ongoing carry completes before a scheduled break. Away residents still perform no local work/care; staffing commands are gated to the home phase.
+
+**Preventable injury and recovery.** Active drilling adds **.13 + .04 × depth condition loss per work tick**, halved by reinforcement, and **.08 × depth extra energy loss**. The rig warns when crossing 60% condition. Cautious operators stop below **50%** and can queue paid service. The deliberate worn-equipment override permits continued work: at **25% condition**, or below **50% with operator energy below 35**, the rig jams, stops and injures/strands the operator. The injured resident and colleagues remember the unsafe work. Extended actual work can also create existing overwork memories/disputes. There is no random injury roll or unavoidable catch-up escalation in this chain.
+
+A stranded resident cannot work, receive local healing, travel or rescue themselves, and loses .08 health per tick in addition to normal environmental/need damage. Queue recovery for **2 metal + 1 water**. Another available resident with Rescue enabled must reach them, spend **9 work** stabilizing them, then physically carry them along the home route to safe pressure. Carrying consumes extra energy, preserves resident identity/location and is saved mid-route. Arrival stabilizes health to at least 20, assigns rest, forms rescue memories and improves mutual trust; it does not repair the rig. If the carrier dies, the injured person remains recoverable where they were dropped. Failed/dead-target recovery orders refund once. Thinking in a field decision or an open panel freezes these consequences too.
+
+**Player access.** The **Deep Workings** button opens readings, ore/component stock, locate/survey/build actions and stranded-worker recovery. A selected module's **Operations / Upgrades** panel controls extraction, lowering, fabrication, power, service, reinforcement and cancel/refund. Select a resident → **Work / Shifts / Rest** (also accessible from their personal file). B → **Industrial Blueprints** exposes suit service, rig and fabricator. All these panels hold time; gameplay clicks queue mutations for Update. Original artwork/catalog mappings are unchanged; the rig/fabricator reuse existing module bindings.
+
+`./ithica.sh --extraction-check --seed 42` uses ordinary commands to complete the first expeditions, survey, resource mining, a separate pressure annex, staffed extraction, battery reinforcement and component fabrication, then checks exact saved state. `--scene work`, `--scene mining` and `--scene industry` inspect these controls in fresh, non-autosaving scenes. The walkthrough is deterministic acceptance evidence, not a manual balance/fun assessment.
 
 ## Station pressure and community
 
@@ -244,6 +284,7 @@ The retained preview has four fixed fantasy companions, 12 class skills plus 3 s
 | Colony time | Space pause; 1/2/3 speed; period advances one paused tick |
 | Colony work | D mine/salvage, B ordinary construction, U suit service, P survey, X cancel; V rectangle |
 | Station pressure | I station reports (also readable outside); M service selected module; personal file button after selecting a resident |
+| Expansion / workforce | Deep Workings button; selected module → Operations / Upgrades; selected resident → Work / Shifts / Rest; B → Industrial Blueprints |
 | Colony inspection | Arrows/HJKL cursor, Shift stride; C manifest, E log, O overlays, G home, F follow |
 | Expedition movement | WASD/arrows; click seen terrain or an object to route/approach; Esc stops |
 | Expedition interactions | E/Enter interact, Space/period wait, R return at the return approach |
@@ -284,7 +325,7 @@ Worlds use contiguous row-major arrays and reusable diffusion/BFS buffers. Work 
 | Legacy fantasy preview | `~/.regolith/lantern.json`, `lantern-rpg`, versions 1/2 |
 | Archived Python | `~/.regolith/colony.json`, separate Python format |
 
-Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Site records include generator version (missing historical values mean version 2); literal saved maps retain their original terrain and generator report. Additive nested-home fields retain machine condition/faults, exact service reservations, resident disposition/work/breaks/memories/trust, and version-1 director RNG/budget/pacing, pending targets/deadlines, bounded 64-entry history, cooldowns and outstanding follow-ups. Historical saves without these fields initialize healthy condition and deterministic profiles/director without advancing time or consuming the original RNG. Current saves validate all new ranges, references and target shapes. Older application builds are not promised to understand new service orders. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
+Unified snapshots include colony arrays/work/power/contacts/roster, clock/pause/speed/remainder, phase, registry and generated site maps, active party IDs, conditions, packed stock/cargo, encounter order/status, completion state and independent RNG. Site records include generator version (missing historical values mean version 2); literal saved maps retain their original terrain and generator report. Additive nested-home fields retain machine condition/faults, exact service reservations, resident disposition/work/breaks/memories/trust, and version-1 director RNG/budget/pacing, pending targets/deadlines, bounded 64-entry history, cooldowns and outstanding follow-ups. Historical saves without these fields initialize healthy condition and deterministic profiles/director without advancing time or consuming the original RNG. Current saves validate all new ranges, references and target shapes. Additive version-1 extraction state saves the three readings, survey/depth/reserves/total production; machine power switches/reinforcement, deep ore stock, industrial/recovery reservations, per-resident priorities/shifts/risk policy, incapacitation and carrying references also persist. Historical missing fields mean no extraction discovery, zero ore, enabled/unreinforced machines and flexible/default work; the restored pump reveals readings on the next shared tick if needed. Job/resident assignments, recipes, layer conservation, support modules and carry targets are validated. No maps or RNG are regenerated. Older application builds are not promised to understand new service/industrial orders. Writes flush a temporary file then replace atomically. Validation checks phase/location/roster/projection consistency and map/encounter integrity. Loading does not regenerate saved maps.
 
 `./ithica.sh --import-colony PATH` imports an inactive legacy colony into a new campaign; finish its automated legacy rescues first. It preserves source world, people, resources, clock and RNG, reads without changing the source, and writes only the selected Ithica save. It does not merge an unrelated fantasy campaign. Original save identifiers, historical SDK lookup and `LegacyWorldBuilder` remain intentional compatibility code.
 
@@ -332,6 +373,7 @@ The acceptance record and commands are maintained in [VERIFICATION.md](VERIFICAT
 ./tools/dotnet.sh build Ithica.sln --configuration Release --no-restore
 ./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
 ./ithica.sh --headless
+./ithica.sh --extraction-check --seed 42
 ./ithica.sh --validate-seeds 1000 --seed -500
 ./ithica.sh --generation-report --seed 42
 ./ithica.sh --export-generation artifacts/lunar-gallery.svg --seed 42 --samples 4
@@ -371,7 +413,7 @@ Balance values are current implementation choices. New biomes/enemies, permanent
 
 **User direction recorded: 2026-10-20; first milestone implemented 2026-10-21 above. The wider requirements below remain a roadmap.** Ithica should become a lunar colony survival simulation with stronger operational pressure and a detailed internal society. Expansion, deeper mining, drones and attacks should interact with residents' preferences, relationships and disputes. The name's kingdom/community association is an intent to make governing the people matter alongside keeping the station alive. The independent fantasy party RPG belongs to Vagabonds.
 
-The implemented foundation now includes pressure/temperature/fire, power networks, construction/mining, needs, field hazards, usage/exposure wear, paid service jobs, an adaptive incident director and initial persistent preferences/memories/trust/disputes. Deep strata, deployable drones, colony raids/defenses, detailed relationships and a large event library remain unimplemented.
+The implemented foundation now includes pressure/temperature/fire, power networks, construction/mining, needs, field hazards, usage/exposure wear, paid service jobs, an adaptive incident director and initial persistent preferences/memories/trust/disputes. Finite drilling layers, physical station extensions, crew priorities/shifts, ore-funded improvements and resident recovery are now implemented above. Walking strata/z-levels, deployable drones, colony raids/defenses, detailed relationships and a large event library remain unimplemented.
 
 ### Coupled systems to build
 
@@ -405,7 +447,7 @@ The first milestone now includes the director foundation and 12 representative t
 
 The delivered first playable increment pairs **maintenance and repair with the first persistent crew preferences, memories and disputes**, using the current station, jobs and needs. It adds incident pacing and ways to recover. The ordinary-command walkthrough demonstrates a real equipment fault, physical station consequences, an actual paid repair job, resident workload/recovery consequences, a causally explained social reaction and a player response that changes the outcome. Invalid commands must still cost nothing, and saving/loading must preserve the fault, job, memories, relationships and incident pacing exactly.
 
-Follow with deeper extraction and drone logistics; then station attacks/defense and broader collective politics. These are incremental milestones, not a promise that every listed system ships together. Dwarf Fortress and Songs of Syx are depth references; comparable individual detail should be pursued for a manageable lunar crew before claiming their population scale or full feature breadth.
+The 2026-10-22 increment implements the first deeper extraction/workforce loop above. Follow with drone logistics; then station attacks/defense and broader collective politics. These are incremental milestones, not a promise that every listed system ships together. Dwarf Fortress and Songs of Syx are depth references; comparable individual detail should be pursued for a manageable lunar crew before claiming their population scale or full feature breadth.
 
 Reference reading: [Songs of Syx's fulfillment model](https://www.songsofsyx.com/wiki/index.php/Fulfillment) illustrates how differing preferences and provision affect loyalty; [Bay 12 developer discussions](https://www.bay12games.com/media/df_talk_combined_transcript.html) discuss personalities, memories and relationships. These inform design judgment and do not establish Ithica features. Preserve the current shared-clock/resident/save contracts, source artwork and independent Vagabonds boundary when implementing this direction.
 

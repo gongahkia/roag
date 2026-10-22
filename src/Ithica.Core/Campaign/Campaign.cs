@@ -46,7 +46,10 @@ public sealed partial class Campaign
     public Stock Cargo { get; private set; }
     public string ArrivalReport { get; private set; } = "";
     public bool SupportUpgrade => Home.Machines.Any(m => m.Kind == ModuleKind.SuitRack && m.Powered);
-    public string Objective => Home.RescuedCount == 0 ? "Bring the person behind the distress signal home."
+    public string Objective => Home.Extraction is not null ? Home.Machines.Any(m => m.Kind == ModuleKind.Drill)
+        ? "Sustain the workings. Use deep ore for reinforcement and components; service equipment and protect the crew."
+        : "Survey a deep reading. Extend power and breathable refuge, build a rig, then assign mining work."
+        : Home.RescuedCount == 0 ? "Bring the person behind the distress signal home."
         : Home.Machines.Any(m => m.Kind == ModuleKind.SuitRack) ? SupportUpgrade ? "Investigate the signal below. Bring people home. Keep the shelter alive." : "Power the suit service."
         : Home.Resources.Components > 0 ? "Build a suit service with the recovered component."
         : "Recover a usable component from the scattered salvage.";
@@ -84,6 +87,19 @@ public sealed partial class Campaign
     public Result OrderMaintenance(int cell) => Phase == CampaignPhase.Colony
         ? Home.OrderMaintenance(cell) : new(false, "Queue station service from the shelter.");
 
+    private Result StationCommand(Func<Result> command) => Phase == CampaignPhase.Colony && !Home.GameOver
+        ? command() : new(false, "Make station assignments from the shelter.");
+    public Result SetWorkPriority(int id, WorkGroup group, int priority) => StationCommand(() => Home.SetWorkPriority(id, group, priority));
+    public Result SetShift(int id, CrewShift shift) => StationCommand(() => Home.SetShift(id, shift));
+    public Result SetDrillingRisk(int id, bool allowWorn) => StationCommand(() => Home.SetDrillingRisk(id, allowWorn));
+    public Result AssignRest(int id, int ticks = 120) => StationCommand(() => Home.AssignRest(id, ticks));
+    public Result OrderExtraction(int cell) => StationCommand(() => Home.OrderExtraction(cell));
+    public Result OrderComponent(int cell) => StationCommand(() => Home.OrderComponent(cell));
+    public Result OrderDeepening(int cell) => StationCommand(() => Home.OrderDeepening(cell));
+    public Result OrderReinforcement(int cell) => StationCommand(() => Home.OrderReinforcement(cell));
+    public Result OrderResidentRescue(int id) => StationCommand(() => Home.OrderResidentRescue(id));
+    public Result SetIndustryEnabled(int cell, bool enabled) => StationCommand(() => Home.SetIndustryEnabled(cell, enabled));
+
     private void DiscoverSites()
     {
         foreach (var contact in Home.Survivors.Where(s => s.State == ContactState.Stranded))
@@ -92,6 +108,7 @@ public sealed partial class Campaign
             AddSite("salvage", Home.World.Index(Home.World.Width / 2 + 17, Home.World.Height / 2 - 4), null, false);
         if (SupportUpgrade)
             AddSite("below", Home.World.Index(Home.World.Width / 2 - 16, Home.World.Height / 2 + 6), null, true);
+        if (Sites.Any(s => s.Id == "below" && s.Secured)) Home.EnableExtraction();
     }
 
     private void AddSite(string id, int cell, int? contact, bool structure)
@@ -131,7 +148,8 @@ public sealed partial class Campaign
         if (ids.Count is < 1 or > 4 || ids.Distinct().Count() != ids.Count || !pack.Valid || pack.Food < 1 || pack.Water < 1 || !Home.Resources.Covers(pack.Cost))
             return new(false, "Choose one to four people and supplies the shelter can spare (at least 1 food and water).");
         var residents = ids.Select(id => Home.Crew.SingleOrDefault(c => c.Id == id)).ToList();
-        if (residents.Any(c => c is null || !c.Alive || c.Location != ResidentLocation.Home || c.Expedition is not null || c.Rest || c.Health < 25 || c.Energy < 15 || c.Suit < 25))
+        if (residents.Any(c => c is null || !c.Alive || c.Location != ResidentLocation.Home || c.Expedition is not null || c.Rest || c.Incapacitated || c.CarryingResidentId is not null
+            || c.BreakUntil > Home.Tick || !Home.OnShift(c) || c.Health < 25 || c.Energy < 15 || c.Suit < 25))
             return new(false, "Someone is away or needs recovery. Select ready residents.");
         if (SelectedSite.ContactId is int contact && Home.Survivors[contact].State != ContactState.Stranded)
             return new(false, "The distress signal has gone silent.");
@@ -139,7 +157,8 @@ public sealed partial class Campaign
         Pack = pack;
         Cargo = default;
         Home.Resources -= pack.Cost;
-        foreach (var c in residents.Cast<Colonist>()) Home.SendToField(c, SelectedSite.Id, SupportUpgrade ? .65f : 1);
+        float suitEfficiency = Home.Machines.Any(m => m.Kind == ModuleKind.SuitRack && m.Powered && m.Reinforced) ? .5f : SupportUpgrade ? .65f : 1;
+        foreach (var c in residents.Cast<Colonist>()) Home.SendToField(c, SelectedSite.Id, suitEfficiency);
         field.EnterField(Party.Select(Project));
         field.SetFieldSupplies(Pack.Medicine);
         ChangePhase(CampaignPhase.Expedition);

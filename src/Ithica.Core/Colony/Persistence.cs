@@ -62,6 +62,7 @@ public sealed partial class Simulation
         public float[] Fire { get; set; } = [];
         public byte[] Discovered { get; set; } = [];
         public StoryState? Story { get; set; }
+        public ExtractionState? Extraction { get; set; }
         public List<Colonist> Crew { get; set; } = [];
         public List<Machine> Machines { get; set; } = [];
         public List<WorkOrder> Jobs { get; set; } = [];
@@ -90,6 +91,7 @@ public sealed partial class Simulation
         Fire = World.Fire,
         Discovered = World.Discovered,
         Story = Story,
+        Extraction = Extraction,
         Crew = Crew,
         Machines = _machines,
         Jobs = _jobs,
@@ -198,7 +200,7 @@ public sealed partial class Simulation
         foreach (var m in data.Machines)
         {
             if (m.Id < 0 || !machineIds.Add(m.Id) || !machineCells.Add(m.Cell) || !Cell(m.Cell) || !Enum.IsDefined(m.Kind) || !float.IsFinite(m.Health) || !float.IsFinite(m.Energy)
-                || m.Energy < 0 || m.Energy > 240 || !float.IsFinite(m.Progress))
+                || m.Energy < 0 || m.Energy > BatteryCapacity(m) || !float.IsFinite(m.Progress))
             {
                 throw new InvalidDataException("Invalid machine state.");
             }
@@ -217,6 +219,7 @@ public sealed partial class Simulation
             }
         }
         ValidateStory(data.Story, data.Crew, data.Machines, data.Jobs, data.Tick, size);
+        ValidateIndustry(data.Extraction, data.Crew, data.Machines, data.Jobs, size);
         var sim = new Simulation(data.Seed, data.Width, data.Height, false)
         {
             Tick = data.Tick,
@@ -226,7 +229,8 @@ public sealed partial class Simulation
             Victory = data.Victory,
             GameOver = data.GameOver,
             IncidentsEnabled = data.IncidentsEnabled,
-            Story = data.Story
+            Story = data.Story,
+            Extraction = data.Extraction
         };
         sim.World.GenerationVersion = data.GenerationVersion;
         sim.World.GeologyProfile = data.GeologyProfile;
@@ -265,6 +269,7 @@ public sealed partial class Simulation
         Living = LivingCount,
         Pressure = Math.Round(Pressure, 3),
         Resources,
+        Extraction,
         PowerKw = Generated,
         DemandKw = Demand,
         Battery = Charge,
@@ -272,7 +277,7 @@ public sealed partial class Simulation
         Rescued = RescuedCount,
         Distress = Survivors.Where(s => s.Active).Select(s => new { s.Id, s.Name, s.Role, X = World.X(s.Cell), Y = World.Y(s.Cell), s.State, s.Health, s.Suit, s.TimeLeft }),
         Community = !StoryEnabled ? null : Crew.Select(c => new { c.Id, c.Name, c.Location, c.Activity, c.Health, c.Energy, c.Hunger,
-            c.Suit, c.Morale, c.WorkTicks, c.BreakUntil, c.Disposition, c.Memories, c.Bonds }).ToArray(),
+            c.Suit, c.Morale, c.WorkTicks, c.BreakUntil, c.Work, c.Incapacitated, c.CarryingResidentId, c.Disposition, c.Memories, c.Bonds }).ToArray(),
         Maintenance = _machines.Where(m => StoryEnabled && Serviceable(m)).Select(m => new { m.Id, m.Kind, m.Cell, m.Condition, m.Fault }),
         Story = Story is null ? null : new { Forecast, Story.NextBeat, Story.RecoveryUntil, Story.Pending, Story.Followups, Story.History },
         Charter = Victory,

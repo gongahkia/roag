@@ -30,7 +30,8 @@ public sealed partial class IthicaGame
         for (int n = _departureScroll; n < Math.Min(residents.Length, _departureScroll + rows); n++)
         {
             var c = residents[n]; bool selected = _departureIds.Contains(c.Id);
-            bool ready = c.Location == ResidentLocation.Home && !c.Rest && c.Expedition is null && c.Health >= 25 && c.Energy >= 15 && c.Suit >= 25;
+            bool ready = c.Location == ResidentLocation.Home && !c.Rest && !c.Incapacitated && c.CarryingResidentId is null && c.BreakUntil <= _sim.Tick && _sim.OnShift(c)
+                && c.Expedition is null && c.Health >= 25 && c.Energy >= 15 && c.Suit >= 25;
             var card = new Rectangle(_departureList.X, _departureList.Y + (n - _departureScroll) * 70, leftWidth, 62);
             if (Button(card, "", selected: selected, enabled: ready && (selected || _departureIds.Count < 4), modal: true))
             { if (!_departureIds.Remove(c.Id)) _departureIds.Add(c.Id); }
@@ -52,9 +53,10 @@ public sealed partial class IthicaGame
         (_departurePack.Food, _departurePack.Water, _departurePack.Medicine, _departurePack.Filters) = (amounts[0], amounts[1], amounts[2], amounts[3]);
         float detailsY = r.Y + 352;
         var remaining = _sim.Resources - _departurePack.Cost;
-        int homeWorkers = _sim.Crew.Count(c => c.Alive && c.Location == ResidentLocation.Home && !c.Rest && !_departureIds.Contains(c.Id));
+        int homeWorkers = _sim.Crew.Count(c => c.Alive && c.Location == ResidentLocation.Home && !c.Rest && !c.Incapacitated && c.CarryingResidentId is null && _sim.OnShift(c) && !_departureIds.Contains(c.Id));
         detailsY += Wrap($"HOME AFTER PACKING\n{remaining.Food:0} food / {remaining.Water:0} water / {remaining.Metal:0} metal\n{homeWorkers} available workers remain. Machines operate even with nobody home.", rightX, detailsY, leftWidth, remaining.Valid ? Ink : Danger, .85f) + 14;
-        detailsY += Wrap($"TRAVEL 8 ticks each way. A step costs 1 tick. Rescues share 1 food and 1 water.\nSuit service: {(_campaign.SupportUpgrade ? "35% less field oxygen use" : "standard suits")}", rightX, detailsY, leftWidth, Muted, .8f) + 12;
+        string suit = _sim.Machines.Any(m => m.Kind == ModuleKind.SuitRack && m.Powered && m.Reinforced) ? "50% less field oxygen use" : _campaign.SupportUpgrade ? "35% less field oxygen use" : "standard suits";
+        detailsY += Wrap($"TRAVEL 8 ticks each way. A step costs 1 tick. Rescues share 1 food and 1 water.\nSuit service: {suit}", rightX, detailsY, leftWidth, Muted, .8f) + 12;
         Wrap($"HOME O2 {_sim.Pressure * 100:0}% / POWER {_sim.Generated:0}/{_sim.Demand:0} kW\nYour actions advance home conditions and distress deadlines. Thinking costs no time.", rightX, detailsY, leftWidth, _sim.Pressure < .4f || remaining.Water < 15 || remaining.Food < 15 ? Amber : Muted, .8f);
         if (Button(new(r.X + 24, r.Bottom - 64, 180, 44), "BACK [ESC]", modal: true))
         { QueueUI(() => { Message(_campaign.CancelPreparation()); SyncCampaignUI(); }); }

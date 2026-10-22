@@ -4,7 +4,8 @@ public sealed partial class Simulation
 {
     public void SendToField(Colonist resident, string siteId, float suitEfficiency)
     {
-        if (!Crew.Contains(resident) || !resident.Alive || resident.Location != ResidentLocation.Home || resident.Expedition is not null)
+        if (!Crew.Contains(resident) || !resident.Alive || resident.Location != ResidentLocation.Home || resident.Expedition is not null
+            || resident.Incapacitated || resident.CarryingResidentId is not null)
             throw new InvalidOperationException("Resident is unavailable.");
         Release(resident);
         resident.Location = ResidentLocation.Field;

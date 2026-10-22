@@ -27,7 +27,7 @@ public sealed partial class IthicaGame : Game
     private bool _leftPressed, _leftReleased;
     private bool _paused { get => _campaign.Clock.Paused; set => _campaign.Clock.Paused = value; }
     private int _speed { get => _campaign.Clock.Speed == 1 ? 0 : _campaign.Clock.Speed == 3 ? 1 : 2; set => _campaign.Clock.Speed = value == 0 ? 1 : value == 1 ? 3 : 8; }
-    private int _cursor, _lesson, _panelScroll, _drawCount;
+    private int _cursor, _lesson, _panelScroll, _drawCount, _buildPage;
     private int? _anchor, _selectedCrew, _selectedSurvivor, _follow;
     private string _modal = "tutorial", _panel = "colony", _message = "Click a distress contact to send help.";
     private NoticeLevel _messageLevel = NoticeLevel.Info;
@@ -66,6 +66,12 @@ public sealed partial class IthicaGame : Game
 
         if (options.Scene == "incidents") _modal = "incidents";
         if (options.Scene == "resident") { _modal = "resident"; _selectedCrew = 0; }
+        if (options.Scene == "work") { _modal = "work"; _selectedCrew = 0; }
+        if (options.Scene is "mining" or "industry")
+        {
+            _cursor = _sim.Extraction!.Deposits[0].Cell; _camera.Center = CellCenter(_cursor);
+            _modal = options.Scene == "industry" ? "industry" : "deposits";
+        }
 
         _graphics = new GraphicsDeviceManager(this) { PreferredBackBufferWidth = options.WindowWidth, PreferredBackBufferHeight = options.WindowHeight, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Ithica";
@@ -230,7 +236,7 @@ public sealed partial class IthicaGame : Game
             else if (_modal == "build")
             {
                 if (Pressed(Keys.U)) { ChooseBlueprint(ModuleKind.SuitRack); return; }
-                for (int i = 0; i < 10; i++)
+                for (int i = 0; _buildPage == 0 && i < 10; i++)
                 {
                     if (Pressed(i == 9 ? Keys.D0 : Keys.D1 + i))
                     {
@@ -637,7 +643,7 @@ public sealed partial class IthicaGame : Game
         if (_atlas) DrawAtlas(w, h);
         else if (_campaign.Phase == CampaignPhase.Expedition) DrawFieldInterface(w, h);
         else { DrawInterface(w, h); if (_campaign.Phase == CampaignPhase.Preparation) DrawDeparture(w, h); else if (_campaign.Phase == CampaignPhase.Arrival) DrawArrival(w, h); }
-        if (_modal is "incidents" or "resident" && !_atlas) DrawStationModal(w, h);
+        if (_modal is "incidents" or "resident" or "work" or "industry" or "deposits" && !_atlas) DrawStationModal(w, h);
         if (_modal is "tutorial" or "build" or "help" && !_atlas)
         {
             DrawModal(w, h);
@@ -743,7 +749,39 @@ public sealed partial class IthicaGame : Game
         _modal = "resident";
         Check(_selectedCrew == 0 && _sim.Crew[0].Memories is not null, "resident personal file has persistent memories");
         Check(_campaign.CampaignTick == tickForPanels, "opening station and personal panels consumes no logical time");
-        _modal = "";
+        int screenW = GraphicsDevice.PresentationParameters.BackBufferWidth, screenH = GraphicsDevice.PresentationParameters.BackBufferHeight;
+        int modalW = Math.Min(900, screenW - 60), modalH = Math.Min(660, screenH - 50);
+        var modal = new Rectangle((screenW - modalW) / 2, (screenH - modalH) / 2, modalW, modalH);
+        void ClickModal(int x, int y)
+        {
+            var oldMouse = _mouse;
+            _mouse = new MouseState(x, y, 0, ButtonState.Pressed, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
+            _leftPressed = true;
+            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            DrawStationModal(screenW, screenH);
+            _batch.End(); _leftPressed = false; _mouse = oldMouse;
+        }
+        void FlushCommands() { while (_uiCommands.TryDequeue(out var command)) command(); }
+        _modal = "work";
+        string beforeClick = _campaign.StateJson();
+        ClickModal(modal.Right - 26 - 232 + 58 + 25, modal.Y + 244 + 44 + 20);
+        Check(_uiCommands.Count == 1 && _campaign.StateJson() == beforeClick, "work priority click queues mutation outside drawing");
+        FlushCommands(); Check(_sim.Crew[0].Work.Priorities[(int)WorkGroup.Mining] == 1, "native work priority button changes the selected resident");
+        ClickModal(modal.X + 26 + (int)((modal.Width - 84) / 5f + 8) * 2 + 40, modal.Y + 104);
+        FlushCommands(); Check(_sim.Crew[0].Work.Shift == CrewShift.Night, "native shift button changes the work roster");
+        ClickModal(modal.X + 90, modal.Y + 180);
+        FlushCommands(); Check(_sim.Crew[0].BreakUntil == _sim.Tick + 120, "native protected rest button reserves recovery time");
+        ClickModal(modal.Center.X, modal.Y + 536);
+        FlushCommands(); Check(_sim.Crew[0].Work.AllowWornDrilling, "native drilling policy button exposes the deliberate safety override");
+        Check(_campaign.CampaignTick == tickForPanels, "staffing clicks advance no simulation time");
+        _campaign = ExtractionScenario.Run(_options.Seed); _paused = true;
+        Check(_sim.Extraction!.Deposits[0].Extracted >= 8 && _sim.Machines.Any(m => m.Kind == ModuleKind.Battery && m.Reinforced), "ordinary commands establish a working mine and ore-funded station improvement");
+        _modal = "industry"; _cursor = _sim.Machines.First(m => m.Kind == ModuleKind.Oxygen).Cell;
+        beforeClick = _campaign.StateJson();
+        ClickModal(modal.Center.X, modal.Y + 136);
+        Check(_uiCommands.Count == 1 && _campaign.StateJson() == beforeClick, "machine operations click queues work outside drawing");
+        FlushCommands(); Check(_sim.JobAt(_cursor)?.Kind == WorkKind.Maintain, "native operations button queues a resident service job");
+        _cursor = _sim.Extraction.Deposits[0].Cell; _camera.Center = CellCenter(_cursor); _selectedCrew = null;
     }
     protected override void UnloadContent()
     {

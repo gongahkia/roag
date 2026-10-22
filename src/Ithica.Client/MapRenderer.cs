@@ -127,6 +127,14 @@ public sealed partial class IthicaGame
             }
         }
 
+        foreach (var d in _sim.Extraction?.Deposits ?? [])
+        {
+            var r = CellRect(d.Cell);
+            if (!r.Intersects(view) || _sim.MachineAt(d.Cell) is not null) continue;
+            Outline(r, d.Surveyed ? Amber : Purple);
+            var inset = r; inset.Inflate(-4, -4);
+            _sprites.Fit(_batch, "icon-survey", inset, d.Surveyed ? Amber : Purple);
+        }
         foreach (var m in _sim.Machines)
         {
             var r = CellRect(m.Cell);

@@ -8,7 +8,7 @@ try
     var options = ClientOptions.Parse(args);
     if (options.Help)
     {
-        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\n--scene colony|preparation|surface|battle|structure|arrival|atlas|incidents|resident\n  --import-colony PATH (writes only to the new Ithica save)\nNew games choose a fresh seed unless --seed is supplied.\nHeadless: ./ithica.sh --headless or ./ithica.sh --benchmark.");
+        Console.WriteLine("ITHICA / MonoGame moon colony\n  --seed N --width N --height N --demo --load --save PATH --skip-intro\n  --window-size WIDTHxHEIGHT --screenshot PATH --frames N --smoke-test\n--scene colony|preparation|surface|battle|structure|arrival|atlas|incidents|resident|work|mining|industry\n  --import-colony PATH (writes only to the new Ithica save)\nNew games choose a fresh seed unless --seed is supplied.\nHeadless: ./ithica.sh --headless or ./ithica.sh --benchmark.");
         return 0;
     }
     using var game = new IthicaGame(options);

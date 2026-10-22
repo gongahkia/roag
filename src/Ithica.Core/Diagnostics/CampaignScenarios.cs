@@ -75,7 +75,8 @@ public static class CampaignScenarios
 
     public static void OpenScene(Campaign game, string scene)
     {
-        if (scene is "colony" or "atlas") return;
+        if (scene is "colony" or "atlas" or "work") return;
+        if (scene is "mining" or "industry") { ExtractionScenario.Establish(game); return; }
         if (scene == "incidents") { Require(game.StepColony(120)); return; }
         if (scene == "resident")
         {
