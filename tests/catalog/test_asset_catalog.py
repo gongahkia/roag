@@ -174,9 +174,11 @@ class CatalogTests(unittest.TestCase):
                 self.assertTrue(subject['basis'])
                 self.assertTrue(subject['evidence'])
 
-    def test_game_binding_counts_remain_unchanged(self):
+    def test_game_binding_inventory_preserves_sources_and_includes_expedition_art(self):
         counts = self.catalog['catalog_summary']
-        for key, value in [('occupied_sprites', 7115), ('records', 11887), ('used_ithica', 166), ('preview_only', 75), ('unused_sprites', 6874)]:
+        # The expedition expansion binds 13 formerly unused sprites. Source
+        # inventory and the historical Ithica selection remain unchanged.
+        for key, value in [('occupied_sprites', 7115), ('records', 11887), ('used_ithica', 166), ('preview_only', 88), ('unused_sprites', 6861)]:
             self.assertEqual(counts[key], value)
 
     def test_known_ghost_can_be_queried_without_game_casting(self):
