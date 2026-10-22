@@ -68,7 +68,15 @@ def main():
                     break
                 except RuntimeError:
                     if attempt == 2: raise
-            x('mousedown', button); time.sleep(.035 if fast else .1); x('mouseup', button)
+            before = self.ui() if fast else None
+            x('mousedown', button)
+            try:
+                # Software-rendered frames can exceed a short fixed mouse hold.
+                # Release when a changed semantic report confirms an update,
+                # preserving brief animation phases without dropping the click.
+                if fast: self.wait(lambda u: u != before, timeout=2, interval=.005)
+                else: time.sleep(.1)
+            finally: x('mouseup', button)
             if not fast: time.sleep(.12)
         def click(self, identifier, fast=False):
             ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
