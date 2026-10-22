@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.ranger-pathfinder",
+  "name": "Pathfinder",
+  "sprite": "exit",
+  "acquisition": "choice",
+  "class": "class.ranger",
+  "level": 4,
+  "bonuses": {
+    "initiative": 3
+  },
+  "description": "Gains 3 initiative speed in combat, helping set a mark or act before a threatened companion."
+}

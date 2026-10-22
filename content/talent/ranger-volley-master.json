@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.ranger-volley-master",
+  "name": "Volley master",
+  "sprite": "bow",
+  "acquisition": "choice",
+  "class": "class.ranger",
+  "level": 2,
+  "bonuses": {
+    "all-target-damage": 2
+  },
+  "description": "Attacks targeting every enemy gain 2 power per target. Single-target shots keep their usual power."
+}

@@ -1,0 +1,12 @@
+{
+  "kind": "talent",
+  "id": "talent.comrade",
+  "name": "Comrade",
+  "sprite": "banner",
+  "acquisition": "innate",
+  "level": 1,
+  "bonuses": {
+    "cooperative-damage": 2
+  },
+  "description": "Cooperative attacks initiated by this traveller gain 2 power. Assisting still adds the helper's normal power."
+}

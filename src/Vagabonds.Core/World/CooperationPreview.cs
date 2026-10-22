@@ -14,6 +14,8 @@ public static class CooperationPreview
         int speed = 30;
         foreach (var actor in world.Party)
         {
+            // This fixture measures cooperation itself, independent of generated combat dispositions.
+            actor.CombatTrait = "talent.quick-footed"; actor.Talents.Clear();
             actor.Body.Wounds = 0; actor.Body.Fatigue = 0;
             actor.BaseSpeed = speed; speed -= 5;
             actor.Mana = actor.MaxMana; actor.Health = Math.Max(1, actor.MaxHealth - 12);
