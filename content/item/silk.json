@@ -1,0 +1,9 @@
+{
+  "kind": "item",
+  "id": "item.silk",
+  "name": "Wild silk",
+  "sprite": "web",
+  "stack": "silk",
+  "value": 4,
+  "description": "Gathered from silk nests. Combine with herbs at camp for field dressings."
+}

@@ -86,8 +86,12 @@ public static class DeveloperEntry
                 }
                 else if (kind == "character")
                 {
-                    var actor = ActorFactory.Create(catalog, id, seed, 100001, new(0, 0), 0);
-                    Print(new { seed, actor, interactions = catalog.Get<CharacterDefinition>(id).Interactions.Select(catalog.Get<InteractionDefinition>) });
+                    if (catalog.Get<CharacterDefinition>(id).Ecology != null) Print(WildlifePreview.Run(catalog, id, seed));
+                    else
+                    {
+                        var actor = ActorFactory.Create(catalog, id, seed, 100001, new(0, 0), 0);
+                        Print(new { seed, actor, interactions = catalog.Get<CharacterDefinition>(id).Interactions.Select(catalog.Get<InteractionDefinition>) });
+                    }
                 }
                 else if (kind == "ability") Print(AbilityPreview.Run(catalog, id, seed));
                 else if (kind == "interaction")
@@ -106,6 +110,7 @@ public static class DeveloperEntry
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
                     previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "party-work" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
+                    ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
             }
@@ -126,8 +131,15 @@ public static class DeveloperEntry
                 WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
                 Print(audit.Report); return JsonSerializer.SerializeToNode(audit.Report)!["passed"]!.GetValue<bool>() ? 0 : 1;
             }
+            if (command == "audit-wildlife")
+            {
+                RequireValid(catalog); var audit = WildlifePreview.Audit(catalog, seed, int.Parse(Value("--samples", "4")));
+                string output = Value("--output", "artifacts/wildlife-audit.json");
+                WriteNew(output, JsonSerializer.Serialize(audit, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
+            }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)

@@ -25,7 +25,7 @@ public sealed partial class WorldSession
             var definition = Content.Get<DiscoveryDefinition>(discovery.Definition);
             return new(discovery.Name, definition.Sprite!, "discovery", definition.Sprite is not ("animal-bones" or "grave-slab"));
         }
-        if (_cacheObjects.TryGetValue(p, out var cache)) return cache.Taken ? null : new("Unopened cache", "chest", "loot", true);
+        if (_cacheObjects.TryGetValue(p, out var cache)) return cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", cache.SourceActor == 0);
         if (Chunks.IsEdited(p) || Chunks.At(p) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
         int culture = Chunks.Get(p.Chunk).Cultures[p.LocalIndex];
         if (WorldRandom.Hash(Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;

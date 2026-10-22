@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -287,6 +287,34 @@ def main():
                 client.context(fruit); client.capture('resource-depleted')
                 harvest = next(c for c in client.ui()['controls'] if c['id'] == 'context:harvest')
                 check('exhaustedResourceExplainsRecovery', not harvest['enabled'] and 'recovers' in harvest['reason'])
+            finally: client.close()
+        if 'world-wildlife' in args.scenes:
+            client = Client('world-wildlife', slot)
+            try:
+                ui = client.ui(); bee = next(a for a in ui['actors'] if a['archetype'] == 'character.bee')
+                check('wildlifeStartsOutsideDefendedTerritory', not bee['hostile'] and 'honey tree' in bee['behaviour'])
+                client.context(bee); client.capture('wildlife-habitat')
+                hunt = next(c for c in client.ui()['controls'] if c['id'] == 'context:interact')
+                check('contextNamesHuntingAndTerritory', hunt['label'].startswith('Hunt ') and 'tiles away' in hunt['tip'])
+                client.click('context:clear')
+                tree = next(c for c in client.ui()['cells'] if c['x'] == bee['habitat']['x'] and c['y'] == bee['habitat']['y'])
+                px, py = client.tile_point(tree['x'], tree['y']); x('mousemove', '--window', client.window, round(px), round(py))
+                client.wait(lambda u: u['hover'] and 'defender' in u['hover']['detail'])
+                check('guardedResourceHoverExplainsDanger', 'provokes' in client.ui()['hover']['detail']); client.capture('wildlife-warning')
+                client.context(bee); client.click('context:interact'); client.wait(lambda u: u['battle'] is not None)
+                check('huntingStartsTurnBasedEncounter', client.ui()['frozen']); client.capture('wildlife-encounter')
+                for _ in range(12):
+                    ui = client.wait(lambda u: u['battle'] is None or u['battle']['activeFriendly'])
+                    if ui['battle'] is None: break
+                    client.click('skill:0'); target = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = target['bounds']
+                    client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                client.wait(lambda u: u['battle'] is None); client.pause(); state = client.save()['state']
+                remains = next(c for c in state['loot'] if c['sourceActor'] == bee['id']); reward = state['lastEncounterReward']
+                check('animalLeavesIngredientsWithoutGenericGold', remains['contents'].get('honey') == 1 and reward['gold'] == 0 and reward['food'] == 0)
+                client.capture('wildlife-rewards'); client.click('close')
+                client.tile(remains['position']['x'], remains['position']['y']); client.wait(lambda u: 'Recovered' in u['notice']); client.pause()
+                gathered = client.save()['state']; client.click('load'); reloaded = client.save()['state']
+                check('wildlifeIngredientsAndDeathSurviveLoad', gathered['inventory'].get('honey') == reloaded['inventory'].get('honey') == 1 and len([a for a in reloaded['actors'] if a['id'] == bee['id']]) == 1 and next(c for c in reloaded['loot'] if c['sourceActor'] == bee['id'])['taken'])
             finally: client.close()
         if 'world-camp' in args.scenes:
             client = Client('world-camp', slot)

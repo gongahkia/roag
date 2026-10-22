@@ -18,18 +18,18 @@ internal static class WorldInspection
         if (actor != null)
         {
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
-            bool hostile = actor.Kind is ActorKind.Beast or ActorKind.Raider;
-            string detail = hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
+            bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
+            string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
-            return WithRoute(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : "person");
+            return WithRoute(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
         if (discovery != null) return WithRoute(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."
             : session.DiscoveryGuarded(discovery) ? "An inhabited landmark. Living foes guard its supplies." : "A local landmark connected to " + session.Plan.Towns[discovery.TownId].Name + ".", "Approach and investigate", "discovery");
-        if (session.Visible.Contains(cell) && session.State.Loot.Any(c => c.Position == cell && !c.Taken)) return WithRoute("Unopened cache", "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
+        if (session.Visible.Contains(cell) && session.State.Loot.FirstOrDefault(c => c.Position == cell && !c.Taken) is { } cache) return WithRoute(session.LootName(cache), cache.SourceActor > 0 ? "Recover ingredients for camp cooking and crafting." : "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithRoute(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
         if (session.ResourceAt(cell) is { } resource)
-            return new(resource.Definition.Name, resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
+            return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Right-click to approach, rest or craft", _ => "Travel here" };
         return WithRoute(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + session.Plan.BiomeAt(cell.X, cell.Y) + ".", action, "terrain");

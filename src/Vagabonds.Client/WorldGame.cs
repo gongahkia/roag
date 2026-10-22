@@ -52,6 +52,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
+        if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
         if (!options.Load && options.Scene == "world-discovery")
@@ -351,15 +352,15 @@ internal sealed partial class WorldGame : Game
         }
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
             _sprites.Draw(_batch, _session.Content.Get<DiscoveryDefinition>(d.Definition).Sprite!, TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : Gold);
+        foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position) && !_session.State.Discoveries.Any(d => d.Id == c.Id)))
+            _sprites.Draw(_batch, WorldSession.LootSprite(cache), TileRect(cache.Position), Gold);
         foreach (var actor in _session.State.Actors.Where(a => !a.Recruited && a.Life != LifeState.Dead && _session.Visible.Contains(a.Position)))
         {
             var motion = _actorMotions[actor.Id];
             if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
             var rect = ActorRect(motion.Position); if (!_map.Intersects(rect)) continue;
-            _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+            _sprites.Draw(_batch, actor.Sprite, rect, _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
-        foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position) && !_session.State.Discoveries.Any(d => d.Id == c.Id)))
-            _sprites.Draw(_batch, "chest", TileRect(cache.Position), Gold);
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {
             var rect = TileRect(order.Target); FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * order.Progress / order.Required)), 3), Gold);

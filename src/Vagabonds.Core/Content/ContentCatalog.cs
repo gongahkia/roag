@@ -124,6 +124,12 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    if (g.Wildlife == null || g.Wildlife.Length > 32 || g.Wildlife.Distinct().Count() != g.Wildlife.Length) Error("wildlife", "Provide up to 32 distinct wildlife characters.");
+                    else foreach (var id in g.Wildlife)
+                    {
+                        Ref<CharacterDefinition>("wildlife", id);
+                        if (id != null && _entries.TryGetValue(id, out var entry) && entry is CharacterDefinition wildlife && wildlife.Ecology == null) Error("wildlife", "Wildlife needs ecology rules.");
+                    }
                     if (g.CampActivities == null || g.CampActivities.Length == 0) Error("campActivities", "Provide camp activities.");
                     else foreach (var id in g.CampActivities) Ref<CampDefinition>("campActivities", id);
                     if (g.Resources == null || g.Resources.Length == 0) Error("resources", "Provide a resource pool.");
@@ -137,6 +143,8 @@ public sealed class ContentCatalog
                     Ref<AbilityDefinition>("enemyFallback", g.EnemyFallback);
                     if (g.EnemyFallback != null && _entries.TryGetValue(g.EnemyFallback, out var fallback) && fallback is AbilityDefinition f && (f.Mana != 0 || f.Target != Expeditions.TargetKind.Enemy || f.Effect != "damage")) Error("enemyFallback", "Fallback must be a free, single-target damaging attack.");
                     foreach (var id in new[] { g.Traveller, g.Villager, g.Healer, g.Beast, g.Raider, g.Caravan }) Ref<CharacterDefinition>("characters", id);
+                    foreach (var id in new[] { g.Traveller, g.Villager, g.Healer, g.Beast, g.Raider, g.Caravan })
+                        if (id != null && _entries.TryGetValue(id, out var actorEntry) && actorEntry is CharacterDefinition { Ecology: not null }) Error("characters", "Ecology characters spawn through the wildlife pool, not town/site roles.");
                     if (g.Classes == null || g.CommonAbilities == null || g.Bosses == null || g.Recipes == null) { Error("classes", "Game pools cannot be null."); break; }
                     if (g.Classes.Length != 4 || g.CommonAbilities.Length != 3 || g.Bosses.Length == 0) Error("classes", "Provide four classes, three common actions and at least one boss.");
                     foreach (var id in g.Classes) Ref<ClassDefinition>("classes", id);
@@ -173,7 +181,7 @@ public sealed class ContentCatalog
                     if (dsc.Rewards.Distinct().Count() != dsc.Rewards.Length) Error("rewards", "Reward IDs must be distinct.");
                     if (dsc.Enemies.Length > 3 || dsc.Action == "encounter" && dsc.Enemies.Length == 0 || dsc.Action != "encounter" && dsc.Enemies.Length != 0) Error("enemies", "Only encounters have one to three enemies.");
                     foreach (var id in dsc.Enemies)
-                    { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider)) Error("enemies", "Use hostile characters."); }
+                    { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && (character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider) || character.Ecology != null)) Error("enemies", "Use hostile characters without independent habitat rules."); }
                     break;
                 case CampDefinition camp:
                     if (camp.Role is not ("cook" or "treat" or "watch" or "stories")) Error("role", "Use cook, treat, watch or stories.");
@@ -210,6 +218,21 @@ public sealed class ContentCatalog
                     else foreach (var id in c.Abilities) Ref<AbilityDefinition>("abilities", id);
                     break;
                 case CharacterDefinition c:
+                    if (c.Ecology is { } ecology)
+                    {
+                        if (c.ActorKind != World.ActorKind.Beast || c.Names != null || c.Classes?.Length != 0 || c.Interactions?.Length != 0) Error("ecology", "Ecology belongs to beasts without human classes, names or interactions.");
+                        if (ecology.Behavior is not ("flee" or "defend" or "roost")) Error("ecology.behavior", "Use flee, defend or roost.");
+                        if (ecology.Biomes == null || ecology.Biomes.Length == 0 || ecology.Biomes.Any(b => !Enum.IsDefined(b)) || ecology.Biomes.Distinct().Count() != ecology.Biomes.Length) Error("ecology.biomes", "Provide distinct known biomes.");
+                        Range("ecology.notice", ecology.Notice, 1, 8); Range("ecology.leash", ecology.Leash, ecology.Notice + 1, 16);
+                        Ref<ResourceDefinition>("ecology.resource", ecology.Resource, optional: ecology.Behavior != "defend");
+                        if (ecology.Resource != null && _entries.TryGetValue(ecology.Resource, out var resourceEntry) && resourceEntry is ResourceDefinition { Biomes: not null } habitat
+                            && (habitat.Underground != ecology.Underground || ecology.Biomes != null && !ecology.Biomes.Any(habitat.Biomes.Contains))) Error("ecology.resource", "The resource must share the species' floor and biome habitat.");
+                        if (ecology.Drops == null || ecology.Drops.Count is < 1 or > 4) Error("ecology.drops", "Provide one to four ingredient drops.");
+                        Cost("ecology.drops", ecology.Drops);
+                        if (ecology.Drops != null) foreach (int amount in ecology.Drops.Values) Range("ecology.drops", amount, 1, 8);
+                        if (ecology.Drops != null) foreach (var id in ecology.Drops.Keys)
+                            if (_entries.TryGetValue(id, out var drop) && drop is ItemDefinition item && item.Slot != "none") Error("ecology.drops", "Wildlife drops are ingredients, not equipment.");
+                    }
                     Ref<NamesDefinition>("names", c.Names, true);
                     Range("health", c.Health, 1, 2000); Range("mana", c.Mana, 0, 500); Range("power", c.Power, 0, 100);
                     Range("armor", c.Armor, 0, 30); Range("speed", c.Speed, 1, 30);
@@ -279,7 +302,8 @@ public sealed class ContentCatalog
                     Behaviors("behaviors", b.Behaviors, true); Behaviors("enraged", b.Enraged, true);
                     if (b.Minions == null || b.Variants == null || b.Variants.Length == 0) { Error("variants", "Provide a variant pool and minion list."); break; }
                     if (b.Minions.Length > 3) Error("minions", "At most three minions preserve four-member enemy parties.");
-                    foreach (var id in b.Minions) Ref<CharacterDefinition>("minions", id);
+                    foreach (var id in b.Minions)
+                    { Ref<CharacterDefinition>("minions", id); if (id != null && _entries.TryGetValue(id, out var minion) && minion is CharacterDefinition { Ecology: not null }) Error("minions", "Ecology characters spawn through habitats, not boss groups."); }
                     foreach (var id in b.Variants) Ref<VariantDefinition>("variants", id); break;
                 case VariantDefinition v:
                     Range("healthPercent", v.HealthPercent, 70, 150); Range("power", v.Power, -5, 5); Range("armor", v.Armor, -3, 3); Range("speed", v.Speed, -3, 3);

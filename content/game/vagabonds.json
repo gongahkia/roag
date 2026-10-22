@@ -81,7 +81,8 @@
     "recipe.camp-armor",
     "recipe.pickaxe",
     "recipe.fishing-rod",
-    "recipe.wardens-shield"
+    "recipe.wardens-shield",
+    "recipe.silk-dressing"
   ],
   "inventory": {
     "item.food": 8,
@@ -125,7 +126,8 @@
     "resource.wild-nest",
     "resource.honey-tree",
     "resource.cave-mushrooms",
-    "resource.deep-iron"
+    "resource.deep-iron",
+    "resource.silk-nest"
   ],
   "campActivities": [
     "camp.apple-broth",
@@ -135,5 +137,11 @@
     "camp.treatment",
     "camp.watch",
     "camp.stories"
+  ],
+  "wildlife": [
+    "character.rabbit",
+    "character.spider",
+    "character.bee",
+    "character.bat"
   ]
 }

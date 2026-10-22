@@ -1,0 +1,35 @@
+{
+  "kind": "character",
+  "id": "character.spider",
+  "name": "Silk-nest spider",
+  "sprite": "spider",
+  "actorKind": "Beast",
+  "health": 24,
+  "mana": 0,
+  "power": 5,
+  "armor": 0,
+  "speed": 7,
+  "behaviors": [
+    {
+      "ability": "ability.web-snare",
+      "weight": 2
+    },
+    {
+      "ability": "ability.strike"
+    }
+  ],
+  "ecology": {
+    "behavior": "defend",
+    "biomes": [
+      "Forest",
+      "Marsh"
+    ],
+    "underground": false,
+    "resource": "resource.silk-nest",
+    "notice": 3,
+    "leash": 7,
+    "drops": {
+      "item.silk": 2
+    }
+  }
+}

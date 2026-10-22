@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.web-snare",
+  "name": "Web snare",
+  "sprite": "web",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 2,
+  "effect": "stun",
+  "duration": 1,
+  "description": "Sticky silk interrupts one action."
+}

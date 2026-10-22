@@ -64,7 +64,9 @@ internal static class WorldContextActions
             {
                 var plan = WorldMouseNavigation.Plan(session, p);
                 string label = intent.Kind switch { "person" => "Talk to " + actor?.Name, "enemy" => "Approach and fight", "loot" => "Open cache", "storage" => "Open storage", "stairs" => "Take stairs", "discovery" => "Investigate landmark", _ => "Approach and interact" };
-                options.Add(new("interact", label, plan.Reachable ? "" : plan.Reason));
+                if (actor != null && session.Ecology(actor) != null) label = "Hunt " + actor.Name;
+                if (intent.Kind == "loot" && session.State.Loot.Any(c => c.Position == p && c.SourceActor > 0)) label = "Recover ingredients";
+                options.Add(new("interact", label, plan.Reachable ? "" : plan.Reason, actor != null ? session.WildlifeDescription(actor) : ""));
             }
             else if (session.GroundOpen(p))
             { var plan = WorldMouseNavigation.Plan(session, p); options.Add(new("travel", "Travel here", plan.Reachable ? "" : plan.Reason)); }

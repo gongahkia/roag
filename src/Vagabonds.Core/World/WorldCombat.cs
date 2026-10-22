@@ -10,6 +10,7 @@ public sealed partial class WorldSession
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var enemy = State.Actors.FirstOrDefault(a => a.Id == enemyId && a.Life == LifeState.Alive && a.Kind is ActorKind.Raider or ActorKind.Beast);
         if (enemy == null) return;
+        if (Ecology(enemy) is { Behavior: not "flee" }) enemy.ProvokedUntil = State.Tick + 75;
         State.CombatEvents.Clear(); State.LastEncounterReward = null;
         var battle = new WorldBattle();
         foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) AddUnit(a, true);
@@ -17,7 +18,7 @@ public sealed partial class WorldSession
         AddUnit(enemy, false);
         if (enemy.EncounterLeader > 0)
             foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == enemy.EncounterLeader && a.Life == LifeState.Alive).Take(3)) AddUnit(a, false);
-        else if (State.Party.Count > 1) foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == 0 && a.Kind is ActorKind.Beast or ActorKind.Raider && a.Life == LifeState.Alive && a.Position.Distance(enemy.Position) < 8).Take(State.Party.Count - 1)) AddUnit(a, false);
+        else if (State.Party.Count > 1) foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == 0 && IsHostile(a) && a.Position.Distance(enemy.Position) < 8).Take(State.Party.Count - 1)) AddUnit(a, false);
         State.Battle = battle; NewCombatRound(); BeginCombatTurn();
         void AddUnit(Actor a, bool friendly)
         {
@@ -208,6 +209,7 @@ public sealed partial class WorldSession
             if (a.Life == LifeState.Alive && !u.Alive)
             {
                 a.Body.Wounds = Math.Min(10, a.Body.Wounds + 1);
+                if (!u.Friendly) LeaveWildlifeRemains(a);
                 foreach (var other in State.Actors.Where(p => p.Id != a.Id && p.Life == LifeState.Alive && (p.FriendId == a.Id || p.Trust.GetValueOrDefault(a.Id) > 0 || p.Recruited && a.Recruited))) Remember(other, "fallen-friend", a.Name + " fell in the fighting.", -8, a.Id);
             }
             a.Life = u.Alive ? LifeState.Alive : u.Friendly ? LifeState.Downed : LifeState.Dead;
@@ -224,15 +226,17 @@ public sealed partial class WorldSession
         State.Battle = null;
         if (victory)
         {
-            Add("gold", 12); Add("food", 3);
+            bool wildlife = b.Units.Where(u => !u.Friendly).All(u => Ecology(State.Actors.Single(a => a.Id == b.ActorIds[u.Id])) != null);
+            int gold = wildlife ? 0 : 12, food = wildlife ? 0 : 3, experience = wildlife ? 6 : 12;
+            Add("gold", gold); Add("food", food);
             var levels = new List<string>();
             foreach (var a in Party.Where(a => a.Life == LifeState.Alive))
             {
-                a.Experience += 12;
+                a.Experience += experience;
                 if (a.Experience >= a.Level * 30) { a.Experience -= a.Level * 30; a.Level++; a.Health = Math.Min(a.MaxHealth, a.Health + 6); a.Mana = Math.Min(a.MaxMana, a.Mana + 3); levels.Add(a.Name + " / level " + a.Level); }
             }
-            State.LastEncounterReward = new(12, 3, 12, levels.ToArray());
-            Feedback("reward", null, null, "Victory", 12, "12 gold, 3 food; 12 experience to each conscious survivor." + (levels.Count > 0 ? " " + string.Join(", ", levels) : ""));
+            State.LastEncounterReward = new(gold, food, experience, levels.ToArray());
+            Feedback("reward", null, null, "Victory", experience, (wildlife ? "6 experience to each conscious survivor. Recover ingredients from the remains." : "12 gold, 3 food; 12 experience to each conscious survivor.") + (levels.Count > 0 ? " " + string.Join(", ", levels) : ""));
             if (State.Actors.Single(a => a.Id == State.Endgame.ActorId).Life == LifeState.Dead)
             { State.Endgame.Victory = true; Paused = true; Log("The final threat has fallen. Your expedition is complete."); }
             Log("Encounter won. Fallen companions can be revived with medicine or deliberately abandoned.");

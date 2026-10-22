@@ -52,6 +52,7 @@ public sealed class GameDefinition : ContentDefinition
     public string[] Discoveries { get; set; } = [];
     public string[] Resources { get; set; } = [];
     public string[] CampActivities { get; set; } = [];
+    public string[] Wildlife { get; set; } = [];
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
@@ -159,6 +160,17 @@ public class CharacterDefinition : ContentDefinition
     public int Speed { get; set; } = 6;
     public int Power { get; set; } = 6;
     public BehaviorRule[] Behaviors { get; set; } = [];
+    public EcologyRules? Ecology { get; set; }
+}
+public sealed class EcologyRules
+{
+    public required string Behavior { get; set; }
+    public required Biome[] Biomes { get; set; }
+    public bool Underground { get; set; }
+    public string? Resource { get; set; }
+    public int Notice { get; set; } = 4;
+    public int Leash { get; set; } = 8;
+    public required Dictionary<string, int> Drops { get; set; }
 }
 public sealed class BossDefinition : ContentDefinition
 {

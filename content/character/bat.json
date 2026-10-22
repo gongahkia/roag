@@ -1,0 +1,39 @@
+{
+  "kind": "character",
+  "id": "character.bat",
+  "name": "Cave bat",
+  "sprite": "bat",
+  "actorKind": "Beast",
+  "health": 16,
+  "mana": 0,
+  "power": 3,
+  "armor": 0,
+  "speed": 11,
+  "behaviors": [
+    {
+      "ability": "ability.nip",
+      "weight": 2
+    },
+    {
+      "ability": "ability.strike"
+    }
+  ],
+  "ecology": {
+    "behavior": "roost",
+    "biomes": [
+      "Grassland",
+      "Forest",
+      "Marsh",
+      "Badland",
+      "Snow",
+      "Highland"
+    ],
+    "underground": true,
+    "resource": null,
+    "notice": 4,
+    "leash": 8,
+    "drops": {
+      "item.meat": 1
+    }
+  }
+}

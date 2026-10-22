@@ -116,6 +116,17 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid content-backed actor state.");
         var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
         var catalog = ContentCatalog.Default;
+        if (s.EcologyChunks == null || s.EcologyChunks.Count > 16384 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor is < 0 or >= WorldPlan.Floors)) throw new InvalidDataException("Invalid observed ecology chunks.");
+        foreach (var actor in s.Actors)
+        {
+            var ecology = (catalog.Entries[actor.Archetype] as CharacterDefinition)?.Ecology;
+            if (ecology == null ? actor.Habitat != null || actor.ProvokedUntil != 0
+                : actor.Habitat is not { } home || !plan.Contains(home) || !s.EcologyChunks.Contains(home.Chunk) || actor.Kind != ActorKind.Beast
+                    || ecology.Underground != (home.Floor > 0) || actor.Position.Floor != home.Floor || actor.Recruited
+                    || actor.ProvokedUntil < 0 || actor.ProvokedUntil > s.Tick + 75)
+                throw new InvalidDataException("Invalid wildlife habitat or provocation.");
+        }
+        if (s.Actors.Where(a => a.Habitat != null).GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1)) throw new InvalidDataException("Duplicate wildlife habitat in a chunk.");
         if (s.GeneratedEquipment == null || s.GeneratedEquipment.Count > 6144) throw new InvalidDataException("Invalid generated equipment registry.");
         foreach (var (id, gear) in s.GeneratedEquipment)
             if (!System.Text.RegularExpressions.Regex.IsMatch(id, "^gear\\.[0-9]+\\.[0-9]+\\.[0-9]+$") || gear == null || gear.Base == null
@@ -173,11 +184,20 @@ public sealed partial class WorldSession
         }
         if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
             || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
-            || s.Loot == null || s.Loot.Count > 2048 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !stacks.Contains(p.Key))
+            || s.Loot == null || s.Loot.Count > 10000 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !stacks.Contains(p.Key))
                 || c.Choices == null || c.Choices.Length is not (0 or 3) || c.Choices.Distinct().Count() != c.Choices.Length
                 || c.Choices.Any(id => id == null || SavedItem(id) is not { Slot: not "none" })
                 || (c.Choices.Length > 0 && c.Taken ? c.Selected == null || !c.Choices.Contains(c.Selected) : c.Selected != null))
             || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
+        foreach (var cache in s.Loot.Where(c => c.SourceActor != 0))
+        {
+            var actor = s.Actors.FirstOrDefault(a => a.Id == cache.SourceActor);
+            var ecology = actor == null ? null : (catalog.Entries[actor.Archetype] as CharacterDefinition)?.Ecology;
+            if (actor == null || ecology == null || actor.Life != LifeState.Dead || cache.Position != actor.Position || cache.Id != "wildlife-" + actor.Id
+                || cache.Choices.Length != 0 || cache.Contents.Count != ecology.Drops.Count
+                || ecology.Drops.Any(p => cache.Contents.GetValueOrDefault(catalog.Get<ItemDefinition>(p.Key).Stack) != p.Value)) throw new InvalidDataException("Invalid wildlife remains.");
+        }
+        if (s.Actors.Any(a => a.Habitat != null && a.Life == LifeState.Dead && !s.Loot.Any(c => c.SourceActor == a.Id))) throw new InvalidDataException("Missing wildlife remains.");
         ValidateDiscoveries(plan, s);
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {

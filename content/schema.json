@@ -217,6 +217,57 @@
             "additionalProperties": false
           }
         },
+        "ecology": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "behavior": {
+              "type": "string"
+            },
+            "biomes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "Grassland",
+                  "Forest",
+                  "Marsh",
+                  "Highland",
+                  "Badland",
+                  "Snow"
+                ]
+              }
+            },
+            "underground": {
+              "type": "boolean"
+            },
+            "resource": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "notice": {
+              "type": "integer"
+            },
+            "leash": {
+              "type": "integer"
+            },
+            "drops": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            }
+          },
+          "required": [
+            "behavior",
+            "biomes",
+            "drops"
+          ],
+          "additionalProperties": false
+        },
         "id": {
           "type": "string"
         },
@@ -917,6 +968,15 @@
           }
         },
         "campActivities": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "wildlife": {
           "type": "array",
           "items": {
             "type": [

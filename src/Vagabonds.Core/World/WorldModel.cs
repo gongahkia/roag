@@ -168,6 +168,8 @@ public sealed record Preparation(string Definition, string Effect, int Power, lo
 public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
 public sealed class Actor
 {
+    [JsonRequired] public WorldPosition? Habitat { get; set; }
+    [JsonRequired] public long ProvokedUntil { get; set; }
     [JsonRequired] public BodyState Body { get; set; } = new();
     public List<Preparation> Preparations { get; set; } = [];
     [JsonRequired] public List<ActorMemory> Memories { get; set; } = [];
@@ -287,6 +289,7 @@ public sealed record GeneratedEquipment(string Base, string[] Affixes);
 public sealed record EquipmentState(string Item, int Health, int Power, int Armor, int Speed);
 public sealed class LootCache
 {
+    [JsonRequired] public long SourceActor { get; set; }
     public required string Id { get; set; }
     public required WorldPosition Position { get; set; }
     public required Dictionary<string, int> Contents { get; set; }
@@ -389,6 +392,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    [JsonRequired] public HashSet<ChunkKey> EcologyChunks { get; set; } = [];
     public CampStory? LastCampStory { get; set; }
     public Dictionary<string, GeneratedEquipment> GeneratedEquipment { get; set; } = [];
     [JsonRequired] public List<WorldDiscovery> Discoveries { get; set; } = [];

@@ -262,7 +262,7 @@ public sealed partial class WorldSession : IGameSession
                 var p = new WorldPosition(x, y);
                 Visible.Add(p); Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
             }
-            ObserveDiscoveries(); return;
+            ObserveDiscoveries(); ObserveWildlife(); return;
         }
         _surfaceView = null;
         const int radius = 11;
@@ -278,7 +278,7 @@ public sealed partial class WorldSession : IGameSession
                 if (p != origin && Materials.Opaque(Chunks.At(p))) break;
             }
         }
-        ObserveDiscoveries();
+        ObserveDiscoveries(); ObserveWildlife();
     }
     /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
     public void RevealSurface(int left, int top, int right, int bottom)
@@ -318,7 +318,7 @@ public sealed partial class WorldSession : IGameSession
     {
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var positions = Party.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToArray();
-        var enemy = State.Actors.FirstOrDefault(a => a.Life == LifeState.Alive && a.Kind is ActorKind.Beast or ActorKind.Raider && positions.Any(p => a.Position.Distance(p) <= 1));
+        var enemy = State.Actors.FirstOrDefault(a => IsHostile(a) && positions.Any(p => a.Position.Distance(p) <= 1));
         if (enemy != null) StartBattle(enemy.Id);
     }
     private void MoveActors()
@@ -326,6 +326,7 @@ public sealed partial class WorldSession : IGameSession
         foreach (var a in State.Actors)
         {
             if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
+            if (Ecology(a) is { } ecology) { MoveWildlife(a, ecology); continue; }
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);
             WorldPosition destination;
             if (a.Kind == ActorKind.Person)

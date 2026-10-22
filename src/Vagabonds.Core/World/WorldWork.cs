@@ -106,6 +106,7 @@ public sealed partial class WorldSession
             }
             if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
             { order.Status = "Clear the target cell"; continue; }
+            if (order.Kind is WorkKind.Harvest or WorkKind.Dig) DisturbWildlife(order.Target);
             order.Status = "Working: " + worker.Name; double amount = WorkRate(worker) * WorkMultiplier(worker, order);
             order.Progress += amount; worker.Body.WorkDone += amount;
             if (order.Progress < order.Required) continue;

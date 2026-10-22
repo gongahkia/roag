@@ -75,9 +75,22 @@ internal sealed partial class WorldGame
             case "spoils":
                 if (_session.State.LastEncounterReward is { } reward)
                 {
-                    Text($"Gold +{reward.Gold}   Food +{reward.Food}", x, y, Gold, 1.5f);
-                    Wrap($"Each conscious survivor gained {reward.Experience} experience. Equipment in nearby caches can support different party roles.", x, y + 46, width);
-                    int ly = y + 104; foreach (var level in reward.LevelUps) { Text(level, x, ly, Gold); ly += 26; }
+                    bool wildlife = reward.Gold == 0 && reward.Food == 0;
+                    Text(wildlife ? "Ingredients left on the ground" : $"Gold +{reward.Gold}   Food +{reward.Food}", x, y, Gold, 1.5f);
+                    Wrap($"Each conscious survivor gained {reward.Experience} experience. " + (wildlife ? "Close this panel and click the remains to collect cooking or crafting ingredients." : "Equipment in nearby caches can support different party roles."), x, y + 46, width);
+                    if (wildlife)
+                    {
+                        var ingredients = _session.State.Loot.Where(c => c.SourceActor > 0 && !c.Taken && _session.Visible.Contains(c.Position))
+                            .SelectMany(c => c.Contents).GroupBy(p => p.Key).Take(4).ToArray();
+                        for (int i = 0; i < ingredients.Length; i++)
+                        {
+                            var item = _session.Content.All<ItemDefinition>().First(d => d.Stack == ingredients[i].Key); int ix = x + i * 152;
+                            _sprites.Draw(_batch, item.Sprite!, new(ix, y + 104, 36, 36), Gold);
+                            Text("x" + ingredients[i].Sum(p => p.Value), ix + 44, y + 112);
+                            Text(Short(item.Name, 18), ix, y + 145, Muted);
+                        }
+                    }
+                    int ly = y + (wildlife ? 180 : 104); foreach (var level in reward.LevelUps) { Text(level, x, ly, Gold); ly += 26; }
                     if (_session.Party.Any(a => a.Life == LifeState.Downed)) Wrap("A companion is downed. Party lets you spend medicine to revive them.", x, box.Bottom - 164, width, new(224, 151, 132));
                 }
                 break;
