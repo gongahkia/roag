@@ -35,6 +35,7 @@ public sealed class ContentCatalog
     public T Get<T>(string id) where T : ContentDefinition => _entries.TryGetValue(id, out var entry) && entry is T typed ? typed
         : throw new InvalidDataException($"Missing {typeof(T).Name}: {id}.");
     public string Source(string id) => _sources.GetValueOrDefault(id, "");
+    public static bool ValidId(string? id) => !string.IsNullOrWhiteSpace(id) && Regex.IsMatch(id, "^[a-z][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$");
     public static string Kind(ContentDefinition d) => d switch
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
@@ -55,7 +56,7 @@ public sealed class ContentCatalog
             try
             {
                 var entry = JsonSerializer.Deserialize<ContentDefinition>(text, Json) ?? throw new JsonException("Empty content definition.");
-                if (string.IsNullOrWhiteSpace(entry.Id) || !Regex.IsMatch(entry.Id, "^[a-z][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$"))
+                if (!ValidId(entry.Id))
                 { catalog.Issues.Add(new(file, "id", "Use a stable kind.name identifier in lowercase.")); continue; }
                 if (!entry.Id.StartsWith(Kind(entry) + ".", StringComparison.Ordinal)) catalog.Issues.Add(new(file, "id", "Identifier prefix must match kind."));
                 if (!catalog._entries.TryAdd(entry.Id, entry)) catalog.Issues.Add(new(file, "id", "Duplicate identifier: " + entry.Id));

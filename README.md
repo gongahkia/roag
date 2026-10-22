@@ -1,8 +1,8 @@
 # Vagabonds
 
-A standalone fantasy RPG in C# / .NET 10 and MonoGame. Begin alone in a seeded 4096×4096 world, recruit generated inhabitants, explore 24 towns and 48 adventure sites, build and dig, and shape a changing trade economy. Real-time exploration pauses for turn-based encounters; generated main arcs and permanent deaths leave consequences in the same persistent world.
+A standalone fantasy RPG in C# / .NET 10 and MonoGame. Begin alone in a seeded 4096×4096 world, recruit generated inhabitants, explore 24 towns and 48 adventure sites, tunnel, craft equipment and fight a seed-selected final threat from a pool of 48 boss archetypes. Turn-based party encounters, shared actor needs, timed work and a changing economy use one persistent world.
 
-Extracted from Ithica’s retained RPG at `c87d480`. Ithica remains the separate lunar colony game. This repository contains its own source, projects, tests, complete original artwork, catalog, mappings, atlas and authoring tools; it needs no sibling checkout, symlinks or submodules. [Project state](docs/PROJECT_STATE.md) · [Play guide](docs/RPG.md) · [Development](docs/DEVELOPMENT.md) · [Origin](docs/ORIGIN.md).
+Extracted from Ithica’s retained RPG at `c87d480`. Selected generation, work and social mechanisms from Ithica’s replayed history are adapted into this fantasy game. This repository contains its own source, projects, tests, complete original artwork, catalog, mappings, atlas and authoring tools; it needs no sibling checkout, symlinks or submodules. [Project state](docs/PROJECT_STATE.md) · [Play guide](docs/RPG.md) · [Development](docs/DEVELOPMENT.md) · [Origin](docs/ORIGIN.md).
 
 ## Run locally
 
@@ -26,11 +26,11 @@ Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a n
 
 The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
 
-Space resumes/pauses time; WASD/arrows or click moves; E speaks or takes stairs; B builds; X digs; I opens the pack; J shows stories/history; M shows known places. F3 inspects procedural samples and generation stages. Combat has six actions with visible enemy intents. Existing saves retain the original three-area campaign and its controls. See the [play guide](docs/RPG.md).
+Space resumes/pauses time; WASD/arrows or click moves; E speaks, loots or takes stairs; B builds; X digs; K manages work; C crafts; O gathers food; Period waits; I manages the party and equipment; J shows tactics/stories/history; M shows known places. F3 inspects procedural samples and generation stages. Combat has six actions with visible enemy intents. Existing saves retain the original three-area campaign and its controls. See the [play guide](docs/RPG.md).
 
 ## Content authoring
 
-`./dev content list`, `./dev content validate`, `./dev content inspect ID`, and `./dev preview character character.healer --seed 42` use the shared runtime content model. Definitions live under `content/`; [the authoring guide](docs/CONTENT_AUTHORING.md) covers references, scaffolding, removal, schemas and extension points. Run `./dev test` and review tooling at each substantial milestone.
+`./dev content list`, `./dev content validate`, `./dev content inspect ID`, and `./dev preview character character.healer --seed 42` use the shared runtime content model. Definitions live under `content/`; [the authoring guide](docs/CONTENT_AUTHORING.md) covers references, scaffolding, removal, schemas and extension points. Run `./dev test` and review tooling at each substantial milestone. `./dev audit-world --seed 40 --samples 8` produces a JSON/SVG comparison; `./dev preview encounter boss.ash-knight --seed 42` exercises actual combat. `./dev verify-native` runs optional local X11/WSLg input acceptance using temporary saves (requires xdotool/ffmpeg and a built client).
 
 ## Build and inspect
 
@@ -63,4 +63,4 @@ python3 tools/build_game_catalog.py
 
 Open [assets/atlas.html](assets/atlas.html) directly for neutral searches, exact crop downloads and layered scene experiments. Historical `ithica-*` asset filenames and origin-specific catalog fields are deliberately preserved; the expedition aliases and `usage.rpg` provide the RPG mappings. [Asset ownership and authoring](docs/ASSETS.md) · [Original credits](assets/CREDITS.txt).
 
-This is a playable world foundation: fixed job recipes, sparse relationships, regional trade/raids and three main-arc families. Further content and simulation depth remain future work. Equipment is class-defined; tactical walking/range, gear swapping, directional animations and controller input are not implemented.
+The game now includes WFC/BSP/cavern/ring layouts, generated companions, boss variations, loot/equipment, timed work and shared hunger/fatigue/injury with bounded memories and trust. Long-form balance still needs playtesting. Background gathering/production remains coarse; tactical walking/range, directional animation and controller input are not implemented.

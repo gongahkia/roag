@@ -33,4 +33,6 @@ Each checkpoint requires implementation, meaningful automated checks, usable dev
 - Checkpoint 2 implemented: generation profiles, purpose-specific layouts, coherent terrain and reproducible multi-seed JSON/SVG audits. Executed evidence is recorded in VERIFICATION.md.
 - Checkpoint 3 implemented: 48 archetypes/variants, saved authored intentions, open endgame/victory, loot/equipment and completed-round time.
 - Checkpoint 4 implemented: shared bodies, timed/reserved work, worker identity, rest, social memory/trust, conditional incidents and optional wear/repair/crafting.
-- Final graphical/tooling acceptance and documentation reconciliation remain checkpoint 5.
+- Checkpoint 5 implemented: runtime previews for all content families, reusable native acceptance, completed controls/guides and final verification.
+
+All five checkpoints are complete for this integration. This does not claim a finished content/balance pass or full settlement-scale simulation; PROJECT_STATE.md records those practical limits.

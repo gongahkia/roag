@@ -66,7 +66,8 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
+                if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
+                else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
                 else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
                 else if (kind == "encounter") Print(EncounterPreview.Run(catalog, id, seed));
@@ -82,7 +83,7 @@ public static class DeveloperEntry
                     var actor = ActorFactory.Create(catalog, id, seed, 100001, new(0, 0), 0);
                     Print(new { seed, actor, interactions = catalog.Get<CharacterDefinition>(id).Interactions.Select(catalog.Get<InteractionDefinition>) });
                 }
-                else if (kind == "ability") Print(catalog.Get<AbilityDefinition>(id));
+                else if (kind == "ability") Print(AbilityPreview.Run(catalog, id, seed));
                 else if (kind == "interaction")
                 {
                     var game = WorldSession.Create(seed, catalog); var actor = game.State.Actors.First(a => game.Interactions(a.Id).Any(i => i.Id == id));
@@ -97,7 +98,7 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
@@ -112,10 +113,10 @@ public static class DeveloperEntry
                 Print(new { reportPath = output + ".json", comparison = output + ".svg", audit.Report }); return audit.Report.Connected ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview character|ability|interaction|generation|encounter|recipe|simulation|incident ID [--seed N]", "audit-world --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
-        catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException)
+        catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)
         { Print(new { error = e.Message }); return 1; }
     }
     private static void RequireValid(ContentCatalog catalog) { if (catalog.Issues.Count > 0) throw new InvalidDataException(string.Join("; ", catalog.Issues.Select(i => $"{i.File}:{i.Field}: {i.Message}"))); }
@@ -132,6 +133,7 @@ public static class DeveloperEntry
     }
     private static ContentDefinition Scaffold(string kind, string id, ContentCatalog c)
     {
+        if (!ContentCatalog.ValidId(id) || !id.StartsWith(kind + ".", StringComparison.Ordinal)) throw new ArgumentException("Use a stable kind.name identifier; paths are not content IDs.");
         ContentDefinition template = kind switch
         {
             "ability" => new AbilityDefinition { Id = id, Name = "New ability", Sprite = "sword", Effect = "damage", Power = 6 },
@@ -151,7 +153,7 @@ public static class DeveloperEntry
         };
         // Clone templates before changing IDs, preserving the loaded catalog's identity and references.
         var copy = JsonSerializer.Deserialize<ContentDefinition>(JsonSerializer.Serialize<ContentDefinition>(template, ContentCatalog.Json), ContentCatalog.Json)!;
-        copy.Id = id; if (!id.StartsWith(kind + ".", StringComparison.Ordinal)) throw new ArgumentException("ID prefix must match kind.");
+        copy.Id = id;
         return copy;
     }
 }

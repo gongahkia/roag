@@ -519,7 +519,9 @@ internal sealed class WorldGame : Game
             var r = UnitRect(unit); Fill(r, unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
             _sprites.Fit(_batch, unit.Sprite, new(r.X + 8, r.Y + 8, 48, 48), unit.Alive ? Ink : Muted * .4f);
             Text(unit.Name.Length > 25 ? unit.Name[..22] + "..." : unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
-            string detail = unit.Friendly ? $"MP {unit.Mana} {unit.Conditions}" : _session.EnemyIntent(unit.Id);
+            string conditions = string.Join(" ", new[] { unit.Guarding ? "G" : "", unit.Burn > 0 ? "B" + unit.Burn : "", unit.Bleed > 0 ? "L" + unit.Bleed : "", unit.Mark > 0 ? "M" + unit.Mark : "", unit.Stun > 0 ? "S" + unit.Stun : "" }.Where(c => c.Length > 0));
+            Text(conditions, r.X + 160, r.Y + 29, Gold, .75f);
+            string detail = unit.Friendly ? $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
             Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
         }
         if (b.Active.Friendly)
@@ -535,7 +537,7 @@ internal sealed class WorldGame : Game
         Text(_panel.ToUpperInvariant(), x, y, Gold, 2); y += 42;
         if (_panel == "guide")
         {
-            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X queues digging. Materials are reserved; work takes time and fatigue affects workers.", "R spends an hour resting at camp; danger interrupts. O gathers food; Period waits.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses for choices; completed rounds cost a minute. 1-6 skills; click targets.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "K assigns/cancels work; C crafts at camp; P repairs hovered structures. I manages gear."];
+            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X queues digging. Materials are reserved; work takes time and fatigue affects workers.", "R spends an hour resting at camp; danger interrupts. O gathers food; Period waits.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses for choices; completed rounds cost a minute. 1-6 skills; click targets.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "K assigns/cancels work; C crafts at camp; P repairs hovered structures. I manages gear.", "Combat labels: G guard, B burn, L bleed, M mark, S stun. J shows enemy tactics."];
             foreach (string line in lines) y += Wrap(line, x, y, width);
         }
         else if (_panel == "person")
@@ -568,6 +570,7 @@ internal sealed class WorldGame : Game
         {
             var party = _session.Party.ToArray(); var member = party[_packMember % party.Length];
             Text(member.Name + " / Tab changes companion", x, y, Gold); y += 28;
+            Text($"Food {_session.Count("food")}  Medicine {_session.Count("medicine")}  Gold {_session.Count("gold")}  Wood {_session.Count("wood")}  Stone {_session.Count("stone")}", x, y, Gold); y += 26;
             Text($"HP {member.Health}/{member.MaxHealth}  Power {member.Power}  Armour {member.Armor}  Speed {member.Speed}", x, y); y += 28;
             Text($"Hunger {member.Body.Hunger:0}/100  Fatigue {member.Body.Fatigue:0}/100  Wounds {member.Body.Wounds}  Stress {member.Stress}", x, y, Muted); y += 26;
             Text("Equipped: " + string.Join(", ", member.Equipment.Values.Select(e => _session.Content.Get<ItemDefinition>(e.Item).Name)), x, y, Muted); y += 30;

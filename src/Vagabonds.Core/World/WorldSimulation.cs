@@ -12,7 +12,13 @@ public sealed partial class WorldSession
         if (actor.Life == LifeState.Dead || actor.Memories.Any(m => m.Key == key && m.Other == other && m.Until > State.Tick)) return false;
         if (actor.Memories.Count >= 12) actor.Memories.RemoveAt(0);
         actor.Memories.Add(new(key, text, State.Tick, State.Tick + Simulation.MemoryTicks, mood, other));
-        actor.Stress = Math.Clamp(actor.Stress - mood, 0, 100); return true;
+        actor.Stress = Math.Clamp(actor.Stress - mood, 0, 100);
+        if (State.Battle is { } battle)
+        {
+            int index = battle.ActorIds.IndexOf(actor.Id);
+            if (index >= 0) battle.Units[index].Stress = actor.Stress;
+        }
+        return true;
     }
     private static void ChangeTrust(Actor actor, Actor other, int amount) => actor.Trust[other.Id] = Math.Clamp(actor.Trust.GetValueOrDefault(other.Id) + amount, -100, 100);
     private bool HasWork(Actor actor) => State.Work.Any(w => w.Worker == actor.Id);

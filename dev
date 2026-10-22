@@ -5,4 +5,8 @@ if [ "${1:-}" = test ]; then
     shift
     exec ./tools/dotnet.sh test Vagabonds.sln --configuration Release "$@"
 fi
+if [ "${1:-}" = verify-native ]; then
+    shift
+    exec python3 tools/verify_world_input.py "$@"
+fi
 exec ./tools/dotnet.sh run --project src/Vagabonds.Tools --configuration Release -- "$@"

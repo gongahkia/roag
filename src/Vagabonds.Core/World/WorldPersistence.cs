@@ -145,6 +145,23 @@ public sealed partial class WorldSession
             if (b.Plans.Count > 4 || b.Plans.Any(p => p.Key < 0 || p.Key >= b.Units.Count || b.Units[p.Key].Friendly || p.Value == null || p.Value.Target < 0 || p.Value.Target >= b.Units.Count
                 || !ContentCatalog.Default.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion")
                 || b.Units.Any(u => !u.Friendly && u.Alive && !b.Plans.ContainsKey(u.Id))) throw new InvalidDataException("Invalid enemy intentions.");
+            foreach (var unit in b.Units)
+            {
+                var actor = s.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
+                if (unit.Health != actor.Health || unit.Mana != actor.Mana || unit.Stress != actor.Stress || unit.MaxHealth != actor.MaxHealth || unit.MaxMana != actor.MaxMana)
+                    throw new InvalidDataException("Combat and actor state disagree.");
+            }
+            foreach (var (unit, intent) in b.Plans)
+            {
+                var ability = ContentCatalog.Default.Get<AbilityDefinition>(intent.Ability);
+                bool valid = ability.Target switch
+                {
+                    TargetKind.Self => intent.Target == unit,
+                    TargetKind.Ally or TargetKind.AllAllies => !b.Units[intent.Target].Friendly,
+                    _ => b.Units[intent.Target].Friendly
+                };
+                if (!valid) throw new InvalidDataException("Invalid intention target.");
+            }
             if (b.Round is < 1 or > 100000 || b.Units.Any(u => u.MaxHealth is < 1 or > 10000 || u.MaxMana is < 0 or > 10000 || u.Stress is < 0 or > 100 || u.Armor is < 0 or > 1000 || u.Speed is < 0 or > 1000 || u.Power is < 0 or > 1000 || u.Burn is < 0 or > 1000 || u.Bleed is < 0 or > 1000 || u.Mark is < 0 or > 1000 || u.Stun is < 0 or > 1000 || !Enum.IsDefined(u.Intent))) throw new InvalidDataException("Invalid combat statistics.");
         }
     }

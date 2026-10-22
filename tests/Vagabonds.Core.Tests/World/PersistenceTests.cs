@@ -41,6 +41,24 @@ public sealed class PersistenceTests : IDisposable
         Assert.Empty(Directory.GetFiles(_directory, "*.tmp"));
     }
     [Fact]
+    public void ACompanionsFallKeepsCombatAndMemoryStressInTheSameSavedState()
+    {
+        var s = WorldSession.Create(42); var hero = s.Party.First(); hero.BaseHealth = hero.Health = 200;
+        var npc = s.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited); npc.Position = s.State.Position;
+        s.Submit(new(WorldCommandKind.Recruit, ActorId: npc.Id)); npc.Health = 1; npc.BaseSpeed = 1;
+        s.StartBattle(s.State.Actors.First(a => a.Kind == ActorKind.Beast).Id);
+        var battle = s.State.Battle!; var enemy = battle.Units.First(u => !u.Friendly);
+        battle.Plans[enemy.Id] = new("ability.strike", 1); enemy.IntentTarget = 1;
+        int budget = 20;
+        while (npc.Life == LifeState.Alive && budget-- > 0)
+        { if (s.State.Battle!.Active.Friendly) s.Act(3); else s.AdvanceEnemy(); }
+        Assert.Equal(LifeState.Downed, npc.Life); Assert.Contains(hero.Memories, m => m.Other == npc.Id && m.Key == "fallen-friend");
+        s.Save(Slot); Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(WorldSession.Load(Slot).State));
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Slot))!;
+        root["state"]!["battle"]!["units"]![0]!["health"] = hero.Health - 1; File.WriteAllText(Slot, root.ToJsonString());
+        Assert.Throws<InvalidDataException>(() => WorldSession.Load(Slot));
+    }
+    [Fact]
     public void CorruptedChunkAndGenerationVersionAreRejected()
     {
         var s = WorldSession.Create(42); s.Save(Slot);
