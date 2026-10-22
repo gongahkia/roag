@@ -88,6 +88,18 @@ def main():
         def fighter(self, unit_id, fast=False):
             r = next(u for u in self.ui()['battle']['units'] if u['id'] == unit_id)['bounds']
             self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
+        def equipment(self, item_id):
+            # Hidden/unowned relics and generated equipment change the displayed
+            # order. Resolve stable IDs through the runtime view, then page using
+            # real mouse controls instead of reproducing the UI's filtering.
+            entries = self.ui()['equipment']; entry = next(e for e in entries if e['id'] == item_id)
+            identifier = 'gear:' + str(entry['index'])
+            for _ in range(len(entries) // 8 + 2):
+                visible = [int(c['id'][5:]) for c in self.ui()['controls'] if c['id'].startswith('gear:')]
+                if entry['index'] in visible:
+                    self.click(identifier); return entry
+                self.click('gearpage:' + ('1' if entry['index'] > max(visible) else '-1'))
+            raise RuntimeError('Equipment page did not expose ' + item_id)
         def load(self):
             self.click('load')
             ui = self.wait(lambda u: u['notice'].startswith(('World restored', 'Load failed:')))
@@ -251,10 +263,9 @@ def main():
                 check('mouseTimedRest', rested['tick'] == cancelled['tick'] + 300)
                 client.context(camp); client.click('context:craft'); client.click('craft:recipe.camp-weapon'); client.pause(); client.click('panel:actions'); client.click('wait:300')
                 crafted = client.save()['state']; recipe = json.loads((ROOT / 'content/recipe/camp-weapon.json').read_text())
-                equipment = sorted((json.loads(p.read_text()) for p in (ROOT / 'content/item').glob('*.json') if json.loads(p.read_text()).get('slot', 'none') != 'none'), key=lambda d: d['id'])
-                index = next(i for i, item in enumerate(equipment) if item['id'] == recipe['output'])
-                check('mouseCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
-                client.click('panel:inventory'); client.click('pause'); party_tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > party_tick + 2); check('partyPanelKeepsTimeRunning', client.ui()['panel'] == 'inventory'); client.pause(); client.click('gear:' + str(index)); client.click('equip'); equipped = client.save()['state']
+                client.click('panel:inventory'); equipment = client.equipment(recipe['output']); index = equipment['index']
+                check('mouseCrafting', equipment['count'] > 0)
+                client.click('pause'); party_tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > party_tick + 2); check('partyPanelKeepsTimeRunning', client.ui()['panel'] == 'inventory'); client.pause(); client.click('equip'); equipped = client.save()['state']
                 hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0]); check('mouseEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
                 cards = client.ui()['controls']; check('partyShowsPortraitsAndItemSprites', all(c['sprite'] and c['spriteBounds']['height'] >= 30 for c in cards if c['id'].startswith(('party:', 'gear:'))))
                 check('equippedItemHasVisibleWornLabel', any(c['id'] == 'gear:' + str(index) and 'worn' in c['label'] for c in cards))
@@ -688,11 +699,7 @@ def main():
                 client.capture('encounter-themed-rewards'); client.load()
                 check('themedRewardsSurviveReloadWithoutDuplication', client.save()['state'] == won['state'])
                 client.click('panel:inventory'); awarded = reward['items'][0]['item']
-                equipment = next(e for e in client.ui()['equipment'] if e['id'] == awarded); gear_id = 'gear:' + str(equipment['index'])
-                for _ in range(8):
-                    if any(c['id'] == gear_id for c in client.ui()['controls']): break
-                    client.click('gearpage:1')
-                client.click(gear_id); client.click('equip'); equipped = client.save()['state']
+                client.equipment(awarded); client.click('equip'); equipped = client.save()['state']
                 member = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0])
                 check('themedRewardCanBeEquipped', any(g['item'] == awarded for g in member['equipment'].values()))
                 client.capture('encounter-reward-equipped')
