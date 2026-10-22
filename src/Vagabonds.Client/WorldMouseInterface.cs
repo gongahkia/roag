@@ -48,7 +48,7 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        _session = WorldSession.Create(WorldStartup.FreshSeed()); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
+        _session = WorldSession.Create(WorldStartup.FreshSeed()); ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
@@ -99,8 +99,8 @@ internal sealed partial class WorldGame
         _controls.Clear();
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
             => _controls.Add(new(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed));
-        bool ended = _session.State.Endgame.Victory || _session.State.AwaitingContinuation;
-        Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !_session.IsInCombat, tip: "Pause stops travel. Work and Party stay open while time runs. Conversations remain paused.");
+        bool ended = !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation);
+        Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !CombatStageVisible, tip: "Pause stops travel. Work and Party stay open while time runs. Conversations remain paused.");
         Add("save", "Save", w - 284, 16, 84); Add("load", "Load", w - 192, 16, 84); Add("panel:game", "Menu", w - 100, 16, 84);
         var box = PanelBox(w, h); int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
         if (ended && _panel != "game")
@@ -341,15 +341,25 @@ internal sealed partial class WorldGame
             }
             return;
         }
-        if (_session.IsInCombat)
+        if (CombatStageVisible)
         {
-            Add("panel:journal", "Tactics", _map.Right - 284, _map.Top + 12, 92); Add("panel:combat-log", "Log", _map.Right - 184, _map.Top + 12, 80); Add("panel:inventory", "Party", _map.Right - 96, _map.Top + 12, 84);
-            var battle = _session.State.Battle!;
-            if (battle.Active.Friendly)
+            var area = CombatArea;
+            Add("combat-speed", _combatSpeed > 1 ? "Speed 2x" : "Speed 1x", area.Right - 508, area.Top + 8, 96, 28, tip: "Change presentation speed. Outcomes and world time stay the same.");
+            Add("combat-motion", _reducedMotion ? "Motion low" : "Motion full", area.Right - 404, area.Top + 8, 112, 28, tip: "Reduce travel, recoil, pulses and floating text motion.");
+            Add("combat-volume", _combatVolume <= 0 ? "Sound off" : "Sound " + (int)Math.Round(_combatVolume * 100), area.Right - 284, area.Top + 8, 100, 28, tip: "Cycle battle sound volume, including mute.");
+            Add("combat-skip", "Skip", area.Right - 176, area.Top + 8, 72, 28, Playback.Busy, tip: "Finish this visual sequence. The action is already resolved.", reason: "No action is playing.");
+            Add("panel:combat-log", "Log", area.Right - 96, area.Top + 8, 80, 28);
+            Add("panel:journal", "Tactics", area.Right - 96, area.Top + 44, 80, 28);
+            Add("panel:inventory", "Party", area.Right - 184, area.Top + 44, 80, 28);
+            var battle = DisplayBattle;
+            if (battle?.Active.Friendly == true)
             {
-                var skills = _session.ActiveSkills(); int columns = skills.Count > 6 ? 4 : 3, bw = (_map.Width - (columns - 1) * 8) / columns;
-                for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name + (skills[i].Mana > 0 ? $" / {skills[i].Mana} MP" : ""), _map.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
-                    _session.SkillUnavailable(i).Length == 0, i == _skill, skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description);
+                var skills = Playback.Busy ? Playback.Skills : _session.ActiveSkills(); int columns = 4, bw = (area.Width - 24) / columns;
+                for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name, area.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
+                    !Playback.Busy && _session.SkillUnavailable(i).Length == 0, i == _skill,
+                    skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description,
+                    Playback.Busy ? "Wait for the current action or choose Skip." : "", sprite: skills[i].Icon,
+                    detail: skills[i].Mana > 0 ? skills[i].Mana + " MP" : "No MP cost");
             }
             return;
         }
@@ -366,11 +376,16 @@ internal sealed partial class WorldGame
     {
         string argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";
         string action = id.Split(':', 2)[0];
+        if (action == "skill" && Playback.Busy) return;
         if (action == "context") { ActivateContext(argument); return; }
         if (action == "panel") { _contextCells = null; Toggle(argument); return; }
         if (action == "zoom") { if (argument == "default") WorldCameraScale.Apply(_camera, reset: true); else Zoom(argument == "in" ? 1 : -1); return; }
         switch (action)
         {
+            case "combat-speed": _combatSpeed = _combatSpeed > 1 ? 1 : 2; SaveConversationSettings(); break;
+            case "combat-motion": _reducedMotion = !_reducedMotion; SaveConversationSettings(); break;
+            case "combat-volume": _combatVolume = _combatVolume >= .99f ? 0 : Math.Min(1, _combatVolume + .3f); _combatAudio?.Stop(); SaveConversationSettings(); break;
+            case "combat-skip": Playback.Skip(); _combatAudio?.Stop(); _combatFloats.Clear(); break;
             case "close": ClosePanel(); break;
             case "pause":
                 _session.Paused = !_session.Paused;
@@ -457,7 +472,7 @@ internal sealed partial class WorldGame
     private void DrawMouseControls(int w, int h)
     {
         BuildMouseControls(w, h);
-        if ((_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
+        if (!Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
         {
             var box = new Rectangle(60, h / 2 - 110, w - 120, 220); Fill(box, _session.State.Endgame.Victory ? Panel : new Color(44, 27, 31));
             Text(_session.State.Endgame.Victory ? "EXPEDITION COMPLETE" : "THE EXPEDITION HAS ENDED", box.X + 24, box.Y + 24, Gold, 2);
@@ -475,7 +490,7 @@ internal sealed partial class WorldGame
             DrawControlContents(control);
         }
         int ny = h - 136;
-        Fill(new(_map.X, ny, _map.Width, 36), new(16, 22, 27));
+        Fill(new(_map.X, ny, CombatStageVisible ? CombatArea.Width : _map.Width, 36), new(16, 22, 27));
         string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip : _notice;
         if (hot == null && _waypoint is { } destination) notice = "Waypoint: " + WorldSession.Direction(_session.State.Position, destination) + ", " + destination.Distance(_session.State.Position with { Floor = 0 }) + " surface tiles. " + notice;
         Wrap(Short(notice, 150), _map.X + 4, ny + 2, _map.Width - 8, hot != null ? Gold : Ink);
@@ -503,6 +518,13 @@ internal sealed partial class WorldGame
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited, outcome = d.Outcome, bypass = _session.DiscoveryBypass(d) }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),
+            combatIntents = _session.State.Battle?.Units.Where(u => !u.Friendly).Select(u => BattleIntent(u.Id)),
+            combatPresentation = new { busy = Playback.Busy, phase = Playback.Phase, progress = Playback.Progress, phaseProgress = Playback.PhaseProgress,
+                stageVisible = CombatStageVisible, endingPending = Playback.EndingPending, sequence = Playback.Sequence,
+                abilityId = Playback.Current?.AbilityId, family = Playback.Current?.Profile.Family, source = Playback.Current?.Source, targets = Playback.Current?.Targets,
+                speed = _combatSpeed, reducedMotion = _reducedMotion, volume = _combatVolume, audioUnavailable = _combatAudio?.Unavailable ?? false,
+                playedCues = _combatAudio?.PlayedCues ?? 0, profileHash = CombatVisualProfiles.Default.Hash, area = Rect(CombatArea),
+                units = DisplayBattle?.Units.Select(u => new { id = u.Id, actorId = DisplayBattle.ActorIds[u.Id], name = u.Name, friendly = u.Friendly, alive = u.Alive, health = u.Health, mana = u.Mana, bounds = Rect(UnitRect(u)), spriteBounds = Rect(CombatSpriteBox(u)) }) },
             party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,

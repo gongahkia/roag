@@ -67,7 +67,28 @@ internal sealed partial class WorldGame : Game
         {
             foreach (var person in _session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(3).ToArray())
             { person.Position = _session.State.Position; _session.Submit(new(WorldCommandKind.Recruit, ActorId: person.Id)); }
+            if (options.Scene == "world-battle")
+            {
+                int role = 0;
+                foreach (var actor in _session.Party)
+                {
+                    var definition = _session.Content.Classes.OrderBy(c => c.Role).ElementAt(role++);
+                    actor.Role = definition.Role; actor.SpriteId = definition.Sprite!;
+                    actor.BaseHealth = definition.Health; actor.BaseMana = definition.Mana;
+                    actor.BaseArmor = definition.Armor; actor.BaseSpeed = definition.Speed;
+                    actor.Health = actor.MaxHealth; actor.Mana = actor.MaxMana;
+                }
+                var leader = _session.State.Actors.First(a => a.Kind == ActorKind.Beast);
+                foreach (var enemy in _session.State.Actors.Where(a => a.Id != leader.Id && a.EncounterLeader == 0 && _session.IsHostile(a)).Take(3))
+                { enemy.EncounterLeader = leader.Id; enemy.Position = leader.Position.Offset(1, 0); }
+                leader.EncounterLeader = leader.Id;
+            }
             _session.StartBattle(options.Scene == "world-boss" ? _session.FinalBoss.Id : _session.State.Actors.First(a => a.Kind == ActorKind.Beast).Id);
+            if (options.Scene == "world-battle" && _session.State.Battle is { } preview)
+            {
+                preview.Units[0].Name = "Alexandria of the Wandering Lantern";
+                var foe = preview.Units.First(u => !u.Friendly); foe.Burn = 3; foe.Bleed = 2; foe.Mark = 2; foe.Stun = 1; foe.Guarding = true;
+            }
         }
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Vagabonds - the living world"; Window.AllowUserResizing = true;
@@ -106,7 +127,7 @@ internal sealed partial class WorldGame : Game
     protected override void Update(GameTime gameTime)
     {
         var timer = Stopwatch.StartNew(); Layout(); UpdateView();
-        _presentationTime += Math.Min(.2, gameTime.ElapsedGameTime.TotalSeconds); CollectCombatFeedback();
+        UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
         var mouse = Mouse.GetState();
         _session.Focused = IsActive;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
@@ -121,24 +142,24 @@ internal sealed partial class WorldGame : Game
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
-                    if (_session.IsInCombat) CombatClick(mouse.Position);
+                    if (CombatStageVisible) CombatClick(mouse.Position);
                     else if (_map.Contains(mouse.Position)) BeginSelection(mouse.Position);
                 }
             }
             UpdateSelection(mouse);
             if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released)
             {
-                if (_session.IsInCombat && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
-                if (_panel.Length > 0 || _session.IsInCombat || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
+                if (CombatStageVisible && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
+                if (_panel.Length > 0 || CombatStageVisible || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
                 else OpenContext(mouse.Position);
             }
-            if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !_session.IsInCombat && _map.Contains(mouse.Position))
+            if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !CombatStageVisible && _map.Contains(mouse.Position))
                 Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
         }
         else if (!IsActive) { _dragStart = null; _dragging = false; }
         if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
-        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
+        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
         {
@@ -146,7 +167,7 @@ internal sealed partial class WorldGame : Game
             _moveTimer = 0;
             if (!_session.IsInCombat) FinishApproach();
         }
-        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
+        _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.PartyTravelling = _route.Count > 0 || _pendingInteraction != null;
         bool wasInCombat = _session.IsInCombat;
         // Long stalls/focus changes discard elapsed time rather than simulating an offline catch-up.
@@ -154,12 +175,14 @@ internal sealed partial class WorldGame : Game
         if (_session.IsInCombat)
         {
             if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
-            StopTravel(); _enemyTimer += gameTime.ElapsedGameTime.TotalSeconds;
-            if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
+            StopTravel();
+            bool ready = !_session.State.Battle!.Active.Friendly && !Playback.Busy && _panel.Length == 0 && IsActive;
+            _enemyTimer = ready ? _enemyTimer + Math.Min(.2, gameTime.ElapsedGameTime.TotalSeconds) : 0;
+            if (ready && _enemyTimer > .45 / _combatSpeed) { ResolveEnemyPresentation(); _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
         UpdateConversation(gameTime.ElapsedGameTime.TotalSeconds);
-        CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal;
+        CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
@@ -186,8 +209,7 @@ internal sealed partial class WorldGame : Game
 
     private void CombatClick(Point pointer)
     {
-        var battle = _session.State.Battle!;
-        if (!battle.Active.Friendly) return;
+        if (Playback.Busy || _session.State.Battle is not { } battle || !battle.Active.Friendly) return;
         foreach (var unit in battle.Units)
             if (UnitRect(unit).Contains(pointer))
             {
@@ -206,10 +228,10 @@ internal sealed partial class WorldGame : Game
     }
     private void UseSkill()
     {
-        if (_session.State.Battle == null || _session.ActiveSkills().ElementAtOrDefault(_skill) == null) return;
+        if (Playback.Busy || _session.State.Battle == null || _session.ActiveSkills().ElementAtOrDefault(_skill) is not { } skill) return;
         try
         {
-            var result = _session.Act(_skill, _combatTarget, _cooperativePartner); _notice = result.Message;
+            var result = Playback.Resolve(_session, skill, () => _session.Act(_skill, _combatTarget, _cooperativePartner), _combatTarget, _cooperativePartner); _notice = result.Message;
             if (result.Success) { _skill = 0; _cooperativePartner = _combatTarget = -1; }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Death save failed: " + e.Message + " Use Save to retry."; }
@@ -225,7 +247,7 @@ internal sealed partial class WorldGame : Game
         try
         {
             var replacement = WorldSession.Load(_options.Save);
-            _session = replacement; _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
+            _session = replacement; ResetCombatPresentation(); _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
             _notice = "World restored and paused. Click a destination or Play to continue.";
@@ -285,10 +307,10 @@ internal sealed partial class WorldGame : Game
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
         GraphicsDevice.ScissorRectangle = _map;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
-        DrawTerrain(); _batch.End();
+        if (!CombatStageVisible) DrawTerrain(); _batch.End();
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
         DrawHud(w, h);
-        if (_session.IsInCombat) DrawCombat();
+        if (CombatStageVisible) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
         DrawContext();
         DrawMouseControls(w, h);
@@ -448,6 +470,7 @@ internal sealed partial class WorldGame : Game
         long tick = _session.State.Tick;
         Text($"Day {tick / 7200 + 1}  {tick / 300 % 24:00}:{tick / 5 % 60:00}    {(_session.Frozen ? "PAUSED" : "LIVING WORLD")}", 300, 22);
         Text($"{_session.State.Position.X}, {_session.State.Position.Y}  / floor {_session.State.Position.Floor}    seed {_session.Seed}", 20, 57, Muted);
+        if (CombatStageVisible) return;
         Fill(_side, Panel); int x = _side.X + 14, y = _side.Y + 14;
         Text("THE EXPEDITION", x, y, Gold); y += 30;
         foreach (var a in _session.Party)
@@ -463,38 +486,6 @@ internal sealed partial class WorldGame : Game
         if (y < _side.Bottom - 100) { Text("THE FINAL THREAT", x, y, Gold); y += 26; Wrap(_session.FinalObjective, x, y, _side.Width - 28); }
     }
 
-    private Rectangle UnitRect(CombatUnit unit)
-    {
-        var b = _session.State.Battle!; int index = b.Units.Take(unit.Id).Count(u => u.Friendly == unit.Friendly);
-        int row = Math.Min(90, Math.Max(64, (_map.Height - 180) / 4));
-        return new(unit.Friendly ? _map.X + 24 : _map.Right - 280, _map.Y + 70 + index * row, 252, Math.Min(78, row - 6));
-    }
-    private void DrawCombat()
-    {
-        Fill(_map, new Color(14, 19, 25) * .96f); var b = _session.State.Battle!;
-        Text($"ENCOUNTER  /  ROUND {b.Round}", _map.X + 24, _map.Y + 18, Gold);
-        Text(b.Active.Name + "'s turn", _map.X + 24, _map.Y + 42);
-        foreach (var unit in b.Units)
-        {
-            var r = UnitRect(unit);
-            long actorId = b.ActorIds[unit.Id];
-            var latest = _combatFloats.LastOrDefault(e => e.Target == actorId && _presentationTime - e.Born < .25 && e.Kind is "damage" or "heal");
-            Fill(r, latest != null ? latest.Kind == "damage" ? new(88, 45, 41) : new(39, 76, 52) : unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
-            bool choosingHelper = b.Active.Friendly && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && _cooperativePartner < 0;
-            if (unit.Id == _cooperativePartner || b.Active.Friendly && r.Contains(_mouse.Position) && (choosingHelper
-                    ? _session.CooperationPartnerReason(_skill, unit.Id).Length == 0 : _session.ActionPreview(_skill, unit.Id, _cooperativePartner).Reason.Length == 0))
-                Fill(new(r.X, r.Y, 3, r.Height), new(127, 208, 212));
-            _sprites.Fit(_batch, unit.Sprite, new(r.X + 8, r.Y + 8, 48, 48), unit.Alive ? Ink : Muted * .4f);
-            Text(unit.Name.Length > 25 ? unit.Name[..22] + "..." : unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
-            string conditions = string.Join(" ", new[] { unit.Guarding ? "G" : "", unit.Burn > 0 ? "B" + unit.Burn : "", unit.Bleed > 0 ? "L" + unit.Bleed : "", unit.Mark > 0 ? "M" + unit.Mark : "", unit.Stun > 0 ? "S" + unit.Stun : "" }.Where(c => c.Length > 0));
-            Text(conditions, r.X + 160, r.Y + 29, Gold, .75f);
-            Fill(new(r.X + 64, r.Y + 43, r.Width - 76, 3), new(57, 63, 64));
-            Fill(new(r.X + 64, r.Y + 43, Math.Max(0, (r.Width - 76) * unit.Health / Math.Max(1, unit.MaxHealth)), 3), unit.Friendly ? new(129, 196, 150) : new(205, 126, 111));
-            string detail = unit.Friendly ? b.Assisting.Contains(unit.Id) ? $"MP {unit.Mana} / action spent" : $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
-            Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
-        }
-        DrawCombatFeedback();
-    }
     private void DrawInspector(int x, int y, int width)
     {
         Text($"Generation v{WorldPlan.GenerationVersion} / {_session.Chunks.ResidentCount}/25 chunks / {_session.Chunks.Generator.CachedFootprints}/8 footprints", x, y); y += 24;
@@ -523,7 +514,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

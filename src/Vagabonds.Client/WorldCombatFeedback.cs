@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Vagabonds.Core.Content;
 using Vagabonds.Core.World;
 
 namespace Vagabonds.Client;
@@ -9,22 +10,61 @@ internal sealed partial class WorldGame
     private readonly List<CombatFloat> _combatFloats = [];
     private WorldSession? _feedbackSession;
     private long _seenFeedback;
-    private double _presentationTime;
+    private double _presentationTime, _combatVisualTime;
+    private CombatPlayback? _combatPlayback;
+    private CombatPlayback Playback => _combatPlayback ??= new();
+    private CombatAudio? _combatAudio;
+    private double _combatSpeed = 1;
+    private float _combatVolume = .4f;
+    private bool CombatStageVisible => Playback.Busy || _session.IsInCombat;
+    private WorldBattle? DisplayBattle => Playback.View ?? _session.State.Battle;
+    private void ResetCombatPresentation()
+    {
+        Playback.Reset(); _combatFloats.Clear(); _combatAudio?.Stop(); _enemyTimer = 0;
+        _feedbackSession = _session; _seenFeedback = _session.State.NextCombatEvent - 1;
+    }
+    private void UpdateCombatPlayback(double elapsed)
+    {
+        if (IsActive) _presentationTime += Math.Clamp(elapsed, 0, .2);
+        CollectCombatFeedback();
+        bool paused = !IsActive || _panel.Length > 0;
+        if (!paused) _combatVisualTime += Math.Clamp(elapsed, 0, .2) * _combatSpeed;
+        string cue = Playback.Current?.Profile.Sound ?? "slash";
+        Playback.Advance(elapsed, _combatSpeed, paused);
+        var impacts = Playback.DrainImpacts();
+        foreach (var e in impacts) ShowCombatEvent(e);
+        if (impacts.Length > 0 && _combatVolume > 0)
+        {
+            _combatAudio ??= new();
+            _combatAudio.Play(cue, _combatVolume);
+        }
+        if (paused) _combatAudio?.Stop();
+        if (Playback.Completed)
+        {
+            if (Playback.RewardPending && !_session.State.Endgame.Victory) { _panel = "spoils"; StopTravel(); }
+            Playback.AcknowledgeCompletion(); _enemyTimer = 0;
+        }
+        _combatFloats.RemoveAll(e => _combatVisualTime - e.Born > 1.35);
+    }
+    private void ResolveEnemyPresentation()
+    {
+        if (Playback.Busy || _session.State.Battle is not { } b || b.Active.Friendly) return;
+        var plan = b.Plans[b.Active.Id]; var skill = _session.Content.Get<AbilityDefinition>(plan.Ability).AsSkill();
+        try { _notice = Playback.Resolve(_session, skill, _session.AdvanceEnemy, plan.Target).Message; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Death save failed: " + e.Message + " Use Save to retry."; }
+    }
     private void CollectCombatFeedback()
     {
-        if (!ReferenceEquals(_feedbackSession, _session))
-        {
-            _feedbackSession = _session; _seenFeedback = _session.State.NextCombatEvent - 1; _combatFloats.Clear(); return;
-        }
-        foreach (var e in _session.State.CombatEvents.Where(e => e.Sequence > _seenFeedback))
-        {
-            if (e.Kind == "ability" && e.Target != 0 && e.Label.StartsWith("Assists ", StringComparison.Ordinal)) _combatFloats.Add(new(e.Target, "Assists", "status", _presentationTime));
-            if (e.Target != 0 && e.Kind is "damage" or "heal" or "status" or "expire" or "fall" or "injury")
-                _combatFloats.Add(new(e.Target, e.Kind == "damage" ? "-" + e.Amount : e.Kind == "heal" ? "+" + e.Amount : e.Label, e.Kind, _presentationTime));
-            if (e.Kind == "reward" && !_session.State.Endgame.Victory) { _panel = "spoils"; StopTravel(); }
-        }
+        if (!ReferenceEquals(_feedbackSession, _session)) { ResetCombatPresentation(); return; }
+        // Resolution-owned events are emitted only when their playback reaches impact.
+        if (!Playback.Busy)
+            foreach (var e in _session.State.CombatEvents.Where(e => e.Sequence > _seenFeedback)) ShowCombatEvent(e);
         _seenFeedback = _session.State.NextCombatEvent - 1;
-        _combatFloats.RemoveAll(e => _presentationTime - e.Born > 1.35);
+    }
+    private void ShowCombatEvent(CombatEvent e)
+    {
+        if (e.Target != 0 && e.Kind is "damage" or "heal" or "status" or "expire" or "fall" or "injury" or "skip")
+            _combatFloats.Add(new(e.Target, e.Kind == "damage" ? "-" + e.Amount : e.Kind == "heal" ? "+" + e.Amount : e.Label, e.Kind, _combatVisualTime));
         if (_combatFloats.Count > 32) _combatFloats.RemoveRange(0, _combatFloats.Count - 32);
     }
     private static Color EventColor(string kind) => kind switch
@@ -34,21 +74,30 @@ internal sealed partial class WorldGame
     };
     private void DrawCombatFeedback()
     {
-        if (_session.State.Battle is not { } battle) return;
-        var occupied = new Dictionary<long, int>();
-        foreach (var e in _combatFloats.Where(e => _presentationTime - e.Born <= 1.35))
+        if (DisplayBattle is not { } battle) return;
+        foreach (var group in _combatFloats.Where(e => _combatVisualTime - e.Born <= 1.35).GroupBy(e => e.Target))
         {
-            int index = battle.ActorIds.IndexOf(e.Target); if (index < 0) continue;
-            var rect = UnitRect(battle.Units[index]); double age = _presentationTime - e.Born;
-            int stack = occupied.GetValueOrDefault(e.Target); occupied[e.Target] = stack + 1;
-            float opacity = (float)Math.Clamp((1.35 - age) * 2, 0, 1);
-            int y = Math.Max(_map.Top + 56, rect.Top - 10 - stack * 17 - (int)(age * 20));
-            Text(e.Text, rect.Center.X - e.Text.Length * 4, y, EventColor(e.Kind) * opacity);
-            if (age < .4 && e.Kind is "damage" or "heal")
-                _sprites.Fit(_batch, e.Kind == "heal" ? "heart" : "slash", new(rect.Right - 30, rect.Top + 8, 22, 22), EventColor(e.Kind) * opacity);
+            int index = battle.ActorIds.IndexOf(group.Key); if (index < 0) continue;
+            var rect = UnitRect(battle.Units[index]);
+            var visible = group.Where(e => e.Kind is "damage" or "heal").TakeLast(2).ToList();
+            var changes = group.Where(e => e.Kind is not ("damage" or "heal")).DistinctBy(e => e.Text).ToArray();
+            if (changes.Length > 0)
+            {
+                var last = changes.LastOrDefault(e => e.Kind == "fall") ?? changes[^1];
+                visible.Add(last.Kind == "fall" || changes.Length == 1 ? last : last with { Text = changes.Length + " effects", Kind = "status" });
+            }
+            int stack = 0;
+            foreach (var e in visible)
+            {
+                double age = _combatVisualTime - e.Born;
+                float opacity = (float)Math.Clamp((1.35 - age) * 3, 0, 1);
+                int y = rect.Top + 64 - stack++ * 34 - (_reducedMotion ? 0 : (int)(age * 12));
+                float size = e.Kind is "damage" or "heal" ? 2 : 1;
+                string label = Short(e.Text, Math.Max(6, (rect.Width - 8) / (8 * (int)size)));
+                int width = label.Length * 8 * (int)size;
+                Fill(new(rect.Center.X - width / 2 - 4, y - 2, width + 8, (int)(16 * size) + 4), new Color(16, 22, 27) * (.85f * opacity));
+                Text(label, rect.Center.X - width / 2, y, EventColor(e.Kind) * opacity, size);
+            }
         }
-        int row = _map.Bottom - 90;
-        foreach (var e in _session.State.CombatEvents.Where(e => e.Detail.Length > 0).TakeLast(3))
-        { Text(Short(e.Detail, (_map.Width - 40) / 8), _map.X + 20, row, EventColor(e.Kind)); row += 24; }
     }
 }

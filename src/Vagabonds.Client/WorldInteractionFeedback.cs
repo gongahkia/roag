@@ -110,13 +110,16 @@ internal sealed partial class WorldGame
         bool hand = control is { Enabled: true };
         if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation && control == null)
         {
-            if (_session.IsInCombat)
+            if (CombatStageVisible)
             {
+                if (Playback.Busy) { if (_cursorMode != "arrow") { Mouse.SetCursor(MouseCursor.Arrow); _cursorMode = "arrow"; } return; }
                 var b = _session.State.Battle!; var unit = b.Units.LastOrDefault(u => UnitRect(u).Contains(_mouse.Position));
                 if (unit != null)
                 {
                     var preview = _session.ActionPreview(_skill, unit.Id, _cooperativePartner);
                     string detail = $"HP {unit.Health}/{unit.MaxHealth}; MP {unit.Mana}; armour {unit.Armor}. " + WorldSession.StatusDescription(unit);
+                    if (!unit.Friendly && BattleIntent(unit.Id) is { } intent)
+                        detail += " Intent: " + intent.Name + ". " + (intent.Reason.Length > 0 ? intent.Reason : string.Join("; ", intent.Targets.Select(t => t.Name + " " + t.Minimum + "-" + t.Maximum)) + ". Current defenses; may change before its turn.");
                     bool helper = b.Active.Friendly && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || unit.Friendly);
                     _hover = new(unit.Name, detail, helper ? "Assist: spend this round's action and " + _session.ActiveSkills()[_skill].PartnerMana + " MP." : b.Active.Friendly ? preview.Description : _session.EnemyIntent(unit.Id), helper ? _session.CooperationPartnerReason(_skill, unit.Id) : b.Active.Friendly ? preview.Reason : "Wait for a companion's turn.", "combat");
                     hand = b.Active.Friendly && _hover.Reason.Length == 0;
@@ -130,13 +133,14 @@ internal sealed partial class WorldGame
         string mode = hand ? "hand" : "arrow";
         if (_cursorMode != mode) { Mouse.SetCursor(hand ? MouseCursor.Hand : MouseCursor.Arrow); _cursorMode = mode; }
         if (_hover == null) return;
-        int width = Math.Min(388, (_map.Width - 40) / 2);
-        var details = FeedbackLines(Short(_hover.Detail, 180), width - 24);
+        var area = CombatStageVisible ? CombatArea : _map;
+        int width = Math.Min(388, (area.Width - 40) / 2);
+        var details = FeedbackLines(Short(_hover.Detail, CombatStageVisible ? 360 : 180), width - 24);
         var actions = FeedbackLines(Short(_hover.Reason.Length > 0 ? _hover.Reason : _hover.Action, 180), width - 24);
         int height = 46 + (details.Length + actions.Length) * 19;
-        int px = _mouse.X + width + 18 < _map.Right ? _mouse.X + 18 : _mouse.X - width - 18;
-        int py = _mouse.Y + height + 18 < _map.Bottom ? _mouse.Y + 18 : _mouse.Y - height - 18;
-        int x = Math.Clamp(px, _map.Left + 6, _map.Right - width - 6), y = Math.Clamp(py, _map.Top + 6, _map.Bottom - height - 6);
+        int px = _mouse.X + width + 18 < area.Right ? _mouse.X + 18 : _mouse.X - width - 18;
+        int py = _mouse.Y + height + 18 < area.Bottom ? _mouse.Y + 18 : _mouse.Y - height - 18;
+        int x = Math.Clamp(px, area.Left + 6, area.Right - width - 6), y = Math.Clamp(py, area.Top + 6, area.Bottom - height - 6);
         var box = new Rectangle(x, y, width, height); Fill(box, new Color(20, 29, 34) * .98f); Fill(new(x, y, 3, box.Height), _hover.Reason.Length > 0 ? new(207, 126, 113) : Gold);
         Text(Short(_hover.Title, (width - 24) / 8), x + 12, y + 10, Gold);
         int row = y + 34; foreach (string line in details) { Text(line, x + 12, row); row += 19; }

@@ -51,6 +51,7 @@ public sealed class WorldClientTests : IDisposable
         Field("_options").SetValue(client, Options.Parse(["--save", Slot])); Field("_session").SetValue(client, session);
         Field("_route").SetValue(client, new Queue<WorldPosition>(new[] { session.State.Position.Offset(1, 0) }));
         Field("_camera").SetValue(client, new MapCamera()); Field("_autoSave").SetValue(client, false);
+        Field("_combatFloats").SetValue(client, Activator.CreateInstance(Field("_combatFloats").FieldType));
         Field("_panel").SetValue(client, "inventory"); return client;
     }
     private static void Reload(WorldGame client) => typeof(WorldGame).GetMethod("TryLoad", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(client, null);

@@ -246,6 +246,9 @@ public sealed class WorldMouseTests
         Assert.Contains(3, b.Assisting); Assert.Equal(1, b.Active.Id); Assert.Equal(-1, Field("_cooperativePartner").GetValue(client));
         Assert.NotEqual(before, JsonSerializer.Serialize(session.State));
         before = JsonSerializer.Serialize(session.State); Invoke(client, "ActivateControl", "skill:7");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State)); // An unresolved visual sequence consumes duplicate input.
+        var playback = (CombatPlayback)Field("_combatPlayback").GetValue(client)!; playback.Skip();
+        Invoke(client, "ActivateControl", "skill:7");
         Assert.Equal(before, JsonSerializer.Serialize(session.State));
         var readyHelper = (Rectangle)Invoke(client, "UnitRect", b.Units[2])!; Invoke(client, "CombatClick", readyHelper.Center);
         Assert.NotEqual(before, JsonSerializer.Serialize(session.State)); Assert.False(b.Active.Friendly);
