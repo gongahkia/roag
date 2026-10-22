@@ -213,6 +213,9 @@ public sealed class Actor
     public int Role { get; set; }
     [JsonRequired]
     public int Level { get; set; } = 1;
+    public string CombatTrait { get; set; } = "";
+    public List<string> Talents { get; set; } = [];
+    public string EncounterId { get; set; } = "";
     [JsonRequired]
     public int Experience { get; set; }
     [JsonRequired]
@@ -319,7 +322,13 @@ public sealed class WorldDiscovery
 public sealed record CombatantFeedbackState(int Health, int Mana, int Stress, bool Guarding, int Burn, int Bleed, int Mark, int Stun);
 public sealed record CombatEvent(long Sequence, int Round, string Kind, long Source, long Target, string Label, int Amount, string Detail,
     CombatantFeedbackState? TargetState = null, string AbilityId = "");
-public sealed record EncounterReward(int Gold, int Food, int Experience, string[] LevelUps);
+public sealed record EncounterReward(int Gold, int Food, int Experience, string[] LevelUps)
+{
+    public string Theme { get; init; } = "";
+    public EncounterRewardItem[] Items { get; init; } = [];
+    public long[] Sources { get; init; } = [];
+}
+public sealed record EncounterRewardItem(string Item, int Count);
 public sealed class EndgameState
 {
     public required long ActorId { get; set; }
@@ -397,6 +406,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public HashSet<long> RewardedEncounterIds { get; set; } = [];
     [JsonRequired] public HashSet<ChunkKey> EcologyChunks { get; set; } = [];
     public CampStory? LastCampStory { get; set; }
     public Dictionary<string, GeneratedEquipment> GeneratedEquipment { get; set; } = [];
@@ -459,6 +469,7 @@ public sealed class WorldState
 
 public sealed class WorldBattle
 {
+    public Dictionary<int, PreparedAttack> Prepared { get; set; } = [];
     [JsonRequired] public HashSet<int> Assisting { get; set; } = [];
     public HashSet<int> ShieldUsed { get; set; } = [];
     [JsonRequired] public Dictionary<int, PlannedAbility> Plans { get; set; } = [];
@@ -474,7 +485,8 @@ public sealed class WorldBattle
     public int Round { get; set; } = 1;
     [JsonIgnore] public CombatUnit Active => Units[Order[TurnIndex]];
 }
-public sealed record PlannedAbility(string Ability, int Target);
+public sealed record PlannedAbility(string Ability, int Target, bool Preparing = false, bool Interrupted = false);
+public sealed record PreparedAttack(string Ability, int Target, int ReadyRound);
 
 public interface IGameSession
 {

@@ -38,6 +38,20 @@ public sealed class DeveloperTests : IDisposable
         Assert.Equal(0, Run("content", "remove", "item.testing").Exit); Assert.True(File.Exists(path));
         Assert.Equal(0, Run("content", "remove", "item.testing", "--apply").Exit); Assert.False(File.Exists(path));
     }
+    [Theory]
+    [InlineData("talent")]
+    [InlineData("encounter")]
+    [InlineData("reward")]
+    public void PartyAndEncounterFamiliesSupportValidatedAuthoring(string kind)
+    {
+        string id = kind + ".tooling-test", path = Path.Combine(_root, id + ".json");
+        Assert.Equal(0, Run("content", "scaffold", kind, "--id", id, "--output", path).Exit);
+        Assert.Equal(0, Run("content", "validate").Exit);
+        Assert.Contains(id, Run("content", "inspect", id).Output);
+        Assert.Equal(0, Run("preview", kind, id).Exit);
+        Assert.Equal(0, Run("content", "remove", id, "--apply").Exit);
+        Assert.False(File.Exists(path));
+    }
     [Fact]
     public void RemovingReferencedDefinitionsReportsTheirDependentsAndPreservesFiles()
     {

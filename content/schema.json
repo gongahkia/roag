@@ -78,6 +78,9 @@
         "kind": {
           "const": "ability"
         },
+        "preparationTurns": {
+          "type": "integer"
+        },
         "cooperation": {
           "type": [
             "object",
@@ -151,6 +154,9 @@
         "kind": {
           "const": "character"
         },
+        "reward": {
+          "type": "string"
+        },
         "actorKind": {
           "enum": [
             "Person",
@@ -207,6 +213,9 @@
               "null"
             ],
             "properties": {
+              "condition": {
+                "type": "string"
+              },
               "ability": {
                 "type": "string"
               },
@@ -733,6 +742,9 @@
         "kind": {
           "const": "boss"
         },
+        "reward": {
+          "type": "string"
+        },
         "family": {
           "type": "string"
         },
@@ -1009,6 +1021,18 @@
             ]
           }
         },
+        "encounters": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "defaultReward": {
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -1258,6 +1282,9 @@
       "properties": {
         "kind": {
           "const": "discovery"
+        },
+        "encounter": {
+          "type": "string"
         },
         "situation": {
           "type": [
@@ -1616,6 +1643,184 @@
         "effect",
         "power",
         "slots",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "talent"
+        },
+        "acquisition": {
+          "type": "string"
+        },
+        "class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "level": {
+          "type": "integer"
+        },
+        "bonuses": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "acquisition",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "encounter"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "tactics": {
+          "type": "string"
+        },
+        "reward": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "members",
+        "tactics",
+        "reward",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "reward"
+        },
+        "gold": {
+          "type": "integer"
+        },
+        "food": {
+          "type": "integer"
+        },
+        "experience": {
+          "type": "integer"
+        },
+        "supplies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "equipmentPool": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "signature": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "equipmentChancePercent": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
         "id",
         "name"
       ],

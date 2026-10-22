@@ -13,7 +13,7 @@ public static class DeveloperEntry
         try
         {
             string Value(string flag, string fallback) { int index = Array.IndexOf(args, flag); return index < 0 ? fallback : index + 1 < args.Length ? args[index + 1] : throw new ArgumentException("Missing " + flag); }
-            var valueFlags = new[] { "--content", "--seed", "--output", "--id", "--samples", "--patch", "--expect", "--against" };
+            var valueFlags = new[] { "--content", "--seed", "--seeds", "--steps", "--output", "--id", "--samples", "--patch", "--expect", "--against" };
             for (int i = 0; i < args.Length; i++)
             {
                 if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
@@ -118,6 +118,7 @@ public static class DeveloperEntry
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
                 if (kind == "dialogue") Print(DialoguePreview.Run(catalog, id, seed));
+                else if (kind == "talent") Print(TalentPreview.Run(catalog, id, seed));
                 else if (kind == "discovery")
                 { if (catalog.Get<DiscoveryDefinition>(id).Situation != null) Print(SituationPreview.Run(catalog, id, seed)); else Print(ExplorationPreview.Discovery(catalog, id, seed)); }
                 else if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
@@ -128,7 +129,9 @@ public static class DeveloperEntry
                 else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
                 else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
-                else if (kind == "encounter") Print(EncounterPreview.Run(catalog, id, seed));
+                else if (kind == "encounter")
+                { if (catalog.Entries.GetValueOrDefault(id) is EncounterDefinition) Print(EncounterGroupPreview.Run(catalog, id, seed)); else Print(EncounterPreview.Run(catalog, id, seed)); }
+                else if (kind == "reward") Print(EncounterRewardPreview.Run(catalog, id, seed));
                 else if (kind == "generation")
                 {
                     catalog = SimulationPreview.WithGame(catalog, g => g["generation"] = catalog.Get<GenerationDefinition>(id).Id);
@@ -160,13 +163,25 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "party-work" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "talent", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "reward", "party-work" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
                     cooperation = new { abilities = catalog.Game.CooperativeAbilities, preview = "preview ability ID", nativeScene = "world-cooperation", rule = "Both participants spend mana and one action; helper must still have a turn this round." },
+                    progression = new { effects = TalentDefinition.Effects, preview = "preview talent ID", audit = "audit-expedition --seeds 42,1337,-42,2026", rule = "One generated innate trait; one permanent class choice at levels two and four." },
+                    encounters = new { preview = "preview encounter encounter.ID", rewards = "preview reward reward.ID", nativeScene = "world-encounters", rule = "Composed groups, fixed prepared targets, one-time rewards per persistent source." },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     agentWorkflow = new { entry = "./dev agent help", reproduction = "./dev scenario run FILE", edits = "./dev content patch ID --patch FILE", diagnostics = "./dev diagnose save FILE" },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
+            }
+            if (command == "audit-expedition")
+            {
+                RequireValid(catalog);
+                int[] seeds = args.Contains("--seeds") ? Value("--seeds", "").Split(',').Select(s => int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray()
+                    : Enumerable.Range(0, int.Parse(Value("--samples", "4"), System.Globalization.CultureInfo.InvariantCulture)).Select(i => unchecked(seed + i)).ToArray();
+                var audit = ExpeditionPacingAudit.Run(catalog, seeds, int.Parse(Value("--steps", "900"), System.Globalization.CultureInfo.InvariantCulture));
+                string output = Value("--output", "artifacts/expedition-audit.json");
+                WriteNew(output, JsonSerializer.Serialize(audit, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(new { audit.Passed, audit.Scope, seeds, audit.Findings, output }); return audit.Passed ? 0 : 1;
             }
             if (command == "audit-world")
             {
@@ -200,7 +215,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-expedition --seeds 42,1337,-42,2026 [--steps N] [--output FILE]", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)
@@ -228,6 +243,7 @@ public static class DeveloperEntry
             "interaction" => new InteractionDefinition { Id = id, Name = "New conversation", Action = "converse" },
             "item" => new ItemDefinition { Id = id, Name = "New item", Sprite = "chest", Stack = id },
             "trait" => new TraitDefinition { Id = id, Name = "New trait" },
+            "talent" => new TalentDefinition { Id = id, Name = "New combat trait", Sprite = "sword", Description = "Deal 1 extra power against an enemy at half health or less.", Acquisition = "innate", Bonuses = new() { ["wounded-damage"] = 1 } },
             "names" => new NamesDefinition { Id = id, Name = "New profiles", First = ["Aster"], Last = ["Vale"], Backgrounds = ["traveller"], Motivations = ["explore"], Traits = [c.All<TraitDefinition>().First().Id] },
             "character" => new CharacterDefinition { Id = id, Name = "New traveller", Names = c.All<NamesDefinition>().First().Id, Classes = c.Game.Classes, Interactions = ["interaction.stories"] },
             "boss" => c.Get<BossDefinition>(c.Game.Bosses[0]),
@@ -236,6 +252,8 @@ public static class DeveloperEntry
             "resource" => c.All<ResourceDefinition>().First(),
             "camp" => c.All<CampDefinition>().First(),
             "affix" => c.All<AffixDefinition>().First(),
+            "encounter" => c.All<EncounterDefinition>().First(),
+            "reward" => new RewardDefinition { Id = id, Name = "New spoils", Sprite = "chest", Gold = 5, Experience = 10 },
             "variant" => new VariantDefinition { Id = id, Name = "New variation" },
             "generation" => c.Get<GenerationDefinition>(c.Game.Generation),
             "simulation" => c.Get<SimulationDefinition>(c.Game.Simulation),

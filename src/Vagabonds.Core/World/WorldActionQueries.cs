@@ -6,7 +6,7 @@ namespace Vagabonds.Core.World;
 public sealed record CombatActionPreview(string Name, string Reason, string Description, int Minimum, int Maximum, int[] Targets);
 public sealed record CombatTargetPreview(int UnitId, long ActorId, string Name, string Sprite, int Minimum, int Maximum, string Effect);
 public sealed record CombatIntentPreview(int UnitId, string AbilityId, string Name, string Icon, string Description, string Reason,
-    int Mana, TargetKind Target, CombatTargetPreview[] Targets);
+    int Mana, TargetKind Target, CombatTargetPreview[] Targets, string Stage = "action");
 public sealed record GearComparison(string Slot, string Previous, int Health, int Power, int Armor, int Speed);
 
 public sealed partial class WorldSession
@@ -76,18 +76,29 @@ public sealed partial class WorldSession
         };
         string reason = !caster.Alive ? "Defeated."
             : b.Order.IndexOf(unitId) < b.TurnIndex ? "Already acted this round."
+            : plan.Interrupted ? "Preparation was interrupted; this action cannot be restored by cleansing."
             : caster.Stun > 0 ? "Stunned; will lose this action unless cleansed."
+            : !plan.Preparing && caster.Mana < skill.Mana ? "Not enough mana; this action will be skipped."
             : targets.Length == 0 || skill.Target is TargetKind.Enemy or TargetKind.Ally && target is not { Alive: true }
                 ? "The planned target has fallen; this action will not retarget." : "";
         var outcomes = PreviewCombatTargets(caster, skill, targets, caster.Power - 6);
-        if (reason.Length > 0) outcomes = outcomes.Select(o => o with { Minimum = 0, Maximum = 0 }).ToArray();
         string description = skill.Description + " " + skill.Mana + " MP. The plan is fixed for this round; ranges use current defenses and may change before the turn.";
+        string stage = plan.Preparing ? "prepare" : skill.PreparationTurns > 0 ? "release" : "action";
+        string name = skill.Name;
+        if (plan.Preparing)
+        {
+            name = "Prepare " + skill.Name;
+            description += " This turn prepares the attack and deals no damage. Release is next round at the same target; stun cancels preparation even if later cleansed. Guard can soften the release."
+                + (outcomes.Length > 0 ? " If released against current defenses: " + string.Join(", ", outcomes.Select(o => o.Name + " " + o.Minimum + "-" + o.Maximum)) + "." : "");
+        }
+        else if (stage == "release") { name = "Release " + skill.Name; description += " The prepared attack releases this turn. Stun before it acts to cancel it."; }
+        if (reason.Length > 0 || plan.Preparing) outcomes = outcomes.Select(o => o with { Minimum = 0, Maximum = 0 }).ToArray();
         if (skill.Effect is "burn" or "bleed" or "mark" or "stun")
             description += $" Applies {skill.Effect} for {(skill.Effect == "stun" ? Math.Min(2, skill.Duration) : skill.Duration)} turns if the target survives.";
         if (skill.Effect == "drain") description += " Recovers half the damage dealt, at least 1 HP, up to maximum health.";
         if (skill.Effect == "dread") description += " Also raises stress; camp preparations and equipment can reduce this.";
         if (skill.Effect is "guard" or "rally") description += " Halves incoming damage after armour until that fighter's next turn.";
-        return new(unitId, skill.Id, skill.Name, skill.Icon, description, reason, skill.Mana, skill.Target, outcomes);
+        return new(unitId, skill.Id, name, skill.Icon, description, reason, plan.Preparing ? 0 : skill.Mana, skill.Target, outcomes, stage);
     }
     private (int Damage, int Resistance) CombatDamageBeforeProtection(CombatUnit target, int amount, string label)
     {
@@ -109,7 +120,7 @@ public sealed partial class WorldSession
         else if (skill.Effect is not ("guard" or "rally" or "flee") && targets.Length > 0)
         {
             Array.Fill(minimum, int.MaxValue);
-            int[] cover = b.Units.Select(u => EquipmentEffectPower(CombatActor(u), "protect")).ToArray();
+            int[] cover = b.Units.Select(u => ProtectionPower(CombatActor(u))).ToArray();
             // At most four targets and four rolls each. Enumerating the possibilities keeps group
             // previews honest when a shield is spent or a protector falls earlier in the same attack.
             Visit(0, b.Units.Select(u => u.Health).ToArray(), b.Units.Select(u => u.Stress).ToArray(), new(b.ShieldUsed));
@@ -120,7 +131,7 @@ public sealed partial class WorldSession
                 for (int roll = 0; roll < 4; roll++)
                 {
                     int[] nextHealth = (int[])health.Clone(), nextStress = (int[])stress.Clone(); var nextUsed = new HashSet<int>(used);
-                    int amount = skill.Power + bonus + roll + (target.Mark > 0 ? 4 : 0) - (stress[caster.Id] >= 60 ? 2 : 0);
+                    int amount = skill.Power + bonus + ProgressionDamageBonus(caster, target, skill) + roll + (target.Mark > 0 ? 4 : 0) - (stress[caster.Id] >= 60 ? 2 : 0);
                     int damage = CombatDamageBeforeProtection(target, amount, skill.Name).Damage;
                     if (damage > 1 && health[target.Id] * 2 <= target.MaxHealth)
                     {
@@ -223,6 +234,7 @@ public sealed partial class WorldSession
         var actor = State.Actors.FirstOrDefault(a => a.Id == command.ActorId);
         switch (command.Kind)
         {
+            case WorldCommandKind.ChooseProgression: return ProgressionChoiceReason(command.ActorId, command.Item);
             case WorldCommandKind.Build: case WorldCommandKind.Dig: case WorldCommandKind.Repair: case WorldCommandKind.Harvest: return TargetBlockReason(command.Kind, command.Target, command.Material);
             case WorldCommandKind.ApproachDiscovery: return State.Discoveries.FirstOrDefault(d => d.Position == command.Target) is { } discovery ? SituationApproachReason(discovery, command.Item) : "Choose an observed landmark.";
             case WorldCommandKind.CampActivity: return CampActivityReason(command.Target, command.Item, command.ActorId);

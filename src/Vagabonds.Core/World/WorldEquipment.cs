@@ -23,7 +23,7 @@ public sealed partial class WorldSession
             Health = basis.Health, Power = basis.Power, Armor = basis.Armor, Speed = basis.Speed, Value = basis.Value + generated.Affixes.Length * 8,
             WorkBonuses = new(basis.WorkBonuses), Effects = basis.Effects.Concat(generated.Affixes).ToArray() };
     }
-    public IEnumerable<ItemDefinition> CarriedEquipment() => Content.All<ItemDefinition>().Where(i => i.Slot != "none")
+    public IEnumerable<ItemDefinition> CarriedEquipment() => Content.All<ItemDefinition>().Where(i => i.Slot != "none" && (!i.Tags.Contains("signature") || Count(i.Stack) > 0 || Party.Any(a => a.Equipment.Values.Any(e => e.Item == i.Id))))
         .Concat(State.GeneratedEquipment.Keys.Where(id => Count(id) > 0 || Party.Any(a => a.Equipment.Values.Any(e => e.Item == id))).Order(StringComparer.Ordinal).Select(Item));
     public string EquipmentDescription(ItemDefinition item) => string.Join(" ", new[] { item.Description }.Concat(item.Effects.Select(id => Content.Get<AffixDefinition>(id).Description)).Where(s => s.Length > 0));
     public string EquipmentEffectNames(ItemDefinition item) => string.Join(", ", item.Effects.Select(id => Content.Get<AffixDefinition>(id).Name));
@@ -37,8 +37,8 @@ public sealed partial class WorldSession
     private int AbilityEquipmentBonus(Actor actor, Skill skill) => skill.Effect == "burn" ? EquipmentEffectPower(actor, "burn-power")
         : skill.Effect is "heal" or "potion" or "cleanse" ? EquipmentEffectPower(actor, "healing") : 0;
     private CombatUnit? ShieldProtector(CombatUnit target) => target.Health * 2 > target.MaxHealth || State.Battle == null ? null
-        : State.Battle.Units.Where(u => u.Id != target.Id && u.Friendly == target.Friendly && u.Alive && !State.Battle.ShieldUsed.Contains(u.Id) && EquipmentEffectPower(CombatActor(u), "protect") > 0)
-            .OrderByDescending(u => EquipmentEffectPower(CombatActor(u), "protect")).ThenBy(u => u.Id).FirstOrDefault();
+        : State.Battle.Units.Where(u => u.Id != target.Id && u.Friendly == target.Friendly && u.Alive && !State.Battle.ShieldUsed.Contains(u.Id) && ProtectionPower(CombatActor(u)) > 0)
+            .OrderByDescending(u => ProtectionPower(CombatActor(u))).ThenBy(u => u.Id).FirstOrDefault();
     private string GenerateEquipment(string itemId, int cacheId, int salt, int choice)
     {
         var basis = Content.Get<ItemDefinition>(itemId);

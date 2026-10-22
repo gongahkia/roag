@@ -29,6 +29,24 @@ public sealed class WorldEquipmentTests : IDisposable
         Assert.Equal(rng, a.State.CombatRandom); Assert.Equal(before, JsonSerializer.Serialize(a.State));
     }
     [Fact]
+    public void DungeonCachesUseTheirGuardiansThemeAndReserveSignatureGearForVictory()
+    {
+        var s = WorldSession.Create(42);
+        foreach (var site in s.Plan.Sites)
+        {
+            var guardian = s.State.Actors.Single(a => a.Id == 40000 + site.Id * 8);
+            var boss = s.Content.Get<BossDefinition>(guardian.Archetype);
+            var reward = s.Content.Get<RewardDefinition>(boss.Reward);
+            foreach (var cache in s.State.Loot.Where(c => c.Id.StartsWith($"site-{site.Id}-", StringComparison.Ordinal)))
+            foreach (var choice in cache.Choices)
+            {
+                string basis = s.State.GeneratedEquipment.TryGetValue(choice, out var generated) ? generated.Base : choice;
+                Assert.Contains(basis, reward.EquipmentPool);
+                Assert.DoesNotContain("signature", s.Item(choice).Tags);
+            }
+        }
+    }
+    [Fact]
     public void ChosenVariantKeepsIdentityThroughEquipmentStorageAndSaveWithoutRerollingOrDuplication()
     {
         var s = WorldSession.Create(42); var d = s.State.Discoveries.First(d => d.Enemies.Length == 0 && s.State.Loot.Any(c => c.Id == d.Id && c.Choices.Length == 3));
@@ -80,11 +98,11 @@ public sealed class WorldEquipmentTests : IDisposable
         battle.Order = battle.Units.OrderBy(u => u.Friendly ? 1 : 0).ThenBy(u => u.Id).Select(u => u.Id).ToList(); battle.TurnIndex = 0;
         foreach (var foe in battle.Units.Where(u => !u.Friendly)) battle.Plans[foe.Id] = new("ability.strike", 1);
         Assert.True(s.AdvanceEnemy().Success); Assert.Contains(0, battle.ShieldUsed);
-        Assert.Equal(3, s.State.CombatEvents.Single(e => e.Label == "Shield cover").Amount);
+        Assert.Equal(3, s.State.CombatEvents.Single(e => e.Label == "Ally cover").Amount);
         s.Save(Slot); var loaded = WorldSession.Load(Slot);
         Assert.True(s.AdvanceEnemy().Success); Assert.True(loaded.AdvanceEnemy().Success);
         Assert.Equal(JsonSerializer.Serialize(s.State), JsonSerializer.Serialize(loaded.State));
-        Assert.Single(s.State.CombatEvents, e => e.Label == "Shield cover");
+        Assert.Single(s.State.CombatEvents, e => e.Label == "Ally cover");
         int round = battle.Round;
         for (int t = 0; t < 20 && battle.Round == round; t++) { if (battle.Active.Friendly) s.Act(3); else s.AdvanceEnemy(); }
         Assert.True(battle.Round > round); Assert.Empty(battle.ShieldUsed);

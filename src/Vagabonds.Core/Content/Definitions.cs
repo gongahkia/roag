@@ -24,6 +24,9 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(ResourceDefinition), "resource")]
 [JsonDerivedType(typeof(CampDefinition), "camp")]
 [JsonDerivedType(typeof(AffixDefinition), "affix")]
+[JsonDerivedType(typeof(TalentDefinition), "talent")]
+[JsonDerivedType(typeof(EncounterDefinition), "encounter")]
+[JsonDerivedType(typeof(RewardDefinition), "reward")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -54,9 +57,12 @@ public sealed class GameDefinition : ContentDefinition
     public string[] CampActivities { get; set; } = [];
     public string[] Wildlife { get; set; } = [];
     public string[] CooperativeAbilities { get; set; } = [];
+    public string[] Encounters { get; set; } = [];
+    public string DefaultReward { get; set; } = "reward.wanderers";
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
+    public string Encounter { get; set; } = "";
     public SituationRules? Situation { get; set; }
     public required string Action { get; set; }
     public required string Text { get; set; }
@@ -151,6 +157,7 @@ public sealed class ClassDefinition : ContentDefinition
 }
 public sealed class AbilityDefinition : ContentDefinition
 {
+    public int PreparationTurns { get; set; }
     public CooperationRules? Cooperation { get; set; }
     public int Mana { get; set; }
     public TargetKind Target { get; set; }
@@ -158,7 +165,7 @@ public sealed class AbilityDefinition : ContentDefinition
     public required string Effect { get; set; }
     public int Duration { get; set; } = 3;
     public Skill AsSkill() => new(Name, Sprite ?? "sword", Mana, Target, Power, Effect, Description, Duration,
-        Cooperation != null, Cooperation?.PartnerMana ?? 0, Cooperation?.PartnerPowerPercent ?? 0, Id);
+        Cooperation != null, Cooperation?.PartnerMana ?? 0, Cooperation?.PartnerPowerPercent ?? 0, Id, PreparationTurns);
 }
 public sealed class CooperationRules
 {
@@ -167,6 +174,7 @@ public sealed class CooperationRules
 }
 public sealed class BehaviorRule
 {
+    public string Condition { get; set; } = "always";
     public required string Ability { get; set; }
     public int Weight { get; set; } = 1;
     public int Every { get; set; } = 1;
@@ -176,6 +184,7 @@ public sealed class BehaviorRule
 }
 public class CharacterDefinition : ContentDefinition
 {
+    public string Reward { get; set; } = "";
     public ActorKind ActorKind { get; set; } = ActorKind.Person;
     public string? Names { get; set; }
     public string[] Classes { get; set; } = [];
@@ -200,6 +209,7 @@ public sealed class EcologyRules
 }
 public sealed class BossDefinition : ContentDefinition
 {
+    public string Reward { get; set; } = "";
     public required string Family { get; set; }
     public required string Weakness { get; set; }
     public required string Tactics { get; set; }

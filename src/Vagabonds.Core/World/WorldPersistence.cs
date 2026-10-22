@@ -179,6 +179,7 @@ public sealed partial class WorldSession
         {
             if (actor.VariantId == null || actor.VariantId.Length > 0 && (!catalog.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
                 || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && catalog.Entries[a.Archetype] is BossDefinition)
+                    && !(actor.EncounterId?.Length > 0 && s.Actors.Any(a => a.Id == actor.EncounterLeader && a.EncounterId == actor.EncounterId))
                     && !(s.Discoveries?.Any(d => d?.Enemies is { Length: > 0 } && d.Enemies[0] == actor.EncounterLeader && d.Enemies.Contains(actor.Id)) ?? false))
                 throw new InvalidDataException("Invalid encounter identity.");
             foreach (var (slot, gear) in actor.Equipment)
@@ -203,6 +204,7 @@ public sealed partial class WorldSession
                 || ecology.Drops.Any(p => cache.Contents.GetValueOrDefault(catalog.Get<ItemDefinition>(p.Key).Stack) != p.Value)) throw new InvalidDataException("Invalid wildlife remains.");
         }
         if (s.Actors.Any(a => a.Habitat != null && a.Life == LifeState.Dead && !s.Loot.Any(c => c.SourceActor == a.Id))) throw new InvalidDataException("Missing wildlife remains.");
+        ValidateProgression(s, catalog);
         ValidateDiscoveries(plan, s, catalog);
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {
@@ -247,5 +249,6 @@ public sealed partial class WorldSession
             if (b.ShieldUsed == null || b.ShieldUsed.Any(i => i < 0 || i >= b.Units.Count)) throw new InvalidDataException("Invalid shield usage.");
             if (b.Round is < 1 or > 100000 || b.Units.Any(u => u.MaxHealth is < 1 or > 10000 || u.MaxMana is < 0 or > 10000 || u.Stress is < 0 or > 100 || u.Armor is < 0 or > 1000 || u.Speed is < 0 or > 1000 || u.Power is < 0 or > 1000 || u.Burn is < 0 or > 1000 || u.Bleed is < 0 or > 1000 || u.Mark is < 0 or > 1000 || u.Stun is < 0 or > 1000 || !Enum.IsDefined(u.Intent))) throw new InvalidDataException("Invalid combat statistics.");
         }
+        ValidateEncounterState(s, catalog);
     }
 }

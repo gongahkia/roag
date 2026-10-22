@@ -33,6 +33,7 @@ public static class ActorFactory
             var c = content.Get<ClassDefinition>(d.Classes[r.Next(d.Classes.Length)]);
             a.Role = c.Role; a.BaseHealth = c.Health; a.BaseMana = c.Mana; a.BaseArmor = c.Armor; a.BaseSpeed = c.Speed; a.SpriteId = c.Sprite!;
         }
+        WorldSession.AssignCombatTrait(content, a, seed);
         a.Health = a.MaxHealth; a.Mana = a.MaxMana; return a;
     }
 }

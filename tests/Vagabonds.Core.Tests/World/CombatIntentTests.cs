@@ -67,7 +67,7 @@ public sealed class CombatIntentTests
         Assert.Equal(intent.Targets[0].Minimum + 3, intent.Targets[1].Minimum);
         int[] hp = b.Units.Select(u => u.Health).ToArray(); Assert.True(world.AdvanceEnemy().Success);
         foreach (var target in intent.Targets) Assert.InRange(hp[target.UnitId] - b.Units[target.UnitId].Health, target.Minimum, target.Maximum);
-        Assert.Single(world.State.CombatEvents, e => e.Label == "Shield cover");
+        Assert.Single(world.State.CombatEvents, e => e.Label == "Ally cover");
     }
     [Fact]
     public void GroupIntentDoesNotPromiseCoverFromAProtectorDefeatedEarlierInTheSweep()
@@ -82,7 +82,7 @@ public sealed class CombatIntentTests
         Assert.Equal(rawMinimum, intent.Targets[1].Minimum);
         int hp = b.Units[1].Health; Assert.True(world.AdvanceEnemy().Success);
         Assert.Equal(0, b.Units[0].Health);
-        Assert.DoesNotContain(world.State.CombatEvents, e => e.Label == "Shield cover");
+        Assert.DoesNotContain(world.State.CombatEvents, e => e.Label == "Ally cover");
         Assert.InRange(hp - b.Units[1].Health, intent.Targets[1].Minimum, intent.Targets[1].Maximum);
     }
     [Fact]

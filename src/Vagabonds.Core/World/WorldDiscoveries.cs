@@ -122,12 +122,12 @@ public sealed partial class WorldSession
         foreach (var d in state.Discoveries)
         {
             if (d == null || string.IsNullOrWhiteSpace(d.Id) || string.IsNullOrWhiteSpace(d.Name) || d.Name.Length > 180 || d.Definition == null
-                || !ContentCatalog.Default.Entries.TryGetValue(d.Definition, out var definition) || definition is not DiscoveryDefinition template
+                || !catalog.Entries.TryGetValue(d.Definition, out var definition) || definition is not DiscoveryDefinition template
                 || !plan.Contains(d.Position.Offset(-5, -5)) || !plan.Contains(d.Position.Offset(5, 5)) || d.Position.Floor != 0
                 || !plan.Contains(d.Anchor) || d.Anchor.Floor != 0 || d.Anchor.Distance(d.Position) > 110 || d.Rotation is < 0 or > 3
                 || d.Context is not ("settlement" or "road" or "wilderness") || d.TownId is < 0 or >= 24 || d.SiteId is < 0 or >= 48
                 || !state.Actors.Any(a => a.Id == d.WitnessId && a.Kind == ActorKind.Person && a.HomeTown == d.TownId)
-                || d.Enemies == null || d.Enemies.Length != template.Enemies.Length || d.Enemies.Distinct().Count() != d.Enemies.Length
+                || d.Enemies == null || d.Enemies.Length != (template.Encounter.Length > 0 ? catalog.Get<EncounterDefinition>(template.Encounter).Members.Length : template.Enemies.Length) || d.Enemies.Distinct().Count() != d.Enemies.Length
                 || d.Enemies.Any(id => !state.Actors.Any(a => a.Id == id && a.Kind is ActorKind.Beast or ActorKind.Raider))
                 || d.Visited && !d.Known || d.Outcome == null) throw new InvalidDataException("Invalid discovery references or placement.");
             if (template.Situation is { } situation)
@@ -144,7 +144,7 @@ public sealed partial class WorldSession
         var actors = state.Actors.Select(a => a.Id).ToHashSet();
         if (state.CombatEvents == null || state.CombatEvents.Count > 128 || state.NextCombatEvent is < 1 or > 1000000000000
             || state.CombatEvents.Any(e => e == null || e.Sequence < 1 || e.Sequence >= state.NextCombatEvent || e.Round is < 0 or > 100000
-                || e.Kind is not ("ability" or "damage" or "heal" or "status" or "expire" or "skip" or "fall" or "round" or "reward" or "retreat" or "injury")
+                || e.Kind is not ("ability" or "prepare" or "damage" or "heal" or "status" or "expire" or "skip" or "fall" or "round" or "reward" or "retreat" or "injury")
                 || e.Label == null || e.Detail == null || e.Label.Length > 180 || e.Detail.Length > 1000 || e.Amount is < 0 or > 10000
                 || e.AbilityId == null || e.AbilityId.Length > 0 && (!catalog.Entries.TryGetValue(e.AbilityId, out var ability) || ability is not AbilityDefinition)
                 || e.TargetState is { } snapshot && (e.Target == 0 || snapshot.Health is < 0 or > 10000 || snapshot.Mana is < 0 or > 10000
@@ -161,12 +161,13 @@ public sealed partial class WorldSession
         for (int index = 0; index < State.Discoveries.Count; index++)
         {
             var d = State.Discoveries[index]; var definition = Content.Get<DiscoveryDefinition>(d.Definition);
-            var ids = new List<long>();
-            for (int i = 0; i < definition.Enemies.Length; i++)
+            var ids = new List<long>(); var members = DiscoveryEnemies(definition);
+            for (int i = 0; i < members.Length; i++)
             {
                 long id = 50000 + index * 4 + i;
-                var offset = new[] { (-1, 0), (1, 0), (0, 1) }[i];
-                var actor = ActorFactory.Create(Content, definition.Enemies[i], Seed, id, d.Position.Offset(offset.Item1, offset.Item2), d.TownId, Plan.Towns[d.TownId].Culture, Plan.Towns[d.TownId].FactionId);
+                var offset = new[] { (-1, 0), (1, 0), (0, 1), (0, -1) }[i];
+                var actor = ActorFactory.Create(Content, members[i], Seed, id, d.Position.Offset(offset.Item1, offset.Item2), d.TownId, Plan.Towns[d.TownId].Culture, Plan.Towns[d.TownId].FactionId);
+                actor.EncounterId = definition.Encounter;
                 actor.EncounterLeader = 50000 + index * 4; State.Actors.Add(actor); ids.Add(id);
             }
             d.Enemies = ids.ToArray();

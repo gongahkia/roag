@@ -26,7 +26,7 @@ public sealed partial class WorldSession
         {
             int index = battle.Units.Count;
             battle.ActorIds.Add(a.Id);
-            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.Armor + PreparationPower(a, "armor"), Speed = a.Speed + PreparationPower(a, "watch"), Guarding = PreparationPower(a, "watch") > 0, Power = a.Power, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
+            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.Armor + PreparationPower(a, "armor"), Speed = a.Speed + PreparationPower(a, "watch") + TalentPower(a, "initiative"), Guarding = PreparationPower(a, "watch") > 0, Power = a.Power, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
         }
     }
     private int CombatRoll(int max)
@@ -39,7 +39,7 @@ public sealed partial class WorldSession
         foreach (var unit in b.Units)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
-            unit.Power = actor.Power; unit.Speed = actor.Speed + PreparationPower(actor, "watch"); unit.Armor = actor.Armor + PreparationPower(actor, "armor");
+            unit.Power = actor.Power; unit.Speed = actor.Speed + PreparationPower(actor, "watch") + TalentPower(actor, "initiative"); unit.Armor = actor.Armor + PreparationPower(actor, "armor");
         }
         b.Order = b.Units.Where(u => u.Alive).Select(u => (u.Id, Roll: u.Speed + CombatRoll(3))).OrderByDescending(v => v.Roll).ThenBy(v => v.Id).Select(v => v.Id).ToList();
         b.TurnIndex = 0;
@@ -73,7 +73,7 @@ public sealed partial class WorldSession
         if (State.Battle is not { } b || !b.Active.Friendly) return [];
         var actor = State.Actors.Single(a => a.Id == b.ActorIds[b.Active.Id]);
         return Class(actor).Abilities.Concat(Content.Game.CommonAbilities).Concat(b.Units.Count(u => u.Friendly) > 1 ? Content.Game.CooperativeAbilities : [])
-            .Select(id => Content.Get<AbilityDefinition>(id).AsSkill()).ToArray();
+            .Select(id => ApplyProgressionSkill(actor, Content.Get<AbilityDefinition>(id).AsSkill())).ToArray();
     }
     public ActionResult Act(int skillIndex, int targetIndex = -1, int partnerIndex = -1)
     {
@@ -138,7 +138,7 @@ public sealed partial class WorldSession
             else
             {
                 int before = t.Health;
-                Damage(t, skill.Power + bonus + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0), caster, skill.Name);
+                Damage(t, skill.Power + bonus + ProgressionDamageBonus(caster, t, skill) + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0), caster, skill.Name);
                 if (skill.Effect == "drain")
                 {
                     int old = caster.Health; caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
@@ -150,7 +150,7 @@ public sealed partial class WorldSession
                     if (skill.Effect == "burn") t.Burn = skill.Duration;
                     if (skill.Effect == "bleed") t.Bleed = skill.Duration;
                     if (skill.Effect == "mark") t.Mark = skill.Duration;
-                    if (skill.Effect == "stun") t.Stun = Math.Min(2, skill.Duration);
+                    if (skill.Effect == "stun") { t.Stun = Math.Min(2, skill.Duration); InterruptPreparation(t); }
                 }
             }
             if (t.Health > hp) Feedback("heal", caster, t, skill.Name, t.Health - hp, t.Name + " recovers " + (t.Health - hp) + " HP.");
@@ -168,6 +168,13 @@ public sealed partial class WorldSession
         if (State.Battle is not { } b || b.Active.Friendly) return new(false, "It is your turn.");
         var u = b.Active;
         var planned = b.Plans[u.Id]; var ability = Content.Get<AbilityDefinition>(planned.Ability); var skill = ability.AsSkill();
+        if (HandleEnemyPreparation(u, planned, skill))
+        {
+            SyncCombat();
+            if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
+            return new(true, u.Name + (planned.Interrupted ? ": preparation interrupted."
+                : planned.Preparing ? ": preparing " + skill.Name + "." : ": not enough mana to release " + skill.Name + "."));
+        }
         var target = b.Units[planned.Target];
         // Intent is fixed at the start of the round. A fallen target wastes this action.
         var targets = skill.Target switch
@@ -188,9 +195,9 @@ public sealed partial class WorldSession
         if (resistance > 0) Feedback("status", target, target, "Meal protection", resistance, target.Name + " resists " + label.ToLowerInvariant() + " with camp preparation.");
         if (source != null && damage > 1 && ShieldProtector(target) is { } protector)
         {
-            int blocked = Math.Min(damage - 1, EquipmentEffectPower(CombatActor(protector), "protect")); damage -= blocked;
+            int blocked = Math.Min(damage - 1, ProtectionPower(CombatActor(protector))); damage -= blocked;
             State.Battle!.ShieldUsed.Add(protector.Id);
-            Feedback("status", protector, target, "Shield cover", blocked, protector.Name + " blocks " + blocked + " damage for wounded " + target.Name + ". Once per round.");
+            Feedback("status", protector, target, "Ally cover", blocked, protector.Name + " blocks " + blocked + " damage for wounded " + target.Name + ". Once per round.");
         }
         var actor = State.Actors.Single(a => a.Id == State.Battle!.ActorIds[target.Id]);
         if (damage >= Math.Max(8, target.MaxHealth / 3))
@@ -203,6 +210,7 @@ public sealed partial class WorldSession
         Feedback("damage", source, target, label, lost, target.Name + " takes " + lost + " damage" + (target.Guarding ? " (guarding)." : "."));
         if (!target.Alive)
         {
+            InterruptPreparation(target);
             Feedback("fall", source, target, target.Friendly ? "Downed" : "Defeated", 0, target.Name + (target.Friendly ? " is downed." : " falls."));
             target.Burn = target.Bleed = target.Stun = target.Mark = 0;
             if (target.Friendly) foreach (var friend in State.Battle!.Units.Where(u => u.Friendly && u.Alive)) friend.Stress = Math.Min(100, friend.Stress + 10);
@@ -235,17 +243,11 @@ public sealed partial class WorldSession
         State.Battle = null;
         if (victory)
         {
-            bool wildlife = b.Units.Where(u => !u.Friendly).All(u => Ecology(State.Actors.Single(a => a.Id == b.ActorIds[u.Id])) != null);
-            int gold = wildlife ? 0 : 12, food = wildlife ? 0 : 3, experience = wildlife ? 6 : 12;
-            Add("gold", gold); Add("food", food);
-            var levels = new List<string>();
-            foreach (var a in Party.Where(a => a.Life == LifeState.Alive))
-            {
-                a.Experience += experience;
-                if (a.Experience >= a.Level * 30) { a.Experience -= a.Level * 30; a.Level++; a.Health = Math.Min(a.MaxHealth, a.Health + 6); a.Mana = Math.Min(a.MaxMana, a.Mana + 3); levels.Add(a.Name + " / level " + a.Level); }
-            }
-            State.LastEncounterReward = new(gold, food, experience, levels.ToArray());
-            Feedback("reward", null, null, "Victory", experience, (wildlife ? "6 experience to each conscious survivor. Recover ingredients from the remains." : "12 gold, 3 food; 12 experience to each conscious survivor.") + (levels.Count > 0 ? " " + string.Join(", ", levels) : ""));
+            State.LastEncounterReward = GrantEncounterRewards(b);
+            var reward = State.LastEncounterReward;
+            Feedback("reward", null, null, "Victory", reward.Experience,
+                reward.Theme + ": " + reward.Gold + " gold, " + reward.Food + " food; " + reward.Experience + " experience to each conscious survivor."
+                + (reward.LevelUps.Length > 0 ? " " + string.Join(", ", reward.LevelUps) : ""));
             if (State.Actors.Single(a => a.Id == State.Endgame.ActorId).Life == LifeState.Dead)
             { State.Endgame.Victory = true; Paused = true; Log("The final threat has fallen. Your expedition is complete."); }
             Log("Encounter won. Fallen companions can be revived with medicine or deliberately abandoned.");

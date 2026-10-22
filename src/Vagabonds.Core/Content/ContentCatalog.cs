@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
-    public static readonly string[] Kinds = ["ability", "affix", "boss", "camp", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "affix", "boss", "camp", "character", "class", "dialogue", "discovery", "encounter", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "reward", "simulation", "talent", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -41,7 +41,7 @@ public sealed class ContentCatalog
     {
         AbilityDefinition => "ability", AffixDefinition => "affix", BossDefinition => "boss", CampDefinition => "camp", CharacterDefinition => "character", ClassDefinition => "class",
         DialogueDefinition => "dialogue", InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
-        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", ResourceDefinition => "resource", _ => throw new ArgumentException("Unknown content type.")
+        EncounterDefinition => "encounter", RewardDefinition => "reward", TalentDefinition => "talent", TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", ResourceDefinition => "resource", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
     {
@@ -115,6 +115,7 @@ public sealed class ContentCatalog
                     Ref<AbilityDefinition>(field, r.Ability); Range(field, r.Weight, 1, 100); Range(field, r.Every, 1, 20);
                     if (r.Ability != null && _entries.TryGetValue(r.Ability, out var entry) && entry is AbilityDefinition ability && (ability.Effect is "flee" or "potion" || ability.Cooperation != null)) Error(field, "Enemy rules cannot use party-only retreat, medicine or cooperative abilities.");
                     Range(field, r.FromRound, 1, 100); Range(field, r.BelowHealthPercent, 1, 100);
+                    if (r.Condition is not ("always" or "ally-wounded")) Error(field, "Unknown behavior condition.");
                     if (r.Target is not ("random" or "weakest" or "strongest" or "stressed")) Error(field, "Unknown targeting rule.");
                 }
             }
@@ -124,6 +125,9 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    Ref<RewardDefinition>("defaultReward", g.DefaultReward);
+                    if (g.Encounters == null || g.Encounters.Length > 128 || g.Encounters.Distinct().Count() != g.Encounters.Length) Error("encounters", "Provide up to 128 distinct composed encounters.");
+                    else foreach (var id in g.Encounters) Ref<EncounterDefinition>("encounters", id);
                     if (g.CooperativeAbilities == null || g.CooperativeAbilities.Length > 2 || g.CooperativeAbilities.Distinct().Count() != g.CooperativeAbilities.Length) Error("cooperativeAbilities", "Provide up to two distinct cooperative abilities.");
                     else foreach (var id in g.CooperativeAbilities)
                     {
@@ -174,6 +178,12 @@ public sealed class ContentCatalog
                     }
                     break;
                 case DiscoveryDefinition dsc:
+                    if (dsc.Encounter == null) Error("encounter", "The optional encounter reference cannot be null.");
+                    else if (dsc.Encounter.Length > 0)
+                    {
+                        Ref<EncounterDefinition>("encounter", dsc.Encounter);
+                        if (dsc.Action != "encounter" || dsc.Enemies?.Length != 0) Error("encounter", "A composed encounter replaces the explicit enemy list on an encounter discovery.");
+                    }
                     if (dsc.Situation is { } situation)
                     {
                         if (situation.Kind is not ("trap" or "spring" or "crossing") || dsc.Action != "encounter") Error("situation.kind", "Use a trap, spring or crossing encounter.");
@@ -216,9 +226,33 @@ public sealed class ContentCatalog
                     { Ref<ItemDefinition>("rewards", id); if (id != null && _entries.TryGetValue(id, out var gear) && gear is ItemDefinition item && item.Slot == "none") Error("rewards", "Reward choices must be equipment."); }
                     if (dsc.Rewards.Length is > 0 and < 3) Error("rewards", "Offer at least three equipment alternatives, or no equipment.");
                     if (dsc.Rewards.Distinct().Count() != dsc.Rewards.Length) Error("rewards", "Reward IDs must be distinct.");
-                    if (dsc.Enemies.Length > 3 || dsc.Action == "encounter" && dsc.Enemies.Length == 0 || dsc.Action != "encounter" && dsc.Enemies.Length != 0) Error("enemies", "Only encounters have one to three enemies.");
+                    if (dsc.Enemies.Length > 4 || dsc.Action == "encounter" && dsc.Enemies.Length == 0 && string.IsNullOrEmpty(dsc.Encounter) || dsc.Action != "encounter" && dsc.Enemies.Length != 0) Error("enemies", "Encounters need a composed encounter or one to four explicit enemies.");
                     foreach (var id in dsc.Enemies)
                     { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && (character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider) || character.Ecology != null)) Error("enemies", "Use hostile characters without independent habitat rules."); }
+                    break;
+                case EncounterDefinition encounter:
+                    Ref<RewardDefinition>("reward", encounter.Reward);
+                    if (encounter.Sprite == null || string.IsNullOrWhiteSpace(encounter.Tactics) || encounter.Tactics.Length > 800) Error("tactics", "Provide an icon and readable counterplay of at most 800 characters.");
+                    if (encounter.Members == null || encounter.Members.Length is < 1 or > 4) Error("members", "Provide one to four enemy members.");
+                    else foreach (var id in encounter.Members)
+                    {
+                        Ref<CharacterDefinition>("members", id);
+                        if (id != null && _entries.TryGetValue(id, out var member) && member is CharacterDefinition character && (character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider) || character.Ecology != null)) Error("members", "Use hostile characters without separate habitat rules.");
+                    }
+                    break;
+                case RewardDefinition reward:
+                    Range("gold", reward.Gold, 0, 999); Range("food", reward.Food, 0, 99); Range("experience", reward.Experience, 0, 999);
+                    Range("equipmentChancePercent", reward.EquipmentChancePercent, 0, 100); Cost("supplies", reward.Supplies);
+                    if (reward.Supplies?.Count > 6) Error("supplies", "At most six supply types keep mixed encounter rewards within the saved receipt limit.");
+                    if (reward.EquipmentPool == null || reward.EquipmentPool.Length > 32 || reward.EquipmentPool.Distinct().Count() != reward.EquipmentPool.Length) Error("equipmentPool", "Provide up to 32 distinct themed equipment choices.");
+                    else foreach (var id in reward.EquipmentPool)
+                    {
+                        Ref<ItemDefinition>("equipmentPool", id);
+                        if (id != null && _entries.TryGetValue(id, out var gear) && gear is ItemDefinition { Slot: "none" }) Error("equipmentPool", "Reward equipment must have an equipment slot.");
+                    }
+                    Ref<ItemDefinition>("signature", reward.Signature, optional: true);
+                    if (reward.Signature != null && _entries.TryGetValue(reward.Signature, out var signature) && signature is ItemDefinition signatureItem
+                        && (signatureItem.Slot == "none" || signatureItem.Tags?.Contains("signature") != true)) Error("signature", "A signature reward must be equipment tagged signature.");
                     break;
                 case CampDefinition camp:
                     if (camp.Role is not ("cook" or "treat" or "watch" or "stories")) Error("role", "Use cook, treat, watch or stories.");
@@ -244,6 +278,8 @@ public sealed class ContentCatalog
                     if (e.Effect is not ("memory" or "rest" or "aid")) Error("effect", "Unknown incident handler.");
                     Range("mood", e.Mood, -20, 20); Range("cooldown", e.Cooldown, 300, 7200); break;
                 case AbilityDefinition a:
+                    Range("preparationTurns", a.PreparationTurns, 0, 1);
+                    if (a.PreparationTurns > 0 && (a.Target is not (Expeditions.TargetKind.Enemy or Expeditions.TargetKind.AllEnemies) || a.Effect is "flee" or "potion" or "heal" or "cleanse" or "guard" or "rally" or "calm" || a.Cooperation != null)) Error("preparationTurns", "Prepared enemy abilities must be hostile attacks without cooperative costs.");
                     if (a.Cooperation is { } cooperation)
                     {
                         Range("cooperation.partnerMana", cooperation.PartnerMana, 1, 20); Range("cooperation.partnerPowerPercent", cooperation.PartnerPowerPercent, 0, 100);
@@ -263,6 +299,8 @@ public sealed class ContentCatalog
                         if (id != null && _entries.TryGetValue(id, out var abilityEntry) && abilityEntry is AbilityDefinition { Cooperation: not null }) Error("abilities", "Cooperative actions belong in the game pool, leaving three independent class actions.");
                     break;
                 case CharacterDefinition c:
+                    if (c.Reward == null) Error("reward", "The optional reward reference cannot be null.");
+                    else if (c.Reward.Length > 0) Ref<RewardDefinition>("reward", c.Reward);
                     if (c.Ecology is { } ecology)
                     {
                         if (c.ActorKind != World.ActorKind.Beast || c.Names != null || c.Classes?.Length != 0 || c.Interactions?.Length != 0) Error("ecology", "Ecology belongs to beasts without human classes, names or interactions.");
@@ -291,6 +329,27 @@ public sealed class ContentCatalog
                     if (new[] { n.First, n.Last, n.Backgrounds, n.Motivations, n.Traits }.Any(a => a == null || a.Length == 0 || a.Any(string.IsNullOrWhiteSpace)))
                     { Error("first", "All name/profile pools must be nonempty."); break; }
                     foreach (var id in n.Traits) Ref<TraitDefinition>("traits", id); break;
+                case TalentDefinition talent:
+                    if (talent.Sprite == null || string.IsNullOrWhiteSpace(talent.Description)) Error("description", "A talent needs a sprite and an explanation of its combat effects.");
+                    if (talent.Acquisition is not ("innate" or "choice")) Error("acquisition", "Use innate or choice.");
+                    if (talent.Acquisition == "innate")
+                    { if (talent.Class != null || talent.Level != 1) Error("level", "Innate traits apply to all classes at level one."); }
+                    else
+                    { Ref<ClassDefinition>("class", talent.Class); if (talent.Level is not (2 or 4)) Error("level", "Specialisation choices occur at level two or four."); }
+                    if (talent.Bonuses == null || talent.Bonuses.Count is < 1 or > 2) Error("bonuses", "Provide one or two registered combat bonuses.");
+                    else foreach (var (effect, power) in talent.Bonuses)
+                    {
+                        if (!TalentDefinition.Effects.Contains(effect)) Error("bonuses", "Unknown combat talent effect: " + effect);
+                        Range("bonuses." + effect, power, 1, TalentDefinition.Maximum(effect));
+                        if (!TalentDefinition.Effects.Contains(effect)) continue;
+                        var eligible = talent.Acquisition == "innate" ? All<ClassDefinition>()
+                            : talent.Class != null && _entries.TryGetValue(talent.Class, out var chosenClass) && chosenClass is ClassDefinition selectedClass
+                                ? new[] { selectedClass } : Enumerable.Empty<ClassDefinition>();
+                        foreach (var eligibleClass in eligible)
+                            if (!SupportsTalent(effect, power, PlayerAbilities(eligibleClass))) Error("bonuses." + effect,
+                                eligibleClass.Name + " cannot use this bonus through its class, common or cooperative abilities.");
+                    }
+                    break;
                 case TraitDefinition t:
                     if (t.Value is not ("craft" or "discovery" or "fellowship" or "security") || t.Aversion is not ("overwork" or "confinement" or "conflict" or "danger")) Error("value", "Unknown disposition.");
                     Range("workPercent", t.WorkPercent, 50, 150); Range("fatiguePercent", t.FatiguePercent, 50, 150); break;
@@ -341,6 +400,8 @@ public sealed class ContentCatalog
                     Range("work", r.Work, 1, 1000); Cost("cost", r.Cost);
                     Ref<ItemDefinition>("output", r.Output, true); Range("amount", r.Amount, 1, 20); break;
                 case BossDefinition b:
+                    if (b.Reward == null) Error("reward", "The optional reward reference cannot be null.");
+                    else if (b.Reward.Length > 0) Ref<RewardDefinition>("reward", b.Reward);
                     Range("health", b.Health, 60, 2000); Range("mana", b.Mana, 0, 500); Range("power", b.Power, 1, 50);
                     Range("armor", b.Armor, 0, 15); Range("speed", b.Speed, 1, 25); Range("phasePercent", b.PhasePercent, 20, 80);
                     if (string.IsNullOrWhiteSpace(b.Family) || string.IsNullOrWhiteSpace(b.Weakness) || string.IsNullOrWhiteSpace(b.Tactics) || b.Sprite == null) Error("tactics", "Bosses need appearance, family, weakness and readable tactics.");
@@ -359,6 +420,40 @@ public sealed class ContentCatalog
         foreach (var group in All<ItemDefinition>().GroupBy(c => c.Stack).Where(g => g.Count() > 1)) Issues.Add(new("$catalog", "stack", "Duplicate inventory key: " + group.Key));
         if (!_entries.TryGetValue("game.vagabonds", out var game) || game is not GameDefinition)
             Issues.Add(new("$catalog", "game", "The runtime entry point game.vagabonds is required."));
+        if (!All<TalentDefinition>().Any(t => t.Acquisition == "innate"))
+            Issues.Add(new("$catalog", "talents", "Generated people require at least one innate combat talent."));
+        foreach (var cls in All<ClassDefinition>()) CheckPlayerPool(cls.Id, "abilities", cls.Abilities);
+        if (game is GameDefinition runtime)
+        {
+            CheckPlayerPool(runtime.Id, "commonAbilities", runtime.CommonAbilities);
+            CheckPlayerPool(runtime.Id, "cooperativeAbilities", runtime.CooperativeAbilities);
+        }
         References.Add(new("$runtime", "entryPoint", "game.vagabonds"));
+
+        IEnumerable<AbilityDefinition> PlayerAbilities(ClassDefinition cls)
+        {
+            var entry = _entries.GetValueOrDefault("game.vagabonds") as GameDefinition;
+            return (cls.Abilities ?? []).Concat(entry?.CommonAbilities ?? []).Concat(entry?.CooperativeAbilities ?? [])
+                .Select(id => id == null ? null : _entries.GetValueOrDefault(id)).OfType<AbilityDefinition>();
+        }
+        static bool SupportsTalent(string effect, int power, IEnumerable<AbilityDefinition> abilities) => effect switch
+        {
+            "initiative" or "protect" => true,
+            "healing" => abilities.Any(a => a.Effect is "heal" or "potion" or "cleanse"),
+            "calm" => abilities.Any(a => a.Effect == "calm"),
+            "mana-discount" => abilities.Any(a => a.Mana > power),
+            "wounded-damage" or "marked-damage" or "stunned-damage" => abilities.Any(Damages),
+            "all-target-damage" => abilities.Any(a => Damages(a) && a.Target == Expeditions.TargetKind.AllEnemies),
+            "burn-damage" => abilities.Any(a => a.Effect == "burn"),
+            "cooperative-damage" => abilities.Any(a => a.Cooperation != null && Damages(a)),
+            _ => false
+        };
+        static bool Damages(AbilityDefinition ability) => ability.Effect is "damage" or "burn" or "bleed" or "mark" or "stun" or "dread" or "drain";
+        void CheckPlayerPool(string source, string field, string[]? ids)
+        {
+            foreach (string id in ids ?? [])
+                if (id != null && _entries.TryGetValue(id, out var entry) && entry is AbilityDefinition { PreparationTurns: > 0 })
+                    Issues.Add(new(Source(source), field, "Prepared abilities belong to enemy behaviour rules; player actions resolve immediately: " + id + "."));
+        }
     }
 }

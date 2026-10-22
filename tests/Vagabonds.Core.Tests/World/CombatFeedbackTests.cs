@@ -33,9 +33,11 @@ public sealed class CombatFeedbackTests
         Assert.Contains(s.State.CombatEvents, e => e.Kind == "status" && e.Target == battle.ActorIds[enemy.Id]);
         while (!s.State.Battle!.Active.Friendly) s.AdvanceEnemy();
         hero.BasePower = 100; s.State.Battle.Active.Power = 100; enemy.Health = s.State.Actors.Single(a => a.Id == battle.ActorIds[enemy.Id]).Health = 1;
+        var source = s.State.Actors.Single(a => a.Id == battle.ActorIds[enemy.Id]);
+        var reward = s.Content.Get<RewardDefinition>(s.Content.Get<CharacterDefinition>(source.Archetype).Reward);
         int gold = s.Count("gold"); Assert.True(s.Act(0, enemy.Id).Success);
-        Assert.False(s.IsInCombat); Assert.Equal(gold + 12, s.Count("gold")); Assert.Equal(12, s.State.LastEncounterReward!.Experience);
-        Assert.Contains(s.State.CombatEvents, e => e.Kind == "fall"); Assert.Contains(s.State.CombatEvents, e => e.Kind == "reward" && e.Detail.Contains("12 gold"));
+        Assert.False(s.IsInCombat); Assert.Equal(gold + reward.Gold, s.Count("gold")); Assert.Equal(reward.Experience, s.State.LastEncounterReward!.Experience);
+        Assert.Contains(s.State.CombatEvents, e => e.Kind == "fall"); Assert.Contains(s.State.CombatEvents, e => e.Kind == "reward" && e.Detail.Contains(reward.Gold + " gold"));
     }
     [Fact]
     public void RequirementsExplainFailureAndQueriesPreserveTheEntireState()

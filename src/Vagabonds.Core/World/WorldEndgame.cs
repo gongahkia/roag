@@ -14,10 +14,12 @@ public sealed partial class WorldSession
         var pool = Content.Game.Bosses.ToArray();
         for (int i = pool.Length - 1; i > 0; i--) { int j = rng.Next(i + 1); (pool[i], pool[j]) = (pool[j], pool[i]); }
         int finalSite = rng.Next(Plan.Sites.Count);
-        var gear = Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
+        var gear = Content.All<ItemDefinition>().Where(i => i.Slot != "none" && !i.Tags.Contains("signature")).ToArray();
         foreach (var site in Plan.Sites)
         {
             var definition = Content.Get<BossDefinition>(pool[site.Id % pool.Length]);
+            var theme = definition.Reward.Length > 0 ? Content.Get<RewardDefinition>(definition.Reward).EquipmentPool : [];
+            var siteGear = theme.Length > 0 ? theme.Select(Content.Get<ItemDefinition>).ToArray() : gear;
             string variantId = definition.Variants[rng.Next(definition.Variants.Length)];
             int floor = 1 + rng.Next(3); long id = 40000 + site.Id * 8;
             var position = site.Center.Offset(0, -1) with { Floor = floor };
@@ -33,9 +35,9 @@ public sealed partial class WorldSession
             {
                 var lootRandom = WorldRandom.Stream(Seed, site.Id, depth, 4200);
                 var contents = new Dictionary<string, int> { ["gold"] = 8 + lootRandom.Next(16), ["food"] = 2 + lootRandom.Next(4), ["medicine"] = 1 };
-                if (depth == 0 && gear.Length > 0) contents[gear[lootRandom.Next(gear.Length)].Stack] = 1;
+                if (depth == 0 && siteGear.Length > 0) contents[siteGear[lootRandom.Next(siteGear.Length)].Stack] = 1;
                 State.Loot.Add(new() { Id = $"site-{site.Id}-{depth}", Position = site.Center.Offset(0, 2) with { Floor = depth }, Contents = contents,
-                    Choices = depth == 0 ? [] : RewardChoices(gear.Select(g => g.Id), site.Id * 4 + depth, 4201) });
+                    Choices = depth == 0 ? [] : RewardChoices(siteGear.Select(g => g.Id), site.Id * 4 + depth, 4201) });
             }
         }
         Log(FinalObjective);
@@ -79,13 +81,18 @@ public sealed partial class WorldSession
         else if (Content.Entries[actor.Archetype] is CharacterDefinition character) rules = character.Behaviors;
         if (actor.VariantId.Length > 0) rules = rules.Concat(Content.Get<VariantDefinition>(actor.VariantId).Behaviors);
         return rules.Where(r => round >= r.FromRound && round % r.Every == 0 && unit.Health * 100 <= unit.MaxHealth * r.BelowHealthPercent
-            && Content.Get<AbilityDefinition>(r.Ability).Mana <= unit.Mana);
+            && Content.Get<AbilityDefinition>(r.Ability).Mana <= unit.Mana && EncounterBehaviorAvailable(unit, r));
     }
     private void PlanEnemies()
     {
         var b = State.Battle!; b.Plans.Clear();
         foreach (var enemy in b.Units.Where(u => !u.Friendly && u.Alive))
         {
+            if (TryPreparedPlan(enemy, out var prepared))
+            {
+                b.Plans[enemy.Id] = prepared; enemy.IntentTarget = prepared.Target; enemy.Intent = IntentKind.Strike;
+                continue;
+            }
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[enemy.Id]);
             var rules = EnemyRules(actor, enemy, b.Round).ToArray();
             var rule = new BehaviorRule { Ability = Content.Game.EnemyFallback };
@@ -96,6 +103,8 @@ public sealed partial class WorldSession
             }
             var ability = Content.Get<AbilityDefinition>(rule.Ability);
             var candidates = b.Units.Where(u => u.Alive && (ability.Target is TargetKind.Ally or TargetKind.AllAllies ? !u.Friendly : u.Friendly)).ToArray();
+            if (rule.Condition == "ally-wounded" && ability.Target is TargetKind.Ally or TargetKind.AllAllies)
+                candidates = candidates.Where(u => u.Health < u.MaxHealth).ToArray();
             CombatUnit target = ability.Target == TargetKind.Self ? enemy : rule.Target switch
             {
                 "weakest" => candidates.MinBy(u => (u.Health, u.Id))!,
@@ -103,7 +112,7 @@ public sealed partial class WorldSession
                 "stressed" => candidates.MaxBy(u => (u.Stress, -u.Id))!,
                 _ => candidates[CombatRoll(candidates.Length)]
             };
-            b.Plans[enemy.Id] = new(ability.Id, target.Id); enemy.IntentTarget = target.Id;
+            b.Plans[enemy.Id] = new(ability.Id, target.Id, Preparing: ability.PreparationTurns > 0); enemy.IntentTarget = target.Id;
             enemy.Intent = ability.Effect switch { "guard" or "rally" => IntentKind.Guard, "bleed" => IntentKind.Bleed, _ => IntentKind.Strike };
         }
     }

@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork, Harvest, CampActivity, ApproachDiscovery }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork, Harvest, CampActivity, ApproachDiscovery, ChooseProgression }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
@@ -69,6 +69,7 @@ public sealed partial class WorldSession : IGameSession
         session.NewLoneHero();
         session.PopulateAdventures();
         session.PopulateDiscoveries();
+        session.PopulateEncounterGroups();
         session.PrepareLocalCollision(force: true); session.Reveal();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
@@ -131,6 +132,7 @@ public sealed partial class WorldSession : IGameSession
         bool near = Plan.Contains(command.Target) && State.Position.Distance(command.Target) <= 1;
         switch (command.Kind)
         {
+            case WorldCommandKind.ChooseProgression: return ChooseProgression(command.ActorId, command.Item);
             case WorldCommandKind.Loot: return Loot(command.Target, command.Item);
             case WorldCommandKind.Discover: return VisitDiscovery(command.Target);
             case WorldCommandKind.Equip: return Equip(command.ActorId, command.Item);
