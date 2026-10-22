@@ -29,7 +29,7 @@ app_update_gameplay :: proc(a: ^App) {
 				speed = a.settings.move_speed,
 				jump = a.input.keys[glfw.KEY_SPACE] && !a.input.old_keys[glfw.KEY_SPACE],
 				ascend = a.input.keys[glfw.KEY_SPACE],
-				descend = a.input.keys[glfw.KEY_LEFT_CONTROL],
+				descend = a.input.keys[glfw.KEY_LEFT_CONTROL] && !a.input.keys[glfw.KEY_Z] && !a.input.keys[glfw.KEY_Y],
 				sprint = a.input.keys[glfw.KEY_LEFT_SHIFT],
 			},
 			a.dt,
@@ -43,36 +43,31 @@ app_update_gameplay :: proc(a: ^App) {
 	a.position.x = clamp(a.position.x, -100000000, 100000000)
 	a.position.z = clamp(a.position.z, -100000000, 100000000)
 	a.hit = raycast(&a.world, a.position, a.forward, 8)
-	for pressed, i in a.input.mouse {
-		if pressed &&
-		   !a.input.old_mouse[i] &&
-		   a.captured &&
-		   !a.menu.open &&
-		   !a.input.menu_was_open &&
-		   !a.input.capture_changed {
-			if a.hit.hit {
-				p := a.hit.block
-				b: Block = .Air
-				if i == 1 {
-					p = a.hit.adjacent
-					b = CREATIVE_BLOCKS[a.selected]
-					if is_fluid(world_get(&a.world, a.hit.block)) {p = a.hit.block}
-				}
-				if !a.player.spectator &&
-				   is_solid(b) &&
-				   player_overlaps_block(a.position, p) {continue}
-				previous := world_get(&a.world, p)
-				if world_apply(&a.world, {a.world.sequence + 1, p, b}) {
-					stream_invalidate(&a.stream, p)
-					fluids_notify(&a.fluids, &a.world, p, previous)
-				}
-			}
+	can_edit := a.captured && !a.input.menu_was_open && !a.input.capture_changed
+	if can_edit {
+		ctrl := a.input.keys[glfw.KEY_LEFT_CONTROL] || a.input.keys[glfw.KEY_RIGHT_CONTROL]
+		if ctrl && a.input.keys[glfw.KEY_Z] && !a.input.old_keys[glfw.KEY_Z] {creative_history(a, a.input.keys[glfw.KEY_LEFT_SHIFT])}
+		if ctrl && a.input.keys[glfw.KEY_Y] && !a.input.old_keys[glfw.KEY_Y] {creative_history(a, true)}
+		if a.input.mouse[2] && !a.input.old_mouse[2] && a.hit.hit {
+			index := creative_pick(world_get(&a.world, a.hit.block))
+			if index >= 0 {a.selected = index}
 		}
-	}
+		for i in 0 ..< 2 {
+			if !edit_repeat_due(&a.edit_repeat, i, a.input.mouse[i], a.input.old_mouse[i], a.now) || !a.hit.hit {continue}
+			p := a.hit.block; b := Block.Air
+			if i == 1 {
+				p = a.hit.adjacent; b = CREATIVE_BLOCKS[a.selected]
+				if is_fluid(world_get(&a.world, a.hit.block)) {p = a.hit.block}
+			}
+			creative_apply(a, p, b)
+			// A second action in this frame must target the updated world.
+			a.hit = raycast(&a.world, a.position, a.forward, 8)
+		}
+	} else {a.edit_repeat = {}}
 	a.input.old_mouse = a.input.mouse
 	fluids_reseed(&a.fluids, &a.world, a.position, a.now)
 	fluids_step(&a.fluids, &a.world, u64(a.now * 10))
-	for i in 0 ..< a.fluids.changed_count {stream_invalidate(&a.stream, a.fluids.changed[i])}
+	stream_invalidate_many(&a.stream, a.fluids.changed[:a.fluids.changed_count])
 	if a.input.keys[glfw.KEY_F5] && !a.input.old_keys[glfw.KEY_F5] {session_save_world(a)}
 	a.input.old_keys = a.input.keys
 }

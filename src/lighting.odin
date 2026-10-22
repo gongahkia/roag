@@ -30,15 +30,10 @@ light_index :: proc(x, y, z: int) -> int {return x + LIGHT_SIDE * (y + LIGHT_SID
 
 // Bounded ring with one queued entry per cell. Rebuilding the affected chunks
 // from immutable sources handles both addition and removal without stale light.
-light_flood :: proc(blocks, light: []u8, region: ^Light_Region = nil) {
+light_flood :: proc(blocks, light: []u8, region: ^Light_Region = nil, fast: bool = false) {
 	queue := make([]u32, LIGHT_CELLS); defer delete(queue)
 	queued := make([]bool, LIGHT_CELLS); defer delete(queued)
 	head, tail, count := 0, 0, 0
-	for value, i in light {
-		if (value & 15) > 1 || (value >> 4) > 1 {
-			queue[tail] = u32(i); tail = (tail + 1) % LIGHT_CELLS; count += 1; queued[i] = true
-		}
-	}
 	steps := [6]int {
 		1,
 		-1,
@@ -46,6 +41,21 @@ light_flood :: proc(blocks, light: []u8, region: ^Light_Region = nil) {
 		-LIGHT_SIDE,
 		LIGHT_SIDE * LIGHT_SIDE,
 		-LIGHT_SIDE * LIGHT_SIDE,
+	}
+	// Seed only light frontiers. Uniform sunlit air cannot improve its neighbors;
+	// sampling/queueing every such cell used to dominate outdoor jobs.
+	for value, i in light {
+		if (fast || (value & 15) <= 1) && (value >> 4) <= 1 {continue}
+		x, y, z := i % LIGHT_SIDE, (i / LIGHT_SIDE) % LIGHT_SIDE, i / (LIGHT_SIDE * LIGHT_SIDE)
+		for n, dir in NORMALS {
+			nx, ny, nz := x + int(n.x), y + int(n.y), z + int(n.z)
+			if nx < 0 || nx >= LIGHT_SIDE || ny < 0 || ny >= LIGHT_SIDE || nz < 0 || nz >= LIGHT_SIDE {continue}
+			neighbor := light[i + steps[dir]]
+			if (!fast && int(value & 15) > int(neighbor & 15) + 1) || int(value >> 4) > int(neighbor >> 4) + 1 {
+				queue[tail] = u32(i); tail = (tail + 1) % LIGHT_CELLS; count += 1; queued[i] = true
+				break
+			}
+		}
 	}
 	for count > 0 {
 		i := int(queue[head]); head = (head + 1) % LIGHT_CELLS; count -= 1; queued[i] = false
@@ -60,9 +70,12 @@ light_flood :: proc(blocks, light: []u8, region: ^Light_Region = nil) {
 			   nz < 0 ||
 			   nz >= LIGHT_SIDE {continue}
 			j := i + steps[dir]
+			// Absorption costs at least one. Reject impossible improvements before
+			// evaluating lazy procedural terrain, including opaque underground cells.
+			if (fast || int(value & 15) <= int(light[j] & 15) + 1) && int(value >> 4) <= int(light[j] >> 4) + 1 {continue}
 			if blocks[j] == 255 {blocks[j] = u8(light_region_block(region, nx, ny, nz))}
 			cost := max(1, int(light_absorption(Block(blocks[j]))))
-			sky := max(int(light[j] & 15), int(value & 15) - cost)
+			sky := fast ? int(light[j] & 15) : max(int(light[j] & 15), int(value & 15) - cost)
 			warm := max(int(light[j] >> 4), int(value >> 4) - cost)
 			next := u8(sky | (warm << 4))
 			if next == light[j] {continue}
@@ -143,7 +156,7 @@ lighting_build :: proc(job: Mesh_Job, output: []u8) {
 			blocks[i] = u8(e.block); light[i] |= light_emission(e.block) << 4
 		}
 	}
-	light_flood(blocks, light, region)
+	light_flood(blocks, light, region, job.fast_light)
 	for z in 0 ..< PAD {for y in 0 ..< PAD {for x in 0 ..< PAD {
 				output[block_index(x, y, z)] =
 					light[light_index(x + LIGHT_HALO - 1, y + LIGHT_HALO - 1, z + LIGHT_HALO - 1)]

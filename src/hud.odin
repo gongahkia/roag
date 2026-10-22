@@ -27,10 +27,17 @@ hud_draw :: proc(a: ^App) {
 		rect(r, 0, 0, f32(width), f32(height), tint)
 		flat_flush(r, ortho, gl.TRIANGLES)
 	}
+	if a.palette.open {
+		palette_panel(a, ortho); gl.Disable(gl.BLEND); return
+	}
 	if menu.open {
 		settings_panel(r, menu, settings, pacing, width, height, ortho)
 		gl.Disable(gl.BLEND)
 		return
+	}
+	status := a.save.handle != nil ? "SAVING WORLD..." : (a.save.failed ? "SAVE FAILED / F5 TO RETRY" : "WORLD SAVED")
+	if !a.config.no_save && (a.save.handle != nil || a.save.failed || a.now < a.save.feedback_until) {
+		text_draw(r, f32(width) - f32(len(status)) * 6 - 12, 12, status, 1, FRAME_COLOR)
 	}
 	if show {
 		benchmark_panel(a, ortho)
@@ -60,7 +67,7 @@ hud_draw :: proc(a: ^App) {
 	}
 	name := BLOCK_NAMES[int(CREATIVE_BLOCKS[selected])]
 	text_draw(r, cx - f32(len(name)) * 4.5, f32(height) - 82, name, 1.5)
-	text_draw(r, cx - 42, f32(height) - 12, fmt.tprintf("TAB: PAGE %d/%d", page + 1, CREATIVE_PAGES), 1)
+	text_draw(r, cx - 42, f32(height) - 12, fmt.tprintf("TAB: %d/%d / E: SEARCH", page + 1, CREATIVE_PAGES), 1)
 	text_draw(
 		r,
 		start + 4,

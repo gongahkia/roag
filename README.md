@@ -76,7 +76,11 @@ Without Make, use `python3 scripts/build.py build`, `check`, `test`, or `run`
 | **F** | Toggle walking and spectator flight with noclip |
 | Space / Ctrl in spectator mode | Fly up / down |
 | Left / right mouse | Break / place a block |
+| Hold left / right mouse | Repeat breaking / placement |
+| Middle mouse | Pick the targeted block |
 | 1–9 / Tab | Select a block / change palette page |
+| Mouse wheel / E | Select a block / open searchable palette |
+| Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z | Undo / redo (last 256 manual edits) |
 | Esc | Open or close settings |
 | F3 / F5 | Toggle diagnostics / save |
 | Q | Quit |
@@ -84,6 +88,17 @@ Without Make, use `python3 scripts/build.py build`, `check`, `test`, or `run`
 Worlds and settings are saved under `saves/`. More detail is in
 [settings](docs/settings.md), [terrain](docs/terrain.md), and
 [architecture](docs/architecture.md).
+
+Settings include **Potato**, **Balanced**, and **Far** graphics presets, render
+distance, and Full/Fast/Off lighting. Use arrows or the wheel to reach additional
+rows in smaller windows. Memory and upload ceilings still apply. Worlds autosave
+every 60 seconds when changed; F5 requests an immediate save, with status shown
+in the upper right. Disk writes run on a single background writer.
+
+Run the repeatable low-memory scene suite with
+`python3 scripts/low_end_benchmark.py --stress`. It checks terrain readiness,
+memory/upload limits, frame-time percentiles, and edit-to-mesh latency. See
+[performance](docs/performance.md) for hardware limitations and regression gates.
 
 Flowing water and rivers carry you downstream, and waterfalls pull downward.
 WASD and Space/Ctrl let you swim against the flow. Land jumps reach about 1.25

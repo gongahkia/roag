@@ -35,9 +35,9 @@ get64 :: proc(data: []u8, at: ^int) -> u64 {
 	return v
 }
 
-world_save :: proc(w: ^World, pos: V3, path: string) -> bool {
-	out := make([dynamic]u8)
-	defer delete(out)
+world_encode :: proc(w: ^World, pos: V3) -> []u8 {
+	// One exact-sized snapshot, capped below 4 MiB by MAX_EDITS.
+	out := make([dynamic]u8, 0, 52 + w.edit_count * 13)
 	append(&out, ..([]u8{'V', 'O', 'X', '2'}))
 	put64(&out, w.seed)
 	put64(&out, w.sequence)
@@ -51,14 +51,23 @@ world_save :: proc(w: ^World, pos: V3, path: string) -> bool {
 			for c in p {
 				put32(&out, transmute(u32)c)
 			}
-			append(&out, u8(v))
+			append(&out, u8(v.block))
 		}
 	}
+	return out[:]
+}
+
+world_write :: proc(data: []u8, path: string) -> bool {
 	temporary := fmt.tprintf("%s.tmp", path)
-	if os.write_entire_file(temporary, out[:]) != nil {
+	if os.write_entire_file(temporary, data) != nil {
 		return false
 	}
 	return os.rename(temporary, path) == nil
+}
+
+world_save :: proc(w: ^World, pos: V3, path: string) -> bool {
+	data := world_encode(w, pos); defer delete(data)
+	return world_write(data, path)
 }
 
 world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
@@ -121,7 +130,7 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 				return false
 			}
 		}
-		if !world_apply(&candidate, {candidate.sequence + 1, q, b}) {
+		if !world_apply(&candidate, {candidate.sequence + 1, q, b}, false) {
 			world_destroy(&candidate)
 			return false
 		}

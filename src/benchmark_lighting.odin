@@ -36,7 +36,7 @@ benchmark_lighting :: proc(c: Config) {
 			for key, i in keys[:count] {
 				tracker.peak_memory_allocated = 0
 				start := time.tick_now()
-				result := build_job({key = key, seed = c.seed, generator = 5, unlit = !lit})
+				result := build_job({key = key, seed = c.seed, generator = 5, unlit = !lit, fast_light = c.lighting == .Fast})
 				elapsed := time.duration_milliseconds(time.tick_since(start))
 				digest := u64(14695981039346656037)
 				for v in result.mesh.vertices {digest = (digest ~ u64(v.x) ~ (u64(v.y) << 16) ~ (u64(v.z) << 32) ~ (u64(v.data) << 48)) * 1099511628211}

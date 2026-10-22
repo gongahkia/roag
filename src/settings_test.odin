@@ -19,6 +19,7 @@ test_settings_roundtrip_and_validation :: proc(t: ^testing.T) {
 		mouse_sensitivity = 1.7,
 		vsync             = false,
 		fps_limit         = 144,
+		render_distance = 4,
 	}
 	testing.expect(t, settings_save(s, path))
 	testing.expect(t, settings_save(s, path)) // Replacement must work on every OS.
@@ -39,7 +40,7 @@ test_settings_roundtrip_and_validation :: proc(t: ^testing.T) {
 	s.move_speed = math.inf_f64(1)
 	testing.expect(t, !settings_save(s, path))
 	loaded, ok = settings_load(path)
-	testing.expect(t, ok && loaded == Settings{22, 1.7, false, 144})
+	testing.expect(t, ok && loaded == Settings{22, 1.7, false, 144, 4, .Full, .Balanced})
 }
 
 @(test)

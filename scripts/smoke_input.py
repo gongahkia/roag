@@ -11,7 +11,7 @@ from build import ROOT
 from ppm_to_png import convert
 
 
-def interactive(binary, env, directory, collisions=False):
+def interactive(binary, env, directory, collisions=False, creative=False):
     """Exercise actual GLFW input and resize events, isolated on the X server."""
     xlib = ctypes.CDLL(ctypes.util.find_library('X11'))
     xtest_name = ctypes.util.find_library('Xtst')
@@ -54,11 +54,12 @@ def interactive(binary, env, directory, collisions=False):
     display = xlib.XOpenDisplay(env['DISPLAY'].encode())
     if not display:
         raise RuntimeError('Cannot connect input test to X server')
-    save = directory / ('collision.vox' if collisions else 'interactive.vox')
-    settings = directory / ('collision-settings.cfg' if collisions else 'settings.cfg')
-    if collisions:
+    save = directory / ('tools.vox' if creative else ('collision.vox' if collisions else 'interactive.vox'))
+    settings = directory / ('tools-settings.cfg' if creative else ('collision-settings.cfg' if collisions else 'settings.cfg'))
+    if collisions or creative:
         blocks = {(x, 180, z): 3 for x in range(-12, 13) for z in range(-12, 13)}
-        blocks.update({(2, y, z): 3 for y in range(181, 185) for z in range(-12, 13)})
+        if collisions:
+            blocks.update({(2, y, z): 3 for y in range(181, 185) for z in range(-12, 13)})
         blocks.update({(x, y, -4): 3 for y in range(181, 185) for x in range(-12, 13)})
         body = b''.join(struct.pack('<iiiB', *position, block) for position, block in blocks.items())
         save.write_bytes(struct.pack('<4sQQdddII', b'VOX2', 42, len(blocks), .5, 182.62, .5, len(blocks), 2) + body)
@@ -138,6 +139,67 @@ def interactive(binary, env, directory, collisions=False):
                 convert(ppm, ROOT / 'build' / f'{name}.png')
             finally:
                 xlib.XDestroyImage(image)
+
+        if creative:
+            def saved_blocks():
+                key(0xffc2)
+                data = save.read_bytes()
+                return {struct.unpack_from('<iii', data, i): data[i + 12] for i in range(52, len(data), 13)}
+
+            def shortcut(symbol):
+                code = xlib.XKeysymToKeycode(display, 0xffe3)
+                letter = xlib.XKeysymToKeycode(display, symbol)
+                xtest.XTestFakeKeyEvent(display, code, 1, 0)
+                xtest.XTestFakeKeyEvent(display, letter, 1, 0); xlib.XSync(display, 0)
+                time.sleep(.12)
+                xtest.XTestFakeKeyEvent(display, letter, 0, 0)
+                xtest.XTestFakeKeyEvent(display, code, 0, 0); xlib.XSync(display, 0)
+                time.sleep(.08)
+
+            key(ord('5')); click(3)
+            placed = saved_blocks()
+            assert 5 in placed.values(), 'Wood placement failed'
+            capture('world-save-feedback', 640, 360)
+            shortcut(ord('z'))
+            assert 5 not in saved_blocks().values(), 'Undo failed to restore procedural air'
+            shortcut(ord('y'))
+            assert 5 in saved_blocks().values(), 'Redo failed'
+            key(ord('1')); click(2); click(3)
+            picked = saved_blocks()
+            assert list(picked.values()).count(5) >= 2, 'Middle-click did not pick wood'
+            xtest.XTestFakeButtonEvent(display, 3, 1, 0); xlib.XSync(display, 0); time.sleep(.8)
+            xtest.XTestFakeButtonEvent(display, 3, 0, 0); xlib.XSync(display, 0); time.sleep(.1)
+            held = saved_blocks()
+            assert list(held.values()).count(5) > list(picked.values()).count(5), 'Held placement did not repeat'
+            xtest.XTestFakeButtonEvent(display, 1, 1, 0); xlib.XSync(display, 0); time.sleep(.8)
+            xtest.XTestFakeButtonEvent(display, 1, 0, 0); xlib.XSync(display, 0); time.sleep(.1)
+            assert list(saved_blocks().values()).count(5) < list(held.values()).count(5), 'Held breaking did not repeat'
+            key(ord('e'))
+            assert cursor_is_visible(), 'Palette did not release capture'
+            for char in 'cherryq': key(ord(char))
+            assert process.poll() is None, 'Typing Q in search quit the game'
+            key(0xff08)  # Backspace removes Q, leaving CHERRY (including typed E).
+            capture('palette-search', 640, 360)
+            key(0xff0d)
+            assert not cursor_is_visible(), 'Choosing a block did not recapture the mouse'
+            click(3)
+            assert 45 in saved_blocks().values(), 'Search did not choose cherry wood'
+            key(0xff1b)
+            for _ in range(4): key(0xff54)
+            key(0xff53)  # Balanced -> Potato.
+            key(0xff54); key(0xff53)  # Distance 2 -> 3.
+            key(0xff54); key(0xff53)  # Fast -> Off.
+            capture('settings-performance', 640, 360)
+            xlib.XResizeWindow(display, window, 960, 540); xlib.XSync(display, 0); time.sleep(.3)
+            capture('settings-performance-wide', 960, 540)
+            key(0xff0d)
+            text = settings.read_text()
+            assert 'render_distance 3' in text and 'lighting 2' in text, text
+            key(ord('q'))
+            output = process.communicate(timeout=5)[0]
+            assert process.returncode == 0 and 'OpenGL error' not in output, output
+            print('PASS held edits, middle pick, undo/redo, typed palette search, live performance settings, and resize', flush=True)
+            return
 
         if collisions:
             def saved_position():
@@ -220,6 +282,7 @@ def interactive(binary, env, directory, collisions=False):
         key(0xffe3, 0.85)  # Left control: descend toward the terrain.
         time.sleep(0.4)
         click(1)
+        key(ord('5'))  # Place wood so restoring natural grass does not compact this fixture.
         click(3)
         key(0xffc2)  # F5: save while the process remains alive.
         deadline = time.monotonic() + 3

@@ -129,3 +129,77 @@ Twelve six-second graphical comparisons cover a lamp/skylight room, forest, cave
 The 52-second lit repeated flight completes 2,419 chunk jobs; both residency and managed-heap plateau checks pass. First/second cycle managed-heap peaks are 3.594/3.594 MiB. The route is mostly ocean/lowland. The separate pressure smoke reaches 15.500 MiB graphics reservations and reduces radius four to 2; fluid smoke completes 140 changes without refusing updates.
 
 These measurements use Mesa llvmpipe software OpenGL under WSL2. Graphics reservations estimate application storage, and process RSS includes driver/runtime allocations outside the managed heap. Physical low-memory GPU validation remains outstanding. [Lighting documentation](lighting.md) describes the vertical-sun model, finite scattering, asynchronous update delay, and other limits. Raw commands, driver output, source/binary fingerprints, and reports are preserved under `voxel_lighting` in [measurements](measurements.json). Local images are `build/lighting-{scene}-{lit,unlit}.png`.
+
+## Low-end milestone suite
+
+```sh
+# Repeated fully warmed runs of forest, jungle, caves, fluids, movement and edits.
+python3 scripts/low_end_benchmark.py --stress --repeats 3
+python3 scripts/low_end_benchmark.py --stress --lighting fast --repeats 3
+# Use the shipping Low profile on a physical reference GPU, with explicit gates.
+python3 scripts/low_end_benchmark.py --profile low --max-p95-ms 16.667 --max-edit-ms 250
+# Compare matching configuration and scene medians against a saved report.
+python3 scripts/low_end_benchmark.py --stress --baseline benchmarks/reference.json --max-regression 1.2
+```
+
+Stress mode uses 640×360, radius 2, 16 MiB application graphics, 32 MiB managed
+CPU, and 64 KiB uploads. Without stress mode, the chosen profile's normal window,
+radius and budgets apply. Each scene waits for every requested initial chunk
+(including empty chunks) to complete before starting its timed route; after a
+60-second readiness timeout it is rejected. Another two seconds are excluded
+before scoring. Scenes alternate order between repeats. Editing follows a fixed
+4 Hz timeline, independent of rendering FPS. Flight repeats its 24-second route
+twice in the default 52-second measured run.
+
+The JSON report and retained per-run CSVs include p95/p99 completed frame times,
+first-visible/full-terrain times, minimum/mean terrain readiness while moving or
+editing, managed/graphics memory and OS RSS, per-frame upload limits, and every
+completed dirty chunk's first-invalidation-to-upload latency. Latency includes
+scheduling and upload delays; it describes chunk updates rather than display
+scanout or every individual fluid/manual event. Fluid scenes require no queue
+saturation or refused writes. Runs that reduce the requested draw distance, have no fully ready terrain, insufficient
+warmed frames, no rendered terrain, or no completed edits are rejected.
+
+`--max-p95-ms`, `--max-edit-ms`, and `--min-ready-fraction` opt into hardware
+performance gates. `--baseline` compares matching profile/quality/stress/duration
+settings and scene medians, with `--max-regression` defaulting to 1.2. Each report
+records commands, driver output, source/binary hashes, and platform information.
+The Linux CI job exercises the stress suite without imposing host-dependent FPS
+gates. Headless lighting comparisons also accept
+`python3 scripts/lighting_benchmark.py --quality fast`.
+
+Private Linux graphical fixtures clear Wayland runtime variables before starting
+Xvfb, ensuring their windows and input stay on the isolated X11 test display.
+Software-renderer runs validate behavior/accounting, and do not establish
+physical GPU performance, VRAM use, or minimum supported hardware.
+
+### Local validation — 2026-10-22
+
+The milestone passes 82 native tests, 17 Python tests, source vetting, and the
+complete Linux graphical/input smoke suite. Apple Silicon macOS checking passes;
+a local Windows check needs a Windows SDK, and native Windows/macOS runtime
+validation remains with the configured CI/platform runs.
+
+All **18 Full** runs (six scenes, three repeats) and **six Fast** runs pass the
+stress accounting/readiness checks at radius 2. Full runs peak at 4.741 MiB
+managed heap, 7.949 MiB graphics reservations, and 113.04 MiB process RSS. The
+three Full flights and the Fast flight pass repeated-route memory checks. The
+real-time autosave check writes VOX2 at **60.44 seconds while still running**.
+Baseline comparison and an intentionally impossible FPS gate were also exercised;
+the latter correctly rejects the run and retains its failure report.
+
+An alternating original/optimized Full-solver comparison spans 35 matched chunk
+fixtures and fifteen samples per fixture/mode after warmup. All mesh digests
+match. Mean lighting time changes from 12.964 to 10.643 ms (about 18% lower), and
+complete job time from 20.478 to 17.761 ms. These CPU observations come from
+uncontrolled host load; they do not establish a physical GPU FPS improvement.
+Fast and Full graphical runs occurred under different host loads and should not
+be compared as a controlled speedup experiment. Edit-update latency remains
+scheduling-dependent and is reported rather than promised to meet 250 ms.
+
+[Recorded milestone measurements](low-end-measurements.json) include source and
+binary hashes, scene medians, memory peaks, edit-latency samples, CSV hashes, the
+solver comparison and validation limits. Original per-run CSVs and full reports
+remain in ignored `benchmarks/`; new suite invocations use unique run directories
+so they cannot overwrite an earlier report's CSV evidence. Physical low-end GPU
+validation and the Low-profile 720p/60 FPS target remain outstanding.

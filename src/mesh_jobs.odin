@@ -10,6 +10,7 @@ Mesh_Job :: struct {
 	naive:     bool,
 	generator: u32,
 	unlit:     bool,
+	fast_light: bool,
 }
 
 Mesh_Result :: struct {

@@ -9,8 +9,13 @@ Edit_Command :: struct {
 	block:    Block,
 }
 
+World_Edit :: struct {
+	block: Block,
+	index: int,
+}
+
 Edit_Bucket :: struct {
-	blocks:    map[I3]Block,
+	blocks:    map[I3]World_Edit,
 	positions: [dynamic]I3,
 }
 
@@ -50,14 +55,14 @@ world_destroy :: proc(w: ^World) {
 world_get :: proc(w: ^World, p: I3) -> Block {
 	if b, ok := w.edits[chunk_of(p)]; ok {
 		if v, exists := b.blocks[p]; exists {
-			return v
+			return v.block
 		}
 	}
 	if w.generator >= 3 {return world_generated_cached(w, p)}
 	return generated_block(w.seed, p, w.generator)
 }
 
-world_apply :: proc(w: ^World, e: Edit_Command) -> bool {
+world_apply :: proc(w: ^World, e: Edit_Command, compact: bool = true) -> bool {
 	context.allocator = w.allocator
 	if e.sequence <= w.sequence ||
 	   e.position.y <= 0 ||
@@ -69,31 +74,43 @@ world_apply :: proc(w: ^World, e: Edit_Command) -> bool {
 	}
 	k := chunk_of(e.position)
 	b, ok := w.edits[k]
-	if w.tracker != nil {
-		sync.mutex_lock(&w.tracker.mutex)
-		used := w.tracker.current_memory_allocated
-		sync.mutex_unlock(&w.tracker.mutex)
-		if int(used) + WORLD_EDIT_HEADROOM_BYTES > w.allocation_limit {
-			return false
+	existing: World_Edit
+	exists := false
+	if ok {existing, exists = b.blocks[e.position]}
+	// Restoring procedural terrain releases both the override and its recovery
+	// index. Existing replacements/removals must remain possible under pressure.
+	if compact {
+		generated := w.generator >= 3 ? world_generated_cached(w, e.position) : generated_block(w.seed, e.position, w.generator)
+		if e.block == generated {
+			if exists {
+				last := b.positions[len(b.positions) - 1]
+				b.positions[existing.index] = last
+				value := b.blocks[last]; value.index = existing.index; b.blocks[last] = value
+				resize(&b.positions, len(b.positions) - 1)
+				delete_key(&b.blocks, e.position); w.edit_count -= 1
+				if len(b.blocks) == 0 {
+					delete(b.blocks); delete(b.positions); free(b); delete_key(&w.edits, k)
+				}
+			}
+			w.sequence = e.sequence
+			return true
 		}
-	}
-	if !ok {
-		if w.edit_count >= MAX_EDITS {
-			return false
-		}
-		b = new(Edit_Bucket)
-		b.blocks = make(map[I3]Block)
-		w.edits[k] = b
-	}
-	_, exists := b.blocks[e.position]
-	if !exists && w.edit_count >= MAX_EDITS {
-		return false
 	}
 	if !exists {
-		w.edit_count += 1
-		append(&b.positions, e.position)
+		if w.edit_count >= MAX_EDITS {return false}
+		if w.tracker != nil {
+			sync.mutex_lock(&w.tracker.mutex)
+			used := w.tracker.current_memory_allocated
+			sync.mutex_unlock(&w.tracker.mutex)
+			if int(used) + WORLD_EDIT_HEADROOM_BYTES > w.allocation_limit {return false}
+		}
+		if !ok {
+			b = new(Edit_Bucket); b.blocks = make(map[I3]World_Edit); w.edits[k] = b
+		}
+		existing.index = len(b.positions)
+		append(&b.positions, e.position); w.edit_count += 1
 	}
-	b.blocks[e.position] = e.block
+	existing.block = e.block; b.blocks[e.position] = existing
 	w.sequence = e.sequence
 	return true
 }
@@ -115,7 +132,7 @@ world_snapshot :: proc(w: ^World, k: I3, lighting: bool = false) -> [dynamic]Edi
 						   (lighting || local.y <= 32) &&
 						   local.z >= -i32(margin) &&
 						   local.z < i32(CHUNK + margin) {
-							append(&out, Edit_Command{0, p, v})
+							append(&out, Edit_Command{0, p, v.block})
 						}
 					}
 				}

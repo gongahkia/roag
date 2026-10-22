@@ -19,6 +19,9 @@ Config :: struct {
 	spectator:                                       bool,
 	no_hud:                                          bool,
 	no_lighting:                                     bool,
+	radius_explicit, lighting_explicit: bool,
+	lighting: Lighting_Quality,
+	benchmark_ready: bool,
 }
 
 usage :: proc() {
@@ -28,9 +31,10 @@ Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3|4|5] [-
   --gpu-mb N --cpu-mb N --workers N --upload-kb N --width N --height N
   --save PATH --no-save --no-vsync --hidden --no-hud --frames N --seconds N --screenshot PATH
   --settings PATH --fps-limit display|unlimited|30|60|90|120|144|165|240|360
-  --no-lighting (diagnostic comparison, disables propagated light)
+  --lighting full|fast|off / --no-lighting (diagnostic comparison)
   --spectator (start with free flight and noclip)
   --benchmark lighting --frames 3 (headless lighting cost comparison)
+  --benchmark-ready (wait up to 60s for initial terrain before timing the route)
   --benchmark light-room (enclosed lamp/roof demonstration)
   --benchmark generation --frames 3 (headless matched-coordinate v4/v5 comparison)
   --benchmark river|lake|ocean (generator 5 geography previews)
@@ -41,7 +45,8 @@ Usage: voxel [--profile tiny|low|standard] [--seed N] [--generator 1|2|3|4|5] [-
 WASD walk / SPACE jump or swim up / SHIFT sprint / F spectator
 Spectator: SPACE up / CTRL down / SHIFT fast / +/- movement speed
 Mouse look / ESC or F1 settings / Q quit
-LMB break / RMB place / 1-9 select / TAB palette page / F3 stats / F5 save`,
+Hold LMB break / RMB place / MMB pick / 1-9 or wheel select / TAB page
+E searchable palette / CTRL+Z undo / CTRL+Y or CTRL+SHIFT+Z redo / F3 stats / F5 save`,
 	)
 }
 
@@ -95,10 +100,11 @@ config_parse :: proc() -> (Config, bool) {
 		case "--help", "-h":
 			usage()
 			os.exit(0)
+		case "--benchmark-ready": c.benchmark_ready = true
 		case "--no-save":
 			c.no_save = true
 		case "--no-lighting":
-			c.no_lighting = true
+			c.no_lighting = true; c.lighting = .Off; c.lighting_explicit = true
 		case "--no-hud":
 			c.no_hud = true
 		case "--hidden":
@@ -115,6 +121,15 @@ config_parse :: proc() -> (Config, bool) {
 			}
 			i += 1
 			v := os.args[i]
+			if arg == "--lighting" {
+				switch v {
+				case "full": c.lighting = .Full
+				case "fast": c.lighting = .Fast
+				case "off": c.lighting = .Off
+				case: return c, false
+				}
+				c.lighting_explicit = true; c.no_lighting = c.lighting == .Off; continue
+			}
 			if arg == "--profile" {
 				continue
 			}
@@ -153,7 +168,7 @@ config_parse :: proc() -> (Config, bool) {
 			case "--height":
 				c.height = n
 			case "--radius":
-				c.radius = n
+				c.radius = n; c.radius_explicit = true
 			case "--generator":
 				if n < 1 || n > GENERATOR_VERSION {return c, false}
 				c.generator = u32(n)

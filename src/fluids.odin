@@ -16,7 +16,7 @@ Fluid_Sim :: struct {
 	scheduled:                                 map[I3]bool,
 	tick:                                      u64,
 	center:                                    I3,
-	seed_buckets:                              [200]^Edit_Bucket,
+	seed_buckets:                              [200]I3,
 	seed_count, seed_bucket, seed_position:    int,
 	next_seed:                                 f64,
 	changed:                                   [FLUID_FRAME_UPDATES]I3,
@@ -118,8 +118,9 @@ fluids_reseed :: proc(s: ^Fluid_Sim, w: ^World, pos: V3, now: f64) {
 		for z in -FLUID_RADIUS ..= FLUID_RADIUS {
 			for x in -FLUID_RADIUS ..= FLUID_RADIUS {
 				for y in 0 ..< HEIGHT / CHUNK {
-					if b, ok := w.edits[center + I3{i32(x), i32(y), i32(z)}]; ok {
-						s.seed_buckets[s.seed_count] = b; s.seed_count += 1
+					key := center + I3{i32(x), i32(y), i32(z)}
+					if key in w.edits {
+						s.seed_buckets[s.seed_count] = key; s.seed_count += 1
 					}
 				}
 			}
@@ -130,7 +131,8 @@ fluids_reseed :: proc(s: ^Fluid_Sim, w: ^World, pos: V3, now: f64) {
 	// saturation incremental, without walking a large hash bucket every frame.
 	for _ in 0 ..< 16 {
 		if s.seed_bucket >= s.seed_count {break}
-		b := s.seed_buckets[s.seed_bucket]
+		b, exists := w.edits[s.seed_buckets[s.seed_bucket]]
+		if !exists {s.seed_bucket += 1; s.seed_position = 0; continue}
 		if s.seed_position >= len(b.positions) {s.seed_bucket += 1; s.seed_position = 0; continue}
 		p := b.positions[s.seed_position]; s.seed_position += 1
 		fluids_notify(s, w, p)

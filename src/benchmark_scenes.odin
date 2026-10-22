@@ -337,7 +337,8 @@ fluid_demo :: proc(w: ^World) {
 benchmark_step :: proc(a: ^App) {
 	if a.config.benchmark != "" {
 		// Fixed-time path gives equivalent routes even at different frame rates.
-		t := max(a.elapsed - 2, 0)
+		t := max(a.elapsed - (a.config.benchmark_ready ? a.benchmark_ready_at : 2), 0)
+		if a.config.benchmark_ready && a.benchmark_ready_at == 0 {t = 0}
 		if a.config.benchmark == "flight" {
 			cycle := math.mod(t, 24)
 			travel := cycle
@@ -372,15 +373,11 @@ benchmark_step :: proc(a: ^App) {
 			a.pitch = math.asin(d.y)
 		}
 		a.forward = direction(a.yaw, a.pitch)
-		if a.config.benchmark == "edit" && a.frame % 8 == 0 {
-			p := I3{12 + i32((a.frame / 8) % 16), 84, 12 + i32((a.frame / 128) % 16)}
-			b: Block = .Stone
-			if (a.frame / 2048) % 2 == 1 {
-				b = .Air
-			}
-			if world_apply(&a.world, {a.world.sequence + 1, p, b}) {
-				stream_invalidate(&a.stream, p)
-			}
+		if a.config.benchmark == "edit" && int(t * 4) > a.benchmark_edit_step {
+			a.benchmark_edit_step = int(t * 4)
+			p := I3{12, 84, 12}
+			b: Block = a.benchmark_edit_step % 2 == 0 ? .Lamp : .Air
+			if world_get(&a.world, p) != b && world_apply(&a.world, {a.world.sequence + 1, p, b}) {stream_invalidate(&a.stream, p)}
 		}
 		if a.config.benchmark == "dense" && a.frame == 0 {
 			for z in 0 ..< 32 {

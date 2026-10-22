@@ -17,6 +17,7 @@ app_loop :: proc(a: ^App) {
 		app_clock(a)
 		if !app_controls(a) {break}
 		app_update_gameplay(a)
+		session_update_save(a)
 		status := app_prepare_frame(a)
 		if status == .Quit {break}
 		if status == .Skip {continue}
@@ -87,9 +88,14 @@ app_prepare_frame :: proc(a: ^App) -> Frame_Status {
 	if a.renderer.mesh_bytes > a.stream.mesh_budget {
 		stream_pressure(&a.stream, &a.renderer, a.position)
 	}
+	stream_settings(&a.stream, &a.renderer, a.position, a.settings)
 	stream_reconcile(&a.stream, &a.renderer, a.position)
 	stream_collect(&a.stream, &a.renderer, a.position)
 	stream_schedule(&a.stream, &a.world, a.position)
+	if a.config.benchmark_ready && a.benchmark_ready_at == 0 {
+		requested, ready := stream_readiness(&a.stream)
+		if requested > 0 && ready == requested {a.benchmark_ready_at = a.elapsed}
+	}
 
 	return .Ready
 }
@@ -104,7 +110,9 @@ app_present :: proc(a: ^App) -> bool {
 	}
 	ending :=
 		(a.config.frames > 0 && a.frame == a.config.frames - 1) ||
-		(a.config.seconds > 0 && a.elapsed >= f64(a.config.seconds))
+		(a.config.seconds > 0 && (
+			(a.config.benchmark_ready && a.benchmark_ready_at == 0 && a.elapsed >= 60) ||
+			((!a.config.benchmark_ready || a.benchmark_ready_at > 0) && a.elapsed >= a.benchmark_ready_at + f64(a.config.seconds))))
 	if a.config.screenshot != "" && ending {
 		if !screenshot(a.width, a.height, a.config.screenshot) {
 			fmt.eprintln("Screenshot failed")

@@ -31,14 +31,14 @@ test_save_roundtrip_and_rejection :: proc(t: ^testing.T) {
 		t,
 		loaded.seed == 99 &&
 		loaded.sequence == 2 &&
-		loaded.edit_count == 2 &&
+		loaded.edit_count == 1 &&
 		p == V3{2.5, 95, -33},
 	)
 	testing.expect(t, world_get(&loaded, {-33, 150, 8}) == .Leaves)
 	testing.expect(t, world_get(&loaded, {16, 77, -1}) == .Air)
 	testing.expect(t, os.write_entire_file(path, "VOX1-broken") == nil)
 	testing.expect(t, !world_load(&loaded, &p, path))
-	testing.expect(t, loaded.seed == 99 && loaded.edit_count == 2)
+	testing.expect(t, loaded.seed == 99 && loaded.edit_count == 1)
 }
 
 @(test)

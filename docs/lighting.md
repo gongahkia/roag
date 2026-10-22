@@ -7,6 +7,13 @@ depth. Lava sources and flowing lava illuminate their surroundings with warm
 light. A solid **Lamp** is available on **palette page 5, slot 7** (four Tab presses
 from page 1, then 7). Mine or place blocks as usual to change the lighting.
 
+The settings menu offers **Full**, **Fast**, and **Off** lighting. Full retains
+the original illumination. Fast keeps direct vertical skylight, roof shadows,
+and propagated lamp/lava light, but omits indirect skylight scattering. Off uses
+uniform daylight for the diagnostic baseline. `--lighting full|fast|off` selects
+the initial mode; the Potato preset chooses Fast. Switching modes invalidates
+resident revisions and replaces meshes asynchronously within existing budgets.
+
 Lighting is derived from the generator and saved block edits. It needs no saved
 light grid, save migration, or new terrain generator version. Lamp IDs are
 appended; existing block IDs and generated terrain stay unchanged.
@@ -40,6 +47,12 @@ A fixed ring queue permits at most one queued entry per voxel. All lighting
 scratch is released before mesh allocation. Resident chunks keep only their
 packed meshes. Worker memory remains within the existing 16 MiB reservation;
 the tests also exercise the maximum edit snapshot with checkerboard geometry.
+
+The flood starts at light frontiers rather than queueing uniform sunlight.
+It rejects neighbors that cannot improve even at minimum absorption before
+sampling procedural blocks. Full-mode mesh digests match the original solver
+over the benchmark fixture matrix. Fluid edits within a frame share one
+invalidation revision per affected chunk, avoiding repeated invalidation work.
 World edits use separate allocation tracking within the total CPU budget, so
 concurrent worker scratch cannot incorrectly refuse block or fluid edits.
 

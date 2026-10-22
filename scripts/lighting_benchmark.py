@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--graphics', action='store_true')
     parser.add_argument('--flight', action='store_true')
     parser.add_argument('--repeats', type=int, default=3)
+    parser.add_argument('--quality', choices=('full', 'fast'), default='full')
     parser.add_argument('--seconds', type=int, default=8)
     args = parser.parse_args()
     if not 1 <= args.repeats <= 20 or args.seconds < 3:
@@ -33,7 +34,7 @@ def main():
         subprocess.run([sys.executable, 'scripts/build.py', 'build'], check=True)
     binary = build.ROOT / 'build' / ('voxel.exe' if os.name == 'nt' else 'voxel')
     env = build.environment()
-    output = subprocess.check_output([str(binary), '--benchmark', 'lighting', '--frames', str(args.repeats)], env=env, text=True, timeout=180)
+    output = subprocess.check_output([str(binary), '--benchmark', 'lighting', '--frames', str(args.repeats), '--lighting', args.quality], env=env, text=True, timeout=180)
     rows = list(csv.DictReader(Path('benchmarks/lighting.csv').open()))
     samples, coordinates, digests = set(), {}, {}
     for r in rows:
@@ -44,7 +45,7 @@ def main():
         assert digests.setdefault((r['fixture'], r['lit']), r['digest']) == r['digest'], 'Nondeterministic lit mesh'
         assert int(r['peak_worker_bytes']) <= 16 * benchmark.MIB, 'Worker reservation exceeded'
     report = {'platform': sys.platform, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
-              'toolchain': json.loads(Path('toolchain.json').read_text()), 'output': output.splitlines(), 'modes': {}, 'scenes': []}
+              'toolchain': json.loads(Path('toolchain.json').read_text()), 'quality': args.quality, 'output': output.splitlines(), 'modes': {}, 'scenes': []}
     source_hash = hashlib.sha256()
     for path in sorted([p for p in Path('src').glob('*.odin') if not p.name.endswith('_test.odin')] + list(Path('shaders').glob('*'))):
         source_hash.update(str(path).encode() + b'\0' + path.read_bytes())
@@ -63,7 +64,7 @@ def main():
                 number = next(n for n in range(91, 131) if not Path(f'/tmp/.X11-unix/X{n}').exists())
                 server = subprocess.Popen(['Xvfb', f':{number}', '-screen', '0', '1024x768x24', '-nolisten', 'tcp'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 env['DISPLAY'] = f':{number}'
-                env.pop('WAYLAND_DISPLAY', None)
+                env.pop('WAYLAND_DISPLAY', None); env.pop('XDG_RUNTIME_DIR', None); env['XDG_SESSION_TYPE'] = 'x11'
                 env['LIBGL_ALWAYS_SOFTWARE'] = '1'
                 time.sleep(.4)
             scenes = [(s, lit) for s in ('light-room', 'forest', 'caves', 'fluids', 'edit', 'sky') for lit in (True, False)] if args.graphics else []
@@ -71,11 +72,15 @@ def main():
                 scenes.append(('flight', True))
             for scene, lit in scenes:
                 name = f'lighting-{scene}-{"lit" if lit else "unlit"}'
+                if args.quality == 'fast':
+                    name += '-fast'
                 ppm = build.ROOT / 'build' / f'{name}.ppm'
                 command = [str(binary), '--hidden', '--no-hud', '--benchmark', scene, '--generator', '5', '--seconds', str(52 if scene == 'flight' else args.seconds),
                            '--radius', '2', '--gpu-mb', '16', '--cpu-mb', '32', '--upload-kb', '64', '--width', '640', '--height', '360', '--screenshot', str(ppm)]
                 if not lit:
                     command.append('--no-lighting')
+                else:
+                    command += ['--lighting', args.quality]
                 result = subprocess.run(command, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=(52 if scene == 'flight' else args.seconds) + 30)
                 assert result.returncode == 0 and 'OpenGL error' not in result.stdout, result.stdout
                 source = Path('benchmarks') / f'{scene}.csv'
@@ -105,7 +110,7 @@ def main():
         if server:
             server.terminate()
             server.wait(timeout=5)
-    Path('benchmarks/lighting-report.json').write_text(json.dumps(report, indent=2) + '\n')
+    Path(f'benchmarks/lighting-{"fast-" if args.quality == "fast" else ""}report.json').write_text(json.dumps(report, indent=2) + '\n')
 
 
 if __name__ == '__main__':

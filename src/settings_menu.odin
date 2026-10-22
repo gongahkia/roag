@@ -6,10 +6,11 @@ import glfw "vendor:glfw"
 
 Menu_Layout :: struct {
 	x, y, width, height, row_top, row_height: f32,
+	rows: int,
 }
 settings_layout :: proc(width, height: i32) -> Menu_Layout {
 	w := min(432, f32(width) - 16)
-	h := min(326, f32(height) - 16)
+	h := min(464, f32(height) - 16)
 	compact := h < 300
 	return {
 		(f32(width) - w) / 2,
@@ -18,6 +19,7 @@ settings_layout :: proc(width, height: i32) -> Menu_Layout {
 		h,
 		compact ? 40 : 64,
 		compact ? 28 : 44,
+		min(SETTINGS_ROWS, int((h - (compact ? 40 : 64) - 64) / (compact ? 28 : 44))),
 	}
 }
 
@@ -34,16 +36,18 @@ settings_menu_input :: proc(
 	mx, my: f64,
 	width, height: i32,
 ) -> bool {
-	if down[glfw.KEY_UP] && !old[glfw.KEY_UP] {menu.selected = (menu.selected + 3) % 4}
-	if down[glfw.KEY_DOWN] && !old[glfw.KEY_DOWN] {menu.selected = (menu.selected + 1) % 4}
+	if down[glfw.KEY_UP] && !old[glfw.KEY_UP] {menu.selected = (menu.selected + SETTINGS_ROWS - 1) % SETTINGS_ROWS}
+	if down[glfw.KEY_DOWN] && !old[glfw.KEY_DOWN] {menu.selected = (menu.selected + 1) % SETTINGS_ROWS}
 	if down[glfw.KEY_LEFT] && !old[glfw.KEY_LEFT] {settings_adjust(s, menu.selected, -1)}
 	if down[glfw.KEY_RIGHT] && !old[glfw.KEY_RIGHT] {settings_adjust(s, menu.selected, 1)}
 	if down[glfw.KEY_R] && !old[glfw.KEY_R] {s^ = settings_defaults()}
 	if down[glfw.KEY_ENTER] && !old[glfw.KEY_ENTER] {return true}
 	if !clicked {return false}
 	l := settings_layout(width, height)
-	for row in 0 ..< 4 {
-		y := l.y + l.row_top + f32(row) * l.row_height
+	menu.scroll = clamp(clamp(menu.scroll, max(0, menu.selected - l.rows + 1), menu.selected), 0, SETTINGS_ROWS - l.rows)
+	for slot in 0 ..< l.rows {
+		row := menu.scroll + slot
+		y := l.y + l.row_top + f32(slot) * l.row_height
 		if menu_contains(mx, my, l.x + 8, y, l.width - 16, l.row_height) {
 			menu.selected = row
 			if menu_contains(
@@ -88,15 +92,20 @@ settings_panel :: proc(
 	rect(r, l.x, l.y, l.width, 2, FRAME_COLOR)
 	text_draw(r, l.x + 16, l.y + 14, "SETTINGS", 2, FRAME_COLOR)
 	if !compact {text_draw(r, l.x + 16, l.y + 39, "CHANGES APPLY IMMEDIATELY", 1)}
-	labels := [4]string{"KEYBOARD MOVEMENT", "MOUSE LOOK", "VSYNC", "FPS LIMIT"}
-	values := [4]string {
+	labels := [SETTINGS_ROWS]string{"KEYBOARD MOVEMENT", "MOUSE LOOK", "VSYNC", "FPS LIMIT", "GRAPHICS PRESET", "RENDER DISTANCE", "LIGHTING"}
+	values := [SETTINGS_ROWS]string {
 		fmt.tprintf("WALK %.1F / FLY %.1F", s.move_speed * WALK_SPEED_SCALE, s.move_speed),
 		fmt.tprintf("%.1FX SENSITIVITY", s.mouse_sensitivity),
 		s.vsync ? "ON" : "OFF",
 		fps_limit_label(s.fps_limit),
+		PRESET_NAMES[int(s.preset)],
+		fmt.tprintf("%d CHUNKS / %d BLOCKS", s.render_distance, s.render_distance * CHUNK),
+		LIGHTING_NAMES[int(s.lighting)],
 	}
-	for row in 0 ..< 4 {
-		y := l.y + l.row_top + f32(row) * l.row_height
+	menu.scroll = clamp(clamp(menu.scroll, max(0, menu.selected - l.rows + 1), menu.selected), 0, SETTINGS_ROWS - l.rows)
+	for slot in 0 ..< l.rows {
+		row := menu.scroll + slot
+		y := l.y + l.row_top + f32(slot) * l.row_height
 		if menu.selected ==
 		   row {rect(r, l.x + 8, y, l.width - 16, l.row_height - 2, {0.09, 0.16, 0.20, 1})}
 		text_draw(r, l.x + 16, y + 3, labels[row], 1, {0.66, 0.76, 0.80, 1})
@@ -107,14 +116,14 @@ settings_panel :: proc(
 		settings_button(r, l.x + l.width - 48, button_y, 32, button_h, "+")
 		flat_flush(r, ortho, gl.TRIANGLES)
 	}
-	status_y := l.y + l.row_top + 4 * l.row_height + 8
+	status_y := l.y + l.row_top + f32(l.rows) * l.row_height + 8
 	display := p.display_hz > 0 ? fmt.tprintf("DISPLAY %d HZ", p.display_hz) : "DISPLAY UNKNOWN"
 	hud_line(
 		r,
 		l.x + 16,
 		status_y,
 		l.width - 32,
-		fmt.tprintf("%s / %s", display, frame_limit_label(s, p)),
+		fmt.tprintf("%s / %s / %d OF %d", display, frame_limit_label(s, p), menu.selected + 1, SETTINGS_ROWS),
 	)
 	if !compact {
 		hud_line(

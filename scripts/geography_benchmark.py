@@ -95,7 +95,7 @@ def main():
             if sys.platform.startswith('linux') and shutil.which('Xvfb'):
                 number = next(n for n in range(91, 131) if not Path(f'/tmp/.X11-unix/X{n}').exists())
                 server = subprocess.Popen(['Xvfb', f':{number}', '-screen', '0', '1024x768x24', '-nolisten', 'tcp'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                env['DISPLAY'] = f':{number}'; env.pop('WAYLAND_DISPLAY', None)
+                env['DISPLAY'] = f':{number}'; env.pop('WAYLAND_DISPLAY', None); env.pop('XDG_RUNTIME_DIR', None); env['XDG_SESSION_TYPE'] = 'x11'
                 env['LIBGL_ALWAYS_SOFTWARE'] = '1'
                 time.sleep(.4)
             scenes = list(args.scenes) if args.graphics else []

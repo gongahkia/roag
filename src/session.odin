@@ -39,10 +39,16 @@ session_load :: proc(a: ^App) {
 	if a.world.generator ==
 	   1 {fmt.println("Legacy terrain preserved; a new save generates ores and natural fluids.")}
 	a.settings = settings_defaults()
+	a.settings.render_distance = a.config.radius
 	if !a.config.no_save && os.exists(a.config.settings_path) {
 		loaded, ok := settings_load(a.config.settings_path)
 		if ok {a.settings = loaded} else {fmt.eprintln("Invalid settings; using defaults:", a.config.settings_path)}
 	}
+	if a.config.radius_explicit || a.config.benchmark != "" {a.settings.render_distance = a.config.radius}
+	if a.config.lighting_explicit {a.settings.lighting = a.config.lighting}
+	expected := a.settings; settings_preset(&expected, a.settings.preset)
+	if a.settings.render_distance != expected.render_distance || a.settings.lighting != expected.lighting {a.settings.preset = .Custom}
+	a.config.radius = a.settings.render_distance
 	if !a.config.vsync {a.settings.vsync = false; a.settings.fps_limit = -1}
 	if a.config.frame_limit != -2 {a.settings.fps_limit = a.config.frame_limit}
 	a.config.vsync = a.settings.vsync
@@ -56,8 +62,5 @@ session_save_settings :: proc(a: ^App) {
 
 session_save_world :: proc(a: ^App) {
 	if a.config.no_save {return}
-	os.make_directory_all(os.dir(a.config.save_path))
-	if !world_save(&a.world, a.position, a.config.save_path) {
-		fmt.eprintln("Save failed:", a.config.save_path)
-	}
+	a.save.requested = true
 }

@@ -11,6 +11,7 @@ Chunk_State :: struct {
 	running, complete, oversized, budget_deferred: bool,
 	edit_pending, wait_for_quiet:                  bool,
 	last_edit:                                     time.Tick,
+	dirty_since: time.Tick,
 }
 
 Stream :: struct {
@@ -20,6 +21,7 @@ Stream :: struct {
 	next_revision:                                             u64,
 	naive_mesh:                                                bool,
 	unlit:                                                     bool,
+	fast_light: bool,
 	center:                                                    I3,
 	radius, configured_radius:                                 int,
 	mesh_budget, device_mesh_limit, cpu_budget, upload_budget: int,
@@ -29,6 +31,10 @@ Stream :: struct {
 	total_generation_ms, total_meshing_ms, peak_generation_ms: f64,
 	last_upload_bytes, peak_upload_bytes:                      int,
 	tracker:                                                   ^mem.Tracking_Allocator,
+	edit_latency_ms, edit_latency_max_ms: f64,
+	edit_latency_samples: int,
+	edit_latencies: [8]f64,
+	edit_frame_count: int,
 }
 
 cpu_bytes :: proc(s: ^Stream) -> int {
@@ -189,6 +195,7 @@ result_current :: proc(s: ^Stream, key: I3, revision: u64) -> bool {
 }
 
 stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
+	s.edit_frame_count = 0
 	uploaded := 0
 	for i in 0 ..< s.worker_count {
 		w := &s.workers[i]
@@ -262,6 +269,12 @@ stream_collect :: proc(s: ^Stream, r: ^Renderer, pos: V3) {
 			c.gpu = w.upload
 			w.upload = {}
 			c.complete = true
+			if c.edit_pending {
+				s.edit_latency_ms = time.duration_milliseconds(time.tick_since(c.dirty_since))
+				s.edit_latency_max_ms = max(s.edit_latency_max_ms, s.edit_latency_ms)
+				s.edit_latency_samples += 1
+				s.edit_latencies[s.edit_frame_count] = s.edit_latency_ms; s.edit_frame_count += 1
+			}
 			c.edit_pending, c.wait_for_quiet = false, false
 			s.generated += 1
 			s.last_generation_ms = result.generation_ms
@@ -342,6 +355,7 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 				s.naive_mesh,
 				w.generator,
 				s.unlit,
+				s.fast_light,
 			}
 			worker.busy = true
 			sync.sema_post(&worker.wake)
@@ -351,7 +365,16 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 }
 
 stream_invalidate :: proc(s: ^Stream, p: I3) {
+	positions := [1]I3{p}
+	stream_invalidate_many(s, positions[:])
+}
+
+stream_invalidate_many :: proc(s: ^Stream, positions: []I3) {
+	if len(positions) == 0 {return}
 	now := time.tick_now()
+	s.next_revision += 1
+	revision := s.next_revision
+	for p in positions {
 	// A roof edit can change direct sunlight arbitrarily far below it. Sideways
 	// and upward light travels at most 14 cells; include the vertex/AO halo too.
 	margin := s.unlit ? 1 : LIGHT_HALO
@@ -363,8 +386,9 @@ stream_invalidate :: proc(s: ^Stream, p: I3) {
 	    z <= hi.z;
 	    z += 1 {for y := max(0, lo.y); y <= min(7, hi.y); y += 1 {for x := lo.x; x <= hi.x; x += 1 {
 				if c, ok := s.chunks[I3{x, y, z}]; ok {
-					s.next_revision += 1
-					c.revision = s.next_revision
+					if c.revision == revision {continue}
+					if !c.edit_pending {c.dirty_since = now}
+					c.revision = revision
 					c.complete = false
 					c.oversized = false
 					c.budget_deferred = false
@@ -372,10 +396,38 @@ stream_invalidate :: proc(s: ^Stream, p: I3) {
 					c.last_edit = now
 				}
 			}}}
+	}
 }
 
 // An invalidated in-flight job must not repeatedly monopolize the nearest
 // worker slot. Keep its previous mesh and let unaffected chunks make progress.
 chunk_waiting_for_edits :: proc(c: ^Chunk_State, now: time.Tick) -> bool {
 	return c.wait_for_quiet && time.tick_diff(c.last_edit, now) < 50 * time.Millisecond
+}
+
+// Quality switches retain the displayed mesh until the new revision uploads.
+stream_settings :: proc(s: ^Stream, r: ^Renderer, pos: V3, settings: Settings) {
+	if s.unlit != (settings.lighting == .Off) || s.fast_light != (settings.lighting == .Fast) {
+		s.unlit = settings.lighting == .Off; s.fast_light = settings.lighting == .Fast
+		for _, c in s.chunks {
+			s.next_revision += 1; c.revision = s.next_revision
+			c.complete = false; c.oversized = false; c.budget_deferred = false
+		}
+	}
+	if s.configured_radius != settings.render_distance {
+		s.configured_radius = settings.render_distance; s.radius = settings.render_distance
+		stream_reconcile(s, r, pos, true)
+	}
+}
+
+// Includes empty chunks, and excludes deferred/oversized work. Counting only
+// meshes with a draw call would mistake unfinished terrain for a fast scene.
+stream_readiness :: proc(s: ^Stream) -> (requested, ready: int) {
+	for z in -s.radius ..= s.radius {for x in -s.radius ..= s.radius {
+		if x * x + z * z <= s.radius * s.radius {requested += HEIGHT / CHUNK}
+	}}
+	for k, c in s.chunks {
+		if distance2(k, s.center) <= s.radius * s.radius && c.complete && !c.oversized && !c.budget_deferred {ready += 1}
+	}
+	return
 }

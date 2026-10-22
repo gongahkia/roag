@@ -5,10 +5,11 @@ import glfw "vendor:glfw"
 // GLFW snapshots and control history belong to the main thread.
 Input_State :: struct {
 	keys, old_keys:                 [512]bool,
-	mouse, old_mouse:               [2]bool,
+	mouse, old_mouse:               [3]bool,
 	x, y, previous_x, previous_y:   f64,
 	menu_was_open, capture_changed: bool,
 	focused, focus_changed:         bool,
+	scroll: int,
 }
 
 app_window_focus :: proc "c" (window: glfw.WindowHandle, focused: i32) {
@@ -21,7 +22,7 @@ app_window_focus :: proc "c" (window: glfw.WindowHandle, focused: i32) {
 // Re-enter disabled mode after focus changes: setting the same GLFW mode again
 // is a no-op and cannot repair a grab lost by the window system.
 app_sync_mouse_capture :: proc(a: ^App) {
-	capture := a.input.focused && !a.menu.open && !a.config.hidden
+	capture := a.input.focused && !a.menu.open && !a.palette.open && !a.config.hidden
 	if capture == a.captured && !a.input.focus_changed {return}
 	a.captured = capture
 	a.input.capture_changed = true
@@ -47,19 +48,33 @@ app_controls :: proc(a: ^App) -> bool {
 		for k in 32 ..< 349 {
 			a.input.keys[k] = glfw.GetKey(a.window, i32(k)) == glfw.PRESS
 		}
-		a.input.mouse = [2]bool {
+		a.input.mouse = [3]bool {
 			glfw.GetMouseButton(a.window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS,
 			glfw.GetMouseButton(a.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS,
+			glfw.GetMouseButton(a.window, glfw.MOUSE_BUTTON_MIDDLE) == glfw.PRESS,
 		}
 	}
-	if a.input.keys[glfw.KEY_Q] && !a.menu.open {
+	if a.input.keys[glfw.KEY_Q] && !a.menu.open && !a.palette.open {
 		return false
 	}
 	a.width, a.height = glfw.GetFramebufferSize(a.window)
 	a.input.x, a.input.y = glfw.GetCursorPos(a.window)
-	a.input.menu_was_open = a.menu.open
+	step := a.input.scroll; a.input.scroll = 0
+	if a.menu.open {a.menu.selected = clamp(a.menu.selected + step, 0, SETTINGS_ROWS - 1)}
+	else if a.palette.open {
+		_, count := palette_matches(&a.palette)
+		a.palette.selected = clamp(a.palette.selected + step, 0, max(0, count - 1))
+	} else if a.captured {a.selected = (a.selected + step % len(CREATIVE_BLOCKS) + len(CREATIVE_BLOCKS)) % len(CREATIVE_BLOCKS)}
+	a.input.menu_was_open = a.menu.open || a.palette.open
+	if a.input.keys[glfw.KEY_E] && !a.input.old_keys[glfw.KEY_E] && !a.menu.open && !a.palette.open {
+		a.palette.open = !a.palette.open
+		if a.palette.open {a.palette.length = 0; a.palette.selected = 0; a.palette.scroll = 0}
+	}
 	if (a.input.keys[glfw.KEY_ESCAPE] && !a.input.old_keys[glfw.KEY_ESCAPE]) ||
-	   (a.input.keys[glfw.KEY_F1] && !a.input.old_keys[glfw.KEY_F1]) {a.menu.open = !a.menu.open}
+	   (a.input.keys[glfw.KEY_F1] && !a.input.old_keys[glfw.KEY_F1]) {
+		if a.palette.open {a.palette.open = false} else {a.menu.open = !a.menu.open}
+	}
+	if a.palette.open {palette_input(a)}
 	if a.menu.open {
 		ww, wh := glfw.GetWindowSize(a.window)
 		ui_x := a.input.x * f64(a.width) / f64(max(ww, 1))
@@ -76,9 +91,9 @@ app_controls :: proc(a: ^App) -> bool {
 			a.height,
 		) {a.menu.open = false}
 	}
-	if a.menu.open != a.input.menu_was_open {
+	if (a.menu.open || a.palette.open) != a.input.menu_was_open {
 		app_sync_mouse_capture(a)
-		if !a.menu.open {session_save_settings(a)}
+		if !a.menu.open && !a.palette.open {session_save_settings(a)}
 	}
 	if a.settings.vsync != a.config.vsync {
 		a.config.vsync = a.settings.vsync
@@ -87,18 +102,18 @@ app_controls :: proc(a: ^App) -> bool {
 	if a.input.keys[glfw.KEY_F3] && !a.input.old_keys[glfw.KEY_F3] {
 		a.stats = !a.stats
 	}
-	if !a.menu.open && a.input.keys[glfw.KEY_EQUAL] && !a.input.old_keys[glfw.KEY_EQUAL] {
+	if !a.menu.open && !a.palette.open && a.input.keys[glfw.KEY_EQUAL] && !a.input.old_keys[glfw.KEY_EQUAL] {
 		a.settings.move_speed = min(a.settings.move_speed * 1.5, 512)
 	}
-	if !a.menu.open && a.input.keys[glfw.KEY_MINUS] && !a.input.old_keys[glfw.KEY_MINUS] {
+	if !a.menu.open && !a.palette.open && a.input.keys[glfw.KEY_MINUS] && !a.input.old_keys[glfw.KEY_MINUS] {
 		a.settings.move_speed = max(a.settings.move_speed / 1.5, 1)
 	}
-	if !a.menu.open && a.input.keys[glfw.KEY_TAB] && !a.input.old_keys[glfw.KEY_TAB] {
+	if !a.menu.open && !a.palette.open && a.input.keys[glfw.KEY_TAB] && !a.input.old_keys[glfw.KEY_TAB] {
 		page := (a.selected / 9 + 1) % CREATIVE_PAGES
 		a.selected = min(page * 9 + a.selected % 9, len(CREATIVE_BLOCKS) - 1)
 	}
 	for i in 1 ..= 9 {
-		if !a.menu.open && a.input.keys[glfw.KEY_0 + i] {
+		if !a.menu.open && !a.palette.open && a.input.keys[glfw.KEY_0 + i] {
 			index := a.selected / 9 * 9 + i - 1
 			if index < len(CREATIVE_BLOCKS) {a.selected = index}
 		}
@@ -122,4 +137,9 @@ app_controls :: proc(a: ^App) -> bool {
 	}
 
 	return true
+}
+
+app_scroll :: proc "c" (window: glfw.WindowHandle, x, y: f64) {
+	a := cast(^App)glfw.GetWindowUserPointer(window)
+	if a.input.focused {a.input.scroll += y > 0 ? -1 : (y < 0 ? 1 : 0)}
 }

@@ -10,6 +10,20 @@ During play the mouse is captured and the system pointer is hidden, leaving only
 | Mouse look | Sensitivity from 0.1× to 5×; default 1×. |
 | VSync | Requests synchronized buffer swaps and limits the software cap to the active display refresh rate when available. |
 | FPS limit | Display (default), Unlimited, or 30/60/90/120/144/165/240/360 FPS. Unlimited requires VSync off to remove the refresh cap. |
+| Graphics preset | Balanced: radius 4, Full lighting; Potato: radius 2, Fast lighting; Far: radius 8, Full lighting. Changing distance or lighting individually selects Custom. |
+| Render distance | 1–32 chunks horizontally (32 blocks per chunk). Memory pressure can shorten the actual resident radius below this requested distance. |
+| Lighting | Full: direct and scattered skylight plus emitted light. Fast: direct skylight and propagated emitted light, with darker indirect daylight. Off: uniformly lit diagnostic rendering. |
+
+Arrow keys or the mouse wheel select rows and scroll smaller menus; Left/Right
+or the on-screen buttons adjust values. Presets preserve the process's configured
+CPU/GPU/upload ceilings and window resolution. Changes remesh asynchronously and
+retain previous meshes until replacements upload. `--radius N` and
+`--lighting full|fast|off` override saved values on startup; the menu can change
+them during play. Without saved settings, the selected CLI profile supplies the
+initial distance. `--no-lighting` is equivalent to `--lighting off`.
+
+Settings write `VOXSET2`; old `VOXSET1` files load with distance 4 and Full
+lighting. World save formats and generator versions remain unchanged.
 
 Changes apply immediately and save on resume and exit to `saves/settings.cfg`, separately from world data. `--settings PATH` selects another file. `--no-save` skips settings and world reads/writes. Invalid settings fall back to defaults. Keyboard movement is already independent of frame rate; this setting adjusts travel speed, not key repeat timing.
 

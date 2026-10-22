@@ -75,7 +75,7 @@ def main():
         number = next(n for n in range(91, 120) if not Path(f'/tmp/.X11-unix/X{n}').exists())
         server = subprocess.Popen(['Xvfb', f':{number}', '-screen', '0', '1024x768x24', '-nolisten', 'tcp'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         env['DISPLAY'] = f':{number}'
-        env.pop('WAYLAND_DISPLAY', None)
+        env.pop('WAYLAND_DISPLAY', None); env.pop('XDG_RUNTIME_DIR', None); env['XDG_SESSION_TYPE'] = 'x11'
         env['LIBGL_ALWAYS_SOFTWARE'] = '1'
         time.sleep(0.4)
     try:
@@ -116,6 +116,7 @@ def main():
             if sys.platform.startswith('linux') and not args.skip_input:
                 interactive(binary, env, directory)
                 interactive(binary, env, directory, collisions=True)
+                interactive(binary, env, directory, creative=True)
             # Tiny scene isolates the software limiter from render load. Measured
             # intervals must include its wait and agree with wall-clock duration.
             run(binary, env, ['--hidden', '--benchmark', 'normal', '--seconds', '3', '--radius', '1', '--width', '320', '--height', '240', '--fps-limit', '30'])

@@ -70,6 +70,22 @@ Untouched chunks have no persistent dense block allocation. The world stores onl
 
 `Edit_Command` carries a monotonically increasing `u64` sequence, integer position, and block ID. `world_apply` rejects stale sequences, invalid block IDs, protected bottom-layer edits, out-of-height edits, and edits beyond memory/entry limits. There are at most 262,144 distinct edited positions. New edits are also refused when application heap use approaches the configured CPU allowance after worker/save headroom. Re-editing a position replaces its saved value.
 
+Restoring a generated block removes its override. Each bucket's map value holds
+the recovery-list index, so removal swaps the last position into that slot in
+constant time and frees empty buckets. Fluid recovery stores bucket coordinates
+and resolves them each frame, avoiding pointers to reclaimed buckets. Existing
+overrides can be replaced or removed even at the edit/memory limit. Legacy save
+payloads retain redundant overrides on load to preserve duplicate validation;
+touching a restored position compacts it normally.
+
+Manual edits share one collision/fluid/invalidation path with undo and redo.
+A fixed 256-entry ring stores before/after values; new edits discard the redo
+branch. History is local to the session and excludes simulation writes.
+Undo/redo consumes records whose expected block was changed by simulation, and
+rejects solid restoration inside the walking player's body. Hold actions wait
+250 ms, then repeat every 120 ms without frame-rate-dependent catch-up bursts.
+The E palette searches the bounded creative block list and pauses player input.
+
 `world_get`, `world_apply`, `world_snapshot`, and the generation functions contain no graphics or networking calls. Their representations are internal Odin APIs, not a network wire protocol. Future P2P work can translate validated network commands into this interface.
 
 ## Mesh generation
@@ -131,3 +147,19 @@ The loader checks file size before reading the payload, validates exact length/c
 The header is 52 bytes. The loader also accepts original 48-byte-header `VOX1` saves with their original block IDs, assigns generator 1, and writes subsequent saves as `VOX2` with generator 1 retained. Existing generator 2 worlds remain version 2. New worlds use generator 5, and `--generator` can explicitly choose a supported version when creating a world. An explicit mismatch against an existing save is rejected. Unknown generator versions and invalid fluid states are rejected. Untouched generated terrain is not serialized; older binaries cannot open newer generator worlds or saves containing unsupported material IDs. Existing generator-3 worlds retain their original samples.
 
 Generator 5 shares a prepared drainage set across padded terrain, plant anchors, formations, and caves. Its fixed-point profiles, strict downhill graph, protected beds, memory bounds, compatibility rules, and benchmarking entry points are documented in [geography](geography.md).
+
+## Autosaving
+
+Changed world/position state autosaves every 60 seconds. F5 requests an immediate
+save, including while settings are open. The main thread creates one exact-sized
+immutable VOX2 buffer (52 + 13 bytes per override, at most 3.251 MiB) within the
+existing 4 MiB save reserve. A single background writer performs directory/file
+I/O and atomic replacement; it never reads the live world. Requests arriving
+during a write coalesce to the latest state after that writer finishes. The HUD
+shows saving, success, and persistent failure feedback; F5 retries a failure.
+`--no-save` disables both autosaves and manual saves. Shutdown joins the writer
+before writing the final world so an older snapshot cannot replace newer edits.
+
+Snapshot encoding is bounded by MAX_EDITS but still occurs synchronously on the
+main thread; only disk I/O is asynchronous. Full crash/power-loss durability is
+unchanged. Saving does not persist undo history, lighting, or dense terrain.

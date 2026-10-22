@@ -14,6 +14,10 @@ App :: struct {
 	window:                             glfw.WindowHandle,
 	cursor_visibility:                  Cursor_Visibility,
 	world:                              World,
+	save: Save_State,
+	palette: Palette_State,
+	history: Edit_History,
+	edit_repeat: Edit_Repeat,
 	renderer:                           Renderer,
 	stream:                             Stream,
 	player:                             Player,
@@ -28,6 +32,8 @@ App :: struct {
 	position, forward:                  V3,
 	benchmark_camera, benchmark_target: V3,
 	benchmark_view:                     bool,
+	benchmark_ready_at: f64,
+	benchmark_edit_step: int,
 	yaw, pitch:                         f64,
 	hit:                                Ray_Hit,
 	immersion:                          Block,
@@ -84,6 +90,8 @@ app_run :: proc(config: Config) {
 	defer glfw.DestroyWindow(a.window)
 	glfw.SetWindowUserPointer(a.window, a)
 	glfw.SetWindowFocusCallback(a.window, app_window_focus)
+	glfw.SetCharCallback(a.window, palette_character)
+	glfw.SetScrollCallback(a.window, app_scroll)
 	a.input.focused = glfw.GetWindowAttrib(a.window, glfw.FOCUSED) != 0
 	a.cursor_visibility = cursor_visibility_init(a.window)
 	defer cursor_visibility_destroy(&a.cursor_visibility)
@@ -128,7 +136,8 @@ app_run :: proc(config: Config) {
 	)
 	defer delete(a.draw_items)
 	a.stream.naive_mesh = a.config.naive_mesh
-	a.stream.unlit = a.config.no_lighting
+	a.stream.unlit = a.settings.lighting == .Off
+	a.stream.fast_light = a.settings.lighting == .Fast
 	defer if a.stream.chunks != nil {stream_destroy(&a.stream, &a.renderer)}
 	app_sync_mouse_capture(a)
 	a.yaw, a.pitch = -0.8, -0.27
@@ -156,7 +165,7 @@ app_run :: proc(config: Config) {
 
 	app_loop(a)
 	session_save_settings(a)
-	session_save_world(a)
+	session_finish_save(a)
 	stream_destroy(&a.stream, &a.renderer)
 	sync.mutex_lock(&tracker.mutex)
 	peak_cpu := tracker.peak_memory_allocated

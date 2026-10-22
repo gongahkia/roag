@@ -96,7 +96,7 @@ test_v3_spawn_256_seeds_and_fallback :: proc(t: ^testing.T) {
 	fmt.printf("V3 spawn fallback platforms %d / 256 seeds\n", fallbacks)
 	w: World; world_init(&w, 42); w.generator = 3; defer world_destroy(&w)
 	p := world_spawn_fallback(&w)
-	testing.expect(t, w.edit_count == 36 && !player_collides(&w, p))
+	testing.expect(t, w.edit_count >= 9 && w.edit_count <= 36 && !player_collides(&w, p))
 	probe := p; probe.y -= 0.01
 	testing.expect(t, player_collides(&w, probe))
 }
