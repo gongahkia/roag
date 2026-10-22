@@ -102,6 +102,7 @@ public sealed class AgentToolingTests : IDisposable
     }
     [Theory]
     [InlineData("{\"op\":\"assert\",\"path\":\"/missing\",\"expected\":null}")]
+    [InlineData("{\"op\":\"assert\",\"path\":null,\"expected\":0}")]
     [InlineData("{\"op\":\"advance\",\"ticks\":20001}")]
     [InlineData("{\"op\":\"teleport\"}")]
     [InlineData("{\"op\":\"assert\",\"path\":\"/tick\",\"expected\":0,\"typo\":true}")]

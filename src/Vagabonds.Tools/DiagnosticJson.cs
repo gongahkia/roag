@@ -39,6 +39,7 @@ public static class DiagnosticJson
         : Node(new { truncated = true, type = value.GetValueKind().ToString(), hash = Hash(value), entries = value is JsonArray a ? a.Count : value is JsonObject o ? o.Count : 1 });
     public static JsonNode? At(JsonNode? node, string pointer)
     {
+        if (pointer == null) throw new ArgumentException("A JSON pointer cannot be null; use an empty string for the root.");
         if (pointer.Length == 0) return node;
         if (!pointer.StartsWith('/')) throw new ArgumentException("Use a JSON pointer beginning with /.");
         foreach (string raw in pointer[1..].Split('/'))
