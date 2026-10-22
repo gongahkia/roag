@@ -4,6 +4,9 @@ using Vagabonds.Core.Expeditions;
 namespace Vagabonds.Core.World;
 
 public sealed record CombatActionPreview(string Name, string Reason, string Description, int Minimum, int Maximum, int[] Targets);
+public sealed record CombatTargetPreview(int UnitId, long ActorId, string Name, string Sprite, int Minimum, int Maximum, string Effect);
+public sealed record CombatIntentPreview(int UnitId, string AbilityId, string Name, string Icon, string Description, string Reason,
+    int Mana, TargetKind Target, CombatTargetPreview[] Targets);
 public sealed record GearComparison(string Slot, string Previous, int Health, int Power, int Armor, int Speed);
 
 public sealed partial class WorldSession
@@ -38,18 +41,17 @@ public sealed partial class WorldSession
         if (reason.Length == 0 && targets.Length > 0)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[caster.Id]);
-            int bonus = actor.Level - 1 + caster.Power - 6 + AbilityEquipmentBonus(actor, skill)
+            int bonus = actor.Level - 1 + caster.Power - 6
                 + (skill.Cooperative ? b.Units[partnerIndex].Power * skill.PartnerPowerPercent / 100 : 0); var t = targets[0];
+            var outcomes = PreviewCombatTargets(caster, skill, targets, bonus);
             if (skill.Effect is "heal" or "potion" or "cleanse")
             {
-                minimum = targets.Min(u => Math.Clamp(skill.Power + bonus, 0, u.MaxHealth - u.Health)); maximum = targets.Max(u => Math.Clamp(skill.Power + bonus, 0, u.MaxHealth - u.Health));
+                minimum = outcomes.Min(o => o.Minimum); maximum = outcomes.Max(o => o.Maximum);
                 description += targets.Length > 1 ? $" Restores {minimum}-{maximum} HP per companion; removes bleed." : $" Restores {minimum} HP to {t.Name}; removes bleed.";
             }
             else if (skill.Effect is not ("guard" or "rally" or "calm" or "flee"))
             {
-                int raw = skill.Power + bonus + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0);
-                int Hit(int roll) { int damage = Math.Max(1, raw + roll - t.Armor); damage = t.Guarding ? Math.Max(1, damage / 2) : damage; if (ShieldProtector(t) is { } protector) damage = Math.Max(1, damage - EquipmentEffectPower(CombatActor(protector), "protect")); return Math.Min(t.Health, damage); }
-                minimum = Hit(0); maximum = Hit(3);
+                minimum = outcomes.Min(o => o.Minimum); maximum = outcomes.Max(o => o.Maximum);
                 description += targets.Length == 1 ? $" {minimum}-{maximum} damage to {t.Name}." : " Hits every living enemy; armour and guard apply separately.";
             }
             if (skill.Effect is "burn" or "bleed" or "mark" or "stun") description += $" Applies {skill.Effect} for {(skill.Effect == "stun" ? Math.Min(2, skill.Duration) : skill.Duration)} turns if the target survives.";
@@ -58,6 +60,85 @@ public sealed partial class WorldSession
             if (skill.Effect == "flee") description += " Retreats five tiles when space permits; enemies retain wounds.";
         }
         return new(skill.Name, reason, description, minimum, maximum, targets.Select(t => t.Id).ToArray());
+    }
+    /// <summary>The saved plan, evaluated against current defenses without rolling or changing the battle.</summary>
+    public CombatIntentPreview? EnemyActionPreview(int unitId)
+    {
+        if (State.Battle is not { } b || b.Units.ElementAtOrDefault(unitId) is not { Friendly: false } caster
+            || !b.Plans.TryGetValue(unitId, out var plan)) return null;
+        var skill = Content.Get<AbilityDefinition>(plan.Ability).AsSkill();
+        var target = b.Units.ElementAtOrDefault(plan.Target);
+        var targets = skill.Target switch
+        {
+            TargetKind.AllEnemies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
+            TargetKind.AllAllies => b.Units.Where(t => !t.Friendly && t.Alive).ToArray(),
+            TargetKind.Self => [caster], _ => target == null ? [] : new[] { target }
+        };
+        string reason = !caster.Alive ? "Defeated."
+            : b.Order.IndexOf(unitId) < b.TurnIndex ? "Already acted this round."
+            : caster.Stun > 0 ? "Stunned; will lose this action unless cleansed."
+            : targets.Length == 0 || skill.Target is TargetKind.Enemy or TargetKind.Ally && target is not { Alive: true }
+                ? "The planned target has fallen; this action will not retarget." : "";
+        var outcomes = PreviewCombatTargets(caster, skill, targets, caster.Power - 6);
+        if (reason.Length > 0) outcomes = outcomes.Select(o => o with { Minimum = 0, Maximum = 0 }).ToArray();
+        string description = skill.Description + " " + skill.Mana + " MP. The plan is fixed for this round; ranges use current defenses and may change before the turn.";
+        if (skill.Effect is "burn" or "bleed" or "mark" or "stun")
+            description += $" Applies {skill.Effect} for {(skill.Effect == "stun" ? Math.Min(2, skill.Duration) : skill.Duration)} turns if the target survives.";
+        if (skill.Effect == "drain") description += " Recovers half the damage dealt, at least 1 HP, up to maximum health.";
+        if (skill.Effect == "dread") description += " Also raises stress; camp preparations and equipment can reduce this.";
+        if (skill.Effect is "guard" or "rally") description += " Halves incoming damage after armour until that fighter's next turn.";
+        return new(unitId, skill.Id, skill.Name, skill.Icon, description, reason, skill.Mana, skill.Target, outcomes);
+    }
+    private (int Damage, int Resistance) CombatDamageBeforeProtection(CombatUnit target, int amount, string label)
+    {
+        int resistance = label == "Burn" ? PreparationPower(CombatActor(target), "burn-resist")
+            : label == "Bleed" ? PreparationPower(CombatActor(target), "bleed-resist") : 0;
+        int damage = Math.Max(resistance > 0 ? 0 : 1, amount - target.Armor - resistance);
+        if (target.Guarding && damage > 0) damage = Math.Max(1, damage / 2);
+        return (damage, resistance);
+    }
+    private CombatTargetPreview[] PreviewCombatTargets(CombatUnit caster, Skill skill, CombatUnit[] targets, int bonus)
+    {
+        var b = State.Battle!;
+        bonus += AbilityEquipmentBonus(CombatActor(caster), skill);
+        var minimum = new int[targets.Length]; var maximum = new int[targets.Length];
+        if (skill.Effect is "heal" or "potion" or "cleanse")
+            for (int i = 0; i < targets.Length; i++) minimum[i] = maximum[i] = Math.Clamp(skill.Power + bonus, 0, targets[i].MaxHealth - targets[i].Health);
+        else if (skill.Effect == "calm")
+            for (int i = 0; i < targets.Length; i++) minimum[i] = maximum[i] = Math.Min(skill.Power, targets[i].Stress);
+        else if (skill.Effect is not ("guard" or "rally" or "flee") && targets.Length > 0)
+        {
+            Array.Fill(minimum, int.MaxValue);
+            int[] cover = b.Units.Select(u => EquipmentEffectPower(CombatActor(u), "protect")).ToArray();
+            // At most four targets and four rolls each. Enumerating the possibilities keeps group
+            // previews honest when a shield is spent or a protector falls earlier in the same attack.
+            Visit(0, b.Units.Select(u => u.Health).ToArray(), b.Units.Select(u => u.Stress).ToArray(), new(b.ShieldUsed));
+            void Visit(int index, int[] health, int[] stress, HashSet<int> used)
+            {
+                if (index == targets.Length) return;
+                var target = targets[index];
+                for (int roll = 0; roll < 4; roll++)
+                {
+                    int[] nextHealth = (int[])health.Clone(), nextStress = (int[])stress.Clone(); var nextUsed = new HashSet<int>(used);
+                    int amount = skill.Power + bonus + roll + (target.Mark > 0 ? 4 : 0) - (stress[caster.Id] >= 60 ? 2 : 0);
+                    int damage = CombatDamageBeforeProtection(target, amount, skill.Name).Damage;
+                    if (damage > 1 && health[target.Id] * 2 <= target.MaxHealth)
+                    {
+                        var protector = b.Units.Where(u => u.Id != target.Id && u.Friendly == target.Friendly && health[u.Id] > 0 && !used.Contains(u.Id) && cover[u.Id] > 0)
+                            .OrderByDescending(u => cover[u.Id]).ThenBy(u => u.Id).FirstOrDefault();
+                        if (protector != null) { damage = Math.Max(1, damage - cover[protector.Id]); nextUsed.Add(protector.Id); }
+                    }
+                    int lost = Math.Min(health[target.Id], damage);
+                    minimum[index] = Math.Min(minimum[index], lost); maximum[index] = Math.Max(maximum[index], lost);
+                    nextHealth[target.Id] = Math.Max(0, health[target.Id] - damage);
+                    if (nextHealth[target.Id] == 0 && target.Friendly)
+                        foreach (var friend in b.Units.Where(u => u.Friendly && nextHealth[u.Id] > 0)) nextStress[friend.Id] = Math.Min(100, nextStress[friend.Id] + 10);
+                    if (skill.Effect == "drain") nextHealth[caster.Id] = Math.Min(caster.MaxHealth, nextHealth[caster.Id] + Math.Max(1, lost / 2));
+                    Visit(index + 1, nextHealth, nextStress, nextUsed);
+                }
+            }
+        }
+        return targets.Select((t, i) => new CombatTargetPreview(t.Id, b.ActorIds[t.Id], t.Name, t.Sprite, minimum[i], maximum[i], skill.Effect.Length == 0 ? "damage" : skill.Effect)).ToArray();
     }
     public static string StatusDescription(CombatUnit unit) => string.Join(", ", new[]
     {

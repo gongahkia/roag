@@ -66,10 +66,10 @@ public sealed partial class WorldSession
     }
     public string EnemyIntent(int unitId)
     {
-        if (State.Battle is not { } battle || !battle.Plans.TryGetValue(unitId, out var plan)) return "";
-        var skill = Content.Get<AbilityDefinition>(plan.Ability);
-        string target = skill.Target switch { TargetKind.AllEnemies => "party", TargetKind.AllAllies => "all foes", TargetKind.Self => "self", _ => battle.Units[plan.Target].Name.Split(' ')[0] };
-        return skill.Name + " > " + target;
+        if (EnemyActionPreview(unitId) is not { } intent) return "";
+        if (intent.Reason.Length > 0) return intent.Name + ": " + intent.Reason;
+        string target = intent.Target switch { TargetKind.AllEnemies => "party", TargetKind.AllAllies => "all foes", TargetKind.Self => "self", _ => intent.Targets.FirstOrDefault()?.Name.Split(' ')[0] ?? "fallen target" };
+        return intent.Name + " > " + target;
     }
     private IEnumerable<BehaviorRule> EnemyRules(Actor actor, CombatUnit unit, int round)
     {

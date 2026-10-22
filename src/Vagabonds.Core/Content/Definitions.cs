@@ -158,7 +158,7 @@ public sealed class AbilityDefinition : ContentDefinition
     public required string Effect { get; set; }
     public int Duration { get; set; } = 3;
     public Skill AsSkill() => new(Name, Sprite ?? "sword", Mana, Target, Power, Effect, Description, Duration,
-        Cooperation != null, Cooperation?.PartnerMana ?? 0, Cooperation?.PartnerPowerPercent ?? 0);
+        Cooperation != null, Cooperation?.PartnerMana ?? 0, Cooperation?.PartnerPowerPercent ?? 0, Id);
 }
 public sealed class CooperationRules
 {
