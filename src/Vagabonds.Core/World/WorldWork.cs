@@ -28,7 +28,7 @@ public sealed partial class WorldSession
         if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
         int hardness = prop ? 1 : Materials.Hardness(before);
         return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
-            Required = hardness * 5, Reserved = owned != null ? [] : new() { ["food"] = hardness },
+            Required = hardness * 5, Reserved = owned != null ? [] : new() { ["food"] = ExcavationFoodCost(p) },
             Yield = owned != null ? new(owned.Cost) : new() { [prop ? "wood" : Materials.Yield(before)] = prop ? 1 : hardness + 1 } });
     }
     private ActionResult QueueCraft(string id)

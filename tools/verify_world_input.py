@@ -32,7 +32,7 @@ def main():
         def __init__(self, scene, slot):
             self.slot = slot; self.report = slot.with_suffix('.ui.json'); self.window = None
             self.log = (output / (scene + '.log')).open('w')
-            self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(args.dll.resolve()), '--scene', scene, '--seed', '42', '--save', str(slot), '--window-size', '1024x720', '--ui-report', str(self.report)], cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT)
+            self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(args.dll.resolve()), '--scene', scene, '--seed', '42', '--save', str(slot), '--window-size', '1024x720', '--ui-report', str(self.report)], cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT, env={**os.environ, 'SDL_VIDEODRIVER': 'x11'})
             try:
                 deadline = time.monotonic() + 20
                 while time.monotonic() < deadline:
@@ -159,6 +159,17 @@ def main():
             client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
             check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
             client.click('context:clear')
+            # Exercise the disabled action and its recovery using an isolated low-food slot.
+            baseline = json.loads(slot.read_text()); depleted = json.loads(json.dumps(baseline))
+            depleted['state']['inventory']['food'] = 0
+            slot.write_text(json.dumps(depleted)); client.click('load'); client.context(barrel)
+            ui = client.ui(); dig = next(c for c in ui['controls'] if c['id'] == 'context:dig')
+            check('digExplainsMissingFoodInsideCursorMenu', not dig['enabled'] and any('food' in line for line in ui['context']['hint']))
+            client.capture('context-food'); client.click('context:forage')
+            client.wait(lambda u: not u['work']); client.pause()
+            check('contextGatherPreservesSelectionAndRestoresDigging', len(client.ui()['selection']) == 1)
+            client.context(barrel); check('digAvailableAfterGathering', next(c for c in client.ui()['controls'] if c['id'] == 'context:dig')['enabled'])
+            client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
             ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
             person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
             client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
@@ -186,6 +197,7 @@ def main():
             ui = client.ui(); worker = next(c for c in ui['controls'] if c['id'].startswith('worker:') and int(c['id'].split(':')[1]) not in queued['party'])
             client.click(worker['id']); client.click('assign'); assigned = client.save()['state']
             check('mouseWorkerAssignment', assigned['work'][0]['worker'] not in assigned['party']); client.capture('work')
+            cards = client.ui()['controls']; check('workShowsTaskWorkerAndProgress', all(c['sprite'] for c in cards if c['id'].startswith(('work:', 'worker:'))) and any(c['badgeSprite'] and c['progress'] >= 0 for c in cards if c['id'].startswith('work:')))
             client.click('close'); client.pause(); client.click('panel:actions'); client.click('wait:300')
             built = client.save()['state']; check('mouseTimedConstruction', not built['work'] and len(built['structures']) == 1)
             wall = client.free_cell(); client.context(wall); client.click('context:build'); client.click('context:construct:Wall')
@@ -200,9 +212,12 @@ def main():
             check('mouseCrafting', crafted['inventory'].get(equipment[index]['stack'], 0) > 0)
             client.click('panel:inventory'); client.click('pause'); party_tick = client.ui()['tick']; client.wait(lambda u: u['tick'] > party_tick + 2); check('partyPanelKeepsTimeRunning', client.ui()['panel'] == 'inventory'); client.pause(); client.click('gear:' + str(index)); client.click('equip'); equipped = client.save()['state']
             hero = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0]); check('mouseEquipment', hero['equipment']['weapon']['item'] == recipe['output'])
+            cards = client.ui()['controls']; check('partyShowsPortraitsAndItemSprites', all(c['sprite'] and c['spriteBounds']['height'] >= 30 for c in cards if c['id'].startswith(('party:', 'gear:'))))
+            check('equippedItemHasVisibleWornLabel', any(c['id'] == 'gear:' + str(index) and 'worn' in c['label'] for c in cards))
             client.capture('party'); client.click('close'); client.click('panel:map'); client.capture('world-map'); client.click('close')
             client.click('panel:journal'); client.click('history:6'); client.click('history:-6'); client.capture('journal')
-            check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused']); client.click('close')
+            check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused'])
+            check('journalShowsIllustratedHistory', any(row['start'] and row['sprite'] != 'banner' for row in client.ui()['journal'])); client.click('close')
             # Real drag/right-click gestures drive batch work and saved approach intent.
             client.pause(); client.formation(); ui = client.ui(); origin = ui['position']
             free = {(c['x'], c['y']): c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['prop'] is None and c['material'] in ('Earth', 'Grass')}
@@ -265,7 +280,7 @@ def main():
         client = Client('world-boss', slot)
         try:
             client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
-            before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); modal = client.save()['state']
+            before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); client.capture('party-four'); modal = client.save()['state']
             check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
             client.click('close'); client.click('skill:0'); selected = client.save()['state']
             check('mouseAbilityWaitsForTarget', selected['battle'] == modal['battle'] and selected['combatRandom'] == modal['combatRandom'])

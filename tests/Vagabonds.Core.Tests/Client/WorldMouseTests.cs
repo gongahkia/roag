@@ -240,6 +240,83 @@ public sealed class WorldMouseTests
         Assert.DoesNotContain(WorldContextActions.Options(session, [ground]), o => o.Id == "dig");
     }
     [Fact]
+    public void SixRockTilesExplainFoodShortageAndGatheringRetainsTheSelection()
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        var rocks = Enumerable.Range(2, 6).Select(x => session.State.Position.Offset(x, 0)).ToArray();
+        foreach (var rock in rocks) session.Chunks.Edit(rock, Material.Rock);
+        session.State.Inventory["food"] = 2;
+        Field("_contextCells").SetValue(client, rocks); Field("_contextAnchor").SetValue(client, new Point(600, 480));
+        var selection = new WorldTileSelection(); selection.Rectangle(session, rocks[0], rocks[^1]); Field("_selection").SetValue(client, selection);
+        string before = JsonSerializer.Serialize(session.State);
+        var dig = Controls(client, "").Single(c => c.Id == "context:dig");
+        Assert.False(dig.Enabled); Assert.Contains("4 food; 2 carried", dig.DisabledReason);
+        Assert.Contains("4 food; 2 carried", string.Join(" ", (string[])Field("_contextHint").GetValue(client)!));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.Equal(0, session.DesignateWork(WorldCommandKind.Dig, rocks).Queued);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateControl", "context:forage");
+        Assert.Equal(rocks, selection.Cells); Assert.Null(Field("_contextCells").GetValue(client));
+        for (int i = 0; i < 80 && session.State.Work.Count > 0; i++) session.AdvanceTicks(1);
+        Assert.Empty(session.State.Work); Assert.Equal(4, session.Count("food"));
+        Assert.Empty(WorldContextActions.Options(session, rocks).Single(o => o.Id == "dig").Reason);
+        Assert.Equal(1, session.DesignateWork(WorldCommandKind.Dig, rocks).Queued);
+        Assert.Equal(0, session.Count("food"));
+    }
+    [Theory]
+    [InlineData(1024, 720)] [InlineData(1908, 1120)]
+    public void IllustratedPartyAndWorkCardsKeepSpritesAndControlsWithinBounds(int width, int height)
+    {
+        var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena();
+        foreach (var person in session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(3))
+        { person.Recruited = true; session.State.Party.Add(person.Id); }
+        var client = Client(session);
+        session.DesignateWork(WorldCommandKind.Build, [session.State.Position.Offset(1, 0)], Material.Camp);
+        string before = JsonSerializer.Serialize(session.State);
+        foreach (string panel in new[] { "inventory", "work" })
+        {
+            Field("_panel").SetValue(client, panel); Invoke(client, "BuildMouseControls", width, height);
+            var controls = ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToArray();
+            foreach (var c in controls)
+            {
+                Assert.True(new Rectangle(0, 0, width, height).Contains(c.Bounds));
+                if (c.Sprite != null)
+                {
+                    var method = typeof(WorldGame).GetMethod("ControlSpriteBox", BindingFlags.Static | BindingFlags.NonPublic)!;
+                    Assert.True(c.Bounds.Contains((Rectangle)method.Invoke(null, [c])!));
+                }
+            }
+            for (int i = 0; i < controls.Length; i++) for (int j = i + 1; j < controls.Length; j++) Assert.False(controls[i].Bounds.Intersects(controls[j].Bounds));
+            if (panel == "inventory")
+            {
+                Assert.Equal(4, controls.Count(c => c.Id.StartsWith("party:", StringComparison.Ordinal) && c.Sprite != null && c.Progress >= 0));
+                var items = session.Content.All<Vagabonds.Core.Content.ItemDefinition>().Where(i => i.Slot != "none").ToArray();
+                foreach (var c in controls.Where(c => c.Id.StartsWith("gear:", StringComparison.Ordinal))) Assert.Equal(items[int.Parse(c.Id[5..])].Sprite, c.Sprite);
+            }
+            else
+            {
+                Assert.All(controls.Where(c => c.Id.StartsWith("worker:", StringComparison.Ordinal)), c => Assert.Equal(session.State.Actors.Single(a => a.Id == long.Parse(c.Id[7..])).Sprite, c.Sprite));
+                Assert.Equal(session.Party.First().Sprite, controls.Single(c => c.Id.StartsWith("work:", StringComparison.Ordinal)).BadgeSprite);
+            }
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+    [Fact]
+    public void IllustratedJournalUsesUnambiguousSubjectsAndPreservesLongText()
+    {
+        var session = WorldSession.Create(42); var client = Client(session); var hero = session.Party.First();
+        session.State.Journal.Add($"Day 1: {hero.Name} completed dig.");
+        string before = JsonSerializer.Serialize(session.State);
+        var rows = (JournalRow[])Invoke(client, "JournalRows", 256)!;
+        Assert.Equal(hero.Sprite, rows[0].Sprite); Assert.True(rows[0].Start);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var other = session.State.Actors.First(a => a.Id != hero.Id); other.Name = hero.Name;
+        rows = (JournalRow[])Invoke(client, "JournalRows", 256)!;
+        Assert.Equal("banner", rows[0].Sprite);
+        session.State.Journal.Add("An old tale mentioned " + hero.Name + ".");
+        rows = (JournalRow[])Invoke(client, "JournalRows", 256)!; Assert.Equal("banner", rows[0].Sprite);
+    }
+    [Fact]
     public void DragSelectsObservedTilesWithoutWalkingAndCapsLargeSelections()
     {
         var session = Vagabonds.Core.Tests.World.WorldCollisionTests.Arena(); var origin = session.State.Position;

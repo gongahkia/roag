@@ -8,7 +8,7 @@ using Vagabonds.Graphics;
 
 namespace Vagabonds.Client;
 
-internal sealed record WorldMouseControl(string Id, string Label, Rectangle Bounds, bool Enabled = true, bool Selected = false, string Tip = "", string DisabledReason = "")
+internal sealed record WorldMouseControl(string Id, string Label, Rectangle Bounds, bool Enabled = true, bool Selected = false, string Tip = "", string DisabledReason = "", string? Sprite = null, string Detail = "", float Progress = -1, string? BadgeSprite = null, bool Dimmed = false)
 {
     public static WorldMouseControl? Hit(IEnumerable<WorldMouseControl> controls, Point pointer) => controls.Reverse().FirstOrDefault(c => c.Bounds.Contains(pointer));
 }
@@ -34,25 +34,7 @@ internal sealed partial class WorldGame
     private WorkOrder? SelectedWork() => _selectedWorkId == 0 ? _session.State.Work.FirstOrDefault() : _session.State.Work.FirstOrDefault(o => o.Id == _selectedWorkId);
     private Dictionary<string, int> StoredItems() => _session.State.Chunks.FirstOrDefault(c => c.Key == _storage.Chunk)?.Storage.GetValueOrDefault(_storage.LocalIndex) ?? [];
     private string[] StorageItems() => _session.State.Inventory.Keys.Concat(StoredItems().Keys).Distinct().Where(i => _session.Count(i) > 0 || StoredItems().GetValueOrDefault(i) > 0).Order(StringComparer.Ordinal).ToArray();
-    private string[] JournalLines(int width)
-    {
-        int columns = Math.Max(1, width / 8);
-        var entries = _session.State.Tasks.Where(t => !t.Complete).Select(t => "Request: " + t.Description)
-            .Concat(_session.State.Journal.AsEnumerable().Reverse());
-        var lines = new List<string>();
-        foreach (string entry in entries)
-        {
-            string remaining = entry;
-            while (remaining.Length > columns)
-            {
-                int split = remaining.LastIndexOf(' ', columns, columns);
-                if (split <= 0) split = columns;
-                lines.Add(remaining[..split]); remaining = remaining[split..].TrimStart();
-            }
-            lines.Add(remaining); lines.Add("");
-        }
-        return lines.ToArray();
-    }
+    private string[] JournalLines(int width) => JournalRows(width).Select(row => row.Text).ToArray();
     private void StopTravel() { _route.Clear(); _pendingInteraction = null; _session.PartyTravelling = false; }
     private void ClosePanel() { _dialogue = null; _afterDialogue = ""; _voice?.Stop(); _contextCells = null; _panel = ""; StopTravel(); }
     private void Zoom(int direction) { _camera.ZoomAt(_map.Center.ToVector2(), direction); UpdateView(); }
@@ -99,8 +81,8 @@ internal sealed partial class WorldGame
     private void BuildMouseControls(int w, int h)
     {
         _controls.Clear();
-        void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "")
-            => _controls.Add(new(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id)));
+        void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
+            => _controls.Add(new(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed));
         bool ended = _session.State.Endgame.Victory || _session.State.AwaitingContinuation;
         Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !_session.IsInCombat, tip: "Pause stops travel. Work and Party stay open while time runs. Conversations remain paused.");
         Add("save", "Save", w - 284, 16, 84); Add("load", "Load", w - 192, 16, 84); Add("panel:game", "Menu", w - 100, 16, 84);
@@ -163,20 +145,23 @@ internal sealed partial class WorldGame
                 case "inventory":
                     var party = _session.Party.ToArray(); var member = SelectedMember(); var items = EquipmentChoices();
                     int card = (width - 8 * (party.Length - 1)) / party.Length;
-                    for (int i = 0; i < party.Length; i++) Add("party:" + i, party[i].Name, x + i * (card + 8), y, card, 32, selected: party[i].Id == member.Id,
-                        tip: _session.Class(party[i]).Name + ": " + string.Join(", ", _session.Class(party[i]).Abilities.Select(id => _session.Content.Get<AbilityDefinition>(id).Name)));
+                    for (int i = 0; i < party.Length; i++) Add("party:" + i, party[i].Name, x + i * (card + 8), y, card, 72, selected: party[i].Id == member.Id,
+                        tip: _session.Class(party[i]).Name + ": " + string.Join(", ", _session.Class(party[i]).Abilities.Select(id => _session.Content.Get<AbilityDefinition>(id).Name)),
+                        sprite: party[i].Sprite, detail: $"L{party[i].Level} / HP {party[i].Health}/{party[i].MaxHealth}", progress: (float)party[i].Health / Math.Max(1, party[i].MaxHealth), dimmed: party[i].Life != LifeState.Alive);
                     _gearPage = Math.Clamp(_gearPage, 0, Math.Max(0, (items.Length - 1) / 8));
                     for (int row = 0; row < Math.Min(8, items.Length - _gearPage * 8); row++)
                     {
                         int i = row + _gearPage * 8; bool worn = member.Equipment.GetValueOrDefault(items[i].Slot)?.Item == items[i].Id;
                         var comparison = _session.CompareGear(member, items[i].Id);
-                        Add("gear:" + i, $"{(worn ? "[worn] " : "")}{items[i].Name}  x{_session.Count(items[i].Stack)}   [{items[i].Slot}]   HP+{items[i].Health} P+{items[i].Power} A+{items[i].Armor} S+{items[i].Speed}", x, y + 126 + row * 28, width, 26, selected: i == _packItem,
-                            tip: "Replaces " + comparison.Previous + ": " + GearDelta(comparison) + ". " + items[i].Description);
+                        int iw = (width - 8) / 2;
+                        Add("gear:" + i, items[i].Name + (worn ? " / worn" : " / x" + _session.Count(items[i].Stack)), x + row % 2 * (iw + 8), y + 164 + row / 2 * 46, iw, 42, selected: i == _packItem,
+                            tip: $"{items[i].Slot}: HP+{items[i].Health} Power+{items[i].Power} Armour+{items[i].Armor} Speed+{items[i].Speed}. Replaces " + comparison.Previous + ": " + GearDelta(comparison) + ". " + items[i].Description,
+                            sprite: items[i].Sprite, detail: items[i].Slot + " / " + (worn ? "Equipped" : _session.Count(items[i].Stack) == 0 ? "None in pack" : "In pack"), dimmed: !worn && _session.Count(items[i].Stack) == 0);
                     }
                     if (items.Length > 8)
                     {
-                        Add("gearpage:-1", "Prev", box.Right - 172, y + 86, 64, 28, _gearPage > 0);
-                        Add("gearpage:1", "Next", box.Right - 100, y + 86, 64, 28, (_gearPage + 1) * 8 < items.Length);
+                        Add("gearpage:-1", "Prev", box.Right - 172, y + 128, 64, 28, _gearPage > 0);
+                        Add("gearpage:1", "Next", box.Right - 100, y + 128, 64, 28, (_gearPage + 1) * 8 < items.Length);
                     }
                     var gear = items.ElementAtOrDefault(_packItem % Math.Max(1, items.Length)); bool outside = !_session.IsInCombat;
                     int ay = box.Bottom - 88;
@@ -196,12 +181,17 @@ internal sealed partial class WorldGame
                     for (int i = 0; i < Math.Min(5, orders.Count - _workPage * 5); i++)
                     {
                         var order = orders[_workPage * 5 + i];
-                        Add("work:" + order.Id, $"#{order.Id} {order.Kind} {order.Progress:0}/{order.Required:0}" + (order.Worker != 0 ? " / " + _session.State.Actors.FirstOrDefault(a => a.Id == order.Worker)?.Name : " / waiting"), x, y + 28 + i * 42, leftWidth, 36, selected: SelectedWork()?.Id == order.Id, tip: order.Status);
+                        var assigned = _session.State.Actors.FirstOrDefault(a => a.Id == order.Worker);
+                        Add("work:" + order.Id, order.Kind + " / " + (assigned?.Name ?? "Waiting for worker"), x, y + 28 + i * 42, leftWidth, 38, selected: SelectedWork()?.Id == order.Id,
+                            tip: $"#{order.Id} at {order.Target.X}, {order.Target.Y}: {order.Status}. {order.Progress:0}/{order.Required:0} work. Reserved: " + string.Join(", ", order.Reserved.Select(c => c.Value + " " + c.Key)),
+                            sprite: WorkSprite(order), detail: order.Suspended ? "Suspended" : order.Status, progress: (float)(order.Progress / Math.Max(1, order.Required)), badge: assigned?.Sprite);
                     }
                     for (int i = 0; i < Math.Min(5, workers.Length - _workerPage * 5); i++)
                     {
                         var worker = workers[_workerPage * 5 + i];
-                        Add("worker:" + worker.Id, worker.Name + " / " + worker.Job, rightX, y + 28 + i * 42, leftWidth, 36, selected: _selectedWorkerId == worker.Id, tip: $"Fatigue {worker.Body.Fatigue:0}; wounds {worker.Body.Wounds}. One order per person.");
+                        Add("worker:" + worker.Id, worker.Name, rightX, y + 28 + i * 42, leftWidth, 38, selected: _selectedWorkerId == worker.Id,
+                            tip: $"{worker.Job}. HP {worker.Health}/{worker.MaxHealth}; hunger {worker.Body.Hunger:0}; fatigue {worker.Body.Fatigue:0}; wounds {worker.Body.Wounds}. One order per person.",
+                            sprite: worker.Sprite, detail: (worker.Recruited ? "Party / " : "Resident / ") + worker.Job + (_session.State.Work.Any(o => o.Worker == worker.Id) ? " / busy" : ""));
                     }
                     Add("workpage:-1", "Previous", x, y + 244, 112, enabled: _workPage > 0); Add("workpage:1", "Next", x + 120, y + 244, 96, enabled: (1 + _workPage) * 5 < orders.Count);
                     Add("workerpage:-1", "Previous", rightX, y + 244, 112, enabled: _workerPage > 0); Add("workerpage:1", "Next", rightX + 120, y + 244, 96, enabled: (1 + _workerPage) * 5 < workers.Length);
@@ -283,7 +273,7 @@ internal sealed partial class WorldGame
                     }
                     Add("storagepage:-1", "Previous", x, box.Bottom - 88, 112, enabled: _storagePage > 0); Add("storagepage:1", "Next", x + 120, box.Bottom - 88, 96, enabled: (_storagePage + 1) * 6 < storedStacks.Length);
                     break;
-                case "journal": Add("history:6", "Older history", x, box.Bottom - 88, 176); Add("history:-6", "Newer history", x + 188, box.Bottom - 88, 176, enabled: _journalOffset > 0); break;
+                case "journal": Add("history:6", "Older history", x, box.Bottom - 88, 176, enabled: _journalOffset + JournalVisibleRows(box) < JournalRows(width - 64).Length); Add("history:-6", "Newer history", x + 188, box.Bottom - 88, 176, enabled: _journalOffset > 0); break;
                 case "inspector":
                     for (int i = 0; i < 3; i++) Add("inspect:" + i, new[] { "Raw", "Final", "Repairs" }[i], x + i * 120, box.Bottom - 66, 112, selected: i == _inspectStage);
                     break;
@@ -376,7 +366,7 @@ internal sealed partial class WorldGame
                 if (storage.X < 0) _notice = "Approach a storage chest first."; else { _storage = storage; _panel = "storage"; } break;
             case "store": case "take": Execute(new(action == "store" ? WorldCommandKind.Store : WorldCommandKind.Take, _storage, Item: argument)); break;
             case "storagepage": _storagePage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
-            case "history": _journalOffset = Math.Clamp(_journalOffset + int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture), 0, Math.Max(0, JournalLines(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height).Width - 40).Length - 1)); break;
+            case "history": _journalOffset = Math.Clamp(_journalOffset + int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture), 0, Math.Max(0, JournalRows(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height).Width - 104).Length - 1)); break;
             case "inspect": _inspectStage = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "skill":
                 _skill = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _combatTarget = -1;
@@ -408,8 +398,7 @@ internal sealed partial class WorldGame
             Fill(r, control.Selected ? new(69, 62, 42) : ReferenceEquals(control, hot) && control.Enabled ? new(53, 65, 69) : new(35, 43, 48));
             Color edge = control.Selected ? Gold : control.Enabled ? new(78, 91, 94) : new(47, 54, 58);
             Fill(new(r.X, r.Bottom - 2, r.Width, 2), edge);
-            int characters = Math.Max(1, (r.Width - 14) / 8); string label = Short(control.Label, characters);
-            Text(label, (int)(r.Center.X - SpriteLibrary.Measure(label) / 2), r.Center.Y - 6, control.Enabled ? control.Selected ? Gold : Ink : Muted * .55f);
+            DrawControlContents(control);
         }
         int ny = h - 136;
         Fill(new(_map.X, ny, _map.Width, 36), new(16, 22, 27));
@@ -428,7 +417,7 @@ internal sealed partial class WorldGame
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             routeCount = _route.Count, notice = _notice,
-            context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding },
+            context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding, hint = _contextHint },
             selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
             selecting = _dragStart != null,
             cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
@@ -442,7 +431,8 @@ internal sealed partial class WorldGame
             combatFeedback = _session.State.CombatEvents.TakeLast(8),
             party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
-            controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, bounds = Rect(c.Bounds) }),
+            journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
+            controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
             battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly,
                 units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, bounds = Rect(UnitRect(u)) }) } : null

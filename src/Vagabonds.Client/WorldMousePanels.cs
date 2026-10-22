@@ -41,13 +41,7 @@ internal sealed partial class WorldGame
                     Text($"Buy {stocks.Price(item)} gold / sell {Math.Max(1, stocks.Price(item) / 2)} gold", x, ry + 19, Muted);
                 }
                 break;
-            case "inventory":
-                var member = SelectedMember();
-                Text($"Food {_session.Count("food")}  Medicine {_session.Count("medicine")}  Gold {_session.Count("gold")}  Wood {_session.Count("wood")}  Stone {_session.Count("stone")}", x, y + 44, Gold);
-                Text($"{_session.Class(member).Name} L{member.Level} / {member.Life} / HP {member.Health}/{member.MaxHealth} / Power {member.Power} / Armour {member.Armor} / Speed {member.Speed}", x, y + 68);
-                Text($"Hunger {member.Body.Hunger:0}/100  Fatigue {member.Body.Fatigue:0}/100  Wounds {member.Body.Wounds}  Stress {member.Stress}", x, y + 92, Muted);
-                if (member.Memories.LastOrDefault() is { } memory && h > 760) Wrap(memory.Text, x, box.Bottom - 130, width, Muted);
-                break;
+            case "inventory": DrawInventorySummary(box); break;
             case "discovery":
                 if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
                 {
@@ -115,18 +109,7 @@ internal sealed partial class WorldGame
                     Text($"{item?.Name ?? stack} / carried {_session.Count(stack)} / stored {contents.GetValueOrDefault(stack)}", x, y + 42 + i * 44);
                 }
                 break;
-            case "journal":
-                y += Wrap(_session.FinalObjective, x, y, width, Gold); y += 8;
-                var encounterBoss = _session.State.Battle?.ActorIds.Select(id => _session.State.Actors.Single(a => a.Id == id)).FirstOrDefault(a => _session.Content.Entries[a.Archetype] is BossDefinition);
-                var boss = _session.Content.Get<BossDefinition>((encounterBoss ?? _session.FinalBoss).Archetype);
-                y += Wrap(boss.Tactics + " " + boss.Weakness, x, y, width, Muted); y += 8;
-                y += Wrap("Side arc: " + _session.State.Arc.Status + ". " + _session.State.Arc.Objective, x, y, width); y += 8;
-                foreach (string line in JournalLines(width).Skip(_journalOffset))
-                {
-                    if (y + 19 > box.Bottom - 100) break;
-                    Text(line, x, y); y += 19;
-                }
-                break;
+            case "journal": DrawJournal(box); break;
             case "map":
                 Text("Known places / 4096 x 4096 surface. Choose a destination to mark it.", x, y, Muted);
                 var region = new Rectangle(x, y + 36, width - 320, box.Bottom - y - 82); Fill(region, new(12, 22, 27));

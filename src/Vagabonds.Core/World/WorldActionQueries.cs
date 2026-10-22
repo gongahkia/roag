@@ -89,6 +89,8 @@ public sealed partial class WorldSession
         var recipe = Content.Game.Recipes.Select(Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Output == null && r.Material == material);
         return recipe == null ? "No construction recipe is available." : MissingSupplies(recipe.Cost);
     }
+    public int ExcavationFoodCost(WorldPosition target) => State.Structures.Any(s => s.Position == target) ? 0
+        : ObjectAt(target) is { Removable: true } ? 1 : Materials.Hardness(Chunks.At(target));
     public string TargetBlockReason(WorldCommandKind kind, WorldPosition target, Material build = Material.Wall, bool requireAdjacent = true)
     {
         if (!Plan.Contains(target) || !Chunks.Seen(target)) return "Choose observed ground first.";
@@ -111,7 +113,7 @@ public sealed partial class WorldSession
         {
             if (prop is not { Removable: true } && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
             if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == target.Chunk)?.Storage.GetValueOrDefault(target.LocalIndex)?.Values.Any(v => v > 0) == true) return "Empty the storage before dismantling it.";
-            int food = owned == null ? prop is { Removable: true } ? 1 : Materials.Hardness(before) : 0;
+            int food = ExcavationFoodCost(target);
             return Count("food") < food ? $"Excavation needs {food} food; {Count("food")} carried." : "";
         }
         if (kind == WorldCommandKind.Repair)

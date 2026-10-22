@@ -39,8 +39,12 @@ internal static class WorldContextActions
         {
             var reasons = cells.Select(c => session.TargetBlockReason(kind, c, material, requireAdjacent: false)).ToArray();
             int valid = reasons.Count(r => r.Length == 0);
-            options.Add(new(id, name + (cells.Count > 1 ? " selection" : ""), valid > 0 ? "" : reasons[0],
-                $"{valid}/{cells.Count} suitable tiles. Reserves supplies per order; unaffordable tiles are skipped. The party approaches automatically."));
+            string cost = kind == WorldCommandKind.Dig ? $"Food: {session.Count("food")} carried. " +
+                string.Join("; ", cells.Where((_, i) => reasons[i].Length == 0 || reasons[i].StartsWith("Excavation needs", StringComparison.Ordinal))
+                    .GroupBy(session.ExcavationFoodCost).Select(g => $"{g.Count()} tile(s) at {g.Key} each")) + ". " : "";
+            options.Add(new(id, name + (cells.Count > 1 ? " selection" : ""), valid > 0 ? "" : reasons.FirstOrDefault(r => r.StartsWith("Excavation needs", StringComparison.Ordinal)) ?? reasons[0],
+                kind == WorldCommandKind.Dig ? cost + "Queues what you can afford; other tiles are skipped."
+                    : $"{valid}/{cells.Count} suitable tiles. Supplies are reserved per order; unaffordable tiles are skipped."));
         }
         if (building)
         {
@@ -81,6 +85,8 @@ internal static class WorldContextActions
         }
         if (cells.Any(c => session.Chunks.At(c) is Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp || session.ObjectAt(c) is { Removable: true } || session.State.Structures.Any(s => s.Position == c)))
             Work("dig", "Dig / dismantle", WorldCommandKind.Dig);
+        if (options.Any(o => o.Id == "dig" && o.Reason.StartsWith("Excavation needs", StringComparison.Ordinal)))
+            options.Add(new("forage", "Gather food at party (+2)", session.CommandBlockReason(new(WorldCommandKind.Forage)), "Gather first, then right-click your selection again. Trade in town for larger supplies."));
         if (cells.Any(c => session.State.Structures.Any(s => s.Position == c && s.Condition < 95))) Work("repair", "Repair", WorldCommandKind.Repair);
         if (cells.Any(c => session.Chunks.At(c) is Material.Grass or Material.Earth or Material.Floor or Material.Water or Material.Bridge && session.ObjectAt(c) is not { Solid: true }))
             options.Add(new("build", "Build..."));
@@ -102,6 +108,7 @@ internal sealed partial class WorldGame
     private Point _contextAnchor;
     private Rectangle _contextBox;
     private bool _contextBuilding;
+    private string[] _contextHint = [];
     private bool PointerModal => _contextCells != null || _dragStart != null;
 
     private WorldPosition PointerCell(Point point)
@@ -144,7 +151,13 @@ internal sealed partial class WorldGame
     {
         if (_contextCells is not { Length: > 0 } cells) return;
         var options = WorldContextActions.Options(_session, cells, _contextBuilding);
-        int width = Math.Min(340, _map.Width - 16), height = 44 + options.Count * 34;
+        int width = Math.Min(388, _map.Width - 16);
+        var explained = options.FirstOrDefault(o => o.Id == "dig") ?? options.FirstOrDefault(o => o.Reason.Length > 0);
+        string hint = explained == null ? "" : explained.Reason.Length > 0 ? explained.Reason +
+            (explained.Reason.StartsWith("Excavation needs", StringComparison.Ordinal) ? " Gather food or trade in town, then retry." : "") : explained.Tip;
+        _contextHint = FeedbackLines(hint, width - 20);
+        int hintLines = Math.Min(3, _contextHint.Length);
+        int height = 44 + options.Count * 34 + (hintLines > 0 ? hintLines * 19 + 8 : 0);
         _contextBox = new(Math.Clamp(_contextAnchor.X + 8, _map.Left + 4, _map.Right - width - 4),
             Math.Clamp(_contextAnchor.Y + 8, _map.Top + 4, Math.Max(_map.Top + 4, _map.Bottom - height - 4)), width, height);
         for (int i = 0; i < options.Count; i++)
@@ -158,6 +171,12 @@ internal sealed partial class WorldGame
         if (_contextCells is not { Length: > 0 } cells) return;
         var p = cells[0]; var actor = _session.OccupantAt(p, observedOnly: true);
         if (action is "build" or "back") { _contextBuilding = action == "build"; return; }
+        if (action == "forage")
+        {
+            _contextCells = null;
+            if (Execute(new(WorldCommandKind.Forage))) _session.Paused = false;
+            return;
+        }
         if (action is "dig" or "repair" || action.StartsWith("construct:", StringComparison.Ordinal))
         {
             var kind = action == "dig" ? WorldCommandKind.Dig : action == "repair" ? WorldCommandKind.Repair : WorldCommandKind.Build;
@@ -215,5 +234,7 @@ internal sealed partial class WorldGame
         Fill(_contextBox, new(22, 31, 37));
         string title = _contextBuilding ? "BUILD ON SELECTED GROUND" : cells.Length > 1 ? cells.Length + " TILES SELECTED" : WorldInspection.Inspect(_session, cells[0]).Title;
         Text(Short(title, (_contextBox.Width - 20) / 8), _contextBox.X + 10, _contextBox.Y + 12, Gold);
+        int hintLines = Math.Min(3, _contextHint.Length);
+        for (int i = 0; i < hintLines; i++) Text(_contextHint[i], _contextBox.X + 10, _contextBox.Bottom - hintLines * 19 - 8 + i * 19, Gold);
     }
 }

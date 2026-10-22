@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## Illustrated management panels and excavation feedback (2026-10-22)
+
+Release build passed with zero warnings/errors and **308 .NET tests** passed. Added cases reproduce six selected rock tiles with two food, verify the visible four-food requirement, no-cost rejection, contextual gathering with retained selection and partial affordable designation. Presentation cases cover four-member Party and Work controls at 1024×720 and 1908×1120, sprite bounds, authored item/worker identities, state preservation, and conservative journal portrait matching. All **24 mouse-client tests** passed again after final presentation adjustments.
+
+The final client passed **56 native mouse checks under Xvfb/Mesa**, including missing-food feedback inside the cursor menu, gathering/retrying Dig, item sprites and worn labels, worker portraits/progress, and illustrated journal paging. Two- and four-member Party, Work, Journal and disabled-Dig captures were visually inspected at the minimum window size. Existing collision, formation, conversation, combat, saved work continuation and rejected-load checks still pass. Captures/reports are ignored under `artifacts/integration/illustrated-ui-final/`; all save changes used temporary fixtures. Native Windows/macOS and long-term balance were not exercised. An initial display-readiness timeout exposed SDL choosing Wayland for an X11-driven verifier; the verifier now explicitly selects X11 for its child process.
+
+`./dev review-tooling` passed for **155 definitions / 16 families**. The existing UI report and native verifier now expose/check control sprite IDs/bounds, details, progress and assigned-worker badges, journal rows and in-menu work hints. Panels reuse authored sprites and terrain mappings. Journal portraits resolve unambiguous named subjects in existing history strings, falling back to a banner; no history or saves are rewritten. Excavation cost queries and reservation share one calculation. Costs, content hashes, generation and save versions are unchanged.
+
 ## Launcher cleanup (2026-10-22)
 
 Removed the two redundant forwarding launchers and updated current guides to use `./vagabonds.sh`; archived Ithica documentation retains its historical commands. Shell syntax checks passed for the game launcher, `dev` and both SDK helpers. The game launcher's `--help` succeeded from `/tmp`, and `./dev help` succeeded from the checkout. No references to removed launchers remain outside the historical archive. `git diff --check` passed. These checks used no player saves; gameplay tests were not rerun for this script/documentation cleanup.
