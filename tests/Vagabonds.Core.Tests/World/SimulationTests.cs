@@ -53,8 +53,10 @@ public sealed class SimulationTests : IDisposable
         var order = Assert.Single(s.State.Work); order.Required = 1000;
         Assert.True(s.Submit(new(WorldCommandKind.AssignWork, ActorId: worker.Id, WorkId: order.Id)).Success);
         Wait(s, 30); Assert.True(order.Progress > 0); Assert.InRange(worker.Position.Distance(p), 0, 1);
-        double progress = order.Progress; worker.Position = s.State.Position;
+        double progress = order.Progress; var workingCell = worker.Position;
+        Assert.InRange(worker.Position.Distance(s.State.Position), 0, 2);
         Assert.True(s.Submit(new(WorldCommandKind.Recruit, ActorId: worker.Id)).Success);
+        Assert.Equal(workingCell, worker.Position);
         Wait(s, 5); Assert.True(order.Progress > progress); Assert.Equal(worker.Id, order.Worker);
         Assert.Single(s.State.Actors, a => a.Id == worker.Id);
     }

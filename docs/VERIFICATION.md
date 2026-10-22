@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## Separate party tiles (2026-10-22)
+
+Release publish and **253 .NET tests** passed. Nine new formation cases exercise real recruitment, distinct walkable cells for all four travellers, downed companions following, one-step follower movement, cornering and reversal in a one-tile corridor, stair entry/return and no-cost blocked landings, retreat, leader dismissal/abandonment, enemy contact with a follower, exact saved movement continuation, deterministic expansion of compatible older stacked parties, and safe rejection of malformed partial overlaps or enclosed stacks. The existing assigned-worker test now recruits the worker where they are working rather than placing them on the leader's occupied cell.
+
+The published client passed **32 native mouse acceptance checks under Xvfb/Mesa**, including seven added formation checks: recruitment, walking, loading an older stacked fixture, dungeon/surface landings, a four-member battle and retreat. Checks inspect both committed cells and each sprite's rendered bounds after interpolation settles. Two- and four-member exploration captures were visually inspected. The site transfer and wounded-boss checks use explicit isolated fixtures; these are input checks, not a balance playthrough. Reports, logs, published output and captures are ignored under `artifacts/integration/formation-*`; no player save was read or changed. Native Windows/macOS input was not exercised.
+
+`./dev review-tooling` passed for all **148 definitions / 15 content families**. Tooling review extended the existing `--ui-report` and `./dev verify-native` workflow with per-companion coordinates/draw bounds and reusable formation assertions. This change adds no content family, changes no content hash or save/generation version, and keeps compatible current world saves usable. Loading an older whole-party stack repairs the formation in memory without rewriting the slot or consuming time/randomness.
+
 ## Mouse controls and close exploration camera (2026-10-22)
 
 Release build passed with zero warnings/errors, publish passed, and **223 .NET tests** passed. Thirteen additional cases cover pure observed approach plans, blocked storage, unknown connections, sprite/cursor cell separation, button coverage/bounds/click interception, worker selection after roster changes, paged requests/history, explicit combat targeting, UI-report preview save isolation and camera limits at minimum, large and 4K viewport sizes. Content validation/tooling review passed for all 135 definitions with the existing content hash. World v2, generation v3, source artwork and bindings remain unchanged; this change needs no new world/save.

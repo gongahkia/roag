@@ -87,8 +87,12 @@ public sealed partial class WorldSession
             Feedback("retreat", u, null, "Retreated", 0, "Enemies retain their wounds.");
             SyncCombat(); State.Battle = null;
             foreach (var a in Party) a.Stress = Math.Min(100, a.Stress + 5);
-            var retreat = Directions.Select(d => State.Position.Offset(d.X * 5, d.Y * 5)).FirstOrDefault(p => Plan.Contains(p) && Materials.Walkable(Chunks.At(p)), State.Position);
-            State.Position = retreat; foreach (var a in Party) a.Position = retreat;
+            foreach (var direction in Directions)
+            {
+                var retreat = State.Position.Offset(direction.X * 5, direction.Y * 5);
+                if (!TryPartyPlacement(retreat, out var positions)) continue;
+                ApplyPartyPlacement(retreat, positions); break;
+            }
             Reveal(); return new(true, "Retreated. Enemies retain their wounds.");
         }
         if (skill.Effect == "potion") Add("medicine", -1);

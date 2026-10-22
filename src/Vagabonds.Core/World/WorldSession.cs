@@ -137,8 +137,9 @@ public sealed partial class WorldSession : IGameSession
                 Add(Content.Get<ItemDefinition>(gear.Item).Stack, 1); target.Equipment.Remove(command.Item); target.Health = Math.Min(target.Health, target.MaxHealth); return new(true, "Equipment returned to the pack.");
             case WorldCommandKind.Move:
                 if (!near || command.Target == State.Position || !Materials.Walkable(Chunks.At(command.Target))) return new(false, "That way is blocked.");
-                State.Position = command.Target;
-                foreach (var a in Party) { a.Position = State.Position; a.Body.RestUntil = 0; }
+                if (!TryPartyStep(command.Target, out var step)) return new(false, "The party needs room to follow. Open a passage or choose another step.");
+                ApplyPartyPlacement(command.Target, step);
+                foreach (var a in Party) a.Body.RestUntil = 0;
                 Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
             case WorldCommandKind.Interact:
                 if (target != null && State.Position.Distance(target.Position) <= 2 && target.Life == LifeState.Alive)
@@ -153,7 +154,8 @@ public sealed partial class WorldSession : IGameSession
                 {
                     var arrival = material == Material.StairsDown ? command.Target.Offset(-4, 0) with { Floor = command.Target.Floor + 1 } : command.Target.Offset(4, 0) with { Floor = command.Target.Floor - 1 };
                     if (!Plan.Contains(arrival) || !Materials.Walkable(Chunks.At(arrival))) return new(false, "The stair is obstructed.");
-                    State.Position = arrival; foreach (var a in Party) a.Position = arrival;
+                    if (!TryPartyPlacement(arrival, out var landing)) return new(false, "The destination needs enough walkable space for every companion.");
+                    ApplyPartyPlacement(arrival, landing);
                     Chunks.Prefetch(arrival); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
                 }
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
@@ -161,9 +163,10 @@ public sealed partial class WorldSession : IGameSession
                 if (target == null || target.Kind != ActorKind.Person || target.Life != LifeState.Alive || target.Recruited || State.Position.Distance(target.Position) > 2) return new(false, "Speak to an available inhabitant nearby.");
                 if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
+                if (!TryPartyPlacement(State.Position, Party.Append(target).ToArray(), true, out var recruitedPositions)) return new(false, "The new companion needs a free walkable tile nearby.");
                 target.Recruited = true; target.Body.ForageProgress = 0;
                 Remember(target, "recruited", "I set out with a new travelling party.", 5);
-                target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
+                State.Party.Add(target.Id); ApplyPartyPlacement(State.Position, recruitedPositions); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
             case WorldCommandKind.Dig: return QueueDig(command.Target);
             case WorldCommandKind.Build: return QueueBuild(command);
@@ -177,6 +180,7 @@ public sealed partial class WorldSession : IGameSession
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Alive || !Party.Any(a => a.Id != target.Id && a.Life == LifeState.Alive) || State.Position.Distance(Plan.Towns[target.HomeTown].Center) > 28)
                     return new(false, "Return to a companion's home town with another living traveller before parting ways.");
                 State.Party.Remove(target.Id); target.Recruited = false; State.Towns[target.HomeTown].Vacancies = Math.Max(0, State.Towns[target.HomeTown].Vacancies - 1);
+                UpdatePartyLeader();
                 Remember(target, "returned-home", "I returned to my old work, changed by the journey.", 5); return new(true, target.Name + " returned to their old job with their history and equipment.");
             case WorldCommandKind.Revive:
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Downed || Count("medicine") < 1) return new(false, "Revival needs a downed companion and medicine.");
@@ -186,6 +190,7 @@ public sealed partial class WorldSession : IGameSession
             case WorldCommandKind.Abandon:
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Downed) return new(false, "Only a downed companion may be deliberately abandoned.");
                 target.Life = LifeState.Dead; State.Party.Remove(target.Id);
+                UpdatePartyLeader();
                 foreach (var friend in Party) Remember(friend, "abandoned-friend", target.Name + " was left behind.", -12, target.Id); Log($"{target.Name} was abandoned and died."); CommitDeaths(); return new(true, "Death recorded.");
             case WorldCommandKind.Buy:
             case WorldCommandKind.Sell:
@@ -294,7 +299,9 @@ public sealed partial class WorldSession : IGameSession
     public Actor? NearbyPerson() => State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && !a.Recruited && State.Position.Distance(a.Position) <= 2).OrderBy(a => a.Position.Distance(State.Position)).ThenBy(a => a.Id).FirstOrDefault();
     private void Contact()
     {
-        var enemy = State.Actors.FirstOrDefault(a => a.Life == LifeState.Alive && a.Kind is ActorKind.Beast or ActorKind.Raider && a.Position.Distance(State.Position) <= 1);
+        if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
+        var positions = Party.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToArray();
+        var enemy = State.Actors.FirstOrDefault(a => a.Life == LifeState.Alive && a.Kind is ActorKind.Beast or ActorKind.Raider && positions.Any(p => a.Position.Distance(p) <= 1));
         if (enemy != null) StartBattle(enemy.Id);
     }
     private void MoveActors()

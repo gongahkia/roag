@@ -86,6 +86,21 @@ def main():
             raise RuntimeError('Mouse Save did not write the temporary slot.')
         def capture(self, name):
             subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-f', 'x11grab', '-window_id', self.window, '-video_size', '1024x720', '-i', os.environ['DISPLAY'], '-frames:v', '1', '-update', '1', str(output / (name + '.png'))], check=True, timeout=15)
+        def formation(self):
+            # Inspect actual per-member draw bounds as well as authoritative cells.
+            # Waiting for interpolation avoids treating an unfinished step as stacking.
+            def settled(ui):
+                camera, viewport = ui['camera'], ui['map']
+                for member in ui['party']:
+                    bounds = member['bounds']
+                    if bounds is None: return False
+                    expected_x = viewport['x'] + viewport['width'] / 2 + (member['x'] + .5 - camera['x']) * camera['cellSize']
+                    expected_y = viewport['y'] + viewport['height'] / 2 + (member['y'] + .5 - camera['y']) * camera['cellSize']
+                    if abs(bounds['x'] + bounds['width'] / 2 - expected_x) > 1 or abs(bounds['y'] + bounds['height'] / 2 - expected_y) > 1: return False
+                return True
+            ui = self.wait(settled)
+            cells = {(a['x'], a['y'], a['floor']) for a in ui['party']}
+            return len(cells) == len(ui['party']) and all(a['floor'] == ui['position']['floor'] for a in ui['party'])
         def abort(self):
             if self.process.poll() is None: self.process.terminate(); self.process.wait(timeout=10)
             self.log.close()
@@ -126,6 +141,7 @@ def main():
             ui = client.ui(); person = next(a for a in ui['actors'] if a['id'] == person['id'])
             client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person'); client.click('conversation:interaction.recruit'); client.pause()
             recruited = client.save()['state']; check('mouseRecruitment', len(recruited['party']) == 2)
+            check('recruitedMembersStandOnSeparateTiles', client.formation()); client.capture('formation-recruited')
             client.click('panel:build'); client.click('build:Camp'); ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y'])
             client.click('panel:work'); queued = client.save()['state']
             check('mouseReservationBeforeCompletion', len(queued['work']) == 1 and not queued['structures'] and queued['inventory']['wood'] == initial['inventory']['wood'] - 4)
@@ -151,6 +167,7 @@ def main():
             check('mouseJournalPaging', client.ui()['panel'] == 'journal' and client.ui()['paused']); client.click('close')
             ui = client.ui(); origin = ui['position']; client.tile(origin['x'] - 2, origin['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position'] != origin); client.pause()
             moved = client.save()['state']; check('mouseTravelStartsWithoutKeyboard', moved['position'] != equipped['position'])
+            check('mouseTravelPreservesPartyFormation', client.formation()); client.capture('formation-following')
             # Isolate world-interaction rendering/input at a real site's already-generated content.
             fixture = json.loads(slot.read_text()); state = fixture['state']
             guardian = next(a for a in state['actors'] if a['archetype'].startswith('boss.') and a['position']['floor'] > 1)
@@ -161,13 +178,24 @@ def main():
                 if actor['id'] in state['party']: actor['position'] = dict(state['position'])
             slot.write_text(json.dumps(fixture)); client.click('load')
             client.wait(lambda u: u['position'] == {k: state['position'][k] for k in ('x', 'y', 'floor')})
+            check('olderStackedSaveSpreadsPartyOnLoad', client.formation())
             client.tile(cache['position']['x'], cache['position']['y'])
             looted = client.save()['state']; check('mouseCacheInteraction', next(c for c in looted['loot'] if c['id'] == cache['id'])['taken'])
             client.tile(site['center']['x'] + 2, site['center']['y']); client.wait(lambda u: u['position']['floor'] == 1); client.pause()
             check('mouseStairInteraction', True); client.capture('dungeon')
+            check('dungeonLandingHasSeparatePartyTiles', client.formation())
             ui = client.ui(); client.tile(ui['position']['x'], ui['position']['y']); client.wait(lambda u: u['position']['floor'] == 0)
+            check('surfaceLandingHasSeparatePartyTiles', client.formation())
             before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
             check('mouseRejectedLoadPreservesState', before == restored)
+        finally: client.close()
+        client = Client('world-battle', slot)
+        try:
+            client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+            check('fourMembersHaveSeparateTilesInBattle', len(client.ui()['party']) == 4 and client.formation())
+            flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
+            client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.pause()
+            check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
         finally: client.close()
         client = Client('world-boss', slot)
         try:

@@ -252,9 +252,9 @@ internal sealed partial class WorldGame : Game
         _camera.Center = _partyMotion.Position;
         foreach (var actor in _session.State.Actors)
         {
-            if (actor.Recruited || actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
+            if (actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
             if (!_actorMotions.TryGetValue(actor.Id, out var motion)) _actorMotions[actor.Id] = motion = new();
-            motion.Observe(actor.Position, 1); motion.Advance(elapsed);
+            motion.Observe(actor.Position, actor.Recruited ? MoveDuration : 1); motion.Advance(elapsed);
         }
     }
     private Rectangle ActorRect(Vector2 position)
@@ -379,11 +379,10 @@ internal sealed partial class WorldGame : Game
             var banner = new Rectangle(Math.Clamp((int)point.X - 8, _map.Left + 4, _map.Right - 20), Math.Clamp((int)point.Y - 8, _map.Top + 48, _map.Bottom - 20), 16, 16);
             _sprites.Fit(_batch, "banner", banner, Gold);
         }
-        int slot = 0;
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
-            var rect = ActorRect(_partyMotion.Position); rect.Offset(slot % 2 * 8 - 4, slot / 2 * 8 - 4);
-            _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: _partyMotion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None); slot++;
+            var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position);
+            _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         if (_pointer.Cell is { } cell)
         {

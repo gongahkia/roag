@@ -416,6 +416,8 @@ internal sealed partial class WorldGame
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),
+            party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
+                bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, bounds = Rect(c.Bounds) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
             battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly,

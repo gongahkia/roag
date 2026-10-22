@@ -70,7 +70,9 @@ public sealed partial class WorldSession
             state.Chunks.Add(delta);
         }
         ValidateState(plan, state);
-        return new(plan, state) { SavePath = Path.GetFullPath(path), Paused = true };
+        var session = new WorldSession(plan, state) { SavePath = Path.GetFullPath(path), Paused = true };
+        session.RestorePartyFormation();
+        return session;
     }
     private static void ValidateState(WorldPlan plan, WorldState s)
     {
