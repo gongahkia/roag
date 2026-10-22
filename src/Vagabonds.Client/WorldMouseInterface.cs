@@ -73,6 +73,7 @@ internal sealed partial class WorldGame
             return;
         }
         StopTravel();
+        if (intent.Kind.StartsWith("situation:", StringComparison.Ordinal)) { ChooseDiscoveryApproach(cell, intent.Kind[10..]); return; }
         if (intent.Kind == "person") { _person = intent.Actor; _interactionPage = 0; Execute(new(WorldCommandKind.Interact, ActorId: intent.Actor)); _panel = "person"; _dialogue = null; _afterDialogue = ""; EnsureConversation(); }
         else if (intent.Kind is "enemy" or "actor") Execute(new(WorldCommandKind.Interact, ActorId: intent.Actor));
         else if (intent.Kind == "loot") OpenLoot(cell);
@@ -85,6 +86,12 @@ internal sealed partial class WorldGame
         else if (intent.Kind == "craft") _panel = "craft";
         else if (intent.Kind == "camp") { _campPosition = cell; _campWorker = _session.State.Party[0]; _panel = "camp"; }
         else if (intent.Kind == "stairs") Execute(new(WorldCommandKind.Interact, cell));
+    }
+    private void ChooseDiscoveryApproach(WorldPosition cell, string method)
+    {
+        if (!Execute(new(WorldCommandKind.ApproachDiscovery, cell, Item: method))) return;
+        if (_session.State.Work.Any(w => w.Target == cell && w.Kind == WorkKind.Discovery)) { _panel = "work"; _session.Paused = false; }
+        else { _discoveryId = _session.State.Discoveries.Single(d => d.Position == cell).Id; _panel = "discovery"; }
     }
     private void BuildMouseControls(int w, int h)
     {
@@ -224,7 +231,7 @@ internal sealed partial class WorldGame
                     {
                         var order = orders[_workPage * 5 + i];
                         var assigned = _session.State.Actors.FirstOrDefault(a => a.Id == order.Worker);
-                        Add("work:" + order.Id, order.Kind + " / " + (assigned?.Name ?? "Waiting for worker"), x, y + 28 + i * 42, leftWidth, 38, selected: SelectedWork()?.Id == order.Id,
+                        Add("work:" + order.Id, WorkName(order) + " / " + (assigned?.Name ?? "Waiting for worker"), x, y + 28 + i * 42, leftWidth, 38, selected: SelectedWork()?.Id == order.Id,
                             tip: $"#{order.Id} at {order.Target.X}, {order.Target.Y}: {order.Status}. {order.Progress:0}/{order.Required:0} work. Reserved: " + string.Join(", ", order.Reserved.Select(c => c.Value + " " + c.Key)),
                             sprite: WorkSprite(order), detail: order.Suspended ? "Suspended" : order.Status, progress: (float)(order.Progress / Math.Max(1, order.Required)), badge: assigned?.Sprite);
                     }
@@ -270,11 +277,22 @@ internal sealed partial class WorldGame
                     {
                         bool guarded = _session.DiscoveryGuarded(discovery);
                         var cache = _session.State.Loot.FirstOrDefault(c => c.Id == discovery.Id);
+                        if (_session.Situation(discovery) is { } situation && discovery.Outcome.Length == 0)
+                        {
+                            int cw = (width - (situation.Approaches.Length - 1) * 8) / situation.Approaches.Length;
+                            for (int i = 0; i < situation.Approaches.Length; i++)
+                            {
+                                var method = situation.Approaches[i]; string reason = _session.SituationApproachReason(discovery, method.Action);
+                                Add("approach:" + method.Action, method.Name, x + i * (cw + 8), box.Bottom - 208, cw, 56, reason.Length == 0,
+                                    reason: reason, sprite: method.Sprite, detail: _session.ApproachCost(method), tip: method.Description + (method.Work > 0 ? $" {method.Work} work; companions can be assigned." : " Payment is immediate."));
+                            }
+                        }
                         Add("discovery-loot", cache?.Taken == true ? "Supplies already recovered" : "Open the supplies", x, box.Bottom - 96, 280, 40, cache != null && !cache.Taken && !guarded,
-                            reason: guarded ? "Defeat the living guardians before claiming these supplies." : "No unclaimed supplies remain.");
-                        if (guarded) Add("discovery-fight", "Approach a guarding foe", x + 292, box.Bottom - 96, 280, 40);
+                            reason: guarded ? _session.Situation(discovery) != null ? "Resolve this place through work, negotiation, combat or tunnelling." : "Defeat the living guardians before claiming these supplies." : "No unclaimed supplies remain.");
+                        if (guarded) Add("discovery-fight", _session.Situation(discovery) != null ? "Challenge the defenders" : "Approach a guarding foe", x + 292, box.Bottom - 96, 280, 40);
                         else if (_session.Content.Get<DiscoveryDefinition>(discovery.Definition).Action == "camp") Add("rest", "Rest here / 1 hour", x + 292, box.Bottom - 96, 280, 40, _session.CommandBlockReason(new(WorldCommandKind.Camp)).Length == 0);
-                        Add("panel:map", "Show known places", x, box.Bottom - 146, 280, 36);
+                        if (_session.Situation(discovery) != null && discovery.Outcome.Length == 0) Add("show-bypass", "Show the tunnelling wall", x, box.Bottom - 146, 280, 36);
+                        else Add("panel:map", "Show known places", x, box.Bottom - 146, 280, 36);
                         Add("mark-linked-site", "Mark the linked dungeon", x + 292, box.Bottom - 146, 280, 36);
                     }
                     break;
@@ -364,11 +382,14 @@ internal sealed partial class WorldGame
             case "speech-motion": _reducedMotion = !_reducedMotion; SaveConversationSettings(); break;
             case "conversation": ChooseDialogue(_session.Content.Get<InteractionDefinition>(argument)); break;
             case "discovery-loot": OpenLoot(_session.State.Discoveries.Single(d => d.Id == _discoveryId).Position); break;
+            case "approach": ChooseDiscoveryApproach(_session.State.Discoveries.Single(d => d.Id == _discoveryId).Position, argument); break;
+            case "show-bypass":
+                if (_session.DiscoveryBypass(_session.State.Discoveries.Single(d => d.Id == _discoveryId)) is { } wall)
+                { ClosePanel(); Selection.Single(wall); _notice = "Right-click the selected side wall and choose Dig. Companions can do the work."; } break;
             case "discovery-fight":
                 var foe = _session.State.Discoveries.Single(d => d.Id == _discoveryId).Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).First(a => a.Life == LifeState.Alive);
-                ClosePanel(); var approach = WorldMouseNavigation.Plan(_session, foe.Position); _pendingInteraction = approach.Interaction;
-                foreach (var step in approach.Path) _route.Enqueue(step);
-                if (approach.Reachable) { _session.Paused = false; FinishApproach(); } else _notice = approach.Reason; break;
+                ClosePanel(); var fightRoute = _session.RouteToAdjacent(foe.Position);
+                BeginApproach(new(fightRoute, new("enemy", foe.Position, foe.Id), _session.State.Position.Distance(foe.Position) <= 1 || fightRoute.Count > 0, "No observed approach reaches the defender.")); break;
             case "claim": if (Execute(new(WorldCommandKind.Loot, _lootPosition, Item: argument))) { _panel = "inventory"; _packItem = Array.FindIndex(EquipmentChoices(), i => i.Id == argument); _gearPage = _packItem / 8; } break;
             case "combat-history": _combatLogOffset = Math.Clamp(_combatLogOffset + int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture), 0, Math.Max(0, _session.State.CombatEvents.Count - 1)); break;
             case "placespage": _placesPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
@@ -478,7 +499,7 @@ internal sealed partial class WorldGame
             rally = _session.State.WorkRally,
             dialogue = _panel is not ("person" or "camp-story") || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
-            discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited }),
+            discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited, outcome = d.Outcome, bypass = _session.DiscoveryBypass(d) }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),
             party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),

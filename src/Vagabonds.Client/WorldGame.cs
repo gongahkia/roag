@@ -53,6 +53,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
+        if (!options.Load && options.Scene == "world-situation") { _discoveryId = SituationPreview.Prepare(_session, "discovery.trapped-storeroom").Id; _panel = "discovery"; }
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
         if (!options.Load && options.Scene == "world-discovery")
@@ -351,7 +352,7 @@ internal sealed partial class WorldGame : Game
             DrawRoute(_route, Gold, 3);
         }
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
-            _sprites.Draw(_batch, _session.Content.Get<DiscoveryDefinition>(d.Definition).Sprite!, TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : Gold);
+            _sprites.Draw(_batch, _session.DiscoverySprite(d), TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : d.Outcome.Length > 0 ? new Color(129, 200, 204) : Gold);
         foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position) && !_session.State.Discoveries.Any(d => d.Id == c.Id)))
             _sprites.Draw(_batch, WorldSession.LootSprite(cache), TileRect(cache.Position), Gold);
         foreach (var actor in _session.State.Actors.Where(a => !a.Recruited && a.Life != LifeState.Dead && _session.Visible.Contains(a.Position)))

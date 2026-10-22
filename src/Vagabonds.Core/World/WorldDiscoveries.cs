@@ -101,7 +101,7 @@ public static class DiscoveryPlacement
             {
                 int dx = x - radius, dy = y - radius;
                 for (int turn = 0; turn < d.Rotation; turn++) (dx, dy) = (-dy, dx);
-                overlay[d.Position.Offset(dx, dy)] = layout[y][x] switch { '#' => Material.Wall, 'C' => Material.Camp, _ => Material.Earth };
+                overlay[d.Position.Offset(dx, dy)] = layout[y][x] switch { '#' => Material.Wall, '~' => Material.Water, 'C' => Material.Camp, _ => Material.Earth };
             }
         }
         // A later local layout may cross an earlier spur. Reopen access after every layout
@@ -129,10 +129,17 @@ public sealed partial class WorldSession
                 || !state.Actors.Any(a => a.Id == d.WitnessId && a.Kind == ActorKind.Person && a.HomeTown == d.TownId)
                 || d.Enemies == null || d.Enemies.Length != template.Enemies.Length || d.Enemies.Distinct().Count() != d.Enemies.Length
                 || d.Enemies.Any(id => !state.Actors.Any(a => a.Id == id && a.Kind is ActorKind.Beast or ActorKind.Raider))
-                || d.Visited && !d.Known) throw new InvalidDataException("Invalid discovery references or placement.");
+                || d.Visited && !d.Known || d.Outcome == null) throw new InvalidDataException("Invalid discovery references or placement.");
+            if (template.Situation is { } situation)
+            {
+                if (d.Outcome.Length > 0 && (!d.Known || !d.Visited || d.Outcome is not ("fight" or "tunnel") && !situation.Approaches.Any(a => a.Action == d.Outcome))
+                    || d.Outcome == "fight" && d.Enemies.Any(id => state.Actors.Single(a => a.Id == id).Life != LifeState.Dead)
+                    || d.Engaged && d.Outcome is not ("" or "tunnel")) throw new InvalidDataException("Invalid discovery outcome.");
+            }
+            else if (d.Outcome.Length > 0 || d.Engaged) throw new InvalidDataException("This discovery has no situation outcome.");
             var cache = state.Loot.FirstOrDefault(c => c.Id == d.Id);
             if ((template.Supplies.Count > 0 || template.Rewards.Length > 0) && (cache == null || cache.Position != d.Position)
-                || cache != null && cache.Taken && d.Enemies.Any(id => state.Actors.Single(a => a.Id == id).Life == LifeState.Alive)) throw new InvalidDataException("Invalid guarded reward.");
+                || cache != null && cache.Taken && (template.Situation != null ? d.Outcome.Length == 0 : d.Enemies.Any(id => state.Actors.Single(a => a.Id == id).Life == LifeState.Alive))) throw new InvalidDataException("Invalid guarded reward.");
         }
         var actors = state.Actors.Select(a => a.Id).ToHashSet();
         if (state.CombatEvents == null || state.CombatEvents.Count > 128 || state.NextCombatEvent is < 1 or > 1000000000000
@@ -186,7 +193,7 @@ public sealed partial class WorldSession
         if (Math.Abs(dy) > Math.Abs(dx) * 2) return dy > 0 ? "south" : "north";
         return (dy >= 0 ? "south" : "north") + (dx >= 0 ? "east" : "west");
     }
-    public bool DiscoveryGuarded(WorldDiscovery d) => d.Enemies.Any(id => State.Actors.Any(a => a.Id == id && a.Life == LifeState.Alive));
+    public bool DiscoveryGuarded(WorldDiscovery d) => Situation(d) != null ? d.Outcome.Length == 0 : d.Enemies.Any(id => State.Actors.Any(a => a.Id == id && a.Life == LifeState.Alive));
     public bool DiscoveryComplete(WorldDiscovery d) => d.Visited && !DiscoveryGuarded(d) && (State.Loot.FirstOrDefault(c => c.Id == d.Id)?.Taken ?? true);
     private ActionResult VisitDiscovery(WorldPosition target)
     {

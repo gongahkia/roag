@@ -25,6 +25,7 @@ internal static class WorldMouseNavigation
     {
         if (!session.Chunks.Seen(cell)) return null;
         var actor = session.State.Actors.FirstOrDefault(a => !a.Recruited && a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
+        if (actor != null && session.SituationForActor(actor) is { } situation) return new("discovery", situation.Position);
         if (actor != null) return new(actor.Kind == ActorKind.Person ? "person" : actor.Kind is ActorKind.Beast or ActorKind.Raider ? "enemy" : "actor", cell, actor.Id);
         if (session.State.Discoveries.Any(d => d.Position == cell)) return new("discovery", cell);
         if (session.State.Loot.Any(c => !c.Taken && c.Position == cell && session.Visible.Contains(cell))) return new("loot", cell);
@@ -40,6 +41,7 @@ internal static class WorldMouseNavigation
         if (!session.Plan.Contains(cell) || cell.Floor != session.State.Position.Floor) return new([], null, false, "Choose ground on the current floor.");
         if (!session.Chunks.Seen(cell)) return new([], null, false, "Unexplored ground. Move toward the visible edge first.");
         var intent = Intent(session, cell);
+        if (intent != null && intent.Cell != cell) return Plan(session, intent.Cell);
         if (intent?.Kind == "party") return new([], intent, true);
         if (intent == null)
         {

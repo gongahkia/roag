@@ -53,6 +53,17 @@ internal static class WorldContextActions
         if (cells.Count == 1 && session.Chunks.Seen(p))
         {
             var actor = session.OccupantAt(p, observedOnly: true);
+            var situation = session.State.Discoveries.FirstOrDefault(d => d.Position == p) ?? (actor == null ? null : session.SituationForActor(actor));
+            if (situation != null && session.Situation(situation) is { } rules && situation.Outcome.Length == 0)
+            {
+                var approach = WorldMouseNavigation.Plan(session, situation.Position);
+                foreach (var method in rules.Approaches)
+                {
+                    string reason = session.SituationApproachReason(situation, method.Action, requireAdjacent: false);
+                    if (reason.Length == 0 && !approach.Reachable) reason = approach.Reason;
+                    options.Add(new("situation:" + method.Action, method.Name, reason, session.ApproachCost(method) + ". " + method.Description));
+                }
+            }
             if (actor?.Recruited == true)
             {
                 options.Add(new("party", "Manage " + actor.Name));
@@ -185,6 +196,12 @@ internal sealed partial class WorldGame
             return;
         }
         ClearWorldSelection();
+        if (action.StartsWith("situation:", StringComparison.Ordinal))
+        {
+            var discovery = _session.State.Discoveries.FirstOrDefault(d => d.Position == p) ?? (actor == null ? null : _session.SituationForActor(actor));
+            if (discovery != null) BeginApproach(WorldMouseNavigation.Plan(_session, discovery.Position) with { Interaction = new(action, discovery.Position) });
+            return;
+        }
         switch (action)
         {
             case "travel": case "interact": BeginApproach(WorldMouseNavigation.Plan(_session, p)); break;

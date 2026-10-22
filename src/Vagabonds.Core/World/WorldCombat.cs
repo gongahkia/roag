@@ -10,6 +10,8 @@ public sealed partial class WorldSession
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var enemy = State.Actors.FirstOrDefault(a => a.Id == enemyId && a.Life == LifeState.Alive && a.Kind is ActorKind.Raider or ActorKind.Beast);
         if (enemy == null) return;
+        if (SituationForActor(enemy) is { } discovery)
+        { if (discovery.Outcome is not ("" or "tunnel")) return; discovery.Engaged = true; }
         if (Ecology(enemy) is { Behavior: not "flee" }) enemy.ProvokedUntil = State.Tick + 75;
         State.CombatEvents.Clear(); State.LastEncounterReward = null;
         var battle = new WorldBattle();
@@ -220,7 +222,7 @@ public sealed partial class WorldSession
         var b = State.Battle!;
         bool finalDefeated = b.ActorIds.Contains(State.Endgame.ActorId) && !b.Units[b.ActorIds.IndexOf(State.Endgame.ActorId)].Alive;
         if (!finalDefeated && b.Units.Any(u => u.Friendly && u.Alive) && b.Units.Any(u => !u.Friendly && u.Alive)) return false;
-        SyncCombat();
+        SyncCombat(); ResolveDefeatedSituations();
         bool victory = b.Units.Any(u => u.Friendly && u.Alive);
         if (b.TurnIndex == b.Order.Count - 1) AdvanceCombatClock();
         State.Battle = null;

@@ -67,7 +67,8 @@ public static class DeveloperEntry
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
                 if (kind == "dialogue") Print(DialoguePreview.Run(catalog, id, seed));
-                else if (kind == "discovery") Print(ExplorationPreview.Discovery(catalog, id, seed));
+                else if (kind == "discovery")
+                { if (catalog.Get<DiscoveryDefinition>(id).Situation != null) Print(SituationPreview.Run(catalog, id, seed)); else Print(ExplorationPreview.Discovery(catalog, id, seed)); }
                 else if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
                 else if (kind == "affix") Print(EquipmentPreview.Run(catalog, id, seed));
                 else if (kind == "camp") Print(CampPreview.Run(catalog, id, seed));
@@ -131,6 +132,13 @@ public static class DeveloperEntry
                 WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
                 Print(audit.Report); return JsonSerializer.SerializeToNode(audit.Report)!["passed"]!.GetValue<bool>() ? 0 : 1;
             }
+            if (command == "audit-situations")
+            {
+                RequireValid(catalog); var audit = SituationPreview.Audit(catalog, seed, int.Parse(Value("--samples", "4")));
+                string output = Value("--output", "artifacts/situation-audit.json");
+                WriteNew(output, JsonSerializer.Serialize(audit, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(new { audit.Passed, audit.Seeds, methods = audit.Observations.Length, audit.LayoutsChecked, audit.BrokenAlternatives, output }); return audit.Passed ? 0 : 1;
+            }
             if (command == "audit-wildlife")
             {
                 RequireValid(catalog); var audit = WildlifePreview.Audit(catalog, seed, int.Parse(Value("--samples", "4")));
@@ -139,7 +147,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)

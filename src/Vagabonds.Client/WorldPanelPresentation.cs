@@ -56,8 +56,11 @@ internal sealed partial class WorldGame
         Text($"Hunger {member.Body.Hunger:0}   Fatigue {member.Body.Fatigue:0}   Wounds {member.Body.Wounds}   Stress {member.Stress}", x, y + 136, Muted);
     }
 
+    private string WorkName(WorkOrder order) => order.Kind == WorkKind.Discovery
+        ? _session.Content.Get<DiscoveryDefinition>(order.Definition).Situation!.Approaches.Single(a => a.Action == order.Method).Name : order.Kind.ToString();
     private string WorkSprite(WorkOrder order)
     {
+        if (order.Kind == WorkKind.Discovery) return _session.Content.Get<DiscoveryDefinition>(order.Definition).Situation!.Approaches.Single(a => a.Action == order.Method).Sprite;
         if (order.Kind == WorkKind.Camp) return _session.Content.Get<CampDefinition>(order.Definition).Sprite!;
         if (order.Kind == WorkKind.Harvest) return _session.Content.Get<ResourceDefinition>(order.Definition).Sprite!;
         if (order.Kind == WorkKind.Forage) return _session.Content.Get<ItemDefinition>("item.food").Sprite!;

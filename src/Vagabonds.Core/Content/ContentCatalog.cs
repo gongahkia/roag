@@ -166,13 +166,42 @@ public sealed class ContentCatalog
                     }
                     break;
                 case DiscoveryDefinition dsc:
+                    if (dsc.Situation is { } situation)
+                    {
+                        if (situation.Kind is not ("trap" or "spring" or "crossing") || dsc.Action != "encounter") Error("situation.kind", "Use a trap, spring or crossing encounter.");
+                        if (!bindings.Contains(situation.ResolvedSprite ?? "")) Error("situation.resolvedSprite", "Provide a bound resolved appearance.");
+                        if (situation.Approaches == null || situation.Approaches.Length is < 1 or > 3 || situation.Approaches.Any(a => a == null)
+                            || situation.Approaches.Select(a => a.Action).Distinct().Count() != situation.Approaches.Length) Error("situation.approaches", "Provide one to three distinct approaches.");
+                        else foreach (var approach in situation.Approaches)
+                        {
+                            if (approach.Action is not ("disarm" or "repair" or "negotiate") || approach.Action == "disarm" && situation.Kind != "trap"
+                                || approach.Action == "negotiate" && situation.Kind != "crossing" || approach.Action == "repair" && situation.Kind == "trap") Error("situation.approaches.action", "Use a registered approach suited to this situation.");
+                            if (string.IsNullOrWhiteSpace(approach.Name) || approach.Name.Length > 80 || approach.Description == null || approach.Description.Length > 200 || !bindings.Contains(approach.Sprite ?? "")) Error("situation.approaches.name", "Provide a short readable name, description and sprite.");
+                            Range("situation.approaches.work", approach.Work, approach.Action == "negotiate" ? 0 : 10, approach.Action == "negotiate" ? 0 : 300);
+                            Cost("situation.approaches.cost", approach.Cost);
+                        }
+                        void FeatureCells(string field, Expeditions.Cell[]? cells, char terrain, bool required)
+                        {
+                            if (cells == null || cells.Length > 4 || required && cells.Length < 2 || cells.Distinct().Count() != cells.Length) { Error(field, "Provide two to four distinct feature offsets, or an empty optional list."); return; }
+                            int radius = (dsc.Layout?.Length ?? 0) / 2;
+                            foreach (var cell in cells)
+                            {
+                                int x = cell.X + radius, y = cell.Y + radius;
+                                if (cell.X == 0 && cell.Y == 0 || dsc.Layout == null || y < 0 || y >= dsc.Layout.Length || dsc.Layout[y] == null || x < 0 || x >= dsc.Layout[y].Length || dsc.Layout[y][x] != terrain) Error(field, "Feature offset must match the indicated terrain in the layout.");
+                            }
+                            if (cells.Length > 0 && !cells.Any(c => cells.Contains(new(-c.X, -c.Y)))) Error(field, "Include opposite feature offsets so the approach trail preserves one.");
+                        }
+                        FeatureCells("situation.tunnelWalls", situation.TunnelWalls, '#', true);
+                        FeatureCells("situation.bridgeCells", situation.BridgeCells, '~', situation.Kind == "crossing");
+                        if (situation.Kind != "crossing" && situation.BridgeCells?.Length > 0) Error("situation.bridgeCells", "Only crossings repair bridges.");
+                    }
                     if (dsc.Action is not ("cache" or "camp" or "clue" or "encounter")) Error("action", "Use cache, camp, clue or encounter.");
                     if (string.IsNullOrWhiteSpace(dsc.Text) || dsc.Text.Length > 800 || dsc.Sprite == null) Error("text", "A discovery needs appearance and text of at most 800 characters.");
                     foreach (Match token in Regex.Matches(dsc.Text ?? "", "\\{([^{}]+)\\}"))
                         if (token.Groups[1].Value is not ("town" or "faction" or "witness" or "site" or "guardian" or "direction")) Error("text", "Unknown world reference: " + token.Value);
                     if (dsc.Layout == null || dsc.Layout.Length is < 3 or > 9 || dsc.Layout.Length % 2 == 0
-                        || dsc.Layout.Any(r => r == null || r.Length != dsc.Layout.Length || r.Any(c => !".#C".Contains(c)))
-                        || dsc.Layout != null && dsc.Layout.Length > 0 && dsc.Layout[dsc.Layout.Length / 2] is { } middle && middle.Length == dsc.Layout.Length && middle[middle.Length / 2] == '#') Error("layout", "Use an odd square 3..9 of . ground, # wall, C camp; keep its centre walkable.");
+                        || dsc.Layout.Any(r => r == null || r.Length != dsc.Layout.Length || r.Any(c => !".#C~".Contains(c)))
+                        || dsc.Layout != null && dsc.Layout.Length > 0 && dsc.Layout[dsc.Layout.Length / 2] is { } middle && middle.Length == dsc.Layout.Length && middle[middle.Length / 2] == '#') Error("layout", "Use an odd square 3..9 of . ground, # wall, ~ water, C camp; keep its centre walkable.");
                     Cost("supplies", dsc.Supplies);
                     if (dsc.Rewards == null || dsc.Enemies == null) { Error("rewards", "Reward/enemy pools cannot be null."); break; }
                     foreach (var id in dsc.Rewards)

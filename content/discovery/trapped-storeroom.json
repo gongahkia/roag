@@ -1,0 +1,63 @@
+{
+  "kind": "discovery",
+  "id": "discovery.trapped-storeroom",
+  "name": "Trapped storeroom",
+  "action": "encounter",
+  "sprite": "trap",
+  "text": "{witness} once supplied {town} from this store. The latch wakes an old ward; the side wall can be breached to reach the supplies without releasing it.",
+  "layout": [
+    ".........",
+    ".#######.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#######.",
+    "........."
+  ],
+  "supplies": {
+    "item.food": 3,
+    "item.medicine": 1
+  },
+  "rewards": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.ember-staff",
+    "item.wardens-shield",
+    "item.wanderers-cloak",
+    "item.heartstone",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "enemies": [
+    "character.hollow"
+  ],
+  "situation": {
+    "kind": "trap",
+    "resolvedSprite": "lever",
+    "approaches": [
+      {
+        "action": "disarm",
+        "name": "Disarm the trapped latch",
+        "sprite": "lever",
+        "description": "Carefully disconnect the latch from its dormant ward.",
+        "work": 30,
+        "cost": {
+          "item.wood": 1
+        }
+      }
+    ],
+    "tunnelWalls": [
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ],
+    "bridgeCells": []
+  }
+}

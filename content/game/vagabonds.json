@@ -115,7 +115,10 @@
     "discovery.prowlers-den",
     "discovery.road-blockade",
     "discovery.mourning-garden",
-    "discovery.cistern"
+    "discovery.cistern",
+    "discovery.trapped-storeroom",
+    "discovery.poisoned-spring",
+    "discovery.guarded-crossing"
   ],
   "resources": [
     "resource.apple-tree",

@@ -49,12 +49,13 @@ internal sealed partial class WorldGame
             case "discovery":
                 if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
                 {
-                    _sprites.Fit(_batch, _session.Content.Get<DiscoveryDefinition>(discovery.Definition).Sprite!, new(x, y, 54, 54), Gold);
+                    _sprites.Fit(_batch, _session.DiscoverySprite(discovery), new(x, y, 54, 54), Gold);
                     Text(Short(discovery.Name, (width - 76) / 8), x + 72, y, Gold);
                     Text(_session.Plan.Towns[discovery.TownId].Name + " / " + _session.State.Factions[_session.Plan.Towns[discovery.TownId].FactionId].Name, x + 72, y + 24, Muted);
                     Wrap(_session.DiscoveryText(discovery), x, y + 78, width);
                     string guards = string.Join(", ", discovery.Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).Where(a => a.Life == LifeState.Alive).Select(a => a.Name));
-                    Wrap(guards.Length > 0 ? "Guarded by " + guards + ". Their strength is fixed; prepare your party before approaching."
+                    if (_session.Situation(discovery) != null) Wrap(_session.SituationDescription(discovery), x, y + 138, width, discovery.Outcome.Length == 0 ? Gold : Muted);
+                    else Wrap(guards.Length > 0 ? "Guarded by " + guards + ". Their strength is fixed; prepare your party before approaching."
                         : "The linked site is recorded on World map. Its terrain remains unexplored until you reach it.", x, box.Bottom - 214, width, guards.Length > 0 ? new(225, 146, 125) : Muted);
                 }
                 break;

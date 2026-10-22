@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -315,6 +315,25 @@ def main():
                 client.tile(remains['position']['x'], remains['position']['y']); client.wait(lambda u: 'Recovered' in u['notice']); client.pause()
                 gathered = client.save()['state']; client.click('load'); reloaded = client.save()['state']
                 check('wildlifeIngredientsAndDeathSurviveLoad', gathered['inventory'].get('honey') == reloaded['inventory'].get('honey') == 1 and len([a for a in reloaded['actors'] if a['id'] == bee['id']]) == 1 and next(c for c in reloaded['loot'] if c['sourceActor'] == bee['id'])['taken'])
+            finally: client.close()
+        if 'world-situation' in args.scenes:
+            client = Client('world-situation', slot)
+            try:
+                initial = client.save(); ui = client.ui(); discovery = next(d for d in ui['discoveries'] if d['bypass'] is not None and abs(d['x'] - ui['position']['x']) + abs(d['y'] - ui['position']['y']) == 1)
+                check('situationOffersWorkFightAndTunnel', all(any(c['id'] == identifier and c['enabled'] for c in ui['controls']) for identifier in ('approach:disarm', 'discovery-fight', 'show-bypass')))
+                client.capture('situation-approaches'); client.click('close'); client.context(discovery)
+                check('cursorMenuOffersDisarming', any(c['id'] == 'context:situation:disarm' and c['enabled'] for c in client.ui()['controls']))
+                client.click('context:situation:disarm'); client.wait(lambda u: u['panel'] == 'work' and not u['work']); client.pause()
+                resolved = client.save()['state']; check('mouseDelegationDisarmsTheTrap', next(d for d in resolved['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'disarm')
+                client.click('close'); client.tile(discovery['x'], discovery['y']); client.wait(lambda u: u['panel'] == 'discovery'); client.capture('situation-resolved')
+                client.click('discovery-loot'); client.wait(lambda u: u['panel'] == 'loot'); choice = next(c for c in client.ui()['controls'] if c['id'].startswith('claim:'))
+                client.click(choice['id']); claimed = client.save()['state']; client.click('load'); loaded = client.save()['state']
+                check('situationRewardAndOutcomeSurviveLoad', next(c for c in loaded['loot'] if c['id'] == discovery['id'])['taken'] and next(d for d in loaded['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'disarm' and claimed['inventory'] == loaded['inventory'])
+                # Replay only the isolated fixture's original manifest to verify the independent excavation approach.
+                slot.write_text(json.dumps(initial)); client.click('load'); client.tile(discovery['x'], discovery['y']); client.wait(lambda u: u['panel'] == 'discovery')
+                client.click('show-bypass'); wall = discovery['bypass']; client.wait(lambda u: len(u['selection']) == 1); client.context(wall); client.capture('situation-tunnel')
+                client.click('context:dig'); client.wait(lambda u: next(d for d in u['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'tunnel'); client.pause()
+                check('mouseExcavationOpensPhysicalBypass', next(c for c in client.ui()['cells'] if c['x'] == wall['x'] and c['y'] == wall['y'])['groundOpen'])
             finally: client.close()
         if 'world-camp' in args.scenes:
             client = Client('world-camp', slot)

@@ -81,7 +81,7 @@ public sealed partial class WorldSession
         DispatchPartyWork();
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
-            if (order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
+            if (order.Kind == WorkKind.Discovery && !SituationWorkValid(order) || order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
             { CancelWork(order.Id); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
@@ -116,10 +116,11 @@ public sealed partial class WorldSession
                     Chunks.Edit(order.Target, order.After);
                     State.Structures.Add(new() { Position = order.Target, Material = order.After, Foundation = order.Before, Cost = new(order.Reserved) }); break;
                 case WorkKind.Dig:
-                    Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target); break;
+                    Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target); CheckExcavatedBypass(order); break;
                 case WorkKind.Repair:
                     State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
                 case WorkKind.Harvest: HarvestResource(order.Target); break;
+                case WorkKind.Discovery: CompleteSituationWork(order); break;
                 case WorkKind.Camp: CompleteCampActivity(order, worker); break;
                 case WorkKind.Forage: worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
             }

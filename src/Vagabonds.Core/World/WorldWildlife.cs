@@ -64,6 +64,7 @@ public sealed partial class WorldSession
     public bool IsHostile(Actor actor)
     {
         if (actor.Life != LifeState.Alive || actor.Kind is not (ActorKind.Beast or ActorKind.Raider)) return false;
+        if (SituationForActor(actor) is { } discovery) return discovery.Engaged && discovery.Outcome is "" or "tunnel";
         if (Ecology(actor) is not { } rules) return true;
         if (rules.Behavior == "flee" || actor.Habitat is not { } home) return false;
         return Party.Any(p => p.Life != LifeState.Dead && p.Position.Distance(home) <=

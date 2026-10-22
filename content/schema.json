@@ -1235,6 +1235,86 @@
         "kind": {
           "const": "discovery"
         },
+        "situation": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "resolvedSprite": {
+              "type": "string"
+            },
+            "approaches": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "sprite": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "work": {
+                    "type": "integer"
+                  },
+                  "cost": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "required": [
+                  "action",
+                  "name",
+                  "sprite"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "tunnelWalls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "bridgeCells": {
+              "type": "array",
+              "items": {
+                "$ref": "#/anyOf/15/properties/situation/properties/tunnelWalls/items"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "resolvedSprite",
+            "approaches",
+            "tunnelWalls"
+          ],
+          "additionalProperties": false
+        },
         "action": {
           "type": "string"
         },

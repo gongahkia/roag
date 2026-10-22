@@ -29,7 +29,7 @@ public sealed class DiscoveryTests
                 templates.Add(d.Definition); layouts.Add(d.Definition + "/" + d.Rotation);
             });
         }
-        Assert.Equal(12, templates.Count); Assert.True(layouts.Count >= 40);
+        Assert.True(catalog.Game.Discoveries.ToHashSet().SetEquals(templates)); Assert.True(layouts.Count >= 40);
     }
     [Fact]
     public void ARealWalkFromTheStartingTownReachesAUsefulCampWithoutUnlockingAnything()

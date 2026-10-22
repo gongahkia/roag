@@ -56,12 +56,30 @@ public sealed class GameDefinition : ContentDefinition
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
+    public SituationRules? Situation { get; set; }
     public required string Action { get; set; }
     public required string Text { get; set; }
     public string[] Layout { get; set; } = [".....", ".....", ".....", ".....", "....."];
     public Dictionary<string, int> Supplies { get; set; } = [];
     public string[] Rewards { get; set; } = [];
     public string[] Enemies { get; set; } = [];
+}
+public sealed class SituationRules
+{
+    public required string Kind { get; set; }
+    public required string ResolvedSprite { get; set; }
+    public required DiscoveryApproach[] Approaches { get; set; }
+    public required Cell[] TunnelWalls { get; set; }
+    public Cell[] BridgeCells { get; set; } = [];
+}
+public sealed class DiscoveryApproach
+{
+    public required string Action { get; set; }
+    public required string Name { get; set; }
+    public required string Sprite { get; set; }
+    public string Description { get; set; } = "";
+    public int Work { get; set; }
+    public Dictionary<string, int> Cost { get; set; } = [];
 }
 public sealed class CampDefinition : ContentDefinition
 {

@@ -161,9 +161,13 @@ public sealed partial class WorldSession
             || s.Work.Any(w => w == null || w.Id < 1 || w.Id >= s.NextWorkId || !Enum.IsDefined(w.Kind) || !plan.Contains(w.Target)
                 || w.Before is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(w.Before) || !Enum.IsDefined(w.After)
                 || w.Kind == WorkKind.Build && w.After is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)
-                || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
+                || w.Method == null || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
                 || w.Worker != 0 && !actorIds.Contains(w.Worker) || !StackValid(w.Reserved) || !StackValid(w.Yield) || w.Status == null || w.Priority is < 0 or > 2
                 || w.Kind == WorkKind.Camp && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var campDuty) || campDuty is not CampDefinition || w.Station == null || !plan.Contains(w.Station.Value))
+                || w.Kind == WorkKind.Discovery && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var discoveryDefinition) || discoveryDefinition is not DiscoveryDefinition { Situation: not null } sd
+                    || !sd.Situation.Approaches.Any(a => a.Action == w.Method && a.Work > 0 && a.Work == w.Required
+                        && a.Cost.Count == w.Reserved.Count && a.Cost.All(p => w.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(p.Key).Stack) == p.Value))
+                    || w.Yield.Count != 0 || w.Before != w.After || !s.Discoveries.Any(d => d.Position == w.Target && d.Definition == w.Definition))
                 || w.Kind is WorkKind.Build or WorkKind.Craft && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var recipe) || recipe is not RecipeDefinition))
             || s.Work.Where(w => w.Worker != 0).GroupBy(w => w.Worker).Any(g => g.Count() > 1)
             || s.Structures.Any(b => b == null || !plan.Contains(b.Position) || !Enum.IsDefined(b.Material) || b.Material is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(b.Foundation)

@@ -17,6 +17,8 @@ internal static class WorldInspection
         var actor = session.State.Actors.LastOrDefault(a => a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null)
         {
+            if (session.SituationForActor(actor) is { } situation)
+                return WithRoute(actor.Name, session.SituationDescription(situation), "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
@@ -24,10 +26,13 @@ internal static class WorldInspection
             return WithRoute(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
+        if (discovery != null && session.Situation(discovery) != null) return WithRoute(discovery.Name, session.SituationDescription(discovery), "Right-click for approaches; click to investigate", "discovery");
         if (discovery != null) return WithRoute(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."
             : session.DiscoveryGuarded(discovery) ? "An inhabited landmark. Living foes guard its supplies." : "A local landmark connected to " + session.Plan.Towns[discovery.TownId].Name + ".", "Approach and investigate", "discovery");
         if (session.Visible.Contains(cell) && session.State.Loot.FirstOrDefault(c => c.Position == cell && !c.Taken) is { } cache) return WithRoute(session.LootName(cache), cache.SourceActor > 0 ? "Recover ingredients for camp cooking and crafting." : "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithRoute(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
+        if (session.SituationAtWall(cell) is { Known: true, Outcome.Length: 0 } place)
+            return new("Side wall / " + place.Name, "Excavating this wall opens a physical bypass to the supplies.", "Right-click and choose Dig; companions can do the work.", session.TargetBlockReason(WorldCommandKind.Dig, cell, requireAdjacent: false), "discovery");
         if (session.ResourceAt(cell) is { } resource)
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");

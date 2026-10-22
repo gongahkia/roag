@@ -59,7 +59,7 @@ public sealed partial class WorldSession
     }
     public double WorkMultiplier(Actor actor, WorkOrder order)
     {
-        string activity = order.Kind == WorkKind.Harvest ? Content.Get<ResourceDefinition>(order.Definition).Activity : order.Kind.ToString().ToLowerInvariant();
+        string activity = order.Kind == WorkKind.Discovery ? order.Method : order.Kind == WorkKind.Harvest ? Content.Get<ResourceDefinition>(order.Definition).Activity : order.Kind.ToString().ToLowerInvariant();
         int bonus = actor.Equipment.Values.Sum(e => Item(e.Item).WorkBonuses.GetValueOrDefault(activity));
         return 1 + Math.Min(200, bonus + EquipmentEffectPower(actor, activity)) / 100.0;
     }

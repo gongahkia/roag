@@ -1,0 +1,84 @@
+{
+  "kind": "discovery",
+  "id": "discovery.guarded-crossing",
+  "name": "Guarded crossing",
+  "action": "encounter",
+  "sprite": "banner",
+  "text": "The {faction} keepers watch this crossing near {town}. {witness} says they will accept a toll or help repairing their bridge; the side wall also blocks a forgotten passage.",
+  "layout": [
+    ".........",
+    ".###~###.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".###~###.",
+    "........."
+  ],
+  "supplies": {
+    "item.food": 4,
+    "item.medicine": 1
+  },
+  "rewards": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.ember-staff",
+    "item.wardens-shield",
+    "item.wanderers-cloak",
+    "item.heartstone",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "enemies": [
+    "character.raider",
+    "character.raider"
+  ],
+  "situation": {
+    "kind": "crossing",
+    "resolvedSprite": "bridge",
+    "approaches": [
+      {
+        "action": "negotiate",
+        "name": "Negotiate passage",
+        "sprite": "chest",
+        "description": "Pay the keepers to open the crossing and release their supplies.",
+        "work": 0,
+        "cost": {
+          "item.gold": 12
+        }
+      },
+      {
+        "action": "repair",
+        "name": "Repair the crossing",
+        "sprite": "bridge",
+        "description": "Replace the damaged bridge planks in exchange for passage and supplies.",
+        "work": 50,
+        "cost": {
+          "item.wood": 4,
+          "item.stone": 2
+        }
+      }
+    ],
+    "tunnelWalls": [
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ],
+    "bridgeCells": [
+      {
+        "x": 0,
+        "y": -3
+      },
+      {
+        "x": 0,
+        "y": 3
+      }
+    ]
+  }
+}

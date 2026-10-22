@@ -255,9 +255,10 @@ public sealed class BodyState
     [JsonRequired] public double WorkDone { get; set; }
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
-public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest, Camp }
+public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest, Camp, Discovery }
 public sealed class WorkOrder
 {
+    public string Method { get; set; } = "";
     [JsonRequired] public long Id { get; set; }
     [JsonRequired] public WorkKind Kind { get; set; }
     [JsonRequired] public string Definition { get; set; } = "";
@@ -299,6 +300,8 @@ public sealed class LootCache
 }
 public sealed class WorldDiscovery
 {
+    [JsonRequired] public string Outcome { get; set; } = "";
+    [JsonRequired] public bool Engaged { get; set; }
     [JsonRequired] public string Id { get; set; } = "";
     [JsonRequired] public string Definition { get; set; } = "";
     [JsonRequired] public string Name { get; set; } = "";
