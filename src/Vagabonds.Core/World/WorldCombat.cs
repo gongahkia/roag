@@ -123,7 +123,7 @@ public sealed partial class WorldSession
     private void ResolveAbility(CombatUnit caster, Skill skill, IEnumerable<CombatUnit> targets, int bonus)
     {
         bonus += AbilityEquipmentBonus(CombatActor(caster), skill);
-        Feedback("ability", caster, null, skill.Name, 0, caster.Name + " uses " + skill.Name + ".");
+        Feedback("ability", caster, null, skill.Name, 0, caster.Name + " uses " + skill.Name + ".", abilityId: skill.Id);
         foreach (var t in targets)
         {
             int hp = t.Health, stress = t.Stress, burn = t.Burn, bleed = t.Bleed, mark = t.Mark, stun = t.Stun;
@@ -184,8 +184,7 @@ public sealed partial class WorldSession
     }
     private void Damage(CombatUnit target, int amount, CombatUnit? source = null, string label = "Hit")
     {
-        int resistance = label == "Burn" ? PreparationPower(CombatActor(target), "burn-resist") : label == "Bleed" ? PreparationPower(CombatActor(target), "bleed-resist") : 0;
-        int damage = Math.Max(resistance > 0 ? 0 : 1, amount - target.Armor - resistance); if (target.Guarding && damage > 0) damage = Math.Max(1, damage / 2);
+        var (damage, resistance) = CombatDamageBeforeProtection(target, amount, label);
         if (resistance > 0) Feedback("status", target, target, "Meal protection", resistance, target.Name + " resists " + label.ToLowerInvariant() + " with camp preparation.");
         if (source != null && damage > 1 && ShieldProtector(target) is { } protector)
         {
@@ -261,10 +260,11 @@ public sealed partial class WorldSession
         }
         return true;
     }
-    private void Feedback(string kind, CombatUnit? source, CombatUnit? target, string label, int amount = 0, string detail = "")
+    private void Feedback(string kind, CombatUnit? source, CombatUnit? target, string label, int amount = 0, string detail = "", string abilityId = "")
     {
         long ActorId(CombatUnit? unit) => unit == null || State.Battle == null ? 0 : State.Battle.ActorIds[unit.Id];
-        State.CombatEvents.Add(new(State.NextCombatEvent++, State.Battle?.Round ?? 0, kind, ActorId(source), ActorId(target), label, amount, detail));
+        var targetState = target == null ? null : new CombatantFeedbackState(target.Health, target.Mana, target.Stress, target.Guarding, target.Burn, target.Bleed, target.Mark, target.Stun);
+        State.CombatEvents.Add(new(State.NextCombatEvent++, State.Battle?.Round ?? 0, kind, ActorId(source), ActorId(target), label, amount, detail, targetState, abilityId));
         if (State.CombatEvents.Count > 128) State.CombatEvents.RemoveAt(0);
     }
 }

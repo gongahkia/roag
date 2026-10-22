@@ -203,7 +203,7 @@ public sealed partial class WorldSession
                 || ecology.Drops.Any(p => cache.Contents.GetValueOrDefault(catalog.Get<ItemDefinition>(p.Key).Stack) != p.Value)) throw new InvalidDataException("Invalid wildlife remains.");
         }
         if (s.Actors.Any(a => a.Habitat != null && a.Life == LifeState.Dead && !s.Loot.Any(c => c.SourceActor == a.Id))) throw new InvalidDataException("Missing wildlife remains.");
-        ValidateDiscoveries(plan, s);
+        ValidateDiscoveries(plan, s, catalog);
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {
             if (caravan.DestinationTown == null || caravan.DestinationTown == caravan.HomeTown || caravan.Traveling && caravan.Route.Count == 0) throw new InvalidDataException("Invalid caravan destination/route.");

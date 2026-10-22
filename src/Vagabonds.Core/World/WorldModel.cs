@@ -316,7 +316,9 @@ public sealed class WorldDiscovery
     [JsonRequired] public bool Visited { get; set; }
     [JsonRequired] public long[] Enemies { get; set; } = [];
 }
-public sealed record CombatEvent(long Sequence, int Round, string Kind, long Source, long Target, string Label, int Amount, string Detail);
+public sealed record CombatantFeedbackState(int Health, int Mana, int Stress, bool Guarding, int Burn, int Bleed, int Mark, int Stun);
+public sealed record CombatEvent(long Sequence, int Round, string Kind, long Source, long Target, string Label, int Amount, string Detail,
+    CombatantFeedbackState? TargetState = null, string AbilityId = "");
 public sealed record EncounterReward(int Gold, int Food, int Experience, string[] LevelUps);
 public sealed class EndgameState
 {

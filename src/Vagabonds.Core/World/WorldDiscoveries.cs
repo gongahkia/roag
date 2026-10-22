@@ -114,7 +114,7 @@ public static class DiscoveryPlacement
 
 public sealed partial class WorldSession
 {
-    private static void ValidateDiscoveries(WorldPlan plan, WorldState state)
+    private static void ValidateDiscoveries(WorldPlan plan, WorldState state, ContentCatalog catalog)
     {
         if (state.Discoveries == null || state.Discoveries.Count > 2048 || state.KnownSites == null || state.KnownSites.Any(id => id < 0 || id >= plan.Sites.Count)
             || state.Discoveries.Select(d => d?.Id).Distinct().Count() != state.Discoveries.Count
@@ -146,6 +146,10 @@ public sealed partial class WorldSession
             || state.CombatEvents.Any(e => e == null || e.Sequence < 1 || e.Sequence >= state.NextCombatEvent || e.Round is < 0 or > 100000
                 || e.Kind is not ("ability" or "damage" or "heal" or "status" or "expire" or "skip" or "fall" or "round" or "reward" or "retreat" or "injury")
                 || e.Label == null || e.Detail == null || e.Label.Length > 180 || e.Detail.Length > 1000 || e.Amount is < 0 or > 10000
+                || e.AbilityId == null || e.AbilityId.Length > 0 && (!catalog.Entries.TryGetValue(e.AbilityId, out var ability) || ability is not AbilityDefinition)
+                || e.TargetState is { } snapshot && (e.Target == 0 || snapshot.Health is < 0 or > 10000 || snapshot.Mana is < 0 or > 10000
+                    || snapshot.Stress is < 0 or > 100 || snapshot.Burn is < 0 or > 1000 || snapshot.Bleed is < 0 or > 1000
+                    || snapshot.Mark is < 0 or > 1000 || snapshot.Stun is < 0 or > 1000)
                 || e.Source != 0 && !actors.Contains(e.Source) || e.Target != 0 && !actors.Contains(e.Target))
             || !state.CombatEvents.Select(e => e.Sequence).SequenceEqual(state.CombatEvents.Select(e => e.Sequence).Order().Distinct())) throw new InvalidDataException("Invalid combat feedback.");
         if (state.LastEncounterReward is { } reward && (reward.Gold is < 0 or > 9999 || reward.Food is < 0 or > 9999 || reward.Experience is < 0 or > 9999
