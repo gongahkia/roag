@@ -89,6 +89,8 @@ class RunTests(unittest.TestCase):
         for req in ['all-scenes','one-scene']: tasks.attach(self.repo,'coverage',req,rid,'Fixture tests profile coverage bookkeeping.')
         results=tasks.assess(self.repo,'coverage')['requirements']
         self.assertFalse(results[0]['satisfied']); self.assertIn('world-boss',results[0]['missingScenes'])
+        self.assertIn('world-progression',results[0]['missingScenes'])
+        self.assertIn('world-encounters',results[0]['missingScenes'])
         self.assertFalse(results[1]['satisfied']); self.assertFalse(results[1]['manualReviewSatisfied'])
         with self.assertRaises(ValueError): tasks.attach(self.repo,'coverage','one-scene',rid,'Review','../outside')
         tasks.attach(self.repo,'coverage','one-scene',rid,'Inspected the recorded fixture artifact.','fixture.log')

@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -88,10 +88,22 @@ def main():
         def fighter(self, unit_id, fast=False):
             r = next(u for u in self.ui()['battle']['units'] if u['id'] == unit_id)['bounds']
             self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
+        def load(self):
+            self.click('load')
+            ui = self.wait(lambda u: u['notice'].startswith(('World restored', 'Load failed:')))
+            if not ui['notice'].startswith('World restored'):
+                # Preserve only the isolated harness slot and immutable snapshots.
+                # Exact-state equality alone could pass when a rejected load kept
+                # the old in-memory session, so successful reload is explicit.
+                shutil.copy2(self.slot, output / 'rejected-fixture.json')
+                shutil.copytree(str(self.slot) + '.chunks', output / 'rejected-fixture.json.chunks', dirs_exist_ok=True)
+                raise RuntimeError(ui['notice'] + ' Fixture retained in ' + str(output / 'rejected-fixture.json'))
+            return ui
         def restore(self, fixture):
-            self.slot.write_text(json.dumps(fixture)); self.click('load'); return self.combat_ready()
-        def capture_phase(self, phase, name):
-            observed = self.wait(lambda u: u.get('combatPresentation', {}).get('phase') == phase, interval=.01)
+            self.slot.write_text(json.dumps(fixture)); self.load(); return self.combat_ready()
+        def capture_phase(self, phase, name, source=None):
+            observed = self.wait(lambda u: u.get('combatPresentation', {}).get('phase') == phase
+                and (source is None or u['combatPresentation']['source'] == source), interval=.01)
             x('windowfocus', '0')
             frozen = self.wait(lambda u: not u['focused'], interval=.01)
             check(name + 'Phase', frozen['combatPresentation']['phase'] == phase)
@@ -198,10 +210,10 @@ def main():
                 # Digging spends ordinary work time, never an upfront food charge.
                 baseline = json.loads(slot.read_text()); depleted = json.loads(json.dumps(baseline))
                 depleted['state']['inventory']['food'] = 0
-                slot.write_text(json.dumps(depleted)); client.click('load'); client.context(barrel)
+                slot.write_text(json.dumps(depleted)); client.load(); client.context(barrel)
                 ui = client.ui(); dig = next(c for c in ui['controls'] if c['id'] == 'context:dig')
                 check('digWorksWithoutFoodAndExplainsWorkCost', dig['enabled'] and 'no food is reserved' in dig['tip'])
-                client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.click('load')
+                client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.load()
                 ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
                 person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
                 client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
@@ -268,7 +280,7 @@ def main():
                 paved = client.save()['state']; check('batchConstructionApproachesAndFinishes', all(any(b['position']['x'] == c['x'] and b['position']['y'] == c['y'] for b in paved['structures']) for c in (first, second)))
                 client.drag(first, second); client.context(first); client.click('context:dig'); client.pause()
                 pending = client.save()['state']; check('batchDigReservationsSaved', len(pending['work']) == 2 and all(w['partyApproach'] for w in pending['work']))
-                client.click('load'); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
+                client.load(); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
                 client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause()
                 dug = client.save()['state']; check('batchDigResumesAfterLoadAndRefundsMaterials', dug['inventory']['stone'] == paved['inventory']['stone'] + 4 and len(dug['structures']) == len(paved['structures']) - 2)
                 origin = client.ui()['position']; client.context(client.free_cell())
@@ -288,7 +300,7 @@ def main():
                 state['position'] = dict(cache['position']); state['position']['x'] += 1
                 for actor in state['actors']:
                     if actor['id'] in state['party']: actor['position'] = dict(state['position'])
-                slot.write_text(json.dumps(fixture)); client.click('load')
+                slot.write_text(json.dumps(fixture)); client.load()
                 client.wait(lambda u: u['position'] == {k: state['position'][k] for k in ('x', 'y', 'floor')})
                 check('olderStackedSaveSpreadsPartyOnLoad', client.formation())
                 client.tile(cache['position']['x'], cache['position']['y'])
@@ -310,7 +322,7 @@ def main():
                 check('resourceContextHasHarvest', any(c['id'] == 'context:harvest' and c['enabled'] for c in client.ui()['controls']))
                 client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
                 harvested = client.save(); check('mouseHarvestPersistsStockAndIngredients', harvested['state']['inventory'].get('apple', 0) == 2)
-                client.click('load'); remaining = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']['available']
+                client.load(); remaining = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']['available']
                 check('resourceStockSurvivesMouseLoad', remaining == fruit['resource']['available'] - 1)
                 client.click('panel:inventory'); client.click('panel:supplies'); client.capture('ingredients-pack')
                 check('packIllustratesHarvestedIngredients', any(c['id'] == 'supply:item.apple' and c['sprite'] == 'apple' and 'x2' in c['label'] for c in client.ui()['controls']))
@@ -346,7 +358,7 @@ def main():
                 check('animalLeavesIngredientsWithoutGenericGold', remains['contents'].get('honey') == 1 and reward['gold'] == 0 and reward['food'] == 0)
                 client.capture('wildlife-rewards'); client.click('close')
                 client.tile(remains['position']['x'], remains['position']['y']); client.wait(lambda u: 'Recovered' in u['notice']); client.pause()
-                gathered = client.save()['state']; client.click('load'); reloaded = client.save()['state']
+                gathered = client.save()['state']; client.load(); reloaded = client.save()['state']
                 check('wildlifeIngredientsAndDeathSurviveLoad', gathered['inventory'].get('honey') == reloaded['inventory'].get('honey') == 1 and len([a for a in reloaded['actors'] if a['id'] == bee['id']]) == 1 and next(c for c in reloaded['loot'] if c['sourceActor'] == bee['id'])['taken'])
             finally: client.close()
         if 'world-situation' in args.scenes:
@@ -360,10 +372,10 @@ def main():
                 resolved = client.save()['state']; check('mouseDelegationDisarmsTheTrap', next(d for d in resolved['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'disarm')
                 client.click('close'); client.tile(discovery['x'], discovery['y']); client.wait(lambda u: u['panel'] == 'discovery'); client.capture('situation-resolved')
                 client.click('discovery-loot'); client.wait(lambda u: u['panel'] == 'loot'); choice = next(c for c in client.ui()['controls'] if c['id'].startswith('claim:'))
-                client.click(choice['id']); claimed = client.save()['state']; client.click('load'); loaded = client.save()['state']
+                client.click(choice['id']); claimed = client.save()['state']; client.load(); loaded = client.save()['state']
                 check('situationRewardAndOutcomeSurviveLoad', next(c for c in loaded['loot'] if c['id'] == discovery['id'])['taken'] and next(d for d in loaded['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'disarm' and claimed['inventory'] == loaded['inventory'])
                 # Replay only the isolated fixture's original manifest to verify the independent excavation approach.
-                slot.write_text(json.dumps(initial)); client.click('load'); client.tile(discovery['x'], discovery['y']); client.wait(lambda u: u['panel'] == 'discovery')
+                slot.write_text(json.dumps(initial)); client.load(); client.tile(discovery['x'], discovery['y']); client.wait(lambda u: u['panel'] == 'discovery')
                 client.click('show-bypass'); wall = discovery['bypass']; client.wait(lambda u: len(u['selection']) == 1); client.context(wall); client.capture('situation-tunnel')
                 client.click('context:dig'); client.wait(lambda u: next(d for d in u['discoveries'] if d['id'] == discovery['id'])['outcome'] == 'tunnel'); client.pause()
                 check('mouseExcavationOpensPhysicalBypass', next(c for c in client.ui()['cells'] if c['x'] == wall['x'] and c['y'] == wall['y'])['groundOpen'])
@@ -383,7 +395,7 @@ def main():
                 client.click('close'); client.click('panel:actions'); client.click('wait:300')
                 state = client.save()['state']; members = [a for a in state['actors'] if a['id'] in state['party']]
                 check('nativeCampCookingTreatmentAndWatchComplete', not state['work'] and all(a['body']['wounds'] == 0 and {p['effect'] for p in a['preparations']} == {'burn-resist', 'watch'} for a in members))
-                client.click('load'); state = client.save()['state']; check('campPreparationsSurviveMouseReload', all(len(a['preparations']) == 2 for a in state['actors'] if a['id'] in state['party']))
+                client.load(); state = client.save()['state']; check('campPreparationsSurviveMouseReload', all(len(a['preparations']) == 2 for a in state['actors'] if a['id'] in state['party']))
                 client.context(camp); client.click('context:camp'); client.click('campworker:' + str(party[3]['id'])); client.click('camprole:stories'); client.click('campduty:camp.stories'); client.pause()
                 client.click('close'); client.click('panel:actions'); client.click('wait:300'); state = client.save()['state']
                 check('campStoryMarksAnActualSite', state['lastCampStory'] is not None and any(site['name'] in state['lastCampStory']['text'] and site['id'] in state['knownSites'] for site in client.save()['plan']['sites']))
@@ -401,7 +413,7 @@ def main():
                 state = client.save()['state']; check('chosenEquipmentHasOnePersistentIdentity', selected in state['generatedEquipment'] and state['inventory'].get(selected) == 1)
                 client.click('equip'); state = client.save()['state']; hero = next(a for a in state['actors'] if a['id'] == state['party'][0])
                 check('mouseEquipsGeneratedEquipment', any(e['item'] == selected for e in hero['equipment'].values()) and state['inventory'].get(selected) == 0)
-                client.capture('equipment-worn'); client.click('load'); state = client.save()['state']
+                client.capture('equipment-worn'); client.load(); state = client.save()['state']
                 check('generatedEquipmentSurvivesReload', selected in state['generatedEquipment'] and any(e['item'] == selected for a in state['actors'] if a['id'] == state['party'][0] for e in a['equipment'].values()))
             finally: client.close()
         if 'world-battle' in args.scenes:
@@ -441,7 +453,7 @@ def main():
                 client.combat_ready()
                 acted = client.save()['state']; b = acted['battle']; old = before['battle']
                 check('jointStrikeSpendsBothManaAndActions', b['assisting'] == [3] and b['order'][b['turnIndex']] == 1 and b['units'][0]['mana'] == old['units'][0]['mana'] - 3 and b['units'][3]['mana'] == old['units'][3]['mana'] - 3 and b['units'][4]['health'] < old['units'][4]['health'])
-                client.capture('cooperation-strike'); client.click('load')
+                client.capture('cooperation-strike'); client.load()
                 check('jointActionSaveRestoresExactly', client.save()['state'] == acted)
                 client.click('skill:3'); client.click('skill:3')
                 client.wait(lambda u: u['battle']['round'] == 2 and u['battle']['active'] == 0); client.combat_ready()
@@ -475,7 +487,7 @@ def main():
 
                 client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
                 check('saveStartsDuringPlayback', client.ui()['combatPresentation']['busy'])
-                during = client.save()['state']; client.click('load'); client.combat_ready()
+                during = client.save()['state']; client.load(); client.combat_ready()
                 check('loadingPlaybackNeverReappliesAction', client.save()['state'] == during == acted
                     and not client.ui()['combatPresentation']['busy'])
 
@@ -526,7 +538,7 @@ def main():
                     and finishing['combatPresentation']['stageVisible'] and finishing['combatPresentation']['endingPending']
                     and finishing['panel'] != 'spoils')
                 client.combat_ready(); client.wait(lambda u: u['panel'] == 'spoils'); client.capture('combat-spoils')
-                rewards = client.save()['state']; client.click('load'); client.combat_ready()
+                rewards = client.save()['state']; client.load(); client.combat_ready()
                 check('finishedEncounterSaveDoesNotDuplicateRewards', client.save()['state'] == rewards)
 
                 # One survivor lets a normal scheduled enemy hit demonstrate
@@ -561,7 +573,7 @@ def main():
                 fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']; final_id = state['endgame']['actorId']
                 index = battle['actorIds'].index(final_id); battle['units'][index]['health'] = 1; next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
                 battle['turnIndex'] = next(i for i, u in enumerate(battle['order']) if battle['units'][u]['heroId'] >= 0 and battle['units'][u]['health'] > 0)
-                slot.write_text(json.dumps(fixture)); client.click('load'); client.click('skill:0')
+                slot.write_text(json.dumps(fixture)); client.load(); client.click('skill:0')
                 client.fighter(index, fast=True)
                 ending_ui = client.capture_phase('impact', 'combat-final-boss-impact')
                 check('finalBossEndingWaitsForImpact', ending_ui['battle'] is None and ending_ui['combatPresentation']['stageVisible']
@@ -570,7 +582,122 @@ def main():
                 ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
                 client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
             finally: client.close()
-    report = {'nativeMouseInput': 'passed', 'scenes': args.scenes, 'checks': checks, 'scope': 'Local X11/WSLg. Mouse gameplay only; keyboard events solely verify they are ignored. Temporary saves, explicit site/wounded-boss fixtures; not a balance playthrough.'}
+        if 'world-progression' in args.scenes:
+            client = Client('world-progression', slot)
+            try:
+                client.wait(lambda u: u['panel'] == 'inventory'); initial = client.save()
+                check('progressionFixtureHasFourClasses', {a['role'] for a in initial['state']['actors'] if a['id'] in initial['state']['party']} == {0, 1, 2, 3})
+                client.click('panel:progression'); client.capture('progression-warden')
+                class_choices = []
+                for index in range(4):
+                    client.click('party:' + str(index)); ui = client.ui(); choices = ui['progression']['choices']
+                    class_choices.append({c['id'] for c in choices})
+                    check('progressionClass' + str(index) + 'UsesSprites', len(choices) == 4 and all(c['sprite'] for c in ui['controls'] if c['id'].startswith('talent:')))
+                check('eachClassHasDistinctDevelopments', all(not a & b for i, a in enumerate(class_choices) for b in class_choices[i+1:]))
+                check('inspectingDevelopmentsCostsNothing', client.save()['state'] == initial['state'])
+
+                client.click('party:0'); client.click('talent:talent.warden-breaker')
+                check('talentSelectionNeedsExplicitCommit', client.save()['state'] == initial['state'])
+                client.click('learn-talent'); chosen = client.save(); leader = chosen['state']['party'][0]
+                actor = next(a for a in chosen['state']['actors'] if a['id'] == leader)
+                check('mouseCommitsPermanentDevelopment', actor['talents'] == ['talent.warden-breaker']
+                    and chosen['state']['tick'] == initial['state']['tick'] and chosen['state']['combatRandom'] == initial['state']['combatRandom'])
+                client.click('talent:talent.warden-bulwark'); learn = next(c for c in client.ui()['controls'] if c['id'] == 'learn-talent')
+                check('sameMilestoneAlternativeLocked', not learn['enabled'] and 'already committed' in learn['reason'])
+                r = learn['bounds']; client.point(r['x'] + r['width']/2, r['y'] + r['height']/2)
+                check('lockedTalentClickCannotSpendOrReplace', client.save()['state'] == chosen['state'])
+                client.click('talent:talent.warden-sentinel'); client.click('learn-talent')
+                check('secondMilestoneCanBeChosenIndependently', len(client.ui()['progression']['talents']) == 2)
+                client.capture('progression-committed')
+                client.click('party:2'); client.click('talent:talent.arcanist-reservoir'); client.click('learn-talent')
+                client.capture('progression-arcanist'); developed = client.save(); client.load()
+                check('learnedTalentsSurviveExactReload', client.save()['state'] == developed['state'])
+
+                low = json.loads(json.dumps(initial)); actor = next(a for a in low['state']['actors'] if a['id'] == leader)
+                actor['level'] = 1; actor['health'] = actor['baseHealth']; actor['mana'] = actor['baseMana']
+                client.restore(low); client.click('panel:inventory'); client.click('party:0'); client.click('panel:progression')
+                client.click('talent:talent.warden-breaker'); learn = next(c for c in client.ui()['controls'] if c['id'] == 'learn-talent')
+                client.capture('progression-level-locked')
+                check('futureMilestoneExplainsLevelRequirement', not learn['enabled'] and 'level 2' in learn['reason'])
+
+                client.restore(developed)
+                enemy = next(a for a in client.ui()['actors'] if a['kind'] == 'Beast' and a['archetype'] == 'character.prowler')
+                client.context(enemy); client.click('context:interact'); client.wait(lambda u: u['battle'] is not None); client.combat_ready()
+                check('developedPartyEntersNormalCombat', client.ui()['battle']['active'] == 0)
+                client.click('skill:3'); client.combat_ready(); client.click('skill:3'); client.combat_ready()
+                check('developedArcanistReceivesTurn', client.ui()['battle']['active'] == 2)
+                before = client.save()['state']; client.click('skill:1'); target = next(u for u in client.ui()['battle']['units'] if not u['friendly'])
+                client.fighter(target['id'], fast=True); client.capture_phase('impact', 'progression-actual-ember'); client.combat_ready()
+                after = client.save()['state']
+                check('learnedReservoirChangesRealManaCost', after['battle']['units'][2]['mana'] == before['battle']['units'][2]['mana'] - 2
+                    and after['battle']['units'][target['id']]['health'] < before['battle']['units'][target['id']]['health'])
+                client.click('panel:inventory'); client.click('panel:progression'); client.click('party:2')
+                learn = next(c for c in client.ui()['controls'] if c['id'] == 'learn-talent')
+                check('combatCannotCommitDevelopments', not learn['enabled'] and 'between encounters' in learn['reason'])
+            finally: client.close()
+        if 'world-encounters' in args.scenes:
+            client = Client('world-encounters', slot)
+            try:
+                client.combat_ready(); initial = client.save(); state = initial['state']; battle = state['battle']
+                charger = next(i for i, actor_id in enumerate(battle['actorIds']) if next(a for a in state['actors'] if a['id'] == actor_id)['archetype'] == 'character.cinder-channeler')
+                charger_actor = battle['actorIds'][charger]
+                intent = next(i for i in client.ui()['combatIntents'] if i['unitId'] == charger)
+                check('preparedAttackIntentIsHonest', intent['stage'] == 'prepare' and intent['mana'] == 0
+                    and all(t['minimum'] == t['maximum'] == 0 for t in intent['targets']))
+                client.capture('encounter-preparation-warning')
+                client.click('skill:3'); client.combat_ready(); prepared = client.save(); ready = prepared['state']['battle']
+                check('enemyPreparationCostsTurnWithoutDamageOrMana', str(charger) in ready['prepared']
+                    and ready['units'][charger]['mana'] == battle['units'][charger]['mana']
+                    and [u['health'] for u in ready['units'][:4]] == [u['health'] for u in battle['units'][:4]])
+                client.capture('encounter-prepared'); client.load()
+                check('preparationSurvivesExactReload', client.save()['state'] == prepared['state'])
+                client.click('skill:1'); client.fighter(charger, fast=True); client.capture_phase('impact', 'encounter-interruption'); client.combat_ready()
+                broken = client.save()
+                check('shieldBashBreaksPreparedAttack', str(charger) not in broken['state']['battle']['prepared']
+                    and broken['state']['battle']['plans'][str(charger)]['interrupted']
+                    and any(e['label'] == 'Preparation broken' for e in broken['state']['combatEvents']))
+                client.load(); check('interruptedPreparationSurvivesReload', client.save()['state'] == broken['state'])
+                for _ in range(3): client.click('skill:3'); client.combat_ready()
+                interrupted = client.save()['state']
+                check('interruptedReleaseNeverDamagesOrChargesMana', interrupted['battle']['round'] >= 2
+                    and interrupted['battle']['units'][charger]['mana'] == battle['units'][charger]['mana']
+                    and not any(e['kind'] == 'ability' and e['abilityId'] == 'ability.cinder-surge' for e in interrupted['combatEvents']))
+
+                client.restore(prepared)
+                for _ in range(3): client.click('skill:3'); client.combat_ready()
+                intent = next(i for i in client.ui()['combatIntents'] if i['unitId'] == charger)
+                check('releaseIntentNamesTargetsAndRealMana', intent['stage'] == 'release' and intent['mana'] == 4
+                    and len(intent['targets']) == 4 and all(t['maximum'] >= t['minimum'] > 0 for t in intent['targets']))
+                client.capture('encounter-release-warning')
+                client.click('skill:3', fast=True); client.capture_phase('impact', 'encounter-release-impact', source=charger_actor); client.combat_ready()
+                released = client.save()['state']
+                hits = [e for e in released['combatEvents'] if e['kind'] == 'damage' and e['label'] == 'Cinder surge' and e['source'] == charger_actor]
+                check('uninterruptedReleaseHitsPartyAndPaysOnce', len({e['target'] for e in hits}) == 4
+                    and released['battle']['units'][charger]['mana'] == battle['units'][charger]['mana'] - 4)
+
+                finish = json.loads(json.dumps(initial)); state = finish['state']; battle = state['battle']
+                for unit in battle['units']:
+                    if unit['heroId'] >= 0: continue
+                    unit['health'] = 1
+                    next(a for a in state['actors'] if a['id'] == battle['actorIds'][unit['id']])['health'] = 1
+                client.restore(finish); client.click('skill:2', fast=True); client.combat_ready(); client.wait(lambda u: u['panel'] == 'spoils')
+                won = client.save(); reward = won['state']['lastEncounterReward']
+                check('composedEncounterAwardsThemedEquipment', reward['theme'] == 'Cinder armaments' and reward['experience'] == 15
+                    and reward['sources'] == [charger_actor] and len(reward['items']) >= 1
+                    and all(won['state']['inventory'].get(item['item'], 0) >= item['count'] for item in reward['items']))
+                client.capture('encounter-themed-rewards'); client.load()
+                check('themedRewardsSurviveReloadWithoutDuplication', client.save()['state'] == won['state'])
+                client.click('panel:inventory'); awarded = reward['items'][0]['item']
+                equipment = next(e for e in client.ui()['equipment'] if e['id'] == awarded); gear_id = 'gear:' + str(equipment['index'])
+                for _ in range(8):
+                    if any(c['id'] == gear_id for c in client.ui()['controls']): break
+                    client.click('gearpage:1')
+                client.click(gear_id); client.click('equip'); equipped = client.save()['state']
+                member = next(a for a in equipped['actors'] if a['id'] == equipped['party'][0])
+                check('themedRewardCanBeEquipped', any(g['item'] == awarded for g in member['equipment'].values()))
+                client.capture('encounter-reward-equipped')
+            finally: client.close()
+    report = {'nativeMouseInput': 'passed', 'scenes': args.scenes, 'checks': checks, 'scope': 'Local X11/WSLg. Mouse gameplay only; keyboard events solely verify they are ignored. Temporary saves and explicit isolated preview fixtures, including controlled levels and durable or wounded enemies; not a balance playthrough.'}
     (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n'); print(json.dumps(report))
 
 if __name__ == '__main__': main()

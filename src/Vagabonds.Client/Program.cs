@@ -21,7 +21,7 @@ try
               --new (start over; normal saving/quitting replaces the selected slot)
               --load (require and resume the selected slot)
               --import-legacy PATH (validate/copy an old RPG save and exit)
-              --scene world|world-site|world-resources|world-wildlife|world-situation|world-camp|world-discovery|world-battle|world-cooperation|world-boss|world-inspector (preview without autosaving)
+              --scene world|world-site|world-resources|world-wildlife|world-situation|world-camp|world-discovery|world-battle|world-cooperation|world-boss|world-progression|world-encounters|world-inspector (preview without autosaving)
               --scene town|forest|crypt|battle|victory|atlas (legacy previews)
               --world-headless (recruit, construct, trade and verify simulation)
               --world-report (macro plan and all town/site WFC diagnostics)
@@ -233,7 +233,7 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
                 throw new ArgumentException("Minimum window is 1024x720; maximum 4096x2160.");
             }
 
-            if (o.Scene is not ("world" or "world-site" or "world-resources" or "world-wildlife" or "world-situation" or "world-camp" or "world-discovery" or "world-battle" or "world-cooperation" or "world-boss" or "world-inspector" or "town" or "forest" or "crypt" or "battle" or "victory" or "atlas"))
+            if (o.Scene is not ("world" or "world-site" or "world-resources" or "world-wildlife" or "world-situation" or "world-camp" or "world-discovery" or "world-battle" or "world-cooperation" or "world-boss" or "world-progression" or "world-encounters" or "world-inspector" or "town" or "forest" or "crypt" or "battle" or "victory" or "atlas"))
             {
                 throw new ArgumentException("Unknown scene.");
             }
