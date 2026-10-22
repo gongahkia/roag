@@ -43,7 +43,7 @@ public sealed class GenerationTests
                 var footprint = generator.GenerateFootprint(false, culture, 1, force);
                 Assert.InRange(footprint.Trace.FallbackRegions, 0, 4);
                 if (force) Assert.Equal(4, footprint.Trace.FallbackRegions);
-                Assert.InRange(footprint.Trace.Attempts, 4, 32);
+                Assert.InRange(footprint.Trace.Attempts, footprint.Trace.PatternCount > 0 ? 4 : 0, 32);
                 var reached = new HashSet<int> { 32 * 64 + 32 }; var q = new Queue<int>(reached);
                 while (q.TryDequeue(out int i)) foreach (int offset in new[] { -1, 1, -64, 64 })
                 {
@@ -55,6 +55,20 @@ public sealed class GenerationTests
                 Assert.Equal(Material.StairsDown, footprint.Cells[32 * 64 + 34]);
             }
         }
+    }
+    [Fact]
+    public void VarietyAuditExercisesDistinctTopologiesAndConnectedStairs()
+    {
+        var audit = WorldVarietyAudit.Run(-1, 3);
+        Assert.True(audit.Report.Connected);
+        Assert.Equal(51, audit.Report.Footprints);
+        Assert.Equal(6, audit.Report.Families.Count);
+        Assert.True(audit.Report.DistinctRawLayouts >= 45);
+        Assert.All(audit.Report.Measurements, m => Assert.InRange(m.Walkable, 500, 4096));
+        Assert.Contains("ring-sanctuary", audit.Svg);
+        var plans = Enumerable.Range(0, 4).Select(WorldPlan.Generate).ToArray();
+        // Distribution is no longer a fixed grid translated by a small seed offset.
+        Assert.Equal(4, plans.Select(p => p.Towns[12].Center.X / 512).Distinct().Count());
     }
     [Fact]
     public void ChunkOrderEvictionAndWorldSeamsCannotRerollTerrainOrEdits()

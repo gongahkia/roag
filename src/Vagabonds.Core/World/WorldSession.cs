@@ -28,7 +28,7 @@ public sealed partial class WorldSession : IGameSession
     internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null)
     {
         Content = content ?? ContentCatalog.Default;
-        Plan = plan; State = state; Chunks = new(plan, state);
+        Plan = plan; State = state; Chunks = new(plan, state, Content);
         Chunks.Prefetch(state.Position); Reveal();
     }
     public static WorldSession Create(int seed, ContentCatalog? content = null)

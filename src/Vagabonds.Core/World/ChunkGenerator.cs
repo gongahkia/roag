@@ -1,4 +1,6 @@
 using System.Security.Cryptography;
+using Vagabonds.Core.Generation;
+using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
@@ -18,14 +20,18 @@ public static class Materials
     };
 }
 
-public sealed record GenerationTrace(string Purpose, string Sample, int PatternCount, int Attempts, int Observations, long Propagations, int FallbackRegions, int RepairedCells, string RawHash, string FinalHash);
+public sealed record GenerationTrace(string Purpose, string Sample, int PatternCount, int Attempts, int Observations, long Propagations, int FallbackRegions, int RepairedCells, string RawHash, string FinalHash, string Layout = "overlapping-wfc");
 public sealed record Footprint(Material[] Cells, Material[] RawCells, int Width, int Height, GenerationTrace Trace);
 public sealed record GeneratedChunk(ChunkKey Key, Material[] Tiles, Biome[] Biomes, int[] Cultures, string BaseHash);
 
-public sealed class ChunkGenerator(WorldPlan plan)
+public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = null)
 {
+    private readonly GenerationDefinition _profile = (content ?? ContentCatalog.Default).Get<GenerationDefinition>((content ?? ContentCatalog.Default).Game.Generation);
     private readonly Dictionary<(bool Town, int Id, int Floor), Footprint> _footprints = [];
     private readonly Queue<(bool Town, int Id, int Floor)> _order = [];
+    private readonly GradientNoise _relief = new(unchecked((int)WorldRandom.Hash(plan.Seed, 710)));
+    private readonly GradientNoise _vegetation = new(unchecked((int)WorldRandom.Hash(plan.Seed, 711)));
+    private readonly GradientNoise _water = new(unchecked((int)WorldRandom.Hash(plan.Seed, 712)));
     public int CachedFootprints => _footprints.Count;
     public Footprint GenerateFootprint(bool town, int id, int floor = 0, bool forceFallback = false)
     {
@@ -35,15 +41,18 @@ public sealed class ChunkGenerator(WorldPlan plan)
         int culture = town ? plan.Towns[id].Culture : plan.Sites[id].Culture;
         string purpose = town ? "town" : plan.Sites[id].Purpose;
         var model = SampleLibrary.Default.Model(culture);
+        string layout = town ? "overlapping-wfc-town" : _profile.Layouts[purpose][floor];
+        var shapeRandom = WorldRandom.Stream(plan.Seed, id, floor, town ? 1010 : 2010);
         const int size = 64;
         var tiles = Enumerable.Repeat(town ? Material.Grass : Material.Floor, size * size).ToArray();
         int attempts = 0, observations = 0, fallbacks = 0; long propagations = 0;
         // Four structural regions around a guaranteed central road/plaza. Collapse a whole
         // footprint before slicing chunks, so visitation order cannot change its seams.
+        if (forceFallback || layout.StartsWith("overlapping-wfc", StringComparison.Ordinal))
         for (int region = 0; region < 4; region++)
         {
-            const int w = 22, h = 20;
-            int ox = region % 2 == 0 ? 5 : 37, oy = region / 2 == 0 ? 6 : 38;
+            int w = 18 + shapeRandom.Next(9), h = 16 + shapeRandom.Next(9);
+            int ox = (region % 2 == 0 ? 3 : 35) + shapeRandom.Next(3), oy = (region / 2 == 0 ? 3 : 35) + shapeRandom.Next(3);
             var pins = new Dictionary<int, char>();
             for (int x = 0; x < w; x++) { pins[x] = '.'; pins[(h - 1) * w + x] = '.'; }
             for (int y = 0; y < h; y++) { pins[y * w] = '.'; pins[y * w + w - 1] = '.'; }
@@ -62,12 +71,14 @@ public sealed class ChunkGenerator(WorldPlan plan)
             else { cells = result.Cells; attempts += result.Attempts; observations += result.Observations; propagations += result.Propagations; }
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) tiles[(oy + y) * size + ox + x] = cells[y * w + x] switch { '#' => Material.Wall, '+' => Material.Door, _ => Material.Floor };
         }
+        if (!forceFallback && !layout.StartsWith("overlapping-wfc", StringComparison.Ordinal))
+            tiles = StructuralLayouts.Generate(layout, unchecked((int)WorldRandom.Hash(plan.Seed, id, floor, 2020)));
         var rawCells = (Material[])tiles.Clone();
         string rawHash = Hash(tiles); int repairs = 0;
-        if (!town) for (int i = 0; i < tiles.Length; i++)
+        if (!town && purpose == "ruin") for (int i = 0; i < tiles.Length; i++)
             if (tiles[i] == Material.Wall && WorldRandom.Hash(plan.Seed, i, id, floor + 900) % 100 < 6) { tiles[i] = Material.Floor; repairs++; }
         // Validate/connect every floor component. This pass is reported separately from WFC.
-        var seen = new bool[tiles.Length]; Flood(size / 2, size / 2);
+        var seen = new bool[tiles.Length]; Carve(size / 2, size / 2); Flood(size / 2, size / 2);
         for (int i = 0; i < tiles.Length; i++)
         {
             if (seen[i] || !Materials.Walkable(tiles[i])) continue;
@@ -81,7 +92,7 @@ public sealed class ChunkGenerator(WorldPlan plan)
             if (floor > 0) tiles[32 * size + 30] = Material.StairsUp;
             if (floor < WorldPlan.Floors - 1) tiles[32 * size + 34] = Material.StairsDown;
         }
-        var trace = new GenerationTrace(purpose, SampleLibrary.Default.Cultures[culture].Sample, model.PatternCount, attempts, observations, propagations, fallbacks, repairs, rawHash, Hash(tiles));
+        var trace = new GenerationTrace(purpose, layout.StartsWith("overlapping-wfc", StringComparison.Ordinal) || forceFallback ? SampleLibrary.Default.Cultures[culture].Sample : layout, attempts > 0 ? model.PatternCount : 0, attempts, observations, propagations, fallbacks, repairs, rawHash, Hash(tiles), forceFallback ? "constructive-fallback" : layout);
         var footprint = new Footprint(tiles, rawCells, size, size, trace);
         if (!forceFallback)
         {
@@ -138,22 +149,24 @@ public sealed class ChunkGenerator(WorldPlan plan)
         double river = 1800 + 280 * Math.Sin(p.Y / 230.0 + unchecked((uint)plan.Seed) % 100);
         if (Math.Abs(p.X - river) < 4) return Material.Water;
         uint local = WorldRandom.Hash(plan.Seed, p.X, p.Y, 11) % 1000;
-        uint field = WorldRandom.Hash(plan.Seed, p.X / 16, p.Y / 16, 12) % 100;
-        int trees = biome switch { Biome.Forest => 330, Biome.Marsh => 150, Biome.Snow => 130, Biome.Grassland => 60, _ => 15 };
-        if (local < trees + field) return Material.Tree;
-        if (biome == Biome.Marsh && field < 18 && local < 650) return Material.Water;
-        if (biome is Biome.Highland or Biome.Badland && local > 850) return Material.Rock;
+        double elevation = _relief.Fractal(p.X / 130.0, p.Y / 130.0, 3);
+        double moisture = _water.Sample(p.X / 57.0, p.Y / 57.0);
+        int density = (int)(_vegetation.Sample(p.X / 31.0, p.Y / 31.0) * 180);
+        var profile = _profile.Biomes[biome];
+        if (moisture > profile.WaterThreshold && elevation < profile.WaterElevation) return Material.Water;
+        if (elevation > profile.RockThreshold) return Material.Rock;
+        if (local < Math.Max(0, profile.TreesPerThousand + density)) return Material.Tree;
         return biome is Biome.Highland or Biome.Badland ? Material.Earth : Material.Grass;
     }
     public static string Hash(Material[] cells) => Convert.ToHexString(SHA256.HashData(cells.Select(m => (byte)m).ToArray()));
 }
 
-public sealed class ChunkCache(WorldPlan plan, WorldState state)
+public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog? content = null)
 {
     private readonly Dictionary<ChunkKey, (GeneratedChunk Chunk, long Used)> _resident = [];
     private readonly Dictionary<ChunkKey, ChunkDelta> _deltas = state.Chunks.ToDictionary(c => c.Key);
     private long _use;
-    public ChunkGenerator Generator { get; } = new(plan);
+    public ChunkGenerator Generator { get; } = new(plan, content);
     public int ResidentCount => _resident.Count;
     public const int Capacity = 25;
     public GeneratedChunk Get(ChunkKey key)

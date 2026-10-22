@@ -97,6 +97,15 @@ public sealed class ContentTests
         Assert.False(world.PerformInteraction(healer.Id, "interaction.healing").Success); Assert.Equal(before, JsonSerializer.Serialize(world.State));
     }
     [Fact]
+    public void GenerationProfilesValidateAndDriveTheActualLayout()
+    {
+        Assert.NotEmpty(Edited("generation.world", n => n["layouts"]!["mine"] = new JsonArray("invented")).Issues);
+        var content = Edited("generation.world", n => n["layouts"]!["ruin"] = new JsonArray("ring-sanctuary", "ring-sanctuary", "ring-sanctuary", "ring-sanctuary"));
+        Assert.Empty(content.Issues);
+        var world = WorldSession.Create(42, content);
+        Assert.Equal("ring-sanctuary", world.Chunks.Generator.GenerateFootprint(false, 0).Trace.Layout);
+    }
+    [Fact]
     public void RemovingRecruitmentFromAnArchetypeAlsoBlocksDirectRecruitCommands()
     {
         var content = Edited("character.villager", node => node["interactions"] = new JsonArray("interaction.stories"));

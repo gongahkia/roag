@@ -36,5 +36,6 @@
     "item.stone": 12,
     "item.medicine": 3,
     "item.gold": 25
-  }
+  },
+  "generation": "generation.world"
 }

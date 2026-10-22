@@ -56,7 +56,13 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind == "character")
+                if (kind == "generation")
+                {
+                    var plan = WorldPlan.Generate(seed);
+                    var generator = new ChunkGenerator(plan, catalog);
+                    Print(plan.Sites.Take(4).Select(s => new { s.Purpose, floors = Enumerable.Range(0, 4).Select(f => generator.GenerateFootprint(false, s.Id, f).Trace) }));
+                }
+                else if (kind == "character")
                 {
                     var actor = ActorFactory.Create(catalog, id, seed, 100001, new(0, 0), 0);
                     Print(new { seed, actor, interactions = catalog.Get<CharacterDefinition>(id).Interactions.Select(catalog.Get<InteractionDefinition>) });
@@ -69,7 +75,7 @@ public static class DeveloperEntry
                     long tick = game.State.Tick; uint rng = game.State.CombatRandom; var result = game.PerformInteraction(actor.Id, id);
                     Print(new { seed, actor.Name, result, tickBefore = tick, tickAfter = game.State.Tick, randomUnchanged = rng == game.State.CombatRandom, game.State.Inventory, party = game.Party });
                 }
-                else throw new ArgumentException("Preview character, ability or interaction.");
+                else throw new ArgumentException("Preview character, ability, interaction or generation.");
                 return 0;
             }
             if (command == "review-tooling")
@@ -79,6 +85,15 @@ public static class DeveloperEntry
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
+            }
+            if (command == "audit-world")
+            {
+                RequireValid(catalog);
+                var audit = WorldVarietyAudit.Run(seed, int.Parse(Value("--samples", "8")), catalog);
+                string output = Value("--output", "artifacts/world-audit");
+                WriteNew(output + ".json", JsonSerializer.Serialize(audit.Report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
+                Print(new { reportPath = output + ".json", comparison = output + ".svg", audit.Report }); return audit.Report.Connected ? 0 : 1;
             }
             Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview character|ability|interaction ID [--seed N]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
@@ -112,6 +127,7 @@ public static class DeveloperEntry
             "class" => c.All<ClassDefinition>().First(),
             "recipe" => c.All<RecipeDefinition>().First(),
             "variant" => new VariantDefinition { Id = id, Name = "New variation" },
+            "generation" => c.Get<GenerationDefinition>(c.Game.Generation),
             _ => throw new ArgumentException("Scaffold a supported content kind; game.vagabonds is the existing runtime entry point.")
         };
         // Clone templates before changing IDs, preserving the loaded catalog's identity and references.

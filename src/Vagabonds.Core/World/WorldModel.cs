@@ -58,7 +58,7 @@ public sealed record RoadPlan(int Id, int FromTown, int ToTown, WorldPosition A,
 
 public sealed class WorldPlan
 {
-    public const int GenerationVersion = 2;
+    public const int GenerationVersion = 3;
     public const int ChunkSize = 64;
     public const int ChunksAcross = 64;
     public const int Size = ChunkSize * ChunksAcross;
@@ -103,29 +103,46 @@ public sealed class WorldPlan
         var biomes = Enum.GetValues<Biome>();
         for (int i = biomes.Length - 1; i > 0; i--) { int j = r.Next(i + 1); (biomes[i], biomes[j]) = (biomes[j], biomes[i]); }
         for (int i = 0; i < 6; i++) plan.BiomeRegions.Add(new(biomes[i], 500 + i % 3 * 1400 + r.Next(250), 800 + i / 3 * 2100 + r.Next(350)));
-        for (int y = 0; y < 4; y++) for (int x = 0; x < 6; x++)
+        for (int i = 0; i < 24; i++)
         {
-            int i = y * 6 + x;
-            var p = new WorldPosition(260 + x * 650 + r.Next(120), 320 + y * 940 + r.Next(150));
-            plan.Towns.Add(new(i, starts[r.Next(starts.Length)] + ends[i % 6] + $" {i + 1}", i % 6, i % 6, p));
+            WorldPosition p = i switch { 0 => new(220 + r.Next(280), 240 + r.Next(300)), 1 => new(900 + r.Next(280), 240 + r.Next(400)), _ => default };
+            if (i > 1)
+            {
+                int attempt = 0;
+                do { p = new(120 + r.Next(Size - 240), 120 + r.Next(Size - 240)); }
+                while (plan.Towns.Any(t => p.Distance(t.Center) < 430) && ++attempt < 10000);
+                if (attempt == 10000) throw new InvalidDataException("Cannot place separated settlements.");
+            }
+            plan.Towns.Add(new(i, starts[r.Next(starts.Length)] + ends[r.Next(ends.Length)] + $" {i + 1}", i % 6, i % 6, p));
         }
-        // A connected lattice, rather than independent roads that can strand a town.
-        foreach (var t in plan.Towns)
+        AddRoad(plan.Towns[0], plan.Towns[1]);
+        var linked = new HashSet<int> { 0, 1 };
+        while (linked.Count < plan.Towns.Count)
         {
-            if (t.Id % 6 < 5) AddRoad(t, plan.Towns[t.Id + 1]);
-            if (t.Id < 18) AddRoad(t, plan.Towns[t.Id + 6]);
+            var edge = (from a in plan.Towns where linked.Contains(a.Id) from b in plan.Towns where !linked.Contains(b.Id)
+                orderby a.Center.Distance(b.Center), a.Id, b.Id select (a, b)).First();
+            AddRoad(edge.a, edge.b); linked.Add(edge.b.Id);
         }
-        for (int y = 0; y < 6; y++) for (int x = 0; x < 8; x++)
+        // A geographic ring supplies alternate routes around every trunk-road blockade.
+        var ring = plan.Towns.OrderBy(t => Math.Atan2(t.Center.Y - Size / 2.0, t.Center.X - Size / 2.0)).ToArray();
+        for (int i = 0; i < ring.Length; i++) AddRoad(ring[i], ring[(i + 1) % ring.Length]);
+        for (int i = 0; i < 48; i++)
         {
-            int i = y * 8 + x;
-            var p = new WorldPosition(160 + x * 500 + r.Next(100), 160 + y * 650 + r.Next(100));
-            if (plan.Towns.Any(t => Math.Abs(t.Center.X - p.X) < 96 && Math.Abs(t.Center.Y - p.Y) < 96)) p = p.Offset(0, 220);
+            WorldPosition p; int attempt = 0;
+            do { p = new(90 + r.Next(Size - 180), 90 + r.Next(Size - 180)); }
+            while ((plan.Towns.Any(t => Math.Abs(t.Center.X - p.X) < 100 && Math.Abs(t.Center.Y - p.Y) < 100)
+                || plan.Sites.Any(t => p.Distance(t.Center) < 230)) && ++attempt < 10000);
+            if (attempt == 10000) throw new InvalidDataException("Cannot place separated adventure sites.");
             string purpose = new[] { "ruin", "mine", "shrine", "fort" }[i % 4];
             plan.Sites.Add(new(i, $"{starts[r.Next(8)]} {purpose} {i + 1}", i % 6, purpose, p));
         }
         foreach (var t in plan.Towns) plan.History.Add($"{t.Name} was founded by the {SampleLibrary.Default.Cultures[t.Culture].Name} people near the old trade roads.");
         return plan;
-        void AddRoad(TownPlan a, TownPlan b) => plan.Roads.Add(new(plan.Roads.Count, a.Id, b.Id, a.Center, b.Center));
+        void AddRoad(TownPlan a, TownPlan b)
+        {
+            if (a.Id == b.Id || plan.Roads.Any(r => r.FromTown == a.Id && r.ToTown == b.Id || r.FromTown == b.Id && r.ToTown == a.Id)) return;
+            plan.Roads.Add(new(plan.Roads.Count, a.Id, b.Id, a.Center, b.Center));
+        }
     }
     public IReadOnlyList<string> Validate()
     {

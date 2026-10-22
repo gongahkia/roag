@@ -1,0 +1,57 @@
+{
+  "kind": "generation",
+  "id": "generation.world",
+  "name": "Vagabond wilds",
+  "description": "Whole-site layouts and coherent terrain fields; stairs and connectivity remain protected.",
+  "layouts": {
+    "ruin": [
+      "overlapping-wfc",
+      "overlapping-wfc",
+      "overlapping-wfc",
+      "overlapping-wfc"
+    ],
+    "mine": [
+      "bsp-workings",
+      "caverns",
+      "bsp-workings",
+      "caverns"
+    ],
+    "shrine": [
+      "overlapping-wfc",
+      "ring-sanctuary",
+      "overlapping-wfc",
+      "ring-sanctuary"
+    ],
+    "fort": [
+      "bsp-fort",
+      "bsp-fort",
+      "bsp-fort",
+      "bsp-fort"
+    ]
+  },
+  "biomes": {
+    "Grassland": {
+      "treesPerThousand": 35,
+      "waterThreshold": 0.62,
+      "waterElevation": -0.2
+    },
+    "Forest": {
+      "treesPerThousand": 420
+    },
+    "Marsh": {
+      "treesPerThousand": 170,
+      "waterThreshold": 0.28
+    },
+    "Highland": {
+      "treesPerThousand": 10,
+      "rockThreshold": 0.08
+    },
+    "Badland": {
+      "treesPerThousand": 10,
+      "rockThreshold": 0.08
+    },
+    "Snow": {
+      "treesPerThousand": 150
+    }
+  }
+}

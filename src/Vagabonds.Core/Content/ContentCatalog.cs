@@ -21,7 +21,8 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "game", "interaction", "item", "names", "recipe", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "game", "generation", "interaction", "item", "names", "recipe", "trait", "variant"];
+    public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     public IReadOnlyDictionary<string, ContentDefinition> Entries => _entries;
@@ -38,7 +39,7 @@ public sealed class ContentCatalog
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
         InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
-        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", _ => throw new ArgumentException("Unknown content type.")
+        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
     {
@@ -113,6 +114,7 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    Ref<GenerationDefinition>("generation", g.Generation);
                     foreach (var id in new[] { g.Traveller, g.Villager, g.Healer, g.Beast, g.Raider, g.Caravan }) Ref<CharacterDefinition>("characters", id);
                     if (g.Classes == null || g.CommonAbilities == null || g.Bosses == null || g.Recipes == null) { Error("classes", "Game pools cannot be null."); break; }
                     if (g.Classes.Length != 4 || g.CommonAbilities.Length != 3 || g.Bosses.Length == 0) Error("classes", "Provide four classes, three common actions and at least one boss.");
@@ -121,6 +123,18 @@ public sealed class ContentCatalog
                     foreach (var id in g.Bosses) Ref<BossDefinition>("bosses", id);
                     foreach (var id in g.Recipes) Ref<RecipeDefinition>("recipes", id);
                     Cost("inventory", g.Inventory); break;
+                case GenerationDefinition g:
+                    if (g.Layouts == null || g.Biomes == null) { Error("layouts", "Layout and biome profiles are required."); break; }
+                    foreach (string purpose in new[] { "ruin", "mine", "fort", "shrine" })
+                        if (!g.Layouts.TryGetValue(purpose, out var layouts) || layouts == null || layouts.Length != World.WorldPlan.Floors || layouts.Any(l => !Layouts.Contains(l)))
+                            Error("layouts." + purpose, "Provide a registered layout for each of the four floors.");
+                    foreach (var biome in Enum.GetValues<World.Biome>())
+                    {
+                        if (!g.Biomes.TryGetValue(biome, out var profile) || profile == null) { Error("biomes", "Missing biome: " + biome); continue; }
+                        Range("treesPerThousand", profile.TreesPerThousand, 0, 800);
+                        if (new[] { profile.RockThreshold, profile.WaterThreshold, profile.WaterElevation }.Any(v => !double.IsFinite(v) || v < -1 || v > 1)) Error("biomes", "Thresholds must be finite in -1..1.");
+                    }
+                    break;
                 case AbilityDefinition a:
                     Range("mana", a.Mana, 0, 100); Range("power", a.Power, 0, 200); Range("duration", a.Duration, 1, 12);
                     if (!Effects.Contains(a.Effect)) Error("effect", "Unknown registered effect: " + a.Effect);

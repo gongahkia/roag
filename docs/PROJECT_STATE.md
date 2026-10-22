@@ -12,24 +12,24 @@ Vagabonds is the fantasy party RPG extracted from Ithica at `c87d480`, now exten
 | Launch | Resume selected world/legacy slot if present; absent slot or explicit `--new` starts a world |
 | Geography | Finite 4096×4096 surface, three underground floors; 64×64 tile chunks |
 | Content | 24 towns, six cultures/factions, six seeded biome provinces, 48 adventure sites |
-| Generation | Global terrain fields, rivers, connected roads, whole-site overlapping WFC and separate repairs |
+| Generation | Seeded settlement/site placement, road loops, gradient-noise terrain, WFC ruins/towns, BSP workings/forts, caverns and ring sanctuaries |
 | WFC | Authored semantic 3×3 samples, 99–111 learned patterns, culture palettes, structural/entrance pins, eight attempts then constructive fallback |
 | Streaming | Seamless global coordinates; 3×3 prefetch, 25 resident chunks, eight resident footprints |
 | Party | Start alone as a generated traveller; recruit generated inhabitants, active party 1–4, stable actor IDs |
 | Exploration | Real time with pause; smooth tile travel/camera, horizontal sprite facing, cursor selector, hover/active routes; clear outdoor view, dungeon fog |
 | Combat | Content-authored classes/abilities; initiative, intentions, status effects, mana, stress, revival and levels |
-| Content | 78 typed definitions, stable IDs, reference/sprite/handler validation; runtime characters, classes, abilities and configured conversations |
+| Content | 79 typed definitions, stable IDs, reference/sprite/handler validation; runtime characters, classes, abilities and configured conversations |
 | Developer tools | `./dev` content listing/inspection/references/scaffolding/removal/schema, deterministic previews, tooling review and tests |
 | Building | Horizontal digging, material yields/food cost, walls/floors/doors/bridges/storage/camps, protected stair links |
 | Simulation | 5 Hz, one real second per game minute; workers, stocks, demand prices, actual caravan cargo, road reroutes/waits, shortages, raids |
 | Stories | Generated trade/blight/succession arcs; real entity references, alternative compact outcomes, repair/delivery requests and history |
 | Failure | Downed companions revive; abandonment/wipe permanently kills and immediately saves; new lone traveller can continue same world |
-| Persistence | `vagabonds-world` v2 manifest with content hash, generation v2/sample hash pinning, immutable checksummed chunk snapshots, exact combat/RNG continuation |
+| Persistence | `vagabonds-world` v2 manifest with content hash, generation v3/sample hash pinning, immutable checksummed chunk snapshots, exact combat/RNG continuation |
 | Inspection | In-game F3 samples/constraints/counts/raw/final/repair views; reports, headless validation and native smoke |
 
 New and loaded worlds begin paused. Space toggles time. Menus, conversations, combat and focus loss freeze the clock; there is no offline progression. Fine movement operates within 100 tiles, while production and trade run regionally farther away. Recruitment creates a job vacancy. Complete road blockades change regional routing; shortages generate delivery requests and affect prices, and repairing roads allows supply to recover. Detailed and regional simulation share the same actor identities and cargo.
 
-Town exteriors are grassy; structural regions contain pinned walls/doors around roads/plazas. Biome regions are shuffled per seed with smoothly warped borders. Footprints are generated coherently before chunk slicing; chunk visitation cannot change layouts. Edits and discovery are separate from base terrain and survive eviction/save/load. F3 retains raw structures and highlights later repairs. Seed 42's full report has 14 fallback regions out of 864 and 4,445 post-collapse repairs; diagnostics report these explicitly. Stairs cannot be removed/built over and digging cannot create vertical shafts.
+Town exteriors are grassy, with WFC structural regions around roads/plazas. Authored generation profiles select algorithms per purpose/floor and biome terrain thresholds. Settlement/site positions vary across the world; a minimum-distance road tree plus a geographic ring supplies alternate routes. Seeded gradient fields form coherent vegetation, rock and water. Footprints are generated before chunk slicing; visitation cannot change layouts. Edits/discovery survive eviction and saves. F3 distinguishes layout families, raw generation and repairs. `./dev audit-world --seed 40 --samples 8` produces a JSON topology report and SVG comparison. The executed 136-footprint audit found six families, 136 distinct raw layouts and connected stairs throughout; this establishes structural variety, not encounter or reward quality. Stairs remain protected and tunnelling is horizontal.
 
 A main arc accepts evidence after a patron dies, and can resolve through the original town or a different compact. Severe sustained shortages can explicitly fail it. The world continues after resolution or failure. A wiped party leaves a recoverable storage cache; deaths must be saved before either continuation choice is accepted. Generated successor heroes receive new stable IDs while earlier deaths and the changed world remain.
 
@@ -68,7 +68,7 @@ The generic Core `Campaign.Load` retains inherited field compatibility for sourc
 
 Default selected slot is `~/.vagabonds/campaign.json`; `--save PATH` selects another. An existing unreadable/invalid slot fails without silently replacing it. `--new` explicitly starts over; normal saving/quitting then replaces that selected slot. `--load` requires a save and cannot combine with `--new`. No real player slot is used by validation tooling.
 
-World saves use format version two and pin the authored content hash alongside generation/sample versions. Earlier world saves are rejected safely; this development expansion does not migrate them. World saves pair the JSON manifest with `<slot>.chunks/`. Chunk snapshots are immutable SHA-256 files, flushed before atomically replacing the manifest. Save/load retains actors, party, clock, inventories/cargo, statuses, arc/tasks/history, edits, discovery, storage, battle order and random state. Generation v2 and the exact authored sample hash are required to prevent silent regeneration changes. Unreferenced snapshots are retained so backups of earlier manifests remain recoverable; automatic snapshot garbage collection is deferred. Back up both manifest and snapshot directory.
+World saves use format version two and pin the authored content hash alongside generation/sample versions. Earlier world saves are rejected safely; this development expansion does not migrate them. World saves pair the JSON manifest with `<slot>.chunks/`. Chunk snapshots are immutable SHA-256 files, flushed before atomically replacing the manifest. Save/load retains actors, party, clock, inventories/cargo, statuses, arc/tasks/history, edits, discovery, storage, battle order and random state. Generation v3 and the exact authored sample hash are required to prevent silent regeneration changes. Unreferenced snapshots are retained so backups of earlier manifests remain recoverable; automatic snapshot garbage collection is deferred. Back up both manifest and snapshot directory.
 
 `--import-legacy PATH [--save DESTINATION]` validates/copies an old RPG slot atomically, exits and leaves the source untouched; it rejects self-overwrite, colony saves and field sessions. The inherited `lantern-rpg` format name, object IDs and asset filenames retain their identities intentionally.
 

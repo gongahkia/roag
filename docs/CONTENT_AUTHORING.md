@@ -32,6 +32,7 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | interaction | Registered action, maximum distance, item costs and effect amount |
 | item | Inventory key, value, appearance, equipment slot and stat modifiers |
 | recipe | Buildable material, reserved item costs and required work |
+| generation | Four-floor layout selection per site purpose and biome tree/rock/water profiles; shared by runtime and audit |
 | boss / variant | Authored identity/tactics/weakness, stats, conditional behaviour phases, minions and variation pools |
 
 Boss/recipe/equipment definitions establish their content contracts; their complete gameplay systems are tracked as subsequent checkpoints in INTEGRATION.md. Character creation, party abilities and configured conversations already use the content catalog.
@@ -58,3 +59,9 @@ Content definitions describe possible people. Campaign actors retain their own i
 4. Regenerate the schema, update this guide/project state, and run the relevant developer commands yourself.
 
 At each substantial milestone, inspect `review-tooling` and evaluate actual authoring friction, diagnostics and preview coverage. Promote repeated manual checks into commands. Definition counts and passing validation establish consistency, not whether an encounter or world is enjoyable; those require inspection and playtesting.
+
+## Inspect procedural worlds
+
+`./dev preview generation generation.world --seed 42` exercises the configured algorithms. `./dev audit-world --seed 40 --samples 8 --output artifacts/world-audit` writes JSON measurements and an SVG sheet; use `--replace` deliberately for an existing output. It reports raw/final hashes, open-cell density, components, stairs, fallbacks and repairs separately. Inspect the sheet alongside the numbers: distinct hashes alone do not establish interesting worlds.
+
+WFC is retained for towns/ruins. Registered structural algorithms are `bsp-workings`, `bsp-fort`, `caverns` and `ring-sanctuary`; profiles select these without changing code. New algorithms require a Core implementation and validation registration. The gradient-noise implementation was adapted from the pinned Ithica `070558d` source; there is no runtime dependency on that checkout. Macro placement and connected road loops remain Core invariants.

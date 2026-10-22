@@ -16,6 +16,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(BossDefinition), "boss")]
 [JsonDerivedType(typeof(VariantDefinition), "variant")]
 [JsonDerivedType(typeof(GameDefinition), "game")]
+[JsonDerivedType(typeof(GenerationDefinition), "generation")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -37,6 +38,20 @@ public sealed class GameDefinition : ContentDefinition
     public required string[] Bosses { get; set; }
     public required string[] Recipes { get; set; }
     public required Dictionary<string, int> Inventory { get; set; }
+    public required string Generation { get; set; }
+}
+
+public sealed class GenerationDefinition : ContentDefinition
+{
+    public required Dictionary<string, string[]> Layouts { get; set; }
+    public required Dictionary<Biome, TerrainProfile> Biomes { get; set; }
+}
+public sealed class TerrainProfile
+{
+    public int TreesPerThousand { get; set; }
+    public double RockThreshold { get; set; } = 1;
+    public double WaterThreshold { get; set; } = 1;
+    public double WaterElevation { get; set; } = 1;
 }
 
 public sealed class ClassDefinition : ContentDefinition

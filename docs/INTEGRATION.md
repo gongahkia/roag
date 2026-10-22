@@ -26,3 +26,9 @@ Clarified: everyone follows the same needs, fatigue and injury rules. Class, lev
 5. Integrate player feedback, inspections, content/encounter previews, documentation and full acceptance checks. Preserve old safeguards throughout.
 
 Each checkpoint requires implementation, meaningful automated checks, usable developer inspection, updated project state/verification and a cohesive local commit. This file records direction and progress, not a claim that the planned systems are already shipped.
+
+## Progress
+
+- Checkpoint 1 committed as `2bbf9dc`: runtime content and unified authoring commands.
+- Checkpoint 2 implemented: generation profiles, purpose-specific layouts, coherent terrain and reproducible multi-seed JSON/SVG audits. Executed evidence is recorded in VERIFICATION.md.
+- Combat/bosses and shared actor work/simulation remain the following checkpoints.

@@ -775,6 +775,9 @@
             "type": "integer"
           }
         },
+        "generation": {
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -812,6 +815,84 @@
         "bosses",
         "recipes",
         "inventory",
+        "generation",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "generation"
+        },
+        "layouts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "biomes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "treesPerThousand": {
+                "type": "integer"
+              },
+              "rockThreshold": {
+                "type": "number"
+              },
+              "waterThreshold": {
+                "type": "number"
+              },
+              "waterElevation": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "layouts",
+        "biomes",
         "id",
         "name"
       ],

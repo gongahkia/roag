@@ -556,7 +556,7 @@ internal sealed class WorldGame : Game
             Fill(new(mx + cell % 64 * 3, my + cell / 64 * 3, 3, 3), color);
         }
         Text("Tab changes stage", mx, my + 200, Muted);
-        Wrap($"{town?.Name ?? site!.Name}: {trace.Sample}, {trace.PatternCount} patterns. Attempts {trace.Attempts}/32; observations {trace.Observations}; propagations {trace.Propagations}. Fallback regions {trace.FallbackRegions}/4. Repaired cells {trace.RepairedCells}. Pinned borders around four structural regions; central roads/plaza and stair links are protected.", x, y, width);
+        Wrap($"{town?.Name ?? site!.Name}: {trace.Layout}. Sample {trace.Sample}; {trace.PatternCount} learned patterns. WFC attempts {trace.Attempts}; observations {trace.Observations}; propagations {trace.Propagations}. Fallback regions {trace.FallbackRegions}. Repaired cells {trace.RepairedCells}. Whole-site generation preserves connected floors and stair links.", x, y, width);
     }
     private void DrawWipe(int w, int h)
     {
