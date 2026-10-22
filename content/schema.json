@@ -523,6 +523,15 @@
             "type": "integer"
           }
         },
+        "output": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount": {
+          "type": "integer"
+        },
         "id": {
           "type": "string"
         },
@@ -781,6 +790,18 @@
         "enemyFallback": {
           "type": "string"
         },
+        "simulation": {
+          "type": "string"
+        },
+        "incidents": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "id": {
           "type": "string"
         },
@@ -820,6 +841,8 @@
         "inventory",
         "generation",
         "enemyFallback",
+        "simulation",
+        "incidents",
         "id",
         "name"
       ],
@@ -897,6 +920,119 @@
       "required": [
         "layouts",
         "biomes",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "simulation"
+        },
+        "hungerPerTick": {
+          "type": "number"
+        },
+        "fatiguePerTick": {
+          "type": "number"
+        },
+        "restPerTick": {
+          "type": "number"
+        },
+        "mealAt": {
+          "type": "integer"
+        },
+        "mealReduction": {
+          "type": "integer"
+        },
+        "starveAt": {
+          "type": "integer"
+        },
+        "structureWearPerTick": {
+          "type": "number"
+        },
+        "memoryTicks": {
+          "type": "integer"
+        },
+        "forageWork": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "incident"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "mood": {
+          "type": "integer"
+        },
+        "cooldown": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "condition",
+        "effect",
         "id",
         "name"
       ],

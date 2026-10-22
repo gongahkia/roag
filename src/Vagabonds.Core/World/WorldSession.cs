@@ -3,8 +3,8 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip }
-public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1);
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss }
+public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
 {
@@ -36,7 +36,7 @@ public sealed partial class WorldSession : IGameSession
         content ??= ContentCatalog.Default;
         if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
         var plan = WorldPlan.Generate(seed);
-        var s = new WorldState { CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center,
+        var s = new WorldState { IncidentRandom = WorldRandom.Stream(seed, 0, salt: 610).State, CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center,
             Inventory = content.Game.Inventory.ToDictionary(p => content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) };
         for (int f = 0; f < 6; f++)
             s.Factions.Add(new() { Id = f, Name = SampleLibrary.Default.Cultures[f].Name + " compact", Relations = Enumerable.Range(0, 6).Select(i => i == f ? 100 : (int)(WorldRandom.Hash(seed, f, i, 180) % 81) - 40).ToArray() });
@@ -107,6 +107,7 @@ public sealed partial class WorldSession : IGameSession
     private void AdvanceWorldTick()
     {
         State.Tick++;
+        AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
@@ -157,37 +158,32 @@ public sealed partial class WorldSession : IGameSession
                 if (target == null || target.Kind != ActorKind.Person || target.Life != LifeState.Alive || target.Recruited || State.Position.Distance(target.Position) > 2) return new(false, "Speak to an available inhabitant nearby.");
                 if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
-                target.Recruited = true; target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
+                target.Recruited = true;
+                Remember(target, "recruited", "I set out with a new travelling party.", 5);
+                target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
-            case WorldCommandKind.Dig:
-                if (!near || Chunks.At(command.Target) is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose adjacent rock, wall, tree, door, empty storage or camp.");
-                var old = Chunks.At(command.Target);
-                if (old == Material.Storage && Chunks.Delta(command.Target.Chunk).Storage.GetValueOrDefault(command.Target.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
-                bool built = old is Material.Wall or Material.Door or Material.Storage or Material.Camp &&
-                    State.Chunks.FirstOrDefault(c => c.Key == command.Target.Chunk)?.Edits.GetValueOrDefault(command.Target.LocalIndex) == old &&
-                    Chunks.Get(command.Target.Chunk).Tiles[command.Target.LocalIndex] != old;
-                int work = built ? 0 : Materials.Hardness(old);
-                if (Count("food") < work) return new(false, $"Excavation needs {work} food for the work.");
-                Add("food", -work); Add(Materials.Yield(old), built ? old is Material.Storage or Material.Camp ? 4 : 2 : Materials.Hardness(old) + 1);
-                var cleared = command.Target.Floor == 0 ? Material.Earth : Material.Floor;
-                if (built && Chunks.Get(command.Target.Chunk).Tiles[command.Target.LocalIndex] == Material.Water) cleared = Material.Water;
-                Chunks.Edit(command.Target, cleared); Reveal();
-                return new(true, "Excavated. Materials recovered; routes have changed.");
-            case WorldCommandKind.Build:
-                if (!near || !Materials.Walkable(Chunks.At(command.Target)) && Chunks.At(command.Target) != Material.Water || Chunks.At(command.Target) is Material.StairsDown or Material.StairsUp) return new(false, "Build on adjacent clear ground or water; preserve stairs.");
-                if (command.Material is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)) return new(false, "Choose a wall, floor, door, bridge, storage or camp.");
-                if (command.Target == State.Position && !Materials.Walkable(command.Material) || State.Actors.Any(a => a.Life == LifeState.Alive && !a.Recruited && a.Position == command.Target)) return new(false, "Someone is standing there.");
-                string resource = command.Material is Material.Wall or Material.Floor ? "stone" : "wood";
-                int cost = command.Material is Material.Camp or Material.Storage ? 4 : 2;
-                if (Count(resource) < cost) return new(false, $"Requires {cost} {resource}.");
-                if (Chunks.At(command.Target) == Material.Water && command.Material != Material.Bridge) return new(false, "Build a bridge over water first.");
-                Add(resource, -cost); Chunks.Edit(command.Target, command.Material); Reveal(); return new(true, "Built.");
+            case WorldCommandKind.Dig: return QueueDig(command.Target);
+            case WorldCommandKind.Build: return QueueBuild(command);
+            case WorldCommandKind.Repair: return QueueRepair(command.Target);
+            case WorldCommandKind.Craft: return QueueCraft(command.Item);
+            case WorldCommandKind.Forage: return QueueForage();
+            case WorldCommandKind.Wait: return Wait(command.Amount);
+            case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
+            case WorldCommandKind.CancelWork: return CancelWork(command.WorkId);
+            case WorldCommandKind.Dismiss:
+                if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Alive || State.Party.Count < 2 || State.Position.Distance(Plan.Towns[target.HomeTown].Center) > 28)
+                    return new(false, "Return to a companion's home town with another living traveller before parting ways.");
+                State.Party.Remove(target.Id); target.Recruited = false; State.Towns[target.HomeTown].Vacancies = Math.Max(0, State.Towns[target.HomeTown].Vacancies - 1);
+                Remember(target, "returned-home", "I returned to my old work, changed by the journey.", 5); return new(true, target.Name + " returned to their old job with their history and equipment.");
             case WorldCommandKind.Revive:
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Downed || Count("medicine") < 1) return new(false, "Revival needs a downed companion and medicine.");
-                Add("medicine", -1); target.Life = LifeState.Alive; target.Health = Math.Max(1, target.MaxHealth / 3); return new(true, $"{target.Name} revived.");
+                Add("medicine", -1); target.Life = LifeState.Alive; target.Health = Math.Max(1, target.MaxHealth / 3);
+                foreach (var friend in Party.Where(a => a.Id != target.Id && a.Life == LifeState.Alive)) { ChangeTrust(target, friend, 12); Remember(target, "revived", friend.Name + " helped me back to my feet.", 8, friend.Id); }
+                return new(true, $"{target.Name} revived.");
             case WorldCommandKind.Abandon:
                 if (target == null || !State.Party.Contains(target.Id) || target.Life != LifeState.Downed) return new(false, "Only a downed companion may be deliberately abandoned.");
-                target.Life = LifeState.Dead; State.Party.Remove(target.Id); Log($"{target.Name} was abandoned and died."); CommitDeaths(); return new(true, "Death recorded.");
+                target.Life = LifeState.Dead; State.Party.Remove(target.Id);
+                foreach (var friend in Party) Remember(friend, "abandoned-friend", target.Name + " was left behind.", -12, target.Id); Log($"{target.Name} was abandoned and died."); CommitDeaths(); return new(true, "Death recorded.");
             case WorldCommandKind.Buy:
             case WorldCommandKind.Sell:
                 return Trade(command);
@@ -201,11 +197,15 @@ public sealed partial class WorldSession : IGameSession
                 Chunks.Delta(command.Target.Chunk).Storage[command.Target.LocalIndex] = contents;
                 source[command.Item] -= command.Amount; destination[command.Item] = destination.GetValueOrDefault(command.Item) + command.Amount; return new(true, "Stack transferred.");
             case WorldCommandKind.Camp:
-                if (!Nearby().Any(p => Chunks.At(p) == Material.Camp)) return new(false, "Build or approach a camp first.");
+                if (!NearbyCamp(State.Position)) return new(false, "Approach a serviceable camp first.");
                 if (Count("food") < State.Party.Count) return new(false, "The party needs food to rest.");
                 Add("food", -State.Party.Count);
-                foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) { a.Health = a.MaxHealth; a.Mana = a.MaxMana; a.Stress = Math.Max(0, a.Stress - 15); }
-                return new(true, "Rested at camp. Downed companions still need medicine.");
+                foreach (var a in Party.Where(a => a.Life == LifeState.Alive))
+                {
+                    a.Body.RestUntil = State.Tick + TicksPerHour + 1; a.Body.Hunger = Math.Max(0, a.Body.Hunger - Simulation.MealReduction);
+                    Remember(a, "camp-rest", "We took time to eat and recover.", 8);
+                }
+                return Wait(TicksPerHour);
             case WorldCommandKind.ResolveArc:
                 return ResolveArc();
             case WorldCommandKind.CompleteDelivery:
@@ -297,7 +297,7 @@ public sealed partial class WorldSession : IGameSession
     {
         foreach (var a in State.Actors)
         {
-            if (a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
+            if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);
             WorldPosition destination;
             if (a.Kind == ActorKind.Person)

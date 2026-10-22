@@ -166,9 +166,12 @@ public sealed class WorldPlan
 
 public sealed class Actor
 {
+    [JsonRequired] public BodyState Body { get; set; } = new();
+    [JsonRequired] public List<ActorMemory> Memories { get; set; } = [];
+    [JsonRequired] public Dictionary<long, int> Trust { get; set; } = [];
     public string VariantId { get; set; } = "";
     public long EncounterLeader { get; set; }
-    public Dictionary<string, EquipmentState> Equipment { get; set; } = [];
+    [JsonRequired] public Dictionary<string, EquipmentState> Equipment { get; set; } = [];
     public string Archetype { get; set; } = "";
     public string TraitId { get; set; } = "";
     public int BaseHealth { get; set; }
@@ -233,8 +236,43 @@ public sealed class Actor
     public int MaxMana => BaseHealth > 0 ? BaseMana + (Level - 1) * 3 : new Hero { Role = Role, Level = Level }.MaxMana;
     public string Sprite => SpriteId.Length > 0 ? SpriteId : Kind switch { ActorKind.Beast => "wolf", ActorKind.Raider => "bandit", ActorKind.Caravan => "merchant", _ => new Hero { Role = Role }.Sprite };
     public int Armor => BaseArmor + Equipment.Values.Sum(e => e.Armor);
-    public int Power => BasePower + Equipment.Values.Sum(e => e.Power);
-    public int Speed => Math.Max(1, BaseSpeed + Equipment.Values.Sum(e => e.Speed));
+    public int Power => Math.Max(1, BasePower + Equipment.Values.Sum(e => e.Power) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
+    public int Speed => Math.Max(1, BaseSpeed + Equipment.Values.Sum(e => e.Speed) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
+}
+public sealed class BodyState
+{
+    [JsonRequired] public double Hunger { get; set; }
+    [JsonRequired] public double Fatigue { get; set; }
+    [JsonRequired] public int Wounds { get; set; }
+    [JsonRequired] public long RestUntil { get; set; }
+    [JsonRequired] public long ForageAfter { get; set; }
+    [JsonRequired] public int ForageProgress { get; set; }
+    [JsonRequired] public double WorkDone { get; set; }
+}
+public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
+public enum WorkKind { Build, Dig, Repair, Craft, Forage }
+public sealed class WorkOrder
+{
+    [JsonRequired] public long Id { get; set; }
+    [JsonRequired] public WorkKind Kind { get; set; }
+    [JsonRequired] public string Definition { get; set; } = "";
+    [JsonRequired] public WorldPosition Target { get; set; }
+    [JsonRequired] public Material Before { get; set; }
+    [JsonRequired] public Material After { get; set; }
+    [JsonRequired] public double Required { get; set; }
+    [JsonRequired] public double Progress { get; set; }
+    [JsonRequired] public long Worker { get; set; }
+    [JsonRequired] public Dictionary<string, int> Reserved { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Yield { get; set; } = [];
+    [JsonRequired] public string Status { get; set; } = "Waiting";
+}
+public sealed class BuiltStructure
+{
+    [JsonRequired] public WorldPosition Position { get; set; }
+    [JsonRequired] public Material Material { get; set; }
+    [JsonRequired] public Material Foundation { get; set; }
+    [JsonRequired] public Dictionary<string, int> Cost { get; set; } = [];
+    [JsonRequired] public double Condition { get; set; } = 100;
 }
 
 public sealed record EquipmentState(string Item, int Health, int Power, int Armor, int Speed);
@@ -320,6 +358,11 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    [JsonRequired] public List<WorkOrder> Work { get; set; } = [];
+    [JsonRequired] public List<BuiltStructure> Structures { get; set; } = [];
+    [JsonRequired] public long NextWorkId { get; set; } = 1;
+    [JsonRequired] public uint IncidentRandom { get; set; } = 1;
+    [JsonRequired] public Dictionary<string, long> IncidentAfter { get; set; } = [];
     [JsonRequired] public EndgameState Endgame { get; set; } = null!;
     [JsonRequired] public List<LootCache> Loot { get; set; } = [];
     [JsonRequired]

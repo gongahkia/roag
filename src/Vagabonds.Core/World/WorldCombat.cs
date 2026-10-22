@@ -143,6 +143,8 @@ public sealed partial class WorldSession
     private void Damage(CombatUnit target, int amount)
     {
         int damage = Math.Max(1, amount - target.Armor); if (target.Guarding) damage = Math.Max(1, damage / 2);
+        var actor = State.Actors.Single(a => a.Id == State.Battle!.ActorIds[target.Id]);
+        if (damage >= Math.Max(8, target.MaxHealth / 3)) actor.Body.Wounds = Math.Min(10, actor.Body.Wounds + 1);
         target.Health = Math.Max(0, target.Health - damage);
         if (!target.Alive)
         {
@@ -157,6 +159,11 @@ public sealed partial class WorldSession
         {
             var a = State.Actors.Single(a => a.Id == b.ActorIds[u.Id]);
             a.Health = u.Health; a.Mana = u.Mana; a.Stress = u.Stress;
+            if (a.Life == LifeState.Alive && !u.Alive)
+            {
+                a.Body.Wounds = Math.Min(10, a.Body.Wounds + 1);
+                foreach (var other in Party.Where(p => p.Id != a.Id && p.Life == LifeState.Alive)) Remember(other, "fallen-companion", a.Name + " fell in the fighting.", -8, a.Id);
+            }
             a.Life = u.Alive ? LifeState.Alive : u.Friendly ? LifeState.Downed : LifeState.Dead;
         }
     }

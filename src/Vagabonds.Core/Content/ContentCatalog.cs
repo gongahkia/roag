@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "game", "generation", "interaction", "item", "names", "recipe", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -39,7 +39,7 @@ public sealed class ContentCatalog
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
         InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
-        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", _ => throw new ArgumentException("Unknown content type.")
+        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
     {
@@ -116,6 +116,9 @@ public sealed class ContentCatalog
             {
                 case GameDefinition g:
                     Ref<GenerationDefinition>("generation", g.Generation);
+                    Ref<SimulationDefinition>("simulation", g.Simulation);
+                    if (g.Incidents == null) Error("incidents", "Provide an incident pool.");
+                    else foreach (var id in g.Incidents) Ref<IncidentDefinition>("incidents", id);
                     Ref<AbilityDefinition>("enemyFallback", g.EnemyFallback);
                     if (g.EnemyFallback != null && _entries.TryGetValue(g.EnemyFallback, out var fallback) && fallback is AbilityDefinition f && (f.Mana != 0 || f.Target != Expeditions.TargetKind.Enemy || f.Effect != "damage")) Error("enemyFallback", "Fallback must be a free, single-target damaging attack.");
                     foreach (var id in new[] { g.Traveller, g.Villager, g.Healer, g.Beast, g.Raider, g.Caravan }) Ref<CharacterDefinition>("characters", id);
@@ -138,6 +141,14 @@ public sealed class ContentCatalog
                         if (new[] { profile.RockThreshold, profile.WaterThreshold, profile.WaterElevation }.Any(v => !double.IsFinite(v) || v < -1 || v > 1)) Error("biomes", "Thresholds must be finite in -1..1.");
                     }
                     break;
+                case SimulationDefinition m:
+                    if (new[] { m.HungerPerTick, m.FatiguePerTick, m.RestPerTick, m.StructureWearPerTick }.Any(v => !double.IsFinite(v) || v < 0 || v > 1)) Error("hungerPerTick", "Rates must be finite in 0..1.");
+                    Range("mealAt", m.MealAt, 10, 60); Range("mealReduction", m.MealReduction, 10, 60); Range("starveAt", m.StarveAt, 70, 100);
+                    Range("memoryTicks", m.MemoryTicks, 300, 7200); Range("forageWork", m.ForageWork, 5, 300); break;
+                case IncidentDefinition e:
+                    if (e.Condition is not ("hunger" or "exhaustion" or "injury" or "craft" or "trust")) Error("condition", "Unknown incident condition.");
+                    if (e.Effect is not ("memory" or "rest" or "aid")) Error("effect", "Unknown incident handler.");
+                    Range("mood", e.Mood, -20, 20); Range("cooldown", e.Cooldown, 300, 7200); break;
                 case AbilityDefinition a:
                     Range("mana", a.Mana, 0, 100); Range("power", a.Power, 0, 200); Range("duration", a.Duration, 1, 12);
                     if (!Effects.Contains(a.Effect)) Error("effect", "Unknown registered effect: " + a.Effect);
@@ -175,7 +186,8 @@ public sealed class ContentCatalog
                     Range("health", i.Health, 0, 100); Range("power", i.Power, 0, 30); Range("armor", i.Armor, 0, 15); Range("speed", i.Speed, 0, 15); Range("value", i.Value, 0, 1000); break;
                 case RecipeDefinition r:
                     if (r.Material is not (World.Material.Wall or World.Material.Floor or World.Material.Door or World.Material.Bridge or World.Material.Storage or World.Material.Camp)) Error("material", "Choose a buildable material.");
-                    Range("work", r.Work, 1, 1000); Cost("cost", r.Cost); break;
+                    Range("work", r.Work, 1, 1000); Cost("cost", r.Cost);
+                    Ref<ItemDefinition>("output", r.Output, true); Range("amount", r.Amount, 1, 20); break;
                 case BossDefinition b:
                     Range("health", b.Health, 60, 2000); Range("mana", b.Mana, 0, 500); Range("power", b.Power, 1, 50);
                     Range("armor", b.Armor, 0, 15); Range("speed", b.Speed, 1, 25); Range("phasePercent", b.PhasePercent, 20, 80);

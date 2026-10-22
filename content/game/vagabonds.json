@@ -75,7 +75,10 @@
     "recipe.door",
     "recipe.bridge",
     "recipe.storage",
-    "recipe.camp"
+    "recipe.camp",
+    "recipe.field-medicine",
+    "recipe.camp-weapon",
+    "recipe.camp-armor"
   ],
   "inventory": {
     "item.food": 8,
@@ -85,5 +88,13 @@
     "item.gold": 25
   },
   "generation": "generation.world",
-  "enemyFallback": "ability.strike"
+  "enemyFallback": "ability.strike",
+  "simulation": "simulation.shared",
+  "incidents": [
+    "incident.empty-bowls",
+    "incident.needed-break",
+    "incident.helping-hands",
+    "incident.proud-work",
+    "incident.shared-road"
+  ]
 }

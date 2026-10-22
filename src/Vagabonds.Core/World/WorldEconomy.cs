@@ -108,9 +108,9 @@ public sealed partial class WorldSession
         }
         foreach (var town in State.Towns)
         {
-            var workers = State.Actors.Where(a => a.Kind == ActorKind.Person && a.HomeTown == town.Id && a.Life == LifeState.Alive && !a.Recruited).ToArray();
+            var workers = State.Actors.Where(a => a.Kind == ActorKind.Person && a.HomeTown == town.Id && a.Life == LifeState.Alive && !a.Recruited && !HasWork(a) && a.Body.RestUntil <= State.Tick && a.Body.Fatigue < 75 && a.Body.Hunger < Simulation.StarveAt).ToArray();
             Produce("food", "farmer", 12); Produce("wood", "woodcutter", 9); Produce("stone", "quarrier", 8); Produce("medicine", "healer", 3);
-            int population = workers.Length + 6;
+            int population = 6; // Unmodeled residents; named actors eat through the shared body rules.
             int eaten = Math.Min(population, town.Stocks["food"]); town.Stocks["food"] -= eaten; State.ResourcesConsumed += eaten;
             if (eaten < population)
             {
@@ -128,12 +128,12 @@ public sealed partial class WorldSession
             }
             void Produce(string item, string job, int rate)
             {
-                int amount = workers.Count(w => w.Job == job) * rate;
+                int amount = (int)workers.Where(w => w.Job == job).Sum(w => rate * WorkRate(w));
                 int accepted = Math.Min(amount, Math.Max(0, 9999 - town.Stocks[item])); town.Stocks[item] += accepted; State.ResourcesProduced += accepted;
             }
         }
         // Patrols are persistent people, not duplicate actors created when chunks become active.
-        foreach (var guard in State.Actors.Where(a => a.Job == "guard" && !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(State.Position) > 100))
+        foreach (var guard in State.Actors.Where(a => a.Job == "guard" && !HasWork(a) && !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(State.Position) > 100))
             guard.Position = Plan.Towns[guard.HomeTown].Center.Offset((epoch % 5 - 2) * 4, 12);
     }
     private ActionResult Trade(WorldCommand command)

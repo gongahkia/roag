@@ -129,6 +129,8 @@ public static class DeveloperEntry
             "recipe" => c.All<RecipeDefinition>().First(),
             "variant" => new VariantDefinition { Id = id, Name = "New variation" },
             "generation" => c.Get<GenerationDefinition>(c.Game.Generation),
+            "simulation" => c.Get<SimulationDefinition>(c.Game.Simulation),
+            "incident" => new IncidentDefinition { Id = id, Name = "A new memory", Condition = "trust", Effect = "memory", Mood = 3 },
             _ => throw new ArgumentException("Scaffold a supported content kind; game.vagabonds is the existing runtime entry point.")
         };
         // Clone templates before changing IDs, preserving the loaded catalog's identity and references.

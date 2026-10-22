@@ -17,6 +17,8 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(VariantDefinition), "variant")]
 [JsonDerivedType(typeof(GameDefinition), "game")]
 [JsonDerivedType(typeof(GenerationDefinition), "generation")]
+[JsonDerivedType(typeof(SimulationDefinition), "simulation")]
+[JsonDerivedType(typeof(IncidentDefinition), "incident")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -40,6 +42,27 @@ public sealed class GameDefinition : ContentDefinition
     public required Dictionary<string, int> Inventory { get; set; }
     public required string Generation { get; set; }
     public required string EnemyFallback { get; set; }
+    public required string Simulation { get; set; }
+    public required string[] Incidents { get; set; }
+}
+public sealed class SimulationDefinition : ContentDefinition
+{
+    public double HungerPerTick { get; set; } = .04;
+    public double FatiguePerTick { get; set; } = .015;
+    public double RestPerTick { get; set; } = .15;
+    public int MealAt { get; set; } = 35;
+    public int MealReduction { get; set; } = 35;
+    public int StarveAt { get; set; } = 85;
+    public double StructureWearPerTick { get; set; } = .003;
+    public int MemoryTicks { get; set; } = 1800;
+    public int ForageWork { get; set; } = 30;
+}
+public sealed class IncidentDefinition : ContentDefinition
+{
+    public required string Condition { get; set; }
+    public required string Effect { get; set; }
+    public int Mood { get; set; }
+    public int Cooldown { get; set; } = 1800;
 }
 
 public sealed class GenerationDefinition : ContentDefinition
@@ -156,4 +179,6 @@ public sealed class RecipeDefinition : ContentDefinition
     public required Material Material { get; set; }
     public required int Work { get; set; }
     public required Dictionary<string, int> Cost { get; set; }
+    public string? Output { get; set; }
+    public int Amount { get; set; } = 1;
 }

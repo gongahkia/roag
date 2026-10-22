@@ -15,7 +15,7 @@ public sealed partial class WorldSession
     }
     public ActionResult PerformInteraction(long actorId, string interactionId)
     {
-        if (IsInCombat || State.AwaitingContinuation || DeathPending) return new(false, "Finish the encounter or expedition first.");
+        if (State.Endgame.Victory || IsInCombat || State.AwaitingContinuation || DeathPending) return new(false, "Finish the encounter or expedition first.");
         var interaction = Interactions(actorId).FirstOrDefault(i => i.Id == interactionId);
         var actor = State.Actors.FirstOrDefault(a => a.Id == actorId);
         if (interaction == null || actor == null || actor.Position.Distance(State.Position) > interaction.Distance) return new(false, "Approach someone who offers this interaction.");
@@ -33,11 +33,19 @@ public sealed partial class WorldSession
         foreach (var (stack, count) in costs) Add(stack, -count);
         switch (interaction.Action)
         {
-            case "heal": injured!.Health = Math.Min(injured.MaxHealth, injured.Health + interaction.Amount); return new(true, actor.Name + " treated " + injured.Name + ".");
+            case "heal": injured!.Body.Wounds = Math.Max(0, injured.Body.Wounds - 1); Remember(injured, "treated", actor.Name + " tended my injuries.", 6, actor.Id); ChangeTrust(injured, actor, 5); injured.Health = Math.Min(injured.MaxHealth, injured.Health + interaction.Amount); return new(true, actor.Name + " treated " + injured.Name + ".");
             case "share-meal":
-                foreach (var friend in Party) friend.Stress = Math.Max(0, friend.Stress - interaction.Amount);
+                foreach (var friend in Party)
+                {
+                    friend.Body.Hunger = Math.Max(0, friend.Body.Hunger - Simulation.MealReduction);
+                    if (Remember(friend, "shared-meal", "A meal with " + actor.Name + ".", interaction.Amount, actor.Id)) ChangeTrust(friend, actor, 5);
+                }
+                actor.Body.Hunger = Math.Max(0, actor.Body.Hunger - Simulation.MealReduction);
                 actor.Stress = Math.Max(0, actor.Stress - interaction.Amount); return new(true, "A meal shared with " + actor.Name + ".");
-            case "converse": return new(true, $"{actor.Name}, {actor.Trait} {actor.Background}, hopes to {actor.Motivation}. Their friend is {State.Actors.FirstOrDefault(a => a.Id == actor.FriendId)?.Name ?? "far away"}.");
+            case "converse":
+                var leader = Party.First(a => a.Life == LifeState.Alive);
+                if (Remember(actor, "conversation", "We exchanged stories with " + leader.Name + ".", 3, leader.Id)) { ChangeTrust(actor, leader, 3); ChangeTrust(leader, actor, 3); }
+                return new(true, $"{actor.Name}, {actor.Trait} {actor.Background}, hopes to {actor.Motivation}. Their friend is {State.Actors.FirstOrDefault(a => a.Id == actor.FriendId)?.Name ?? "far away"}.");
             case "trade": return new(true, "Choose supplies to trade.");
             default: return new(true, actor.Name + " joined your expedition.");
         }
