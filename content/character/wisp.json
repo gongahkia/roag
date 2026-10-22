@@ -1,0 +1,20 @@
+{
+  "kind": "character",
+  "id": "character.wisp",
+  "name": "Grief wisp",
+  "actorKind": "Beast",
+  "health": 24,
+  "power": 5,
+  "speed": 7,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.dread",
+      "weight": 2
+    },
+    {
+      "ability": "ability.drain"
+    }
+  ],
+  "sprite": "wisp"
+}

@@ -1,0 +1,15 @@
+{
+  "kind": "variant",
+  "id": "variant.mournful",
+  "name": "Mournful",
+  "healthPercent": 100,
+  "power": -1,
+  "armor": 0,
+  "speed": 1,
+  "behaviors": [
+    {
+      "ability": "ability.dread",
+      "weight": 2
+    }
+  ]
+}

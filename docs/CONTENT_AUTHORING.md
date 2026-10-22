@@ -1,0 +1,60 @@
+# Content authoring and developer tools
+
+Run `./dev` from any working directory. The graphics-free `Vagabonds.Tools` project uses the same Core content loader, actor factory, abilities and interactions as the game. Game definitions are embedded at build time; developer commands can inspect edits from `content/` before rebuilding the client. No player save is opened by these tools.
+
+## Discover and edit
+
+```sh
+./dev content list
+./dev content list character
+./dev content inspect character.healer
+./dev content references ability.mend
+./dev content scaffold character --id character.wayfarer
+./dev content validate
+./dev preview character character.wayfarer --seed 42
+./dev preview interaction interaction.healing --seed 42
+./dev content remove character.wayfarer
+./dev content remove character.wayfarer --apply
+./dev test
+./dev review-tooling
+```
+
+Edit the corresponding readable JSON file directly. Scaffolding refuses to overwrite existing files. Removal defaults to a dry run and blocks references, including the runtime's required `game.vagabonds` entry point. Update those dependents deliberately before removal. Original asset IDs/crops/bindings remain under their established authoring workflow; content refers to existing Vagabonds sprite aliases.
+
+Definitions have `kind`, stable `id`, readable `name`, optional `description`, `sprite` and `tags`. IDs use `kind.lowercase-name` and remain separate from generated actor instance IDs. `game/vagabonds.json` selects the traveller/NPC archetypes, four classes, common combat actions, boss and recipe pools, and initial inventory. A new definition joins the game by being referenced from an appropriate pool; an unused definition can be previewed without changing spawning.
+
+| Kind | Authoring fields / runtime use |
+| --- | --- |
+| character | Name/profile pool, class pool or explicit appearance/stats, interactions and enemy behaviour rules |
+| names / trait | Generated identity pools, backgrounds, motivations and disposition modifiers |
+| class | Role slot, base stats, sprite and three class abilities |
+| ability | Target, mana, power, registered effect and status duration |
+| interaction | Registered action, maximum distance, item costs and effect amount |
+| item | Inventory key, value, appearance, equipment slot and stat modifiers |
+| recipe | Buildable material, reserved item costs and required work |
+| boss / variant | Authored identity/tactics/weakness, stats, conditional behaviour phases, minions and variation pools |
+
+Boss/recipe/equipment definitions establish their content contracts; their complete gameplay systems are tracked as subsequent checkpoints in INTEGRATION.md. Character creation, party abilities and configured conversations already use the content catalog.
+
+## Validation and previews
+
+`content/schema.json` supplies editor completion and structural validation. Core adds cross-reference/type checks, known sprite/effect/action checks, numeric limits, duplicate-ID/role/inventory-key checks and required game pools. Errors identify the file and field. Unknown properties are errors, so spelling mistakes do not silently become defaults.
+
+After changing the C# definition types, regenerate the schema explicitly:
+
+```sh
+./dev content schema --output content/schema.json --replace
+```
+
+The test suite checks that the tracked schema matches the exporter. `--content DIRECTORY` previews/validates an isolated content copy. Preview results include the actual generated identity/stats or the result of a real interaction command. Interaction previews preserve logical time and random state, pay actual inventory costs, and use no player save.
+
+Content definitions describe possible people. Campaign actors retain their own identities, resolved stats and changing state. World saves pin the content hash; incompatible content fails safely before replacing an active session. This development expansion uses world save version two and does not migrate earlier world slots. Use an explicit new slot/run after content changes; never delete a player's selected save as a development shortcut.
+
+## Extend a mechanic
+
+1. Add the typed definition fields in Core/Content/Definitions.cs and their validation/reference rules in ContentCatalog.cs.
+2. Register and implement a deterministic Core handler. Data cannot execute arbitrary code. Validate costs/targets before mutation and preserve invalid-action no-cost/no-RNG behaviour.
+3. Add real authored content that exercises the handler, a reproducible preview and meaningful tests of its effects/failures.
+4. Regenerate the schema, update this guide/project state, and run the relevant developer commands yourself.
+
+At each substantial milestone, inspect `review-tooling` and evaluate actual authoring friction, diagnostics and preview coverage. Promote repeated manual checks into commands. Definition counts and passing validation establish consistency, not whether an encounter or world is enjoyable; those require inspection and playtesting.

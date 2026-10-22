@@ -1,0 +1,13 @@
+{
+  "kind": "item",
+  "id": "item.ember-staff",
+  "name": "Ember staff",
+  "sprite": "staff",
+  "stack": "item.ember-staff",
+  "slot": "weapon",
+  "health": 0,
+  "power": 4,
+  "armor": 0,
+  "speed": 0,
+  "value": 35
+}

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Vagabonds.Core.Expeditions;
+using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
@@ -19,7 +20,7 @@ public static class SessionStore
 public sealed partial class WorldSession
 {
     private sealed record ChunkReference(ChunkKey Key, string Hash);
-    private sealed record Manifest(string Format, int Version, WorldPlan Plan, JsonObject State, List<ChunkReference> Chunks);
+    private sealed record Manifest(string Format, int Version, string ContentHash, WorldPlan Plan, JsonObject State, List<ChunkReference> Chunks);
     private static readonly JsonSerializerOptions SaveOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = false, RespectRequiredConstructorParameters = true };
     public void Save(string path)
     {
@@ -35,7 +36,7 @@ public sealed partial class WorldSession
             refs.Add(new(delta.Key, hash));
         }
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
-        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 1, Plan, state, refs), SaveOptions));
+        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 2, Content.Hash, Plan, state, refs), SaveOptions));
         SavePath = path; DeathPending = false;
     }
     private static void WriteAtomic(string path, byte[] data)
@@ -51,7 +52,8 @@ public sealed partial class WorldSession
     public static WorldSession Load(string path)
     {
         var save = JsonSerializer.Deserialize<Manifest>(File.ReadAllBytes(path), SaveOptions) ?? throw new InvalidDataException("Empty world save.");
-        if (save.Format != "vagabonds-world" || save.Version != 1 || save.Plan == null || save.State == null || save.Chunks == null) throw new InvalidDataException("Unsupported world save.");
+        if (save.Format != "vagabonds-world" || save.Version != 2 || save.Plan == null || save.State == null || save.Chunks == null) throw new InvalidDataException("Unsupported world save.");
+        if (save.ContentHash != ContentCatalog.Default.Hash) throw new InvalidDataException("World content differs from this build. Start an explicit new run; the selected save is preserved.");
         var plan = save.Plan;
         if (plan.Version != WorldPlan.GenerationVersion || plan.SampleHash != SampleLibrary.Default.Hash) throw new InvalidDataException("World generation version/sample manifest differs from this build.");
         if (plan.Validate().Count != 0 || plan.Towns.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Sites.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Any(r => r.FromTown is < 0 or >= 24 || r.ToTown is < 0 or >= 24)) throw new InvalidDataException("Invalid world plan.");
@@ -76,6 +78,11 @@ public sealed partial class WorldSession
         if (s.Actors.Count is < 1 or > 10000 || s.Actors.Any(a => a == null) || s.Actors.Select(a => a.Id).Distinct().Count() != s.Actors.Count || s.NextActorId <= s.Actors.Max(a => a.Id) || s.Party.Count is < 1 or > 4 || s.Party.Distinct().Count() != s.Party.Count || s.CombatRandom == 0) throw new InvalidDataException("Invalid actor identities.");
         foreach (var a in s.Actors)
             if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
+        foreach (var actor in s.Actors)
+            if (actor.Archetype == null || !ContentCatalog.Default.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not CharacterDefinition
+                || actor.BaseHealth is < 1 or > 2000 || actor.BaseMana is < 0 or > 500 || actor.BaseArmor is < 0 or > 30 || actor.BasePower is < 0 or > 100 || actor.BaseSpeed is < 1 or > 30
+                || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !ContentCatalog.Default.Entries.ContainsKey(actor.TraitId))
+                throw new InvalidDataException("Invalid content-backed actor state.");
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {
             if (caravan.DestinationTown == null || caravan.DestinationTown == caravan.HomeTown || caravan.Traveling && caravan.Route.Count == 0) throw new InvalidDataException("Invalid caravan destination/route.");

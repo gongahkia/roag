@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## Content authoring foundation (2026-10-22)
+
+Release restore/build and **180 tests** passed: the retained 164 plus 16 content/CLI cases. Checks cover authored/embedded equivalence, stable references, unknown fields/handlers/sprites, invalid costs/nulls, edited profiles and abilities driving actual world commands, paid healing and invalid-action preservation, removing recruitment, safe scaffolding/deletion, schema reproducibility and deterministic interaction previews. `./dev content validate` passed for 78 definitions; character and healing previews exercised real Core creation/commands without player saves.
+
+The native world smoke passed all seven checks for 120 frames at 1024×720, with a visually inspected world/cursor/route capture. It averaged 67.3 FPS in this local WSLg sample. Reports/captures are ignored under `artifacts/integration/`. No player save was read or modified. The independent Ithica reference remains development-only; source artwork/catalog/bindings are unchanged.
+
+World format version two pins the authored content hash and safely rejects previous/incompatible world slots; no migration is claimed. Existing startup/reload, routing, interpolation and legacy tests remain passing.
+
 ## Clear outdoors with dungeon fog (2026-10-22)
 
 Release build/publish passed with zero warnings/errors and all **164 tests** passed. Five additional visibility regressions cover the unobstructed surface view, unchanged clock/actors/resources/random state, distant/underground privacy, cached view refreshes after movement/edits, dungeon entry/return, persistent discovery and world-edge clipping. Save format and generation version remain unchanged.

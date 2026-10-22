@@ -1,0 +1,21 @@
+{
+  "kind": "character",
+  "id": "character.prowler",
+  "name": "Hungry prowler",
+  "actorKind": "Beast",
+  "health": 18,
+  "power": 4,
+  "speed": 8,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.rend",
+      "every": 2,
+      "weight": 2
+    },
+    {
+      "ability": "ability.strike"
+    }
+  ],
+  "sprite": "wolf"
+}

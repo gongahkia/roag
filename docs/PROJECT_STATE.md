@@ -2,7 +2,7 @@
 
 **Last reconciled: 2026-10-22.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
-Vagabonds is the RPG extracted from Ithica at `c87d480`, now extended with an independent finite procedural world. Ithica remains a separate lunar colony game. This repository owns its application, Core, graphics, tests, assets, catalog and mappings; it loads no gameplay or assets from a sibling checkout. [ORIGIN.md](ORIGIN.md) records provenance. Archived Ithica guides under `history/ithica/` describe inherited source, not current gameplay.
+Vagabonds is the fantasy party RPG extracted from Ithica at `c87d480`, now extended with a finite procedural world and selected systems from the replayed Ithica history. The approved integration direction is recorded in [INTEGRATION.md](INTEGRATION.md). This repository owns its application, Core, graphics, tests, assets, catalog and mappings; it loads no gameplay or assets from a sibling checkout. [ORIGIN.md](ORIGIN.md) records provenance. Archived Ithica guides under `history/ithica/` describe inherited source, not current gameplay.
 
 ## Implemented world
 
@@ -17,12 +17,14 @@ Vagabonds is the RPG extracted from Ithica at `c87d480`, now extended with an in
 | Streaming | Seamless global coordinates; 3×3 prefetch, 25 resident chunks, eight resident footprints |
 | Party | Start alone as a generated traveller; recruit generated inhabitants, active party 1–4, stable actor IDs |
 | Exploration | Real time with pause; smooth tile travel/camera, horizontal sprite facing, cursor selector, hover/active routes; clear outdoor view, dungeon fog |
-| Combat | Four classes and existing abilities; initiative, intentions, status effects, mana, stress, revival and levels |
+| Combat | Content-authored classes/abilities; initiative, intentions, status effects, mana, stress, revival and levels |
+| Content | 78 typed definitions, stable IDs, reference/sprite/handler validation; runtime characters, classes, abilities and configured conversations |
+| Developer tools | `./dev` content listing/inspection/references/scaffolding/removal/schema, deterministic previews, tooling review and tests |
 | Building | Horizontal digging, material yields/food cost, walls/floors/doors/bridges/storage/camps, protected stair links |
 | Simulation | 5 Hz, one real second per game minute; workers, stocks, demand prices, actual caravan cargo, road reroutes/waits, shortages, raids |
 | Stories | Generated trade/blight/succession arcs; real entity references, alternative compact outcomes, repair/delivery requests and history |
 | Failure | Downed companions revive; abandonment/wipe permanently kills and immediately saves; new lone traveller can continue same world |
-| Persistence | `vagabonds-world` v1 manifest, generation v2/sample hash pinning, immutable checksummed chunk snapshots, exact combat/RNG continuation |
+| Persistence | `vagabonds-world` v2 manifest with content hash, generation v2/sample hash pinning, immutable checksummed chunk snapshots, exact combat/RNG continuation |
 | Inspection | In-game F3 samples/constraints/counts/raw/final/repair views; reports, headless validation and native smoke |
 
 New and loaded worlds begin paused. Space toggles time. Menus, conversations, combat and focus loss freeze the clock; there is no offline progression. Fine movement operates within 100 tiles, while production and trade run regionally farther away. Recruitment creates a job vacancy. Complete road blockades change regional routing; shortages generate delivery requests and affect prices, and repairing roads allows supply to recover. Detailed and regional simulation share the same actor identities and cargo.
@@ -32,6 +34,8 @@ Town exteriors are grassy; structural regions contain pinned walls/doors around 
 A main arc accepts evidence after a patron dies, and can resolve through the original town or a different compact. Severe sustained shortages can explicitly fail it. The world continues after resolution or failure. A wiped party leaves a recoverable storage cache; deaths must be saved before either continuation choice is accepted. Generated successor heroes receive new stable IDs while earlier deaths and the changed world remain.
 
 ## Controls and tools
+
+Characters and abilities now use typed JSON under `content/`. Conversations display the archetype’s configured numbered interactions; R/T remain shortcuts for recruitment/trade when offered. Healers offer paid treatment and inhabitants can share stories/meals. See [CONTENT_AUTHORING.md](CONTENT_AUTHORING.md) for stable IDs, registered actions/effects, reference-safe editing and reproducible previews. Equipment, work-recipe and boss contracts are authored but their expanded gameplay is still tracked in the integration checkpoints.
 
 The cursor brackets its current map cell. Hovering previews a known route in teal; clicking keeps the selected route in gold during travel, including when the cursor leaves the map. Paused clicks prepare travel for Space. Menus and combat hide exploration overlays; build/dig retain the selector. Travellers and inhabitants slide between committed cells, face left/right with horizontal movement and retain facing on vertical movement. Stairs, loads and long transfers reset interpolation; collision, costs and the simulation clock remain grid-based.
 
@@ -64,13 +68,13 @@ The generic Core `Campaign.Load` retains inherited field compatibility for sourc
 
 Default selected slot is `~/.vagabonds/campaign.json`; `--save PATH` selects another. An existing unreadable/invalid slot fails without silently replacing it. `--new` explicitly starts over; normal saving/quitting then replaces that selected slot. `--load` requires a save and cannot combine with `--new`. No real player slot is used by validation tooling.
 
-World saves pair the JSON manifest with `<slot>.chunks/`. Chunk snapshots are immutable SHA-256 files, flushed before atomically replacing the manifest. Save/load retains actors, party, clock, inventories/cargo, statuses, arc/tasks/history, edits, discovery, storage, battle order and random state. Generation v2 and the exact authored sample hash are required to prevent silent regeneration changes. Unreferenced snapshots are retained so backups of earlier manifests remain recoverable; automatic snapshot garbage collection is deferred. Back up both manifest and snapshot directory.
+World saves use format version two and pin the authored content hash alongside generation/sample versions. Earlier world saves are rejected safely; this development expansion does not migrate them. World saves pair the JSON manifest with `<slot>.chunks/`. Chunk snapshots are immutable SHA-256 files, flushed before atomically replacing the manifest. Save/load retains actors, party, clock, inventories/cargo, statuses, arc/tasks/history, edits, discovery, storage, battle order and random state. Generation v2 and the exact authored sample hash are required to prevent silent regeneration changes. Unreferenced snapshots are retained so backups of earlier manifests remain recoverable; automatic snapshot garbage collection is deferred. Back up both manifest and snapshot directory.
 
 `--import-legacy PATH [--save DESTINATION]` validates/copies an old RPG slot atomically, exits and leaves the source untouched; it rejects self-overwrite, colony saves and field sessions. The inherited `lantern-rpg` format name, object IDs and asset filenames retain their identities intentionally.
 
 ## Projects, assets and scope
 
-The solution contains Core (world/legacy rules, generation, persistence and simulation), Graphics (sprites/text/camera), Client (world/legacy presentation/input/atlas) and Core.Tests (graphics-free rules and client startup/reload tests). All references and content resolve within this checkout. No colony game is shipped.
+The solution contains Core (world/legacy rules, content, generation, persistence and simulation), Graphics (sprites/text/camera), Client (world/legacy presentation/input/atlas), Tools (graphics-free authoring/preview commands) and Core.Tests (graphics-free rules and client startup/reload tests). All references and content resolve within this checkout. No colony game is shipped.
 
 All 7,115 occupied crops / 11,887 catalog records, 664 original PNGs / three archives and 22 derived reference images remain local. Original IDs, artwork, provenance, uncertain identities and measured colors are preserved. The canonical schema-5 catalog is tracked as `assets/catalog.json.gz`; the readable export is ignored. Historical `ithica-expedition-bindings.json`, `ithica-generation.json` and runtime manifest names are intentional. New structural samples are original authoring inputs in `assets/world/samples.json`. Read [ASSETS.md](ASSETS.md) before changing sprite mappings.
 

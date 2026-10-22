@@ -1,0 +1,25 @@
+{
+  "kind": "character",
+  "id": "character.hollow",
+  "name": "Oathless guard",
+  "actorKind": "Raider",
+  "health": 40,
+  "power": 7,
+  "speed": 4,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.guard",
+      "every": 3
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 2
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 3
+    }
+  ],
+  "sprite": "skeleton"
+}

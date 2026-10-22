@@ -1,0 +1,13 @@
+{
+  "kind": "item",
+  "id": "item.iron-sword",
+  "name": "Iron sword",
+  "sprite": "sword",
+  "stack": "item.iron-sword",
+  "slot": "weapon",
+  "health": 0,
+  "power": 3,
+  "armor": 0,
+  "speed": 0,
+  "value": 25
+}

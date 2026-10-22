@@ -1,0 +1,122 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Schema;
+using Vagabonds.Core.Content;
+using Vagabonds.Core.World;
+
+return DeveloperEntry.Run(args);
+
+public static class DeveloperEntry
+{
+    public static int Run(string[] args)
+    {
+        try
+        {
+            string Value(string flag, string fallback) { int index = Array.IndexOf(args, flag); return index < 0 ? fallback : index + 1 < args.Length ? args[index + 1] : throw new ArgumentException("Missing " + flag); }
+            string root = Path.GetFullPath(Value("--content", "content"));
+            int seed = int.Parse(Value("--seed", "42"), System.Globalization.CultureInfo.InvariantCulture);
+            var catalog = ContentCatalog.LoadDirectory(root);
+            string command = args.ElementAtOrDefault(0) ?? "help";
+            if (command == "content")
+            {
+                string operation = args.ElementAtOrDefault(1) ?? "list", id = args.ElementAtOrDefault(2) ?? "";
+                switch (operation)
+                {
+                    case "list":
+                        Print(catalog.Entries.Values.Where(d => id.Length == 0 || ContentCatalog.Kind(d) == id).OrderBy(d => d.Id)
+                            .Select(d => new { d.Id, kind = ContentCatalog.Kind(d), d.Name, file = catalog.Source(d.Id) })); break;
+                    case "inspect":
+                        if (!catalog.Entries.TryGetValue(id, out var definition)) throw new ArgumentException("Unknown content ID: " + id);
+                        Print(new { file = catalog.Source(id), definition = JsonSerializer.SerializeToNode<ContentDefinition>(definition, ContentCatalog.Json),
+                            incoming = catalog.References.Where(r => r.Target == id), outgoing = catalog.References.Where(r => r.Source == id) }); break;
+                    case "references": Print(catalog.References.Where(r => r.Source == id || r.Target == id)); break;
+                    case "validate": Print(new { valid = catalog.Issues.Count == 0, count = catalog.Entries.Count, catalog.Hash, issues = catalog.Issues }); return catalog.Issues.Count == 0 ? 0 : 1;
+                    case "schema":
+                        var options = new JsonSerializerOptions(ContentCatalog.Json); options.MakeReadOnly(populateMissingResolver: true);
+                        var schema = JsonSchemaExporter.GetJsonSchemaAsNode(options, typeof(ContentDefinition));
+                        string? schemaOutput = Array.IndexOf(args, "--output") >= 0 ? Value("--output", "") : null;
+                        if (schemaOutput != null) WriteNew(schemaOutput, schema.ToJsonString(ContentCatalog.Json) + "\n", args.Contains("--replace")); else Print(schema);
+                        break;
+                    case "scaffold":
+                        var scaffold = Scaffold(id, Value("--id", id + ".new"), catalog);
+                        string output = Value("--output", Path.Combine(root, id, scaffold.Id[(scaffold.Id.IndexOf('.') + 1)..] + ".json"));
+                        WriteNew(output, JsonSerializer.Serialize<ContentDefinition>(scaffold, ContentCatalog.Json) + "\n"); Print(new { created = Path.GetFullPath(output), scaffold.Id }); break;
+                    case "remove":
+                        if (!catalog.Entries.ContainsKey(id)) throw new ArgumentException("Unknown content ID: " + id);
+                        var incoming = catalog.References.Where(r => r.Target == id && r.Source != id).ToArray();
+                        if (incoming.Length > 0) { Print(new { removed = false, reason = "References must be updated first.", incoming }); return 1; }
+                        string file = Path.GetFullPath(Path.Combine(root, catalog.Source(id)));
+                        if (!file.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)) throw new ArgumentException("Content path outside its root.");
+                        bool apply = args.Contains("--apply"); if (apply) File.Delete(file);
+                        Print(new { id, file, removed = apply, dryRun = !apply }); break;
+                    default: throw new ArgumentException("Unknown content command: " + operation);
+                }
+                return 0;
+            }
+            if (command == "preview")
+            {
+                RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
+                if (kind == "character")
+                {
+                    var actor = ActorFactory.Create(catalog, id, seed, 100001, new(0, 0), 0);
+                    Print(new { seed, actor, interactions = catalog.Get<CharacterDefinition>(id).Interactions.Select(catalog.Get<InteractionDefinition>) });
+                }
+                else if (kind == "ability") Print(catalog.Get<AbilityDefinition>(id));
+                else if (kind == "interaction")
+                {
+                    var game = WorldSession.Create(seed, catalog); var actor = game.State.Actors.First(a => game.Interactions(a.Id).Any(i => i.Id == id));
+                    actor.Position = game.State.Position.Offset(1, 0); game.Party.First().Health = Math.Max(1, game.Party.First().Health / 2);
+                    long tick = game.State.Tick; uint rng = game.State.CombatRandom; var result = game.PerformInteraction(actor.Id, id);
+                    Print(new { seed, actor.Name, result, tickBefore = tick, tickAfter = game.State.Tick, randomUnchanged = rng == game.State.CombatRandom, game.State.Inventory, party = game.Party });
+                }
+                else throw new ArgumentException("Preview character, ability or interaction.");
+                return 0;
+            }
+            if (command == "review-tooling")
+            {
+                Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
+                    kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
+                    registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
+                    documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
+                    note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
+            }
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview character|ability|interaction ID [--seed N]", "review-tooling" },
+                options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
+        }
+        catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException)
+        { Print(new { error = e.Message }); return 1; }
+    }
+    private static void RequireValid(ContentCatalog catalog) { if (catalog.Issues.Count > 0) throw new InvalidDataException(string.Join("; ", catalog.Issues.Select(i => $"{i.File}:{i.Field}: {i.Message}"))); }
+    private static void Print(object value) => Console.WriteLine(JsonSerializer.Serialize(value, ContentCatalog.Json));
+    private static void WriteNew(string output, string text, bool replace = false)
+    {
+        string target = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        string temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, text); File.Move(temporary, target, overwrite: replace);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    private static ContentDefinition Scaffold(string kind, string id, ContentCatalog c)
+    {
+        ContentDefinition template = kind switch
+        {
+            "ability" => new AbilityDefinition { Id = id, Name = "New ability", Sprite = "sword", Effect = "damage", Power = 6 },
+            "interaction" => new InteractionDefinition { Id = id, Name = "New conversation", Action = "converse" },
+            "item" => new ItemDefinition { Id = id, Name = "New item", Sprite = "chest", Stack = id },
+            "trait" => new TraitDefinition { Id = id, Name = "New trait" },
+            "names" => new NamesDefinition { Id = id, Name = "New profiles", First = ["Aster"], Last = ["Vale"], Backgrounds = ["traveller"], Motivations = ["explore"], Traits = [c.All<TraitDefinition>().First().Id] },
+            "character" => new CharacterDefinition { Id = id, Name = "New traveller", Names = c.All<NamesDefinition>().First().Id, Classes = c.Game.Classes, Interactions = ["interaction.stories"] },
+            "boss" => c.Get<BossDefinition>(c.Game.Bosses[0]),
+            "class" => c.All<ClassDefinition>().First(),
+            "recipe" => c.All<RecipeDefinition>().First(),
+            "variant" => new VariantDefinition { Id = id, Name = "New variation" },
+            _ => throw new ArgumentException("Scaffold a supported content kind; game.vagabonds is the existing runtime entry point.")
+        };
+        // Clone templates before changing IDs, preserving the loaded catalog's identity and references.
+        var copy = JsonSerializer.Deserialize<ContentDefinition>(JsonSerializer.Serialize<ContentDefinition>(template, ContentCatalog.Json), ContentCatalog.Json)!;
+        copy.Id = id; if (!id.StartsWith(kind + ".", StringComparison.Ordinal)) throw new ArgumentException("ID prefix must match kind.");
+        return copy;
+    }
+}

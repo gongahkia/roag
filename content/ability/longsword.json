@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.longsword",
+  "name": "Longsword",
+  "sprite": "sword",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 9,
+  "effect": "damage",
+  "duration": 3,
+  "description": "Longsword."
+}

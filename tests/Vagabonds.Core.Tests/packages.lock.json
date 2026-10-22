@@ -127,6 +127,12 @@
         "dependencies": {
           "MonoGame.Framework.DesktopGL": "[3.8.6, )"
         }
+      },
+      "vagabonds.tools": {
+        "type": "Project",
+        "dependencies": {
+          "Vagabonds.Core": "[1.0.0, )"
+        }
       }
     }
   }

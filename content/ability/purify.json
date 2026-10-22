@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.purify",
+  "name": "Purify",
+  "sprite": "resolve",
+  "mana": 0,
+  "target": "Self",
+  "power": 12,
+  "effect": "cleanse",
+  "duration": 3,
+  "description": "Purify."
+}

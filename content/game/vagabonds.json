@@ -1,0 +1,40 @@
+{
+  "kind": "game",
+  "id": "game.vagabonds",
+  "name": "Vagabonds",
+  "traveller": "character.traveller",
+  "villager": "character.villager",
+  "healer": "character.healer",
+  "beast": "character.prowler",
+  "raider": "character.raider",
+  "caravan": "character.caravan",
+  "classes": [
+    "class.warden",
+    "class.ranger",
+    "class.arcanist",
+    "class.vestal"
+  ],
+  "commonAbilities": [
+    "ability.guard",
+    "ability.medicine",
+    "ability.retreat"
+  ],
+  "bosses": [
+    "boss.ash-knight"
+  ],
+  "recipes": [
+    "recipe.wall",
+    "recipe.floor",
+    "recipe.door",
+    "recipe.bridge",
+    "recipe.storage",
+    "recipe.camp"
+  ],
+  "inventory": {
+    "item.food": 8,
+    "item.wood": 20,
+    "item.stone": 12,
+    "item.medicine": 3,
+    "item.gold": 25
+  }
+}

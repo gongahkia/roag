@@ -1,4 +1,5 @@
 using Vagabonds.Core.Expeditions;
+using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
@@ -19,7 +20,7 @@ public sealed partial class WorldSession
         {
             int index = battle.Units.Count;
             battle.ActorIds.Add(a.Id);
-            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = friendly && a.Role == 0 ? 3 : 1, Speed = friendly ? new Hero { Role = a.Role }.Speed : a.Kind == ActorKind.Beast ? 8 : 6, Power = a.Kind == ActorKind.Beast ? 4 : 6, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
+            battle.Units.Add(new() { Id = index, HeroId = friendly ? index : -1, Name = a.Name, Sprite = a.Sprite, Health = a.Health, MaxHealth = a.MaxHealth, Mana = a.Mana, MaxMana = a.MaxMana, Stress = a.Stress, Armor = a.BaseArmor, Speed = a.BaseSpeed, Power = a.BasePower, Position = new Cell(friendly ? 1 : 5, index % 4 + 1) });
         }
     }
     private int CombatRoll(int max)
@@ -62,7 +63,7 @@ public sealed partial class WorldSession
     {
         if (State.Battle is not { } b || !b.Active.Friendly) return [];
         var actor = State.Actors.Single(a => a.Id == b.ActorIds[b.Active.Id]);
-        return [.. Skills.ByRole[actor.Role], Skills.Guard, Skills.Potion, Skills.Flee];
+        return Class(actor).Abilities.Concat(Content.Game.CommonAbilities).Select(id => Content.Get<AbilityDefinition>(id).AsSkill()).ToArray();
     }
     public ActionResult Act(int skillIndex, int targetIndex = -1)
     {
@@ -90,20 +91,37 @@ public sealed partial class WorldSession
             TargetKind.AllAllies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
             TargetKind.Self => [u], _ => new[] { target! }
         };
+        ResolveAbility(u, skill, targets, actor.Level - 1);
+        SyncCombat();
+        if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
+        return new(true, $"{u.Name}: {skill.Name}.");
+    }
+    private void ResolveAbility(CombatUnit caster, Skill skill, IEnumerable<CombatUnit> targets, int bonus)
+    {
         foreach (var t in targets)
         {
-            if (skill.Effect is "heal" or "potion") { t.Health = Math.Min(t.MaxHealth, t.Health + skill.Power + actor.Level - 1); t.Bleed = 0; }
+            if (skill.Effect is "heal" or "potion" or "cleanse")
+            {
+                t.Health = Math.Min(t.MaxHealth, t.Health + skill.Power + bonus); t.Bleed = 0;
+                if (skill.Effect == "cleanse") { t.Burn = t.Stun = t.Mark = 0; t.Stress = Math.Max(0, t.Stress - 10); }
+            }
             else if (skill.Effect == "calm") t.Stress = Math.Max(0, t.Stress - skill.Power);
             else if (skill.Effect is "guard" or "rally") { t.Guarding = true; if (skill.Effect == "rally") t.Stress = Math.Max(0, t.Stress - 8); }
             else
             {
-                Damage(t, skill.Power + actor.Level - 1 + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (u.Stress >= 60 ? 2 : 0));
-                if (t.Alive) { if (skill.Effect == "burn") t.Burn = 3; if (skill.Effect == "mark") t.Mark = 3; if (skill.Effect == "stun") t.Stun = 1; }
+                int before = t.Health;
+                Damage(t, skill.Power + bonus + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0));
+                if (skill.Effect == "drain") caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
+                if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(8, skill.Power));
+                if (t.Alive)
+                {
+                    if (skill.Effect == "burn") t.Burn = skill.Duration;
+                    if (skill.Effect == "bleed") t.Bleed = skill.Duration;
+                    if (skill.Effect == "mark") t.Mark = skill.Duration;
+                    if (skill.Effect == "stun") t.Stun = Math.Min(2, skill.Duration);
+                }
             }
         }
-        SyncCombat();
-        if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
-        return new(true, $"{u.Name}: {skill.Name}.");
     }
     public ActionResult AdvanceEnemy()
     {

@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.interrupt",
+  "name": "Interrupt",
+  "sprite": "shield",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 0,
+  "effect": "stun",
+  "duration": 3,
+  "description": "Interrupt."
+}

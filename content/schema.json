@@ -1,0 +1,821 @@
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "required": [
+    "kind"
+  ],
+  "anyOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "class"
+        },
+        "role": {
+          "type": "integer"
+        },
+        "health": {
+          "type": "integer"
+        },
+        "mana": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "integer"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "abilities": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "role",
+        "health",
+        "mana",
+        "armor",
+        "speed",
+        "abilities",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "ability"
+        },
+        "mana": {
+          "type": "integer"
+        },
+        "target": {
+          "enum": [
+            "Enemy",
+            "Ally",
+            "AllEnemies",
+            "AllAllies",
+            "Self"
+          ]
+        },
+        "power": {
+          "type": "integer"
+        },
+        "effect": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "effect",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "character"
+        },
+        "actorKind": {
+          "enum": [
+            "Person",
+            "Beast",
+            "Raider",
+            "Patrol",
+            "Caravan"
+          ]
+        },
+        "names": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "health": {
+          "type": "integer"
+        },
+        "mana": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "integer"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "power": {
+          "type": "integer"
+        },
+        "behaviors": {
+          "type": "array",
+          "items": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "ability": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "integer"
+              },
+              "every": {
+                "type": "integer"
+              },
+              "fromRound": {
+                "type": "integer"
+              },
+              "belowHealthPercent": {
+                "type": "integer"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "ability"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "names"
+        },
+        "first": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "last": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "backgrounds": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "motivations": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "traits": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "first",
+        "last",
+        "backgrounds",
+        "motivations",
+        "traits",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "trait"
+        },
+        "value": {
+          "type": "string"
+        },
+        "aversion": {
+          "type": "string"
+        },
+        "workPercent": {
+          "type": "integer"
+        },
+        "fatiguePercent": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "interaction"
+        },
+        "action": {
+          "type": "string"
+        },
+        "distance": {
+          "type": "integer"
+        },
+        "amount": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "action",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "item"
+        },
+        "stack": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "string"
+        },
+        "health": {
+          "type": "integer"
+        },
+        "power": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "integer"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "stack",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "recipe"
+        },
+        "material": {
+          "enum": [
+            "Grass",
+            "Tree",
+            "Water",
+            "Rock",
+            "Earth",
+            "Floor",
+            "Wall",
+            "Door",
+            "Bridge",
+            "StairsDown",
+            "StairsUp",
+            "Storage",
+            "Camp"
+          ]
+        },
+        "work": {
+          "type": "integer"
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "material",
+        "work",
+        "cost",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "boss"
+        },
+        "family": {
+          "type": "string"
+        },
+        "weakness": {
+          "type": "string"
+        },
+        "tactics": {
+          "type": "string"
+        },
+        "health": {
+          "type": "integer"
+        },
+        "mana": {
+          "type": "integer"
+        },
+        "power": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "integer"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "phasePercent": {
+          "type": "integer"
+        },
+        "behaviors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/anyOf/2/properties/behaviors/items"
+          }
+        },
+        "enraged": {
+          "type": "array",
+          "items": {
+            "$ref": "#/anyOf/2/properties/behaviors/items"
+          }
+        },
+        "minions": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "family",
+        "weakness",
+        "tactics",
+        "behaviors",
+        "enraged",
+        "variants",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "variant"
+        },
+        "healthPercent": {
+          "type": "integer"
+        },
+        "power": {
+          "type": "integer"
+        },
+        "armor": {
+          "type": "integer"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "behaviors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/anyOf/2/properties/behaviors/items"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "game"
+        },
+        "traveller": {
+          "type": "string"
+        },
+        "villager": {
+          "type": "string"
+        },
+        "healer": {
+          "type": "string"
+        },
+        "beast": {
+          "type": "string"
+        },
+        "raider": {
+          "type": "string"
+        },
+        "caravan": {
+          "type": "string"
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "commonAbilities": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "bosses": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "recipes": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "inventory": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "traveller",
+        "villager",
+        "healer",
+        "beast",
+        "raider",
+        "caravan",
+        "classes",
+        "commonAbilities",
+        "bosses",
+        "recipes",
+        "inventory",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

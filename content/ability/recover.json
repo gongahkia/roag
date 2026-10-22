@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.recover",
+  "name": "Recover",
+  "sprite": "potion",
+  "mana": 0,
+  "target": "Self",
+  "power": 15,
+  "effect": "heal",
+  "duration": 3,
+  "description": "Recover."
+}

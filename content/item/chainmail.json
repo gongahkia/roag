@@ -1,0 +1,13 @@
+{
+  "kind": "item",
+  "id": "item.chainmail",
+  "name": "Chainmail",
+  "sprite": "shield",
+  "stack": "item.chainmail",
+  "slot": "armor",
+  "health": 6,
+  "power": 0,
+  "armor": 2,
+  "speed": 0,
+  "value": 30
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "trait",
+  "id": "trait.curious",
+  "name": "curious",
+  "value": "discovery",
+  "aversion": "confinement",
+  "workPercent": 108,
+  "fatiguePercent": 100
+}

@@ -1,0 +1,21 @@
+{
+  "kind": "character",
+  "id": "character.raider",
+  "name": "Road raider",
+  "actorKind": "Raider",
+  "health": 30,
+  "power": 6,
+  "speed": 6,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.guard",
+      "every": 3
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 3
+    }
+  ],
+  "sprite": "bandit"
+}

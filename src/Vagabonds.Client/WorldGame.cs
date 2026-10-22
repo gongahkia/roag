@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Vagabonds.Core.Expeditions;
 using Vagabonds.Core.World;
+using Vagabonds.Core.Content;
 using Vagabonds.Graphics;
 
 namespace Vagabonds.Client;
@@ -128,8 +129,10 @@ internal sealed class WorldGame : Game
             else if (_session.IsInCombat && _panel.Length == 0) CombatInput(keys, mouse, Press);
             else if (_panel == "person")
             {
-                if (Press(Keys.R)) { Execute(new(WorldCommandKind.Recruit, ActorId: _person)); _panel = ""; }
-                if (Press(Keys.T)) _panel = "trade";
+                var interactions = _session.Interactions(_person);
+                for (int i = 0; i < Math.Min(6, interactions.Count); i++) if (Press(Keys.D1 + i)) PersonAction(interactions[i]);
+                if (Press(Keys.R) && interactions.FirstOrDefault(i => i.Action == "recruit") is { } recruit) PersonAction(recruit);
+                if (Press(Keys.T) && interactions.FirstOrDefault(i => i.Action == "trade") is { } trade) PersonAction(trade);
             }
             else if (_panel == "trade")
             {
@@ -192,6 +195,12 @@ internal sealed class WorldGame : Game
         _keyboard = keys; _mouse = mouse; base.Update(gameTime);
     }
     private void Toggle(string panel) { _panel = _panel == panel ? "" : panel; _route.Clear(); }
+    private void PersonAction(InteractionDefinition interaction)
+    {
+        var result = _session.PerformInteraction(_person, interaction.Id); _notice = result.Message;
+        if (result.Success && interaction.Action == "recruit") _panel = "";
+        else if (result.Success && interaction.Action == "trade") _panel = "trade";
+    }
     private bool Execute(WorldCommand command)
     {
         try { var result = _session.Submit(command); _notice = result.Message; return result.Success; }
@@ -422,7 +431,7 @@ internal sealed class WorldGame : Game
         foreach (var a in _session.Party)
         {
             _sprites.Fit(_batch, a.Sprite, new(x, y, 38, 38), a.Life == LifeState.Alive ? Ink : new(166, 113, 113));
-            Text(a.Name, x + 46, y); Text($"{new Hero { Role = a.Role }.RoleName}  L{a.Level}", x + 46, y + 18, Muted);
+            Text(a.Name, x + 46, y); Text($"{_session.Class(a).Name}  L{a.Level}", x + 46, y + 18, Muted);
             y += 42; Text(a.Life == LifeState.Alive ? $"HP {a.Health}/{a.MaxHealth}  MP {a.Mana}/{a.MaxMana}" : a.Life.ToString(), x, y); y += 27;
         }
         y += 8;
@@ -474,8 +483,12 @@ internal sealed class WorldGame : Game
             var a = _session.State.Actors.Single(a => a.Id == _person);
             _sprites.Fit(_batch, a.Sprite, new(x, y, 96, 96), Ink); y += 106;
             y += Wrap(_notice, x, y, width); y += 20;
-            Text("R  Invite them to travel with you", x, y, Gold); y += 28;
-            Text("T  Trade with the town", x, y, Gold); y += 28;
+            int number = 1;
+            foreach (var interaction in _session.Interactions(a.Id).Take(6))
+            {
+                string cost = interaction.Cost.Count == 0 ? "" : " / " + string.Join(", ", interaction.Cost.Select(p => p.Value + " " + _session.Content.Get<ItemDefinition>(p.Key).Name));
+                Text($"{number++}  {interaction.Name}{cost}", x, y, Gold); y += 28;
+            }
             Text("Their former job will be vacant if they join.", x, y, Muted);
         }
         else if (_panel == "trade")

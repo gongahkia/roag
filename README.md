@@ -28,6 +28,10 @@ The import command validates and copies the campaign, then exits without a windo
 
 Space resumes/pauses time; WASD/arrows or click moves; E speaks or takes stairs; B builds; X digs; I opens the pack; J shows stories/history; M shows known places. F3 inspects procedural samples and generation stages. Combat has six actions with visible enemy intents. Existing saves retain the original three-area campaign and its controls. See the [play guide](docs/RPG.md).
 
+## Content authoring
+
+`./dev content list`, `./dev content validate`, `./dev content inspect ID`, and `./dev preview character character.healer --seed 42` use the shared runtime content model. Definitions live under `content/`; [the authoring guide](docs/CONTENT_AUTHORING.md) covers references, scaffolding, removal, schemas and extension points. Run `./dev test` and review tooling at each substantial milestone.
+
 ## Build and inspect
 
 ```sh

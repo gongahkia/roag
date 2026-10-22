@@ -149,6 +149,14 @@ public sealed class WorldPlan
 
 public sealed class Actor
 {
+    public string Archetype { get; set; } = "";
+    public string TraitId { get; set; } = "";
+    public int BaseHealth { get; set; }
+    public int BaseMana { get; set; }
+    public int BaseArmor { get; set; } = 1;
+    public int BasePower { get; set; } = 6;
+    public int BaseSpeed { get; set; } = 6;
+    public string SpriteId { get; set; } = "";
     [JsonRequired]
     public long Id { get; set; }
     [JsonRequired]
@@ -201,9 +209,9 @@ public sealed class Actor
     public bool Traveling { get; set; }
     [JsonRequired]
     public List<int> Route { get; set; } = [];
-    public int MaxHealth => Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30;
-    public int MaxMana => new Hero { Role = Role, Level = Level }.MaxMana;
-    public string Sprite => Kind switch { ActorKind.Beast => "wolf", ActorKind.Raider => "bandit", ActorKind.Caravan => "merchant", _ => new Hero { Role = Role }.Sprite };
+    public int MaxHealth => BaseHealth > 0 ? BaseHealth + (Level - 1) * 6 : Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30;
+    public int MaxMana => BaseHealth > 0 ? BaseMana + (Level - 1) * 3 : new Hero { Role = Role, Level = Level }.MaxMana;
+    public string Sprite => SpriteId.Length > 0 ? SpriteId : Kind switch { ActorKind.Beast => "wolf", ActorKind.Raider => "bandit", ActorKind.Caravan => "merchant", _ => new Hero { Role = Role }.Sprite };
 }
 
 public sealed class TownState

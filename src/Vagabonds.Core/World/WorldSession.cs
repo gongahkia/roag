@@ -1,4 +1,5 @@
 using Vagabonds.Core.Expeditions;
+using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
@@ -24,15 +25,19 @@ public sealed partial class WorldSession : IGameSession
     public IEnumerable<Actor> Party => State.Party.Select(id => State.Actors.Single(a => a.Id == id));
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
-    internal WorldSession(WorldPlan plan, WorldState state)
+    internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null)
     {
+        Content = content ?? ContentCatalog.Default;
         Plan = plan; State = state; Chunks = new(plan, state);
         Chunks.Prefetch(state.Position); Reveal();
     }
-    public static WorldSession Create(int seed)
+    public static WorldSession Create(int seed, ContentCatalog? content = null)
     {
+        content ??= ContentCatalog.Default;
+        if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
         var plan = WorldPlan.Generate(seed);
-        var s = new WorldState { CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center };
+        var s = new WorldState { CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center,
+            Inventory = content.Game.Inventory.ToDictionary(p => content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) };
         for (int f = 0; f < 6; f++)
             s.Factions.Add(new() { Id = f, Name = SampleLibrary.Default.Cultures[f].Name + " compact", Relations = Enumerable.Range(0, 6).Select(i => i == f ? 100 : (int)(WorldRandom.Hash(seed, f, i, 180) % 81) - 40).ToArray() });
         foreach (var town in plan.Towns)
@@ -40,7 +45,7 @@ public sealed partial class WorldSession : IGameSession
             s.Towns.Add(new() { Id = town.Id });
             for (int i = 0; i < 8; i++)
             {
-                var actor = GeneratePerson(seed, town, 1000 + town.Id * 16 + i);
+                var actor = ActorFactory.Create(content, i == 4 ? content.Game.Healer : content.Game.Villager, seed, 1000 + town.Id * 16 + i, town.Center, town.Id, town.Culture, town.FactionId);
                 actor.Position = town.Center.Offset((i % 4 - 2) * 3, i / 4 * 6 - 3);
                 actor.Job = new[] { "farmer", "farmer", "woodcutter", "quarrier", "healer", "trader", "guard", "scribe" }[i];
                 if (i == 1 && town.Id % 3 != 0) actor.Job = town.Id % 2 == 0 ? "quarrier" : "woodcutter";
@@ -49,12 +54,17 @@ public sealed partial class WorldSession : IGameSession
             }
         }
         foreach (var road in plan.Roads)
-            s.Actors.Add(new() { Id = 20000 + road.Id, Name = $"Caravan of {plan.Towns[road.FromTown].Name}", Kind = ActorKind.Caravan, Position = road.A, HomeTown = road.FromTown, DestinationTown = road.ToTown, Health = 30, NextTravelTick = 100 + road.Id * 7, FactionId = plan.Towns[road.FromTown].FactionId });
+        {
+            var caravan = ActorFactory.Create(content, content.Game.Caravan, seed, 20000 + road.Id, road.A, road.FromTown, faction: plan.Towns[road.FromTown].FactionId);
+            caravan.Name = "Caravan of " + plan.Towns[road.FromTown].Name; caravan.DestinationTown = road.ToTown; caravan.NextTravelTick = 100 + road.Id * 7;
+            s.Actors.Add(caravan);
+        }
         foreach (var site in plan.Sites)
         {
-            for (int i = 0; i < 3; i++) s.Actors.Add(new() { Id = 30000 + site.Id * 4 + i, Name = i == 0 ? "Hungry prowler" : "Road raider", Kind = i == 0 ? ActorKind.Beast : ActorKind.Raider, Position = (site.Center with { Floor = i == 2 ? 1 : 0 }).Offset(i * 3 - 4, 4), HomeTown = site.Id % 24, FactionId = site.Id % 6, Health = i == 0 ? 18 : 30 });
+            for (int i = 0; i < 3; i++) s.Actors.Add(ActorFactory.Create(content, i == 0 ? content.Game.Beast : content.Game.Raider, seed, 30000 + site.Id * 4 + i,
+                (site.Center with { Floor = i == 2 ? 1 : 0 }).Offset(i * 3 - 4, 4), site.Id % 24, faction: site.Id % 6));
         }
-        var session = new WorldSession(plan, s);
+        var session = new WorldSession(plan, s, content);
         session.NewLoneHero();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
@@ -64,20 +74,12 @@ public sealed partial class WorldSession : IGameSession
         s.Journal.Add(plan.History[0]);
         return session;
     }
-    private static Actor GeneratePerson(int seed, TownPlan town, long id)
-    {
-        var r = WorldRandom.Stream(seed, (int)id, salt: 500);
-        string[] first = ["Ada", "Bryn", "Cato", "Dara", "Eris", "Fenn", "Galen", "Hana", "Ivo", "Jora", "Kest", "Lumi", "Mira", "Neri", "Orin", "Perrin", "Rhea", "Suri", "Tavi", "Wren"];
-        string[] last = ["Ash", "Brook", "Cairn", "Dusk", "Elm", "Frost", "Grove", "Hearth", "Iris", "Juniper", "Kite", "Lark"];
-        var a = new Actor { Id = id, Name = first[r.Next(first.Length)] + " " + last[r.Next(last.Length)], Kind = ActorKind.Person, HomeTown = town.Id, Culture = town.Culture, FactionId = town.FactionId, Role = r.Next(4), Background = new[] { "pilgrim", "exile", "artisan", "veteran", "herbalist", "scholar" }[r.Next(6)], Trait = new[] { "patient", "curious", "stubborn", "generous", "wary", "bold" }[r.Next(6)], Motivation = new[] { "see the old ruins", "support their family", "find a lost friend", "make a fresh start" }[r.Next(4)] };
-        a.Health = a.MaxHealth; a.Mana = a.MaxMana; return a;
-    }
     private void NewLoneHero()
     {
         State.Party.Clear(); State.PartyOrdinal++;
         var town = Plan.Towns.MinBy(t => t.Center.Distance(State.Position with { Floor = 0 }))!;
         State.Position = town.Center;
-        var hero = GeneratePerson(Seed, town, State.NextActorId++);
+        var hero = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, State.Position, town.Id, town.Culture, town.FactionId);
         hero.Job = "traveller"; hero.Position = State.Position; hero.Recruited = true;
         State.Actors.Add(hero); State.Party.Add(hero.Id); State.AwaitingContinuation = false;
         Reveal();
@@ -138,6 +140,7 @@ public sealed partial class WorldSession : IGameSession
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
             case WorldCommandKind.Recruit:
                 if (target == null || target.Kind != ActorKind.Person || target.Life != LifeState.Alive || target.Recruited || State.Position.Distance(target.Position) > 2) return new(false, "Speak to an available inhabitant nearby.");
+                if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
                 target.Recruited = true; target.Position = State.Position; State.Party.Add(target.Id); State.Towns[target.HomeTown].Vacancies++;
                 Log($"{target.Name} joined you. {Plan.Towns[target.HomeTown].Name} needs a new {target.Job}."); return new(true, $"{target.Name} joins your expedition.");
