@@ -6,7 +6,7 @@ using Vagabonds.Core.Content;
 
 public static class DiagnosticJson
 {
-    public sealed record Change(string Path, JsonNode? Before, JsonNode? After);
+    public sealed record Change(string Path, JsonNode? Before, JsonNode? After, string Kind = "changed");
     public static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     public static string Hash(JsonNode? node) => Hash(Encoding.UTF8.GetBytes(Canonical(node)));
     private static string Canonical(JsonNode? node) => node switch
@@ -23,7 +23,13 @@ public static class DiagnosticJson
             if (changes.Count >= limit || JsonNode.DeepEquals(a, b)) return;
             if (a is JsonObject left && b is JsonObject right)
                 foreach (string key in left.Select(v => v.Key).Union(right.Select(v => v.Key)).Order(StringComparer.Ordinal))
-                    Walk(left[key], right[key], p + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal));
+                {
+                    if (changes.Count >= limit) break;
+                    string child = p + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+                    if (!left.ContainsKey(key)) changes.Add(new(child, null, Summary(right[key]), "added"));
+                    else if (!right.ContainsKey(key)) changes.Add(new(child, Summary(left[key]), null, "removed"));
+                    else Walk(left[key], right[key], child);
+                }
             else if (a is JsonArray aa && b is JsonArray bb && aa.Count == bb.Count)
                 for (int i = 0; i < aa.Count; i++) Walk(aa[i], bb[i], p + "/" + i);
             else changes.Add(new(p, Summary(a), Summary(b)));

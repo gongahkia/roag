@@ -24,6 +24,11 @@ jobs:
       - run: dotnet restore Vagabonds.sln --locked-mode
       - run: dotnet build Vagabonds.sln --configuration Release --no-restore
       - run: dotnet test Vagabonds.sln --configuration Release --no-build
+      - name: Replay declarative game scenarios and save continuation
+        run: dotnet run --project src/Vagabonds.Tools --configuration Release --no-build -- scenario suite devtools/scenarios --output artifacts/scenarios.json
+      - name: Check durable agent workflows
+        if: matrix.os == 'ubuntu-latest'
+        run: python3 -m unittest discover -s tests/agent -v
       - name: Exercise generated companions construction trade and fixed simulation
         run: dotnet run --project src/Vagabonds.Client --configuration Release --no-build -- --world-headless
       - name: Validate finite world macro geography

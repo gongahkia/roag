@@ -79,4 +79,48 @@ class RunTests(unittest.TestCase):
         atomic_json(folder/'native/report.json',{'nativeMouseInput':'passed','checks':{'one':True}})
         self.assertTrue(runner.inspect_evidence(step,folder,None)['valid'])
 
+    def test_partial_native_coverage_and_manual_review_are_explicit_requirements(self):
+        spec=self.root/'task.json'; atomic_json(spec,{'schemaVersion':1,'id':'coverage','objective':'Review scene coverage','requirements':[
+            {'id':'all-scenes','description':'All native scenes','profiles':['native']},
+            {'id':'one-scene','description':'Inspect world scene','profiles':['native'],'scenes':['world'],'manualReview':True}]})
+        tasks.create(self.repo,spec)
+        steps=[{'name':'fixture','argv':[sys.executable,'-c','print("scene evidence")'],'timeout':10,'evidence':None}]
+        rid,_=runner.launch(self.repo,'native',scenes=['world'],steps=steps); self.ids.append(rid); self.wait(rid)
+        for req in ['all-scenes','one-scene']: tasks.attach(self.repo,'coverage',req,rid,'Fixture tests profile coverage bookkeeping.')
+        results=tasks.assess(self.repo,'coverage')['requirements']
+        self.assertFalse(results[0]['satisfied']); self.assertIn('world-boss',results[0]['missingScenes'])
+        self.assertFalse(results[1]['satisfied']); self.assertFalse(results[1]['manualReviewSatisfied'])
+        with self.assertRaises(ValueError): tasks.attach(self.repo,'coverage','one-scene',rid,'Review','../outside')
+        tasks.attach(self.repo,'coverage','one-scene',rid,'Inspected the recorded fixture artifact.','fixture.log')
+        self.assertTrue(tasks.assess(self.repo,'coverage')['requirements'][1]['satisfied'])
+        with self.assertRaises(ValueError): runner.launch(self.repo,'core',scenes=['world'])
+
+    def test_queued_cancel_does_not_interrupt_active_run(self):
+        active=self.launch('import time; time.sleep(30)'); self.wait(active,lambda s:bool(s.get('child')))
+        queued=self.launch(); self.wait(queued,lambda s:bool(s.get('worker')))
+        runner.cancel(self.repo,queued); self.assertEqual('cancelled',self.wait(queued)['status'])
+        self.assertEqual('running',runner.observe(self.repo,active)['status'])
+        runner.cancel(self.repo,active); self.assertEqual('cancelled',self.wait(active)['status'])
+
+    def test_cancellation_stops_descendants_and_interrupted_orphans_require_cleanup(self):
+        marker=self.root/'artifacts/descendant.json'
+        script=f'import subprocess,sys,time,json; p=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); open({str(marker)!r},"w").write(json.dumps(p.pid)); time.sleep(30)'
+        rid=self.launch(script); state=self.wait(rid,lambda s:bool(s.get('child')) and marker.exists())
+        descendant=runner.identity(json.loads(marker.read_text())); self.assertTrue(runner.alive(descendant))
+        os.kill(state['worker']['pid'],signal.SIGKILL)
+        end=time.monotonic()+5
+        while runner.alive(state['worker']) and time.monotonic()<end: time.sleep(.05)
+        self.assertTrue(runner.alive(state['child']))
+        with self.assertRaises(ValueError): self.launch()
+        self.assertEqual('interrupted',self.wait(rid)['status'])
+        runner.cancel(self.repo,rid)
+        self.assertFalse(runner.alive(state['child'])); self.assertFalse(runner.alive(descendant))
+
+    def test_empty_missing_or_failing_trx_is_not_successful_test_evidence(self):
+        folder=self.root/'artifacts/trx-fixture'; (folder/'tests').mkdir(parents=True)
+        step={'evidence':'trx'}; self.assertFalse(runner.inspect_evidence(step,folder,None)['valid'])
+        for total,passed,expected in [(0,0,False),(3,2,False),(3,3,True)]:
+            (folder/'tests/tests.trx').write_text(f'<TestRun xmlns="urn:test"><ResultSummary><Counters total="{total}" passed="{passed}"/></ResultSummary></TestRun>')
+            self.assertEqual(expected,runner.inspect_evidence(step,folder,None)['valid'])
+
 if __name__=='__main__': unittest.main()

@@ -153,6 +153,8 @@ public sealed class AgentToolingTests : IDisposable
         var changes = DiagnosticJson.Diff(before, after); Assert.Equal("/a~1b~0c", Assert.Single(changes).Path);
         Assert.Equal(2, DiagnosticJson.At(after, changes[0].Path)!.GetValue<int>());
         Assert.Throws<ArgumentException>(() => DiagnosticJson.At(after, "/missing"));
+        Assert.Equal("added", Assert.Single(DiagnosticJson.Diff(new JsonObject(), JsonNode.Parse("{\"nullable\":null}"))).Kind);
+        Assert.Equal("removed", Assert.Single(DiagnosticJson.Diff(JsonNode.Parse("{\"nullable\":null}"), new JsonObject())).Kind);
         Assert.Single(DiagnosticJson.Diff(before, JsonNode.Parse("{\"one\":1,\"two\":2}"), limit: 1));
         var huge = new JsonArray(Enumerable.Range(0, 2000).Select(i => JsonValue.Create(i)).ToArray());
         Assert.True(Assert.Single(DiagnosticJson.Diff(null, huge)).After!["truncated"]!.GetValue<bool>());
