@@ -1,0 +1,26 @@
+{
+  "kind": "character",
+  "id": "character.vow-mender",
+  "name": "Vow mender",
+  "sprite": "healer",
+  "actorKind": "Raider",
+  "health": 22,
+  "mana": 9,
+  "power": 6,
+  "speed": 8,
+  "armor": 0,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.mend",
+      "target": "weakest",
+      "weight": 5,
+      "condition": "ally-wounded"
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 1
+    }
+  ],
+  "reward": "reward.raiders"
+}

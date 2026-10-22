@@ -1,0 +1,20 @@
+{
+  "kind": "character",
+  "id": "character.road-bowman",
+  "name": "Road bowman",
+  "sprite": "ranger",
+  "actorKind": "Raider",
+  "health": 25,
+  "mana": 0,
+  "power": 6,
+  "speed": 7,
+  "armor": 0,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.arrow",
+      "target": "weakest"
+    }
+  ],
+  "reward": "reward.raiders"
+}

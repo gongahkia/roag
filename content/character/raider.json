@@ -17,5 +17,6 @@
       "weight": 3
     }
   ],
-  "sprite": "bandit"
+  "sprite": "bandit",
+  "reward": "reward.raiders"
 }

@@ -1,0 +1,23 @@
+{
+  "kind": "item",
+  "id": "item.pilgrims-aegis",
+  "name": "Pilgrim's aegis",
+  "sprite": "shield",
+  "stack": "item.pilgrims-aegis",
+  "slot": "armor",
+  "health": 8,
+  "power": 0,
+  "armor": 3,
+  "speed": 0,
+  "value": 80,
+  "effects": [
+    "affix.sentinel"
+  ],
+  "affixPool": [
+    "affix.steadfast"
+  ],
+  "tags": [
+    "signature"
+  ],
+  "description": "Its broken oath is hammered into the rim. A bearer can stand between a wounded companion and the next blow."
+}

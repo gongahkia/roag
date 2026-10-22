@@ -1,0 +1,23 @@
+{
+  "kind": "character",
+  "id": "character.hollow-bleeder",
+  "name": "Hollow reaver",
+  "sprite": "skeleton",
+  "actorKind": "Raider",
+  "health": 27,
+  "mana": 12,
+  "power": 6,
+  "speed": 5,
+  "armor": 1,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.rend",
+      "weight": 3
+    },
+    {
+      "ability": "ability.strike"
+    }
+  ],
+  "reward": "reward.raiders"
+}

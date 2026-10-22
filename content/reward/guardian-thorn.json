@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-thorn",
+  "name": "Thorn court spoils",
+  "sprite": "chest",
+  "gold": 38,
+  "food": 3,
+  "experience": 35,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.hunters-bow",
+    "item.heartstone",
+    "item.wanderers-cloak"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.thorn-mantle"
+}

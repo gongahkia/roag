@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-river",
+  "name": "River bargain spoils",
+  "sprite": "chest",
+  "gold": 36,
+  "food": 5,
+  "experience": 34,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.heartstone",
+    "item.fishing-rod",
+    "item.wanderers-cloak"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.river-heart"
+}

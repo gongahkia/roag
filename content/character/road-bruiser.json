@@ -1,0 +1,24 @@
+{
+  "kind": "character",
+  "id": "character.road-bruiser",
+  "name": "Road bruiser",
+  "sprite": "bandit",
+  "actorKind": "Raider",
+  "health": 40,
+  "mana": 12,
+  "power": 8,
+  "speed": 4,
+  "armor": 2,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.strike",
+      "weight": 4
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3
+    }
+  ],
+  "reward": "reward.raiders"
+}

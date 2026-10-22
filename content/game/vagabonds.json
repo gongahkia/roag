@@ -150,5 +150,11 @@
   "cooperativeAbilities": [
     "ability.twin-strike",
     "ability.shared-aid"
-  ]
+  ],
+  "encounters": [
+    "encounter.road-wardens",
+    "encounter.cinder-ambush",
+    "encounter.hollow-vigil"
+  ],
+  "defaultReward": "reward.wanderers"
 }

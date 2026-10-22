@@ -50,5 +50,6 @@
     "variant.ironbound",
     "variant.mournful",
     "variant.ravenous"
-  ]
+  ],
+  "reward": "reward.guardian-memory"
 }

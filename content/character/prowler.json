@@ -17,5 +17,6 @@
       "ability": "ability.strike"
     }
   ],
-  "sprite": "wolf"
+  "sprite": "wolf",
+  "reward": "reward.prowlers"
 }

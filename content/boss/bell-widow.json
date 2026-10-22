@@ -51,5 +51,6 @@
     "variant.mournful",
     "variant.ravenous",
     "variant.swift"
-  ]
+  ],
+  "reward": "reward.guardian-memory"
 }

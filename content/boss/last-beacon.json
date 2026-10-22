@@ -50,5 +50,6 @@
     "variant.ravenous",
     "variant.swift",
     "variant.ancient"
-  ]
+  ],
+  "reward": "reward.guardian-cinder"
 }

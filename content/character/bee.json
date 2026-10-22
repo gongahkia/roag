@@ -31,5 +31,6 @@
     "drops": {
       "item.honey": 1
     }
-  }
+  },
+  "reward": "reward.wildlife"
 }

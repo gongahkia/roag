@@ -1,0 +1,14 @@
+{
+  "kind": "encounter",
+  "id": "encounter.hollow-vigil",
+  "name": "Hollow vigil",
+  "sprite": "banner",
+  "members": [
+    "character.hollow-bleeder",
+    "character.ash-whisper",
+    "character.hollow"
+  ],
+  "tactics": "Bleeding and dread wear the party down. Remove the reaver or clear bleed with healing; calm stress and conserve medicine for companions who need it.",
+  "reward": "reward.hollow-vigil",
+  "description": "Bleeding and dread wear the party down. Remove the reaver or clear bleed with healing; calm stress and conserve medicine for companions who need it."
+}

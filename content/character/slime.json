@@ -17,5 +17,6 @@
       "weight": 2
     }
   ],
-  "sprite": "slime"
+  "sprite": "slime",
+  "reward": "reward.spirits"
 }

@@ -32,5 +32,6 @@
     "drops": {
       "item.meat": 2
     }
-  }
+  },
+  "reward": "reward.wildlife"
 }

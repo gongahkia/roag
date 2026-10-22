@@ -48,5 +48,6 @@
     "variant.swift",
     "variant.ancient",
     "variant.emberborne"
-  ]
+  ],
+  "reward": "reward.guardian-memory"
 }

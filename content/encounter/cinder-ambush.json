@@ -1,0 +1,13 @@
+{
+  "kind": "encounter",
+  "id": "encounter.cinder-ambush",
+  "name": "Cinder ambush",
+  "sprite": "banner",
+  "members": [
+    "character.cinder-channeler",
+    "character.road-bowman"
+  ],
+  "tactics": "The channeler spends a turn preparing Cinder surge; stun it before release, defeat it, or guard the party. The bowman pressures the weakest companion.",
+  "reward": "reward.cinder-ambush",
+  "description": "The channeler spends a turn preparing Cinder surge; stun it before release, defeat it, or guard the party. The bowman pressures the weakest companion."
+}

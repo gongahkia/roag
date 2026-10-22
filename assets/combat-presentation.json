@@ -22,6 +22,7 @@
     "ability.absolution": "combat.heal",
     "ability.arrow": "combat.projectile",
     "ability.chain-arc": "combat.arc",
+    "ability.cinder-surge": "combat.ember",
     "ability.drain": "combat.dread",
     "ability.dread": "combat.dread",
     "ability.ember": "combat.ember",

@@ -1,0 +1,13 @@
+{
+  "kind": "encounter",
+  "id": "encounter.road-wardens",
+  "name": "Road wardens",
+  "sprite": "banner",
+  "members": [
+    "character.vow-mender",
+    "character.road-bruiser"
+  ],
+  "tactics": "The mender restores wounded allies while the bruiser strikes hard. Focus or stun the frail mender, then deal with the armoured bruiser. Healing uses a limited mana reserve.",
+  "reward": "reward.road-wardens",
+  "description": "The mender restores wounded allies while the bruiser strikes hard. Focus or stun the frail mender, then deal with the armoured bruiser. Healing uses a limited mana reserve."
+}

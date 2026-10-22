@@ -51,5 +51,6 @@
     "variant.emberborne",
     "variant.ironbound",
     "variant.mournful"
-  ]
+  ],
+  "reward": "reward.guardian-iron"
 }

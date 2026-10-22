@@ -21,5 +21,6 @@
       "weight": 3
     }
   ],
-  "sprite": "skeleton"
+  "sprite": "skeleton",
+  "reward": "reward.raiders"
 }

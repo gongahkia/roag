@@ -31,5 +31,6 @@
     "drops": {
       "item.silk": 2
     }
-  }
+  },
+  "reward": "reward.wildlife"
 }

@@ -30,10 +30,7 @@
     "item.warding-bell",
     "item.quick-silver"
   ],
-  "enemies": [
-    "character.raider",
-    "character.raider"
-  ],
+  "enemies": [],
   "situation": {
     "kind": "crossing",
     "resolvedSprite": "bridge",
@@ -80,5 +77,6 @@
         "y": 3
       }
     ]
-  }
+  },
+  "encounter": "encounter.road-wardens"
 }

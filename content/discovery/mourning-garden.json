@@ -27,8 +27,6 @@
     "item.warding-bell",
     "item.quick-silver"
   ],
-  "enemies": [
-    "character.wisp",
-    "character.hollow"
-  ]
+  "enemies": [],
+  "encounter": "encounter.hollow-vigil"
 }

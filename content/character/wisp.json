@@ -16,5 +16,6 @@
       "ability": "ability.drain"
     }
   ],
-  "sprite": "wisp"
+  "sprite": "wisp",
+  "reward": "reward.spirits"
 }

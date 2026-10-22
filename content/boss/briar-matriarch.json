@@ -50,5 +50,6 @@
     "variant.ancient",
     "variant.emberborne",
     "variant.ironbound"
-  ]
+  ],
+  "reward": "reward.guardian-thorn"
 }

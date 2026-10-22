@@ -30,8 +30,6 @@
     "item.warding-bell",
     "item.quick-silver"
   ],
-  "enemies": [
-    "character.raider",
-    "character.raider"
-  ]
+  "enemies": [],
+  "encounter": "encounter.cinder-ambush"
 }
