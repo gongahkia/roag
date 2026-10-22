@@ -13,7 +13,7 @@ public static class DeveloperEntry
         try
         {
             string Value(string flag, string fallback) { int index = Array.IndexOf(args, flag); return index < 0 ? fallback : index + 1 < args.Length ? args[index + 1] : throw new ArgumentException("Missing " + flag); }
-            var valueFlags = new[] { "--content", "--seed", "--output", "--id", "--samples" };
+            var valueFlags = new[] { "--content", "--seed", "--output", "--id", "--samples", "--patch", "--expect", "--against" };
             for (int i = 0; i < args.Length; i++)
             {
                 if (!args[i].StartsWith("--", StringComparison.Ordinal)) continue;
@@ -37,8 +37,13 @@ public static class DeveloperEntry
                             .Select(d => new { d.Id, kind = ContentCatalog.Kind(d), d.Name, file = catalog.Source(d.Id) })); break;
                     case "inspect":
                         if (!catalog.Entries.TryGetValue(id, out var definition)) throw new ArgumentException("Unknown content ID: " + id);
-                        Print(new { file = catalog.Source(id), definition = JsonSerializer.SerializeToNode<ContentDefinition>(definition, ContentCatalog.Json),
+                        Print(new { file = catalog.Source(id), sha256 = DiagnosticJson.Hash(File.ReadAllBytes(Path.Combine(root, catalog.Source(id)))), definition = JsonSerializer.SerializeToNode<ContentDefinition>(definition, ContentCatalog.Json),
                             incoming = catalog.References.Where(r => r.Target == id), outgoing = catalog.References.Where(r => r.Source == id) }); break;
+                    case "patch":
+                        var patchReport = ContentEditing.Patch(catalog, root, id, Value("--patch", ""), args.Contains("--apply"), Value("--expect", "") is { Length: > 0 } expected ? expected : null);
+                        Print(patchReport); return patchReport.Valid ? 0 : 1;
+                    case "diff": Print(ContentEditing.Compare(ContentCatalog.LoadDirectory(Value("--against", "")), catalog)); break;
+                    case "impact": Print(new { id, affected = ContentEditing.Affected(catalog, [id]) }); break;
                     case "references": Print(catalog.References.Where(r => r.Source == id || r.Target == id)); break;
                     case "validate": Print(new { valid = catalog.Issues.Count == 0, count = catalog.Entries.Count, catalog.Hash, issues = catalog.Issues }); return catalog.Issues.Count == 0 ? 0 : 1;
                     case "schema":
@@ -148,7 +153,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)
