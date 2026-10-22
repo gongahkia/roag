@@ -127,3 +127,8 @@ Choose another filename if that slot already contains progress you want to keep.
 The system runs locally and retains evidence; it does not schedule autonomous work, share tasks across machines, replace Git, run arbitrary shell text supplied by an LLM, or score whether gameplay is fun. Expand commands from repeated concrete development needs. At each substantial milestone, check whether discovery, reproduction and verification actually shortened the work; record gaps and improve the common entry point.
 
 Executed acceptance results and platform limits are recorded in [VERIFICATION.md](VERIFICATION.md).
+
+
+### Closing the combat presentation loop
+
+The combat milestone dogfoods this workflow with `devtools/tasks/combat-presentation.json`. Its native checks now capture semantic UI JSON beside screenshots, synchronize short clicks against actual control response, freeze reported animation phases through focus loss, and compare normal/fast/skipped saved states. Use `combatPresentation.busy` to gate actions even when the live battle has already advanced or ended; `combatIntents` and displayed-unit snapshots explain what the player should see. Stable ability IDs and an independent profile hash make visual tuning traceable without changing save compatibility. See [COMBAT_PRESENTATION.md](COMBAT_PRESENTATION.md) for the field contract and reproducible commands.

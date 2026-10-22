@@ -224,3 +224,8 @@ Command/designation targets default to the fixture anchor, offset by `dx`/`dy`; 
 `./dev diagnose save FILE` reports compatibility, hashes and a compact state through the normal loader without saving. Custom content is accepted only if its exact gameplay hash matches. Tools read the selected directory (default `content/`); the client uses its embedded build, so rebuild after changing definitions. Invalid/mismatched saves remain untouched. `diagnose diff BEFORE AFTER` returns at most 100 JSON-pointer differences with large values summarized by hashes; absent and null-valued properties remain distinguishable. Compare explicit chunk JSON files too when investigating terrain changes.
 
 For durable verification, task handoff and evidence-based completion, use [AGENT_TOOLING.md](AGENT_TOOLING.md).
+
+
+## Combat visuals
+
+Ability mechanics remain in typed gameplay content. Their presentation mappings live separately in `assets/combat-presentation.json`, keyed by stable ability IDs, with effect fallbacks. These timing, color, sprite and sound profiles do not join the gameplay save hash. See [COMBAT_PRESENTATION.md](COMBAT_PRESENTATION.md) for validated fields, references, extension points and isolated native previews. `Skill.Id` and combat-event `AbilityId` retain identity through runtime projection; optional event target snapshots make the visual sequence independent of later resolver mutations.

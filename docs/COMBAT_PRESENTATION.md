@@ -62,3 +62,19 @@ Use an isolated deterministic encounter for visual review; preview scenes ignore
 Inspect a physical strike, Arrow, Ember, Mend/Shared aid, Guard, Twin strike and the finishing hit. Compare ordinary and fast playback, reduced motion, muted audio, minimum window size and long names. Check that the source, target and actual result remain recognizable, and that readable health/status information survives the strongest effect. Automated buffer checks establish deterministic, bounded, faded audio data; they do not substitute for listening on a working audio device.
 
 The research and the chosen scope are in [COMBAT_PRESENTATION_REVIEW.md](COMBAT_PRESENTATION_REVIEW.md). Broader task evidence and native validation belong in [VERIFICATION.md](VERIFICATION.md).
+
+
+## Playback and agent diagnostics
+
+`CombatPlayback.Resolve` captures the battle before invoking the normal resolver exactly once. The Client retains that view through ordered event snapshots and separate subsequent status-damage beats, even after Core clears a finished battle. `Advance` and `Skip` only affect the disposable view. The world remains frozen during a terminal sequence; ordinary enemy progression has a fresh delay after playback. Save persists the already-resolved world; Load discards its old visual sequence. Do not move outcome selection, costs or RNG into drawing, sound or animation callbacks.
+
+The mouse controls are `combat-speed` (1x/2x), `combat-motion`, `combat-volume` (including zero) and `combat-skip`. Reduced motion is shared with conversation portraits; sound volume is separate. The presentation settings file accepts older conversation-only settings with defaults for new fields. Preview runs do not write preferences.
+
+`--ui-report PATH` includes `combatPresentation` with `stageVisible`, `busy`, `endingPending`, sequence, ability ID, family, source/target actor IDs, phase (`anticipation`, `travel`, `impact`, `recovery`, `idle`), total/phase progress, displayed fighter snapshots and stable hit/sprite bounds. It also exposes speed/motion/volume, audio diagnostics and the presentation profile hash. `combatIntents` includes pure individual target forecasts. The live `battle` report can already be on the next turn or be null while the presentation is still busy; agents must wait for `busy == false` before submitting another action.
+
+```sh
+./dev verify-native --scenes world-battle world-cooperation world-boss --output artifacts/combat-review/native
+./dev agent verify --profile full --task combat-presentation --detach
+```
+
+The native harness saves a semantic `.ui.json` next to every PNG. To inspect a short beat reliably, it waits for the reported phase, removes window focus to freeze it, captures, then restores focus. Mouse presses wait for a semantic response before releasing, preventing short clicks from disappearing under software rendering. Native fixtures cover ranged/magic/heal/guard effects, 4v4, long names, multiple conditions, helper eligibility, finish/reward, wipe, retreat, boss completion, focus, mute and save/load. Exact normal/fast/skipped saved states are compared; pure tests additionally establish unchanged RNG and clock. These fixtures use temporary slots and deliberately arranged stats, not player saves or an unassisted balance playthrough.

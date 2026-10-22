@@ -1,6 +1,6 @@
 # Combat rules and presentation review
 
-2026-10-23. Read-only game audit and design proposal after the agent-tooling milestone. The requested references are classic Final Fantasy, Darkest Dungeon, Slay the Spire and **One Step From Eden**. No combat implementation or balance change is authorized by this document. The recommendation is to keep the existing turn-based party rules and prototype a much clearer, more expressive battle stage first.
+2026-10-23. Read-only game audit and design proposal after the agent-tooling milestone. The requested references are classic Final Fantasy, Darkest Dungeon, Slay the Spire and **One Step From Eden**. The user subsequently selected direction A, improving existing combat presentation first; its implementation and authoring guide are in [COMBAT_PRESENTATION.md](COMBAT_PRESENTATION.md). This document preserves the preceding audit and alternatives. Combat balance and tactical positioning remain separate decisions.
 
 ## What exists now
 
