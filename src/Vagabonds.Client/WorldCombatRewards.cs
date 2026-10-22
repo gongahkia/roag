@@ -11,14 +11,14 @@ internal sealed partial class WorldGame
         if (_session.State.LastEncounterReward is not { } reward) return;
         int x = box.X + 20, y = box.Y + 64, width = box.Width - 40, gap = 12;
         int rewardWidth = (width - gap * 2) / 3;
-        bool wildlife = reward.Gold == 0 && reward.Food == 0;
+        bool wildlife = reward.Theme == "Wildlife" || reward.Gold == 0 && reward.Food == 0 && reward.Items.Length == 0;
         DrawRewardCard(new(x, y, rewardWidth, 76), "coin", "+" + reward.Gold, "GOLD", "In the shared pack", Gold);
         DrawRewardCard(new(x + rewardWidth + gap, y, rewardWidth, 76), "ration", "+" + reward.Food, "FOOD", "In the shared pack", new(192, 212, 149));
         DrawRewardCard(new(x + 2 * (rewardWidth + gap), y, rewardWidth, 76), "spark", "+" + reward.Experience, "EXPERIENCE", "Each conscious survivor", new(169, 208, 235));
 
         var party = _session.Party.ToArray();
         int cardY = y + 114, cardHeight = Math.Clamp(box.Height - 342, 168, 204);
-        Text("THE SURVIVORS", x, y + 90, Gold);
+        Text(Short("THE SURVIVORS" + (reward.Theme.Length > 0 ? " / " + reward.Theme : ""), width / 8), x, y + 90, Gold);
         int cardWidth = party.Length == 0 ? width : (width - gap * (party.Length - 1)) / party.Length;
         for (int i = 0; i < party.Length; i++)
         {
@@ -46,7 +46,18 @@ internal sealed partial class WorldGame
 
         int contextY = cardY + cardHeight + 12;
         int contextHeight = box.Bottom - 110 - contextY;
-        if (wildlife)
+        if (reward.Items.Length > 0)
+        {
+            var items = reward.Items.Take(4).ToArray(); int itemWidth = width / items.Length;
+            for (int i = 0; i < items.Length; i++)
+            {
+                var item = _session.Item(items[i].Item); int ix = x + i * itemWidth;
+                _sprites.Fit(_batch, item.Sprite ?? "chest", new(ix, contextY, 32, 32), Gold);
+                Text("x" + items[i].Count + " " + Short(item.Name, Math.Max(1, (itemWidth - 80) / 8)), ix + 42, contextY + 1);
+                Text(i == items.Length - 1 && reward.Items.Length > 4 ? "+ " + (reward.Items.Length - 4) + " more in pack" : "Added to shared pack", ix + 42, contextY + 18, Muted);
+            }
+        }
+        else if (wildlife)
         {
             var ingredients = _session.State.Loot.Where(c => c.SourceActor > 0 && !c.Taken && _session.Visible.Contains(c.Position))
                 .SelectMany(c => c.Contents).GroupBy(p => p.Key).Take(4).ToArray();
@@ -75,7 +86,8 @@ internal sealed partial class WorldGame
             ? _session.Count("medicine") > 0
                 ? "Open Party, select a downed companion, then Revive. Each revival uses 1 medicine."
                 : "A companion is downed. Find medicine, then open Party to revive them."
-            : wildlife ? "Close to collect ingredients from the remains, or review your party before travelling."
+            : party.Any(a => ReadyDevelopmentCount(a) > 0) ? "A development is ready. Open Party, then Developments to choose a permanent specialisation."
+                : wildlife ? "Close to collect ingredients from the remains, or review your party before travelling."
                 : "Review your party's health and equipment, or close to continue the expedition.";
         Wrap(guidance, x, box.Bottom - 44, width, downed > 0 ? new(228, 149, 133) : Muted);
     }

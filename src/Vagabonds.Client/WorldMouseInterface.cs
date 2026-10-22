@@ -192,6 +192,9 @@ internal sealed partial class WorldGame
                     Add("supplypage:1", "Next", x + 120, box.Bottom - 88, 96, enabled: (_suppliesPage + 1) * 12 < supplies.Length);
                     Add("panel:inventory", "Party equipment", x + 224, box.Bottom - 88, 192); break;
                 case "inventory":
+                    int ready = _session.Party.Sum(ReadyDevelopmentCount);
+                    Add("panel:progression", "Developments" + (ready > 0 ? " / " + ready : ""), box.Right - 464, box.Y + 12, 184,
+                        tip: "Personal combat traits and permanent class specialisations at levels two and four.");
                     Add("panel:supplies", "Shared pack", box.Right - 272, box.Y + 12, 152);
                     var party = _session.Party.ToArray(); var member = SelectedMember(); var items = EquipmentChoices();
                     int card = (width - 8 * (party.Length - 1)) / party.Length;
@@ -221,6 +224,7 @@ internal sealed partial class WorldGame
                     Add("dismiss", "Part ways", x + 376, ay, 128, enabled: outside && member.Life == LifeState.Alive && party.Count(a => a.Life == LifeState.Alive) > 1 && _session.State.Position.Distance(_session.Plan.Towns[member.HomeTown].Center) <= 28);
                     Add("abandon", "Abandon permanently", x + 512, ay, 208, enabled: outside && member.Life == LifeState.Downed, tip: "Records permanent death immediately.");
                     break;
+                case "progression": AddProgressionControls(box); break;
                 case "work":
                     var workers = WorkCandidates(); var orders = _session.State.Work;
                     if (_selectedWorkId == 0) _selectedWorkId = orders.FirstOrDefault()?.Id ?? 0;
@@ -349,7 +353,7 @@ internal sealed partial class WorldGame
             Add("combat-volume", _combatVolume <= 0 ? "Sound off" : "Sound " + (int)Math.Round(_combatVolume * 100), area.Right - 284, area.Top + 8, 100, 28, tip: "Cycle battle sound volume, including mute.");
             Add("combat-skip", "Skip", area.Right - 176, area.Top + 8, 72, 28, Playback.Busy, tip: "Finish this visual sequence. The action is already resolved.", reason: "No action is playing.");
             Add("panel:combat-log", "Log", area.Right - 96, area.Top + 8, 80, 28);
-            Add("panel:journal", "Tactics", area.Right - 96, area.Top + 44, 80, 28);
+            Add("panel:tactics", "Tactics", area.Right - 96, area.Top + 44, 80, 28);
             Add("panel:inventory", "Party", area.Right - 184, area.Top + 44, 80, 28);
             var battle = DisplayBattle;
             if (battle?.Active.Friendly == true)
@@ -412,7 +416,10 @@ internal sealed partial class WorldGame
             case "waypoint": _waypoint = KnownPlaces().Single(p => p.Id == argument).Position; _notice = "Destination marked. Follow its banner; explore ground along the way."; break;
             case "mark-linked-site": _waypoint = _session.Plan.Sites[_session.State.Discoveries.Single(d => d.Id == _discoveryId).SiteId].Center; _notice = "Dungeon destination marked. It is accessible now, with its existing dangers."; break;
             case "buy": case "sell": Execute(new(action == "buy" ? WorldCommandKind.Buy : WorldCommandKind.Sell, Item: argument)); break;
-            case "party": _packMember = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "party": _packMember = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _selectedTalent = ""; _talentPage = 0; break;
+            case "talent": _selectedTalent = argument; break;
+            case "talentpage": _talentPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
+            case "learn-talent": Execute(new(WorldCommandKind.ChooseProgression, ActorId: SelectedMember().Id, Item: _selectedTalent)); break;
             case "campworker": _campWorker = long.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "camprole": _campRole = argument; _campPage = 0; break;
             case "camppage": _campPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
@@ -518,6 +525,12 @@ internal sealed partial class WorldGame
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited, outcome = d.Outcome, bypass = _session.DiscoveryBypass(d) }),
             combatFeedback = _session.State.CombatEvents.TakeLast(8),
+            progression = _panel == "progression" ? new { actorId = SelectedMember().Id, combatTrait = SelectedMember().CombatTrait,
+                talents = SelectedMember().Talents, selected = _selectedTalent, ready = ReadyDevelopmentCount(SelectedMember()),
+                choices = _session.ProgressionChoices(SelectedMember().Id).Select(t => new { id = t.Id, t.Name, t.Description, t.Level,
+                    learned = SelectedMember().Talents.Contains(t.Id), reason = _session.ProgressionChoiceReason(SelectedMember().Id, t.Id) }) } : null,
+            encounterReward = _session.State.LastEncounterReward,
+            equipment = _panel == "inventory" ? EquipmentChoices().Select((item, index) => new { index, id = item.Id, name = item.Name, slot = item.Slot, count = _session.Count(item.Stack) }) : null,
             combatIntents = _session.State.Battle?.Units.Where(u => !u.Friendly).Select(u => BattleIntent(u.Id)),
             combatPresentation = new { busy = Playback.Busy, phase = Playback.Phase, progress = Playback.Progress, phaseProgress = Playback.PhaseProgress,
                 stageVisible = CombatStageVisible, endingPending = Playback.EndingPending, sequence = Playback.Sequence,
@@ -530,7 +543,7 @@ internal sealed partial class WorldGame
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
-            battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting,
+            battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting, prepared = battle.Prepared,
                 units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null
         }, UiJson);
         if (serialized == _lastUiReport) return;

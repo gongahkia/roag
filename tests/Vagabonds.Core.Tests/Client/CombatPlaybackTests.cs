@@ -53,7 +53,8 @@ public sealed class CombatPlaybackTests
         Assert.Null(s.State.Battle); Assert.True(p.Busy); Assert.True(p.EndingPending); Assert.True(p.RewardPending); Assert.False(p.Completed);
         Assert.Equal(1, p.View!.Units[enemy].Health);
         while (p.Phase is "anticipation" or "travel") p.Advance(.01);
-        Assert.False(p.View!.Units[enemy].Alive); Assert.True(p.Busy); Assert.Equal(gold + 12, s.Count("gold"));
+        Assert.False(p.View!.Units[enemy].Alive); Assert.True(p.Busy); Assert.Equal(gold + s.State.LastEncounterReward!.Gold, s.Count("gold"));
+        Assert.True(s.State.LastEncounterReward.Gold > 0);
         string resolved = State(s); p.Skip(); p.Skip(); Assert.Equal(resolved, State(s)); Assert.True(p.Completed); Assert.True(p.RewardPending);
         p.AcknowledgeCompletion(); Assert.False(p.RewardPending);
     }

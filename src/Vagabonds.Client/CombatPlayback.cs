@@ -72,8 +72,20 @@ internal sealed class CombatPlayback
         };
         targets = targets.Where(id => before.Units[before.ActorIds.IndexOf(id)].Alive).ToArray();
         string label = targets.Length == 0 ? skill.Name + " / no living target" : skill.Name;
-        _beats.Enqueue(new(skill.Id, label, skill.Effect, source, targets,
-            helper >= 0 ? before.ActorIds[helper] : 0, primary.ToArray(), CombatVisualProfiles.Default.Resolve(skill.Id, skill.Effect, skill.Cooperative)));
+        string effect = skill.Effect;
+        var profile = CombatVisualProfiles.Default.Resolve(skill.Id, skill.Effect, skill.Cooperative);
+        if (primary.FirstOrDefault(e => e.Source == source && e.Kind == "prepare") is { } preparation)
+        {
+            label = preparation.Label; effect = "guard"; targets = [source];
+            profile = CombatVisualProfiles.Default.Resolve(null, "guard");
+        }
+        else if (!primary.Any(e => e.Source == source && e.Kind == "ability") && primary.FirstOrDefault(e => e.Source == source && e.Kind == "skip") is { } skipped)
+        {
+            label = skipped.Label; effect = "guard"; targets = [];
+            profile = CombatVisualProfiles.Default.Resolve(null, "guard");
+        }
+        _beats.Enqueue(new(skill.Id, label, effect, source, targets,
+            helper >= 0 ? before.ActorIds[helper] : 0, primary.ToArray(), profile));
         foreach (var group in subsequent)
         {
             var hit = group[0];

@@ -166,11 +166,13 @@ internal sealed partial class WorldGame
         if (!u.Friendly && !Playback.Busy && BattleIntent(u.Id) is { } intent)
         {
             int y = r.Top - 8;
-            _sprites.Fit(_batch, intent.Icon, new(r.X, y, 20, 20), intent.Reason.Length > 0 ? Muted : Gold);
+            bool charging = u.Alive && b.Prepared.TryGetValue(u.Id, out var prepared) && prepared.ReadyRound > b.Round;
+            bool muted = intent.Reason.Length > 0 && !charging;
+            _sprites.Fit(_batch, intent.Icon, new(r.X, y, 20, 20), muted ? Muted : Gold);
             string range = intent.Targets.Length == 0 ? "" : intent.Targets.Min(t => t.Minimum) + "-" + intent.Targets.Max(t => t.Maximum);
-            string caption = intent.Reason.Length > 0 ? u.Alive ? "Spent / blocked" : "Defeated" : Short(intent.Name, 11) + (intent.Targets.Any(t => t.Maximum > 0) ? " " + range : "");
-            Text(Short(caption, (r.Width - 26) / 8), r.X + 26, y + 4, intent.Reason.Length > 0 ? Muted : Gold);
-            if (intent.Reason.Length == 0)
+            string caption = charging ? "Charging / stun" : intent.Reason.Length > 0 ? u.Alive ? "Spent / blocked" : "Defeated" : Short(intent.Name, 11) + (intent.Targets.Any(t => t.Maximum > 0) ? " " + range : "");
+            Text(Short(caption, (r.Width - 26) / 8), r.X + 26, y + 4, muted ? Muted : Gold);
+            if (intent.Reason.Length == 0 || charging)
                 for (int i = 0; i < intent.Targets.Length; i++)
                     _sprites.Fit(_batch, intent.Targets[i].Sprite, new(r.X + 3 + i * 22, y + 23, 18, 18), Ink * .75f);
         }
@@ -257,7 +259,7 @@ internal sealed partial class WorldGame
             }
         }
         if (phase is "impact" or "recovery")
-            foreach (var cover in beat.Events.Where(e => e.Label == "Shield cover"))
+            foreach (var cover in beat.Events.Where(e => e.Label is "Ally cover" or "Shield cover"))
             {
                 var protectedPoint = BattlePoint(b, cover.Target);
                 BattleLine(BattlePoint(b, cover.Source), protectedPoint, new(137, 201, 217), 2);

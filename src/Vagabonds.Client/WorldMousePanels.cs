@@ -42,6 +42,8 @@ internal sealed partial class WorldGame
                 }
                 break;
             case "inventory": DrawInventorySummary(box); break;
+            case "progression": DrawProgression(box); break;
+            case "tactics": DrawEncounterTactics(box); break;
             case "camp":
                 Text("Choose a companion, a duty and an activity. Time runs; Pause to plan.", x, box.Bottom - 50, Muted); break;
             case "camp-story": DrawConversation(box); break;

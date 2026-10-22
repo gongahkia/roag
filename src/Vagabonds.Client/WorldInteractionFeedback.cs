@@ -18,11 +18,13 @@ internal static class WorldInspection
         if (actor != null)
         {
             if (session.SituationForActor(actor) is { } situation)
-                return WithRoute(actor.Name, session.SituationDescription(situation), "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
+                return WithRoute(actor.Name, session.SituationDescription(situation) + " " + session.EncounterDescription(actor.Id), "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
+            if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
+            if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             return WithRoute(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
@@ -44,8 +46,10 @@ internal static class WorldInspection
     private static string Threat(WorldSession session, Actor actor)
     {
         double party = session.Party.Where(a => a.Life == LifeState.Alive).Sum(a => a.Health * Math.Max(1, a.Power));
-        double ratio = actor.Health * (double)Math.Max(1, actor.Power) / Math.Max(1, party);
-        return "Threat estimate: " + (ratio > 2 ? "overwhelming" : ratio > 1 ? "severe" : ratio > .45 ? "dangerous" : "manageable") + " against the current party";
+        var visibleGroup = actor.EncounterLeader == 0 ? new[] { actor } : session.State.Actors.Where(a => a.Life == LifeState.Alive
+            && a.EncounterLeader == actor.EncounterLeader && session.Visible.Contains(a.Position)).ToArray();
+        double ratio = visibleGroup.Sum(a => a.Health * (double)Math.Max(1, a.Power)) / Math.Max(1, party);
+        return "Visible threat estimate: " + (ratio > 2 ? "overwhelming" : ratio > 1 ? "severe" : ratio > .45 ? "dangerous" : "manageable") + " against the current party";
     }
 }
 

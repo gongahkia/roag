@@ -331,7 +331,7 @@ public sealed class WorldMouseTests
             if (panel == "inventory")
             {
                 Assert.Equal(4, controls.Count(c => c.Id.StartsWith("party:", StringComparison.Ordinal) && c.Sprite != null && c.Progress >= 0));
-                var items = session.Content.All<Vagabonds.Core.Content.ItemDefinition>().Where(i => i.Slot != "none").ToArray();
+                var items = session.CarriedEquipment().ToArray();
                 foreach (var c in controls.Where(c => c.Id.StartsWith("gear:", StringComparison.Ordinal))) Assert.Equal(items[int.Parse(c.Id[5..])].Sprite, c.Sprite);
             }
             else
