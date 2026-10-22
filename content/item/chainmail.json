@@ -9,5 +9,9 @@
   "power": 0,
   "armor": 2,
   "speed": 0,
-  "value": 30
+  "value": 30,
+  "affixPool": [
+    "affix.sentinel",
+    "affix.steadfast"
+  ]
 }

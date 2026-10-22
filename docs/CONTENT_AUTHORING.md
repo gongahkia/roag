@@ -130,3 +130,19 @@ Use `./dev content scaffold resource --id resource.new`, `./dev content referenc
 `./dev content scaffold camp --id camp.new`, `./dev content references camp.apple-broth`, `./dev preview camp camp.apple-broth --seed 42`, `./dev preview camp camp.stories --seed 1337` and `./dev review-tooling` exercise the complete authoring loop. The preview creates an isolated serviceable camp, supplies its recipes and executes normal named-worker commands. All preparation types require registered Core mechanics and validation.
 
 Native verification can now target scenarios: `./dev verify-native --scenes world-camp --output artifacts/native-camp`. Choices are `world`, `world-resources`, `world-camp`, `world-battle` and `world-boss`; omitting `--scenes` runs all. This was added after repeated full native runs slowed iteration on individual panels. Headless `./dev preview` and native `--scene` fixtures still execute real command paths and use no player saves.
+
+## Equipment effects and seeded variants
+
+`affix.*` definitions provide a readable name, sprite/description, registered `effect`, bounded `power`, and eligible `slots`. Items have up to two fixed `effects` plus an `affixPool` of at most sixteen candidates. These are separate content references; use `content references` before editing/removing an effect. Ordinary crafted items retain fixed effects. Reward alternatives roll one or two different permitted affixes, preserving their base statistics; each generated piece has a stable `gear.*` identity in world state. They never enter the authored content catalog or alter its hash.
+
+| Handler | Runtime behaviour |
+| --- | --- |
+| `protect` | Blocks damage for a different ally at half HP or less, once per wearer per round; cannot reduce an attack below one damage |
+| `burn-power` | Adds direct power to a burning ability (not its later damage ticks) |
+| `healing` | Adds healing to heal, cleanse and medicine abilities |
+| `resolve` | Reduces stress inflicted by dread |
+| `dig`, `mine`, `fish` | Adds percentage work speed to the matching terrain/resource activity |
+
+Combat effect totals cap at 12; combined work bonuses cap at +200%. Shields choose the strongest available protector, then stable unit ID. Their per-round usage is saved. New handlers require explicit Core registration, validation, preview behaviour and tests; JSON does not execute code.
+
+Use `./dev content scaffold affix --id affix.new`, `./dev preview affix affix.sentinel --seed 42` or another registered effect, and `./dev review-tooling`. The preview isolates the requested effect on real compatible gear and submits actual combat/work actions. `./dev preview recipe recipe.wardens-shield --seed 42` supplies its declared ingredients before exercising crafting. Native `verify-native --scenes world-discovery` verifies reward selection, item sprites/effect descriptions, equipping and reload.

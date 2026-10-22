@@ -23,6 +23,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(DiscoveryDefinition), "discovery")]
 [JsonDerivedType(typeof(ResourceDefinition), "resource")]
 [JsonDerivedType(typeof(CampDefinition), "camp")]
+[JsonDerivedType(typeof(AffixDefinition), "affix")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -205,6 +206,12 @@ public sealed class InteractionDefinition : ContentDefinition
     public int Amount { get; set; }
     public Dictionary<string, int> Cost { get; set; } = [];
 }
+public sealed class AffixDefinition : ContentDefinition
+{
+    public required string Effect { get; set; }
+    public required int Power { get; set; }
+    public required string[] Slots { get; set; }
+}
 public sealed class ItemDefinition : ContentDefinition
 {
     public required string Stack { get; set; }
@@ -215,6 +222,8 @@ public sealed class ItemDefinition : ContentDefinition
     public int Speed { get; set; }
     public int Value { get; set; } = 2;
     public Dictionary<string, int> WorkBonuses { get; set; } = [];
+    public string[] Effects { get; set; } = [];
+    public string[] AffixPool { get; set; } = [];
 }
 public sealed class RecipeDefinition : ContentDefinition
 {

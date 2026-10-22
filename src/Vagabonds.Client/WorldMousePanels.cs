@@ -65,9 +65,10 @@ internal sealed partial class WorldGame
                     Text("Compare against a companion's currently equipped slot:", x, y + 96, Muted);
                     for (int i = 0; i < chest.Choices.Length; i++)
                     {
-                        var item = _session.Content.Get<ItemDefinition>(chest.Choices[i]); var change = _session.CompareGear(SelectedMember(), item.Id); int ry = y + 126 + i * 72;
+                        var item = _session.Item(chest.Choices[i]); var change = _session.CompareGear(SelectedMember(), item.Id); int ry = y + 126 + i * 72;
                         Text($"{item.Slot}: HP+{item.Health} P+{item.Power} A+{item.Armor} S+{item.Speed}", x + 320, ry);
                         Text(Short("Replaces " + change.Previous + ": " + GearDelta(change), (width - 320) / 8), x + 320, ry + 23, Muted);
+                        Text(Short(_session.EquipmentSummary(item), (width - 320) / 8), x + 320, ry + 43, Gold);
                     }
                 }
                 break;
@@ -109,7 +110,7 @@ internal sealed partial class WorldGame
                 var contents = StoredItems(); var stacks = StorageItems();
                 for (int i = 0; i < Math.Min(6, stacks.Length - _storagePage * 6); i++)
                 {
-                    string stack = stacks[_storagePage * 6 + i]; var item = _session.Content.All<ItemDefinition>().FirstOrDefault(d => d.Stack == stack);
+                    string stack = stacks[_storagePage * 6 + i]; var item = _session.Content.All<ItemDefinition>().FirstOrDefault(d => d.Stack == stack) ?? (_session.TryItem(stack, out var generated) ? generated : null);
                     Text($"{item?.Name ?? stack} / carried {_session.Count(stack)} / stored {contents.GetValueOrDefault(stack)}", x, y + 42 + i * 44);
                 }
                 break;

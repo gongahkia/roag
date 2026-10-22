@@ -1,0 +1,13 @@
+{
+  "kind": "affix",
+  "id": "affix.kindled",
+  "name": "Kindled",
+  "sprite": "ember",
+  "effect": "burn-power",
+  "power": 3,
+  "slots": [
+    "weapon",
+    "charm"
+  ],
+  "description": "Burning attacks gain 3 direct damage power."
+}

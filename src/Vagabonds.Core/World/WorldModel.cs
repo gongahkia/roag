@@ -283,6 +283,7 @@ public sealed class BuiltStructure
     [JsonRequired] public double Condition { get; set; } = 100;
 }
 
+public sealed record GeneratedEquipment(string Base, string[] Affixes);
 public sealed record EquipmentState(string Item, int Health, int Power, int Armor, int Speed);
 public sealed class LootCache
 {
@@ -389,6 +390,7 @@ public sealed class ChunkDelta
 public sealed class WorldState
 {
     public CampStory? LastCampStory { get; set; }
+    public Dictionary<string, GeneratedEquipment> GeneratedEquipment { get; set; } = [];
     [JsonRequired] public List<WorldDiscovery> Discoveries { get; set; } = [];
     [JsonRequired] public HashSet<int> KnownSites { get; set; } = [];
     [JsonRequired] public List<CombatEvent> CombatEvents { get; set; } = [];
@@ -448,6 +450,7 @@ public sealed class WorldState
 
 public sealed class WorldBattle
 {
+    public HashSet<int> ShieldUsed { get; set; } = [];
     [JsonRequired] public Dictionary<int, PlannedAbility> Plans { get; set; } = [];
     [JsonRequired]
     public List<CombatUnit> Units { get; set; } = [];

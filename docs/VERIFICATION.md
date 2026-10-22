@@ -194,3 +194,12 @@ These checks verify this resource milestone, not the still-pending camp roles, e
 - Runtime previews for `camp.apple-broth` (42) and `camp.stories` (1337) completed normally. Schema regenerated; tooling review reports 183 valid definitions / 18 families. Authoring guide documents the new family, effect rules and native scenario selection.
 
 The full approved expansion remains active: equipment variants, wildlife, multi-approach discoveries and cooperative abilities are not claimed complete here.
+
+## Equipment effects milestone — 2026-10-22
+
+- Full Release suite: 339/339 tests passed. Ten new equipment cases exercise deterministic bounded combinations and variety across seeds; immutable inspection; claiming/equipping/storing/reloading one identity; duplicate and forged-affix rejection; exact burn/heal damage previews; reduced dread stress; digging/mining/fishing progress; and shield cover limited to once per round across save/load. Existing discovery, combat, panel, resource and camp tests also passed.
+- Native `verify-native --scenes world-discovery --output artifacts/integration/equipment-native-final` under Xvfb: five checks passed. Reward cards show sprite/effects, one chosen variant enters the pack, equipping consumes that exact item, loading retains it, and exit is clean. Inspected final `equipment-choices.png` plus the earlier `equipment-worn.png`.
+- All seven `./dev preview affix` handlers executed real work or combat; combined reports are under ignored `artifacts/integration/equipment-previews.json`. Tooling review reports 192 valid definitions / 19 families. Schema regenerated and authoring guide updated.
+- The first full run caught a real preview-tool limitation: new recipes requiring ore lacked their input in the default starting pack. Recipe fixtures now supply the selected recipe's declared ingredients, and `preview recipe recipe.wardens-shield --seed 42` completes with no pending work. The full rerun passed.
+
+Wildlife, alternate discovery approaches, cooperative abilities and full integrated acceptance remain to be implemented/verified. These results cover the current milestone only.

@@ -48,18 +48,18 @@ public sealed partial class WorldSession
         if (discovery != null && DiscoveryGuarded(discovery)) return new(false, "Living foes still guard these supplies.");
         if (cache.Choices.Length > 0 && !cache.Choices.Contains(choice)) return new(false, "Choose one of the three offered pieces of equipment.");
         foreach (var (item, amount) in cache.Contents) Add(item, amount);
-        if (cache.Choices.Length > 0) { var item = Content.Get<ItemDefinition>(choice); Add(item.Stack, 1); cache.Selected = choice; }
+        if (cache.Choices.Length > 0) { var item = Item(choice); Add(item.Stack, 1); cache.Selected = choice; }
         cache.Taken = true;
         string recovered = "Recovered " + string.Join(", ", cache.Contents.Select(p => p.Value + " " + (Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key)))
-            + (cache.Selected is { } selected ? "; chose " + Content.Get<ItemDefinition>(selected).Name : "") + ".";
+            + (cache.Selected is { } selected ? "; chose " + Item(selected).Name : "") + ".";
         Log(recovered); return new(true, recovered);
     }
     private ActionResult Equip(long actorId, string itemId)
     {
         var actor = Party.FirstOrDefault(a => a.Id == actorId && a.Life == LifeState.Alive);
-        if (actor == null || !Content.Entries.TryGetValue(itemId, out var d) || d is not ItemDefinition item || item.Slot == "none" || Count(item.Stack) < 1)
+        if (actor == null || !TryItem(itemId, out var item) || item.Slot == "none" || Count(item.Stack) < 1)
             return new(false, "Choose carried equipment and a living companion.");
-        if (actor.Equipment.TryGetValue(item.Slot, out var previous)) Add(Content.Get<ItemDefinition>(previous.Item).Stack, 1);
+        if (actor.Equipment.TryGetValue(item.Slot, out var previous)) Add(Item(previous.Item).Stack, 1);
         Add(item.Stack, -1); actor.Equipment[item.Slot] = new(item.Id, item.Health, item.Power, item.Armor, item.Speed);
         actor.Health = Math.Min(actor.Health, actor.MaxHealth);
         return new(true, $"{actor.Name} equipped {item.Name}.");

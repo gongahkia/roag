@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-camp', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-camp', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -310,6 +310,19 @@ def main():
                 client.context(camp); client.click('context:camp'); client.click('campstory'); client.wait(lambda u: u['panel'] == 'camp-story' and u['dialogue'] is not None); client.capture('camp-conversation')
                 check('campStoriesUseVoicedPortraitPresentation', bool(client.ui()['dialogue']['fullText']) and len(client.ui()['dialogue']['portraits']) == 2)
                 client.finish_dialogue(); check('campConversationReturnsToDuties', client.ui()['panel'] == 'camp'); client.click('close')
+            finally: client.close()
+        if 'world-discovery' in args.scenes:
+            client = Client('world-discovery', slot)
+            try:
+                client.wait(lambda u: u['panel'] == 'discovery'); client.click('discovery-loot'); ui = client.wait(lambda u: u['panel'] == 'loot')
+                rewards = [c for c in ui['controls'] if c['id'].startswith('claim:')]
+                check('generatedRewardsShowSpritesAndEffects', len(rewards) == 3 and all(c['sprite'] and c['detail'] and c['tip'] for c in rewards))
+                client.capture('equipment-choices'); selected = rewards[0]['id'][6:]; client.click(rewards[0]['id']); client.wait(lambda u: u['panel'] == 'inventory')
+                state = client.save()['state']; check('chosenEquipmentHasOnePersistentIdentity', selected in state['generatedEquipment'] and state['inventory'].get(selected) == 1)
+                client.click('equip'); state = client.save()['state']; hero = next(a for a in state['actors'] if a['id'] == state['party'][0])
+                check('mouseEquipsGeneratedEquipment', any(e['item'] == selected for e in hero['equipment'].values()) and state['inventory'].get(selected) == 0)
+                client.capture('equipment-worn'); client.click('load'); state = client.save()['state']
+                check('generatedEquipmentSurvivesReload', selected in state['generatedEquipment'] and any(e['item'] == selected for a in state['actors'] if a['id'] == state['party'][0] for e in a['equipment'].values()))
             finally: client.close()
         if 'world-battle' in args.scenes:
             client = Client('world-battle', slot)

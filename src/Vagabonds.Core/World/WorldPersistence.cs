@@ -115,7 +115,16 @@ public sealed partial class WorldSession
                 || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !ContentCatalog.Default.Entries.ContainsKey(actor.TraitId))
                 throw new InvalidDataException("Invalid content-backed actor state.");
         var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
-        var stacks = ContentCatalog.Default.All<ItemDefinition>().Select(i => i.Stack).ToHashSet();
+        var catalog = ContentCatalog.Default;
+        if (s.GeneratedEquipment == null || s.GeneratedEquipment.Count > 6144) throw new InvalidDataException("Invalid generated equipment registry.");
+        foreach (var (id, gear) in s.GeneratedEquipment)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(id, "^gear\\.[0-9]+\\.[0-9]+\\.[0-9]+$") || gear == null || gear.Base == null
+                || !catalog.Entries.TryGetValue(gear.Base, out var entry) || entry is not ItemDefinition basis || basis.Slot == "none"
+                || gear.Affixes == null || gear.Affixes.Length is < 1 or > 2 || gear.Affixes.Distinct().Count() != gear.Affixes.Length
+                || gear.Affixes.Any(a => a == null || !basis.AffixPool.Contains(a) || basis.Effects.Contains(a))) throw new InvalidDataException("Invalid generated equipment effects.");
+        ItemDefinition? SavedItem(string id) => catalog.Entries.GetValueOrDefault(id) as ItemDefinition
+            ?? (s.GeneratedEquipment.TryGetValue(id, out var generated) ? ResolveEquipment(catalog, id, generated) : null);
+        var stacks = catalog.All<ItemDefinition>().Select(i => i.Stack).Concat(s.GeneratedEquipment.Keys).ToHashSet();
         foreach (var actor in s.Actors)
         {
             if (actor.Preparations == null || actor.Preparations.Count > 5 || actor.Preparations.Select(p => p?.Effect).Distinct().Count() != actor.Preparations.Count
@@ -131,6 +140,11 @@ public sealed partial class WorldSession
         }
         if (s.LastCampStory is { } story && (!actorIds.Contains(story.Speaker) || story.Text == null || story.Text.Length > 512 || story.Tick < 0 || story.Tick > s.Tick || !plan.Contains(story.Camp))) throw new InvalidDataException("Invalid camp story.");
         bool StackValid(Dictionary<string, int>? values) => values != null && values.All(p => stacks.Contains(p.Key) && p.Value is >= 0 and <= 9999);
+        if (!StackValid(s.Inventory) || s.Chunks.Any(c => c.Storage.Values.Any(v => !StackValid(v)))) throw new InvalidDataException("Invalid inventory stacks.");
+        var uniqueItems = s.GeneratedEquipment.Keys.ToDictionary(id => id, id => s.Inventory.GetValueOrDefault(id));
+        foreach (var gear in s.Actors.SelectMany(a => a.Equipment.Values)) if (uniqueItems.ContainsKey(gear.Item)) uniqueItems[gear.Item]++;
+        foreach (var entry in s.Chunks.SelectMany(c => c.Storage.Values).SelectMany(v => v)) if (uniqueItems.ContainsKey(entry.Key)) uniqueItems[entry.Key] += entry.Value;
+        if (uniqueItems.Values.Any(count => count > 1)) throw new InvalidDataException("A generated item is duplicated.");
         if (s.WorkRally is { } rally && !plan.Contains(rally) || s.Work == null || s.Structures == null || s.NextWorkId < 1 || s.IncidentRandom == 0 || s.IncidentAfter == null || s.Work.Count > 64
             || s.Work.Select(w => w?.Id).Distinct().Count() != s.Work.Count
             || s.Work.Any(w => w == null || w.Id < 1 || w.Id >= s.NextWorkId || !Enum.IsDefined(w.Kind) || !plan.Contains(w.Target)
@@ -153,15 +167,15 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid encounter identity.");
             foreach (var (slot, gear) in actor.Equipment)
             {
-                var item = ContentCatalog.Default.Get<ItemDefinition>(gear.Item);
-                if (item.Slot != slot || slot == "none" || gear != new EquipmentState(item.Id, item.Health, item.Power, item.Armor, item.Speed)) throw new InvalidDataException("Invalid equipped item.");
+                var item = gear.Item == null ? null : SavedItem(gear.Item);
+                if (item == null || item.Slot != slot || slot == "none" || gear != new EquipmentState(item.Id, item.Health, item.Power, item.Armor, item.Speed)) throw new InvalidDataException("Invalid equipped item.");
             }
         }
         if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
             || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
-            || s.Loot == null || s.Loot.Count > 2048 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !ContentCatalog.Default.All<ItemDefinition>().Any(i => i.Stack == p.Key))
+            || s.Loot == null || s.Loot.Count > 2048 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !stacks.Contains(p.Key))
                 || c.Choices == null || c.Choices.Length is not (0 or 3) || c.Choices.Distinct().Count() != c.Choices.Length
-                || c.Choices.Any(id => id == null || !ContentCatalog.Default.Entries.TryGetValue(id, out var entry) || entry is not ItemDefinition item || item.Slot == "none")
+                || c.Choices.Any(id => id == null || SavedItem(id) is not { Slot: not "none" })
                 || (c.Choices.Length > 0 && c.Taken ? c.Selected == null || !c.Choices.Contains(c.Selected) : c.Selected != null))
             || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
         ValidateDiscoveries(plan, s);
@@ -204,6 +218,7 @@ public sealed partial class WorldSession
                 };
                 if (!valid) throw new InvalidDataException("Invalid intention target.");
             }
+            if (b.ShieldUsed == null || b.ShieldUsed.Any(i => i < 0 || i >= b.Units.Count)) throw new InvalidDataException("Invalid shield usage.");
             if (b.Round is < 1 or > 100000 || b.Units.Any(u => u.MaxHealth is < 1 or > 10000 || u.MaxMana is < 0 or > 10000 || u.Stress is < 0 or > 100 || u.Armor is < 0 or > 1000 || u.Speed is < 0 or > 1000 || u.Power is < 0 or > 1000 || u.Burn is < 0 or > 1000 || u.Bleed is < 0 or > 1000 || u.Mark is < 0 or > 1000 || u.Stun is < 0 or > 1000 || !Enum.IsDefined(u.Intent))) throw new InvalidDataException("Invalid combat statistics.");
         }
     }

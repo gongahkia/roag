@@ -169,7 +169,7 @@ public sealed partial class WorldSession
         var gear = pool.Distinct().Select(Content.Get<ItemDefinition>).OrderBy(i => WorldRandom.Hash(Seed, id, i.Id.Aggregate(0, (a, c) => unchecked(a * 31 + c)), salt)).ToArray();
         var choices = gear.GroupBy(i => i.Slot).Select(g => g.First()).Take(3).ToList();
         choices.AddRange(gear.Where(i => choices.All(c => c.Id != i.Id)).Take(3 - choices.Count));
-        return choices.Select(i => i.Id).ToArray();
+        return choices.Select((item, index) => GenerateEquipment(item.Id, id, salt, index)).ToArray();
     }
     public string DiscoveryText(WorldDiscovery d)
     {

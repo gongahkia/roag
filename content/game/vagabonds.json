@@ -80,7 +80,8 @@
     "recipe.camp-weapon",
     "recipe.camp-armor",
     "recipe.pickaxe",
-    "recipe.fishing-rod"
+    "recipe.fishing-rod",
+    "recipe.wardens-shield"
   ],
   "inventory": {
     "item.food": 8,

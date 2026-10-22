@@ -32,7 +32,7 @@ public sealed partial class WorldSession
     }
     private void NewCombatRound()
     {
-        var b = State.Battle!;
+        var b = State.Battle!; b.ShieldUsed.Clear();
         foreach (var unit in b.Units)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
@@ -111,6 +111,7 @@ public sealed partial class WorldSession
     }
     private void ResolveAbility(CombatUnit caster, Skill skill, IEnumerable<CombatUnit> targets, int bonus)
     {
+        bonus += AbilityEquipmentBonus(CombatActor(caster), skill);
         Feedback("ability", caster, null, skill.Name, 0, caster.Name + " uses " + skill.Name + ".");
         foreach (var t in targets)
         {
@@ -132,7 +133,7 @@ public sealed partial class WorldSession
                     int old = caster.Health; caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
                     Feedback("heal", caster, caster, "Drain", caster.Health - old, caster.Name + " recovers " + (caster.Health - old) + " HP.");
                 }
-                if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(0, Math.Max(8, skill.Power) - PreparationPower(CombatActor(t), "focus") * 3));
+                if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(0, Math.Max(8, skill.Power) - PreparationPower(CombatActor(t), "focus") * 3 - EquipmentEffectPower(CombatActor(t), "resolve")));
                 if (t.Alive)
                 {
                     if (skill.Effect == "burn") t.Burn = skill.Duration;
@@ -175,6 +176,12 @@ public sealed partial class WorldSession
         int resistance = label == "Burn" ? PreparationPower(CombatActor(target), "burn-resist") : label == "Bleed" ? PreparationPower(CombatActor(target), "bleed-resist") : 0;
         int damage = Math.Max(resistance > 0 ? 0 : 1, amount - target.Armor - resistance); if (target.Guarding && damage > 0) damage = Math.Max(1, damage / 2);
         if (resistance > 0) Feedback("status", target, target, "Meal protection", resistance, target.Name + " resists " + label.ToLowerInvariant() + " with camp preparation.");
+        if (source != null && damage > 1 && ShieldProtector(target) is { } protector)
+        {
+            int blocked = Math.Min(damage - 1, EquipmentEffectPower(CombatActor(protector), "protect")); damage -= blocked;
+            State.Battle!.ShieldUsed.Add(protector.Id);
+            Feedback("status", protector, target, "Shield cover", blocked, protector.Name + " blocks " + blocked + " damage for wounded " + target.Name + ". Once per round.");
+        }
         var actor = State.Actors.Single(a => a.Id == State.Battle!.ActorIds[target.Id]);
         if (damage >= Math.Max(8, target.MaxHealth / 3))
         {

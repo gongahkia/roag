@@ -75,8 +75,8 @@ public sealed class DiscoveryTests
         before = JsonSerializer.Serialize(s.State);
         Assert.False(s.Submit(new(WorldCommandKind.Loot, cache.Position)).Success);
         Assert.False(s.Submit(new(WorldCommandKind.Loot, cache.Position, Item: "item.food")).Success); Assert.Equal(before, JsonSerializer.Serialize(s.State));
-        Assert.Equal(3, cache.Choices.Select(id => s.Content.Get<ItemDefinition>(id).Slot).Distinct().Count());
-        var item = s.Content.Get<ItemDefinition>(cache.Choices[0]); int count = s.Count(item.Stack);
+        Assert.Equal(3, cache.Choices.Select(id => s.Item(id).Slot).Distinct().Count());
+        var item = s.Item(cache.Choices[0]); int count = s.Count(item.Stack);
         Assert.True(s.Submit(new(WorldCommandKind.Loot, cache.Position, Item: item.Id)).Success);
         Assert.Equal(count + 1, s.Count(item.Stack)); Assert.Equal(item.Id, cache.Selected);
         before = JsonSerializer.Serialize(s.State); Assert.False(s.Submit(new(WorldCommandKind.Loot, cache.Position, Item: cache.Choices[1])).Success); Assert.Equal(before, JsonSerializer.Serialize(s.State));

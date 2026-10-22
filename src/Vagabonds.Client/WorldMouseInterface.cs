@@ -34,7 +34,7 @@ internal sealed partial class WorldGame
     private CampDefinition[] CampChoices() => _session.Content.Game.CampActivities.Select(_session.Content.Get<CampDefinition>).Where(d => d.Role == _campRole).ToArray();
     private int _suppliesPage;
     private ItemDefinition[] SupplyChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot == "none").ToArray();
-    private ItemDefinition[] EquipmentChoices() => _session.Content.All<ItemDefinition>().Where(i => i.Slot != "none").ToArray();
+    private ItemDefinition[] EquipmentChoices() => _session.CarriedEquipment().ToArray();
     private Actor SelectedMember() { var party = _session.Party.ToArray(); return party[_packMember % party.Length]; }
     private long _selectedWorkId, _selectedWorkerId;
     private Actor? SelectedWorker() => _selectedWorkerId == 0 ? WorkCandidates().FirstOrDefault() : WorkCandidates().FirstOrDefault(a => a.Id == _selectedWorkerId);
@@ -197,7 +197,7 @@ internal sealed partial class WorldGame
                         var comparison = _session.CompareGear(member, items[i].Id);
                         int iw = (width - 8) / 2;
                         Add("gear:" + i, items[i].Name + (worn ? " / worn" : " / x" + _session.Count(items[i].Stack)), x + row % 2 * (iw + 8), y + 164 + row / 2 * 46, iw, 42, selected: i == _packItem,
-                            tip: $"{items[i].Slot}: HP+{items[i].Health} Power+{items[i].Power} Armour+{items[i].Armor} Speed+{items[i].Speed}. Replaces " + comparison.Previous + ": " + GearDelta(comparison) + ". " + items[i].Description,
+                            tip: $"{items[i].Slot}: HP+{items[i].Health} Power+{items[i].Power} Armour+{items[i].Armor} Speed+{items[i].Speed}. Replaces " + comparison.Previous + ": " + GearDelta(comparison) + ". " + _session.EquipmentDescription(items[i]),
                             sprite: items[i].Sprite, detail: items[i].Slot + " / " + (worn ? "Equipped" : _session.Count(items[i].Stack) == 0 ? "None in pack" : "In pack"), dimmed: !worn && _session.Count(items[i].Stack) == 0);
                     }
                     if (items.Length > 8)
@@ -285,8 +285,8 @@ internal sealed partial class WorldGame
                         for (int i = 0; i < members.Length; i++) Add("party:" + i, members[i].Name, x + i * (cw + 8), y + 54, cw, 32, selected: SelectedMember().Id == members[i].Id);
                         for (int i = 0; i < chest.Choices.Length; i++)
                         {
-                            var item = _session.Content.Get<ItemDefinition>(chest.Choices[i]);
-                            Add("claim:" + item.Id, "Choose " + item.Name, x, y + 124 + i * 72, 300, 48, tip: item.Description);
+                            var item = _session.Item(chest.Choices[i]);
+                            Add("claim:" + item.Id, _session.State.GeneratedEquipment.TryGetValue(item.Id, out var variant) ? _session.Content.Get<ItemDefinition>(variant.Base).Name : item.Name, x, y + 124 + i * 72, 300, 48, tip: item.Name + ". " + _session.EquipmentDescription(item), sprite: item.Sprite, detail: _session.EquipmentEffectNames(item));
                         }
                     }
                     break;

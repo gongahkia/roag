@@ -10,5 +10,11 @@
     "dig": 60,
     "mine": 60
   },
-  "description": "Equip in the tool slot. dig: +60% work speed, mine: +60% work speed."
+  "description": "Equip in the tool slot. dig: +60% work speed, mine: +60% work speed.",
+  "affixPool": [
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
 }

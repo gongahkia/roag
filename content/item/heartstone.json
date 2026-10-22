@@ -9,5 +9,14 @@
   "power": 0,
   "armor": 0,
   "speed": 0,
-  "value": 40
+  "value": 40,
+  "affixPool": [
+    "affix.sentinel",
+    "affix.kindled",
+    "affix.mending",
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
 }

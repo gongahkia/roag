@@ -9,5 +9,11 @@
   "workBonuses": {
     "fish": 75
   },
-  "description": "Equip in the tool slot. fish: +75% work speed."
+  "description": "Equip in the tool slot. fish: +75% work speed.",
+  "affixPool": [
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
 }

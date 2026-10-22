@@ -9,5 +9,12 @@
   "power": 4,
   "armor": 0,
   "speed": 0,
-  "value": 35
+  "value": 35,
+  "effects": [
+    "affix.kindled"
+  ],
+  "affixPool": [
+    "affix.mending",
+    "affix.steadfast"
+  ]
 }

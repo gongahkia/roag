@@ -9,5 +9,10 @@
   "power": 3,
   "armor": 0,
   "speed": 0,
-  "value": 25
+  "value": 25,
+  "affixPool": [
+    "affix.kindled",
+    "affix.mending",
+    "affix.steadfast"
+  ]
 }

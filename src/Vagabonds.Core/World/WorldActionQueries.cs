@@ -36,13 +36,13 @@ public sealed partial class WorldSession
         if (reason.Length == 0 && targets.Length > 0)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[caster.Id]);
-            int bonus = actor.Level - 1 + caster.Power - 6; var t = targets[0];
+            int bonus = actor.Level - 1 + caster.Power - 6 + AbilityEquipmentBonus(actor, skill); var t = targets[0];
             if (skill.Effect is "heal" or "potion" or "cleanse")
             { minimum = maximum = Math.Clamp(skill.Power + bonus, 0, t.MaxHealth - t.Health); description += $" Restores {minimum} HP to {t.Name}; removes bleed."; }
             else if (skill.Effect is not ("guard" or "rally" or "calm" or "flee"))
             {
                 int raw = skill.Power + bonus + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0);
-                int Hit(int roll) { int damage = Math.Max(1, raw + roll - t.Armor); return Math.Min(t.Health, t.Guarding ? Math.Max(1, damage / 2) : damage); }
+                int Hit(int roll) { int damage = Math.Max(1, raw + roll - t.Armor); damage = t.Guarding ? Math.Max(1, damage / 2) : damage; if (ShieldProtector(t) is { } protector) damage = Math.Max(1, damage - EquipmentEffectPower(CombatActor(protector), "protect")); return Math.Min(t.Health, damage); }
                 minimum = Hit(0); maximum = Hit(3);
                 description += targets.Length == 1 ? $" {minimum}-{maximum} damage to {t.Name}." : " Hits every living enemy; armour and guard apply separately.";
             }
@@ -63,8 +63,8 @@ public sealed partial class WorldSession
     }.Where(s => s.Length > 0));
     public GearComparison CompareGear(Actor actor, string id)
     {
-        var item = Content.Get<ItemDefinition>(id); var old = actor.Equipment.GetValueOrDefault(item.Slot);
-        return new(item.Slot, old == null ? "empty" : Content.Get<ItemDefinition>(old.Item).Name,
+        var item = Item(id); var old = actor.Equipment.GetValueOrDefault(item.Slot);
+        return new(item.Slot, old == null ? "empty" : Item(old.Item).Name,
             item.Health - (old?.Health ?? 0), item.Power - (old?.Power ?? 0), item.Armor - (old?.Armor ?? 0), item.Speed - (old?.Speed ?? 0));
     }
     public string InteractionBlockReason(long actorId, string interactionId)
@@ -162,7 +162,7 @@ public sealed partial class WorldSession
                 break;
             case WorldCommandKind.Equip:
                 if (actor == null || !State.Party.Contains(actor.Id) || actor.Life != LifeState.Alive) return "Choose a conscious companion.";
-                if (!Content.Entries.TryGetValue(command.Item, out var entry) || entry is not ItemDefinition item || item.Slot == "none") return "Choose equipment.";
+                if (!TryItem(command.Item, out var item) || item.Slot == "none") return "Choose equipment.";
                 if (Count(item.Stack) < 1) return "No " + item.Name + " in the shared pack.";
                 break;
             case WorldCommandKind.Unequip:

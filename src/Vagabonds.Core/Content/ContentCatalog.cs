@@ -21,7 +21,7 @@ public sealed class ContentCatalog
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
     public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
-    public static readonly string[] Kinds = ["ability", "boss", "camp", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
+    public static readonly string[] Kinds = ["ability", "affix", "boss", "camp", "character", "class", "dialogue", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "resource", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -39,7 +39,7 @@ public sealed class ContentCatalog
     public static bool ValidId(string? id) => !string.IsNullOrWhiteSpace(id) && Regex.IsMatch(id, "^[a-z][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$");
     public static string Kind(ContentDefinition d) => d switch
     {
-        AbilityDefinition => "ability", BossDefinition => "boss", CampDefinition => "camp", CharacterDefinition => "character", ClassDefinition => "class",
+        AbilityDefinition => "ability", AffixDefinition => "affix", BossDefinition => "boss", CampDefinition => "camp", CharacterDefinition => "character", ClassDefinition => "class",
         DialogueDefinition => "dialogue", InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
         TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", ResourceDefinition => "resource", _ => throw new ArgumentException("Unknown content type.")
     };
@@ -247,7 +247,20 @@ public sealed class ContentCatalog
                 case InteractionDefinition i:
                     if (!Actions.Contains(i.Action)) Error("action", "Unknown registered action: " + i.Action);
                     Range("distance", i.Distance, 1, 3); Range("amount", i.Amount, 0, 100); Cost("cost", i.Cost); break;
+                case AffixDefinition affix:
+                    if (affix.Effect is not ("protect" or "burn-power" or "healing" or "resolve" or "dig" or "mine" or "fish")) Error("effect", "Choose a registered equipment effect.");
+                    Range("power", affix.Power, 1, affix.Effect is "dig" or "mine" or "fish" ? 100 : 8);
+                    if (affix.Slots == null || affix.Slots.Length == 0 || affix.Slots.Any(s => s is not ("weapon" or "armor" or "charm" or "tool")) || affix.Slots.Distinct().Count() != affix.Slots.Length) Error("slots", "List distinct equipment slots for this effect.");
+                    break;
                 case ItemDefinition i:
+                    if (i.Effects == null || i.AffixPool == null || i.Effects.Length > 2 || i.AffixPool.Length > 16) Error("effects", "Provide up to two fixed effects and sixteen possible affixes.");
+                    else
+                    {
+                        if (i.Effects.Distinct().Count() != i.Effects.Length || i.AffixPool.Distinct().Count() != i.AffixPool.Length) Error("effects", "Effect IDs must be distinct in each pool.");
+                        foreach (var pool in new[] { (Field: "effects", Values: i.Effects), (Field: "affixPool", Values: i.AffixPool) })
+                            foreach (string id in pool.Values)
+                            { Ref<AffixDefinition>(pool.Field, id); if (id != null && _entries.TryGetValue(id, out var e) && e is AffixDefinition a && !(a.Slots?.Contains(i.Slot) ?? false)) Error(pool.Field, "This effect is not allowed on the item's slot."); }
+                    }
                     if (string.IsNullOrWhiteSpace(i.Stack) || !Regex.IsMatch(i.Stack, "^[a-z][a-z0-9.-]*$")) Error("stack", "Use a stable inventory key.");
                     if (i.Slot is not ("none" or "weapon" or "armor" or "charm" or "tool")) Error("slot", "Unknown equipment slot.");
                     if (i.WorkBonuses == null) Error("workBonuses", "Work bonuses cannot be null.");

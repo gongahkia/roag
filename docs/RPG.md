@@ -117,3 +117,9 @@ Digging no longer charges food per tile; it uses work time and the normal fatigu
 Right-click an existing camp and choose **Assign camp duties**. Select a companion portrait and Cooking, Treatment, Watch or Stories. Each person has one job at a time; different duties can run together, and Work allows reassignment or cancellation. The camp panel keeps time running until you press Pause. Resting the party lets assigned camp workers continue their duties.
 
 Cooking uses gathered ingredients to prepare against burning, bleeding, physical attacks or dread. Hover recipes for the exact effect and cost. Meals serve conscious party members within six tiles; effects and remaining time appear on portrait tooltips. Treatment consumes medicine to heal wounds. Watch grants initiative and an opening guard for the next three game hours. Stories respond to recent events and reveal actual sites on World map; **Camp conversation** replays them with portraits, speech and animation. Repeating a story requires waiting for the speaker's cooldown.
+
+### Choosing equipment effects
+
+Dungeon and landmark rewards offer seeded equipment variants. Their choice cards show the item's sprite, numbers and named effects; hover for the exact rule before choosing. A Warden's shield can protect another injured companion once each round, while an Ember staff strengthens burning attacks. Mending and Steadfast variants support healing and resistance to dread, and tool variants improve particular kinds of work. Effects from equipment combine up to the documented caps; preparation from camp still applies.
+
+A chosen variant keeps its identity and effects through saving, equipping and storage. You cannot reroll a cache by loading. Party lists acquired variants as well as the standard items; the separate tool slot leaves weapons equipped. Crafting a Warden's shield uses wood and iron ore gathered from deposits.

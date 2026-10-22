@@ -1,0 +1,13 @@
+{
+  "kind": "affix",
+  "id": "affix.mending",
+  "name": "Mending",
+  "sprite": "cross",
+  "effect": "healing",
+  "power": 3,
+  "slots": [
+    "weapon",
+    "charm"
+  ],
+  "description": "Healing abilities and medicine restore 3 extra HP."
+}

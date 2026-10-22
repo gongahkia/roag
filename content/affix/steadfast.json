@@ -1,0 +1,15 @@
+{
+  "kind": "affix",
+  "id": "affix.steadfast",
+  "name": "Steadfast",
+  "sprite": "resolve",
+  "effect": "resolve",
+  "power": 4,
+  "slots": [
+    "weapon",
+    "armor",
+    "charm",
+    "tool"
+  ],
+  "description": "Dread inflicts 4 less stress."
+}
