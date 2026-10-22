@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from .workspace import atomic_json, identifier, read_json, utc
 from .discovery import PROFILES
-from .runner import observe, run_dir
+from .runner import observe, NATIVE_SCENES
 
 @contextmanager
 def locked(repo, task_id):
@@ -22,7 +22,10 @@ def create(repo, spec_path):
     for req in reqs:
         rid = identifier(req['id'])
         if rid in seen or not req.get('description') or not req.get('profiles'): raise ValueError('Each requirement needs a distinct id, description and verification profiles.')
-        if any(p not in PROFILES for p in req['profiles']): raise ValueError('Unknown verification profile.')
+        if not isinstance(req['profiles'], list) or any(p not in PROFILES for p in req['profiles']): raise ValueError('Use a list of known verification profiles.')
+        if 'scenes' in req and (not isinstance(req['scenes'], list) or not req['scenes'] or
+                any(s not in NATIVE_SCENES for s in req['scenes']) or not set(req['profiles']) & {'native', 'full'}):
+            raise ValueError('Scene requirements need native/full coverage and a nonempty list of known scenes.')
         if not isinstance(req.get('manualReview', False), bool): raise ValueError('manualReview must be boolean.')
         seen.add(rid)
     state = {'schemaVersion': 1, 'id': spec['id'], 'objective': spec['objective'], 'requirements': reqs,
@@ -83,16 +86,19 @@ def assess(repo, task_id):
             except (ValueError,OSError,KeyError) as e: checked[run_id]={'error':str(e)}
         return checked[run_id]
     for req in state['requirements']:
-        covered=set(); reasons=[]
+        covered=set(); covered_scenes=set(); reasons=[]
         for evidence in state['evidence']:
             if evidence['requirement']!=req['id']: continue
             run=check(evidence['run'])
             if 'error' in run: reasons.append(run['error'])
-            else: covered.update(PROFILES if run['profile']=='full' else [run['profile']])
+            else:
+                covered.update(PROFILES if run['profile']=='full' else [run['profile']])
+                if run['profile'] in ['native', 'full']: covered_scenes.update(run.get('scenes') or NATIVE_SCENES)
         missing=sorted(set(req['profiles'])-covered)
+        missing_scenes=sorted(set(req.get('scenes', NATIVE_SCENES))-covered_scenes) if set(req['profiles']) & {'native','full'} else []
         reviewed=not req.get('manualReview',False) or any(r['requirement']==req['id'] and 'error' not in check(r['run']) for r in state['reviews'])
-        results.append({'id':req['id'],'description':req['description'],'satisfied':not missing and reviewed,
-            'missingProfiles':missing,'manualReviewSatisfied':reviewed,'evidenceProblems':reasons})
+        results.append({'id':req['id'],'description':req['description'],'satisfied':not missing and not missing_scenes and reviewed,
+            'missingProfiles':missing,'missingScenes':missing_scenes,'manualReviewSatisfied':reviewed,'evidenceProblems':reasons})
     ready=all(r['satisfied'] for r in results)
     return {'id':task_id,'objective':state['objective'],'recordedStatus':state['status'],
             'status':state['status'] if ready or state['status']!='complete' else 'needs-verification',

@@ -26,9 +26,11 @@ public static class DiagnosticJson
                     Walk(left[key], right[key], p + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal));
             else if (a is JsonArray aa && b is JsonArray bb && aa.Count == bb.Count)
                 for (int i = 0; i < aa.Count; i++) Walk(aa[i], bb[i], p + "/" + i);
-            else changes.Add(new(p, a?.DeepClone(), b?.DeepClone()));
+            else changes.Add(new(p, Summary(a), Summary(b)));
         }
     }
+    private static JsonNode? Summary(JsonNode? value) => value == null || value.ToJsonString().Length <= 1500 ? value?.DeepClone()
+        : Node(new { truncated = true, type = value.GetValueKind().ToString(), hash = Hash(value), entries = value is JsonArray a ? a.Count : value is JsonObject o ? o.Count : 1 });
     public static JsonNode? At(JsonNode? node, string pointer)
     {
         if (pointer.Length == 0) return node;

@@ -28,5 +28,8 @@ def capabilities():
                 'runs': 'List, inspect, tail, cancel or retry a verification run.',
                 'task': 'Create explicit requirements, checkpoint, attach evidence and check completion.'},
             'gameTools': ['./dev content inspect ID', './dev content references ID', './dev preview KIND ID',
-                './dev audit-world --seed 42 --samples 4'],
+                './dev audit-world --seed 42 --samples 4', './dev content patch ID --patch FILE',
+                './dev content impact ID', './dev content diff --against DIRECTORY',
+                './dev scenario run FILE', './dev scenario suite devtools/scenarios',
+                './dev diagnose save FILE', './dev diagnose diff BEFORE AFTER'],
             'protocol': 'Versioned JSON on stdout; nonzero for errors, failed/blocked/stale verification and incomplete completion checks.'}

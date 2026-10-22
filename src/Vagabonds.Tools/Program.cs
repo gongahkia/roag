@@ -42,8 +42,13 @@ public static class DeveloperEntry
                     case "patch":
                         var patchReport = ContentEditing.Patch(catalog, root, id, Value("--patch", ""), args.Contains("--apply"), Value("--expect", "") is { Length: > 0 } expected ? expected : null);
                         Print(patchReport); return patchReport.Valid ? 0 : 1;
-                    case "diff": Print(ContentEditing.Compare(ContentCatalog.LoadDirectory(Value("--against", "")), catalog)); break;
-                    case "impact": Print(new { id, affected = ContentEditing.Affected(catalog, [id]) }); break;
+                    case "diff":
+                        if (!args.Contains("--against")) throw new ArgumentException("Use --against DIRECTORY to choose the baseline content.");
+                        var baseline = ContentCatalog.LoadDirectory(Value("--against", "")); RequireValid(baseline);
+                        Print(ContentEditing.Compare(baseline, catalog)); return catalog.Issues.Count == 0 ? 0 : 1;
+                    case "impact":
+                        if (!catalog.Entries.ContainsKey(id)) throw new ArgumentException("Unknown content ID: " + id);
+                        Print(new { id, affected = ContentEditing.Affected(catalog, [id]) }); break;
                     case "references": Print(catalog.References.Where(r => r.Source == id || r.Target == id)); break;
                     case "validate": Print(new { valid = catalog.Issues.Count == 0, count = catalog.Entries.Count, catalog.Hash, issues = catalog.Issues }); return catalog.Issues.Count == 0 ? 0 : 1;
                     case "schema":
@@ -67,6 +72,47 @@ public static class DeveloperEntry
                     default: throw new ArgumentException("Unknown content command: " + operation);
                 }
                 return 0;
+            }
+            if (command == "scenario")
+            {
+                RequireValid(catalog); string operation = args.ElementAtOrDefault(1) ?? "", input = args.ElementAtOrDefault(2) ?? "";
+                if (operation == "schema")
+                {
+                    var options = new JsonSerializerOptions(ContentCatalog.Json); options.MakeReadOnly(populateMissingResolver: true);
+                    var schema = JsonSchemaExporter.GetJsonSchemaAsNode(options, typeof(GameScenario));
+                    if (args.Contains("--output")) WriteNew(Value("--output", ""), schema.ToJsonString(ContentCatalog.Json) + "\n", args.Contains("--replace")); else Print(schema);
+                    return 0;
+                }
+                int? scenarioSeed = args.Contains("--seed") ? seed : null;
+                object report; bool passed;
+                if (operation == "run") { var result = ScenarioRunner.Run(catalog, ScenarioRunner.Read(input, scenarioSeed)); report = result; passed = result.Passed; }
+                else if (operation == "suite")
+                {
+                    string[] files = Directory.GetFiles(input, "*.json").Where(p => !p.EndsWith(".schema.json", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToArray();
+                    if (files.Length == 0) throw new ArgumentException("No scenarios found; an empty suite cannot pass.");
+                    var results = files.Select(file => ScenarioRunner.Run(catalog, ScenarioRunner.Read(file, scenarioSeed))).ToArray();
+                    passed = results.All(r => r.Passed); report = new { passed, scenarios = results.Length, results };
+                }
+                else throw new ArgumentException("Use scenario run FILE, suite DIRECTORY or schema.");
+                if (args.Contains("--output"))
+                {
+                    string path = Value("--output", ""); WriteNew(path, JsonSerializer.Serialize(report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                    Print(new { passed, artifact = Path.GetFullPath(path), summary = operation == "run"
+                        ? DiagnosticJson.Node(report)["failedStep"] : DiagnosticJson.Node(report)["scenarios"] });
+                }
+                else Print(report);
+                return passed ? 0 : 1;
+            }
+            if (command == "diagnose")
+            {
+                string operation = args.ElementAtOrDefault(1) ?? "", file = args.ElementAtOrDefault(2) ?? "";
+                if (operation == "save") { var report = ScenarioRunner.InspectSave(file, catalog); Print(report); return DiagnosticJson.Node(report)["compatible"]!.GetValue<bool>() ? 0 : 1; }
+                if (operation == "diff")
+                {
+                    var before = JsonNode.Parse(File.ReadAllBytes(file)); var after = JsonNode.Parse(File.ReadAllBytes(args.ElementAtOrDefault(3) ?? ""));
+                    var changes = DiagnosticJson.Diff(before, after); Print(new { equal = JsonNode.DeepEquals(before, after), changes, limit = 100, possiblyTruncated = changes.Count == 100, readOnly = true }); return 0;
+                }
+                throw new ArgumentException("Use diagnose save FILE or diagnose diff BEFORE AFTER. Input files are never written.");
             }
             if (command == "preview")
             {
@@ -119,6 +165,7 @@ public static class DeveloperEntry
                     ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
                     cooperation = new { abilities = catalog.Game.CooperativeAbilities, preview = "preview ability ID", nativeScene = "world-cooperation", rule = "Both participants spend mana and one action; helper must still have a turn this round." },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
+                    agentWorkflow = new { entry = "./dev agent help", reproduction = "./dev scenario run FILE", edits = "./dev content patch ID --patch FILE", diagnostics = "./dev diagnose save FILE" },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
             }
             if (command == "audit-world")
@@ -153,7 +200,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)

@@ -49,11 +49,13 @@ public sealed partial class WorldSession
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    public static WorldSession Load(string path)
+    public static WorldSession Load(string path, ContentCatalog? content = null)
     {
+        var catalog = content ?? ContentCatalog.Default;
+        if (catalog.Issues.Count > 0) throw new InvalidDataException("Cannot load with invalid content.");
         var save = JsonSerializer.Deserialize<Manifest>(File.ReadAllBytes(path), SaveOptions) ?? throw new InvalidDataException("Empty world save.");
         if (save.Format != "vagabonds-world" || save.Version != 3 || save.Plan == null || save.State == null || save.Chunks == null) throw new InvalidDataException("Unsupported world save.");
-        if (save.ContentHash != ContentCatalog.Default.Hash) throw new InvalidDataException("World content differs from this build. Start an explicit new run; the selected save is preserved.");
+        if (save.ContentHash != catalog.Hash) throw new InvalidDataException("World content differs from this build. Start an explicit new run; the selected save is preserved.");
         var plan = save.Plan;
         if (plan.Version != WorldPlan.GenerationVersion || plan.SampleHash != SampleLibrary.Default.Hash) throw new InvalidDataException("World generation version/sample manifest differs from this build.");
         if (plan.Validate().Count != 0 || plan.Towns.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Sites.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Select(t => t.Id).Where((id, index) => id != index).Any() || plan.Roads.Any(r => r.FromTown is < 0 or >= 24 || r.ToTown is < 0 or >= 24)) throw new InvalidDataException("Invalid world plan.");
@@ -68,15 +70,15 @@ public sealed partial class WorldSession
             var delta = JsonSerializer.Deserialize<ChunkDelta>(data, SaveOptions) ?? throw new InvalidDataException("Empty chunk snapshot.");
             if (delta.Key != reference.Key || !plan.Contains(new(delta.Key.X * 64, delta.Key.Y * 64, delta.Key.Floor)) || delta.Edits == null || delta.Discovered == null || delta.Storage == null || delta.Edits.Count > 4096 || delta.Discovered.Any(i => i is < 0 or >= 4096) || delta.Edits.Any(e => e.Key is < 0 or >= 4096 || !Enum.IsDefined(e.Value)) || delta.Storage.Any(s => s.Key is < 0 or >= 4096 || s.Value == null || s.Value.Any(e => e.Value < 0))) throw new InvalidDataException("Invalid chunk snapshot.");
             if (delta.Resources == null || delta.Resources.Count > 4096 || delta.Resources.Any(r => r.Key is < 0 or >= 4096 || r.Value == null
-                || !ContentCatalog.Default.Entries.TryGetValue(r.Value.Definition, out var entry) || entry is not ResourceDefinition resource
+                || !catalog.Entries.TryGetValue(r.Value.Definition, out var entry) || entry is not ResourceDefinition resource
                 || r.Value.Remaining < 0 || r.Value.Remaining >= resource.Capacity || r.Value.RecoverAt < 0
                 || r.Value.Remaining > 0 && r.Value.RecoverAt != 0 || resource.RegrowTicks == 0 && r.Value.RecoverAt != 0
                 || r.Value.Remaining == 0 && resource.RegrowTicks > 0 && (r.Value.RecoverAt == 0 || r.Value.RecoverAt > state.Tick + resource.RegrowTicks)))
                 throw new InvalidDataException("Invalid resource stock.");
             state.Chunks.Add(delta);
         }
-        ValidateState(plan, state);
-        var session = new WorldSession(plan, state) { SavePath = Path.GetFullPath(path), Paused = true };
+        ValidateState(plan, state, catalog);
+        var session = new WorldSession(plan, state, catalog) { SavePath = Path.GetFullPath(path), Paused = true };
         foreach (var chunk in state.Chunks)
             foreach (var (index, stock) in chunk.Resources)
             {
@@ -85,37 +87,36 @@ public sealed partial class WorldSession
             }
         foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Harvest))
         {
-            if (!ContentCatalog.Default.Entries.TryGetValue(order.Definition, out var entry) || entry is not ResourceDefinition resource
+            if (!catalog.Entries.TryGetValue(order.Definition, out var entry) || entry is not ResourceDefinition resource
                 || session.ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != resource.Id
                 || order.Required != resource.Work || order.Reserved.Count != 0 || order.Before != order.After
-                || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(ContentCatalog.Default.Get<ItemDefinition>(y.Key).Stack) != y.Value))
+                || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid resource work order.");
         }
         foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Camp))
         {
             if (order.Station is not { } station || !session.ServiceableCamp(station) || order.Target.Distance(station) > 2
-                || !ContentCatalog.Default.Entries.TryGetValue(order.Definition, out var entry) || entry is not CampDefinition duty
+                || !catalog.Entries.TryGetValue(order.Definition, out var entry) || entry is not CampDefinition duty
                 || order.Required != duty.Work || order.Before != order.After || order.Yield.Count != 0 || order.Reserved.Count != duty.Cost.Count
-                || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(ContentCatalog.Default.Get<ItemDefinition>(y.Key).Stack) != y.Value))
+                || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid camp duty.");
         }
         session.RestorePartyFormation();
         session.PrepareLocalCollision(force: true); session.Reveal();
         return session;
     }
-    private static void ValidateState(WorldPlan plan, WorldState s)
+    private static void ValidateState(WorldPlan plan, WorldState s, ContentCatalog catalog)
     {
         if (s.Tick is < 0 or > 1000000000000 || !plan.Contains(s.Position) || s.Actors == null || s.Party == null || s.Inventory == null || s.Towns == null || s.Factions == null || s.Journal == null || s.Arc == null || s.VisitedSites == null || s.Tasks == null) throw new InvalidDataException("Invalid world state.");
         if (s.Actors.Count is < 1 or > 10000 || s.Actors.Any(a => a == null) || s.Actors.Select(a => a.Id).Distinct().Count() != s.Actors.Count || s.NextActorId <= s.Actors.Max(a => a.Id) || s.Party.Count is < 1 or > 4 || s.Party.Distinct().Count() != s.Party.Count || s.CombatRandom == 0) throw new InvalidDataException("Invalid actor identities.");
         foreach (var a in s.Actors)
             if (a.Id <= 0 || string.IsNullOrWhiteSpace(a.Name) || !plan.Contains(a.Position) || a.Role is < 0 or > 3 || a.Level is < 1 or > 100 || a.HomeTown is < 0 or >= 24 || a.FactionId is < 0 or >= 6 || a.Culture is < 0 or >= 6 || a.Body == null || a.Memories == null || a.Trust == null || a.Equipment == null || a.Equipment.Any(e => e.Value == null) || a.Health < 0 || a.Health > a.MaxHealth || a.Mana < 0 || a.Mana > a.MaxMana || !Enum.IsDefined(a.Kind) || !Enum.IsDefined(a.Life) || a.Cargo == null || a.Cargo.Any(e => e.Value < 0) || a.Route == null || a.Route.Any(r => r < 0 || r >= plan.Roads.Count) || a.DestinationTown is < 0 or >= 24) throw new InvalidDataException("Invalid actor.");
         foreach (var actor in s.Actors)
-            if (actor.Archetype == null || !ContentCatalog.Default.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not (CharacterDefinition or BossDefinition)
+            if (actor.Archetype == null || !catalog.Entries.TryGetValue(actor.Archetype, out var definition) || definition is not (CharacterDefinition or BossDefinition)
                 || actor.BaseHealth is < 1 or > 3000 || actor.BaseMana is < 0 or > 500 || actor.BaseArmor is < 0 or > 30 || actor.BasePower is < 0 or > 100 || actor.BaseSpeed is < 1 or > 30
-                || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !ContentCatalog.Default.Entries.ContainsKey(actor.TraitId))
+                || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !catalog.Entries.ContainsKey(actor.TraitId))
                 throw new InvalidDataException("Invalid content-backed actor state.");
         var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
-        var catalog = ContentCatalog.Default;
         if (s.EcologyChunks == null || s.EcologyChunks.Count > 16384 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor is < 0 or >= WorldPlan.Floors)) throw new InvalidDataException("Invalid observed ecology chunks.");
         foreach (var actor in s.Actors)
         {
@@ -139,7 +140,7 @@ public sealed partial class WorldSession
         foreach (var actor in s.Actors)
         {
             if (actor.Preparations == null || actor.Preparations.Count > 5 || actor.Preparations.Select(p => p?.Effect).Distinct().Count() != actor.Preparations.Count
-                || actor.Preparations.Any(p => p == null || !ContentCatalog.Default.Entries.TryGetValue(p.Definition, out var entry) || entry is not CampDefinition camp
+                || actor.Preparations.Any(p => p == null || !catalog.Entries.TryGetValue(p.Definition, out var entry) || entry is not CampDefinition camp
                     || camp.Role is not ("cook" or "watch") || p.Effect != camp.Effect || p.Power != camp.Power || p.Until < 1 || p.Until > s.Tick + camp.Duration))
                 throw new InvalidDataException("Invalid camp preparation.");
             var body = actor.Body;
@@ -163,21 +164,21 @@ public sealed partial class WorldSession
                 || w.Kind == WorkKind.Build && w.After is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)
                 || w.Method == null || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
                 || w.Worker != 0 && !actorIds.Contains(w.Worker) || !StackValid(w.Reserved) || !StackValid(w.Yield) || w.Status == null || w.Priority is < 0 or > 2
-                || w.Kind == WorkKind.Camp && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var campDuty) || campDuty is not CampDefinition || w.Station == null || !plan.Contains(w.Station.Value))
-                || w.Kind == WorkKind.Discovery && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var discoveryDefinition) || discoveryDefinition is not DiscoveryDefinition { Situation: not null } sd
+                || w.Kind == WorkKind.Camp && (!catalog.Entries.TryGetValue(w.Definition, out var campDuty) || campDuty is not CampDefinition || w.Station == null || !plan.Contains(w.Station.Value))
+                || w.Kind == WorkKind.Discovery && (!catalog.Entries.TryGetValue(w.Definition, out var discoveryDefinition) || discoveryDefinition is not DiscoveryDefinition { Situation: not null } sd
                     || !sd.Situation.Approaches.Any(a => a.Action == w.Method && a.Work > 0 && a.Work == w.Required
                         && a.Cost.Count == w.Reserved.Count && a.Cost.All(p => w.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(p.Key).Stack) == p.Value))
                     || w.Yield.Count != 0 || w.Before != w.After || !s.Discoveries.Any(d => d.Position == w.Target && d.Definition == w.Definition))
-                || w.Kind is WorkKind.Build or WorkKind.Craft && (!ContentCatalog.Default.Entries.TryGetValue(w.Definition, out var recipe) || recipe is not RecipeDefinition))
+                || w.Kind is WorkKind.Build or WorkKind.Craft && (!catalog.Entries.TryGetValue(w.Definition, out var recipe) || recipe is not RecipeDefinition))
             || s.Work.Where(w => w.Worker != 0).GroupBy(w => w.Worker).Any(g => g.Count() > 1)
             || s.Structures.Any(b => b == null || !plan.Contains(b.Position) || !Enum.IsDefined(b.Material) || b.Material is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(b.Foundation)
                 || !StackValid(b.Cost) || !double.IsFinite(b.Condition) || b.Condition is < 0 or > 100)
             || s.Structures.Select(b => b.Position).Distinct().Count() != s.Structures.Count
-            || s.IncidentAfter.Any(p => !ContentCatalog.Default.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
+            || s.IncidentAfter.Any(p => !catalog.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
         foreach (var actor in s.Actors)
         {
-            if (actor.VariantId == null || actor.VariantId.Length > 0 && (!ContentCatalog.Default.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
-                || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
+            if (actor.VariantId == null || actor.VariantId.Length > 0 && (!catalog.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
+                || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && catalog.Entries[a.Archetype] is BossDefinition)
                     && !(s.Discoveries?.Any(d => d?.Enemies is { Length: > 0 } && d.Enemies[0] == actor.EncounterLeader && d.Enemies.Contains(actor.Id)) ?? false))
                 throw new InvalidDataException("Invalid encounter identity.");
             foreach (var (slot, gear) in actor.Equipment)
@@ -186,7 +187,7 @@ public sealed partial class WorldSession
                 if (item == null || item.Slot != slot || slot == "none" || gear != new EquipmentState(item.Id, item.Health, item.Power, item.Armor, item.Speed)) throw new InvalidDataException("Invalid equipped item.");
             }
         }
-        if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
+        if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && catalog.Entries[a.Archetype] is BossDefinition)
             || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
             || s.Loot == null || s.Loot.Count > 10000 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !stacks.Contains(p.Key))
                 || c.Choices == null || c.Choices.Length is not (0 or 3) || c.Choices.Distinct().Count() != c.Choices.Length
@@ -224,7 +225,7 @@ public sealed partial class WorldSession
             if (s.AwaitingContinuation || b.Plans == null || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
             if (b.Assisting == null || b.Assisting.Count > 3 || b.Assisting.Any(id => id < 0 || id >= b.Units.Count || !b.Units[id].Friendly || b.Order.IndexOf(id) <= b.TurnIndex)) throw new InvalidDataException("Invalid committed cooperative actions.");
             if (b.Plans.Count > 4 || b.Plans.Any(p => p.Key < 0 || p.Key >= b.Units.Count || b.Units[p.Key].Friendly || p.Value == null || p.Value.Target < 0 || p.Value.Target >= b.Units.Count
-                || !ContentCatalog.Default.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion" || ability.Cooperation != null)
+                || !catalog.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion" || ability.Cooperation != null)
                 || b.Units.Any(u => !u.Friendly && u.Alive && !b.Plans.ContainsKey(u.Id))) throw new InvalidDataException("Invalid enemy intentions.");
             foreach (var unit in b.Units)
             {
@@ -234,7 +235,7 @@ public sealed partial class WorldSession
             }
             foreach (var (unit, intent) in b.Plans)
             {
-                var ability = ContentCatalog.Default.Get<AbilityDefinition>(intent.Ability);
+                var ability = catalog.Get<AbilityDefinition>(intent.Ability);
                 bool valid = ability.Target switch
                 {
                     TargetKind.Self => intent.Target == unit,

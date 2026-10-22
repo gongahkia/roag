@@ -58,6 +58,8 @@ def profile_steps(repo, profile, folder, scenes=None):
         if p == 'tools': add('agent-tests', [python, '-m', 'unittest', 'discover', '-s', 'tests/agent', '-v'])
         if p in ['quick', 'core']:
             add('content', tool + ['content', 'validate'], evidence='valid-json')
+        if p in ['quick', 'world']:
+            add('scenarios', tool + ['scenario', 'suite', 'devtools/scenarios', '--output', str(folder/'scenarios.json')], evidence='passed-json')
         if p == 'core':
             add('core-tests', [dotnet, 'test', 'Vagabonds.sln', '--configuration', 'Release', '--no-build', '--nologo', '-v:minimal', '--logger', 'trx;LogFileName=tests.trx', '--results-directory', str(folder/'tests')], evidence='trx')
         if p == 'assets':
@@ -76,6 +78,8 @@ def launch(repo, profile, task=None, scenes=None, steps=None):
     if not sys.platform.startswith('linux'):
         raise ValueError('Managed verification currently requires Linux/WSL process identities. Existing ./dev test and game tools remain available elsewhere.')
     if task: identifier(task)
+    if scenes and (profile not in ['native', 'full'] or any(s not in NATIVE_SCENES for s in scenes)):
+        raise ValueError('--scenes requires the native/full profile and known scene names.')
     for path in (repo.artifacts/'runs').glob('*/run.json'):
         previous = read_json(path)
         if not alive(previous.get('worker')) and alive(previous.get('child')):
