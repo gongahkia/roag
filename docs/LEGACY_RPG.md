@@ -1,10 +1,8 @@
-# Legacy fantasy RPG preview
+# Legacy campaign play guide
 
-Standalone development of this RPG now lives in the independent sibling **Vagabonds** repository (`../vagabonds`, [repository](https://github.com/gongahkia/vagabonds)). Launch it there with `./vagabonds.sh`; it includes its own complete assets, catalog and mappings, and uses `~/.vagabonds/campaign.json`. This guide and Ithica's `rpg.sh` remain the preserved source compatibility/regression path. No launcher here depends on Vagabonds.
+This guide covers existing `lantern-rpg` saves and the explicit town/forest/crypt/battle/victory previews. Normal new games use the finite world described in [RPG.md](RPG.md). This is the independent fantasy RPG extracted into Vagabonds. The lunar colony remains in Ithica. Read [PROJECT_STATE.md](PROJECT_STATE.md) for current ownership, saves and executed verification.
 
-This is the preserved regression/art-exploration prototype. It is separate from the normal Ithica campaign and retains old fantasy content/save identities. Use [EXPEDITIONS.md](EXPEDITIONS.md) for the current lunar game.
-
-This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains independently playable with `./play.sh`.
+This playable party RPG explores the same artwork as the colony prototype. Exploration and battles are both **top-down**. Four companions travel from Hearth through Ashwood into the Sunken Abbey, recover an ember relic, and return it to town. The colony simulator remains in the separate Ithica repository; `./play.sh` here opens Vagabonds.
 
 ![Turn-based encounter in Ashwood](images/lantern-battle.png)
 
@@ -23,18 +21,20 @@ Requires the same .NET 10 SDK as the colony prototype. From the repository:
 ./rpg.sh --scene atlas
 ```
 
-On Windows: `dotnet run --project src/Ithica.Client --configuration Release -- --preview`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
+On Windows: `dotnet run --project src/Vagabonds.Client --configuration Release`. The shell launcher is optional and works from any directory. Default window: 1440×900; minimum: 1024×720. `--window-size 1280x800` sets another initial size.
 
-The four-page field guide opens before play. F1 reopens it. Closing the window or Q saves to `~/.regolith/lantern.json`. `--save PATH` selects another file. This format is separate from colony and archived Python saves.
+Normal launch resumes `~/.vagabonds/campaign.json` if it exists, or starts a new expedition if it does not. `--save PATH` selects another slot. Use `--new --seed N` to explicitly start over; saving or quitting replaces the selected save. `--load` requires an existing save and cannot be combined with `--new`. An invalid existing save reports an error instead of starting over. The four-page field guide opens for new expeditions; F1 reopens it. Closing the window or Q saves normal play. The inherited `lantern-rpg` format remains compatible, while this default slot is separate from the old RPG and colony slots. Copy old progress with `./vagabonds.sh --import-legacy PATH`, which leaves the source untouched.
 
-Preview scenes (`--demo` and non-town `--scene` values) save only when you explicitly press F5/Ctrl+S, so browsing the atlas or a combat example preserves your existing expedition. Outside the atlas, loading a save with F9 resumes normal autosaving.
+Preview scenes (`--demo` and all explicit `--scene` values, including town) and frame-limited captures do not automatically load or save your expedition. Use `--load --frames N` to capture existing progress. F5/Ctrl+S still saves explicitly; outside the atlas, loading a save with F9 resumes normal autosaving. Frame limits and smoke checks always suppress exit autosaves.
+
+F9 accepts only a valid fantasy RPG save. A missing, corrupt or lunar field-session save reports a load error and leaves your current expedition and autosave mode intact.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
 | WASD / arrows | Move one tile; hold to continue |
-| Left click | Walk to visible terrain or approach/interact with an object |
+| Left click | Walk through discovered terrain to a discovered tile or approach/interact with an object |
 | E / Enter outside combat | Interact with the current/adjacent object |
 | Mouse wheel over map | Zoom around pointer |
 | Right / middle drag | Pan |
@@ -56,6 +56,8 @@ Preview scenes (`--demo` and non-town `--scene` values) save only when you expli
 
 Menus and the atlas pause automatic enemy actions. Gameplay has no real-time survival timer: exploration advances only when moving and combat advances by turns. Repeated movement into walls does not consume light.
 
+Click routes use discovered cells and prefer paths around currently visible hazards. Hazards outside your sight do not affect route selection. If a discovered destination has no known route, explore toward it with WASD/arrows first. A hazardous path remains available when it is the only discovered route.
+
 ## Expedition route
 
 Start in **Hearth** with 36 gold, 5 potions, 4 torches, and 6 rations. Warden Elowen explains the quest. The inn fully restores the party for 12 gold. The provisioner sells two potions, two torches, and two rations for 10 gold. Move through the eastern sign to Ashwood.
@@ -68,7 +70,7 @@ Defeat brings everyone back to Hearth at partial health/mana, adds stress, and r
 
 ## Procedural areas and hazards
 
-New campaigns generate Ashwood forests and ponds with cellular automata, and assemble 35 Abbey rooms using a connected quest graph and socket-based WFC. Hearth keeps its layout with seeded furnishings. Routes, the key, camps, portals and the locked boss chamber are checked before play. Use `--seed N` to explore another world. [Generation design, rules and diagnostics](PROCEDURAL_GENERATION.md) explain the full pipeline.
+New campaigns generate Ashwood forests and ponds with cellular automata, and assemble 35 Abbey rooms using a connected quest graph and socket-based WFC. Hearth keeps its layout with seeded furnishings. Routes, the key, camps, portals and the locked boss chamber are checked before play. Use `--new --seed N` to explore another world. [Generation design, rules and diagnostics](PROCEDURAL_GENERATION.md) explain the full pipeline.
 
 Off-road fire, spores and corruption evolve every four successful steps or waits in the active area. Period or Space waits. Fire/spores cost 1 health and 1 stress; corruption costs 3 stress. Roads, room crosses and objective approaches stay safe. T spends a torch to clear hazards and their sources within three Manhattan cells, even at full light when needed. Hover a visible hazard for its rules. Combat, menus, blocked moves and inactive areas pause hazard evolution.
 
@@ -102,13 +104,13 @@ Open [the offline atlas](../assets/atlas.html) for more filters and a **scene la
 
 ## Code, catalog, and checks
 
-`Ithica.Core.Expeditions` owns maps, collision, line of sight, party state, interaction, turn resolution, loot, quest progression, seeded random state, and atomic save files. It has no MonoGame dependency. `Ithica.Client/Preview` owns input, interpolation, top-down rendering, battle/party UI, and the native asset viewer. The normal game and preview use `Ithica.Graphics` for sprite decoding, bitmap text, palette masks, and camera transforms; the preview campaign remains independent from the normal shared campaign.
+`Vagabonds.Core.Expeditions` owns maps, collision, line of sight, party state, interaction, turn resolution, loot, quest progression, seeded random state, and atomic save files. It has no MonoGame dependency. `Vagabonds.Client` owns input, interpolation, top-down rendering, battle/party UI, and the native asset viewer. Vagabonds uses `Vagabonds.Graphics` for sprite decoding, bitmap text, palette masks, and camera transforms; the RPG campaign is independent from Ithica.
 
 The [binding table](../assets/reference/rpg-bindings.md) lists every RPG alias and source identity. [Catalog schema](../assets/reference/CATALOG_V2.md) explains exhaustive coverage, usage, evidence, and uncertainty. The original artwork, crop IDs, colony selection, and import audit are unchanged.
 
 ```sh
-./tools/dotnet.sh build Ithica.sln --configuration Release
-./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
+./tools/dotnet.sh build Vagabonds.sln --configuration Release
+./tools/dotnet.sh test Vagabonds.sln --configuration Release --no-build
 ./rpg.sh --headless
 ./rpg.sh --smoke-test --screenshot /tmp/lantern-smoke.png
 python3 tools/build_game_catalog.py --check
@@ -116,6 +118,6 @@ python3 tools/build_game_catalog.py --check
 
 The headless driver completes a real expedition through movement, interactions, paid skills, camp costs, boss combat, and return-home progression. It does not grant items or victory through debug state. Core tests cover this on several seeds, plus hundreds of generated quest layouts, WFC constraints/fallback, cellular hazards, legacy saves, collision, visibility, gate/chest rules, battle validation, guard, stress, healing/revival, burning, defeat, retreat, and exact save continuation. The native smoke opens a real window and checks the viewer, transition, combat, zoom, saves, and full quest before exiting without touching the player's save.
 
-Capture other views with `--scene town|forest|crypt|battle|victory|atlas --screenshot PATH --frames 12`. Local distribution: `./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/ithica-preview`. The output needs .NET 10 and includes all source images required by its viewer, the lightweight atlas index, runtime manifest, and credits. The larger audit/catalog stays in the repository.
+Capture other views with `--scene town|forest|crypt|battle|victory|atlas --screenshot PATH --frames 12`. Local distribution: `./tools/dotnet.sh publish src/Vagabonds.Client --configuration Release --self-contained false --output artifacts/vagabonds`. The output needs .NET 10 and includes all source images required by its viewer, the lightweight atlas index, runtime manifest, and credits. The larger audit/catalog stays in the repository.
 
-This is a generated three-area vertical slice around a planned quest graph, with five encounters and one finite quest. Equipment is class-defined; item hauling, gear swapping, dialogue branches, shops with individual wares, branching procedural campaigns, directional sprite animations, tactical movement, and gamepad controls are future work. Maps use single-cell sprite interpretations, not an inferred autotile/animation system. Native graphics have been exercised on macOS Intel; other desktop platforms still need graphical verification.
+This is a generated three-area vertical slice around a planned quest graph, with five encounters and one finite quest. Equipment is class-defined; item hauling, gear swapping, dialogue branches, shops with individual wares, branching procedural campaigns, directional sprite animations, tactical movement, and gamepad controls are future work. Maps use single-cell sprite interpretations, not an inferred autotile/animation system. See [VERIFICATION.md](VERIFICATION.md) for current fork-specific graphical checks; source-project macOS results remain historical evidence.

@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><EmbeddedResource Include="../../assets/ithica-generation.json" LogicalName="Vagabonds.Generation.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/world/*.json" LogicalName="Vagabonds.World.%(Filename)%(Extension)" /></ItemGroup>
+</Project>

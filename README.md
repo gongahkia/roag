@@ -1,87 +1,62 @@
-# Ithica
+# Vagabonds
 
-**A small life on the Moon.** Build a salvage colony from the people you rescue, then take those same residents into the wasteland. Recover something useful, bring it home, and leave some questions unanswered.
+A standalone fantasy RPG in C# / .NET 10 and MonoGame. Begin alone in a seeded 4096×4096 world, recruit generated inhabitants, explore 24 towns and 48 adventure sites, build and dig, and shape a changing trade economy. Real-time exploration pauses for turn-based encounters; generated main arcs and permanent deaths leave consequences in the same persistent world.
 
-A playable **C# / .NET 10 + MonoGame DesktopGL** game. The colony runs continuously while unpaused. Outside, exploration and combat wait for your decisions; accepted actions advance both the expedition and home together. One population, stockpile, progression and save connect the phases. Machines wear and need real worker repairs; crew remember danger, work and how disputes were handled. Seeded crater fields, resource seams and branching underground stations make each place different. Unexpected faults, encounters and opportunities give each colony its own history. New games choose a fresh seed; `--seed` keeps a run reproducible.
+Extracted from Ithica’s retained RPG at `c87d480`. Ithica remains the separate lunar colony game. This repository contains its own source, projects, tests, complete original artwork, catalog, mappings, atlas and authoring tools; it needs no sibling checkout, symlinks or submodules. [Project state](docs/PROJECT_STATE.md) · [Play guide](docs/RPG.md) · [Development](docs/DEVELOPMENT.md) · [Origin](docs/ORIGIN.md).
 
-**Start here:** [Project state and agent reference](docs/PROJECT_STATE.md) is the master source of truth. [AGENTS.md](AGENTS.md) defines repository guidance. [Verification](docs/VERIFICATION.md) records actual checks and implementation checkpoints.
+## Run locally
 
-![Ithica: lunar expedition combat](docs/images/ithica-battle.png)
-
-## Play
-
-Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then run:
+Install the .NET 10 SDK, or use the optional per-user installer:
 
 ```sh
-./ithica.sh
-./ithica.sh --load
-./ithica.sh --seed 1337
+./tools/setup-dotnet.sh
+./vagabonds.sh
+./vagabonds.sh --load
+./vagabonds.sh --new --seed 1337
 ```
 
-`./tools/setup-dotnet.sh` optionally installs the pinned SDK without changing your PATH. The launcher also finds the existing historical per-user SDK. On Windows or with a system SDK:
+`play.sh` and `rpg.sh` are aliases. On Windows or with a system SDK, run `dotnet run --project src/Vagabonds.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
+
+Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a new expedition when it does not. `--save PATH` selects another slot. `--new [--seed N]` explicitly starts over; saving or quitting then replaces the selected save. `--load` requires an existing save. Preview scenes and frame-limited captures do not autosave. To copy an existing fantasy RPG save into the new save slot without changing its source:
 
 ```sh
-dotnet run --project src/Ithica.Client --configuration Release
+./vagabonds.sh --import-legacy ~/.regolith/lantern.json
+./vagabonds.sh --load
 ```
 
-The normal window is 1440×900, resizable down to 1024×720. Use `--window-size 1280x800`. Rendering has been checked on macOS Intel and Fedora 44 under WSLg; native Windows and standalone Linux desktop sessions still need graphical smoke checks.
+The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
 
-## First colony and outing
+Space resumes/pauses time; WASD/arrows or click moves; E speaks or takes stairs; B builds; X digs; I opens the pack; J shows stories/history; M shows known places. F3 inspects procedural samples and generation stages. Combat has six actions with visible enemy intents. Existing saves retain the original three-area campaign and its controls. See the [play guide](docs/RPG.md).
 
-1. Read the six-section tutorial. Space runs/pauses home time; mouse wheel zooms at the pointer and right/middle drag pans.
-2. Click the distress contact directly on the map. Select Ada and pack supplies. Preparation shows the stock and workers left at home; Enter departs.
-3. Move with WASD/arrows or clicks. E interacts, Space waits. Every accepted action spends logical time; thinking spends none. Share supplies with the stranded person, then escort them to the return approach.
-4. Dismiss the paused arrival report. The survivor becomes a resident in breathable shelter and needs food, sleep and recovery. The same people can later work at home or leave together.
-5. Visit the newly available salvage site. Read enemy intentions, use 1–6 and click targets, recover a component and bring it home. U selects **suit service**, built on connected deck for 24 metal, 4 crystal and 1 component.
-6. Powered suit service equips more efficient suits and reveals a deeper signal. Restore the pump there to supply water and identify deep deposits near the station. A failed return leaves carried salvage recoverable at its site.
-7. Open **Deep Workings**, survey a reading, then extend power and an enclosed breathable refuge with a sleeping pod. Build a rig on the deposit, assign workers, and use deep ore for reinforcement and component fabrication. Lower exhausted rigs for deeper layers and greater power/wear demands.
-
-D designates mining/salvage; B opens ordinary construction; P surveys; X cancels and refunds; V starts a rectangle. C shows residents, O cycles home overlays, and R locates distress. Outside, O refills suits, H treats a selected resident, C rests and T suppresses nearby exposure. These actions use supplies and time. [Full controls and current rules](docs/PROJECT_STATE.md#controls).
-
-F5 saves and F9 loads the **whole campaign** in either phase. F2 opens the complete sprite atlas in the same window. The normal save is `~/.ithica/campaign.json`; `--save PATH` selects a slot. Q/window close autosaves a living normal campaign; explicit preview scenes and test tools preserve player saves. Import an inactive legacy colony with `--import-colony PATH`; its original file remains untouched.
-
-## Inspect and verify
+## Build and inspect
 
 ```sh
-./ithica.sh --scene surface
-./ithica.sh --scene battle
-./ithica.sh --scene structure
-./ithica.sh --scene atlas
-./ithica.sh --scene incidents --seed 2
-./ithica.sh --scene resident
-./ithica.sh --scene work
-./ithica.sh --scene mining
-./ithica.sh --scene industry
-./ithica.sh --extraction-check --seed 42
-./ithica.sh --story-check
-./ithica.sh --headless
-./ithica.sh --validate-seeds 1000 --seed -500
-./ithica.sh --export-generation artifacts/lunar-gallery.svg --seed 42 --samples 4
-./ithica.sh --smoke-test --screenshot /tmp/ithica-smoke.png
-```
-
-I opens station messages, warnings and work reports. M queues service on a selected module; X cancels it and refunds reserved parts. Select a resident and open their personal file to inspect preferences, memories and trust. **Work / Shifts / Rest** sets priorities, duty hours, protected rest and drilling safety. A selected module’s **Operations / Upgrades** controls production, power, repairs and reinforcement; B → **Industrial Blueprints** selects rigs and fabricators. Cautious drilling stops before dangerous wear; permitting worn equipment can injure an exhausted operator and require another resident to carry them to safety.
-
-Surface terrain uses warped Perlin-style noise and craters; underground areas use branching BSP chambers with protected objectives. Existing saves retain their maps and recorded generation version. The SVG export is an internal comparison tool.
-
-Scenes use real commands to reach a fresh state and do not autosave on exit. `--headless` completes rescue, recovery, salvage combat, returned cargo and a constructed upgrade without opening a window or writing a player save.
-
-```sh
-./tools/dotnet.sh restore Ithica.sln --locked-mode
-./tools/dotnet.sh build Ithica.sln --configuration Release --no-restore
-./tools/dotnet.sh test Ithica.sln --configuration Release --no-build
+./tools/dotnet.sh restore Vagabonds.sln --locked-mode
+./tools/dotnet.sh build Vagabonds.sln --configuration Release --no-restore
+./tools/dotnet.sh test Vagabonds.sln --configuration Release --no-build
+./vagabonds.sh --world-headless
+./vagabonds.sh --validate-worlds 1000 --seed -500
+./vagabonds.sh --world-report
+./vagabonds.sh --scene world-inspector
+./vagabonds.sh --headless
+./vagabonds.sh --validate-seeds 1000 --seed -500
+./vagabonds.sh --scene atlas
 python3 tools/build_game_catalog.py --check
-./tools/dotnet.sh publish src/Ithica.Client --configuration Release --self-contained false --output artifacts/ithica
+python3 -m unittest discover -s tests/catalog -v
 ```
 
-Core rules, generation and saves have no graphics dependency. [Architecture](docs/ARCHITECTURE.md) describes ownership; [performance](docs/PERFORMANCE.md) records workloads and limits. The current game has finite persistent sites and drilling layers, aggregate inventory and overlapping people; hauling, walking z-levels, rich social behavior and tactical movement remain future work.
+World diagnostics validate the new simulation/generation without player saves; the retained `--headless` mode completes the legacy quest. Scene captures and smoke checks also avoid automatic saving. [World architecture](docs/WORLD.md) · [Executed verification](docs/VERIFICATION.md).
 
-## Art and tools
+## Complete artwork and mappings
 
-All three imported packs, original sheets, stable IDs and crop evidence are preserved. [catalog.json.gz](assets/catalog.json.gz), schema 5, covers **11,887 regions / 7,115 occupied crops**. Generic artwork descriptions, type, subject evidence and measured foreground colors are independent of current/preview/unused game status; all 7,115 occupied crops have recorded visual inspection, with uncertainty retained. The offline atlas supports neutral filtering, sorting, linked selections and metadata/original-crop export; both native viewers use the same neutral metadata and query rules. Search with `python3 tools/query_assets.py --type actor --color green`. Ithica selects 166 IDs including shared font/UI, with 14 explicit field aliases. [Current casting](assets/reference/ithica-sprites.md) · [Catalog authoring and generic queries](assets/reference/CATALOG_V2.md) · [104-crop Urizen review](assets/reference/urizen-generation.md) · [Credits](assets/CREDITS.txt).
+All **7,115 occupied sprites / 11,887 indexed regions**, **664 original PNGs**, **3 original archives**, original credits, crop IDs, mapping evidence and generic descriptions are included. The complete [schema-5 catalog](assets/catalog.json.gz) is losslessly compressed; queries read it directly. Regeneration also creates the ignored readable `assets/catalog.json` export.
 
-Open [assets/atlas.html](assets/atlas.html) for the offline browser and layered scene lab, or F2 in-game. Scene experiments export exact-ID JSON and PNG; runtime recipe import is not implemented. Texture masks are in-memory copies; source PNGs are never repainted or repacked. Python is only needed to regenerate development assets. The complete catalog is tracked as lossless gzip to keep it below GitHub’s large-file warning; queries read it directly. Run `python3 tools/build_game_catalog.py` to also create the ignored, readable `assets/catalog.json` export.
+```sh
+python3 tools/query_assets.py --type actor --color green --limit 10
+python3 tools/query_assets.py --subject ghost --subject-confidence high --format ids
+python3 tools/build_game_catalog.py
+```
 
-`play.sh` is a compatibility alias for Ithica. `rpg.sh` / `--preview` retain the independent fantasy prototype for regression and its old saves; see [the legacy guide](docs/LEGACY_RPG.md). The original Python terminal implementation remains archived under [legacy/python](legacy/python/README.md).
+Open [assets/atlas.html](assets/atlas.html) directly for neutral searches, exact crop downloads and layered scene experiments. Historical `ithica-*` asset filenames and origin-specific catalog fields are deliberately preserved; the expedition aliases and `usage.rpg` provide the RPG mappings. [Asset ownership and authoring](docs/ASSETS.md) · [Original credits](assets/CREDITS.txt).
 
-The fantasy RPG now has its own standalone project, **[Vagabonds](https://github.com/gongahkia/vagabonds)**, in the sibling `../vagabonds` repository. Run `./vagabonds.sh` there. It owns a complete copy of the original artwork, catalog, mappings and tools, with a separate save at `~/.vagabonds/campaign.json`; neither repository needs the other to build or run. Ithica's lunar colony game and existing RPG compatibility launcher remain preserved here.
+This is a playable world foundation: fixed job recipes, sparse relationships, regional trade/raids and three main-arc families. Further content and simulation depth remain future work. Equipment is class-defined; tactical walking/range, gear swapping, directional animations and controller input are not implemented.

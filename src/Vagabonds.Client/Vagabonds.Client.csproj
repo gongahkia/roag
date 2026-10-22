@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Vagabonds.Core.Tests" />
+    <ProjectReference Include="../Vagabonds.Core/Vagabonds.Core.csproj" />
+    <ProjectReference Include="../Vagabonds.Graphics/Vagabonds.Graphics.csproj" />
+    <Content Include="../../assets/urizen/*.png" Link="assets/urizen/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/godot-node-icons/**/*.png" Link="assets/godot-node-icons/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/input-prompts/**/*.png" Link="assets/input-prompts/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/ithica-expedition-sprites.json;../../assets/atlas-index.json" Link="assets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/CREDITS.txt" Link="assets/CREDITS.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
