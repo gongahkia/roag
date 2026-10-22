@@ -19,6 +19,7 @@ namespace Vagabonds.Core.Content;
 [JsonDerivedType(typeof(GenerationDefinition), "generation")]
 [JsonDerivedType(typeof(SimulationDefinition), "simulation")]
 [JsonDerivedType(typeof(IncidentDefinition), "incident")]
+[JsonDerivedType(typeof(DiscoveryDefinition), "discovery")]
 public abstract class ContentDefinition
 {
     public required string Id { get; set; }
@@ -44,6 +45,16 @@ public sealed class GameDefinition : ContentDefinition
     public required string EnemyFallback { get; set; }
     public required string Simulation { get; set; }
     public required string[] Incidents { get; set; }
+    public string[] Discoveries { get; set; } = [];
+}
+public sealed class DiscoveryDefinition : ContentDefinition
+{
+    public required string Action { get; set; }
+    public required string Text { get; set; }
+    public string[] Layout { get; set; } = [".....", ".....", ".....", ".....", "....."];
+    public Dictionary<string, int> Supplies { get; set; } = [];
+    public string[] Rewards { get; set; } = [];
+    public string[] Enemies { get; set; } = [];
 }
 public sealed class SimulationDefinition : ContentDefinition
 {
@@ -67,6 +78,9 @@ public sealed class IncidentDefinition : ContentDefinition
 
 public sealed class GenerationDefinition : ContentDefinition
 {
+    public int SettlementFinds { get; set; } = 4;
+    public int RoadDiscoverySpacing { get; set; } = 280;
+    public int WildernessFinds { get; set; } = 48;
     public required Dictionary<string, string[]> Layouts { get; set; }
     public required Dictionary<Biome, TerrainProfile> Biomes { get; set; }
 }

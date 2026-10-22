@@ -15,6 +15,7 @@ internal sealed class WorldPointerPreview
     public WorldPosition? Cell { get; private set; }
     public WorldPosition? NavigationCell { get; private set; }
     public IReadOnlyList<WorldPosition> Path { get; private set; } = [];
+    public WorldClickPlan? Plan { get; private set; }
 
     public void Update(WorldSession session, MapCamera camera, Point pointer, bool enabled = true, bool navigationEnabled = true, WorldPosition? interactionCell = null)
     {
@@ -30,8 +31,9 @@ internal sealed class WorldPointerPreview
 
         _intent = intent; _session = session; _origin = session.State.Position; Cell = cell; NavigationCell = target;
         _navigationRevision = session.State.NavigationRevision; _discoveredCount = discovered; _navigationEnabled = navigationEnabled;
-        Path = navigationEnabled ? WorldMouseNavigation.Plan(session, target).Path : [];
+        Plan = navigationEnabled ? WorldMouseNavigation.Plan(session, target) : null;
+        Path = Plan?.Path ?? [];
     }
 
-    private void Clear() { _session = null; Cell = NavigationCell = null; Path = []; }
+    private void Clear() { _session = null; Cell = NavigationCell = null; Path = []; Plan = null; }
 }

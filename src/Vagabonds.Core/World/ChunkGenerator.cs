@@ -163,6 +163,8 @@ public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = nul
 
 public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog? content = null)
 {
+    private int _landmarkCount = -1;
+    private Dictionary<WorldPosition, Material> _landmarks = [];
     private readonly Dictionary<ChunkKey, (GeneratedChunk Chunk, long Used)> _resident = [];
     private readonly Dictionary<ChunkKey, ChunkDelta> _deltas = state.Chunks.ToDictionary(c => c.Key);
     private long _use;
@@ -179,7 +181,11 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     public Material At(WorldPosition p)
     {
         if (!plan.Contains(p)) return Material.Rock;
-        return _deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.TryGetValue(p.LocalIndex, out var edit) ? edit : Get(p.Chunk).Tiles[p.LocalIndex];
+        if (_deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.TryGetValue(p.LocalIndex, out var edit)) return edit;
+        if (_landmarkCount != state.Discoveries.Count) { _landmarks = DiscoveryPlacement.Terrain(state.Discoveries, content ?? ContentCatalog.Default); _landmarkCount = state.Discoveries.Count; }
+        var original = Get(p.Chunk).Tiles[p.LocalIndex];
+        return _landmarks.TryGetValue(p, out var landmark) && original is not (Material.StairsDown or Material.StairsUp)
+            ? landmark == Material.Earth && original == Material.Water ? Material.Bridge : landmark : original;
     }
     public bool Seen(WorldPosition p) => plan.Contains(p) && _deltas.TryGetValue(p.Chunk, out var delta) && delta.Discovered.Contains(p.LocalIndex);
     public ChunkDelta Delta(ChunkKey key)

@@ -33,19 +33,26 @@ public sealed partial class WorldSession
             {
                 var lootRandom = WorldRandom.Stream(Seed, site.Id, depth, 4200);
                 var contents = new Dictionary<string, int> { ["gold"] = 8 + lootRandom.Next(16), ["food"] = 2 + lootRandom.Next(4), ["medicine"] = 1 };
-                if (gear.Length > 0) contents[gear[lootRandom.Next(gear.Length)].Stack] = 1;
-                State.Loot.Add(new() { Id = $"site-{site.Id}-{depth}", Position = site.Center.Offset(0, 2) with { Floor = depth }, Contents = contents });
+                if (depth == 0 && gear.Length > 0) contents[gear[lootRandom.Next(gear.Length)].Stack] = 1;
+                State.Loot.Add(new() { Id = $"site-{site.Id}-{depth}", Position = site.Center.Offset(0, 2) with { Floor = depth }, Contents = contents,
+                    Choices = depth == 0 ? [] : RewardChoices(gear.Select(g => g.Id), site.Id * 4 + depth, 4201) });
             }
         }
         Log(FinalObjective);
     }
-    private ActionResult Loot(WorldPosition target)
+    private ActionResult Loot(WorldPosition target, string choice)
     {
         var cache = State.Loot.FirstOrDefault(c => c.Position == target && !c.Taken);
         if (cache == null || State.Position.Distance(target) > 1) return new(false, "Approach an unopened cache.");
+        var discovery = State.Discoveries.FirstOrDefault(d => d.Id == cache.Id);
+        if (discovery != null && DiscoveryGuarded(discovery)) return new(false, "Living foes still guard these supplies.");
+        if (cache.Choices.Length > 0 && !cache.Choices.Contains(choice)) return new(false, "Choose one of the three offered pieces of equipment.");
         foreach (var (item, amount) in cache.Contents) Add(item, amount);
+        if (cache.Choices.Length > 0) { var item = Content.Get<ItemDefinition>(choice); Add(item.Stack, 1); cache.Selected = choice; }
         cache.Taken = true;
-        return new(true, "Recovered " + string.Join(", ", cache.Contents.Select(p => p.Value + " " + (Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key))) + ".");
+        string recovered = "Recovered " + string.Join(", ", cache.Contents.Select(p => p.Value + " " + (Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key)))
+            + (cache.Selected is { } selected ? "; chose " + Content.Get<ItemDefinition>(selected).Name : "") + ".";
+        Log(recovered); return new(true, recovered);
     }
     private ActionResult Equip(long actorId, string itemId)
     {

@@ -802,6 +802,15 @@
             ]
           }
         },
+        "discoveries": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "id": {
           "type": "string"
         },
@@ -852,6 +861,15 @@
       "properties": {
         "kind": {
           "const": "generation"
+        },
+        "settlementFinds": {
+          "type": "integer"
+        },
+        "roadDiscoverySpacing": {
+          "type": "integer"
+        },
+        "wildernessFinds": {
+          "type": "integer"
         },
         "layouts": {
           "type": "object",
@@ -1033,6 +1051,83 @@
       "required": [
         "condition",
         "effect",
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "discovery"
+        },
+        "action": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "supplies": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "rewards": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "enemies": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sprite": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "action",
+        "text",
         "id",
         "name"
       ],

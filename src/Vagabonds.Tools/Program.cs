@@ -66,7 +66,8 @@ public static class DeveloperEntry
             if (command == "preview")
             {
                 RequireValid(catalog); string kind = args.ElementAtOrDefault(1) ?? "", id = args.ElementAtOrDefault(2) ?? "";
-                if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
+                if (kind == "discovery") Print(ExplorationPreview.Discovery(catalog, id, seed));
+                else if (kind is "item" or "class" or "names" or "trait" or "variant" or "game") Print(ContentPreview.Run(catalog, kind, id, seed));
                 else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
                 else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
@@ -98,7 +99,7 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
@@ -112,8 +113,16 @@ public static class DeveloperEntry
                 WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
                 Print(new { reportPath = output + ".json", comparison = output + ".svg", audit.Report }); return audit.Report.Connected ? 0 : 1;
             }
+            if (command == "audit-exploration")
+            {
+                RequireValid(catalog); var audit = ExplorationPreview.Audit(catalog, seed, int.Parse(Value("--samples", "8")));
+                string output = Value("--output", "artifacts/exploration-audit");
+                WriteNew(output + ".json", JsonSerializer.Serialize(audit.Report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                WriteNew(output + ".svg", audit.Svg, args.Contains("--replace"));
+                Print(audit.Report); return JsonSerializer.SerializeToNode(audit.Report)!["passed"]!.GetValue<bool>() ? 0 : 1;
+            }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-world --seed N --samples N [--output PREFIX]", "audit-exploration --seed N --samples N [--output PREFIX]", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)
@@ -149,6 +158,7 @@ public static class DeveloperEntry
             "generation" => c.Get<GenerationDefinition>(c.Game.Generation),
             "simulation" => c.Get<SimulationDefinition>(c.Game.Simulation),
             "incident" => new IncidentDefinition { Id = id, Name = "A new memory", Condition = "trust", Effect = "memory", Mood = 3 },
+            "discovery" => new DiscoveryDefinition { Id = id, Name = "A forgotten marker", Sprite = "sign", Action = "clue", Text = "{witness} of {town} left a route to {site}, to the {direction}." },
             _ => throw new ArgumentException("Scaffold a supported content kind; game.vagabonds is the existing runtime entry point.")
         };
         // Clone templates before changing IDs, preserving the loaded catalog's identity and references.

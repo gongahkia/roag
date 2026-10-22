@@ -8,6 +8,7 @@
   "speed": 6,
   "interactions": [
     "interaction.stories",
+    "interaction.rumours",
     "interaction.recruit",
     "interaction.trade",
     "interaction.meal"

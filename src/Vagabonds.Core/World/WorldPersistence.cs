@@ -36,7 +36,7 @@ public sealed partial class WorldSession
             refs.Add(new(delta.Key, hash));
         }
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
-        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 2, Content.Hash, Plan, state, refs), SaveOptions));
+        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
         SavePath = path; DeathPending = false;
     }
     private static void WriteAtomic(string path, byte[] data)
@@ -52,7 +52,7 @@ public sealed partial class WorldSession
     public static WorldSession Load(string path)
     {
         var save = JsonSerializer.Deserialize<Manifest>(File.ReadAllBytes(path), SaveOptions) ?? throw new InvalidDataException("Empty world save.");
-        if (save.Format != "vagabonds-world" || save.Version != 2 || save.Plan == null || save.State == null || save.Chunks == null) throw new InvalidDataException("Unsupported world save.");
+        if (save.Format != "vagabonds-world" || save.Version != 3 || save.Plan == null || save.State == null || save.Chunks == null) throw new InvalidDataException("Unsupported world save.");
         if (save.ContentHash != ContentCatalog.Default.Hash) throw new InvalidDataException("World content differs from this build. Start an explicit new run; the selected save is preserved.");
         var plan = save.Plan;
         if (plan.Version != WorldPlan.GenerationVersion || plan.SampleHash != SampleLibrary.Default.Hash) throw new InvalidDataException("World generation version/sample manifest differs from this build.");
@@ -111,7 +111,8 @@ public sealed partial class WorldSession
         foreach (var actor in s.Actors)
         {
             if (actor.VariantId == null || actor.VariantId.Length > 0 && (!ContentCatalog.Default.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
-                || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition))
+                || actor.EncounterLeader != 0 && !s.Actors.Any(a => a.Id == actor.EncounterLeader && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
+                    && !(s.Discoveries?.Any(d => d?.Enemies is { Length: > 0 } && d.Enemies[0] == actor.EncounterLeader && d.Enemies.Contains(actor.Id)) ?? false))
                 throw new InvalidDataException("Invalid encounter identity.");
             foreach (var (slot, gear) in actor.Equipment)
             {
@@ -121,8 +122,12 @@ public sealed partial class WorldSession
         }
         if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && ContentCatalog.Default.Entries[a.Archetype] is BossDefinition)
             || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
-            || s.Loot == null || s.Loot.Count > 192 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !ContentCatalog.Default.All<ItemDefinition>().Any(i => i.Stack == p.Key)))
+            || s.Loot == null || s.Loot.Count > 2048 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !ContentCatalog.Default.All<ItemDefinition>().Any(i => i.Stack == p.Key))
+                || c.Choices == null || c.Choices.Length is not (0 or 3) || c.Choices.Distinct().Count() != c.Choices.Length
+                || c.Choices.Any(id => id == null || !ContentCatalog.Default.Entries.TryGetValue(id, out var entry) || entry is not ItemDefinition item || item.Slot == "none")
+                || (c.Choices.Length > 0 && c.Taken ? c.Selected == null || !c.Choices.Contains(c.Selected) : c.Selected != null))
             || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
+        ValidateDiscoveries(plan, s);
         foreach (var caravan in s.Actors.Where(a => a.Kind == ActorKind.Caravan))
         {
             if (caravan.DestinationTown == null || caravan.DestinationTown == caravan.HomeTown || caravan.Traveling && caravan.Route.Count == 0) throw new InvalidDataException("Invalid caravan destination/route.");

@@ -20,8 +20,8 @@ public sealed class ContentCatalog
     private static readonly Lazy<ContentCatalog> EmbeddedInstance = new(Embedded);
     public static ContentCatalog Default => EmbeddedInstance.Value;
     public static readonly string[] Effects = ["damage", "burn", "bleed", "mark", "stun", "heal", "calm", "guard", "rally", "potion", "flee", "dread", "drain", "cleanse"];
-    public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal"];
-    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
+    public static readonly string[] Actions = ["recruit", "trade", "heal", "converse", "share-meal", "rumour"];
+    public static readonly string[] Kinds = ["ability", "boss", "character", "class", "discovery", "game", "generation", "incident", "interaction", "item", "names", "recipe", "simulation", "trait", "variant"];
     public static readonly string[] Layouts = ["overlapping-wfc", "caverns", "bsp-workings", "bsp-fort", "ring-sanctuary"];
     private readonly Dictionary<string, ContentDefinition> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -40,7 +40,7 @@ public sealed class ContentCatalog
     {
         AbilityDefinition => "ability", BossDefinition => "boss", CharacterDefinition => "character", ClassDefinition => "class",
         InteractionDefinition => "interaction", ItemDefinition => "item", NamesDefinition => "names", RecipeDefinition => "recipe",
-        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", _ => throw new ArgumentException("Unknown content type.")
+        TraitDefinition => "trait", VariantDefinition => "variant", GameDefinition => "game", GenerationDefinition => "generation", SimulationDefinition => "simulation", IncidentDefinition => "incident", DiscoveryDefinition => "discovery", _ => throw new ArgumentException("Unknown content type.")
     };
     public static ContentCatalog LoadDirectory(string root)
     {
@@ -116,6 +116,8 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    if (g.Discoveries == null || g.Discoveries.Length == 0) Error("discoveries", "Provide a discovery pool.");
+                    else foreach (var id in g.Discoveries) Ref<DiscoveryDefinition>("discoveries", id);
                     Ref<GenerationDefinition>("generation", g.Generation);
                     Ref<SimulationDefinition>("simulation", g.Simulation);
                     if (g.Incidents == null) Error("incidents", "Provide an incident pool.");
@@ -131,6 +133,7 @@ public sealed class ContentCatalog
                     foreach (var id in g.Recipes) Ref<RecipeDefinition>("recipes", id);
                     Cost("inventory", g.Inventory); break;
                 case GenerationDefinition g:
+                    Range("settlementFinds", g.SettlementFinds, 1, 8); Range("roadDiscoverySpacing", g.RoadDiscoverySpacing, 120, 1000); Range("wildernessFinds", g.WildernessFinds, 0, 128);
                     if (g.Layouts == null || g.Biomes == null) { Error("layouts", "Layout and biome profiles are required."); break; }
                     foreach (string purpose in new[] { "ruin", "mine", "fort", "shrine" })
                         if (!g.Layouts.TryGetValue(purpose, out var layouts) || layouts == null || layouts.Length != World.WorldPlan.Floors || layouts.Any(l => !Layouts.Contains(l)))
@@ -141,6 +144,24 @@ public sealed class ContentCatalog
                         Range("treesPerThousand", profile.TreesPerThousand, 0, 800);
                         if (new[] { profile.RockThreshold, profile.WaterThreshold, profile.WaterElevation }.Any(v => !double.IsFinite(v) || v < -1 || v > 1)) Error("biomes", "Thresholds must be finite in -1..1.");
                     }
+                    break;
+                case DiscoveryDefinition dsc:
+                    if (dsc.Action is not ("cache" or "camp" or "clue" or "encounter")) Error("action", "Use cache, camp, clue or encounter.");
+                    if (string.IsNullOrWhiteSpace(dsc.Text) || dsc.Text.Length > 800 || dsc.Sprite == null) Error("text", "A discovery needs appearance and text of at most 800 characters.");
+                    foreach (Match token in Regex.Matches(dsc.Text ?? "", "\\{([^{}]+)\\}"))
+                        if (token.Groups[1].Value is not ("town" or "faction" or "witness" or "site" or "guardian" or "direction")) Error("text", "Unknown world reference: " + token.Value);
+                    if (dsc.Layout == null || dsc.Layout.Length is < 3 or > 9 || dsc.Layout.Length % 2 == 0
+                        || dsc.Layout.Any(r => r == null || r.Length != dsc.Layout.Length || r.Any(c => !".#C".Contains(c)))
+                        || dsc.Layout != null && dsc.Layout.Length > 0 && dsc.Layout[dsc.Layout.Length / 2] is { } middle && middle.Length == dsc.Layout.Length && middle[middle.Length / 2] == '#') Error("layout", "Use an odd square 3..9 of . ground, # wall, C camp; keep its centre walkable.");
+                    Cost("supplies", dsc.Supplies);
+                    if (dsc.Rewards == null || dsc.Enemies == null) { Error("rewards", "Reward/enemy pools cannot be null."); break; }
+                    foreach (var id in dsc.Rewards)
+                    { Ref<ItemDefinition>("rewards", id); if (id != null && _entries.TryGetValue(id, out var gear) && gear is ItemDefinition item && item.Slot == "none") Error("rewards", "Reward choices must be equipment."); }
+                    if (dsc.Rewards.Length is > 0 and < 3) Error("rewards", "Offer at least three equipment alternatives, or no equipment.");
+                    if (dsc.Rewards.Distinct().Count() != dsc.Rewards.Length) Error("rewards", "Reward IDs must be distinct.");
+                    if (dsc.Enemies.Length > 3 || dsc.Action == "encounter" && dsc.Enemies.Length == 0 || dsc.Action != "encounter" && dsc.Enemies.Length != 0) Error("enemies", "Only encounters have one to three enemies.");
+                    foreach (var id in dsc.Enemies)
+                    { Ref<CharacterDefinition>("enemies", id); if (id != null && _entries.TryGetValue(id, out var foe) && foe is CharacterDefinition character && character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider)) Error("enemies", "Use hostile characters."); }
                     break;
                 case SimulationDefinition m:
                     if (new[] { m.HungerPerTick, m.FatiguePerTick, m.RestPerTick, m.StructureWearPerTick }.Any(v => !double.IsFinite(v) || v < 0 || v > 1)) Error("hungerPerTick", "Rates must be finite in 0..1.");

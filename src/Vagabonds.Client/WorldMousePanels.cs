@@ -10,7 +10,7 @@ internal sealed partial class WorldGame
     {
         var box = PanelBox(w, h); Fill(box, new(24, 31, 37));
         int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
-        string title = _panel switch { "inventory" => "PARTY & EQUIPMENT", "game" => "GAME MENU", "person" => "CONVERSATION", "actions" => "EXPEDITION ACTIONS", _ => _panel.ToUpperInvariant() };
+        string title = _panel switch { "inventory" => "PARTY & EQUIPMENT", "game" => "GAME MENU", "person" => "CONVERSATION", "actions" => "EXPEDITION ACTIONS", "loot" => "CHOOSE YOUR EQUIPMENT", "spoils" => "ENCOUNTER WON", "combat-log" => "COMBAT LOG", _ => _panel.ToUpperInvariant() };
         Text(title, x, box.Y + 18, Gold, 2);
         switch (_panel)
         {
@@ -56,6 +56,49 @@ internal sealed partial class WorldGame
                 Text($"Hunger {member.Body.Hunger:0}/100  Fatigue {member.Body.Fatigue:0}/100  Wounds {member.Body.Wounds}  Stress {member.Stress}", x, y + 92, Muted);
                 if (member.Memories.LastOrDefault() is { } memory && h > 760) Wrap(memory.Text, x, box.Bottom - 130, width, Muted);
                 break;
+            case "discovery":
+                if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
+                {
+                    _sprites.Fit(_batch, _session.Content.Get<DiscoveryDefinition>(discovery.Definition).Sprite!, new(x, y, 54, 54), Gold);
+                    Text(Short(discovery.Name, (width - 76) / 8), x + 72, y, Gold);
+                    Text(_session.Plan.Towns[discovery.TownId].Name + " / " + _session.State.Factions[_session.Plan.Towns[discovery.TownId].FactionId].Name, x + 72, y + 24, Muted);
+                    Wrap(_session.DiscoveryText(discovery), x, y + 78, width);
+                    string guards = string.Join(", ", discovery.Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).Where(a => a.Life == LifeState.Alive).Select(a => a.Name));
+                    Wrap(guards.Length > 0 ? "Guarded by " + guards + ". Their strength is fixed; prepare your party before approaching."
+                        : "The linked site is recorded on World map. Its terrain remains unexplored until you reach it.", x, box.Bottom - 214, width, guards.Length > 0 ? new(225, 146, 125) : Muted);
+                }
+                break;
+            case "loot":
+                if (_session.State.Loot.FirstOrDefault(c => c.Position == _lootPosition && !c.Taken) is { } chest)
+                {
+                    Wrap("Supplies: " + string.Join(", ", chest.Contents.Select(p => p.Value + " " + p.Key)) + ". Choose one item; the other offerings remain behind.", x, y, width, Gold);
+                    Text("Compare against a companion's currently equipped slot:", x, y + 96, Muted);
+                    for (int i = 0; i < chest.Choices.Length; i++)
+                    {
+                        var item = _session.Content.Get<ItemDefinition>(chest.Choices[i]); var change = _session.CompareGear(SelectedMember(), item.Id); int ry = y + 126 + i * 72;
+                        Text($"{item.Slot}: HP+{item.Health} P+{item.Power} A+{item.Armor} S+{item.Speed}", x + 320, ry);
+                        Text(Short("Replaces " + change.Previous + ": " + GearDelta(change), (width - 320) / 8), x + 320, ry + 23, Muted);
+                    }
+                }
+                break;
+            case "spoils":
+                if (_session.State.LastEncounterReward is { } reward)
+                {
+                    Text($"Gold +{reward.Gold}   Food +{reward.Food}", x, y, Gold, 1.5f);
+                    Wrap($"Each conscious survivor gained {reward.Experience} experience. Equipment in nearby caches can support different party roles.", x, y + 46, width);
+                    int ly = y + 104; foreach (var level in reward.LevelUps) { Text(level, x, ly, Gold); ly += 26; }
+                    if (_session.Party.Any(a => a.Life == LifeState.Downed)) Wrap("A companion is downed. Party lets you spend medicine to revive them.", x, box.Bottom - 164, width, new(224, 151, 132));
+                }
+                break;
+            case "combat-log":
+                Text("Damage and healing show actual HP changes; statuses show duration or removal.", x, y, Muted);
+                int ey = y + 34;
+                foreach (var entry in _session.State.CombatEvents.AsEnumerable().Reverse().Skip(_combatLogOffset).Take(6))
+                {
+                    Text($"Round {entry.Round} / {entry.Label}" + (entry.Amount > 0 ? " " + entry.Amount : ""), x, ey, EventColor(entry.Kind));
+                    Wrap(entry.Detail, x, ey + 20, width, Muted); ey += 52;
+                }
+                break;
             case "build":
                 Wrap("Choose a structure, then click adjacent observed ground. Supplies are reserved immediately; the structure appears when work is finished. Use Work to assign a resident or cancel and refund it.", x, y - 4, width, Muted);
                 break;
@@ -95,16 +138,26 @@ internal sealed partial class WorldGame
                 }
                 break;
             case "map":
-                Text("Known places / 4096 x 4096 surface. Exploration keeps a closer camera.", x, y, Muted);
-                var region = new Rectangle(x, y + 28, width, box.Bottom - y - 64); Fill(region, new(12, 22, 27));
+                Text("Known places / 4096 x 4096 surface. Choose a destination to mark it.", x, y, Muted);
+                var region = new Rectangle(x, y + 36, width - 320, box.Bottom - y - 82); Fill(region, new(12, 22, 27));
                 foreach (var delta in _session.State.Chunks.Where(c => c.Key.Floor == 0 && c.Discovered.Count > 0))
                     Fill(new(region.X + delta.Key.X * region.Width / 64, region.Y + delta.Key.Y * region.Height / 64, Math.Max(2, region.Width / 64), Math.Max(2, region.Height / 64)), new(70, 86, 74));
                 foreach (var known in _session.Plan.Towns.Where(t => _session.Chunks.Seen(t.Center)))
                     Text(known.Name, Math.Min(region.Right - 160, region.X + known.Center.X * region.Width / WorldPlan.Size), region.Y + known.Center.Y * region.Height / WorldPlan.Size, Gold);
+                foreach (var site in _session.Plan.Sites.Where(s => _session.State.KnownSites.Contains(s.Id)))
+                {
+                    int sx = region.X + site.Center.X * region.Width / WorldPlan.Size, sy = region.Y + site.Center.Y * region.Height / WorldPlan.Size;
+                    Fill(new(sx - 2, sy - 2, 5, 5), new(220, 145, 120));
+                    Text(Short(site.Name, 23), Math.Clamp(sx + 7, region.Left, region.Right - 192), Math.Clamp(sy, region.Top, region.Bottom - 18), new(220, 145, 120));
+                }
+                foreach (var mark in _session.State.Discoveries.Where(d => d.Known))
+                    Fill(new(region.X + mark.Position.X * region.Width / WorldPlan.Size, region.Y + mark.Position.Y * region.Height / WorldPlan.Size, 3, 3), _session.DiscoveryComplete(mark) ? Muted : new(130, 198, 204));
                 var position = _session.State.Position;
                 Fill(new(region.X + position.X * region.Width / WorldPlan.Size, region.Y + position.Y * region.Height / WorldPlan.Size, 5, 5), Ink);
+                if (_waypoint is { } waypoint) Fill(new(region.X + waypoint.X * region.Width / WorldPlan.Size - 2, region.Y + waypoint.Y * region.Height / WorldPlan.Size - 2, 7, 7), Gold);
                 break;
             case "inspector": DrawInspector(x, y, width); break;
         }
     }
+    private static string GearDelta(GearComparison c) => $"HP {c.Health:+0;-0;0} P {c.Power:+0;-0;0} A {c.Armor:+0;-0;0} S {c.Speed:+0;-0;0}";
 }

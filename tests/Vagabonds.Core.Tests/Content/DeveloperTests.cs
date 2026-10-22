@@ -74,6 +74,7 @@ public sealed class DeveloperTests : IDisposable
     [InlineData("class", "class.arcanist", "mage")]
     [InlineData("variant", "variant.swift", "variant.swift")]
     [InlineData("game", "game.vagabonds", "guardians")]
+    [InlineData("discovery", "discovery.waycamp", "unchangedClockAndRandom")]
     public void SupportingContentCanBePreviewedThroughRuntimeContexts(string kind, string id, string expected)
     {
         var result = Run("preview", kind, id, "--seed", "42"); Assert.Equal(0, result.Exit);

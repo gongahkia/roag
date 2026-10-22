@@ -55,6 +55,12 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
+        if (!options.Load && options.Scene == "world-discovery")
+        {
+            var d = _session.State.Discoveries.First(d => d.Context == "settlement" && _session.Content.Get<DiscoveryDefinition>(d.Definition).Action == "cache");
+            _session.State.Position = d.Position.Offset(0, 1); foreach (var a in _session.Party) a.Position = _session.State.Position;
+            _session.Reveal(); _session.Submit(new(WorldCommandKind.Discover, d.Position)); _discoveryId = d.Id; _panel = "discovery";
+        }
         if (!options.Load && options.Scene is "world-battle" or "world-boss")
         {
             foreach (var person in _session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(3).ToArray())
@@ -98,6 +104,7 @@ internal sealed partial class WorldGame : Game
     protected override void Update(GameTime gameTime)
     {
         var timer = Stopwatch.StartNew(); Layout(); UpdateView();
+        _presentationTime += Math.Min(.2, gameTime.ElapsedGameTime.TotalSeconds); CollectCombatFeedback();
         var mouse = Mouse.GetState();
         _session.Focused = IsActive;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
@@ -107,7 +114,7 @@ internal sealed partial class WorldGame : Game
             if (click)
             {
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
-                if (control != null) { if (control.Enabled) ActivateControl(control.Id); }
+                if (control != null) { if (control.Enabled) ActivateControl(control.Id); else _notice = control.DisabledReason; }
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
                     if (_session.IsInCombat) CombatClick(mouse.Position);
@@ -118,6 +125,7 @@ internal sealed partial class WorldGame : Game
             if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !_session.IsInCombat && _map.Contains(mouse.Position))
                 Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
         }
+        CollectCombatFeedback();
         _session.ModalOpen = _panel.Length > 0;
         _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
@@ -135,6 +143,7 @@ internal sealed partial class WorldGame : Game
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
+        CollectCombatFeedback(); _session.ModalOpen = _panel.Length > 0;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
@@ -157,7 +166,7 @@ internal sealed partial class WorldGame : Game
     private void Interact()
     {
         var cache = _session.State.Loot.FirstOrDefault(c => !c.Taken && c.Position.Distance(_session.State.Position) <= 1);
-        if (cache != null) { Execute(new(WorldCommandKind.Loot, cache.Position)); return; }
+        if (cache != null) { OpenLoot(cache.Position); return; }
         var person = _session.NearbyPerson();
         if (person != null)
         {
@@ -179,7 +188,7 @@ internal sealed partial class WorldGame : Game
             return;
         }
         var plan = WorldMouseNavigation.Plan(_session, _pointer.NavigationCell ?? p); StopTravel();
-        if (!plan.Reachable) { _notice = "No observed route. Choose nearer ground, or use the digging/building tools."; return; }
+        if (!plan.Reachable) { _notice = plan.Reason; return; }
         _pendingInteraction = plan.Interaction;
         foreach (var cell in plan.Path) _route.Enqueue(cell);
         if (_route.Count > 0) { _session.Paused = false; _notice = "Travelling. Right-click or Pause stops the party."; }
@@ -212,6 +221,7 @@ internal sealed partial class WorldGame : Game
             var replacement = WorldSession.Load(_options.Save);
             _session = replacement; _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _tool = ""; _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
+            _waypoint = null;
             _notice = "World restored and paused. Click a destination or Play to continue.";
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
@@ -280,6 +290,7 @@ internal sealed partial class WorldGame : Game
         if (_session.IsInCombat) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
         DrawMouseControls(w, h);
+        DrawHoverFeedback();
         WriteUiReport(w, h);
         _batch.End(); GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();
@@ -346,6 +357,8 @@ internal sealed partial class WorldGame : Game
             if (_pointer.Path.Count > 0 && (_route.Count == 0 || _route.Last() != _pointer.Path[^1])) DrawRoute(_pointer.Path, new(113, 187, 195), 2);
             DrawRoute(_route, Gold, 3);
         }
+        foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
+            _sprites.Draw(_batch, _session.Content.Get<DiscoveryDefinition>(d.Definition).Sprite!, TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : Gold);
         foreach (var actor in _session.State.Actors.Where(a => !a.Recruited && a.Life != LifeState.Dead && _session.Visible.Contains(a.Position)))
         {
             var motion = _actorMotions[actor.Id];
@@ -353,12 +366,18 @@ internal sealed partial class WorldGame : Game
             var rect = ActorRect(motion.Position); if (!_map.Intersects(rect)) continue;
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
-        foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position)))
+        foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position) && !_session.State.Discoveries.Any(d => d.Id == c.Id)))
             _sprites.Draw(_batch, "chest", TileRect(cache.Position), Gold);
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {
             var rect = TileRect(order.Target); FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * order.Progress / order.Required)), 3), Gold);
             FillClipped(new(rect.Left + 2, rect.Bottom - 5, Math.Max(2, rect.Width - 4), 2), Gold * .5f);
+        }
+        if (_waypoint is { } mark && _session.State.Position.Floor == mark.Floor)
+        {
+            var point = _camera.WorldToScreen(new(mark.X + .5f, mark.Y + .5f));
+            var banner = new Rectangle(Math.Clamp((int)point.X - 8, _map.Left + 4, _map.Right - 20), Math.Clamp((int)point.Y - 8, _map.Top + 48, _map.Bottom - 20), 16, 16);
+            _sprites.Fit(_batch, "banner", banner, Gold);
         }
         int slot = 0;
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
@@ -368,12 +387,14 @@ internal sealed partial class WorldGame : Game
         }
         if (_pointer.Cell is { } cell)
         {
-            var rect = TileRect(cell); FillClipped(rect, Gold * .1f);
+            var rect = TileRect(cell);
+            bool blocked = _tool.Length > 0 ? _session.TargetBlockReason(_tool == "build" ? WorldCommandKind.Build : _tool == "repair" ? WorldCommandKind.Repair : WorldCommandKind.Dig, cell, _build).Length > 0 : _pointer.Plan is { Reachable: false };
+            Color selector = blocked ? new(225, 127, 110) : Gold; FillClipped(rect, selector * .1f);
             int edge = Math.Clamp(rect.Width / 3, 3, 12), stroke = rect.Width >= 16 ? 2 : 1;
             foreach (int x in new[] { rect.Left, rect.Right - edge })
-                foreach (int y in new[] { rect.Top, rect.Bottom - stroke }) FillClipped(new(x, y, edge, stroke), Gold);
+                foreach (int y in new[] { rect.Top, rect.Bottom - stroke }) FillClipped(new(x, y, edge, stroke), selector);
             foreach (int x in new[] { rect.Left, rect.Right - stroke })
-                foreach (int y in new[] { rect.Top, rect.Bottom - edge }) FillClipped(new(x, y, stroke, edge), Gold);
+                foreach (int y in new[] { rect.Top, rect.Bottom - edge }) FillClipped(new(x, y, stroke, edge), selector);
         }
     }
     private void FillClipped(Rectangle rectangle, Color color)
@@ -427,14 +448,22 @@ internal sealed partial class WorldGame : Game
         Text(b.Active.Name + "'s turn", _map.X + 24, _map.Y + 42);
         foreach (var unit in b.Units)
         {
-            var r = UnitRect(unit); Fill(r, unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
+            var r = UnitRect(unit);
+            long actorId = b.ActorIds[unit.Id];
+            var latest = _combatFloats.LastOrDefault(e => e.Target == actorId && _presentationTime - e.Born < .25 && e.Kind is "damage" or "heal");
+            Fill(r, latest != null ? latest.Kind == "damage" ? new(88, 45, 41) : new(39, 76, 52) : unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
+            if (b.Active.Friendly && r.Contains(_mouse.Position) && _session.ActionPreview(_skill, unit.Id).Reason.Length == 0)
+                Fill(new(r.X, r.Y, 3, r.Height), new(127, 208, 212));
             _sprites.Fit(_batch, unit.Sprite, new(r.X + 8, r.Y + 8, 48, 48), unit.Alive ? Ink : Muted * .4f);
             Text(unit.Name.Length > 25 ? unit.Name[..22] + "..." : unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
             string conditions = string.Join(" ", new[] { unit.Guarding ? "G" : "", unit.Burn > 0 ? "B" + unit.Burn : "", unit.Bleed > 0 ? "L" + unit.Bleed : "", unit.Mark > 0 ? "M" + unit.Mark : "", unit.Stun > 0 ? "S" + unit.Stun : "" }.Where(c => c.Length > 0));
             Text(conditions, r.X + 160, r.Y + 29, Gold, .75f);
+            Fill(new(r.X + 64, r.Y + 43, r.Width - 76, 3), new(57, 63, 64));
+            Fill(new(r.X + 64, r.Y + 43, Math.Max(0, (r.Width - 76) * unit.Health / Math.Max(1, unit.MaxHealth)), 3), unit.Friendly ? new(129, 196, 150) : new(205, 126, 111));
             string detail = unit.Friendly ? $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
             Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
         }
+        DrawCombatFeedback();
     }
     private void DrawInspector(int x, int y, int width)
     {

@@ -58,7 +58,7 @@ public sealed record RoadPlan(int Id, int FromTown, int ToTown, WorldPosition A,
 
 public sealed class WorldPlan
 {
-    public const int GenerationVersion = 3;
+    public const int GenerationVersion = 4;
     public const int ChunkSize = 64;
     public const int ChunksAcross = 64;
     public const int Size = ChunkSize * ChunksAcross;
@@ -282,7 +282,27 @@ public sealed class LootCache
     public required WorldPosition Position { get; set; }
     public required Dictionary<string, int> Contents { get; set; }
     public bool Taken { get; set; }
+    public string[] Choices { get; set; } = [];
+    public string? Selected { get; set; }
 }
+public sealed class WorldDiscovery
+{
+    [JsonRequired] public string Id { get; set; } = "";
+    [JsonRequired] public string Definition { get; set; } = "";
+    [JsonRequired] public string Name { get; set; } = "";
+    [JsonRequired] public string Context { get; set; } = "";
+    [JsonRequired] public WorldPosition Position { get; set; }
+    [JsonRequired] public WorldPosition Anchor { get; set; }
+    [JsonRequired] public int Rotation { get; set; }
+    [JsonRequired] public int TownId { get; set; }
+    [JsonRequired] public int SiteId { get; set; }
+    [JsonRequired] public long WitnessId { get; set; }
+    [JsonRequired] public bool Known { get; set; }
+    [JsonRequired] public bool Visited { get; set; }
+    [JsonRequired] public long[] Enemies { get; set; } = [];
+}
+public sealed record CombatEvent(long Sequence, int Round, string Kind, long Source, long Target, string Label, int Amount, string Detail);
+public sealed record EncounterReward(int Gold, int Food, int Experience, string[] LevelUps);
 public sealed class EndgameState
 {
     public required long ActorId { get; set; }
@@ -358,6 +378,11 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    [JsonRequired] public List<WorldDiscovery> Discoveries { get; set; } = [];
+    [JsonRequired] public HashSet<int> KnownSites { get; set; } = [];
+    [JsonRequired] public List<CombatEvent> CombatEvents { get; set; } = [];
+    [JsonRequired] public long NextCombatEvent { get; set; } = 1;
+    [JsonRequired] public EncounterReward? LastEncounterReward { get; set; }
     [JsonRequired] public List<WorkOrder> Work { get; set; } = [];
     [JsonRequired] public List<BuiltStructure> Structures { get; set; } = [];
     [JsonRequired] public long NextWorkId { get; set; } = 1;

@@ -10,6 +10,7 @@ public sealed partial class WorldSession
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var enemy = State.Actors.FirstOrDefault(a => a.Id == enemyId && a.Life == LifeState.Alive && a.Kind is ActorKind.Raider or ActorKind.Beast);
         if (enemy == null) return;
+        State.CombatEvents.Clear(); State.LastEncounterReward = null;
         var battle = new WorldBattle();
         foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) AddUnit(a, true);
         // A lone traveller meets one foe; larger parties can draw in nearby enemies.
@@ -40,6 +41,7 @@ public sealed partial class WorldSession
         b.Order = b.Units.Where(u => u.Alive).Select(u => (u.Id, Roll: u.Speed + CombatRoll(3))).OrderByDescending(v => v.Roll).ThenBy(v => v.Id).Select(v => v.Id).ToList();
         b.TurnIndex = 0;
         PlanEnemies();
+        Feedback("round", null, null, "Round " + b.Round, 0, "Enemy intentions are fixed for this round.");
     }
     private void BeginCombatTurn()
     {
@@ -47,12 +49,13 @@ public sealed partial class WorldSession
         while (State.Battle is { } b && budget-- > 0)
         {
             var u = b.Active; u.Guarding = false;
-            if (u.Burn > 0) { Damage(u, 3); u.Burn--; }
-            if (u.Bleed > 0) { Damage(u, 3); u.Bleed--; }
-            if (u.Mark > 0) u.Mark--;
+            if (u.Burn > 0) { Damage(u, 3, label: "Burn"); u.Burn = Math.Max(0, u.Burn - 1); if (u.Burn == 0) Feedback("expire", u, u, "Burn ended"); }
+            if (u.Bleed > 0) { Damage(u, 3, label: "Bleed"); u.Bleed = Math.Max(0, u.Bleed - 1); if (u.Bleed == 0) Feedback("expire", u, u, "Bleed ended"); }
+            if (u.Mark > 0 && --u.Mark == 0) Feedback("expire", u, u, "Mark ended");
             SyncCombat();
             if (CheckBattleEnd()) return;
             if (u.Alive && u.Stun == 0) return;
+            if (u.Alive) Feedback("skip", u, u, "Stunned", 0, u.Name + " loses this turn.");
             u.Stun = Math.Max(0, u.Stun - 1); StepCombatOrder();
         }
     }
@@ -75,12 +78,13 @@ public sealed partial class WorldSession
         if (skillIndex < 0 || skillIndex >= skills.Count) return new(false, "Choose an ability.");
         var skill = skills[skillIndex]; var u = b.Active;
         CombatUnit? target = targetIndex >= 0 && targetIndex < b.Units.Count ? b.Units[targetIndex] : null;
-        if (skill.Target == TargetKind.Enemy && (target == null || target.Friendly || !target.Alive) || skill.Target == TargetKind.Ally && (target == null || !target.Friendly)) return new(false, "Choose a valid target.");
-        if (u.Mana < skill.Mana || skill.Effect == "potion" && Count("medicine") == 0) return new(false, "Insufficient mana or medicine.");
+        string blocked = ActionPreview(skillIndex, targetIndex).Reason;
+        if (blocked.Length > 0) return new(false, blocked);
         u.Mana -= skill.Mana;
         var actor = State.Actors.Single(a => a.Id == b.ActorIds[u.Id]);
         if (skill.Effect == "flee")
         {
+            Feedback("retreat", u, null, "Retreated", 0, "Enemies retain their wounds.");
             SyncCombat(); State.Battle = null;
             foreach (var a in Party) a.Stress = Math.Min(100, a.Stress + 5);
             var retreat = Directions.Select(d => State.Position.Offset(d.X * 5, d.Y * 5)).FirstOrDefault(p => Plan.Contains(p) && Materials.Walkable(Chunks.At(p)), State.Position);
@@ -101,8 +105,11 @@ public sealed partial class WorldSession
     }
     private void ResolveAbility(CombatUnit caster, Skill skill, IEnumerable<CombatUnit> targets, int bonus)
     {
+        Feedback("ability", caster, null, skill.Name, 0, caster.Name + " uses " + skill.Name + ".");
         foreach (var t in targets)
         {
+            int hp = t.Health, stress = t.Stress, burn = t.Burn, bleed = t.Bleed, mark = t.Mark, stun = t.Stun;
+            bool guarding = t.Guarding;
             if (skill.Effect is "heal" or "potion" or "cleanse")
             {
                 t.Health = Math.Min(t.MaxHealth, t.Health + skill.Power + bonus); t.Bleed = 0;
@@ -113,8 +120,12 @@ public sealed partial class WorldSession
             else
             {
                 int before = t.Health;
-                Damage(t, skill.Power + bonus + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0));
-                if (skill.Effect == "drain") caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
+                Damage(t, skill.Power + bonus + CombatRoll(4) + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0), caster, skill.Name);
+                if (skill.Effect == "drain")
+                {
+                    int old = caster.Health; caster.Health = Math.Min(caster.MaxHealth, caster.Health + Math.Max(1, (before - t.Health) / 2));
+                    Feedback("heal", caster, caster, "Drain", caster.Health - old, caster.Name + " recovers " + (caster.Health - old) + " HP.");
+                }
                 if (skill.Effect == "dread") t.Stress = Math.Min(100, t.Stress + Math.Max(8, skill.Power));
                 if (t.Alive)
                 {
@@ -123,6 +134,14 @@ public sealed partial class WorldSession
                     if (skill.Effect == "mark") t.Mark = skill.Duration;
                     if (skill.Effect == "stun") t.Stun = Math.Min(2, skill.Duration);
                 }
+            }
+            if (t.Health > hp) Feedback("heal", caster, t, skill.Name, t.Health - hp, t.Name + " recovers " + (t.Health - hp) + " HP.");
+            if (t.Stress != stress) Feedback("status", caster, t, "Stress " + (t.Stress - stress).ToString("+0;-0;0"), Math.Abs(t.Stress - stress), t.Name + ": stress " + t.Stress + ".");
+            Status("Burn", burn, t.Burn); Status("Bleed", bleed, t.Bleed); Status("Mark", mark, t.Mark); Status("Stun", stun, t.Stun);
+            if (t.Guarding != guarding) Feedback("status", caster, t, "Guard", 0, t.Name + " guards: incoming damage is halved after armour.");
+            void Status(string name, int old, int current)
+            {
+                if (old != current) Feedback(current == 0 ? "expire" : "status", caster, t, current == 0 ? name + " removed" : name + " " + current, current, t.Name + ": " + name + (current == 0 ? " removed." : " for " + current + " turns."));
             }
         }
     }
@@ -145,14 +164,21 @@ public sealed partial class WorldSession
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
         return new(true, $"{u.Name}: {skill.Name}.");
     }
-    private void Damage(CombatUnit target, int amount)
+    private void Damage(CombatUnit target, int amount, CombatUnit? source = null, string label = "Hit")
     {
         int damage = Math.Max(1, amount - target.Armor); if (target.Guarding) damage = Math.Max(1, damage / 2);
         var actor = State.Actors.Single(a => a.Id == State.Battle!.ActorIds[target.Id]);
-        if (damage >= Math.Max(8, target.MaxHealth / 3)) actor.Body.Wounds = Math.Min(10, actor.Body.Wounds + 1);
+        if (damage >= Math.Max(8, target.MaxHealth / 3))
+        {
+            int wounds = actor.Body.Wounds; actor.Body.Wounds = Math.Min(10, wounds + 1);
+            if (wounds != actor.Body.Wounds) Feedback("injury", source, target, "Wound", 1, target.Name + " suffers a lasting wound.");
+        }
+        int lost = Math.Min(target.Health, damage);
         target.Health = Math.Max(0, target.Health - damage);
+        Feedback("damage", source, target, label, lost, target.Name + " takes " + lost + " damage" + (target.Guarding ? " (guarding)." : "."));
         if (!target.Alive)
         {
+            Feedback("fall", source, target, target.Friendly ? "Downed" : "Defeated", 0, target.Name + (target.Friendly ? " is downed." : " falls."));
             target.Burn = target.Bleed = target.Stun = target.Mark = 0;
             if (target.Friendly) foreach (var friend in State.Battle!.Units.Where(u => u.Friendly && u.Alive)) friend.Stress = Math.Min(100, friend.Stress + 10);
         }
@@ -184,11 +210,14 @@ public sealed partial class WorldSession
         if (victory)
         {
             Add("gold", 12); Add("food", 3);
+            var levels = new List<string>();
             foreach (var a in Party.Where(a => a.Life == LifeState.Alive))
             {
                 a.Experience += 12;
-                if (a.Experience >= a.Level * 30) { a.Experience -= a.Level * 30; a.Level++; a.Health = Math.Min(a.MaxHealth, a.Health + 6); a.Mana = Math.Min(a.MaxMana, a.Mana + 3); }
+                if (a.Experience >= a.Level * 30) { a.Experience -= a.Level * 30; a.Level++; a.Health = Math.Min(a.MaxHealth, a.Health + 6); a.Mana = Math.Min(a.MaxMana, a.Mana + 3); levels.Add(a.Name + " / level " + a.Level); }
             }
+            State.LastEncounterReward = new(12, 3, 12, levels.ToArray());
+            Feedback("reward", null, null, "Victory", 12, "12 gold, 3 food; 12 experience to each conscious survivor." + (levels.Count > 0 ? " " + string.Join(", ", levels) : ""));
             if (State.Actors.Single(a => a.Id == State.Endgame.ActorId).Life == LifeState.Dead)
             { State.Endgame.Victory = true; Paused = true; Log("The final threat has fallen. Your expedition is complete."); }
             Log("Encounter won. Fallen companions can be revived with medicine or deliberately abandoned.");
@@ -202,5 +231,11 @@ public sealed partial class WorldSession
             State.AwaitingContinuation = true; CommitDeaths();
         }
         return true;
+    }
+    private void Feedback(string kind, CombatUnit? source, CombatUnit? target, string label, int amount = 0, string detail = "")
+    {
+        long ActorId(CombatUnit? unit) => unit == null || State.Battle == null ? 0 : State.Battle.ActorIds[unit.Id];
+        State.CombatEvents.Add(new(State.NextCombatEvent++, State.Battle?.Round ?? 0, kind, ActorId(source), ActorId(target), label, amount, detail));
+        if (State.CombatEvents.Count > 128) State.CombatEvents.RemoveAt(0);
     }
 }

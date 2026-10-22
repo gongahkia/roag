@@ -26,7 +26,9 @@ public static class ContentPreview
         if (definition is GameDefinition)
         {
             var world = WorldSession.Create(seed, content);
-            return new { seed, world.Plan.Id, world.State.Inventory, party = world.Party, world.FinalObjective, guardians = world.State.Actors.Count(a => a.Id == a.EncounterLeader) };
+            return new { seed, world.Plan.Id, world.State.Inventory, party = world.Party, world.FinalObjective,
+                guardians = world.State.Actors.Count(a => a.Id == a.EncounterLeader && content.Entries[a.Archetype] is BossDefinition),
+                startingClasses = world.State.Actors.Where(a => a.Kind == ActorKind.Person && a.HomeTown == 0).GroupBy(a => world.Class(a).Name).ToDictionary(g => g.Key, g => g.Count()) };
         }
         string traveller = content.Game.Traveller;
         if (definition is ClassDefinition) content = Edit(content, traveller, n => n["classes"] = new JsonArray(id));

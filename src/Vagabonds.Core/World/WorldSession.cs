@@ -3,7 +3,7 @@ using Vagabonds.Core.Content;
 
 namespace Vagabonds.Core.World;
 
-public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss }
+public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
 public sealed partial class WorldSession : IGameSession
@@ -67,6 +67,7 @@ public sealed partial class WorldSession : IGameSession
         var session = new WorldSession(plan, s, content);
         session.NewLoneHero();
         session.PopulateAdventures();
+        session.PopulateDiscoveries();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
         s.Arc = new() { Kind = (ArcKind)rng.Next(3), TownId = townId, SiteId = siteId, PatronId = 1000 + townId * 16 + 7 };
@@ -123,11 +124,13 @@ public sealed partial class WorldSession : IGameSession
         if (DeathPending) return new(false, "Save the recorded deaths before continuing.");
         if (State.AwaitingContinuation && command.Kind != WorldCommandKind.Continue) return new(false, "The expedition has ended. Continue with a new traveller or begin a fresh world.");
         if (IsInCombat) return new(false, "Finish the encounter first.");
+        if (command.Kind != WorldCommandKind.Continue && CommandBlockReason(command) is { Length: > 0 } blocked) return new(false, blocked);
         var target = State.Actors.FirstOrDefault(a => a.Id == command.ActorId);
         bool near = Plan.Contains(command.Target) && State.Position.Distance(command.Target) <= 1;
         switch (command.Kind)
         {
-            case WorldCommandKind.Loot: return Loot(command.Target);
+            case WorldCommandKind.Loot: return Loot(command.Target, command.Item);
+            case WorldCommandKind.Discover: return VisitDiscovery(command.Target);
             case WorldCommandKind.Equip: return Equip(command.ActorId, command.Item);
             case WorldCommandKind.Unequip:
                 if (target == null || !State.Party.Contains(target.Id) || !target.Equipment.TryGetValue(command.Item, out var gear)) return new(false, "Choose an occupied equipment slot.");
@@ -238,7 +241,7 @@ public sealed partial class WorldSession : IGameSession
                 var p = new WorldPosition(x, y);
                 Visible.Add(p); Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
             }
-            return;
+            ObserveDiscoveries(); return;
         }
         _surfaceView = null;
         const int radius = 11;
@@ -254,6 +257,7 @@ public sealed partial class WorldSession : IGameSession
                 if (p != origin && Materials.Opaque(Chunks.At(p))) break;
             }
         }
+        ObserveDiscoveries();
     }
     /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
     public void RevealSurface(int left, int top, int right, int bottom)

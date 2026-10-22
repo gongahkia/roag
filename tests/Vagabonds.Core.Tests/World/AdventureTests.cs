@@ -29,7 +29,7 @@ public sealed class AdventureTests
         for (int seed = 0; seed < 16; seed++)
         {
             var s = WorldSession.Create(seed); var boss = s.FinalBoss;
-            Assert.Equal(0, s.State.Arc.Progress); Assert.Equal(48, s.State.Actors.Count(a => a.Id == a.EncounterLeader));
+            Assert.Equal(0, s.State.Arc.Progress); Assert.Equal(48, s.State.Actors.Count(a => a.Id == a.EncounterLeader && s.Content.Entries[a.Archetype] is BossDefinition));
             Assert.InRange(boss.Position.Floor, 1, 3); selections.Add(boss.Archetype + ":" + boss.VariantId);
             var site = s.Plan.Sites[s.State.Endgame.SiteId];
             for (int floor = 0; floor < boss.Position.Floor; floor++)

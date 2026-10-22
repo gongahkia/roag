@@ -113,6 +113,51 @@ public sealed class WorldMouseTests
         Assert.Equal(long.Parse(selected.Id[7..], System.Globalization.CultureInfo.InvariantCulture), session.State.Work.Single().Worker);
     }
     [Fact]
+    public void InspectionExplainsVisiblePeopleAndBlockedTerrainWithoutRevealingUnknownActors()
+    {
+        var session = WorldSession.Create(42); var origin = session.State.Position;
+        var person = session.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited); person.Position = origin.Offset(1, 0);
+        var rock = origin.Offset(0, 1); session.Chunks.Edit(rock, Material.Rock); session.Reveal();
+        string before = JsonSerializer.Serialize(session.State);
+        var info = WorldInspection.Inspect(session, person.Position);
+        Assert.Equal(person.Name, info.Title); Assert.Contains("speak", info.Action); Assert.Contains("HP", info.Detail);
+        Assert.Contains("Dig", WorldInspection.Inspect(session, rock).Reason);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var unknown = origin.Offset(80, 80); person.Position = unknown; before = JsonSerializer.Serialize(session.State);
+        var hidden = WorldInspection.Inspect(session, unknown);
+        Assert.Equal("unknown", hidden.Kind); Assert.DoesNotContain(person.Name, hidden.Detail + hidden.Title);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+    [Fact]
+    public void NewPanelsFitTheMinimumWindowAndUnavailableActionsExplainTheirRequirements()
+    {
+        var session = WorldSession.Create(42); var client = Client(session);
+        var d = session.State.Discoveries.First(d => d.Enemies.Length == 0 && session.State.Loot.Any(c => c.Id == d.Id && c.Choices.Length == 3));
+        Field("_discoveryId").SetValue(client, d.Id); Field("_lootPosition").SetValue(client, d.Position);
+        session.State.LastEncounterReward = new(12, 3, 12, []);
+        foreach (string panel in new[] { "discovery", "loot", "spoils", "combat-log", "map" })
+        {
+            var controls = Controls(client, panel);
+            Assert.All(controls, c => Assert.True(new Rectangle(0, 0, 1024, 720).Contains(c.Bounds), panel + "/" + c.Id));
+            for (int i = 0; i < controls.Count; i++) for (int j = i + 1; j < controls.Count; j++)
+                Assert.False(controls[i].Bounds.Intersects(controls[j].Bounds), panel + "/" + controls[i].Id + "/" + controls[j].Id);
+            Assert.All(controls.Where(c => !c.Enabled), c => Assert.NotEmpty(c.DisabledReason));
+        }
+        var craft = Controls(client, "craft").Where(c => c.Id.StartsWith("craft:", StringComparison.Ordinal)).ToArray();
+        Assert.All(craft, c => { Assert.False(c.Enabled); Assert.Contains("camp", c.DisabledReason); });
+        Assert.Equal(3, Controls(client, "loot").Count(c => c.Id.StartsWith("claim:", StringComparison.Ordinal)));
+    }
+    [Fact]
+    public void MapWaypointsNeverDiscoverTerrainOrInventTravelToRumouredGround()
+    {
+        var session = WorldSession.Create(42); var client = Client(session); var d = session.State.Discoveries.First(); d.Known = true;
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateControl", "waypoint:" + d.Id);
+        Assert.Equal(d.Position, Field("_waypoint").GetValue(client));
+        Assert.Empty(session.Route(d.Position)); Assert.False(session.Chunks.Seen(d.Position));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+    [Fact]
     public void MouseJournalRetainsRequestsAndMakesLongHistoryReachable()
     {
         var session = WorldSession.Create(42); var client = Client(session);

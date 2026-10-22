@@ -15,6 +15,7 @@ public sealed partial class WorldSession
     }
     public ActionResult PerformInteraction(long actorId, string interactionId)
     {
+        string blocked = InteractionBlockReason(actorId, interactionId); if (blocked.Length > 0) return new(false, blocked);
         if (State.Endgame.Victory || IsInCombat || State.AwaitingContinuation || DeathPending) return new(false, "Finish the encounter or expedition first.");
         var interaction = Interactions(actorId).FirstOrDefault(i => i.Id == interactionId);
         var actor = State.Actors.FirstOrDefault(a => a.Id == actorId);
@@ -33,6 +34,7 @@ public sealed partial class WorldSession
         foreach (var (stack, count) in costs) Add(stack, -count);
         switch (interaction.Action)
         {
+            case "rumour": return LocalRumour(actor);
             case "heal": injured!.Body.Wounds = Math.Max(0, injured.Body.Wounds - 1); Remember(injured, "treated", actor.Name + " tended my injuries.", 6, actor.Id); ChangeTrust(injured, actor, 5); injured.Health = Math.Min(injured.MaxHealth, injured.Health + interaction.Amount); return new(true, actor.Name + " treated " + injured.Name + ".");
             case "share-meal":
                 foreach (var friend in Party)

@@ -96,5 +96,19 @@
     "incident.helping-hands",
     "incident.proud-work",
     "incident.shared-road"
+  ],
+  "discoveries": [
+    "discovery.waycamp",
+    "discovery.healers-shelter",
+    "discovery.fallen-caravan",
+    "discovery.votive-vault",
+    "discovery.survey-post",
+    "discovery.oath-stones",
+    "discovery.pilgrims-graves",
+    "discovery.watch-ruin",
+    "discovery.prowlers-den",
+    "discovery.road-blockade",
+    "discovery.mourning-garden",
+    "discovery.cistern"
   ]
 }

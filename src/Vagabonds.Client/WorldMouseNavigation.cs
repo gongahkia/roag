@@ -17,7 +17,7 @@ internal static class WorldCameraScale
 }
 
 internal sealed record WorldClickIntent(string Kind, WorldPosition Cell, long Actor = 0);
-internal sealed record WorldClickPlan(IReadOnlyList<WorldPosition> Path, WorldClickIntent? Interaction, bool Reachable);
+internal sealed record WorldClickPlan(IReadOnlyList<WorldPosition> Path, WorldClickIntent? Interaction, bool Reachable, string Reason = "");
 
 internal static class WorldMouseNavigation
 {
@@ -26,6 +26,7 @@ internal static class WorldMouseNavigation
         if (!session.Chunks.Seen(cell)) return null;
         var actor = session.State.Actors.FirstOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null) return new(actor.Kind == ActorKind.Person ? "person" : actor.Kind is ActorKind.Beast or ActorKind.Raider ? "enemy" : "actor", cell, actor.Id);
+        if (session.State.Discoveries.Any(d => d.Position == cell)) return new("discovery", cell);
         if (session.State.Loot.Any(c => !c.Taken && c.Position == cell && session.Visible.Contains(cell))) return new("loot", cell);
         return session.Chunks.At(cell) switch
         {
@@ -35,9 +36,15 @@ internal static class WorldMouseNavigation
     }
     public static WorldClickPlan Plan(WorldSession session, WorldPosition cell)
     {
-        if (!session.Plan.Contains(cell) || cell.Floor != session.State.Position.Floor || !session.Chunks.Seen(cell)) return new([], null, false);
+        if (!session.Plan.Contains(cell) || cell.Floor != session.State.Position.Floor) return new([], null, false, "Choose ground on the current floor.");
+        if (!session.Chunks.Seen(cell)) return new([], null, false, "Unexplored ground. Move toward the visible edge first.");
         var intent = Intent(session, cell);
-        if (intent == null) { var path = session.Route(cell); return new(path, null, path.Count > 0 || cell == session.State.Position); }
+        if (intent == null)
+        {
+            var path = session.Route(cell); bool reachable = path.Count > 0 || cell == session.State.Position;
+            string blocked = session.Chunks.At(cell) switch { Material.Water => "Water blocks travel. Build a bridge from adjacent ground.", Material.Rock or Material.Wall or Material.Tree => "This terrain blocks travel. Approach it and use Dig.", _ => "No connected route through observed ground. Try nearer ground or change the terrain." };
+            return new(path, null, reachable, reachable ? "" : blocked);
+        }
         int range = intent.Kind is "person" or "actor" ? 2 : 1;
         if (session.State.Position.Distance(cell) <= range) return new([], intent, true);
         var candidates = new List<(WorldPosition Cell, int Score)>();
@@ -53,6 +60,6 @@ internal static class WorldMouseNavigation
             var path = session.Route(candidate.Cell);
             if (path.Count > 0) return new(path, intent, true);
         }
-        return new([], intent, false);
+        return new([], intent, false, "No observed approach reaches this object. Explore nearer ground or open a passage.");
     }
 }

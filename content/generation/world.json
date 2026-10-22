@@ -53,5 +53,8 @@
     "Snow": {
       "treesPerThousand": 150
     }
-  }
+  },
+  "settlementFinds": 4,
+  "roadDiscoverySpacing": 280,
+  "wildernessFinds": 48
 }
