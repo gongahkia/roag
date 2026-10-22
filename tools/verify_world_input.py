@@ -49,15 +49,15 @@ def main():
         def ui(self):
             try: return json.loads(self.report.read_text())
             except (FileNotFoundError, json.JSONDecodeError): return {}
-        def wait(self, predicate, timeout=12):
+        def wait(self, predicate, timeout=12, interval=.05):
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 if self.process.poll() is not None: raise RuntimeError('Client exited: ' + str(self.process.returncode))
                 ui = self.ui()
                 if ui and predicate(ui): return ui
-                time.sleep(.05)
+                time.sleep(interval)
             raise RuntimeError('UI readiness timed out: ' + json.dumps(self.ui())[:1500])
-        def point(self, px, py, button=1):
+        def point(self, px, py, button=1, fast=False):
             px, py = round(px), round(py)
             for attempt in range(3):
                 if attempt > 0 or not self.ui().get('focused', False):
@@ -68,11 +68,33 @@ def main():
                     break
                 except RuntimeError:
                     if attempt == 2: raise
-            x('mousedown', button); time.sleep(.1); x('mouseup', button); time.sleep(.12)
-        def click(self, identifier):
+            x('mousedown', button); time.sleep(.035 if fast else .1); x('mouseup', button)
+            if not fast: time.sleep(.12)
+        def click(self, identifier, fast=False):
             ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
             button = next(c for c in ui['controls'] if c['id'] == identifier); r = button['bounds']
-            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
+        def combat_ready(self):
+            return self.wait(lambda u: not u.get('combatPresentation', {}).get('busy', False)
+                and (u['battle'] is None or u['battle']['activeFriendly']))
+        def fighter(self, unit_id, fast=False):
+            r = next(u for u in self.ui()['battle']['units'] if u['id'] == unit_id)['bounds']
+            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
+        def restore(self, fixture):
+            self.slot.write_text(json.dumps(fixture)); self.click('load'); return self.combat_ready()
+        def capture_phase(self, phase, name):
+            observed = self.wait(lambda u: u.get('combatPresentation', {}).get('phase') == phase, interval=.01)
+            x('windowfocus', '0')
+            frozen = self.wait(lambda u: not u['focused'], interval=.01)
+            check(name + 'Phase', frozen['combatPresentation']['phase'] == phase)
+            time.sleep(.2)
+            still = self.ui()
+            check(name + 'FocusFreeze', still['combatPresentation']['progress'] == frozen['combatPresentation']['progress']
+                and still['tick'] == frozen['tick'])
+            self.capture(name)
+            x('windowfocus', '--sync', self.window)
+            self.wait(lambda u: u['focused'])
+            return observed
         def finish_dialogue(self):
             deadline = time.monotonic() + 40
             while time.monotonic() < deadline:
@@ -110,6 +132,9 @@ def main():
                 time.sleep(.05)
             raise RuntimeError('Mouse Save did not write the temporary slot.')
         def capture(self, name):
+            # Pair pixels with semantic state so agents can diagnose and review a
+            # retained phase without inferring rules or target identities from art.
+            (output / (name + '.ui.json')).write_text(json.dumps(self.ui(), indent=2) + '\n')
             subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-f', 'x11grab', '-window_id', self.window, '-video_size', '1024x720', '-i', os.environ['DISPLAY'], '-frames:v', '1', '-update', '1', str(output / (name + '.png'))], check=True, timeout=15)
         def formation(self):
             # Inspect actual per-member draw bounds as well as authoritative cells.
@@ -304,11 +329,11 @@ def main():
                 client.context(bee); client.click('context:interact'); client.wait(lambda u: u['battle'] is not None)
                 check('huntingStartsTurnBasedEncounter', client.ui()['frozen']); client.capture('wildlife-encounter')
                 for _ in range(12):
-                    ui = client.wait(lambda u: u['battle'] is None or u['battle']['activeFriendly'])
+                    ui = client.combat_ready()
                     if ui['battle'] is None: break
                     client.click('skill:0'); target = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = target['bounds']
                     client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
-                client.wait(lambda u: u['battle'] is None); client.pause(); state = client.save()['state']
+                client.wait(lambda u: u['battle'] is None); client.combat_ready(); client.pause(); state = client.save()['state']
                 remains = next(c for c in state['loot'] if c['sourceActor'] == bee['id']); reward = state['lastEncounterReward']
                 check('animalLeavesIngredientsWithoutGenericGold', remains['contents'].get('honey') == 1 and reward['gold'] == 0 and reward['food'] == 0)
                 client.capture('wildlife-rewards'); client.click('close')
@@ -374,58 +399,138 @@ def main():
         if 'world-battle' in args.scenes:
             client = Client('world-battle', slot)
             try:
-                client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+                client.combat_ready()
                 check('fourMembersHaveSeparateTilesInBattle', len(client.ui()['party']) == 4 and client.formation())
+                ui = client.ui(); fighters = ui['battle']['units']
+                check('fourByFourStageAtMinimumSize', len(fighters) == 8
+                    and all(0 <= u['bounds']['x'] < u['bounds']['x'] + u['bounds']['width'] <= 1024
+                        and 0 <= u['bounds']['y'] < u['bounds']['y'] + u['bounds']['height'] <= 720 for u in fighters))
+                check('abilityTrayHasSprites', all(c['sprite'] for c in ui['controls'] if c['id'].startswith('skill:')))
+                client.capture('battle-stage-four-by-four')
                 flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
-                client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.pause()
+                client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.combat_ready(); client.pause()
                 check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
             finally: client.close()
         if 'world-cooperation' in args.scenes:
             client = Client('world-cooperation', slot)
             try:
+                client.combat_ready()
                 client.wait(lambda u: u['battle'] is not None and u['battle']['active'] == 0)
                 check('eightCooperativeAbilityButtonsFit', len([c for c in client.ui()['controls'] if c['id'].startswith('skill:')]) == 8 and all(c['bounds']['y'] + c['bounds']['height'] <= 720 for c in client.ui()['controls']))
                 initial = client.save(); before = initial['state']
                 def fighter(unit_id):
-                    r = next(u for u in client.ui()['battle']['units'] if u['id'] == unit_id)['bounds']
-                    client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                    client.fighter(unit_id)
                 client.click('skill:6'); fighter(3)
                 chosen = client.save()['state']
                 check('helperSelectionIsFree', client.ui()['battle']['partner'] == 3 and chosen['battle'] == before['battle'] and chosen['combatRandom'] == before['combatRandom'] and chosen['tick'] == before['tick'])
                 client.capture('cooperation-helper')
                 client.point(500, 110, button=3)
                 check('rightClickCancelsCooperationForFree', client.ui()['battle']['partner'] == -1 and client.save()['state']['battle'] == before['battle'])
-                client.click('skill:6'); fighter(3); fighter(4)
+                client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                check('skillsLockedDuringPlayback', client.ui()['combatPresentation']['busy']
+                    and not any(c['enabled'] for c in client.ui()['controls'] if c['id'].startswith('skill:')))
+                client.capture_phase('impact', 'cooperation-impact')
+                client.combat_ready()
                 acted = client.save()['state']; b = acted['battle']; old = before['battle']
                 check('jointStrikeSpendsBothManaAndActions', b['assisting'] == [3] and b['order'][b['turnIndex']] == 1 and b['units'][0]['mana'] == old['units'][0]['mana'] - 3 and b['units'][3]['mana'] == old['units'][3]['mana'] - 3 and b['units'][4]['health'] < old['units'][4]['health'])
                 client.capture('cooperation-strike'); client.click('load')
                 check('jointActionSaveRestoresExactly', client.save()['state'] == acted)
                 client.click('skill:3'); client.click('skill:3')
-                client.wait(lambda u: u['battle']['round'] == 2 and u['battle']['active'] == 0)
+                client.wait(lambda u: u['battle']['round'] == 2 and u['battle']['active'] == 0); client.combat_ready()
                 completed = client.save()['state']
                 check('helperSkippedOnceAndRoundClockAdvances', completed['tick'] == before['tick'] + 5 and completed['battle']['assisting'] == [] and any(e['label'] == 'Assisted' for e in completed['combatEvents']))
                 # Restore the wounded, isolated starting fixture to inspect group recovery.
-                slot.write_text(json.dumps(initial)); client.click('load'); client.click('skill:7')
+                client.restore(initial); client.click('skill:7')
                 check('sharedAidWaitsForHelper', client.save()['state']['battle'] == before['battle'])
-                fighter(3); healed = client.save()['state']['battle']
+                fighter(3); client.combat_ready(); healed = client.save()['state']['battle']
                 check('sharedAidHealsPartyAndSpendsBothMana', all(healed['units'][i]['health'] > old['units'][i]['health'] for i in range(4)) and healed['units'][0]['mana'] == old['units'][0]['mana'] - 4 and healed['units'][3]['mana'] == old['units'][3]['mana'] - 3)
                 client.capture('cooperation-aid')
+
+                # The same real action supplies semantic, repeatable captures of
+                # each visual beat. Focus loss freezes that beat for screenshot
+                # tools; no special animation stepping or game rule is used.
+                for phase in ('anticipation', 'travel', 'recovery'):
+                    client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                    phase_ui = client.capture_phase(phase, 'cooperation-' + phase)
+                    check(phase + 'KeepsWorldFrozen', phase_ui['frozen'] and phase_ui['tick'] == before['tick'])
+                    client.combat_ready()
+                    check(phase + 'HasSameCombatResult', client.save()['state'] == acted)
+
+                client.restore(initial); client.click('combat-speed')
+                check('mouseChangesCombatSpeed', client.ui()['combatPresentation']['speed'] > 1)
+                client.click('skill:6'); fighter(3); client.fighter(4, fast=True); client.combat_ready()
+                check('fastPlaybackHasSameCombatResult', client.save()['state'] == acted)
+                client.click('combat-speed')
+                client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                client.click('combat-skip', fast=True); client.combat_ready()
+                check('skipPlaybackHasSameCombatResult', client.save()['state'] == acted)
+
+                client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                check('saveStartsDuringPlayback', client.ui()['combatPresentation']['busy'])
+                during = client.save()['state']; client.click('load'); client.combat_ready()
+                check('loadingPlaybackNeverReappliesAction', client.save()['state'] == during == acted
+                    and not client.ui()['combatPresentation']['busy'])
+
+                initial_motion = client.ui()['combatPresentation']['reducedMotion']; client.click('combat-motion')
+                check('mouseTogglesCombatMotion', client.ui()['combatPresentation']['reducedMotion'] != initial_motion)
+                initial_volume = client.ui()['combatPresentation']['volume']; client.click('combat-volume')
+                check('mouseChangesCombatVolume', client.ui()['combatPresentation']['volume'] != initial_volume)
+                client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                client.capture_phase('impact', 'combat-reduced-motion'); client.combat_ready()
+                check('accessibilityControlsPreserveCombatResult', client.save()['state'] == acted)
+
+                # A wounded enemy fixture isolates the finishing-hit transition.
+                # The ordinary resolver still owns damage, death and rewards.
+                finish = json.loads(json.dumps(initial)); state = finish['state']; battle = state['battle']
+                battle['units'][4]['health'] = 1
+                next(a for a in state['actors'] if a['id'] == battle['actorIds'][4])['health'] = 1
+                client.restore(finish); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
+                finishing = client.capture_phase('impact', 'combat-finishing-hit')
+                check('finishingHitRetainsStageBeforeSpoils', finishing['battle'] is None
+                    and finishing['combatPresentation']['stageVisible'] and finishing['combatPresentation']['endingPending']
+                    and finishing['panel'] != 'spoils')
+                client.combat_ready(); client.wait(lambda u: u['panel'] == 'spoils'); client.capture('combat-spoils')
+                rewards = client.save()['state']; client.click('load'); client.combat_ready()
+                check('finishedEncounterSaveDoesNotDuplicateRewards', client.save()['state'] == rewards)
+
+                # One survivor lets a normal scheduled enemy hit demonstrate
+                # defeat playback and the saved, irreversible continuation UI.
+                wipe = json.loads(json.dumps(initial)); state = wipe['state']; battle = state['battle']
+                for unit in battle['units']:
+                    if unit['heroId'] < 0: continue
+                    unit['health'] = 1 if unit['id'] == 0 else 0
+                    actor = next(a for a in state['actors'] if a['id'] == battle['actorIds'][unit['id']])
+                    actor['health'] = unit['health']; actor['life'] = 0 if unit['health'] else 1
+                battle['order'] = [0, 4, 1, 2, 3]; battle['turnIndex'] = 0
+                for plan in battle['plans'].values(): plan['target'] = 0; plan['ability'] = 'ability.strike'
+                client.restore(wipe); client.click('skill:3', fast=True)
+                client.wait(lambda u: u['battle'] is None and u['combatPresentation']['busy'], interval=.01)
+                defeated = client.capture_phase('impact', 'combat-party-wipe')
+                check('partyWipeRetainsStageBeforeEnding', defeated['combatPresentation']['stageVisible']
+                    and defeated['combatPresentation']['endingPending']
+                    and not any(c['id'] == 'new-world' for c in defeated['controls']))
+                client.combat_ready(); client.wait(lambda u: any(c['id'] == 'new-world' for c in u['controls']))
+                client.capture('combat-defeat')
             finally: client.close()
         if 'world-boss' in args.scenes:
             client = Client('world-boss', slot)
             try:
-                client.wait(lambda u: u['battle'] is not None and u['battle']['activeFriendly'])
+                client.combat_ready()
                 before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); client.capture('party-four'); modal = client.save()['state']
                 check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
                 client.click('close'); client.click('skill:0'); selected = client.save()['state']
                 check('mouseAbilityWaitsForTarget', selected['battle'] == modal['battle'] and selected['combatRandom'] == modal['combatRandom'])
                 enemy = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive']); r = enemy['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
-                after = client.save()['state']; check('mouseCombatTarget', after['battle'] != selected['battle'] and after['combatRandom'] != selected['combatRandom']); client.capture('combat')
+                after = client.save()['state']; check('mouseCombatTarget', after['battle'] != selected['battle'] and after['combatRandom'] != selected['combatRandom']); client.combat_ready(); client.capture('combat')
                 fixture = json.loads(slot.read_text()); state = fixture['state']; battle = state['battle']; final_id = state['endgame']['actorId']
                 index = battle['actorIds'].index(final_id); battle['units'][index]['health'] = 1; next(a for a in state['actors'] if a['id'] == final_id)['health'] = 1
                 battle['turnIndex'] = next(i for i, u in enumerate(battle['order']) if battle['units'][u]['heroId'] >= 0 and battle['units'][u]['health'] > 0)
                 slot.write_text(json.dumps(fixture)); client.click('load'); client.click('skill:0')
-                target = next(u for u in client.ui()['battle']['units'] if u['id'] == index); r = target['bounds']; client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                client.fighter(index, fast=True)
+                ending_ui = client.capture_phase('impact', 'combat-final-boss-impact')
+                check('finalBossEndingWaitsForImpact', ending_ui['battle'] is None and ending_ui['combatPresentation']['stageVisible']
+                    and not any(c['id'] == 'new-world' for c in ending_ui['controls']))
+                client.combat_ready()
                 ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
                 client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
             finally: client.close()
