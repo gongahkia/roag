@@ -23,6 +23,7 @@ public sealed partial class WorldSession : IGameSession
     public HashSet<WorldPosition> Visible { get; } = [];
     public IEnumerable<Actor> Party => State.Party.Select(id => State.Actors.Single(a => a.Id == id));
     private long _frameRemainder;
+    private (int Left, int Top, int Right, int Bottom)? _surfaceView;
     internal WorldSession(WorldPlan plan, WorldState state)
     {
         Plan = plan; State = state; Chunks = new(plan, state);
@@ -212,6 +213,16 @@ public sealed partial class WorldSession : IGameSession
     public void Reveal()
     {
         Visible.Clear(); var origin = State.Position;
+        if (origin.Floor == 0 && _surfaceView is { } view)
+        {
+            for (int y = view.Top; y < view.Bottom; y++) for (int x = view.Left; x < view.Right; x++)
+            {
+                var p = new WorldPosition(x, y);
+                Visible.Add(p); Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
+            }
+            return;
+        }
+        _surfaceView = null;
         const int radius = 11;
         for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
         {
@@ -225,6 +236,16 @@ public sealed partial class WorldSession : IGameSession
                 if (p != origin && Materials.Opaque(Chunks.At(p))) break;
             }
         }
+    }
+    /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
+    public void RevealSurface(int left, int top, int right, int bottom)
+    {
+        if (State.Position.Floor != 0) return;
+        if (right < left || bottom < top) throw new ArgumentException("Surface bounds must be ordered.");
+        var view = (Math.Clamp(left, 0, WorldPlan.Size), Math.Clamp(top, 0, WorldPlan.Size),
+            Math.Clamp(right, 0, WorldPlan.Size), Math.Clamp(bottom, 0, WorldPlan.Size));
+        if (_surfaceView == view) return;
+        _surfaceView = view; Reveal();
     }
     public IReadOnlyList<WorldPosition> Route(WorldPosition destination)
     {

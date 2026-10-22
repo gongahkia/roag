@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## Clear outdoors with dungeon fog (2026-10-22)
+
+Release build/publish passed with zero warnings/errors and all **164 tests** passed. Five additional visibility regressions cover the unobstructed surface view, unchanged clock/actors/resources/random state, distant/underground privacy, cached view refreshes after movement/edits, dungeon entry/return, persistent discovery and world-edge clipping. Save format and generation version remain unchanged.
+
+The published client took actual generated stairs underground and back through keyboard input at 1024×720. The dungeon retained its radius-11 discovery (377 cells in the open entrance fixture), dark unknown ground and a selector without a route in unexplored terrain; returning restored the full outdoor view. Zoomed dungeon/surface captures and the updated guide were inspected. The seven world smoke checks passed for 360 frames at 1440×900; all 25 legacy graphical checks passed. Temporary slots/captures/reports are under ignored `artifacts/movement/`; preview smoke created no save and no player save was read or modified.
+
+The larger clear outdoor view now batches backgrounds, terrain and props separately. One measured 360-frame published run averaged **60.9 FPS**, **20.50 ms p95 frame interval**, **0.302 ms p95 update**, and nine resident chunks. Host/compositor variation remains substantial: preceding captures ranged from 48–56 FPS before batching, while a contemporaneous old published build measured 63.7 FPS. These are local scenario measurements rather than a guaranteed frame rate. Partial edge tiles/sprites are scissored to the map, and moving dungeon actors are not drawn while their interpolated cell is hidden.
+
 ## Smooth travel, facing and route feedback (2026-10-22)
 
 Release build passed with zero warnings/errors and all **159 tests** passed. Nine new graphics-free client cases cover fractional tile motion, exact endpoints, frame-rate independence, corner preservation, left/right facing with vertical retention, stair/long-transfer resets, hover state/RNG/clock preservation, unknown-cell privacy, preview invalidation, zoom, menus and tools.

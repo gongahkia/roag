@@ -48,6 +48,8 @@ New and loaded worlds begin **paused**. Space resumes time. One real second repr
 
 Hover routes are teal; selected routes remain gold as you travel. Clicking while paused prepares a route for Space. The selector also marks build/dig targets. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid.
 
+Outdoors, the entire local view is clear, including terrain and inhabitants behind walls. The world map records observed places without revealing distant towns. Underground keeps exploration fog, line of sight and dim remembered terrain. Zooming out observes more outdoor ground, within the local view limit.
+
 Click routes cannot cross unknown ground. Building costs stone or wood; natural excavation costs food according to hardness and yields materials. Dismantling your own walls, doors, empty storage or camps refunds their construction materials without food, so a misplaced structure cannot trap you after supplies run out. Water needs a bridge. Storage transfers keep actual quantities. Stairs cannot be removed or built over, and excavation cannot create vertical shafts. Walking through doors is automatic.
 
 ## Companions, consequences and stories

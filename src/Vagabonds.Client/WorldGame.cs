@@ -18,6 +18,7 @@ internal sealed class WorldGame : Game
     private SpriteLibrary _sprites = null!;
     private SpriteBatch _batch = null!;
     private Texture2D _pixel = null!;
+    private readonly RasterizerState _mapRasterizer = new() { ScissorTestEnable = true };
     private RenderTarget2D? _frame;
     private readonly MapCamera _camera = new();
     private Rectangle _map, _side;
@@ -32,6 +33,7 @@ internal sealed class WorldGame : Game
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
     private readonly Dictionary<long, GridMotion> _actorMotions = [];
+    private readonly List<(Rectangle Rect, string? Sprite, Color Tint, string? Prop, float Light, bool Door)> _terrain = [];
     private WorldSession? _visualSession;
     private long _visualLeader;
     private const double MoveDuration = .14;
@@ -74,7 +76,7 @@ internal sealed class WorldGame : Game
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
                 if (!_sprites.HasBinding(Materials.Sprite(material, biome, culture))) throw new InvalidDataException("Missing world material sprite.");
-        _camera.Reset(32); UpdateMotions(TimeSpan.Zero); _runtime.Start();
+        _camera.Reset(32); Layout(); UpdateMotions(TimeSpan.Zero); UpdateView(); _runtime.Start();
     }
     private void Layout()
     {
@@ -83,9 +85,17 @@ internal sealed class WorldGame : Game
         _side = new(w - 318, 84, 302, h - 100);
         _camera.Viewport = _map;
     }
+    private void UpdateView()
+    {
+        // Keep even the widest view within five chunks per axis, matching the 25-chunk cache.
+        _camera.Reset(Math.Max(_camera.CellSize, Math.Max(_map.Width, _map.Height) / (4f * WorldPlan.ChunkSize - 2)));
+        var left = _camera.ScreenToWorld(new(_map.Left, _map.Top));
+        var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
+        _session.RevealSurface((int)Math.Floor(left.X), (int)Math.Floor(left.Y), (int)Math.Ceiling(right.X), (int)Math.Ceiling(right.Y));
+    }
     protected override void Update(GameTime gameTime)
     {
-        var timer = Stopwatch.StartNew(); Layout();
+        var timer = Stopwatch.StartNew(); Layout(); UpdateView();
         var keys = Keyboard.GetState(); var mouse = Mouse.GetState();
         bool Press(Keys key) => keys.IsKeyDown(key) && !_keyboard.IsKeyDown(key);
         _session.Focused = IsActive;
@@ -153,7 +163,8 @@ internal sealed class WorldGame : Game
                     var storage = WorldSession.Directions.Select(d => _session.State.Position.Offset(d.X, d.Y)).FirstOrDefault(p => _session.Chunks.At(p) == Material.Storage, _session.State.Position);
                     Execute(new(Press(Keys.G) ? WorldCommandKind.Store : WorldCommandKind.Take, storage, Item: "wood", Amount: 1));
                 }
-                if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _map.Contains(mouse.Position)) _camera.ZoomAt(new(mouse.X, mouse.Y), Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
+                if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _map.Contains(mouse.Position))
+                { _camera.ZoomAt(new(mouse.X, mouse.Y), Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue)); UpdateView(); }
                 if (mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released && _map.Contains(mouse.Position)) ClickMap(mouse);
                 if (mouse.RightButton == ButtonState.Pressed) { _tool = ""; _route.Clear(); }
                 _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
@@ -176,6 +187,7 @@ internal sealed class WorldGame : Game
         }
         else _enemyTimer = 0;
         UpdateMotions(gameTime.ElapsedGameTime);
+        UpdateView();
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
         _keyboard = keys; _mouse = mouse; base.Update(gameTime);
     }
@@ -283,11 +295,14 @@ internal sealed class WorldGame : Game
         navigationEnabled: _tool.Length == 0);
     protected override void Draw(GameTime gameTime)
     {
-        Layout(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
+        Layout(); UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
         if (_frame == null || _frame.Width != w || _frame.Height != h) { _frame?.Dispose(); _frame = new(GraphicsDevice, w, h); }
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
+        GraphicsDevice.ScissorRectangle = _map;
+        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        DrawTerrain(); _batch.End();
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-        DrawTerrain(); DrawHud(w, h);
+        DrawHud(w, h);
         if (_session.IsInCombat) DrawCombat();
         if (_panel.Length > 0) DrawPanel(w, h);
         if (_session.State.AwaitingContinuation) DrawWipe(w, h);
@@ -317,13 +332,13 @@ internal sealed class WorldGame : Game
     private static double Percentile(List<double> values) => values.Count == 0 ? 0 : values.Order().ElementAt((int)((values.Count - 1) * .95));
     private void DrawTerrain()
     {
-        Fill(_map, new(9, 16, 21));
+        Fill(_map, new(9, 16, 21)); _terrain.Clear();
         var left = _camera.ScreenToWorld(new(_map.Left, _map.Top)); var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
         for (int y = (int)Math.Floor(left.Y); y <= (int)right.Y; y++) for (int x = (int)Math.Floor(left.X); x <= (int)right.X; x++)
         {
             var p = new WorldPosition(x, y, _session.State.Position.Floor);
             if (!_session.Chunks.Seen(p)) continue;
-            var rect = TileRect(p); if (!_map.Contains(rect)) continue;
+            var rect = TileRect(p); if (!_map.Intersects(rect)) continue;
             var chunk = _session.Chunks.Get(p.Chunk); var biome = chunk.Biomes[p.LocalIndex]; int culture = chunk.Cultures[p.LocalIndex];
             var material = _session.Chunks.At(p);
             Color tint = material switch { Material.Water => new(72, 132, 158), Material.Tree => new(104, 141, 104), Material.StairsDown or Material.StairsUp => Gold, Material.Camp => new(241, 159, 88), _ => biome switch { Biome.Forest => new(127, 150, 112), Biome.Marsh => new(127, 144, 110), Biome.Badland => new(187, 144, 103), Biome.Snow => new(199, 211, 217), Biome.Highland => new(160, 163, 159), _ => new(156, 170, 123) } };
@@ -333,15 +348,23 @@ internal sealed class WorldGame : Game
             bool ground = material is Material.Grass or Material.Earth or Material.Floor;
             var background = material switch { Material.Grass => new Color(29, 42, 33), Material.Floor => new Color(51, 45, 36), Material.Earth => new Color(49, 43, 33), Material.Water => new Color(19, 38, 47), _ => new Color(32, 36, 34) };
             Fill(rect, background * light);
-            if (material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0)
-                _sprites.Draw(_batch, Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]), rect, tint * light * (ground ? .32f : 1));
-            if (ground && WorldRandom.Hash(_session.Seed, x, y, 999) % (culture < 0 ? 33 : 61) == 0)
-            {
-                string prop = culture < 0 ? "shrub" : _session.State.Position.Floor > 0 ? "bones" : "barrel";
-                _sprites.Draw(_batch, prop, rect, new Color(154, 141, 105) * light);
-            }
-            if (material == Material.Door) Fill(new(rect.Center.X - 2, rect.Top + rect.Height / 3, 4, rect.Height / 2), Gold * .7f);
+            string? sprite = material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0
+                ? Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]) : null;
+            string? prop = ground && WorldRandom.Hash(_session.Seed, x, y, 999) % (culture < 0 ? 33 : 61) == 0
+                ? culture < 0 ? "shrub" : _session.State.Position.Floor > 0 ? "bones" : "barrel" : null;
+            _terrain.Add((rect, sprite, tint * light * (ground ? .32f : 1), prop, light, material == Material.Door));
         }
+        // Backgrounds, terrain and props are separate layers so texture sorting preserves their order.
+        _batch.End(); _batch.Begin(SpriteSortMode.Texture, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        foreach (var tile in _terrain)
+            if (tile.Sprite is { } sprite) _sprites.Draw(_batch, sprite, tile.Rect, tile.Tint);
+        _batch.End(); _batch.Begin(SpriteSortMode.Texture, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        foreach (var tile in _terrain)
+        {
+            if (tile.Prop is { } prop) _sprites.Draw(_batch, prop, tile.Rect, new Color(154, 141, 105) * tile.Light);
+            if (tile.Door) Fill(new(tile.Rect.Center.X - 2, tile.Rect.Top + tile.Rect.Height / 3, 4, tile.Rect.Height / 2), Gold * .7f);
+        }
+        _batch.End(); _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
         UpdatePointer(_mouse.Position);
         if (_panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation)
         {
@@ -350,7 +373,9 @@ internal sealed class WorldGame : Game
         }
         foreach (var actor in _session.State.Actors.Where(a => !a.Recruited && a.Life != LifeState.Dead && _session.Visible.Contains(a.Position)))
         {
-            var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position); if (!_map.Contains(rect)) continue;
+            var motion = _actorMotions[actor.Id];
+            if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
+            var rect = ActorRect(motion.Position); if (!_map.Intersects(rect)) continue;
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         int slot = 0;
@@ -441,7 +466,7 @@ internal sealed class WorldGame : Game
         Text(_panel.ToUpperInvariant(), x, y, Gold, 2); y += 42;
         if (_panel == "guide")
         {
-            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. Explore with WASD/arrows or click known ground.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X digs adjacent walls, rock and trees; food funds work and materials are recovered.", "R rests at a camp. G stores one wood; H retrieves it from adjacent storage.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses the world: 1-6 uses a skill; click a fighter to choose its target.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "Escape closes a panel or tool. F3 opens generation inspection."];
+            string[] lines = ["You arrive alone in a finite world of towns, ruins and competing compacts.", "Space resumes or pauses time. WASD/arrows move; hover previews a route and click follows it.", "Outdoors has a clear local view. Dungeons keep fog; M tracks observed places.", "E speaks to nearby people or takes stairs. In conversation, R recruits and T trades.", "I opens your pack: 1-4 revives a downed companion; Shift+1-4 abandons them permanently.", "B selects building; 1-6 chooses wall/floor/door/bridge/storage/camp. Click adjacent ground.", "X digs adjacent walls, rock and trees; food funds work and materials are recovered.", "R rests at a camp. G stores one wood; H retrieves it from adjacent storage.", "J shows the main arc and recent history. M shows places you have discovered.", "F presents evidence at the arc's town. A dead patron's townspeople can accept it.", "Combat pauses the world: 1-6 uses a skill; click a fighter to choose its target.", "A wipe kills the party permanently. N starts a new traveller in this changed world.", "Shift+N after a wipe creates a fresh world. F5 saves, F9 loads, Ctrl+Q saves/quits.", "Escape closes a panel or tool. F3 opens generation inspection."];
             foreach (string line in lines) y += Wrap(line, x, y, width);
         }
         else if (_panel == "person")
@@ -530,7 +555,7 @@ internal sealed class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); }
+        if (disposing) { _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

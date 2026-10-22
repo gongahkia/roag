@@ -16,7 +16,7 @@ Vagabonds is the RPG extracted from Ithica at `c87d480`, now extended with an in
 | WFC | Authored semantic 3×3 samples, 99–111 learned patterns, culture palettes, structural/entrance pins, eight attempts then constructive fallback |
 | Streaming | Seamless global coordinates; 3×3 prefetch, 25 resident chunks, eight resident footprints |
 | Party | Start alone as a generated traveller; recruit generated inhabitants, active party 1–4, stable actor IDs |
-| Exploration | Real time with pause; smooth tile travel/camera, horizontal sprite facing, cursor selector, hover/active route overlays, discovered-only routing |
+| Exploration | Real time with pause; smooth tile travel/camera, horizontal sprite facing, cursor selector, hover/active routes; clear outdoor view, dungeon fog |
 | Combat | Four classes and existing abilities; initiative, intentions, status effects, mana, stress, revival and levels |
 | Building | Horizontal digging, material yields/food cost, walls/floors/doors/bridges/storage/camps, protected stair links |
 | Simulation | 5 Hz, one real second per game minute; workers, stocks, demand prices, actual caravan cargo, road reroutes/waits, shortages, raids |
@@ -34,6 +34,8 @@ A main arc accepts evidence after a patron dies, and can resolve through the ori
 ## Controls and tools
 
 The cursor brackets its current map cell. Hovering previews a known route in teal; clicking keeps the selected route in gold during travel, including when the cursor leaves the map. Paused clicks prepare travel for Space. Menus and combat hide exploration overlays; build/dig retain the selector. Travellers and inhabitants slide between committed cells, face left/right with horizontal movement and retain facing on vertical movement. Stairs, loads and long transfers reset interpolation; collision, costs and the simulation clock remain grid-based.
+
+Outdoor terrain and inhabitants are visible throughout the local camera view, including behind walls. Only that observed area is added to discovery; distant places stay unknown on the world map. Underground retains radius/line-of-sight fog and remembered dim terrain. Routes still require observed, walkable cells on either floor. Zoom is bounded to keep the view within the resident chunk budget, and partial edge tiles/sprites are clipped to the map.
 
 Space pause/resume; WASD/arrows or click known ground to move; E/Enter speaks or takes stairs; R recruits in conversation, T opens trade. B selects building, 1–6 selects a material/structure, X selects digging, and clicking adjacent terrain submits the operation. R rests at a camp; I opens the pack/revival/abandonment; J shows arcs, requests and history; M shows known places. F resolves the main arc at an eligible town; V fulfills a delivery request. Combat uses 1–6 and fighter targets. F1 guide, F3 generation inspector, F5 save, F9 load, F11 fullscreen, Ctrl+Q/window close saves and quits normal play. [RPG.md](RPG.md) has the complete guide.
 
