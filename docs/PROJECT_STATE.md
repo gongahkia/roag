@@ -1,6 +1,6 @@
 # Vagabonds project state
 
-**Last reconciled: 2026-10-21.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
+**Last reconciled: 2026-10-22.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
 Vagabonds is the RPG extracted from Ithica at `c87d480`, now extended with an independent finite procedural world. Ithica remains a separate lunar colony game. This repository owns its application, Core, graphics, tests, assets, catalog and mappings; it loads no gameplay or assets from a sibling checkout. [ORIGIN.md](ORIGIN.md) records provenance. Archived Ithica guides under `history/ithica/` describe inherited source, not current gameplay.
 
@@ -16,7 +16,7 @@ Vagabonds is the RPG extracted from Ithica at `c87d480`, now extended with an in
 | WFC | Authored semantic 3×3 samples, 99–111 learned patterns, culture palettes, structural/entrance pins, eight attempts then constructive fallback |
 | Streaming | Seamless global coordinates; 3×3 prefetch, 25 resident chunks, eight resident footprints |
 | Party | Start alone as a generated traveller; recruit generated inhabitants, active party 1–4, stable actor IDs |
-| Exploration | Real time with pause; local routines/threat pursuit, visible encounters, discovered-only click routing |
+| Exploration | Real time with pause; smooth tile travel/camera, horizontal sprite facing, cursor selector, hover/active route overlays, discovered-only routing |
 | Combat | Four classes and existing abilities; initiative, intentions, status effects, mana, stress, revival and levels |
 | Building | Horizontal digging, material yields/food cost, walls/floors/doors/bridges/storage/camps, protected stair links |
 | Simulation | 5 Hz, one real second per game minute; workers, stocks, demand prices, actual caravan cargo, road reroutes/waits, shortages, raids |
@@ -32,6 +32,8 @@ Town exteriors are grassy; structural regions contain pinned walls/doors around 
 A main arc accepts evidence after a patron dies, and can resolve through the original town or a different compact. Severe sustained shortages can explicitly fail it. The world continues after resolution or failure. A wiped party leaves a recoverable storage cache; deaths must be saved before either continuation choice is accepted. Generated successor heroes receive new stable IDs while earlier deaths and the changed world remain.
 
 ## Controls and tools
+
+The cursor brackets its current map cell. Hovering previews a known route in teal; clicking keeps the selected route in gold during travel, including when the cursor leaves the map. Paused clicks prepare travel for Space. Menus and combat hide exploration overlays; build/dig retain the selector. Travellers and inhabitants slide between committed cells, face left/right with horizontal movement and retain facing on vertical movement. Stairs, loads and long transfers reset interpolation; collision, costs and the simulation clock remain grid-based.
 
 Space pause/resume; WASD/arrows or click known ground to move; E/Enter speaks or takes stairs; R recruits in conversation, T opens trade. B selects building, 1–6 selects a material/structure, X selects digging, and clicking adjacent terrain submits the operation. R rests at a camp; I opens the pack/revival/abandonment; J shows arcs, requests and history; M shows known places. F resolves the main arc at an eligible town; V fulfills a delivery request. Combat uses 1–6 and fighter targets. F1 guide, F3 generation inspector, F5 save, F9 load, F11 fullscreen, Ctrl+Q/window close saves and quits normal play. [RPG.md](RPG.md) has the complete guide.
 

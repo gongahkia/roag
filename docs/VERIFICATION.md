@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Smooth travel, facing and route feedback (2026-10-22)
+
+Release build passed with zero warnings/errors and all **159 tests** passed. Nine new graphics-free client cases cover fractional tile motion, exact endpoints, frame-rate independence, corner preservation, left/right facing with vertical retention, stair/long-transfer resets, hover state/RNG/clock preservation, unknown-cell privacy, preview invalidation, zoom, menus and tools.
+
+Actual WSLg input at 1024×720 showed the cursor brackets and teal hover route, then a persistent gold route after moving the cursor outside the map. A paused click left the saved state unchanged; Space followed all five selected cells, and subsequent keyboard movement travelled left. Hover, queued-route and opposing-facing captures were inspected. All saves/captures are isolated under ignored `artifacts/movement/`; no player save was read or modified.
+
 ## Playable finite world and published acceptance (2026-10-21)
 
 Executed locally on Fedora 44 x64 under WSL2/WSLg, SDK 10.0.402 / runtime 10.0.13, Release. Locked restore, build (zero warnings/errors), publish and **150 tests** passed: the retained 96 plus 54 generation/world/client regressions. Catalog freshness/source hashes and all **38 catalog tests** passed. The legacy headless quest completed and its 1,000-seed validation retained zero fallback zones. World macro validation passed 1,000 consecutive seeds; tests additionally cover both signed extremes and the seed whose mixed combat hash is zero.

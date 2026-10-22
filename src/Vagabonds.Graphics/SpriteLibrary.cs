@@ -118,14 +118,14 @@ public sealed class SpriteLibrary : IDisposable
         int w = (int)(frame.Source.Width * scale), h = (int)(frame.Source.Height * scale);
         DrawSprite(batch, id, new(bounds.Center.X - w / 2, bounds.Center.Y - h / 2, w, h), color, original);
     }
-    public void Draw(SpriteBatch batch, string binding, Rectangle target, Color color, bool original = false)
+    public void Draw(SpriteBatch batch, string binding, Rectangle target, Color color, bool original = false, SpriteEffects effects = SpriteEffects.None)
     {
         if (!_bindings.TryGetValue(binding, out var frame))
         {
             throw new KeyNotFoundException("Missing sprite binding: " + binding);
         }
 
-        batch.Draw(original ? frame.Texture.Original : frame.Texture.Mask, target, frame.Source, color);
+        batch.Draw(original ? frame.Texture.Original : frame.Texture.Mask, target, frame.Source, color, 0, Vector2.Zero, effects, 0);
     }
     public void Fit(SpriteBatch batch, string binding, Rectangle bounds, Color color, bool original = false)
     {

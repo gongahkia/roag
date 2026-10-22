@@ -21,7 +21,7 @@ New and loaded worlds begin **paused**. Space resumes time. One real second repr
 | Input | Action |
 | --- | --- |
 | WASD / arrows | Move while time is running |
-| Left click | Follow a route across discovered ground |
+| Hover / left click | Highlight a cell and preview its route / follow the selected gold route |
 | Space | Pause/resume; stops a running route when pausing |
 | E / Enter | Speak to a nearby inhabitant or take current/adjacent stairs |
 | R in conversation | Recruit that inhabitant, up to four active travellers |
@@ -45,6 +45,8 @@ New and loaded worlds begin **paused**. Space resumes time. One real second repr
 | Escape / right click | Close panel/tool / cancel tool or route |
 | F11 | Fullscreen |
 | Ctrl+Q / window close | Save and quit normal play |
+
+Hover routes are teal; selected routes remain gold as you travel. Clicking while paused prepares a route for Space. The selector also marks build/dig targets. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid.
 
 Click routes cannot cross unknown ground. Building costs stone or wood; natural excavation costs food according to hardness and yields materials. Dismantling your own walls, doors, empty storage or camps refunds their construction materials without food, so a misplaced structure cannot trap you after supplies run out. Water needs a bridge. Storage transfers keep actual quantities. Stairs cannot be removed or built over, and excavation cannot create vertical shafts. Walking through doors is automatic.
 

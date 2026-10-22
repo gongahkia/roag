@@ -29,6 +29,12 @@ internal sealed class WorldGame : Game
     private int _skill, _combatTarget = -1, _journalOffset;
     private int _inspectStage;
     private readonly Queue<WorldPosition> _route = [];
+    private readonly WorldPointerPreview _pointer = new();
+    private readonly GridMotion _partyMotion = new();
+    private readonly Dictionary<long, GridMotion> _actorMotions = [];
+    private WorldSession? _visualSession;
+    private long _visualLeader;
+    private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer;
     private int _draws;
     private readonly Stopwatch _runtime = new();
@@ -68,7 +74,7 @@ internal sealed class WorldGame : Game
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
                 if (!_sprites.HasBinding(Materials.Sprite(material, biome, culture))) throw new InvalidDataException("Missing world material sprite.");
-        _camera.Reset(32); _runtime.Start();
+        _camera.Reset(32); UpdateMotions(TimeSpan.Zero); _runtime.Start();
     }
     private void Layout()
     {
@@ -76,8 +82,6 @@ internal sealed class WorldGame : Game
         _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - 230));
         _side = new(w - 318, 84, 302, h - 100);
         _camera.Viewport = _map;
-        var destination = new Vector2(_session.State.Position.X + .5f, _session.State.Position.Y + .5f);
-        _camera.Center = Vector2.Lerp(_camera.Center == Vector2.Zero ? destination : _camera.Center, destination, .4f);
     }
     protected override void Update(GameTime gameTime)
     {
@@ -153,7 +157,7 @@ internal sealed class WorldGame : Game
                 if (mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released && _map.Contains(mouse.Position)) ClickMap(mouse);
                 if (mouse.RightButton == ButtonState.Pressed) { _tool = ""; _route.Clear(); }
                 _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
-                if (!_session.Frozen && _moveTimer >= .14)
+                if (!_session.Frozen && _moveTimer >= MoveDuration)
                 {
                     int dx = keys.IsKeyDown(Keys.A) || keys.IsKeyDown(Keys.Left) ? -1 : keys.IsKeyDown(Keys.D) || keys.IsKeyDown(Keys.Right) ? 1 : 0;
                     int dy = keys.IsKeyDown(Keys.W) || keys.IsKeyDown(Keys.Up) ? -1 : keys.IsKeyDown(Keys.S) || keys.IsKeyDown(Keys.Down) ? 1 : 0;
@@ -171,6 +175,7 @@ internal sealed class WorldGame : Game
             if (!_session.State.Battle!.Active.Friendly && _enemyTimer > .65 && _panel.Length == 0 && IsActive) { _notice = _session.AdvanceEnemy().Message; _enemyTimer = 0; }
         }
         else _enemyTimer = 0;
+        UpdateMotions(gameTime.ElapsedGameTime);
         if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
         _keyboard = keys; _mouse = mouse; base.Update(gameTime);
     }
@@ -193,14 +198,14 @@ internal sealed class WorldGame : Game
     }
     private void ClickMap(MouseState mouse)
     {
-        var point = _camera.ScreenToWorld(new(mouse.X, mouse.Y));
-        var p = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
+        UpdatePointer(mouse.Position);
+        if (_pointer.Cell is not { } p) return;
         if (!_session.Chunks.Seen(p)) { _notice = "Explore this ground first."; return; }
         if (_tool == "build") { Execute(new(WorldCommandKind.Build, p, Material: _build)); return; }
         if (_tool == "dig") { Execute(new(WorldCommandKind.Dig, p)); return; }
         var person = _session.State.Actors.FirstOrDefault(a => a.Position == p && !a.Recruited && a.Kind == ActorKind.Person && a.Life == LifeState.Alive);
         if (person != null && _session.Visible.Contains(p) && p.Distance(_session.State.Position) <= 2) { _person = person.Id; Execute(new(WorldCommandKind.Interact, ActorId: person.Id)); _panel = "person"; return; }
-        _route.Clear(); foreach (var cell in _session.Route(p)) _route.Enqueue(cell);
+        _route.Clear(); foreach (var cell in _pointer.Path) _route.Enqueue(cell);
         _notice = _route.Count == 0 ? "No known route. Explore manually or change the terrain." : _session.Paused ? "Route ready. Space resumes travel." : "Following known ground.";
     }
     private void CombatInput(KeyboardState keys, MouseState mouse, Func<Keys, bool> press)
@@ -250,6 +255,32 @@ internal sealed class WorldGame : Game
         var pos = _camera.WorldToScreen(new(p.X, p.Y));
         return new((int)Math.Floor(pos.X), (int)Math.Floor(pos.Y), (int)Math.Ceiling(_camera.CellSize), (int)Math.Ceiling(_camera.CellSize));
     }
+    private void UpdateMotions(TimeSpan elapsed)
+    {
+        long leader = _session.State.Party[0];
+        if (!ReferenceEquals(_visualSession, _session) || _visualLeader != leader)
+        {
+            _visualSession = _session; _visualLeader = leader; _actorMotions.Clear();
+            _partyMotion.Reset(_session.State.Position, resetFacing: true);
+        }
+        _partyMotion.Observe(_session.State.Position, MoveDuration);
+        _partyMotion.Advance(elapsed);
+        _camera.Center = _partyMotion.Position;
+        foreach (var actor in _session.State.Actors)
+        {
+            if (actor.Recruited || actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
+            if (!_actorMotions.TryGetValue(actor.Id, out var motion)) _actorMotions[actor.Id] = motion = new();
+            motion.Observe(actor.Position, 1); motion.Advance(elapsed);
+        }
+    }
+    private Rectangle ActorRect(Vector2 position)
+    {
+        var center = _camera.WorldToScreen(position); int size = (int)Math.Ceiling(_camera.CellSize);
+        return new((int)Math.Round(center.X - size / 2f), (int)Math.Round(center.Y - size / 2f), size, size);
+    }
+    private void UpdatePointer(Point point) => _pointer.Update(_session, _camera, point,
+        enabled: _panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation,
+        navigationEnabled: _tool.Length == 0);
     protected override void Draw(GameTime gameTime)
     {
         Layout(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
@@ -311,22 +342,48 @@ internal sealed class WorldGame : Game
             }
             if (material == Material.Door) Fill(new(rect.Center.X - 2, rect.Top + rect.Height / 3, 4, rect.Height / 2), Gold * .7f);
         }
+        UpdatePointer(_mouse.Position);
+        if (_panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation)
+        {
+            if (_pointer.Path.Count > 0 && (_route.Count == 0 || _route.Last() != _pointer.Path[^1])) DrawRoute(_pointer.Path, new(113, 187, 195), 2);
+            DrawRoute(_route, Gold, 3);
+        }
         foreach (var actor in _session.State.Actors.Where(a => !a.Recruited && a.Life != LifeState.Dead && _session.Visible.Contains(a.Position)))
         {
-            var rect = TileRect(actor.Position); if (!_map.Contains(rect)) continue;
-            _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176));
+            var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position); if (!_map.Contains(rect)) continue;
+            _sprites.Draw(_batch, actor.Sprite, rect, actor.Kind is ActorKind.Beast or ActorKind.Raider ? new(224, 119, 103) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         int slot = 0;
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
-            var rect = TileRect(_session.State.Position); rect.Offset(slot % 2 * 8 - 4, slot / 2 * 8 - 4);
-            _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink); slot++;
+            var rect = ActorRect(_partyMotion.Position); rect.Offset(slot % 2 * 8 - 4, slot / 2 * 8 - 4);
+            _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: _partyMotion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None); slot++;
         }
-        if (_tool.Length > 0)
+        if (_pointer.Cell is { } cell)
         {
-            var p = _camera.ScreenToWorld(new(_mouse.X, _mouse.Y)); var cell = new WorldPosition((int)Math.Floor(p.X), (int)Math.Floor(p.Y), _session.State.Position.Floor);
-            var rect = TileRect(cell);
-            if (_map.Contains(rect)) { Fill(new(rect.X, rect.Y, rect.Width, 2), Gold); Fill(new(rect.X, rect.Bottom - 2, rect.Width, 2), Gold); }
+            var rect = TileRect(cell); FillClipped(rect, Gold * .1f);
+            int edge = Math.Clamp(rect.Width / 3, 3, 12), stroke = rect.Width >= 16 ? 2 : 1;
+            foreach (int x in new[] { rect.Left, rect.Right - edge })
+                foreach (int y in new[] { rect.Top, rect.Bottom - stroke }) FillClipped(new(x, y, edge, stroke), Gold);
+            foreach (int x in new[] { rect.Left, rect.Right - stroke })
+                foreach (int y in new[] { rect.Top, rect.Bottom - edge }) FillClipped(new(x, y, stroke, edge), Gold);
+        }
+    }
+    private void FillClipped(Rectangle rectangle, Color color)
+    {
+        var clipped = Rectangle.Intersect(_map, rectangle);
+        if (clipped.Width > 0 && clipped.Height > 0) Fill(clipped, color);
+    }
+    private void DrawRoute(IEnumerable<WorldPosition> cells, Color color, int thickness)
+    {
+        var previous = _camera.WorldToScreen(new(_session.State.Position.X + .5f, _session.State.Position.Y + .5f));
+        foreach (var cell in cells)
+        {
+            var center = _camera.WorldToScreen(new(cell.X + .5f, cell.Y + .5f));
+            int x = (int)Math.Round(center.X), y = (int)Math.Round(center.Y), px = (int)Math.Round(previous.X), py = (int)Math.Round(previous.Y);
+            FillClipped(new(Math.Min(px, x) - thickness / 2, Math.Min(py, y) - thickness / 2, Math.Abs(x - px) + thickness, Math.Abs(y - py) + thickness), color * .75f);
+            FillClipped(new(x - thickness, y - thickness, thickness * 2 + 1, thickness * 2 + 1), color);
+            previous = center;
         }
     }
     private void DrawHud(int w, int h)
