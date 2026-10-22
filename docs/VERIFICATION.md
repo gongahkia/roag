@@ -1,5 +1,12 @@
 # Vagabonds verification
 
+## Party and encounters — initial integration, 2026-10-23
+
+This milestone is still in progress. Initial full Release run executed602 tests:600 passed and two cooperative-preview cases failed because the preview replaced its ability pool, violating the new applicability validation. Preserving the pool and selecting the actual action index fixed both failures; the subsequent affected developer/cooperation/equipment run passed49/49 with zero build warnings/errors. These are intermediate results, not a final full acceptance claim.
+
+Focused progression checks passed78/78, and the encounter/reward/presentation checks passed their scoped cases. Native checks found an invalid diagnostic enemy-leader identity and a trapped diagnostic party formation; both fixtures were corrected. The load helper now requires a successful-load notice, so a rejected load that leaves state unchanged cannot falsely pass exact-continuation checks. Preparation feedback also retains its warning after the enemy's preparation turn. Final native captures and the researched population/cadence pass remain pending.
+
+
 ## Agent tooling acceptance — 2026-10-23
 
 **Completed managed run `20261022-164752-53175d77` passed on the final source:**

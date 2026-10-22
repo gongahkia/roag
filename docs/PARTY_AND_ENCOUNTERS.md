@@ -26,3 +26,6 @@ The baseline is `b9cd63f`. It passed 477 .NET tests and 147 native checks before
 ## Evidence and research
 
 Implementation findings, source links, adopted design rules and measured results will be recorded as work progresses. The tracked task specification is `devtools/tasks/party-and-encounters.json`.
+
+
+Initial implementation now includes six generated traits, sixteen class choices, three composed groups, interruption-aware prepared actions and themed persistent rewards. Atomic commits separate progression definitions, encounter definitions/runtime, shared integration and mouse presentation. The remaining research extension follows [ENCOUNTER_RESEARCH.md](ENCOUNTER_RESEARCH.md); final acceptance remains open.
