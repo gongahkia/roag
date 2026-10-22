@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "party-and-encounters",
+  "objective": "Give generated companions meaningful personal combat identities and specialisations, build composed procedural enemy encounters with clear counterplay and thematic persistent rewards, then research and implement broader encounter-design improvements while preserving open exploration and completing tooling/native verification.",
+  "requirements": [
+    {"id":"pacing","description":"Measure fresh-expedition recruitment, travel/discovery, combat and recovery across seeds with real runtime paths and explicit audit limitations.","profiles":["core","world"]},
+    {"id":"progression","description":"Generate persistent combat traits and meaningful authored choices for all four classes with real effects, no-cost rejection, exact saves and mouse-accessible readable choices.","profiles":["core","native"],"scenes":["world-cooperation"],"manualReview":true},
+    {"id":"encounters","description":"Ordinary generated worlds contain composed support, preparation/disruption and attrition groups with fixed transparent intentions, contextual placement and meaningful counterplay.","profiles":["core","world","native"],"scenes":["world-battle","world-boss"],"manualReview":true},
+    {"id":"rewards","description":"Encounter risk and identity drive themed supplies/equipment and distinctive boss rewards, with one-time persistent ownership and no save or retreat reroll exploits.","profiles":["core","world","native"],"scenes":["world-discovery","world-boss"],"manualReview":true},
+    {"id":"research-extension","description":"After initial implementation, research Slay the Spire, Caves of Qud and comparable games using primary sources, document findings and implement and verify the adopted encounter-generation rules.","profiles":["core","world"]},
+    {"id":"invariants","description":"Retain open dungeon access, fixed world threats, generated companions, mouse input, paused turn-based combat, shared rules, collision/privacy, deterministic RNG and safe persistence.","profiles":["core","world","native"]},
+    {"id":"authoring","description":"Each new family has validated IDs/references/schema/scaffolding/safe editing and real previews; recurring debugging tasks become reusable agent tools and documentation.","profiles":["core","tools","assets"]},
+    {"id":"acceptance","description":"Full fresh tests and native scenarios pass with inspected minimum-size captures, project/verification documentation and a requirement-by-requirement completion audit.","profiles":["core","tools","assets","world","native"],"manualReview":true}
+  ]
+}
