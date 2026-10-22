@@ -28,6 +28,7 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | character | Name/profile pool, class pool or explicit appearance/stats, interactions and enemy behaviour rules |
 | names / trait | Generated identity pools, backgrounds, motivations and disposition modifiers |
 | class | Role slot, base stats, sprite and three class abilities |
+| talent | Generated combat dispositions and permanent class developments; see [companion combat development](PROGRESSION_AUTHORING.md) |
 | ability | Target, mana, power, registered effect and status duration |
 | interaction | Registered action, maximum distance, item costs and effect amount |
 | dialogue | Presentation-only interaction reference, conditional player/reply variants and world tokens |

@@ -54,33 +54,42 @@ public static class TalentPreview
         {
             battle.Units[1].Health = 400;
             battle.Order = [target.Id, .. battle.Units.Where(u => u.Id != target.Id).Select(u => u.Id)];
-            battle.Plans[target.Id] = new("ability.strike", 1);
+            battle.Plans[target.Id] = new(catalog.Game.EnemyFallback, 1);
             var result = world.AdvanceEnemy();
             return new(result, world.State.CombatEvents.Where(e => e.Label == "Ally cover" && e.Source == actor.Id).Sum(e => e.Amount), world.State.CombatEvents.ToArray(), [1]);
         }
-        int index = 0, targetId = target.Id, partner = -1;
+        if (effect == "initiative") return new(new(true, "Initiative established by the normal combat round."), initiative, world.State.CombatEvents.ToArray(), [0]);
+        var skills = world.ActiveSkills();
+        bool Damages(Skill skill) => skill.Effect is "damage" or "burn" or "bleed" or "mark" or "stun" or "dread" or "drain";
+        int index = skills.Select((skill, i) => (skill, i)).First(p => effect switch
+        {
+            "healing" => p.skill.Effect is "heal" or "potion" or "cleanse",
+            "calm" => p.skill.Effect == "calm",
+            "mana-discount" => catalog.Get<AbilityDefinition>(p.skill.Id).Mana > definition.Bonuses[effect],
+            "burn-damage" => p.skill.Effect == "burn",
+            "all-target-damage" => p.skill.Target == TargetKind.AllEnemies && Damages(p.skill),
+            "cooperative-damage" => p.skill.Cooperative && Damages(p.skill),
+            _ => Damages(p.skill)
+        }).i;
+        var skill = skills[index];
+        int targetId = skill.Target == TargetKind.Ally ? 1 : skill.Target == TargetKind.Self ? 0 : target.Id;
+        int measuredId = skill.Target == TargetKind.AllAllies ? 1 : targetId;
+        int partner = skill.Cooperative ? 3 : -1;
         if (effect == "wounded-damage") target.Health = 400;
         if (effect == "marked-damage") target.Mark = 2;
         if (effect == "stunned-damage") target.Stun = 2;
         if (effect is "healing" or "calm" or "mana-discount")
         {
-            foreach (var unit in battle.Units.Where(u => u.Friendly)) { unit.Health = 400; unit.Stress = 50; }
-            index = world.ActiveSkills().Select((s, i) => (s, i)).First(p => effect == "mana-discount" ? p.s.Mana > 0 && !p.s.Cooperative : p.s.Effect == (effect == "healing" ? "heal" : "calm")).i;
-            targetId = world.ActiveSkills()[index].Target == TargetKind.Ally ? 1 : target.Id;
+            foreach (var unit in battle.Units) { unit.Health = 400; unit.Stress = 50; }
         }
-        if (effect is "burn-damage" or "all-target-damage")
-            index = world.ActiveSkills().Select((s, i) => (s, i)).First(p => effect == "burn-damage" ? p.s.Effect == "burn" : p.s.Target == TargetKind.AllEnemies).i;
-        if (effect == "cooperative-damage") { index = 6; partner = 3; }
-        if (effect == "initiative") index = 3;
-        int mana = battle.Units[0].Mana, stress = battle.Units[1].Stress;
-        var skill = world.ActiveSkills()[index]; var preview = world.ActionPreview(index, targetId, partner);
+        int mana = battle.Units[0].Mana, stress = battle.Units[measuredId].Stress;
+        var preview = world.ActionPreview(index, targetId, partner);
         var action = world.Act(index, targetId, partner);
         int value = effect switch
         {
-            "initiative" => initiative,
             "mana-discount" => mana - battle.Units[0].Mana,
-            "healing" => world.State.CombatEvents.Where(e => e.Kind == "heal" && e.Target == battle.ActorIds[1]).Sum(e => e.Amount),
-            "calm" => stress - battle.Units[1].Stress,
+            "healing" => world.State.CombatEvents.Where(e => e.Kind == "heal" && e.Target == battle.ActorIds[measuredId]).Sum(e => e.Amount),
+            "calm" => stress - battle.Units[measuredId].Stress,
             _ => world.State.CombatEvents.FirstOrDefault(e => e.Kind == "damage" && e.Source == actor.Id && e.Label == skill.Name)?.Amount ?? 0
         };
         return new(action, value, world.State.CombatEvents.ToArray(), preview.Targets);
