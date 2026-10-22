@@ -146,5 +146,9 @@
     "character.spider",
     "character.bee",
     "character.bat"
+  ],
+  "cooperativeAbilities": [
+    "ability.twin-strike",
+    "ability.shared-aid"
   ]
 }

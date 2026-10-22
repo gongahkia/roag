@@ -222,8 +222,9 @@ public sealed partial class WorldSession
         if (s.Battle is { } b)
         {
             if (s.AwaitingContinuation || b.Plans == null || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");
+            if (b.Assisting == null || b.Assisting.Count > 3 || b.Assisting.Any(id => id < 0 || id >= b.Units.Count || !b.Units[id].Friendly || b.Order.IndexOf(id) <= b.TurnIndex)) throw new InvalidDataException("Invalid committed cooperative actions.");
             if (b.Plans.Count > 4 || b.Plans.Any(p => p.Key < 0 || p.Key >= b.Units.Count || b.Units[p.Key].Friendly || p.Value == null || p.Value.Target < 0 || p.Value.Target >= b.Units.Count
-                || !ContentCatalog.Default.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion")
+                || !ContentCatalog.Default.Entries.TryGetValue(p.Value.Ability, out var d) || d is not AbilityDefinition ability || ability.Effect is "flee" or "potion" || ability.Cooperation != null)
                 || b.Units.Any(u => !u.Friendly && u.Alive && !b.Plans.ContainsKey(u.Id))) throw new InvalidDataException("Invalid enemy intentions.");
             foreach (var unit in b.Units)
             {

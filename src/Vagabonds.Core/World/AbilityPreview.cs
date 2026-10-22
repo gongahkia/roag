@@ -10,6 +10,7 @@ public static class AbilityPreview
     public static object Run(ContentCatalog content, string id, int seed)
     {
         var definition = content.Get<AbilityDefinition>(id);
+        if (definition.Cooperation != null) return CooperationPreview.Run(content, id, seed);
         content = SimulationPreview.WithGame(content, game => game["commonAbilities"] = new JsonArray(id, content.Game.CommonAbilities[1], content.Game.CommonAbilities[2]));
         var s = WorldSession.Create(seed, content); var hero = s.Party.First();
         // Explicit diagnostic setup supplies mana, wounds and stress so every handler can be inspected.

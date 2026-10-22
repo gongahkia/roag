@@ -26,7 +26,7 @@ internal sealed partial class WorldGame : Game
     private MouseState _mouse;
     private string _panel = "", _notice = "Click the ground to travel. Click people or objects to approach and interact.";
     private long _person;
-    private int _skill, _combatTarget = -1, _journalOffset;
+    private int _skill, _combatTarget = -1, _cooperativePartner = -1, _journalOffset;
     private int _inspectStage;
     private int _packMember, _packItem;
     private readonly Queue<WorldPosition> _route = [];
@@ -54,6 +54,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
         if (!options.Load && options.Scene == "world-situation") { _discoveryId = SituationPreview.Prepare(_session, "discovery.trapped-storeroom").Id; _panel = "discovery"; }
+        if (!options.Load && options.Scene == "world-cooperation") CooperationPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-site")
         { _session.State.Position = _session.Plan.Sites[0].Center; foreach (var a in _session.Party) a.Position = _session.State.Position; _session.Chunks.Prefetch(_session.State.Position); _session.Reveal(); }
         if (!options.Load && options.Scene == "world-discovery")
@@ -127,6 +128,7 @@ internal sealed partial class WorldGame : Game
             UpdateSelection(mouse);
             if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released)
             {
+                if (_session.IsInCombat && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
                 if (_panel.Length > 0 || _session.IsInCombat || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
                 else OpenContext(mouse.Position);
             }
@@ -187,12 +189,29 @@ internal sealed partial class WorldGame : Game
         var battle = _session.State.Battle!;
         if (!battle.Active.Friendly) return;
         foreach (var unit in battle.Units)
-            if (UnitRect(unit).Contains(pointer)) { _combatTarget = unit.Id; UseSkill(); return; }
+            if (UnitRect(unit).Contains(pointer))
+            {
+                var skill = _session.ActiveSkills().ElementAtOrDefault(_skill); if (skill == null) return;
+                if (skill.Cooperative && (_cooperativePartner < 0 || unit.Friendly))
+                {
+                    string reason = _session.CooperationPartnerReason(_skill, unit.Id);
+                    if (reason.Length > 0) { _notice = reason; return; }
+                    _cooperativePartner = unit.Id;
+                    if (skill.Target == TargetKind.AllAllies) UseSkill();
+                    else _notice = skill.Name + " with " + unit.Name + ": choose an enemy. Both actions will be spent.";
+                    return;
+                }
+                _combatTarget = unit.Id; UseSkill(); return;
+            }
     }
     private void UseSkill()
     {
-        var battle = _session.State.Battle!; var skill = _session.ActiveSkills()[_skill];
-        try { _notice = _session.Act(_skill, _combatTarget).Message; }
+        if (_session.State.Battle == null || _session.ActiveSkills().ElementAtOrDefault(_skill) == null) return;
+        try
+        {
+            var result = _session.Act(_skill, _combatTarget, _cooperativePartner); _notice = result.Message;
+            if (result.Success) { _skill = 0; _cooperativePartner = _combatTarget = -1; }
+        }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Death save failed: " + e.Message + " Use Save to retry."; }
         _enemyTimer = 0;
     }
@@ -207,7 +226,7 @@ internal sealed partial class WorldGame : Game
         {
             var replacement = WorldSession.Load(_options.Save);
             _session = replacement; _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
-            _skill = 0; _combatTarget = -1; _moveTimer = _enemyTimer = 0;
+            _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
             _notice = "World restored and paused. Click a destination or Play to continue.";
         }
@@ -285,7 +304,7 @@ internal sealed partial class WorldGame : Game
             Capture();
             if (_options.WorldSmoke)
             {
-                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene is "world-battle" or "world-boss" or "world-camp" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
+                var checks = new Dictionary<string, bool> { ["expectedGeneratedParty"] = _session.State.Party.Count == (_options.Scene is "world-battle" or "world-boss" or "world-cooperation" or "world-camp" ? 4 : 1), ["finiteWorld"] = _session.Plan.Towns.Count == 24 && _session.Plan.Sites.Count == 48, ["startsPaused"] = _session.Paused && _session.State.Tick == 0, ["discovery"] = _session.Chunks.Seen(_session.State.Position), ["boundedCache"] = _session.Chunks.ResidentCount <= 25, ["materialBindings"] = true, ["renderTarget"] = _frame.Width == w && _frame.Height == h };
                 Console.WriteLine(JsonSerializer.Serialize(new { worldSmoke = checks.Values.All(c => c) ? "passed" : "failed", checks, frames = _draws, updateP95Ms = Percentile(_updates), frameP95Ms = Percentile(_frames), averageFramesPerSecond = _draws / _runtime.Elapsed.TotalSeconds, residentChunks = _session.Chunks.ResidentCount }));
                 if (checks.Values.Any(c => !c)) throw new InvalidDataException("Native world smoke check failed.");
             }
@@ -461,7 +480,9 @@ internal sealed partial class WorldGame : Game
             long actorId = b.ActorIds[unit.Id];
             var latest = _combatFloats.LastOrDefault(e => e.Target == actorId && _presentationTime - e.Born < .25 && e.Kind is "damage" or "heal");
             Fill(r, latest != null ? latest.Kind == "damage" ? new(88, 45, 41) : new(39, 76, 52) : unit.Id == b.Active.Id ? new(66, 65, 49) : Panel);
-            if (b.Active.Friendly && r.Contains(_mouse.Position) && _session.ActionPreview(_skill, unit.Id).Reason.Length == 0)
+            bool choosingHelper = b.Active.Friendly && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && _cooperativePartner < 0;
+            if (unit.Id == _cooperativePartner || b.Active.Friendly && r.Contains(_mouse.Position) && (choosingHelper
+                    ? _session.CooperationPartnerReason(_skill, unit.Id).Length == 0 : _session.ActionPreview(_skill, unit.Id, _cooperativePartner).Reason.Length == 0))
                 Fill(new(r.X, r.Y, 3, r.Height), new(127, 208, 212));
             _sprites.Fit(_batch, unit.Sprite, new(r.X + 8, r.Y + 8, 48, 48), unit.Alive ? Ink : Muted * .4f);
             Text(unit.Name.Length > 25 ? unit.Name[..22] + "..." : unit.Name, r.X + 64, r.Y + 8); Text($"HP {unit.Health}/{unit.MaxHealth}", r.X + 64, r.Y + 28, unit.Friendly ? Ink : new(222, 138, 125));
@@ -469,7 +490,7 @@ internal sealed partial class WorldGame : Game
             Text(conditions, r.X + 160, r.Y + 29, Gold, .75f);
             Fill(new(r.X + 64, r.Y + 43, r.Width - 76, 3), new(57, 63, 64));
             Fill(new(r.X + 64, r.Y + 43, Math.Max(0, (r.Width - 76) * unit.Health / Math.Max(1, unit.MaxHealth)), 3), unit.Friendly ? new(129, 196, 150) : new(205, 126, 111));
-            string detail = unit.Friendly ? $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
+            string detail = unit.Friendly ? b.Assisting.Contains(unit.Id) ? $"MP {unit.Mana} / action spent" : $"MP {unit.Mana} Stress {unit.Stress}" : _session.EnemyIntent(unit.Id);
             Text(detail.Length > 27 ? detail[..24] + "..." : detail, r.X + 64, r.Y + 48, Muted);
         }
         DrawCombatFeedback();

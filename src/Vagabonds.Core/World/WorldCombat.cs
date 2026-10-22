@@ -35,7 +35,7 @@ public sealed partial class WorldSession
     }
     private void NewCombatRound()
     {
-        var b = State.Battle!; b.ShieldUsed.Clear();
+        var b = State.Battle!; b.ShieldUsed.Clear(); b.Assisting.Clear();
         foreach (var unit in b.Units)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[unit.Id]);
@@ -51,14 +51,14 @@ public sealed partial class WorldSession
         int budget = 100;
         while (State.Battle is { } b && budget-- > 0)
         {
-            var u = b.Active; u.Guarding = false;
+            var u = b.Active; u.Guarding = false; bool assisted = b.Assisting.Remove(u.Id);
             if (u.Burn > 0) { Damage(u, 3, label: "Burn"); u.Burn = Math.Max(0, u.Burn - 1); if (u.Burn == 0) Feedback("expire", u, u, "Burn ended"); }
             if (u.Bleed > 0) { Damage(u, 3, label: "Bleed"); u.Bleed = Math.Max(0, u.Bleed - 1); if (u.Bleed == 0) Feedback("expire", u, u, "Bleed ended"); }
             if (u.Mark > 0 && --u.Mark == 0) Feedback("expire", u, u, "Mark ended");
             SyncCombat();
             if (CheckBattleEnd()) return;
-            if (u.Alive && u.Stun == 0) return;
-            if (u.Alive) Feedback("skip", u, u, "Stunned", 0, u.Name + " loses this turn.");
+            if (u.Alive && u.Stun == 0 && !assisted) return;
+            if (u.Alive) Feedback("skip", u, u, assisted ? "Assisted" : "Stunned", 0, u.Name + (assisted ? " already spent this action assisting a companion." : " loses this turn."));
             u.Stun = Math.Max(0, u.Stun - 1); StepCombatOrder();
         }
     }
@@ -72,18 +72,26 @@ public sealed partial class WorldSession
     {
         if (State.Battle is not { } b || !b.Active.Friendly) return [];
         var actor = State.Actors.Single(a => a.Id == b.ActorIds[b.Active.Id]);
-        return Class(actor).Abilities.Concat(Content.Game.CommonAbilities).Select(id => Content.Get<AbilityDefinition>(id).AsSkill()).ToArray();
+        return Class(actor).Abilities.Concat(Content.Game.CommonAbilities).Concat(b.Units.Count(u => u.Friendly) > 1 ? Content.Game.CooperativeAbilities : [])
+            .Select(id => Content.Get<AbilityDefinition>(id).AsSkill()).ToArray();
     }
-    public ActionResult Act(int skillIndex, int targetIndex = -1)
+    public ActionResult Act(int skillIndex, int targetIndex = -1, int partnerIndex = -1)
     {
         if (State.Battle is not { } b || !b.Active.Friendly) return new(false, "Wait for your turn.");
         var skills = ActiveSkills();
         if (skillIndex < 0 || skillIndex >= skills.Count) return new(false, "Choose an ability.");
         var skill = skills[skillIndex]; var u = b.Active;
         CombatUnit? target = targetIndex >= 0 && targetIndex < b.Units.Count ? b.Units[targetIndex] : null;
-        string blocked = ActionPreview(skillIndex, targetIndex).Reason;
+        string blocked = ActionPreview(skillIndex, targetIndex, partnerIndex).Reason;
         if (blocked.Length > 0) return new(false, blocked);
         u.Mana -= skill.Mana;
+        CombatUnit? partner = skill.Cooperative ? b.Units[partnerIndex] : null;
+        if (partner != null)
+        {
+            partner.Mana -= skill.PartnerMana; b.Assisting.Add(partner.Id);
+            Feedback("ability", partner, partner, "Assists " + skill.Name, skill.PartnerMana,
+                partner.Name + " joins " + u.Name + ": " + skill.PartnerMana + " MP and this round's action.");
+        }
         var actor = State.Actors.Single(a => a.Id == b.ActorIds[u.Id]);
         if (skill.Effect == "flee")
         {
@@ -107,10 +115,10 @@ public sealed partial class WorldSession
             TargetKind.AllAllies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
             TargetKind.Self => [u], _ => new[] { target! }
         };
-        ResolveAbility(u, skill, targets, actor.Level - 1 + u.Power - 6);
+        ResolveAbility(u, skill, targets, actor.Level - 1 + u.Power - 6 + (partner?.Power ?? 0) * skill.PartnerPowerPercent / 100);
         SyncCombat();
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
-        return new(true, $"{u.Name}: {skill.Name}.");
+        return new(true, $"{u.Name}" + (partner == null ? "" : " and " + partner.Name) + $": {skill.Name}.");
     }
     private void ResolveAbility(CombatUnit caster, Skill skill, IEnumerable<CombatUnit> targets, int bonus)
     {

@@ -112,6 +112,7 @@ public static class DeveloperEntry
                     previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "party-work" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
+                    cooperation = new { abilities = catalog.Game.CooperativeAbilities, preview = "preview ability ID", nativeScene = "world-cooperation", rule = "Both participants spend mana and one action; helper must still have a turn this round." },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
             }

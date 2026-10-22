@@ -43,7 +43,7 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Journal / Tactics | Final threat, boss tactics, optional side arc and paged history |
 | World map | Overview of known places across the large world |
 | Mouse wheel / + / − / View | Zoom exploration / reset the close RPG camera |
-| Combat ability, then fighter | Select an ability and explicitly target an enemy or companion; self/group abilities execute immediately |
+| Combat ability, then fighter | Select an ability and explicitly target an enemy or companion; ordinary self/group abilities execute immediately; cooperative abilities first need a helper |
 | Save / Load | Save / restore the selected compatible world slot |
 | Menu | Guide, procedural inspector, zoom reset, fullscreen, save and quit |
 | Inspector → Raw / Final / Repairs | Inspect generation stages |
@@ -123,3 +123,5 @@ Cooking uses gathered ingredients to prepare against burning, bleeding, physical
 Dungeon and landmark rewards offer seeded equipment variants. Their choice cards show the item's sprite, numbers and named effects; hover for the exact rule before choosing. A Warden's shield can protect another injured companion once each round, while an Ember staff strengthens burning attacks. Mending and Steadfast variants support healing and resistance to dread, and tool variants improve particular kinds of work. Effects from equipment combine up to the documented caps; preparation from camp still applies.
 
 A chosen variant keeps its identity and effects through saving, equipping and storage. You cannot reroll a cache by loading. Party lists acquired variants as well as the standard items; the separate tool slot leaves weapons equipped. Crafting a Warden's shield uses wood and iron ore gathered from deposits.
+
+With two or more companions in combat, Twin strike and Shared aid appear beside the usual abilities. Choose a helper who is conscious, unstunned and still has a turn ahead this round. Twin strike costs 3 MP each and then needs an enemy target; Shared aid costs 4 MP from the active companion and 3 MP from the helper, and heals/cleanses the conscious party immediately after helper selection. Both companions spend their action for this round. Hover shows eligibility and predicted damage/healing; right-click cancels selection for free. A helper's burn/bleed still ticks on their scheduled turn. These abilities work with any generated companions.

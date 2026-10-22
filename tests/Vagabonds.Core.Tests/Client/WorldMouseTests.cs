@@ -225,6 +225,31 @@ public sealed class WorldMouseTests
         Assert.True(camera.CellSize >= 24); Assert.True(width / camera.CellSize <= 48.01f); Assert.True(height / camera.CellSize <= 32.01f);
         WorldCameraScale.Apply(camera, reset: true); Assert.True(camera.CellSize >= 36);
     }
+    [Theory]
+    [InlineData(1024, 720)] [InlineData(1440, 900)]
+    public void CooperativeMouseActionsSelectAHelperThenATargetAndFitBothWindowSizes(int width, int height)
+    {
+        var session = WorldSession.Create(42); CooperationPreview.Prepare(session); var b = session.State.Battle!;
+        var client = Client(session); Field("_map").SetValue(client, new Rectangle(16, 84, width - 350, height - 230));
+        Invoke(client, "BuildMouseControls", width, height);
+        var controls = (List<WorldMouseControl>)Field("_controls").GetValue(client)!;
+        var skills = controls.Where(c => c.Id.StartsWith("skill:", StringComparison.Ordinal)).ToArray(); Assert.Equal(8, skills.Length);
+        Assert.All(skills, c => Assert.True(new Rectangle(0, 0, width, height).Contains(c.Bounds)));
+        for (int i = 0; i < skills.Length; i++) for (int j = i + 1; j < skills.Length; j++) Assert.False(skills[i].Bounds.Intersects(skills[j].Bounds));
+        string before = JsonSerializer.Serialize(session.State); Invoke(client, "ActivateControl", "skill:6");
+        var helper = (Rectangle)Invoke(client, "UnitRect", b.Units[3])!; Invoke(client, "CombatClick", helper.Center);
+        Assert.Equal(3, Field("_cooperativePartner").GetValue(client)); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateControl", "skill:0"); Assert.Equal(-1, Field("_cooperativePartner").GetValue(client));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateControl", "skill:6"); Invoke(client, "CombatClick", helper.Center);
+        var enemy = (Rectangle)Invoke(client, "UnitRect", b.Units[4])!; Invoke(client, "CombatClick", enemy.Center);
+        Assert.Contains(3, b.Assisting); Assert.Equal(1, b.Active.Id); Assert.Equal(-1, Field("_cooperativePartner").GetValue(client));
+        Assert.NotEqual(before, JsonSerializer.Serialize(session.State));
+        before = JsonSerializer.Serialize(session.State); Invoke(client, "ActivateControl", "skill:7");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var readyHelper = (Rectangle)Invoke(client, "UnitRect", b.Units[2])!; Invoke(client, "CombatClick", readyHelper.Center);
+        Assert.NotEqual(before, JsonSerializer.Serialize(session.State)); Assert.False(b.Active.Friendly);
+    }
     [Fact]
     public void ContextOffersRelevantActionsAndExplainsUnavailableWorkWithoutMutatingState()
     {

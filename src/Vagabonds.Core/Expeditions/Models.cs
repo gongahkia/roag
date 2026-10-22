@@ -22,7 +22,8 @@ public readonly record struct Cell(int X, int Y)
     public static Cell operator +(Cell a, Cell b) => new(a.X + b.X, a.Y + b.Y);
 }
 public readonly record struct ActionResult(bool Success, string Message, string? Title = null);
-public sealed record Skill(string Name, string Icon, int Mana, TargetKind Target, int Power, string Effect, string Description, int Duration = 3);
+public sealed record Skill(string Name, string Icon, int Mana, TargetKind Target, int Power, string Effect, string Description, int Duration = 3,
+    bool Cooperative = false, int PartnerMana = 0, int PartnerPowerPercent = 0);
 public static class Skills
 {
     public static readonly Skill[][] ByRole = [

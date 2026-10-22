@@ -113,7 +113,7 @@ public sealed class ContentCatalog
                 {
                     if (r == null) { Error(field, "A rule cannot be null."); continue; }
                     Ref<AbilityDefinition>(field, r.Ability); Range(field, r.Weight, 1, 100); Range(field, r.Every, 1, 20);
-                    if (r.Ability != null && _entries.TryGetValue(r.Ability, out var entry) && entry is AbilityDefinition ability && ability.Effect is "flee" or "potion") Error(field, "Enemy rules cannot use party-only retreat or inventory medicine.");
+                    if (r.Ability != null && _entries.TryGetValue(r.Ability, out var entry) && entry is AbilityDefinition ability && (ability.Effect is "flee" or "potion" || ability.Cooperation != null)) Error(field, "Enemy rules cannot use party-only retreat, medicine or cooperative abilities.");
                     Range(field, r.FromRound, 1, 100); Range(field, r.BelowHealthPercent, 1, 100);
                     if (r.Target is not ("random" or "weakest" or "strongest" or "stressed")) Error(field, "Unknown targeting rule.");
                 }
@@ -124,6 +124,12 @@ public sealed class ContentCatalog
             switch (d)
             {
                 case GameDefinition g:
+                    if (g.CooperativeAbilities == null || g.CooperativeAbilities.Length > 2 || g.CooperativeAbilities.Distinct().Count() != g.CooperativeAbilities.Length) Error("cooperativeAbilities", "Provide up to two distinct cooperative abilities.");
+                    else foreach (var id in g.CooperativeAbilities)
+                    {
+                        Ref<AbilityDefinition>("cooperativeAbilities", id);
+                        if (id != null && _entries.TryGetValue(id, out var cooperative) && cooperative is AbilityDefinition { Cooperation: null }) Error("cooperativeAbilities", "Cooperative abilities need partner costs.");
+                    }
                     if (g.Wildlife == null || g.Wildlife.Length > 32 || g.Wildlife.Distinct().Count() != g.Wildlife.Length) Error("wildlife", "Provide up to 32 distinct wildlife characters.");
                     else foreach (var id in g.Wildlife)
                     {
@@ -149,6 +155,8 @@ public sealed class ContentCatalog
                     if (g.Classes.Length != 4 || g.CommonAbilities.Length != 3 || g.Bosses.Length == 0) Error("classes", "Provide four classes, three common actions and at least one boss.");
                     foreach (var id in g.Classes) Ref<ClassDefinition>("classes", id);
                     foreach (var id in g.CommonAbilities) Ref<AbilityDefinition>("commonAbilities", id);
+                    foreach (var id in g.CommonAbilities.Append(g.EnemyFallback))
+                        if (id != null && _entries.TryGetValue(id, out var common) && common is AbilityDefinition { Cooperation: not null }) Error("commonAbilities", "Put cooperative abilities in their own pool, not common actions or enemy fallback.");
                     foreach (var id in g.Bosses) Ref<BossDefinition>("bosses", id);
                     foreach (var id in g.Recipes) Ref<RecipeDefinition>("recipes", id);
                     Cost("inventory", g.Inventory); break;
@@ -236,6 +244,12 @@ public sealed class ContentCatalog
                     if (e.Effect is not ("memory" or "rest" or "aid")) Error("effect", "Unknown incident handler.");
                     Range("mood", e.Mood, -20, 20); Range("cooldown", e.Cooldown, 300, 7200); break;
                 case AbilityDefinition a:
+                    if (a.Cooperation is { } cooperation)
+                    {
+                        Range("cooperation.partnerMana", cooperation.PartnerMana, 1, 20); Range("cooperation.partnerPowerPercent", cooperation.PartnerPowerPercent, 0, 100);
+                        Range("mana", a.Mana, 1, 20);
+                        if (a.Effect == "damage" ? a.Target != Expeditions.TargetKind.Enemy : a.Effect != "cleanse" || a.Target != Expeditions.TargetKind.AllAllies) Error("cooperation", "Use a single-enemy strike or an all-ally cleanse with partner costs.");
+                    }
                     Range("mana", a.Mana, 0, 100); Range("power", a.Power, 0, 200); Range("duration", a.Duration, 1, 12);
                     if (!Effects.Contains(a.Effect)) Error("effect", "Unknown registered effect: " + a.Effect);
                     break;
@@ -245,6 +259,8 @@ public sealed class ContentCatalog
                     if (c.Sprite == null) Error("sprite", "A class needs a sprite.");
                     if (c.Abilities == null || c.Abilities.Length != 3) Error("abilities", "Provide three class abilities.");
                     else foreach (var id in c.Abilities) Ref<AbilityDefinition>("abilities", id);
+                    if (c.Abilities != null) foreach (var id in c.Abilities)
+                        if (id != null && _entries.TryGetValue(id, out var abilityEntry) && abilityEntry is AbilityDefinition { Cooperation: not null }) Error("abilities", "Cooperative actions belong in the game pool, leaving three independent class actions.");
                     break;
                 case CharacterDefinition c:
                     if (c.Ecology is { } ecology)

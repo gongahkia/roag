@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-boss'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -379,6 +379,37 @@ def main():
                 flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
                 client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.pause()
                 check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
+            finally: client.close()
+        if 'world-cooperation' in args.scenes:
+            client = Client('world-cooperation', slot)
+            try:
+                client.wait(lambda u: u['battle'] is not None and u['battle']['active'] == 0)
+                check('eightCooperativeAbilityButtonsFit', len([c for c in client.ui()['controls'] if c['id'].startswith('skill:')]) == 8 and all(c['bounds']['y'] + c['bounds']['height'] <= 720 for c in client.ui()['controls']))
+                initial = client.save(); before = initial['state']
+                def fighter(unit_id):
+                    r = next(u for u in client.ui()['battle']['units'] if u['id'] == unit_id)['bounds']
+                    client.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2)
+                client.click('skill:6'); fighter(3)
+                chosen = client.save()['state']
+                check('helperSelectionIsFree', client.ui()['battle']['partner'] == 3 and chosen['battle'] == before['battle'] and chosen['combatRandom'] == before['combatRandom'] and chosen['tick'] == before['tick'])
+                client.capture('cooperation-helper')
+                client.point(500, 110, button=3)
+                check('rightClickCancelsCooperationForFree', client.ui()['battle']['partner'] == -1 and client.save()['state']['battle'] == before['battle'])
+                client.click('skill:6'); fighter(3); fighter(4)
+                acted = client.save()['state']; b = acted['battle']; old = before['battle']
+                check('jointStrikeSpendsBothManaAndActions', b['assisting'] == [3] and b['order'][b['turnIndex']] == 1 and b['units'][0]['mana'] == old['units'][0]['mana'] - 3 and b['units'][3]['mana'] == old['units'][3]['mana'] - 3 and b['units'][4]['health'] < old['units'][4]['health'])
+                client.capture('cooperation-strike'); client.click('load')
+                check('jointActionSaveRestoresExactly', client.save()['state'] == acted)
+                client.click('skill:3'); client.click('skill:3')
+                client.wait(lambda u: u['battle']['round'] == 2 and u['battle']['active'] == 0)
+                completed = client.save()['state']
+                check('helperSkippedOnceAndRoundClockAdvances', completed['tick'] == before['tick'] + 5 and completed['battle']['assisting'] == [] and any(e['label'] == 'Assisted' for e in completed['combatEvents']))
+                # Restore the wounded, isolated starting fixture to inspect group recovery.
+                slot.write_text(json.dumps(initial)); client.click('load'); client.click('skill:7')
+                check('sharedAidWaitsForHelper', client.save()['state']['battle'] == before['battle'])
+                fighter(3); healed = client.save()['state']['battle']
+                check('sharedAidHealsPartyAndSpendsBothMana', all(healed['units'][i]['health'] > old['units'][i]['health'] for i in range(4)) and healed['units'][0]['mana'] == old['units'][0]['mana'] - 4 and healed['units'][3]['mana'] == old['units'][3]['mana'] - 3)
+                client.capture('cooperation-aid')
             finally: client.close()
         if 'world-boss' in args.scenes:
             client = Client('world-boss', slot)

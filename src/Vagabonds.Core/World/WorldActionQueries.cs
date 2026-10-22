@@ -14,15 +14,17 @@ public sealed partial class WorldSession
         if (index < 0 || index >= skills.Count) return "Wait for a conscious companion's turn.";
         var skill = skills[index];
         if (State.Battle!.Active.Mana < skill.Mana) return $"Needs {skill.Mana} MP; {State.Battle.Active.Mana} available.";
+        if (skill.Cooperative && !State.Battle.Units.Any(u => CooperationPartnerReason(index, u.Id).Length == 0)) return "Needs a conscious, unstunned companion with enough MP and an action still ahead this round.";
         return skill.Effect == "potion" && Count("medicine") == 0 ? "Needs one medicine in the shared pack." : "";
     }
-    public CombatActionPreview ActionPreview(int index, int targetIndex = -1)
+    public CombatActionPreview ActionPreview(int index, int targetIndex = -1, int partnerIndex = -1)
     {
         string reason = SkillUnavailable(index);
         var skills = ActiveSkills();
         if (index < 0 || index >= skills.Count) return new("Ability", reason, "", 0, 0, []);
         var skill = skills[index]; var b = State.Battle!; var caster = b.Active;
         var target = b.Units.ElementAtOrDefault(targetIndex);
+        if (reason.Length == 0 && skill.Cooperative) reason = CooperationPartnerReason(index, partnerIndex);
         if (reason.Length == 0 && skill.Target == TargetKind.Enemy && (target == null || target.Friendly || !target.Alive)) reason = "Choose a living enemy.";
         if (reason.Length == 0 && skill.Target == TargetKind.Ally && (target == null || !target.Friendly)) reason = "Choose a companion.";
         var targets = skill.Target switch
@@ -31,14 +33,18 @@ public sealed partial class WorldSession
             TargetKind.AllAllies => b.Units.Where(t => t.Friendly && t.Alive).ToArray(),
             TargetKind.Self => [caster], _ => target == null ? [] : new[] { target }
         };
-        string description = skill.Description + " " + skill.Target + "; " + skill.Mana + " MP.";
+        string description = skill.Description + " " + skill.Target + "; " + skill.Mana + " MP." + (skill.Cooperative ? " " + CooperationDescription(skill) : "");
         int minimum = 0, maximum = 0;
         if (reason.Length == 0 && targets.Length > 0)
         {
             var actor = State.Actors.Single(a => a.Id == b.ActorIds[caster.Id]);
-            int bonus = actor.Level - 1 + caster.Power - 6 + AbilityEquipmentBonus(actor, skill); var t = targets[0];
+            int bonus = actor.Level - 1 + caster.Power - 6 + AbilityEquipmentBonus(actor, skill)
+                + (skill.Cooperative ? b.Units[partnerIndex].Power * skill.PartnerPowerPercent / 100 : 0); var t = targets[0];
             if (skill.Effect is "heal" or "potion" or "cleanse")
-            { minimum = maximum = Math.Clamp(skill.Power + bonus, 0, t.MaxHealth - t.Health); description += $" Restores {minimum} HP to {t.Name}; removes bleed."; }
+            {
+                minimum = targets.Min(u => Math.Clamp(skill.Power + bonus, 0, u.MaxHealth - u.Health)); maximum = targets.Max(u => Math.Clamp(skill.Power + bonus, 0, u.MaxHealth - u.Health));
+                description += targets.Length > 1 ? $" Restores {minimum}-{maximum} HP per companion; removes bleed." : $" Restores {minimum} HP to {t.Name}; removes bleed.";
+            }
             else if (skill.Effect is not ("guard" or "rally" or "calm" or "flee"))
             {
                 int raw = skill.Power + bonus + (t.Mark > 0 ? 4 : 0) - (caster.Stress >= 60 ? 2 : 0);

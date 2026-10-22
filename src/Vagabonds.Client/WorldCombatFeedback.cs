@@ -18,6 +18,7 @@ internal sealed partial class WorldGame
         }
         foreach (var e in _session.State.CombatEvents.Where(e => e.Sequence > _seenFeedback))
         {
+            if (e.Kind == "ability" && e.Target != 0 && e.Label.StartsWith("Assists ", StringComparison.Ordinal)) _combatFloats.Add(new(e.Target, "Assists", "status", _presentationTime));
             if (e.Target != 0 && e.Kind is "damage" or "heal" or "status" or "expire" or "fall" or "injury")
                 _combatFloats.Add(new(e.Target, e.Kind == "damage" ? "-" + e.Amount : e.Kind == "heal" ? "+" + e.Amount : e.Label, e.Kind, _presentationTime));
             if (e.Kind == "reward" && !_session.State.Endgame.Victory) { _panel = "spoils"; StopTravel(); }

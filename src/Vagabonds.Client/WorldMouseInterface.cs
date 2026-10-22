@@ -50,6 +50,7 @@ internal sealed partial class WorldGame
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
         _session = WorldSession.Create(WorldStartup.FreshSeed()); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
+        _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Click the ground to travel or choose Play.";
     }
@@ -346,9 +347,9 @@ internal sealed partial class WorldGame
             var battle = _session.State.Battle!;
             if (battle.Active.Friendly)
             {
-                var skills = _session.ActiveSkills(); int bw = (_map.Width - 16) / 3;
-                for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name + (skills[i].Mana > 0 ? $" / {skills[i].Mana} MP" : ""), _map.X + i % 3 * (bw + 8), h - 94 + i / 3 * 44, bw, 36,
-                    _session.SkillUnavailable(i).Length == 0, i == _skill, skills[i].Description);
+                var skills = _session.ActiveSkills(); int columns = skills.Count > 6 ? 4 : 3, bw = (_map.Width - (columns - 1) * 8) / columns;
+                for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name + (skills[i].Mana > 0 ? $" / {skills[i].Mana} MP" : ""), _map.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
+                    _session.SkillUnavailable(i).Length == 0, i == _skill, skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description);
             }
             return;
         }
@@ -441,9 +442,10 @@ internal sealed partial class WorldGame
             case "history": _journalOffset = Math.Clamp(_journalOffset + int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture), 0, Math.Max(0, JournalRows(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height).Width - 104).Length - 1)); break;
             case "inspect": _inspectStage = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
             case "skill":
-                _skill = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _combatTarget = -1;
+                _skill = int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); _cooperativePartner = _combatTarget = -1;
                 var skill = _session.ActiveSkills()[_skill];
-                if (skill.Target is TargetKind.Enemy or TargetKind.Ally) _notice = skill.Name + ": click " + (skill.Target == TargetKind.Enemy ? "an enemy" : "a companion") + " to choose the target.";
+                if (skill.Cooperative) _notice = skill.Name + ": choose a ready companion. Costs " + skill.Mana + " MP + " + skill.PartnerMana + " helper MP and both actions.";
+                else if (skill.Target is TargetKind.Enemy or TargetKind.Ally) _notice = skill.Name + ": click " + (skill.Target == TargetKind.Enemy ? "an enemy" : "a companion") + " to choose the target.";
                 else UseSkill();
                 break;
             case "fullscreen": _graphics.ToggleFullScreen(); break;
@@ -506,8 +508,8 @@ internal sealed partial class WorldGame
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
-            battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly,
-                units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, bounds = Rect(UnitRect(u)) }) } : null
+            battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting,
+                units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null
         }, UiJson);
         if (serialized == _lastUiReport) return;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

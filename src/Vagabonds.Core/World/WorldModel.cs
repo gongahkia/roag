@@ -457,6 +457,7 @@ public sealed class WorldState
 
 public sealed class WorldBattle
 {
+    [JsonRequired] public HashSet<int> Assisting { get; set; } = [];
     public HashSet<int> ShieldUsed { get; set; } = [];
     [JsonRequired] public Dictionary<int, PlannedAbility> Plans { get; set; } = [];
     [JsonRequired]

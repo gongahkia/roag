@@ -115,10 +115,11 @@ internal sealed partial class WorldGame
                 var b = _session.State.Battle!; var unit = b.Units.LastOrDefault(u => UnitRect(u).Contains(_mouse.Position));
                 if (unit != null)
                 {
-                    var preview = _session.ActionPreview(_skill, unit.Id);
+                    var preview = _session.ActionPreview(_skill, unit.Id, _cooperativePartner);
                     string detail = $"HP {unit.Health}/{unit.MaxHealth}; MP {unit.Mana}; armour {unit.Armor}. " + WorldSession.StatusDescription(unit);
-                    _hover = new(unit.Name, detail, b.Active.Friendly ? preview.Description : _session.EnemyIntent(unit.Id), b.Active.Friendly ? preview.Reason : "Wait for a companion's turn.", "combat");
-                    hand = b.Active.Friendly && preview.Reason.Length == 0;
+                    bool helper = b.Active.Friendly && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || unit.Friendly);
+                    _hover = new(unit.Name, detail, helper ? "Assist: spend this round's action and " + _session.ActiveSkills()[_skill].PartnerMana + " MP." : b.Active.Friendly ? preview.Description : _session.EnemyIntent(unit.Id), helper ? _session.CooperationPartnerReason(_skill, unit.Id) : b.Active.Friendly ? preview.Reason : "Wait for a companion's turn.", "combat");
+                    hand = b.Active.Friendly && _hover.Reason.Length == 0;
                 }
             }
             else if (_pointer.Cell is { } cell)

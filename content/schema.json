@@ -78,6 +78,21 @@
         "kind": {
           "const": "ability"
         },
+        "cooperation": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "partnerMana": {
+              "type": "integer"
+            },
+            "partnerPowerPercent": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
         "mana": {
           "type": "integer"
         },
@@ -977,6 +992,15 @@
           }
         },
         "wildlife": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "cooperativeAbilities": {
           "type": "array",
           "items": {
             "type": [

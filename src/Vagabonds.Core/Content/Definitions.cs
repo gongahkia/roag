@@ -53,6 +53,7 @@ public sealed class GameDefinition : ContentDefinition
     public string[] Resources { get; set; } = [];
     public string[] CampActivities { get; set; } = [];
     public string[] Wildlife { get; set; } = [];
+    public string[] CooperativeAbilities { get; set; } = [];
 }
 public sealed class DiscoveryDefinition : ContentDefinition
 {
@@ -150,12 +151,19 @@ public sealed class ClassDefinition : ContentDefinition
 }
 public sealed class AbilityDefinition : ContentDefinition
 {
+    public CooperationRules? Cooperation { get; set; }
     public int Mana { get; set; }
     public TargetKind Target { get; set; }
     public int Power { get; set; }
     public required string Effect { get; set; }
     public int Duration { get; set; } = 3;
-    public Skill AsSkill() => new(Name, Sprite ?? "sword", Mana, Target, Power, Effect, Description, Duration);
+    public Skill AsSkill() => new(Name, Sprite ?? "sword", Mana, Target, Power, Effect, Description, Duration,
+        Cooperation != null, Cooperation?.PartnerMana ?? 0, Cooperation?.PartnerPowerPercent ?? 0);
+}
+public sealed class CooperationRules
+{
+    public int PartnerMana { get; set; } = 3;
+    public int PartnerPowerPercent { get; set; } = 100;
 }
 public sealed class BehaviorRule
 {
