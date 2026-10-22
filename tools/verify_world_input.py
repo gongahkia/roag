@@ -486,6 +486,34 @@ def main():
                 client.restore(initial); client.click('skill:6'); fighter(3); client.fighter(4, fast=True)
                 client.capture_phase('impact', 'combat-reduced-motion'); client.combat_ready()
                 check('accessibilityControlsPreserveCombatResult', client.save()['state'] == acted)
+                for _ in range(4):
+                    if client.ui()['combatPresentation']['volume'] == 0: break
+                    client.click('combat-volume')
+                check('mouseMutesCombatSound', client.ui()['combatPresentation']['volume'] == 0)
+                client.restore(initial); cues = client.ui()['combatPresentation']['playedCues']
+                client.click('skill:6'); fighter(3); client.fighter(4, fast=True); client.combat_ready()
+                check('mutedPlaybackDoesNotPlayCues', client.ui()['combatPresentation']['playedCues'] == cues)
+
+                # Change only the isolated actor's class/sprite identity. Keep
+                # the fixture's health/mana bases and the durable enemy so the
+                # real class ability paths provide reusable family previews.
+                client.click('combat-motion')  # Review normal motion as well as the reduced-motion capture above.
+                for name, role, sprite, skill, target, phase, family in (
+                    ('projectile', 1, 'ranger', 0, 4, 'travel', 'projectile'),
+                    ('mark', 1, 'ranger', 1, 4, 'impact', 'dread'),
+                    ('spell', 2, 'mage', 1, 4, 'impact', 'spell'),
+                    ('group-spell', 2, 'mage', 2, None, 'impact', 'spell'),
+                    ('heal', 3, 'healer', 1, 3, 'impact', 'heal'),
+                    ('guard', 0, 'warden', 3, None, 'impact', 'guard'),
+                ):
+                    fixture = json.loads(json.dumps(initial)); state = fixture['state']; battle = state['battle']
+                    actor = next(a for a in state['actors'] if a['id'] == battle['actorIds'][0])
+                    actor['role'] = role; actor['spriteId'] = sprite; battle['units'][0]['sprite'] = sprite
+                    client.restore(fixture); client.click('skill:' + str(skill), fast=target is None)
+                    if target is not None: client.fighter(target, fast=True)
+                    visual = client.capture_phase(phase, 'combat-' + name)
+                    check(name + 'UsesExpectedPresentationFamily', visual['combatPresentation']['family'] == family)
+                    client.combat_ready()
 
                 # A wounded enemy fixture isolates the finishing-hit transition.
                 # The ordinary resolver still owns damage, death and rewards.
