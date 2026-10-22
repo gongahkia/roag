@@ -1,5 +1,22 @@
 # Vagabonds verification
 
+## Agent tooling acceptance — 2026-10-23
+
+**Completed managed run `20261022-164752-53175d77` passed on the final source:**
+
+- **420/420 Release .NET tests**, including 25 content/scenario/diagnostic cases; zero build warnings/errors. TRX is retained under the run's `tests/` directory.
+- **16/16 Python agent-workflow tests** and **38/38 catalog tests**; catalog freshness passed.
+- **Five declarative scenarios** passed with real gathering, camp work, discovery alternatives, cooperative combat and isolated save/reload traces. Deterministic replay is separately covered by .NET regressions.
+- Headless world simulation and four-seed world, exploration, wildlife and situation audits passed.
+- **90/90 native mouse checks across all nine scenes** passed under Xvfb/X11/software GL. Inspected exploration, camp duties and cooperative-strike captures at 1024×720.
+- `runs show` confirmed `passed`, `fresh: true`, **68 sealed artifacts** and no checksum errors. The `agent-tooling` task completed only after current evidence was attached to all five explicit requirements. Completion record: `artifacts/integration/agent-completion.json`.
+
+All run logs, TRX, JSON/SVG reports and captures are under ignored `artifacts/agent/runs/20261022-164752-53175d77/`. Doctor/context/impact and tooling review were exercised on the checkout; review reports 207 valid definitions/19 families. Reconnecting from another invocation reused the live run. The earlier `20261022-164439-064512b2` run was explicitly cancelled after final malformed-input review added a null-pointer regression; actual evidence attachment rejected that cancelled/stale run. It remains recorded and was not counted as final acceptance.
+
+Workflow regressions cover source identity, detached execution, cancellation of queued/running commands and descendants, orphan cleanup after worker death, timeouts, failed/empty reports, corrupted artifacts, manual review and scene-specific completion requirements. Content tests cover dry-run/conflict preservation, whole-catalog references, merge semantics, deterministic traces, first-failure reporting and read-only compatibility diagnosis. The .NET tests and declarative suite are configured in cross-platform CI; managed process tests run in Ubuntu CI. Those configurations are not claims of executed remote CI or native Windows/macOS verification.
+
+This milestone changes no content hash, world/save version, gameplay rules or source artwork. The optional content argument to `WorldSession.Load` still requires an exact hash and full validation; client defaults retain the shipped catalog. Player saves were not read or modified. Managed run control is Linux/WSL only. Documentation review, requirement-to-check coverage, visual quality and long-term game balance remain human/agent judgments; passing automation does not establish them by itself.
+
 ## Agent workflow foundation — 2026-10-23
 
 Twelve Python regressions passed: source identity, conservative impact, structured errors, detached execution, retained checksums, failure/timeout/cancellation, live-run reconnection, stale results and evidence-gated completion. Doctor/context and a task checkpoint were exercised on this checkout. Managed process control is currently Linux/WSL; no native Windows/macOS claim. Content patches and declarative reproductions are the next milestone.

@@ -1,6 +1,6 @@
 # Content authoring and developer tools
 
-Run `./dev` from any working directory. The graphics-free `Vagabonds.Tools` project uses the same Core content loader, actor factory, abilities and interactions as the game. Game definitions are embedded at build time; developer commands can inspect edits from `content/` before rebuilding the client. No player save is opened by these tools.
+Run `./dev` from any working directory. The graphics-free `Vagabonds.Tools` project uses the same Core content loader, actor factory, abilities and interactions as the game. Game definitions are embedded at build time; developer commands can inspect edits from `content/` before rebuilding the client. Previews and scenarios never open player saves. `diagnose save FILE` reads only the explicitly selected save and never writes it.
 
 ## Discover and edit
 
@@ -81,7 +81,7 @@ Simulation profiles apply to everyone; level and traits augment the shared rates
 
 ## Complete preview coverage and native acceptance
 
-All sixteen content families have a runtime context: `preview character`, `class`, `names`, `trait`, `ability`, `interaction`, `item`, `recipe`, `generation`, `simulation`, `incident`, `variant`, `game`, `discovery`, `dialogue`, and `encounter` for a boss ID. For example, `./dev preview item item.chainmail --seed 42` actually equips the item; `preview trait trait.stubborn` exercises shared work/fatigue, and `preview variant variant.swift` uses an actual boss encounter. Ability previews now resolve the effect in a supplied half-health/stressed traveller fixture, rather than just echoing JSON. Read the diagnostic setup in each report; these are reproducible mechanisms, not balance scores.
+All nineteen content families have a runtime context: `preview character`, `class`, `names`, `trait`, `ability`, `interaction`, `item`, `recipe`, `generation`, `simulation`, `incident`, `variant`, `game`, `discovery`, `dialogue`, `resource`, `camp`, `affix`, and `encounter` for a boss ID. For example, `./dev preview item item.chainmail --seed 42` actually equips the item; `preview trait trait.stubborn` exercises shared work/fatigue, and `preview variant variant.swift` uses an actual boss encounter. Ability previews now resolve the effect in a supplied half-health/stressed traveller fixture, rather than just echoing JSON. Read the diagnostic setup in each report; these are reproducible mechanisms, not balance scores.
 
 CLI typos, invalid numeric flags and invalid/path-like IDs fail explicitly. Scaffolding validates the stable ID before deriving its path. The tooling review was dogfooded against authoring, generation, every boss, every recipe/incident and actual native input; counts remain consistency indicators rather than quality ratings.
 
@@ -170,3 +170,57 @@ Use `content inspect discovery.trapped-storeroom`, `content references item.herb
 The helper must be a different living, unstunned friendly fighter, have enough mana and an unspent scheduled turn later in this round. Committing spends both mana costs and both actions. Damage/healing adds the declared percentage of the helper's power to the ordinary initiator bonuses. Pending helpers still process their normal status ticks and guard expiry when their scheduled turn arrives, then skip that action. They cannot assist twice; commitments clear at the next round. The save manifest validates pending helper indices against the current order.
 
 `./dev preview ability ability.twin-strike --seed 42` and `./dev preview ability ability.shared-aid --seed 1337` run actual cooperative resolution with four generated wounded companions, normal initiative and a durable foe. They report before/after battle, costs, preview and feedback. `./vagabonds.sh --scene world-cooperation` and `./dev verify-native --scenes world-cooperation` exercise helper selection, cancellation, targeting, skipped turns, group recovery and exact save/load. No fixed protagonist or class pairing is required.
+
+
+## Validated content tweaks
+
+`content patch ID --patch FILE` applies an object [JSON merge patch](https://www.rfc-editor.org/info/rfc7396/) to a candidate copy and reports validation issues, field differences, transitive dependents, source SHA256 and gameplay hashes. Objects merge recursively, arrays replace in full, and `null` removes a property. Keep patch files outside `content/`, where every JSON document is interpreted as a definition.
+
+For example, write `{"armor":3}` to `artifacts/armor.patch.json`, then run:
+
+```sh
+./dev content patch item.chainmail --patch artifacts/armor.patch.json
+./dev content patch item.chainmail --patch artifacts/armor.patch.json --apply --expect BEFORE_SHA256
+./dev content impact item.chainmail
+./dev content diff --against artifacts/content-before
+```
+
+Only `--apply` writes. It requires the original SHA256, validates the complete candidate catalog and checks the source again immediately before atomic replacement. Validation failures and stale hashes preserve the file. This is an optimistic single-file edit, not a multi-file transaction or distributed lock; coordinate concurrent edits. IDs and kinds cannot be renamed through patches. `content diff` compares another content directory, reporting added/removed/modified definitions and whether the gameplay hash changes. Dialogue-only presentation changes remain compatible under the existing hash policy.
+
+## Declarative game reproductions
+
+Author scenarios outside `content/`, using [devtools/scenario.schema.json](../devtools/scenario.schema.json). Regenerate it with `./dev scenario schema --output devtools/scenario.schema.json --replace` when the typed scenario model changes.
+
+```json
+{
+  "schemaVersion":1,
+  "name":"A fresh world saves exactly",
+  "seed":1337,
+  "fixture":"world",
+  "steps":[
+    {"op":"assert","path":"/partyCount","expected":1},
+    {"op":"save-load"},
+    {"op":"assert","path":"/tick","expected":0}
+  ]
+}
+```
+
+`./dev scenario run FILE [--seed N] [--content DIRECTORY]` executes it against real Core rules. `scenario suite DIRECTORY` runs sorted JSON scenarios; empty suites fail. With `--output FILE`, stdout is a compact summary and the full trace is saved. Existing outputs need `--replace`. Failed assertions exit nonzero and stop at the first failing step. Reports include the seed/content hash, exact state hashes, compact state and per-step field differences. Hashes cover persistent world state including chunk deltas and random states; they do not measure rendered output or wall-clock performance. Compact snapshots show at most 24 work orders and 12 recent combat events, with total work count/truncation flags; assertions target that snapshot.
+
+Fixtures are `world` (ordinary new world), `resource` (`definition` names a resource), `camp`, `cooperation`, `situation` (`definition` names a discovery), and `wildlife` (`definition` names an ecological character). Diagnostic fixtures explicitly arrange the context through the existing preview helpers; subsequent actions use the normal handlers. The five shipped examples cover gathering, named camp work, discovery resolution, cooperative combat, rejected actions and save continuation.
+
+| Operation | Fields and behavior |
+| --- | --- |
+| `command` | `kind` is a `WorldCommandKind`; `item`, `amount`, `material`, `actor` or `partyIndex` supply the normal command arguments |
+| `designate` | `kind`, `cells:[{"x":0,"y":0}]`, optional `material`; queues normal selection work |
+| `advance` | `ticks`; unpauses then advances ordinary simulation, respecting battle/continuation freezes |
+| `combat` | `skill`, `target`, `partner` indices; uses the actual turn resolver |
+| `enemy` | Advances the real enemy turn |
+| `assert` | `path` is a JSON pointer into the report state; use exact `expected` (including null/arrays) or numeric `minimum`/`maximum` |
+| `save-load` | Writes a temporary slot, loads through strict validation using the same content, compares all persistent state and restores pause state |
+
+Command/designation targets default to the fixture anchor, offset by `dx`/`dy`; `anchor:"party"` uses the current party leader instead. `partyIndex` resolves a current companion ID. `success:false` expects rejection for command/designate/combat/enemy operations and additionally proves the persistent state was unchanged. Invalid pointers, unknown properties/operations and failed expectations do not silently pass. Scenarios allow 1–256 steps, require an assertion/save check, and bound ticks to 6,000 per step/20,000 total and offsets to 100 tiles. They are a local reproduction language, not a second gameplay engine.
+
+`./dev diagnose save FILE` reports compatibility, hashes and a compact state through the normal loader without saving. Custom content is accepted only if its exact gameplay hash matches. Tools read the selected directory (default `content/`); the client uses its embedded build, so rebuild after changing definitions. Invalid/mismatched saves remain untouched. `diagnose diff BEFORE AFTER` returns at most 100 JSON-pointer differences with large values summarized by hashes; absent and null-valued properties remain distinguishable. Compare explicit chunk JSON files too when investigating terrain changes.
+
+For durable verification, task handoff and evidence-based completion, use [AGENT_TOOLING.md](AGENT_TOOLING.md).

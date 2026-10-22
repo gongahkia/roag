@@ -32,6 +32,12 @@ The world client is mouse-only: hover for a route preview, click ground to trave
 
 `./dev content list`, `./dev content validate`, `./dev content inspect ID`, and `./dev preview character character.healer --seed 42` use the shared runtime content model. Definitions live under `content/`; [the authoring guide](docs/CONTENT_AUTHORING.md) covers references, scaffolding, removal, schemas and extension points. Run `./dev test` and review tooling at each substantial milestone. `./dev audit-world --seed 40 --samples 8` produces a JSON/SVG comparison; `./dev preview encounter boss.ash-knight --seed 42` exercises actual combat. `./dev verify-native` runs optional local X11/WSLg input acceptance using temporary saves (requires xdotool/ffmpeg and a built client).
 
+## Agent development workflow
+
+`./dev agent context` summarizes the checkout; `./dev agent doctor` reports prerequisites; `./dev agent impact` suggests relevant checks. Use `./dev agent verify --profile full --detach` for durable verification with logs and reconnectable run IDs. Explicit task requirements/checkpoints retain handoffs and require fresh evidence before completion. Content merge patches, deterministic JSON scenarios and read-only save diagnostics support reproducible debugging. See the [agent workflow guide](docs/AGENT_TOOLING.md) for examples and Linux/WSL worker requirements.
+
+If launch reports “World content differs from this build,” preserve that save and start a separate slot with `./vagabonds.sh --new --save "$HOME/.vagabonds/expedition.json"` (choose an unused filename). Resume that slot with `--load --save` and the same path.
+
 ## Build and inspect
 
 ```sh
