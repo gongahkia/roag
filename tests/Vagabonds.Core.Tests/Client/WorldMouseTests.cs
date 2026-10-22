@@ -260,6 +260,10 @@ public sealed class WorldMouseTests
         var enemy = (Rectangle)Invoke(client, "UnitRect", b.Units[4])!; Invoke(client, "CombatClick", enemy.Center);
         Assert.Contains(3, b.Assisting); Assert.Equal(1, b.Active.Id); Assert.Equal(-1, Field("_cooperativePartner").GetValue(client));
         Assert.NotEqual(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "BuildMouseControls", width, height);
+        var playingControls = ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).Where(c => c.Id.StartsWith("skill:", StringComparison.Ordinal)).ToArray();
+        Assert.Equal("skill:6", Assert.Single(playingControls, c => c.Selected).Id);
+        Assert.All(playingControls, c => Assert.False(c.Enabled));
         before = JsonSerializer.Serialize(session.State); Invoke(client, "ActivateControl", "skill:7");
         Assert.Equal(before, JsonSerializer.Serialize(session.State)); // An unresolved visual sequence consumes duplicate input.
         var playback = (CombatPlayback)Field("_combatPlayback").GetValue(client)!; playback.Skip();

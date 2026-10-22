@@ -356,7 +356,7 @@ internal sealed partial class WorldGame
             {
                 var skills = Playback.Busy ? Playback.Skills : _session.ActiveSkills(); int columns = 4, bw = (area.Width - 24) / columns;
                 for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name, area.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
-                    !Playback.Busy && _session.SkillUnavailable(i).Length == 0, i == _skill,
+                    !Playback.Busy && _session.SkillUnavailable(i).Length == 0, Playback.Busy ? skills[i].Id == Playback.Current?.AbilityId : i == _skill,
                     skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description,
                     Playback.Busy ? "Wait for the current action or choose Skip." : "", sprite: skills[i].Icon,
                     detail: skills[i].Mana > 0 ? skills[i].Mana + " MP" : "No MP cost");
