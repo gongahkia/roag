@@ -198,6 +198,10 @@ def main():
                 try:
                     (output / 'report.json').write_text(json.dumps({'nativeMouseInput': 'failed', 'checks': checks}, indent=2) + '\n')
                     (output / 'failed-ui.json').write_text(json.dumps(self.ui(), indent=2) + '\n'); self.capture('failed-input')
+                    if self.slot.exists():
+                        shutil.copy2(self.slot, output / 'failed-save.json')
+                        chunks = Path(str(self.slot) + '.chunks')
+                        if chunks.is_dir(): shutil.copytree(chunks, output / 'failed-save.json.chunks', dirs_exist_ok=True)
                 except Exception: pass
                 self.abort(); return
             try:

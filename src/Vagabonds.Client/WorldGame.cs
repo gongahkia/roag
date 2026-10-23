@@ -118,11 +118,17 @@ internal sealed partial class WorldGame : Game
     protected override void Update(GameTime gameTime)
     {
         var timer = Stopwatch.StartNew(); Layout(); UpdateView();
-        BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-        var mouse = _playtest?.Next(gameTime.ElapsedGameTime.TotalSeconds, ResolvePlaytest, MarkMoment) ?? Mouse.GetState();
+        MouseState mouse = default;
+        if (_playtest != null)
+        {
+            BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+            mouse = _playtest.Next(gameTime.ElapsedGameTime.TotalSeconds, ResolvePlaytest, MarkMoment);
+        }
         if (_playtest is { StopRequested: true, Holding: true }) { Exit(); return; }
         UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
+        if (_playtest == null) mouse = Mouse.GetState();
         _session.Focused = InputFocused;
+        BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         if (InputFocused && !_options.WorldSmoke)
         {
             bool press = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
