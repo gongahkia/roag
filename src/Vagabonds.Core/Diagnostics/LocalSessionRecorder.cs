@@ -210,6 +210,7 @@ public sealed class LocalSessionRecorder : IDisposable
                         if (unit.GetProperty("friendly").GetBoolean()) friendlyActors.Add(unit.GetProperty("actorId").GetInt64());
             }
             if (e.Kind == "work-completed") Add("workCompleted");
+            if (e.Kind == "work-designation") { Add("workQueued", data.GetProperty("queued").GetDouble()); Add("workSkipped", data.GetProperty("skipped").GetDouble()); }
             if (e.Kind == "progression") Add("developmentsLearned");
             if (e.Kind == "encounter-end") Add(data.GetProperty("outcome").GetString() ?? "unknown");
             if (e.Kind == "chunk-generation")

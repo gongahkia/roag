@@ -88,6 +88,17 @@ def run(repo, output=None, no_build=False):
         if not observe()['paused']:
             click('pause')
 
+        ui = observe(); p = ui['position']
+        onward = next(c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and not c.get('prop')
+                      and c['y'] == p['y'] and c['x'] == p['x'] + 4)
+        act({'kind': 'tile', 'x': onward['x'], 'y': onward['y']})
+        moving = observe(); check('capture-fixture-has-a-pending-real-route', moving['routeCount'] > 0)
+        time.sleep(.3); act({'kind': 'capture'})
+        check('diagnostic-capture-does-not-advance-travel-or-time', observe()['position'] == moving['position'] and observe()['tick'] == moving['tick'])
+        click('stop')
+        if not observe()['paused']:
+            click('pause')
+
         person = min((a for a in observe()['actors'] if a['kind'] == 'Person'), key=lambda a: abs(a['x'] - target['x']) + abs(a['y'] - target['y']))
         act({'kind': 'actor', 'actor': person['id']})
         wait_for(lambda u: u['panel'] == 'person', budget=20); dialogue(); click('conversation:interaction.recruit'); dialogue()
@@ -138,6 +149,7 @@ def run(repo, output=None, no_build=False):
         click('skill:' + str(skill['index'])); foe = next(u for u in observe()['battle']['units'] if not u['friendly'] and u['alive'])
         act({'kind': 'unit', 'unit': foe['id']})
         check('mouse-ability-starts-real-presentation', observe()['combatPresentation']['busy'])
+        check('agent-observation-hides-unplayed-resolution', not observe()['skills'] and not observe()['combatFeedback'] and observe()['encounterReward'] is None)
         click('combat-skip'); act({'kind': 'capture'})
         check('ability-resolves-real-damage', sum(u['health'] for u in observe()['combatPresentation']['units'] if not u['friendly']) < before_health)
         driver.act(repo, current, {'kind': 'mark', 'label': 'Combat feedback capture'}, root)

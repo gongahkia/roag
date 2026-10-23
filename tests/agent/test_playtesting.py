@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -105,6 +106,37 @@ class PlaytestingTests(unittest.TestCase):
             self.assertFalse(runner.inspect_evidence({'evidence': 'playtest'}, folder, None)['valid'])
         atomic_json(folder / 'playtests/report.json', {'passed': True, 'checks': [{'passed': True}], 'scenes': ['world', 'world-battle']})
         self.assertTrue(runner.inspect_evidence({'evidence': 'playtest'}, folder, None)['valid'])
+
+    def test_model_stdout_and_waiting_are_bounded_without_invoking_a_model(self):
+        code, output = model.execute([sys.executable, '-c', 'import sys; sys.stdin.read(); print("x" * 2500000)'], 'fixture', 5)
+        self.assertEqual(0, code); self.assertLessEqual(len(output.encode()), 1048576)
+        with self.assertRaises(subprocess.TimeoutExpired):
+            model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
+
+    def test_disconnected_controller_recovers_completed_actions_exactly_once(self):
+        run_id = 'fixture-run'; path = self.root / run_id; path.mkdir()
+        atomic_json(path / 'playtest.json', {'schemaVersion': 1, 'id': run_id, 'steps': 0, 'process': None})
+        before = {'observation': 1, 'ui': {'tick': 0, 'position': {'x': 1, 'y': 2}, 'panel': ''}}
+        after = {'observation': 2, 'screenshot': None, 'ui': {**before['ui'], 'notice': 'Moved'}}
+        atomic_json(path / 'observation.json', after)
+        atomic_json(path / 'pending.json', {'step': 1, 'request': {'id': 'one-action', 'kind': 'tile'}, 'before': before})
+        with patch.object(driver.runner, 'alive', return_value=True):
+            with self.assertRaisesRegex(ValueError, 'still pending'):
+                driver.act(type('Repo', (), {'root': self.root})(), run_id, {'kind': 'capture'}, root=self.root)
+        self.assertFalse((path / 'request.json').exists())
+        atomic_json(path / 'response.json', {'id': 'one-action', 'success': True, 'observation': 2})
+        result = driver.reconcile(path); self.assertEqual(1, result['step'])
+        self.assertIsNone(driver.reconcile(path)); self.assertEqual(1, json.loads((path / 'playtest.json').read_text())['steps'])
+        self.assertFalse((path / 'pending.json').exists())
+
+    def test_failed_capture_cannot_reuse_an_older_steps_screenshot(self):
+        observation = {'observation': 1, 'screenshot': 'frame.png', 'ui': {'tick': 0, 'position': {'x': 1, 'y': 2}, 'panel': '', 'notice': ''}}
+        (self.session / 'frame.png').write_bytes(b'old image')
+        first = driver.retain_step(self.session, 1, {}, {}, observation, observation)
+        self.assertTrue(Path(first['screenshot']).is_file())
+        failed = {**observation, 'screenshot': None}
+        later = driver.retain_step(self.session, driver.RETAINED_STEPS + 1, {}, {}, observation, failed)
+        self.assertIsNone(later['screenshot']); self.assertFalse(Path(first['screenshot']).exists())
 
 
 if __name__ == '__main__':

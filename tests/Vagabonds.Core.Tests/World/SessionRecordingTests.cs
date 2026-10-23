@@ -19,6 +19,7 @@ public sealed class SessionRecordingTests : IDisposable
         var observed = WorldSession.Create(42, diagnostics: events.Add);
         foreach (var world in new[] { baseline, observed })
         {
+            world.DesignateWork(WorldCommandKind.Dig, [world.State.Position.Offset(500, 0)]);
             world.Submit(new(WorldCommandKind.Move, world.State.Position.Offset(500, 0)));
             world.Submit(new(WorldCommandKind.Forage));
             world.Paused = false; world.AdvanceTicks(15); world.Paused = true;
@@ -30,6 +31,7 @@ public sealed class SessionRecordingTests : IDisposable
         Assert.Equal(JsonSerializer.Serialize(baseline.State), JsonSerializer.Serialize(observed.State));
         Assert.Contains(events, e => e.Kind == "chunk-generation");
         Assert.Equal(2, events.Count(e => e.Kind == "command"));
+        Assert.Contains(events, e => e.Kind == "work-designation");
         observed.DiagnosticSink = _ => throw new IOException("disk unavailable");
         baseline.Submit(new(WorldCommandKind.Move, baseline.State.Position.Offset(500, 0)));
         Assert.False(observed.Submit(new(WorldCommandKind.Move, observed.State.Position.Offset(500, 0))).Success);

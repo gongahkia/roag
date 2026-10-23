@@ -158,11 +158,17 @@ def compact(observation):
 
 
 def observe(repo, run_id, root=None, full=False):
+    import fcntl
     path, state = location(repo, run_id, root)
+    with (path / 'action.lock').open('a') as lock:
+        with contextlib.suppress(BlockingIOError):
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            reconcile(path)
+    state = read(path / 'playtest.json')
     observation = read(path / 'observation.json')
     if not observation:
         raise ValueError('Client has not published an observation.')
-    return {'id': run_id, 'processAlive': runner.alive(state.get('process')), 'steps': state['steps'],
+    return {'id': run_id, 'processAlive': runner.alive(state.get('process')), 'steps': state['steps'], 'actionPending': (path / 'pending.json').exists(),
             'screenshot': str(path / 'frame.png') if observation.get('screenshot') else None,
             'state': observation if full else compact(observation)}
 
@@ -179,6 +185,8 @@ def validate_action(action):
     for key in ('x', 'y', 'endX', 'endY', 'unit', 'actor', 'button'):
         if key in action and action[key] is not None and (type(action[key]) is not int):
             raise ValueError(key + ' must be an integer.')
+        if action.get(key) is not None and not -(2**(63 if key == 'actor' else 31)) <= action[key] < 2**(63 if key == 'actor' else 31):
+            raise ValueError(key + ' is outside the protocol integer range.')
     if action.get('button', 1) not in (1, 3):
         raise ValueError('Use mouse button 1 or 3.')
     if 'seconds' in action and action['seconds'] is not None and (type(action['seconds']) not in (int, float) or not .05 <= action['seconds'] <= 30):
@@ -200,24 +208,45 @@ def act(repo, run_id, action, root=None, expected=None, timeout=45):
             raise ValueError('Playtest process is no longer live; inspect its report/logs.')
         if state['steps'] >= MAX_ACTIONS and action['kind'] != 'stop':
             raise ValueError('Playtest action budget exhausted; stop and start another isolated session.')
+        if (path / 'pending.json').exists():
+            recovered = reconcile(path)
+            raise ValueError('The previous action was recovered; observe before another action.' if recovered else 'A previous action is still pending; observe instead of resubmitting it.')
         if (path / 'request.json').exists():
             raise ValueError('A previous action is still pending. Observe instead of resubmitting it.')
         before = read(path / 'observation.json')
         request = {'schemaVersion': 1, 'id': uuid.uuid4().hex, 'observation': before['observation'] if expected is None else expected, **action}
+        atomic_json(path / 'pending.json', {'step': state['steps'] + 1, 'request': request, 'created': utc(),
+                    'before': {'observation': before['observation'], 'ui': {k: before['ui'][k] for k in ['tick', 'position', 'panel']}}})
         atomic_json(path / 'request.json', request)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             response = read(path / 'response.json', {})
             if response.get('id') == request['id']:
-                after = read(path / 'observation.json')
-                state['steps'] += 1; state['updated'] = utc(); atomic_json(path / 'playtest.json', state)
-                step = retain_step(path, state['steps'], request, response, before, after)
+                recovered = reconcile(path)
+                after = read(path / 'observation.json'); state = read(path / 'playtest.json'); step = recovered['evidence']
                 return {'id': run_id, 'step': state['steps'], 'delivered': response['success'], 'response': response,
                         'evidence': step, 'state': compact(after)}
             if not runner.alive(state.get('process')):
                 raise ValueError('Client exited during action; inspect ' + str(path / 'client.log'))
             time.sleep(.025)
         raise TimeoutError('Action timed out. Do not repeat it blindly; inspect response.json and observe the session.')
+
+
+def reconcile(path):
+    """Commit a delivered action exactly once after a controller disconnect."""
+    pending = read(path / 'pending.json')
+    if not pending:
+        return None
+    response = read(path / 'response.json', {})
+    if response.get('id') != pending['request']['id']:
+        return None
+    after = read(path / 'observation.json')
+    if after['observation'] != response['observation']:
+        raise ValueError('Response/observation mismatch; inspect retained files before acting.')
+    step = retain_step(path, pending['step'], pending['request'], response, pending['before'], after)
+    state = read(path / 'playtest.json'); state['steps'] = max(state['steps'], pending['step']); state['updated'] = utc()
+    atomic_json(path / 'playtest.json', state); (path / 'pending.json').unlink()
+    return {'step': state['steps'], 'evidence': step}
 
 
 def retain_step(path, number, request, response, before, after):
@@ -229,10 +258,11 @@ def retain_step(path, number, request, response, before, after):
     atomic_json(steps / (name + '.json'), evidence)
     atomic_json(steps / (name + '.observation.json'), after)
     png = path / 'frame.png'
-    if png.is_file() and png.stat().st_size <= 4194304:
-        shutil.copy2(png, steps / (name + '.png'))
+    capture = steps / (name + '.png'); capture.unlink(missing_ok=True)
+    if after.get('screenshot') and png.is_file() and png.stat().st_size <= 4194304:
+        shutil.copy2(png, capture)
     return {'record': str(steps / (name + '.json')), 'observation': str(steps / (name + '.observation.json')),
-            'screenshot': str(steps / (name + '.png')), 'retainedSteps': RETAINED_STEPS}
+            'screenshot': str(capture) if capture.exists() else None, 'retainedSteps': RETAINED_STEPS}
 
 
 def feedback(repo, run_id, message, category='usability', severity='note', root=None, expected=''):
@@ -249,7 +279,7 @@ def feedback(repo, run_id, message, category='usability', severity='note', root=
     atomic_json(path / (evidence_name + '.json'), {'number': number, 'observation': observation})
     screenshot = path / (evidence_name + '.png'); screenshot.unlink(missing_ok=True)
     frame = path / 'frame.png'
-    if frame.exists() and frame.stat().st_size <= 4194304:
+    if observation.get('screenshot') and frame.exists() and frame.stat().st_size <= 4194304:
         shutil.copy2(frame, screenshot)
     entries.append({'utc': utc(), 'category': category, 'severity': severity, 'description': message,
                     'number': number, 'expected': expected, 'step': state['steps'], 'sessionId': state.get('sessionId'),
@@ -289,5 +319,6 @@ def report(repo, run_id, root=None):
     return {'id': run_id, 'manifest': state, 'processAlive': runner.alive(state.get('process')),
             'sourceFresh': state['source'] == repo.fingerprint(), 'retainedSteps': len(evidence), 'recentSteps': evidence[-10:],
             'feedback': feedback_entries, 'modelRun': read(path / 'model-report.json'),
+            'pendingAction': read(path / 'pending.json'), 'lastResponse': read(path / 'response.json'),
             'recordings': session_reports, 'assertions': read(path / 'assertions.json', []),
             'scope': 'Client-generated mouse states use the real input handlers. Native OS input remains covered separately by verify-native. Model judgments are not regression assertions.'}

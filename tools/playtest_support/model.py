@@ -4,6 +4,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+import threading
+from collections import deque
 from agent_support.workspace import atomic_json, utc
 from agent_support import runner
 from . import driver
@@ -57,18 +59,50 @@ def prompt(objective, observation, history, remaining):
 def execute(argv, text, timeout):
     """Run a trusted installed CLI with a timeout; preserve bounded diagnostic output."""
     process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               text=True, start_new_session=True)
+                               start_new_session=True)
     token = runner.identity(process.pid)
+    chunks = deque(maxlen=128)  # At most one MiB, even if a CLI/tool floods stdout.
+    def drain():
+        while True:
+            data = process.stdout.read(8192)
+            if not data:
+                return
+            chunks.append(data)
+    def supply():
+        try:
+            process.stdin.write(text.encode()); process.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+    reader = threading.Thread(target=drain, daemon=True); reader.start()
+    writer = threading.Thread(target=supply, daemon=True); writer.start()
     try:
-        output, _ = process.communicate(text, timeout=timeout)
+        process.wait(timeout=timeout)
     except BaseException:
         runner.stop_child(token)
-        process.communicate()
+        process.wait(timeout=5)
         raise
-    return process.returncode, output
+    finally:
+        reader.join(timeout=2); writer.join(timeout=2)
+        if not reader.is_alive():
+            process.stdout.close()
+        if not writer.is_alive() and not process.stdin.closed:
+            process.stdin.close()
+    return process.returncode, b''.join(chunks).decode(errors='replace')
 
 
 def run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=600,
+        decision_timeout=60, root=None, executable='codex', keep_open=False, dry_run=False):
+    import fcntl
+    path, _ = driver.location(repo, run_id, root)
+    with (path / 'model.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ValueError('A model tester already owns this playtest. Inspect its report instead of launching another.')
+        return _run(repo, run_id, model, objective, reasoning, max_steps, timeout, decision_timeout, root, executable, keep_open, dry_run)
+
+
+def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=600,
         decision_timeout=60, root=None, executable='codex', keep_open=False, dry_run=False):
     if not model or len(model) > 160 or model.startswith('-') or any(c.isspace() for c in model):
         raise ValueError('Provide an explicit model ID, for example gpt-5.6-luna. It is never silently substituted.')
@@ -119,6 +153,9 @@ def run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=6
             if code or not answer.is_file():
                 raise ValueError('Codex decision failed (no model substitution). Exit ' + str(code) + ': ' + output[-2000:])
             if answer.stat().st_size > 32768:
+                with answer.open('rb') as stream:
+                    prefix = stream.read(32768)
+                answer.write_bytes(prefix)
                 raise ValueError('Model decision exceeds 32 KiB.')
             decision = json.loads(answer.read_text()); validate_decision(decision); count += 1
             atomic_json(folder / ('decision-' + str(index % 8) + '.json'), {'index': index + 1, 'observation': observed['state']['observation'], 'decision': decision})

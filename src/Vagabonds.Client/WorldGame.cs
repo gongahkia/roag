@@ -175,7 +175,7 @@ internal sealed partial class WorldGame : Game
         else _enemyTimer = 0;
         UpdateConversation(gameTime.ElapsedGameTime.TotalSeconds);
         CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
-        UpdateMotions(gameTime.ElapsedGameTime);
+        UpdateMotions(_playtest != null && !InputFocused ? TimeSpan.Zero : gameTime.ElapsedGameTime);
         UpdateView();
         _lastUpdateMs = timer.Elapsed.TotalMilliseconds;
         if (_updates.Count < 10000) _updates.Add(_lastUpdateMs);

@@ -8,11 +8,17 @@ public sealed partial class WorldSession
 {
     public WorkDesignationResult DesignateWork(WorldCommandKind kind, IEnumerable<WorldPosition> cells, Material material = Material.Wall)
     {
+        WorkDesignationResult Result(int queued, int skipped, string message, WorldPosition[]? targets = null)
+        {
+            var result = new WorkDesignationResult(queued, skipped, message);
+            if (DiagnosticSink != null) Diagnose("work-designation", new { kind = kind.ToString(), material = material.ToString(), targets, result.Queued, result.Skipped, result.Message });
+            return result;
+        }
         if (IsInCombat || DeathPending || State.AwaitingContinuation || State.Endgame.Victory)
-            return new(0, 0, "Finish the encounter or expedition first.");
-        if (kind is not (WorldCommandKind.Build or WorldCommandKind.Dig or WorldCommandKind.Repair or WorldCommandKind.Harvest)) return new(0, 0, "Choose construction, excavation or repair.");
+            return Result(0, 0, "Finish the encounter or expedition first.");
+        if (kind is not (WorldCommandKind.Build or WorldCommandKind.Dig or WorldCommandKind.Repair or WorldCommandKind.Harvest)) return Result(0, 0, "Choose construction, excavation or repair.");
         var targets = cells.Distinct().Take(257).ToArray();
-        if (targets.Length > 256) return new(0, targets.Length, "Select at most 256 tiles at a time.");
+        if (targets.Length > 256) return Result(0, targets.Length, "Select at most 256 tiles at a time.", targets);
         int queued = 0, skipped = 0; string reason = "";
         foreach (var p in targets.OrderBy(p => p.Distance(State.Position)).ThenBy(p => p.Y).ThenBy(p => p.X))
         {
@@ -26,8 +32,8 @@ public sealed partial class WorldSession
             };
             if (result.Success) queued++; else { skipped++; reason = result.Message; }
         }
-        return new(queued, skipped, queued == 0 ? (reason.Length > 0 ? reason : "Select suitable observed tiles.")
-            : $"Queued {queued} order(s); supplies reserved. The party will approach and work." + (skipped > 0 ? $" Skipped {skipped}: {reason}" : ""));
+        return Result(queued, skipped, queued == 0 ? (reason.Length > 0 ? reason : "Select suitable observed tiles.")
+            : $"Queued {queued} order(s); supplies reserved. The party will approach and work." + (skipped > 0 ? $" Skipped {skipped}: {reason}" : ""), targets);
     }
 
     public void StopPartyWorkApproach()

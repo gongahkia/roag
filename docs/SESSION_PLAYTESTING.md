@@ -45,7 +45,7 @@ Preview scenes, `--ui-report`, frame-limited captures and headless audits retain
 ./dev playtest stop PLAYTEST_ID
 ```
 
-Commands return versioned JSON; command errors exit nonzero. `act` distinguishes **delivered** from gameplay success: inspect the next notice, panel, route, party and battle. `--observation N` rejects stale decisions. Unknown/disabled controls, hidden targets, duplicate IDs and invalid requests do not inject gameplay commands. `--file FILE` accepts action JSON instead of `--json`.
+Commands return versioned JSON; command errors exit nonzero. `act` distinguishes **delivered** from gameplay success: inspect the next notice, panel, route, party and battle. `--observation N` rejects stale decisions. Unknown/disabled controls, hidden targets, duplicate IDs and invalid requests do not inject gameplay commands. `--file FILE` accepts action JSON instead of `--json`. Pending requests persist before delivery; after a controller disconnects, `observe` reconciles the acknowledged result exactly once. Unfinished actions block resubmission. Diagnostic capture/marking never advances travel or the simulation clock.
 
 `start` builds the Release Client and opens a private Xvfb display/software GL. `--no-build` uses an existing build; `--visible` uses the current X11/WSLg display. The build lock prevents competing with a managed verifier. Default `world` is an ordinary generated start; named scenes such as `world-battle` and `world-encounters` are explicit fixtures, not evidence of reaching them during an expedition.
 
@@ -65,7 +65,7 @@ The game holds simulation/dialogue/combat playback between decisions; **explicit
 | `wait` | `seconds`: 0.05–30 |
 | `capture`, `mark`, `stop` | Inspect, mark (`label`), end the client |
 
-Observations contain observed local tiles/visible actors, actual controls/reasons, player-owned party/pack/work, dialogue and combat presentation. A compact ASCII map and stable IDs help smaller models; screenshots retain the actual visuals. Unknown cells stay unknown. `observe --full` exposes the complete public UI report.
+Observations contain observed local tiles/visible actors, actual controls/reasons, player-owned party/pack/work, dialogue and combat presentation. Unplayed combat feedback/rewards and the next actor's skills are withheld during playback. A compact ASCII map and stable IDs help smaller models; screenshots retain the actual visuals. Unknown cells stay unknown. `observe --full` exposes the complete public UI report. Failed captures never reuse an older screenshot as new evidence.
 
 The version-one local file protocol uses `request.json`, `response.json`, `observation.json`, `frame.png`. Requests supply `schemaVersion: 1`, unique `id`, expected `observation`, `kind` and its fields. Responses acknowledge delivery and identify the resulting observation. There is no HTTP listener or arbitrary-command handler.
 

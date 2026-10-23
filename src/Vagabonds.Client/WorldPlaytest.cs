@@ -10,7 +10,7 @@ internal sealed partial class WorldGame
     private readonly PlaytestBridge? _playtest;
     // Test sessions freeze between observations. Explicit waits advance the normal
     // clock/animation path; no controller injects world ticks or combat results.
-    private bool InputFocused => _playtest == null ? IsActive : !_playtest.Holding;
+    private bool InputFocused => _playtest == null ? IsActive : _playtest.RunsFrames;
 
     private Point[] ResolvePlaytest(PlaytestRequest request)
     {
@@ -64,7 +64,7 @@ internal sealed partial class WorldGame
         // Reflect the held boundary in diagnostics after this update has completed.
         _session.Focused = false;
         BuildMouseControls(width, height);
-        _playtest.Publish(BuildUiReport(width, height), path =>
+        _playtest.Publish(BuildUiReport(width, height, playerView: true), path =>
         {
             if (_frame == null) throw new IOException("The game has not rendered a frame.");
             using var stream = new FileStream(path + ".tmp", FileMode.Create, FileAccess.Write);

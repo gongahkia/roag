@@ -38,6 +38,7 @@ internal sealed class PlaytestBridge
     private readonly System.Diagnostics.Stopwatch _idle = System.Diagnostics.Stopwatch.StartNew();
     public long Revision { get; private set; }
     public bool Holding => _active == null;
+    public bool RunsFrames => _active is { Kind: not ("capture" or "mark" or "stop") };
     public bool NeedsObservation => _initial || _active != null && _mouse.Count == 0 && _wait <= 0;
     public bool StopRequested { get; private set; }
 
@@ -114,6 +115,7 @@ internal sealed class PlaytestBridge
     {
         if (!NeedsObservation) return;
         string? captureError = null;
+        File.Delete(Path.Combine(_folder, "frame.png"));
         try { capture(Path.Combine(_folder, "frame.png")); }
         catch (Exception e) { captureError = e.Message; }
         Revision++;

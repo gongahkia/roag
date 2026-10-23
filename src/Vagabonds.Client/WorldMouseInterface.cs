@@ -515,9 +515,12 @@ internal sealed partial class WorldGame
         string temporary = path + ".tmp";
         File.WriteAllText(temporary, serialized); File.Move(temporary, path, true); _lastUiReport = serialized;
     }
-    private string BuildUiReport(int w, int h)
+    private string BuildUiReport(int w, int h, bool playerView = false)
     {
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
+        bool playing = playerView && Playback.Busy;
+        var reportedBattle = playerView ? DisplayBattle : _session.State.Battle;
+        CombatUnit? Presented(Actor actor) => playerView && reportedBattle is { } b && b.ActorIds.IndexOf(actor.Id) is var index && index >= 0 ? b.Units[index] : null;
         return JsonSerializer.Serialize(new
         {
             seed = _session.Seed, contentHash = _session.Content.Hash, sessionId = _recording?.Id,
@@ -528,7 +531,7 @@ internal sealed partial class WorldGame
             routeCount = _route.Count, notice = _notice,
             route = _route.Take(16).ToArray(), inventory = _session.State.Inventory,
             selectedSkill = _skill, cooperativePartner = _cooperativePartner,
-            skills = _session.ActiveSkills().Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
+            skills = (playing ? Array.Empty<Skill>() : _session.ActiveSkills()).Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
                 target = skill.Target.ToString(), skill.Cooperative, skill.PartnerMana, reason = _session.SkillUnavailable(index) }),
             context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding, hint = _contextHint },
             selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
@@ -541,30 +544,30 @@ internal sealed partial class WorldGame
             dialogue = _panel is not ("person" or "camp-story") || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,
             discoveries = _session.State.Discoveries.Where(d => d.Known).Select(d => new { id = d.Id, name = d.Name, x = d.Position.X, y = d.Position.Y, visited = d.Visited, outcome = d.Outcome, bypass = _session.DiscoveryBypass(d) }),
-            combatFeedback = _session.State.CombatEvents.TakeLast(8),
+            combatFeedback = playing ? Enumerable.Empty<Vagabonds.Core.World.CombatEvent>() : _session.State.CombatEvents.TakeLast(8),
             progression = _panel == "progression" ? new { actorId = SelectedMember().Id, combatTrait = SelectedMember().CombatTrait,
                 talents = SelectedMember().Talents, selected = _selectedTalent, ready = ReadyDevelopmentCount(SelectedMember()),
                 choices = _session.ProgressionChoices(SelectedMember().Id).Select(t => new { id = t.Id, t.Name, t.Description, t.Level,
                     learned = SelectedMember().Talents.Contains(t.Id), reason = _session.ProgressionChoiceReason(SelectedMember().Id, t.Id) }) } : null,
-            encounterReward = _session.State.LastEncounterReward,
+            encounterReward = playing ? null : _session.State.LastEncounterReward,
             equipment = _panel == "inventory" ? EquipmentChoices().Select((item, index) => new { index, id = item.Id, name = item.Name, slot = item.Slot, count = _session.Count(item.Stack) }) : null,
-            combatIntents = _session.State.Battle?.Units.Where(u => !u.Friendly).Select(u => BattleIntent(u.Id)),
+            combatIntents = playing ? null : _session.State.Battle?.Units.Where(u => !u.Friendly).Select(u => BattleIntent(u.Id)),
             combatPresentation = new { busy = Playback.Busy, phase = Playback.Phase, progress = Playback.Progress, phaseProgress = Playback.PhaseProgress,
                 stageVisible = CombatStageVisible, endingPending = Playback.EndingPending, sequence = Playback.Sequence,
                 abilityId = Playback.Current?.AbilityId, family = Playback.Current?.Profile.Family, source = Playback.Current?.Source, targets = Playback.Current?.Targets,
                 speed = _combatSpeed, reducedMotion = _reducedMotion, volume = _combatVolume, audioUnavailable = _combatAudio?.Unavailable ?? false,
                 playedCues = _combatAudio?.PlayedCues ?? 0, profileHash = CombatVisualProfiles.Default.Hash, area = Rect(CombatArea),
                 units = DisplayBattle?.Units.Select(u => new { id = u.Id, actorId = DisplayBattle.ActorIds[u.Id], name = u.Name, friendly = u.Friendly, alive = u.Alive, health = u.Health, mana = u.Mana, bounds = Rect(UnitRect(u)), spriteBounds = Rect(CombatSpriteBox(u)) }) },
-            party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
-                classId = _session.Class(a).Id, a.Level, a.Experience, a.Health, a.MaxHealth, a.Mana, a.MaxMana,
-                life = a.Life.ToString(), a.Body.Hunger, a.Body.Fatigue, a.Body.Wounds,
+            party = _session.Party.Where(a => a.Life != LifeState.Dead || playing && Presented(a) != null).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
+                classId = _session.Class(a).Id, a.Level, a.Experience, health = Presented(a)?.Health ?? a.Health, a.MaxHealth, mana = Presented(a)?.Mana ?? a.Mana, a.MaxMana,
+                life = Presented(a) is { } shown ? (shown.Alive ? LifeState.Alive : LifeState.Downed).ToString() : a.Life.ToString(), a.Body.Hunger, a.Body.Fatigue, a.Body.Wounds,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? (object)Rect(ActorRect(motion.Position)) : null }),
-            battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting, prepared = battle.Prepared,
-                units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null
+            battle = reportedBattle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting, prepared = battle.Prepared,
+                units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = playing ? "Wait for presentation." : _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null
         }, UiJson);
     }
 }
