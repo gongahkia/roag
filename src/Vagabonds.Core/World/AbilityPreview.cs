@@ -26,28 +26,29 @@ public static class AbilityPreview
     }
     private static object Prepared(ContentCatalog content, AbilityDefinition definition, int seed)
     {
-        string archetype = content.Game.Beast;
-        content = ContentCatalog.Load(content.Entries.Values.Select(d =>
-        {
-            var node = JsonSerializer.SerializeToNode<ContentDefinition>(d, ContentCatalog.Json)!;
-            if (d.Id == archetype)
-            {
-                node["behaviors"] = JsonSerializer.SerializeToNode(new[] { new BehaviorRule { Ability = definition.Id } }, ContentCatalog.Json);
-                node["mana"] = 100;
-            }
-            return (File: content.Source(d.Id), Text: node.ToJsonString());
-        }));
+        string archetype = "character.prepared-preview";
+        while (content.Entries.ContainsKey(archetype)) archetype += "-x";
+        var diagnostic = JsonSerializer.SerializeToNode<ContentDefinition>(content.Get<CharacterDefinition>(content.Game.Beast), ContentCatalog.Json)!;
+        diagnostic["id"] = archetype; diagnostic["name"] = "Prepared ability preview";
+        diagnostic["behaviors"] = JsonSerializer.SerializeToNode(new[] { new BehaviorRule { Ability = definition.Id } }, ContentCatalog.Json);
+        diagnostic["health"] = 1000; diagnostic["mana"] = 100; diagnostic["speed"] = 1;
+        diagnostic["ecology"] = null;
+        var original = content;
+        content = ContentCatalog.Load(original.Entries.Values.Select(d =>
+            (File: original.Source(d.Id), Text: JsonSerializer.Serialize<ContentDefinition>(d, ContentCatalog.Json)))
+            .Append((File: "preview/prepared-character.json", Text: diagnostic.ToJsonString())));
         var world = WorldSession.Create(seed, content); var hero = world.Party.First();
         hero.BaseHealth = hero.Health = 1000; hero.BaseSpeed = 30;
-        var enemy = world.State.Actors.First(a => a.Archetype == archetype);
-        enemy.BaseHealth = enemy.Health = 1000; enemy.BaseSpeed = 1;
+        var position = world.State.Position.Offset(8, 0); world.Chunks.Edit(position, Material.Floor);
+        var enemy = ActorFactory.Create(content, archetype, seed, world.State.NextActorId++, position, 0);
+        world.State.Actors.Add(enemy);
         world.StartBattle(enemy.Id);
         var frames = new List<object>(); ActionResult result = new(false, "Prepared ability did not release within the preview budget.");
         for (int i = 0; i < 24 && world.State.Battle is { } battle; i++)
         {
             long cursor = world.State.NextCombatEvent;
             var action = battle.Active.Friendly ? world.Act(3) : world.AdvanceEnemy();
-            frames.Add(new { battle.Round, action, intentions = battle.Plans, prepared = battle.Prepared.ToArray() });
+            frames.Add(new { battle.Round, action, intentions = battle.Plans.ToDictionary(p => p.Key, p => p.Value), prepared = battle.Prepared.ToArray() });
             if (world.State.CombatEvents.Any(e => e.Sequence >= cursor && e.Kind == "ability" && e.AbilityId == definition.Id))
             { result = action; break; }
         }

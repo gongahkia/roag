@@ -237,6 +237,17 @@ public sealed class ContentCatalog
                     break;
                 case EncounterDefinition encounter:
                     Ref<RewardDefinition>("reward", encounter.Reward);
+                    Range("weight", encounter.Weight, 1, 100);
+                    Range("minDepth", encounter.MinDepth, 1, 3); Range("maxDepth", encounter.MaxDepth, encounter.MinDepth, 3);
+                    if (encounter.Tier is not ("patrol" or "warband" or "elite")) Error("tier", "Use patrol, warband or elite for fixed authored danger.");
+                    if (encounter.Purposes == null || encounter.Purposes.Length == 0 || encounter.Purposes.Distinct().Count() != encounter.Purposes.Length
+                        || encounter.Purposes.Any(p => !EncounterDefinition.AllowedPurposes.Contains(p))) Error("purposes", "Provide distinct known site purposes.");
+                    if (encounter.Biomes == null || encounter.Biomes.Length == 0 || encounter.Biomes.Distinct().Count() != encounter.Biomes.Length
+                        || encounter.Biomes.Any(b => !Enum.IsDefined(b))) Error("biomes", "Provide distinct known biomes.");
+                    if (encounter.Roles == null || encounter.Roles.Length != encounter.Members?.Length || encounter.Roles.Any(r => !EncounterDefinition.AllowedRoles.Contains(r)))
+                        Error("roles", "Give every member an attacker, support, preparer or attrition role.");
+                    else if (encounter.Roles.Count(r => r == "support") > 1 || encounter.Roles.Count(r => r == "preparer") > 1)
+                        Error("roles", "A group may contain at most one support and one preparer.");
                     if (encounter.Sprite == null || string.IsNullOrWhiteSpace(encounter.Tactics) || encounter.Tactics.Length > 800) Error("tactics", "Provide an icon and readable counterplay of at most 800 characters.");
                     if (encounter.Members == null || encounter.Members.Length is < 1 or > 4) Error("members", "Provide one to four enemy members.");
                     else foreach (var id in encounter.Members)
@@ -244,6 +255,20 @@ public sealed class ContentCatalog
                         Ref<CharacterDefinition>("members", id);
                         if (id != null && _entries.TryGetValue(id, out var member) && member is CharacterDefinition character && (character.ActorKind is not (World.ActorKind.Beast or World.ActorKind.Raider) || character.Ecology != null)) Error("members", "Use hostile characters without separate habitat rules.");
                     }
+                    if (encounter.Members != null && encounter.Roles?.Length == encounter.Members.Length)
+                        for (int slot = 0; slot < encounter.Members.Length; slot++)
+                        {
+                            string id = encounter.Members[slot];
+                            if (id == null || !_entries.TryGetValue(id, out var member) || member is not CharacterDefinition character) continue;
+                            var abilities = (character.Behaviors ?? []).Where(r => r?.Ability != null)
+                                .Select(r => _entries.GetValueOrDefault(r.Ability)).OfType<AbilityDefinition>().ToArray();
+                            bool supports = abilities.Any(a => a.Target is Expeditions.TargetKind.Ally or Expeditions.TargetKind.AllAllies && a.Effect is "heal" or "cleanse" or "rally" or "guard");
+                            bool prepares = abilities.Any(a => a.PreparationTurns > 0); string role = encounter.Roles[slot];
+                            if (supports && role != "support" || prepares && role != "preparer"
+                                || role == "support" && !supports || role == "preparer" && !prepares
+                                || role == "attrition" && !abilities.Any(a => a.Effect is "burn" or "bleed" or "dread" or "mark" or "stun"))
+                                Error("roles", "Member " + slot + " role must match its actual support, preparation or attrition abilities.");
+                        }
                     break;
                 case RewardDefinition reward:
                     Range("gold", reward.Gold, 0, 999); Range("food", reward.Food, 0, 99); Range("experience", reward.Experience, 0, 999);
@@ -432,6 +457,11 @@ public sealed class ContentCatalog
         {
             CheckPlayerPool(runtime.Id, "commonAbilities", runtime.CommonAbilities);
             CheckPlayerPool(runtime.Id, "cooperativeAbilities", runtime.CooperativeAbilities);
+            var encounters = (runtime.Encounters ?? []).Select(id => id == null ? null : _entries.GetValueOrDefault(id)).OfType<EncounterDefinition>().ToArray();
+            foreach (string purpose in EncounterDefinition.AllowedPurposes) foreach (var biome in Enum.GetValues<World.Biome>())
+                for (int floor = 1; floor < World.WorldPlan.Floors; floor++)
+                    if (encounters.Count(e => e.Fits(purpose, biome, floor)) < 2)
+                        Issues.Add(new(Source(runtime.Id), "encounters", "Provide at least two eligible encounters for " + purpose + "/" + biome + "/depth " + floor + "."));
         }
         References.Add(new("$runtime", "entryPoint", "game.vagabonds"));
 

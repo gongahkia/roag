@@ -216,6 +216,9 @@
               "condition": {
                 "type": "string"
               },
+              "noRepeat": {
+                "type": "boolean"
+              },
               "ability": {
                 "type": "string"
               },
@@ -1716,6 +1719,49 @@
               "null"
             ]
           }
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "tier": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "integer"
+        },
+        "purposes": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "biomes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "Grassland",
+              "Forest",
+              "Marsh",
+              "Highland",
+              "Badland",
+              "Snow"
+            ]
+          }
+        },
+        "minDepth": {
+          "type": "integer"
+        },
+        "maxDepth": {
+          "type": "integer"
         },
         "tactics": {
           "type": "string"
