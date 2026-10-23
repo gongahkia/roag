@@ -1,0 +1,8 @@
+{
+  "kind": "item",
+  "id": "item.food",
+  "name": "Food",
+  "sprite": "campfire",
+  "stack": "food",
+  "value": 2
+}

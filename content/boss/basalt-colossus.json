@@ -1,0 +1,53 @@
+{
+  "kind": "boss",
+  "id": "boss.basalt-colossus",
+  "name": "Basalt Colossus",
+  "family": "stone dreams",
+  "sprite": "boulder",
+  "description": "A guardian of the stone dreams; its realm changes with every world.",
+  "weakness": "Mark the armour and interrupt the deliberate recovery.",
+  "tactics": "Strike pressures weakest targets; guard is eligible every 2 rounds. Below 40% health, sweep and recover enter its repertoire.",
+  "health": 246,
+  "power": 8,
+  "armor": 1,
+  "speed": 8,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.strike",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ],
+  "reward": "reward.guardian-stone"
+}

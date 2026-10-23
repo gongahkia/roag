@@ -1,0 +1,10 @@
+{
+  "kind": "recipe",
+  "id": "recipe.camp",
+  "name": "Camp",
+  "material": "Camp",
+  "cost": {
+    "item.wood": 4
+  },
+  "work": 30
+}

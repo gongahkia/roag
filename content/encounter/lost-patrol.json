@@ -1,0 +1,35 @@
+{
+  "kind": "encounter",
+  "id": "encounter.lost-patrol",
+  "name": "Lost patrol",
+  "sprite": "banner",
+  "members": [
+    "character.hollow",
+    "character.road-bowman"
+  ],
+  "roles": [
+    "attacker",
+    "attacker"
+  ],
+  "tier": "patrol",
+  "weight": 12,
+  "purposes": [
+    "ruin",
+    "mine",
+    "shrine",
+    "fort"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 3,
+  "tactics": "The bowman marks prey and concentrates arrows on marked or wounded companions. Remove its low-armour threat early or guard the exposed traveller; the oathless guard is slower and periodically defends itself.",
+  "reward": "reward.lost-patrol",
+  "description": "The bowman marks prey and concentrates arrows on marked or wounded companions. Remove its low-armour threat early or guard the exposed traveller; the oathless guard is slower and periodically defends itself."
+}

@@ -1,0 +1,53 @@
+{
+  "kind": "boss",
+  "id": "boss.ash-knight",
+  "name": "The Ash Knight",
+  "sprite": "bandit",
+  "family": "fallen champions",
+  "weakness": "Slow recovery after a sweeping attack; interrupt its healing.",
+  "tactics": "Alternates marked strikes and guarded recovery; below half health it sweeps the party.",
+  "description": "A scorched oath still moves inside the abandoned armour.",
+  "health": 220,
+  "power": 9,
+  "armor": 3,
+  "speed": 5,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "every": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 3
+    },
+    {
+      "ability": "ability.guard",
+      "every": 4
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "every": 2,
+      "weight": 3
+    },
+    {
+      "ability": "ability.recover",
+      "belowHealthPercent": 30
+    },
+    {
+      "ability": "ability.strike",
+      "weight": 2
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ],
+  "reward": "reward.guardian-iron"
+}

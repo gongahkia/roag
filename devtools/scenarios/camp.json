@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "Named camp worker prepares the party",
+  "seed": 42,
+  "fixture": "camp",
+  "steps": [
+    {"op": "command", "kind": "CampActivity", "item": "camp.watch", "partyIndex": 0},
+    {"op": "advance", "ticks": 10},
+    {"op": "save-load"},
+    {"op": "advance", "ticks": 200},
+    {"op": "assert", "path": "/workCount", "expected": 0},
+    {"op": "assert", "path": "/party/0/preparations/0/definition", "expected": "camp.watch"}
+  ]
+}

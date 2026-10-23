@@ -1,0 +1,15 @@
+{
+  "kind": "camp",
+  "id": "camp.treatment",
+  "name": "Tend the wounded",
+  "sprite": "cross",
+  "role": "treat",
+  "effect": "treat",
+  "power": 2,
+  "duration": 600,
+  "work": 80,
+  "cost": {
+    "item.medicine": 1
+  },
+  "description": "A medic treats nearby conscious companions: heals 12 HP and removes 2 wounds."
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "discovery",
+  "id": "discovery.fallen-caravan",
+  "name": "Fallen caravan",
+  "action": "cache",
+  "sprite": "barrel",
+  "text": "The cargo tally names {witness} in {town}. The {faction} lost this shipment on the road toward {site}; three pieces of equipment remain salvageable.",
+  "layout": [
+    ".......",
+    ".......",
+    ".##.##.",
+    ".......",
+    ".......",
+    "..#....",
+    "......."
+  ],
+  "supplies": {
+    "item.wood": 3,
+    "item.gold": 6
+  },
+  "rewards": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.ember-staff",
+    "item.chainmail",
+    "item.wanderers-cloak",
+    "item.heartstone",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "enemies": []
+}

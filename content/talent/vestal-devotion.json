@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.vestal-devotion",
+  "name": "Devotion",
+  "sprite": "potion",
+  "acquisition": "choice",
+  "class": "class.vestal",
+  "level": 4,
+  "bonuses": {
+    "mana-discount": 1
+  },
+  "description": "Abilities initiated by this traveller cost 1 less MP, to a minimum of 1. Free abilities remain free; helper costs are unchanged."
+}

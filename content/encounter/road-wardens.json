@@ -1,0 +1,34 @@
+{
+  "kind": "encounter",
+  "id": "encounter.road-wardens",
+  "name": "Road wardens",
+  "sprite": "banner",
+  "members": [
+    "character.vow-mender",
+    "character.road-bruiser"
+  ],
+  "roles": [
+    "support",
+    "attacker"
+  ],
+  "tier": "warband",
+  "weight": 40,
+  "purposes": [
+    "ruin",
+    "mine",
+    "fort"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 2,
+  "tactics": "The mender restores wounded allies between ordinary attacks, using a limited mana reserve. Focus or stun the frail mender; the bruiser guards only while wounded, leaving windows to strike.",
+  "reward": "reward.road-wardens",
+  "description": "The mender restores wounded allies between ordinary attacks, using a limited mana reserve. Focus or stun the frail mender; the bruiser guards only while wounded, leaving windows to strike."
+}

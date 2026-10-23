@@ -1,0 +1,20 @@
+{
+  "kind": "item",
+  "id": "item.pickaxe",
+  "name": "Iron pickaxe",
+  "sprite": "pickaxe",
+  "stack": "pickaxe",
+  "slot": "tool",
+  "value": 12,
+  "workBonuses": {
+    "dig": 60,
+    "mine": 60
+  },
+  "description": "Equip in the tool slot. dig: +60% work speed, mine: +60% work speed.",
+  "affixPool": [
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
+}

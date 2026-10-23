@@ -1,0 +1,8 @@
+{
+  "kind": "item",
+  "id": "item.medicine",
+  "name": "Medicine",
+  "sprite": "potion",
+  "stack": "medicine",
+  "value": 8
+}

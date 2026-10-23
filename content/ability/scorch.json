@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.scorch",
+  "name": "Scorch",
+  "sprite": "ember",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 3,
+  "effect": "burn",
+  "duration": 3,
+  "description": "Scorch."
+}

@@ -1,0 +1,35 @@
+{
+  "kind": "encounter",
+  "id": "encounter.penitent-procession",
+  "name": "Penitent procession",
+  "sprite": "banner",
+  "members": [
+    "character.vow-mender",
+    "character.hollow-bleeder",
+    "character.ash-whisper"
+  ],
+  "roles": [
+    "support",
+    "attrition",
+    "attrition"
+  ],
+  "tier": "elite",
+  "weight": 42,
+  "purposes": [
+    "shrine",
+    "ruin"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 2,
+  "maxDepth": 3,
+  "tactics": "A mender sustains the reaver and whisper while bleeding and dread accumulate. Disable the mender before spreading damage; healing clears bleeding, and calming abilities relieve stress. Their strongest actions leave ordinary-action openings.",
+  "reward": "reward.penitent-procession",
+  "description": "A mender sustains the reaver and whisper while bleeding and dread accumulate. Disable the mender before spreading damage; healing clears bleeding, and calming abilities relieve stress. Their strongest actions leave ordinary-action openings."
+}

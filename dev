@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")"
+if [ "${1:-}" = agent ]; then
+    shift
+    exec python3 tools/agent_tools.py "$@"
+fi
+if [ "${1:-}" = test ]; then
+    shift
+    exec ./tools/dotnet.sh test Vagabonds.sln --configuration Release "$@"
+fi
+if [ "${1:-}" = verify-native ]; then
+    shift
+    exec python3 tools/verify_world_input.py "$@"
+fi
+exec ./tools/dotnet.sh run --project src/Vagabonds.Tools --configuration Release -- "$@"

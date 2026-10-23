@@ -1,0 +1,14 @@
+{
+  "kind": "recipe",
+  "id": "recipe.field-medicine",
+  "name": "Field medicine",
+  "description": "Prepare a restorative from camp supplies.",
+  "material": "Camp",
+  "output": "item.medicine",
+  "amount": 1,
+  "work": 30,
+  "cost": {
+    "item.food": 2,
+    "item.wood": 1
+  }
+}

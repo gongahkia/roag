@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.hex",
+  "name": "Hex",
+  "sprite": "mark",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 2,
+  "effect": "mark",
+  "duration": 3,
+  "description": "Hex."
+}

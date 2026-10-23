@@ -1,0 +1,10 @@
+{
+  "kind": "recipe",
+  "id": "recipe.wall",
+  "name": "Wall",
+  "material": "Wall",
+  "cost": {
+    "item.stone": 2
+  },
+  "work": 15
+}

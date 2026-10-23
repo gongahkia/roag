@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.stand-fast",
+  "name": "Stand fast",
+  "sprite": "banner",
+  "mana": 3,
+  "target": "AllAllies",
+  "power": 0,
+  "effect": "rally",
+  "duration": 3,
+  "description": "Stand fast."
+}

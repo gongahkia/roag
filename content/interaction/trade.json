@@ -1,0 +1,10 @@
+{
+  "kind": "interaction",
+  "id": "interaction.trade",
+  "name": "Trade supplies",
+  "action": "trade",
+  "cost": {},
+  "amount": 0,
+  "distance": 2,
+  "description": "Exchange goods from the local town stock."
+}

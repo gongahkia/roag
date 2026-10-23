@@ -1,0 +1,36 @@
+{
+  "kind": "character",
+  "id": "character.bee",
+  "name": "Honey guardian",
+  "sprite": "bee",
+  "actorKind": "Beast",
+  "health": 18,
+  "mana": 0,
+  "power": 4,
+  "armor": 0,
+  "speed": 10,
+  "behaviors": [
+    {
+      "ability": "ability.sting",
+      "weight": 2
+    },
+    {
+      "ability": "ability.strike"
+    }
+  ],
+  "ecology": {
+    "behavior": "defend",
+    "biomes": [
+      "Grassland",
+      "Forest"
+    ],
+    "underground": false,
+    "resource": "resource.honey-tree",
+    "notice": 3,
+    "leash": 7,
+    "drops": {
+      "item.honey": 1
+    }
+  },
+  "reward": "reward.wildlife"
+}

@@ -1,0 +1,22 @@
+{
+  "kind": "resource",
+  "id": "resource.honey-tree",
+  "name": "Honey tree",
+  "sprite": "potion",
+  "depletedSprite": "tree",
+  "terrain": "Tree",
+  "biomes": [
+    "Grassland",
+    "Forest"
+  ],
+  "chancePerThousand": 25,
+  "capacity": 2,
+  "work": 25,
+  "regrowTicks": 4800,
+  "activity": "harvest",
+  "yield": {
+    "item.honey": 1,
+    "item.food": 1
+  },
+  "underground": false
+}

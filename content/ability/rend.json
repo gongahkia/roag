@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.rend",
+  "name": "Rend",
+  "sprite": "sword",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 5,
+  "effect": "bleed",
+  "duration": 3,
+  "description": "Rend."
+}

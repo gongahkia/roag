@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.strike",
+  "name": "Strike",
+  "sprite": "sword",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 6,
+  "effect": "damage",
+  "duration": 3,
+  "description": "Strike."
+}

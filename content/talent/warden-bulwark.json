@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.warden-bulwark",
+  "name": "Bulwark",
+  "sprite": "shield",
+  "acquisition": "choice",
+  "class": "class.warden",
+  "level": 2,
+  "bonuses": {
+    "protect": 3
+  },
+  "description": "Once per round, blocks up to 3 damage for another ally already at half health or lower. Uses the same cover as a shield."
+}

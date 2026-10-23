@@ -1,0 +1,9 @@
+{
+  "kind": "item",
+  "id": "item.honey",
+  "name": "Wild honey",
+  "sprite": "potion",
+  "stack": "honey",
+  "value": 5,
+  "description": "An ingredient carried in the shared pack."
+}

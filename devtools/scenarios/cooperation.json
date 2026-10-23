@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "Joint attack consumes the helper action exactly once",
+  "seed": 42,
+  "fixture": "cooperation",
+  "steps": [
+    {"op": "combat", "skill": 6, "target": 4, "partner": 0, "success": false},
+    {"op": "combat", "skill": 6, "target": 4, "partner": 3},
+    {"op": "assert", "path": "/battle/assisting/0", "expected": 3},
+    {"op": "save-load"},
+    {"op": "combat", "skill": 3},
+    {"op": "combat", "skill": 3},
+    {"op": "enemy"},
+    {"op": "assert", "path": "/battle/round", "expected": 2},
+    {"op": "assert", "path": "/battle/assisting", "expected": []},
+    {"op": "assert", "path": "/tick", "expected": 5}
+  ]
+}

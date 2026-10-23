@@ -1,0 +1,15 @@
+{
+  "kind": "variant",
+  "id": "variant.ironbound",
+  "name": "Ironbound",
+  "healthPercent": 110,
+  "power": 0,
+  "armor": 2,
+  "speed": -2,
+  "behaviors": [
+    {
+      "ability": "ability.guard",
+      "every": 3
+    }
+  ]
+}

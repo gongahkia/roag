@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.ember",
+  "name": "Ember",
+  "sprite": "ember",
+  "mana": 3,
+  "target": "Enemy",
+  "power": 11,
+  "effect": "burn",
+  "duration": 3,
+  "description": "Ember."
+}

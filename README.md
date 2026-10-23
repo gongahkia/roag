@@ -1,105 +1,72 @@
-# Pocket Edition
+# Vagabonds
 
-A native voxel creative sandbox built with Odin, GLFW, and OpenGL.
+A standalone fantasy RPG in C# / .NET 10 and MonoGame. Begin alone in a seeded 4096×4096 world, recruit generated inhabitants, explore 24 towns and 48 adventure sites, tunnel, craft equipment and fight a seed-selected final threat from a pool of 48 boss archetypes. Turn-based party encounters, shared actor needs, timed work and a changing economy use one persistent world.
 
-## Start playing
+Extracted from Ithica’s retained RPG at `c87d480`. Selected generation, work and social mechanisms from Ithica’s replayed history are adapted into this fantasy game. This repository contains its own source, projects, tests, complete original artwork, catalog, mappings, atlas and authoring tools; it needs no sibling checkout, symlinks or submodules. [Project state](docs/PROJECT_STATE.md) · [Play guide](docs/RPG.md) · [Development](docs/DEVELOPMENT.md) · [Origin](docs/ORIGIN.md).
 
-Install Python 3.12 or newer and the platform's native build tools, then run:
+## Run locally
 
-```sh
-make run
-```
-
-Every build, check, test, and run command reuses a compiler matching `toolchain.json`,
-or installs that exact Odin release into the ignored `.tools/` directory. Existing
-Odin installations on PATH are reused when their commit matches. Other globally
-installed versions are left in place. Downloads are checked against the pinned
-SHA-256 hashes before extraction; subsequent runs need no toolchain download.
-
-Without Make:
+Install the .NET 10 SDK, or use the optional per-user installer:
 
 ```sh
-# macOS / Linux
-./scripts/run.sh
-
-# Windows (Command Prompt or PowerShell)
-python scripts/build.py run
+./tools/setup-dotnet.sh
+./vagabonds.sh
+./vagabonds.sh --load
+./vagabonds.sh --new --seed 1337
 ```
 
-Windows also has `scripts\run.bat`. Both launch scripts accept game options.
+`vagabonds.sh` is the game launcher. On Windows or with a system SDK, run `dotnet run --project src/Vagabonds.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
+
+Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a new expedition when it does not. `--save PATH` selects another slot. `--new [--seed N]` explicitly starts over; saving or quitting then replaces the selected save. `--load` requires an existing save. Preview scenes and frame-limited captures do not autosave. To copy an existing fantasy RPG save into the new save slot without changing its source:
 
 ```sh
-make run ARGS="--profile low --fps-limit 60"
-./scripts/run.sh --profile low --fps-limit 60
+./vagabonds.sh --import-legacy ~/.regolith/lantern.json
+./vagabonds.sh --load
 ```
 
-### Platform prerequisites
+The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
 
-- **macOS:** Xcode command-line tools (`xcode-select --install`). Apple Silicon
-  uses the pinned prebuilt compiler. Intel Macs automatically build the pinned
-  Odin commit from source, reusing LLVM 17–22 or installing `llvm@22` through an
-  existing Homebrew installation. Without Homebrew, install a supported LLVM and
-  set `LLVM_CONFIG` to its `llvm-config` executable. The first source build takes
-  a few minutes. Git LFS is not required for this project's dependencies.
-- **Windows x64:** Visual Studio Build Tools with **Desktop development with C++**
-  and a Windows SDK. Use an x64 Native Tools command prompt if the linker is not
-  found. Make is optional; the Python command above works directly.
-- **Linux x64 / ARM64:** Clang (or a system C compiler), GLFW, and an OpenGL driver.
-  On Ubuntu: `sudo apt install clang libglfw3-dev libgl1-mesa-dri`.
-  Linux x64 can alternatively install the pinned local GLFW library with
-  `python3 scripts/bootstrap.py --local-glfw`.
+The world client is mouse-only: hover for a route preview, click ground to travel, and click people, caches or stairs to approach and interact. Left-drag selects tiles; right-click opens relevant actions, including digging and building. Solid props and characters block movement. Play/Pause, Party, Work, Actions, Journal and World map are visible buttons; Menu opens the guide and procedural inspector. Click an ability and a fighter in combat. Right-click a panel to close it; Stop cancels travel. The world stays large, with a close RPG camera and bounded zoom. Existing legacy campaigns retain their original controls. See the [play guide](docs/RPG.md).
 
-To explicitly select a compiler, set `ODIN_BIN` to its executable; it must match
-the pinned commit. Set `PYTHON` to override the interpreter used by Make or the
-Unix launch script, e.g. `make run PYTHON=python3.12`.
+## Content authoring
 
-## Commands
+`./dev content list`, `./dev content validate`, `./dev content inspect ID`, and `./dev preview character character.healer --seed 42` use the shared runtime content model. Definitions live under `content/`; [the authoring guide](docs/CONTENT_AUTHORING.md) covers references, scaffolding, removal, schemas and extension points. Run `./dev test` and review tooling at each substantial milestone. `./dev audit-world --seed 40 --samples 8` produces a JSON/SVG comparison; `./dev preview encounter boss.ash-knight --seed 42` exercises actual combat. `./dev verify-native` runs optional local X11/WSLg input acceptance using temporary saves (requires xdotool/ffmpeg and a built client).
 
-| Command | Action |
-| --- | --- |
-| `make` / `make build` | Compile `build/voxel` (`build/voxel.exe` on Windows) |
-| `make run` | Build and launch the game |
-| `make setup` | Install or reuse the pinned compiler without building the game |
-| `make check` | Check source and unused imports/variables |
-| `make test` | Run installer tests and the native Odin test suite |
-| `make clean` | Remove generated build output |
+## Agent development workflow
 
-Without Make, use `python3 scripts/build.py build`, `check`, `test`, or `run`
-(`python` on Windows). Add `--debug` for debug symbols and faster compilation.
+`./dev agent context` summarizes the checkout; `./dev agent doctor` reports prerequisites; `./dev agent impact` suggests relevant checks. Use `./dev agent verify --profile full --detach` for durable verification with logs and reconnectable run IDs. Explicit task requirements/checkpoints retain handoffs and require fresh evidence before completion. Content merge patches, deterministic JSON scenarios and read-only save diagnostics support reproducible debugging. See the [agent workflow guide](docs/AGENT_TOOLING.md) for examples and Linux/WSL worker requirements.
 
-## Controls
+If launch reports “World content differs from this build,” preserve that save and start a separate slot with `./vagabonds.sh --new --save "$HOME/.vagabonds/expedition.json"` (choose an unused filename). Resume that slot with `--load --save` and the same path.
 
-| Input | Action |
-| --- | --- |
-| WASD / mouse | Move / look |
-| Space / Shift | Jump or swim up / sprint |
-| **F** | Toggle walking and spectator flight with noclip |
-| Space / Ctrl in spectator mode | Fly up / down |
-| Left / right mouse | Break / place a block |
-| Hold left / right mouse | Repeat breaking / placement |
-| Middle mouse | Pick the targeted block |
-| 1–9 / Tab | Select a block / change palette page |
-| Mouse wheel / E | Select a block / open searchable palette |
-| Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z | Undo / redo (last 256 manual edits) |
-| Esc | Open or close settings |
-| F3 / F5 | Toggle diagnostics / save |
-| Q | Quit |
+## Build and inspect
 
-Worlds and settings are saved under `saves/`. More detail is in
-[settings](docs/settings.md), [terrain](docs/terrain.md), and
-[architecture](docs/architecture.md).
+```sh
+./tools/dotnet.sh restore Vagabonds.sln --locked-mode
+./tools/dotnet.sh build Vagabonds.sln --configuration Release --no-restore
+./tools/dotnet.sh test Vagabonds.sln --configuration Release --no-build
+./vagabonds.sh --world-headless
+./vagabonds.sh --validate-worlds 1000 --seed -500
+./vagabonds.sh --world-report
+./vagabonds.sh --scene world-inspector
+./vagabonds.sh --headless
+./vagabonds.sh --validate-seeds 1000 --seed -500
+./vagabonds.sh --scene atlas
+python3 tools/build_game_catalog.py --check
+python3 -m unittest discover -s tests/catalog -v
+```
 
-Settings include **Potato**, **Balanced**, and **Far** graphics presets, render
-distance, and Full/Fast/Off lighting. Use arrows or the wheel to reach additional
-rows in smaller windows. Memory and upload ceilings still apply. Worlds autosave
-every 60 seconds when changed; F5 requests an immediate save, with status shown
-in the upper right. Disk writes run on a single background writer.
+World diagnostics validate the new simulation/generation without player saves; the retained `--headless` mode completes the legacy quest. Scene captures and smoke checks also avoid automatic saving. [World architecture](docs/WORLD.md) · [Executed verification](docs/VERIFICATION.md).
 
-Run the repeatable low-memory scene suite with
-`python3 scripts/low_end_benchmark.py --stress`. It checks terrain readiness,
-memory/upload limits, frame-time percentiles, and edit-to-mesh latency. See
-[performance](docs/performance.md) for hardware limitations and regression gates.
+## Complete artwork and mappings
 
-Flowing water and rivers carry you downstream, and waterfalls pull downward.
-WASD and Space/Ctrl let you swim against the flow. Land jumps reach about 1.25
-blocks with brisker gravity; spectator flight ignores water forces and gravity.
+All **7,115 occupied sprites / 11,887 indexed regions**, **664 original PNGs**, **3 original archives**, original credits, crop IDs, mapping evidence and generic descriptions are included. The complete [schema-5 catalog](assets/catalog.json.gz) is losslessly compressed; queries read it directly. Regeneration also creates the ignored readable `assets/catalog.json` export.
+
+```sh
+python3 tools/query_assets.py --type actor --color green --limit 10
+python3 tools/query_assets.py --subject ghost --subject-confidence high --format ids
+python3 tools/build_game_catalog.py
+```
+
+Open [assets/atlas.html](assets/atlas.html) directly for neutral searches, exact crop downloads and layered scene experiments. Historical `ithica-*` asset filenames and origin-specific catalog fields are deliberately preserved; the expedition aliases and `usage.rpg` provide the RPG mappings. [Asset ownership and authoring](docs/ASSETS.md) · [Original credits](assets/CREDITS.txt).
+
+The game now includes WFC/BSP/cavern/ring layouts, generated companions, boss variations, loot/equipment, timed work and shared hunger/fatigue/injury with bounded memories and trust. Long-form balance still needs playtesting. Background gathering/production remains coarse; tactical walking/range, directional animation and controller input are not implemented.

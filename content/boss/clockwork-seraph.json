@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.clockwork-seraph",
+  "name": "Clockwork Seraph",
+  "family": "ancient constructs",
+  "sprite": "wisp",
+  "description": "A guardian of the ancient constructs; its realm changes with every world.",
+  "weakness": "Cleanse burns and strike before its cleansing cycle.",
+  "tactics": "Scorch pressures weakest targets; guard is eligible every 2 rounds. Below 50% health, interrupt and purify enter its repertoire.",
+  "health": 224,
+  "power": 10,
+  "armor": 3,
+  "speed": 4,
+  "phasePercent": 50,
+  "behaviors": [
+    {
+      "ability": "ability.scorch",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.scorch",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.purify",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ],
+  "reward": "reward.guardian-iron"
+}
