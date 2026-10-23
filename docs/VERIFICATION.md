@@ -2,7 +2,7 @@
 
 ## Session diagnostics — implementation checkpoint
 
-The initial recorder builds in Release with zero warnings/errors. Six focused .NET regressions passed for exact state/RNG preservation with working and throwing observers, save/load with diagnostic failure, command/crash evidence, event/marker rotation and oversized payloads, live-session/foreign-directory retention, fail-open serialization and bounded performance sampling. Graphical marker capture and the agent driver are still pending; this checkpoint does not establish native acceptance.
+The initial recorder builds in Release with zero warnings/errors. Focused .NET regressions cover exact state/RNG preservation with working and throwing observers, persistence with diagnostic failure, bounded evidence/retention/performance and protocol isolation. The first recorded native loop passed 29 exploration/combat/model-stand-in checks; separate ordinary OS mouse checks passed for automatic recording/marking/saving, opt-out and incompatible-startup crash capture with the isolated save preserved. Python tooling tests pass. These are implementation checkpoints; final fresh full acceptance and visual review follow below when executed.
 
 ## Completed companion and encounter milestone — 2026-10-23
 

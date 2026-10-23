@@ -2,7 +2,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from .workspace import read_json
 
-PROFILES = ['quick', 'tools', 'core', 'assets', 'world', 'native', 'full']
+PROFILES = ['quick', 'tools', 'core', 'assets', 'world', 'native', 'playtest', 'full']
 
 def impact(repo, paths=None, base=None):
     paths = paths or repo.changed(base)
@@ -32,5 +32,6 @@ def capabilities():
                 './dev audit-encounters --seeds 42,1337,-42,2026', './dev audit-counterplay --seed 42', './dev content patch ID --patch FILE',
                 './dev content impact ID', './dev content diff --against DIRECTORY',
                 './dev scenario run FILE', './dev scenario suite devtools/scenarios',
-                './dev diagnose save FILE', './dev diagnose diff BEFORE AFTER'],
+                './dev diagnose save FILE', './dev diagnose diff BEFORE AFTER', './dev sessions list',
+                './dev sessions report SESSION_ID', './dev playtest help', './dev playtest suite'],
             'protocol': 'Versioned JSON on stdout; nonzero for errors, failed/blocked/stale verification and incomplete completion checks.'}

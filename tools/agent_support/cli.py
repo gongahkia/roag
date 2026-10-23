@@ -28,6 +28,9 @@ def main(argv=None):
         elif command == 'doctor': result = repo.doctor()
         elif command == 'context':
             result = repo.context(); result['runs'] = runner.list_runs(repo)[:10]; result['tasks'] = tasks.tasks(repo)
+            from playtest_support.recordings import sessions
+            result['recentPlaySessions'] = sessions(limit=3)
+            result['playtestGuide'] = 'docs/SESSION_PLAYTESTING.md'
             if args.task: result['task'] = tasks.assess(repo,args.task)
         elif command == 'verify':
             if args.task: tasks.load(repo,args.task)

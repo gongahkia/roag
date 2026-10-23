@@ -1,6 +1,6 @@
 # Agent development workflow
 
-`./dev` is the shared entry point for people and coding agents. It uses the real content loader, simulation, test suite and MonoGame client. The workflow adds no LLM service, API credentials, daemon dependency or automatic Git actions. Read [DEVELOPMENT.md](DEVELOPMENT.md), [PROJECT_STATE.md](PROJECT_STATE.md) and the user-approved scope before editing.
+`./dev` is the shared entry point for people and coding agents. It uses the real content loader, simulation, test suite and MonoGame client. The workflow requires no LLM service, API credentials or daemon and performs no automatic Git actions. An explicitly invoked optional playtest adapter can use an installed Codex CLI/model. Read [DEVELOPMENT.md](DEVELOPMENT.md), [PROJECT_STATE.md](PROJECT_STATE.md) and the user-approved scope before editing.
 
 ## Orient and choose checks
 
@@ -38,7 +38,8 @@ A detached run survives a terminal or agent-session closing. Keep the returned r
 | `core` | Release build, content validation, full .NET tests with TRX evidence |
 | `assets` | Catalog freshness and catalog regressions |
 | `world` | Release build, scenario suite, headless game, four-seed world/exploration/wildlife/situation audits |
-| `native` | Release build and all nine actual graphical mouse scenarios under Xvfb |
+| `native` | Release build, all eleven graphical mouse scenarios under Xvfb, recorded playtest suite |
+| `playtest` | Release build and bounded recorded exploration/combat/ordinary-launch suite; no paid model calls |
 | `full` | Tools, core, assets, world and native, with the build deduplicated |
 
 `--scenes world world-cooperation` is accepted only with `native` or `full`. It explicitly narrows graphical coverage. A task requiring all native scenes cannot be completed with that subset.
@@ -54,6 +55,8 @@ Managed workers currently require **Linux/WSL** and Python 3.10+. Native runs al
 Inspection commands return success when inspection succeeds, even when the inspected run failed; read `result.status`, `fresh` and `artifactErrors`. Synchronous `verify` exits nonzero for unsuccessful/stale verification. `task check` and `task complete` exit nonzero while requirements remain unsatisfied. Detached `verify` means launched/reconnected, not finished.
 
 ## Explicit requirements and handoff
+
+For human playthroughs, `./dev sessions list/report/events` reads automatic local evidence. For an interactive agent tester, `./dev playtest start/observe/act/feedback/report/stop` drives an isolated rendered client; `playtest agent` accepts an explicit Codex model and bounded budget. Human sessions never start model requests. [SESSION_PLAYTESTING.md](SESSION_PLAYTESTING.md) documents storage bounds, schemas, inputs, screenshots, exact commands and the distinction between deterministic assertions and model opinions.
 
 Create a small JSON specification outside the content directory:
 

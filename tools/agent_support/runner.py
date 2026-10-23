@@ -54,7 +54,7 @@ def profile_steps(repo, profile, folder, scenes=None):
     def build(): add('build', [dotnet, 'build', 'Vagabonds.sln', '--configuration', 'Release', '--nologo', '-v:q'])
     profiles = ['tools', 'core', 'assets', 'world', 'native'] if profile == 'full' else [profile]
     for p in profiles:
-        if p in ['quick', 'core', 'world', 'native']: build()
+        if p in ['quick', 'core', 'world', 'native', 'playtest']: build()
         if p == 'tools': add('agent-tests', [python, '-m', 'unittest', 'discover', '-s', 'tests/agent', '-v'])
         if p in ['quick', 'core']:
             add('content', tool + ['content', 'validate'], evidence='valid-json')
@@ -75,6 +75,8 @@ def profile_steps(repo, profile, folder, scenes=None):
             add('audit-counterplay', tool + ['audit-counterplay', '--seed', '42', '--output', str(folder/'audit-counterplay.json')], evidence='passed-json')
         if p == 'native':
             add('native', ['xvfb-run', '-a', '-s', '-screen 0 1920x1200x24', python, 'tools/verify_world_input.py', '--output', str(folder/'native'), '--scenes', *(scenes or NATIVE_SCENES)], timeout=900, evidence='native')
+        if p in ['native', 'playtest']:
+            add('playtest-suite', [python, 'tools/playtest_tools.py', 'playtest', 'suite', '--no-build', '--output', str(folder/'playtests')], timeout=600, evidence='playtest')
     return steps
 
 def launch(repo, profile, task=None, scenes=None, steps=None):
@@ -172,6 +174,14 @@ def inspect_evidence(step, folder, log):
         if not p.exists(): return {'valid': False, 'reason': 'No native report.'}
         data = read_json(p); checks = data.get('checks', {})
         return {'valid': data.get('nativeMouseInput') == 'passed' and bool(checks) and all(checks.values()), 'checks': len(checks), 'failed': [k for k,v in checks.items() if not v]}
+    if kind == 'playtest':
+        path = folder/'playtests/report.json'
+        if not path.exists(): return {'valid': False, 'reason': 'No recorded playtest suite report.'}
+        data = read_json(path); checks = data.get('checks', [])
+        return {'valid': data.get('passed') is True and bool(checks) and all(c.get('passed') is True for c in checks)
+                and {'world', 'world-battle'}.issubset(data.get('scenes', [])),
+                'checks': len(checks), 'failed': [c.get('name') for c in checks if c.get('passed') is not True],
+                'paidModelInvoked': data.get('paidModelInvoked', False)}
     if kind in ['valid-json', 'passed-json']:
         data = read_json(log); return {'valid': data.get('valid' if kind == 'valid-json' else 'passed') is True}
     return {'valid': True}
@@ -198,6 +208,8 @@ def worker(repo, run_id):
                 finish('stale', 'Source changed while queued; start a new run for the current tree.'); return
             if any(s['name'] == 'native' for s in state['steps']) and not repo.doctor()['native']['available']:
                 finish('blocked', 'Native prerequisites missing; run ./dev agent doctor. No graphical check passed.'); return
+            if any(s['name'] == 'playtest-suite' for s in state['steps']) and not all(__import__('shutil').which(tool) for tool in ['xvfb-run', 'xdotool']):
+                finish('blocked', 'The recorded playtest suite requires xvfb-run and xdotool.'); return
             state['status'] = 'running'; persist()
             for step in state['steps']:
                 if (folder/'cancel.json').exists(): finish('cancelled'); return

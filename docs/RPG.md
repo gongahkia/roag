@@ -45,7 +45,7 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Mouse wheel / + / − / View | Zoom exploration / reset the close RPG camera |
 | Combat ability, then fighter | Select an ability and explicitly target an enemy or companion; ordinary self/group abilities execute immediately; cooperative abilities first need a helper |
 | Save / Load | Save / restore the selected compatible world slot |
-| Menu | Guide, procedural inspector, zoom reset, fullscreen, save and quit |
+| Menu | Guide, procedural inspector, zoom reset, fullscreen, Mark this moment, save and quit |
 | Inspector → Raw / Final / Repairs | Inspect generation stages |
 | Ending buttons | New traveller in the same world after a wipe, or begin a fresh world |
 | Window close | Save and quit normal play |
