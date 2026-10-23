@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Session diagnostics — implementation checkpoint
+
+The initial recorder builds in Release with zero warnings/errors. Six focused .NET regressions passed for exact state/RNG preservation with working and throwing observers, save/load with diagnostic failure, command/crash evidence, event/marker rotation and oversized payloads, live-session/foreign-directory retention, fail-open serialization and bounded performance sampling. Graphical marker capture and the agent driver are still pending; this checkpoint does not establish native acceptance.
+
 ## Completed companion and encounter milestone — 2026-10-23
 
 **Final managed run `20261023-013614-8663deaa` passed on the final gameplay source**, fingerprint `4901e3e410079018b612dfefa70942108195ccc10765f33d547d3bcc3e3db385`. It records 177 sealed artifacts with no checksum errors and reports `fresh: true`.

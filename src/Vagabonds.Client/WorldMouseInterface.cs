@@ -48,7 +48,8 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        _session = WorldSession.Create(WorldStartup.FreshSeed()); ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
+        _session = WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink); ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
+        _recording?.Record("new-world", new { _session.Seed }); RecordSnapshot();
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
@@ -119,9 +120,10 @@ internal sealed partial class WorldGame
             switch (_panel)
             {
                 case "game":
-                    string[] ids = ["panel:guide", "panel:inspector", "zoom:default", "fullscreen", "quit"];
-                    string[] labels = ["How to play", "World inspector", "Reset exploration zoom", "Toggle fullscreen", "Save and quit"];
-                    for (int i = 0; i < ids.Length; i++) Add(ids[i], labels[i], x, y + i * 52, Math.Min(360, width), 40);
+                    string[] ids = ["panel:guide", "panel:inspector", "zoom:default", "fullscreen", "mark-moment", "quit"];
+                    string[] labels = ["How to play", "World inspector", "Reset exploration zoom", "Toggle fullscreen", "Mark this moment", "Save and quit"];
+                    for (int i = 0; i < ids.Length; i++) Add(ids[i], labels[i], x, y + i * 46, Math.Min(360, width), 40,
+                        enabled: ids[i] != "mark-moment" || _recording is { Error: null }, reason: "Session recording is disabled or unavailable.");
                     break;
                 case "person": case "camp-story":
                     EnsureConversation();
@@ -378,6 +380,7 @@ internal sealed partial class WorldGame
     }
     private void ActivateControl(string id)
     {
+        _recording?.Record("ui-control", new { id, panel = _panel }, _session.State.Tick);
         string argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";
         string action = id.Split(':', 2)[0];
         if (action == "skill" && Playback.Busy) return;
@@ -391,6 +394,7 @@ internal sealed partial class WorldGame
             case "combat-volume": _combatVolume = _combatVolume >= .99f ? 0 : Math.Min(1, _combatVolume + .3f); _combatAudio?.Stop(); SaveConversationSettings(); break;
             case "combat-skip": Playback.Skip(); _combatAudio?.Stop(); _combatFloats.Clear(); CompleteCombatPlayback(); break;
             case "close": ClosePanel(); break;
+            case "mark-moment": ClosePanel(); MarkMoment("Player marked this moment"); break;
             case "pause":
                 _session.Paused = !_session.Paused;
                 if (_session.Paused) StopTravel(); _notice = _session.Paused ? "Paused. Click a destination to travel again." : "Time is running."; break;

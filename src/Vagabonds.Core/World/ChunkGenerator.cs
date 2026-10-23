@@ -163,6 +163,7 @@ public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = nul
 
 public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog? content = null)
 {
+    public Action<WorldDiagnosticEvent>? DiagnosticSink { get; set; }
     private int _landmarkCount = -1;
     private Dictionary<WorldPosition, Material> _landmarks = [];
     private readonly Dictionary<ChunkKey, (GeneratedChunk Chunk, long Used)> _resident = [];
@@ -174,9 +175,13 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     public GeneratedChunk Get(ChunkKey key)
     {
         if (_resident.TryGetValue(key, out var item)) { _resident[key] = (item.Chunk, ++_use); return item.Chunk; }
+        long started = DiagnosticSink == null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         var chunk = Generator.Generate(key);
         if (_resident.Count >= Capacity) _resident.Remove(_resident.MinBy(kv => kv.Value.Used).Key);
-        _resident[key] = (chunk, ++_use); return chunk;
+        _resident[key] = (chunk, ++_use);
+        try { DiagnosticSink?.Invoke(new("chunk-generation", state.Tick, new { key, elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds, resident = _resident.Count })); }
+        catch (Exception) { }
+        return chunk;
     }
     public Material At(WorldPosition p)
     {

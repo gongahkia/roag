@@ -25,13 +25,13 @@ public sealed partial class WorldSession : IGameSession
     public IEnumerable<Actor> Party => State.Party.Select(id => State.Actors.Single(a => a.Id == id));
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
-    internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null)
+    internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
         Content = content ?? ContentCatalog.Default;
-        Plan = plan; State = state; Chunks = new(plan, state, Content);
+        Plan = plan; State = state; Chunks = new(plan, state, Content); DiagnosticSink = diagnostics;
         Chunks.Prefetch(state.Position); Reveal();
     }
-    public static WorldSession Create(int seed, ContentCatalog? content = null)
+    public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
         content ??= ContentCatalog.Default;
         if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
@@ -65,7 +65,7 @@ public sealed partial class WorldSession : IGameSession
             for (int i = 0; i < 3; i++) s.Actors.Add(ActorFactory.Create(content, i == 0 ? content.Game.Beast : content.Game.Raider, seed, 30000 + site.Id * 4 + i,
                 (site.Center with { Floor = i == 2 ? 1 : 0 }).Offset(i * 3 - 4, 4), site.Id % 24, faction: site.Id % 6));
         }
-        var session = new WorldSession(plan, s, content);
+        var session = new WorldSession(plan, s, content, diagnostics);
         session.NewLoneHero();
         session.PopulateAdventures();
         session.PopulateDiscoveries();
@@ -121,7 +121,8 @@ public sealed partial class WorldSession : IGameSession
     {
         for (int i = 0; i < TicksPerSecond; i++) AdvanceWorldTick();
     }
-    public ActionResult Submit(WorldCommand command)
+    public ActionResult Submit(WorldCommand command) => ObserveAction("command", command, () => SubmitCommand(command));
+    private ActionResult SubmitCommand(WorldCommand command)
     {
         if (State.Endgame.Victory) return new(false, "This expedition is complete. Start a new world to play again.");
         if (DeathPending) return new(false, "Save the recorded deaths before continuing.");
@@ -252,6 +253,7 @@ public sealed partial class WorldSession : IGameSession
     public static readonly (int X, int Y)[] Directions = [(1, 0), (0, 1), (-1, 0), (0, -1)];
     private void Log(string text)
     {
+        Diagnose("journal", new { text });
         State.Journal.Add($"Day {State.Tick / (TicksPerHour * 24) + 1}: {text}");
         if (State.Journal.Count > 500) State.Journal.RemoveAt(0);
     }

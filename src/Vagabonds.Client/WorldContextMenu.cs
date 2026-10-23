@@ -228,6 +228,8 @@ internal sealed partial class WorldGame
     }
     private void BeginApproach(WorldClickPlan plan)
     {
+        _recording?.Record(plan.Reachable ? "navigation" : "navigation-rejected", new { plan.Reachable,
+            reason = plan.Reason, steps = plan.Path.Count, destination = plan.Path.LastOrDefault(), plan.Interaction }, _session.State.Tick);
         StopTravel();
         if (!plan.Reachable) { _notice = plan.Reason; return; }
         _pendingInteraction = plan.Interaction;

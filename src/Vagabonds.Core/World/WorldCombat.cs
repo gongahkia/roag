@@ -17,7 +17,10 @@ public sealed partial class WorldSession
         var battle = new WorldBattle();
         foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) AddUnit(a, true);
         foreach (var opponent in EncounterOpponents(enemy.Id)) AddUnit(opponent, false);
-        State.Battle = battle; NewCombatRound(); BeginCombatTurn();
+        State.Battle = battle;
+        Diagnose("encounter-start", new { position = State.Position, actors = battle.ActorIds.ToArray(),
+            units = battle.Units.Select(u => new { u.Name, u.Friendly, u.Health, u.MaxHealth }).ToArray() });
+        NewCombatRound(); BeginCombatTurn();
         void AddUnit(Actor a, bool friendly)
         {
             int index = battle.Units.Count;
@@ -72,6 +75,8 @@ public sealed partial class WorldSession
             .Select(id => ApplyProgressionSkill(actor, Content.Get<AbilityDefinition>(id).AsSkill())).ToArray();
     }
     public ActionResult Act(int skillIndex, int targetIndex = -1, int partnerIndex = -1)
+        => ObserveAction("combat-action", new { skillIndex, targetIndex, partnerIndex }, () => ActCommand(skillIndex, targetIndex, partnerIndex));
+    private ActionResult ActCommand(int skillIndex, int targetIndex, int partnerIndex)
     {
         if (State.Battle is not { } b || !b.Active.Friendly) return new(false, "Wait for your turn.");
         var skills = ActiveSkills();
@@ -102,7 +107,7 @@ public sealed partial class WorldSession
                 if (State.WorkRally != null) State.WorkRally = retreat;
                 break;
             }
-            StopPartyWorkApproach(); Reveal(); return new(true, "Retreated. Enemies retain their wounds.");
+            StopPartyWorkApproach(); Reveal(); Diagnose("encounter-end", new { outcome = "retreat", position = State.Position }); return new(true, "Retreated. Enemies retain their wounds.");
         }
         if (skill.Effect == "potion") Add("medicine", -1);
         var targets = skill.Target switch
@@ -159,7 +164,8 @@ public sealed partial class WorldSession
             }
         }
     }
-    public ActionResult AdvanceEnemy()
+    public ActionResult AdvanceEnemy() => ObserveAction("enemy-action", new { }, AdvanceEnemyCommand);
+    private ActionResult AdvanceEnemyCommand()
     {
         if (State.Battle is not { } b || b.Active.Friendly) return new(false, "It is your turn.");
         var u = b.Active;
@@ -243,6 +249,7 @@ public sealed partial class WorldSession
         {
             State.LastEncounterReward = GrantEncounterRewards(b);
             var reward = State.LastEncounterReward;
+            Diagnose("reward", reward);
             Feedback("reward", null, null, "Victory", reward.Experience,
                 reward.Theme + ": " + reward.Gold + " gold, " + reward.Food + " food; " + reward.Experience + " experience to each conscious survivor."
                 + (reward.LevelUps.Length > 0 ? " " + string.Join(", ", reward.LevelUps) : ""));
@@ -258,6 +265,7 @@ public sealed partial class WorldSession
             Chunks.Edit(State.Position, Material.Storage); State.Inventory = new() { ["food"] = 8, ["wood"] = 12, ["stone"] = 8, ["medicine"] = 2, ["gold"] = 10 };
             State.AwaitingContinuation = true; CommitDeaths();
         }
+        Diagnose("encounter-end", new { outcome = victory ? "victory" : "party-wipe", position = State.Position });
         return true;
     }
     private void Feedback(string kind, CombatUnit? source, CombatUnit? target, string label, int amount = 0, string detail = "", string abilityId = "")
@@ -265,6 +273,7 @@ public sealed partial class WorldSession
         long ActorId(CombatUnit? unit) => unit == null || State.Battle == null ? 0 : State.Battle.ActorIds[unit.Id];
         var targetState = target == null ? null : new CombatantFeedbackState(target.Health, target.Mana, target.Stress, target.Guarding, target.Burn, target.Bleed, target.Mark, target.Stun);
         State.CombatEvents.Add(new(State.NextCombatEvent++, State.Battle?.Round ?? 0, kind, ActorId(source), ActorId(target), label, amount, detail, targetState, abilityId));
+        Diagnose("combat-feedback", State.CombatEvents[^1]);
         if (State.CombatEvents.Count > 128) State.CombatEvents.RemoveAt(0);
     }
 }

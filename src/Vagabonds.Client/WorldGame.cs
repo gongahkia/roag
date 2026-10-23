@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Input;
 using Vagabonds.Core.Expeditions;
 using Vagabonds.Core.World;
 using Vagabonds.Core.Content;
+using Vagabonds.Core.Diagnostics;
 using Vagabonds.Graphics;
 
 namespace Vagabonds.Client;
@@ -43,10 +44,15 @@ internal sealed partial class WorldGame : Game
     private readonly Stopwatch _runtime = new();
     private readonly List<double> _updates = [];
     private readonly List<double> _frames = [];
+    private readonly LocalSessionRecorder? _recording;
+    private readonly PerformanceWindow _performance = new();
+    private double _snapshotTimer, _lastUpdateMs;
+    private int _markerSlot = -1;
     private long _lastDraw;
     private static readonly Color Ink = new(222, 214, 189), Muted = new(151, 154, 150), Gold = new(234, 187, 94), Panel = new(27, 33, 38);
-    public WorldGame(Options options, WorldSession session)
+    public WorldGame(Options options, WorldSession session, LocalSessionRecorder? recording = null)
     {
+        _recording = recording;
         _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
@@ -82,7 +88,8 @@ internal sealed partial class WorldGame : Game
             _graphics.PreferredBackBufferHeight = Math.Max(720, Window.ClientBounds.Height); _graphics.ApplyChanges();
         };
         IsMouseVisible = true; IsFixedTimeStep = false;
-        Exiting += (_, _) => { if (_autoSave) TrySave(); Capture(); };
+        Exiting += (_, _) => { if (_autoSave) TrySave(); Capture(); RecordSnapshot(); if (_performance.Take(true) is { } performance) _recording?.Record("performance", performance); };
+        RecordSnapshot();
     }
     protected override void LoadContent()
     {
@@ -120,7 +127,7 @@ internal sealed partial class WorldGame : Game
             if (press)
             {
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
-                if (control != null) { if (control.Enabled) ActivateControl(control.Id); else _notice = control.DisabledReason; }
+                if (control != null) { if (control.Enabled) ActivateControl(control.Id); else { _notice = control.DisabledReason; _recording?.Record("ui-rejected", new { control.Id, reason = _notice }, _session.State.Tick); } }
                 else if (_panel == "person" && SpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
@@ -168,7 +175,10 @@ internal sealed partial class WorldGame : Game
         CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         UpdateMotions(gameTime.ElapsedGameTime);
         UpdateView();
-        if (_updates.Count < 10000) _updates.Add(timer.Elapsed.TotalMilliseconds);
+        _lastUpdateMs = timer.Elapsed.TotalMilliseconds;
+        if (_updates.Count < 10000) _updates.Add(_lastUpdateMs);
+        _snapshotTimer += gameTime.ElapsedGameTime.TotalSeconds;
+        if (_recording != null && _snapshotTimer >= 10) { RecordSnapshot(); _snapshotTimer = 0; }
         _mouse = mouse; base.Update(gameTime);
     }
     internal static bool PanelPausesTime(string panel) => panel.Length > 0 && panel is not ("work" or "inventory" or "camp");
@@ -184,9 +194,9 @@ internal sealed partial class WorldGame : Game
     {
         UpdatePointer(mouse.Position);
         if (_pointer.Cell is not { } p) return;
-        if (!_session.Chunks.Seen(p)) { _notice = "Explore this ground first."; return; }
+        if (!_session.Chunks.Seen(p)) { _notice = "Explore this ground first."; _recording?.Record("navigation-rejected", new { target = p, reason = _notice }, _session.State.Tick); return; }
         var plan = WorldMouseNavigation.Plan(_session, _pointer.NavigationCell ?? p);
-        if (!plan.Reachable) { _notice = plan.Reason; OpenContext(mouse.Position); return; }
+        if (!plan.Reachable) { _notice = plan.Reason; _recording?.Record("navigation-rejected", new { target = p, reason = _notice }, _session.State.Tick); OpenContext(mouse.Position); return; }
         BeginApproach(plan);
     }
 
@@ -223,23 +233,25 @@ internal sealed partial class WorldGame : Game
     private void TrySave()
     {
         try { _session.Save(_options.Save); _autoSave = true; _notice = "World saved."; }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message; Console.Error.WriteLine(_notice); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message; Console.Error.WriteLine(_notice); _recording?.Record("save-failed", new { e.Message }); }
     }
     private void TryLoad()
     {
         try
         {
-            var replacement = WorldSession.Load(_options.Save);
+            var replacement = WorldSession.Load(_options.Save, diagnostics: _session.DiagnosticSink);
             _session = replacement; ResetCombatPresentation(); _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
             _notice = "World restored and paused. Click a destination or Play to continue.";
+            _recording?.Record("world-load", new { _session.Seed, save = _options.Save }); RecordSnapshot();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
         {
             _notice = e is IOException or UnauthorizedAccessException
                 ? "Load failed: the selected save could not be read. The current world is preserved."
                 : "Load failed: incompatible, damaged or incomplete world save. The current world is preserved.";
+            _recording?.Record("load-rejected", new { message = e.Message, type = e.GetType().Name });
         }
     }
     private void Fill(Rectangle r, Color color) => _batch.Draw(_pixel, r, color);
@@ -301,7 +313,14 @@ internal sealed partial class WorldGame : Game
         WriteUiReport(w, h);
         _batch.End(); GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();
-        if (_lastDraw > 0 && _frames.Count < 10000) _frames.Add(Stopwatch.GetElapsedTime(_lastDraw).TotalMilliseconds); _lastDraw = Stopwatch.GetTimestamp();
+        if (_lastDraw > 0)
+        {
+            double elapsed = Stopwatch.GetElapsedTime(_lastDraw).TotalMilliseconds;
+            if (_frames.Count < 10000) _frames.Add(elapsed);
+            if (_recording != null) { _performance.Add(elapsed, _lastUpdateMs); if (_performance.Take() is { } performance) _recording.Record("performance", performance, _session.State.Tick); }
+        }
+        _lastDraw = Stopwatch.GetTimestamp();
+        if (_markerSlot >= 0) CaptureMarker();
         _draws++;
         int end = _options.WorldSmoke ? Math.Max(120, _options.Frames) : _options.Frames;
         if (end > 0 && _draws >= end)

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Vagabonds.Client;
 using Vagabonds.Core.Expeditions;
 using Vagabonds.Core.World;
+using Vagabonds.Core.Diagnostics;
 
 namespace Vagabonds.Client
 {
@@ -9,6 +10,8 @@ public static class GameEntry
 {
 public static int Run(string[] args)
 {
+LocalSessionRecorder? recording = null;
+UnhandledExceptionEventHandler? crashHandler = null;
 try
 {
     var options = Options.Parse(args);
@@ -30,6 +33,8 @@ try
               --headless | --generation-report | --validate-seeds N | --smoke-test (legacy checks)
               --screenshot PATH --frames N --window-size WIDTHxHEIGHT
               --ui-report PATH (mouse UI diagnostic snapshot; preview without autosaving)
+              --session-root PATH (local session recordings; default ~/.vagabonds/sessions)
+              --no-recording (disable ordinary session recording)
             Click ground to travel; click people, caches or stairs to approach and interact.
             Use on-screen Play/Pause, action buttons and Menu. Right-click stops/closes.
             """);
@@ -74,22 +79,45 @@ try
         Console.WriteLine(JsonSerializer.Serialize(campaign.Summary(), new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
+    if (!options.NoRecording && !options.Preview && !options.SmokeTest)
+    {
+        recording = LocalSessionRecorder.TryStart(options.SessionRoot, new { build = LocalSessionRecorder.BuildIdentity(typeof(GameEntry).Assembly),
+            selectedSave = options.Save, requestedSeed = options.SeedSpecified ? (int?)options.Seed : null,
+            newGame = options.NewGame, requireLoad = options.Load, mode = "ordinary" });
+        if (recording != null)
+        {
+            Console.WriteLine("Session diagnostics: " + recording.Folder);
+            crashHandler = (_, e) => { if (e.ExceptionObject is Exception exception) { recording.Crash(exception); recording.Dispose(); } };
+            AppDomain.CurrentDomain.UnhandledException += crashHandler;
+        }
+    }
     if (options.LegacyScene || options.SmokeTest && !options.WorldSmoke)
     {
         using var legacyGame = new VagabondsGame(options); legacyGame.Run();
     }
     else
     {
-        var (session, _) = WorldStartup.Open(options);
-        if (session is WorldSession world) { using var game = new WorldGame(options, world); game.Run(); }
+        Action<WorldDiagnosticEvent>? sink = recording == null ? null : recording.Observe;
+        long opened = System.Diagnostics.Stopwatch.GetTimestamp();
+        var (session, resumed) = WorldStartup.Open(options, sink);
+        recording?.Record("world-open", new { session.Seed, resumed, format = session is WorldSession ? "world" : "legacy",
+            elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(opened).TotalMilliseconds });
+        if (session is WorldSession world) { using var game = new WorldGame(options, world, recording); game.Run(); }
         else { using var game = new VagabondsGame(options); game.Run(); }
     }
     return 0;
 }
 catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or FormatException or OverflowException)
 {
+    recording?.Crash(e);
     Console.Error.WriteLine("Vagabonds: " + e.Message);
     return 1;
+}
+catch (Exception e) { recording?.Crash(e); throw; }
+finally
+{
+    if (crashHandler != null) AppDomain.CurrentDomain.UnhandledException -= crashHandler;
+    recording?.Dispose();
 }
 
 }
@@ -132,6 +160,8 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
         public string Save { get; private set; } = Campaign.DefaultSave;
         public string? ImportLegacy { get; private set; }
         public string? UiReport { get; private set; }
+        public string? SessionRoot { get; private set; }
+        public bool NoRecording { get; private set; }
         public string? Screenshot
         {
             get; private set;
@@ -152,6 +182,8 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
                 switch (args[i])
                 {
                     case "--ui-report": o.UiReport = Path.GetFullPath(Value()); break;
+                    case "--session-root": o.SessionRoot = Path.GetFullPath(Value()); break;
+                    case "--no-recording": o.NoRecording = true; break;
                     case "--world-report": o.WorldReport = true; break;
                     case "--world-smoke": o.WorldSmoke = true; o.SmokeTest = true; break;
                     case "--world-headless": o.WorldHeadless = true; break;

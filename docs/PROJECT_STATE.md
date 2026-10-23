@@ -2,6 +2,10 @@
 
 **Last reconciled: 2026-10-23.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
+## Session diagnostics milestone (in progress)
+
+Ordinary graphical world launches now start a local recorder under `~/.vagabonds/sessions/`; `--session-root` selects a diagnostic directory and `--no-recording` disables it. Real Core commands/results, combat feedback/rewards, journal events and cache-miss generation timings flow to bounded asynchronous JSONL files. Ten-second player-owned snapshots and five-second frame/update samples support diagnosis; Menu → Mark this moment retains a snapshot and bounded screenshot. Managed exceptions retain crash context. Recording is outside saved state and never consumes game randomness; failed/full diagnostic writers leave gameplay running. Preview/headless checks retain their existing save isolation. The agent-facing driver and report commands are being implemented; see [SESSION_PLAYTESTING.md](SESSION_PLAYTESTING.md).
+
 Vagabonds is the fantasy party RPG extracted from Ithica at `c87d480`, now extended with a finite procedural world and selected systems from the replayed Ithica history. The approved integration direction is recorded in [INTEGRATION.md](INTEGRATION.md). This repository owns its application, Core, graphics, tests, assets, catalog and mappings; it loads no gameplay or assets from a sibling checkout. [ORIGIN.md](ORIGIN.md) records provenance. Archived Ithica guides under `history/ithica/` describe inherited source, not current gameplay.
 
 ## Implemented world

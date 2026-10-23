@@ -14,7 +14,7 @@ public static class SessionStore
         if (doc.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Save must be an object.");
         return doc.RootElement.TryGetProperty("format", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
     }
-    public static IGameSession Load(string path) => Format(path) == "vagabonds-world" ? WorldSession.Load(path) : new LegacyCampaignSession(Campaign.LoadRpg(path));
+    public static IGameSession Load(string path, Action<WorldDiagnosticEvent>? diagnostics = null) => Format(path) == "vagabonds-world" ? WorldSession.Load(path, diagnostics: diagnostics) : new LegacyCampaignSession(Campaign.LoadRpg(path));
 }
 
 public sealed partial class WorldSession
@@ -38,6 +38,7 @@ public sealed partial class WorldSession
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
         WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
         SavePath = path; DeathPending = false;
+        Diagnose("save", new { path, chunks = refs.Count });
     }
     private static void WriteAtomic(string path, byte[] data)
     {
@@ -49,7 +50,7 @@ public sealed partial class WorldSession
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    public static WorldSession Load(string path, ContentCatalog? content = null)
+    public static WorldSession Load(string path, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
         var catalog = content ?? ContentCatalog.Default;
         if (catalog.Issues.Count > 0) throw new InvalidDataException("Cannot load with invalid content.");
@@ -78,7 +79,7 @@ public sealed partial class WorldSession
             state.Chunks.Add(delta);
         }
         ValidateState(plan, state, catalog);
-        var session = new WorldSession(plan, state, catalog) { SavePath = Path.GetFullPath(path), Paused = true };
+        var session = new WorldSession(plan, state, catalog, diagnostics) { SavePath = Path.GetFullPath(path), Paused = true };
         foreach (var chunk in state.Chunks)
             foreach (var (index, stock) in chunk.Resources)
             {
