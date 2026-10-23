@@ -52,6 +52,8 @@ class PlaytestingTests(unittest.TestCase):
     def test_mouse_actions_are_bounded_typed_and_have_no_rule_mutation_commands(self):
         valid = driver.validate_action({'kind': 'tile', 'x': 11, 'y': 12, 'label': None})
         self.assertNotIn('label', valid)
+        structured = dict.fromkeys(model.ACTION_PROPERTIES); structured.update(kind='control', control='panel:inventory')
+        self.assertEqual({'kind': 'control', 'control': 'panel:inventory'}, driver.validate_action(structured))
         for action in [{'kind': 'teleport'}, {'kind': 'control', 'cheat': True}, {'kind': 'wait', 'seconds': 60},
                        {'kind': 'wait', 'seconds': float('nan')}, {'kind': 'point', 'x': True},
                        {'kind': 'control', 'control': 42}, {'kind': 'mark', 'label': 42},

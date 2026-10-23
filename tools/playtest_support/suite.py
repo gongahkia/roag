@@ -162,7 +162,8 @@ def run(repo, output=None, no_build=False):
         start('world')
         stub = output / 'codex-stub.py'
         stub.write_text('#!/usr/bin/env python3\nimport sys,json\nfrom pathlib import Path\ntext=sys.stdin.read()\nui=json.loads(text.split("Current observation JSON: ",1)[1])\n'
-                        'done=ui["panel"]=="inventory"\naction=None if done else {"kind":"control","control":"panel:inventory"}\n'
+                        'done=ui["panel"]=="inventory"\naction=None if done else dict.fromkeys(["kind","control","x","y","endX","endY","unit","actor","button","seconds","label"])\n'
+                        'if action is not None: action.update(kind="control",control="panel:inventory")\n'
                         'value={"reason":"Observed the requested party panel" if done else "Open the party panel", "done":done,"action":action,"finding":'
                         '({"category":"usability","severity":"note","description":"The party panel opened through the mouse interface.","expected":""} if done else None)}\n'
                         'Path(sys.argv[sys.argv.index("--output-last-message")+1]).write_text(json.dumps(value))\n'

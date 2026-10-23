@@ -177,6 +177,9 @@ def validate_action(action):
     allowed = {'kind', 'control', 'x', 'y', 'endX', 'endY', 'unit', 'actor', 'button', 'seconds', 'label'}
     if not isinstance(action, dict) or set(action) - allowed or action.get('kind') not in KINDS:
         raise ValueError('Provide a known mouse action and supported fields; use ./dev playtest help.')
+    # Structured model schemas require every optional field, represented by null.
+    # Apply defaults only after removing those absent values.
+    action = {key: value for key, value in action.items() if value is not None}
     if len(json.dumps(action).encode()) > 8192:
         raise ValueError('Action is too large.')
     for key, maximum in [('control', 200), ('label', 500)]:
