@@ -1,5 +1,6 @@
 """Optional Codex CLI decision loop. Only the validated mouse driver acts on decisions."""
 import json
+import copy
 from pathlib import Path
 import shutil
 import subprocess
@@ -41,6 +42,14 @@ def command(executable, model, reasoning, folder, schema, answer, screenshot=Non
     return [*argv, '-']
 
 
+def decision_schema(knowledge):
+    schema = copy.deepcopy(DECISION_SCHEMA)
+    target = schema['properties']['plan']['anyOf'][1]['properties']['targetId']
+    target['enum'] = [None, *knowledge['places']]
+    target['description'] = 'A learned map-place ID only. Use null for recruiting or other goals; actor IDs are not place IDs.'
+    return schema
+
+
 def prompt(objective, observation, history, remaining, knowledge=None, remaining_seconds=None, closing=False):
     return '\n'.join([
         'You are the player and usability playtester of Vagabonds, a mouse-driven fantasy party RPG. Return one JSON decision matching the schema.',
@@ -57,6 +66,7 @@ def prompt(objective, observation, history, remaining, knowledge=None, remaining
         'Give a useful comment at the first impression, a new place/mechanic, an unexpected outcome, repeated confusion, and periodically when commentDue. Do not narrate every click or merely say an animation is busy. Explain WHY it helps/hurts understanding, navigation, agency, world identity or motivation.',
         'Keep actual bugs in finding. Ordinary impressions belong in comments; uncertainty is allowed. A delivered click and visible label do not prove a feature is understandable or fun. Ground feedback in the screenshot and the remembered play history.',
         'Persistent player memory includes learned places, journal text, past notices and action results. Keep plan focused: goal, an observed targetId or null, nextStep, and a short reminder of your intent. Do not return to recruitment after two companions unless that serves the objective. Use remembered clues instead of repeating conversations.',
+        'Only completedCheckpoints/milestones are achieved; nextUnmetCheckpoint is still missing. Count current party members before claiming recruitment. plan.targetId is a learned map-place ID; use null for recruiting people. An actor ID is never a map-place ID.',
         'When following a journey, its suggestedAction uses only visible walkable ground and remembered destinations. Use it to maintain travel unless a new visible event needs attention. This is labelled route assistance, so do not claim unaided navigation was clear merely because guidance worked. If a route is active, wait for it; marking a map destination alone does not move you.',
         'In combat inspect HP and available healing before repeating basic attacks. Downed allies, low health, control descriptions and enemy intent should affect choices. Observing a difficult fight does not by itself prove bad balance.',
         'If stuck, state exactly what blocked you. End with done=true and action=null when the objective is met, impossible with current evidence, or there is no useful next action.',
@@ -155,6 +165,7 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
             if observed.get('actionPending'):
                 raise ValueError('Previous action is pending; observe until its receipt arrives before continuing the model.')
             memory.remember(knowledge, observed['state']); memory.save(path, knowledge)
+            atomic_json(schema, decision_schema(knowledge))
             closing = remaining <= min(35, timeout * .12) or index == max_steps - 1
             current = prompt(objective, observed['state'], history, max_steps - index,
                              memory.context(knowledge, observed['state'], journey), round(remaining, 1), closing)
@@ -180,8 +191,16 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 raise ValueError('Model decision exceeds 32 KiB.')
             decision = json.loads(answer.read_text()); validate_decision(decision); count += 1
             atomic_json(folder / ('decision-' + str(index % 8) + '.json'), {'index': index + 1, 'observation': observed['state']['observation'], 'decision': decision})
-            memory.plan(knowledge, decision.get('plan')); memory.save(path, knowledge)
             experience.add(repo, run_id, decision.get('comments', []), root)
+            try:
+                memory.plan(knowledge, decision.get('plan'))
+                knowledge.pop('planFeedback', None)
+            except ValueError as error:
+                # A malformed intention is not a gameplay command. Preserve
+                # evidence and the last valid goal; the mouse action is validated independently.
+                knowledge['planFeedback'] = str(error)
+                report['recoveredPlanProposals'] = report.get('recoveredPlanProposals', 0) + 1
+            memory.save(path, knowledge)
             if decision.get('debrief'):
                 atomic_json(path / 'playtester-debrief.json', {'assessment': decision['debrief'], 'observation': observed['state']['observation'],
                             'judgment': 'tester-opinion', 'basedOnComments': [e['number'] for e in driver.read(path / 'feedback.json', [])]})

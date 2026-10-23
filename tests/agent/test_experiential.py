@@ -43,12 +43,18 @@ class ExperientialTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'player-observed'):
             memory.plan(self.state, {'goal': 'Skip ahead', 'targetId': 'site-secret', 'nextStep': '', 'remember': ''})
         self.assertNotIn('site-secret', self.state['places'])
+        target = model.decision_schema(self.state)['properties']['plan']['anyOf'][1]['properties']['targetId']
+        self.assertEqual([None, 'discovery-1'], target['enum'])
+        self.assertNotIn('enum', model.DECISION_SCHEMA['properties']['plan']['anyOf'][1]['properties']['targetId'])
 
     def test_checkpoints_follow_observations_not_model_completion_claims(self):
         memory.remember(self.state, self.observation(party=[{}, {}, {}]))
         self.assertIn('recruited-two-companions', self.state['milestones'])
         self.assertNotIn('visited-discovery', self.state['milestones'])
         self.assertNotIn('entered-dungeon', self.state['milestones'])
+        guide = memory.guidance(self.state, self.observation(party=[{}, {}, {}]))
+        self.assertEqual('visited-discovery', guide['nextUnmetCheckpoint'])
+        self.assertNotIn('visited-discovery', guide['completedCheckpoints'])
         memory.remember(self.state, self.observation(2, discoveries=[{'id': 'discovery-1', 'name': 'Old shelter', 'x': 10, 'y': 1, 'visited': True}]))
         memory.remember(self.state, self.observation(3, position={'x': 10, 'y': 1, 'floor': 1}))
         self.assertIn('visited-discovery', self.state['milestones'])

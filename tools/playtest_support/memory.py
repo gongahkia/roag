@@ -97,6 +97,8 @@ def cell_key(x, y, floor):
 
 def context(state, observation, journey=False):
     result = {k: state[k] for k in ('objective', 'plan', 'places', 'journal', 'notices', 'milestones', 'actions', 'stationaryActions')}
+    result['planFeedback'] = state.get('planFeedback')
+    result['currentPartySize'] = len(observation.get('party', []))
     result['milestoneMeaning'] = 'Observed checkpoints only; they do not certify understanding, enjoyment, victory or a completed objective.'
     result['commentDue'] = state['observations'] == 1 or state['observations'] % 8 == 0
     if journey:
@@ -108,7 +110,10 @@ def guidance(state, observation):
     """A labelled walking aid uses only remembered leads and currently observed ground."""
     p = observation['position']; milestones = state['milestones']
     checkpoint = next((s for s in ('recruited-two-companions', 'visited-discovery', 'entered-dungeon') if s not in milestones), 'review')
-    result = {'checkpoint': checkpoint, 'assistance': 'Observed-ground route suggestion, not an unaided wayfinding test.', 'suggestedAction': None}
+    result = {'nextUnmetCheckpoint': checkpoint, 'completedCheckpoints': list(milestones),
+              'currentPartySize': len(observation.get('party', [])),
+              'instruction': 'nextUnmetCheckpoint is NOT completed. Only completedCheckpoints are reached.',
+              'assistance': 'Observed-ground route suggestion, not an unaided wayfinding test.', 'suggestedAction': None}
     if observation.get('panel') or observation.get('battle') or observation.get('context'):
         return result
     if observation.get('routeCount', 0):

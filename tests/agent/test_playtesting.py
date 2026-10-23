@@ -115,7 +115,7 @@ class PlaytestingTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
 
-    def run_budget_fixture(self, decision_seconds, *, model_timeout=False):
+    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None):
         clock = [0]
         observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}}}
         result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
@@ -127,7 +127,7 @@ class PlaytestingTests(unittest.TestCase):
                 raise subprocess.TimeoutExpired('fixture-model', decision_seconds)
             atomic_json(self.session / 'model/answer.json', {
                 'reason': 'Wait for the queued work', 'done': False,
-                'action': {'kind': 'wait', 'seconds': 5}, 'finding': None})
+                'action': {'kind': 'wait', 'seconds': 5}, 'finding': None, 'plan': proposed_plan})
             return 0, ''
 
         with patch.object(model.driver, 'location', return_value=(self.session, {})), \
@@ -155,6 +155,16 @@ class PlaytestingTests(unittest.TestCase):
         self.assertEqual(1, report['lastStep'])
         act.assert_called_once()
         self.assertEqual(15, act.call_args.kwargs['timeout'])
+
+    def test_unknown_planned_destination_preserves_evidence_and_does_not_abort_a_valid_action(self):
+        report, act = self.run_budget_fixture(5, proposed_plan={
+            'goal': 'Recruit a visible person', 'targetId': '1000', 'nextStep': 'Talk', 'remember': ''})
+        self.assertEqual('step-budget', report['status'])
+        self.assertEqual(1, report['recoveredPlanProposals'])
+        act.assert_called_once()
+        stored = json.loads((self.session / 'player-memory.json').read_text())
+        self.assertIsNone(stored['plan'])
+        self.assertIn('player-observed', stored['planFeedback'])
 
     def test_model_timeout_distinguishes_overall_budget_from_slow_decision(self):
         for elapsed, expected in [(20, 'time-budget'), (5, 'model-error')]:
