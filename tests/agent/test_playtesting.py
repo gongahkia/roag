@@ -115,9 +115,9 @@ class PlaytestingTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
 
-    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None):
+    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None, done=False, journey=False, max_steps=1):
         clock = [0]
-        observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}}}
+        observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}, 'party': [{}, {}, {}]}}
         result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
                   'state': {'observation': 2, 'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2, 'floor': 0}}}
 
@@ -126,8 +126,8 @@ class PlaytestingTests(unittest.TestCase):
             if model_timeout:
                 raise subprocess.TimeoutExpired('fixture-model', decision_seconds)
             atomic_json(self.session / 'model/answer.json', {
-                'reason': 'Wait for the queued work', 'done': False,
-                'action': {'kind': 'wait', 'seconds': 5}, 'finding': None, 'plan': proposed_plan})
+                'reason': 'More action is needed', 'done': done,
+                'action': None if done else {'kind': 'wait', 'seconds': 5}, 'finding': None, 'plan': proposed_plan})
             return 0, ''
 
         with patch.object(model.driver, 'location', return_value=(self.session, {})), \
@@ -137,7 +137,7 @@ class PlaytestingTests(unittest.TestCase):
              patch.object(model.shutil, 'which', return_value='/installed/codex'), \
              patch.object(model.time, 'monotonic', side_effect=lambda: clock[0]), \
              patch.object(model, 'execute', side_effect=execute):
-            report = model.run(None, 'fixture', 'gpt-5.6-luna', 'Test queued work', max_steps=1, timeout=20)
+            report = model.run(None, 'fixture', 'gpt-5.6-luna', 'Test queued work', max_steps=max_steps, timeout=20, journey=journey)
             stop.assert_called_once()
         return report, act
 
@@ -165,6 +165,14 @@ class PlaytestingTests(unittest.TestCase):
         stored = json.loads((self.session / 'player-memory.json').read_text())
         self.assertIsNone(stored['plan'])
         self.assertIn('player-observed', stored['planFeedback'])
+
+    def test_model_cannot_claim_journey_finished_from_an_unmet_micro_goal(self):
+        report, act = self.run_budget_fixture(5, done=True, journey=True, max_steps=3)
+        self.assertEqual(2, report['prematureFinishes'])
+        self.assertEqual(3, report['decisions'])
+        self.assertEqual('step-budget', report['status'])
+        self.assertFalse(report['coverage']['journeyComplete'])
+        act.assert_not_called()
 
     def test_model_timeout_distinguishes_overall_budget_from_slow_decision(self):
         for elapsed, expected in [(20, 'time-budget'), (5, 'model-error')]:

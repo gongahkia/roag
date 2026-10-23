@@ -121,7 +121,7 @@ def main(argv=None):
                          args.decision_timeout, args.root, args.codex_executable, args.keep_open, args.dry_run, args.journey)
         else:
             raise ValueError('Unknown command; use playtest help.')
-        ok = result.get('passed', True) and result.get('status') not in ['model-error', 'client-exited', 'interrupted']
+        ok = result.get('passed', True) and result.get('status') not in ['model-error', 'client-exited', 'interrupted', 'objective-incomplete']
         print(json.dumps({'schemaVersion': 1, 'ok': ok, 'command': command, 'result': result}, indent=2, ensure_ascii=False))
         return 0 if ok else 1
     except (ValueError, OSError, TimeoutError, KeyError, TypeError, subprocess.TimeoutExpired) as e:

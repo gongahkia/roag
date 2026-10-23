@@ -69,6 +69,7 @@ def prompt(objective, observation, history, remaining, knowledge=None, remaining
         'Persistent player memory includes learned places, journal text, past notices and action results. Keep plan focused: goal, an observed targetId or null, nextStep, and a short reminder of your intent. Do not return to recruitment after two companions unless that serves the objective. Use remembered clues instead of repeating conversations.',
         'Only completedCheckpoints/milestones are achieved; nextUnmetCheckpoint is still missing. Count current party members before claiming recruitment. plan.targetId is a learned map-place ID; use null for recruiting people. An actor ID is never a map-place ID.',
         'When following a journey, its suggestedAction uses only visible walkable ground and remembered destinations. Use it to maintain travel unless a new visible event needs attention. This is labelled route assistance, so do not claim unaided navigation was clear merely because guidance worked. If a route is active, wait for it; marking a map destination alone does not move you.',
+        'The focused journey is not finished after one conversation, one movement or one inspection. Continue until its three observed checkpoints are complete or closingSoon. If one person or route fails, try another visible person or a different approach and record the confusion; a plan saying “more action is needed” is a reason to act, not to finish.',
         'In combat inspect HP and available healing before repeating basic attacks. Downed allies, low health, control descriptions and enemy intent should affect choices. Observing a difficult fight does not by itself prove bad balance.',
         'If stuck, state exactly what blocked you. End with done=true and action=null when the objective is met, impossible with current evidence, or there is no useful next action.',
         'A done=true decision executes no action. Finish only after an observation confirms the last action succeeded.',
@@ -209,13 +210,25 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 knowledge['planFeedback'] = str(error)
                 report['recoveredPlanProposals'] = report.get('recoveredPlanProposals', 0) + 1
             memory.save(path, knowledge)
+            terminal = not observed['state'].get('party') or any(c.get('id') in ('continue-world', 'new-world') for c in observed['state'].get('controls', []))
+            premature = decision['done'] and journey and not memory.journey_complete(knowledge) and not closing and not terminal
             if decision.get('debrief'):
                 atomic_json(path / 'playtester-debrief.json', {'assessment': decision['debrief'], 'observation': observed['state']['observation'], 'modelStarted': report['started'],
+                            'final': not premature,
                             'judgment': 'tester-opinion', 'basedOnComments': [e['number'] for e in driver.read(path / 'feedback.json', [])]})
             if decision['finding']:
                 finding = decision['finding']
                 driver.feedback(repo, run_id, finding['description'], finding['category'], finding['severity'], root, finding['expected'])
             if decision['done']:
+                if premature:
+                    report['prematureFinishes'] = report.get('prematureFinishes', 0) + 1
+                    knowledge['completionFeedback'] = 'The journey is still incomplete. Use another normal visible action; inspect the unmet checkpoint. Your last stated nextStep: ' + (knowledge.get('plan') or {}).get('nextStep', '')
+                    memory.save(path, knowledge)
+                    if report['prematureFinishes'] < 3:
+                        report.update(decisions=count, usage=usage); atomic_json(path / 'model-report.json', report); experience.write(path)
+                        continue
+                    report.update(status='objective-incomplete', conclusion=decision['reason'])
+                    break
                 report['status'] = ('time-budget' if remaining <= min(35, timeout * .12) else 'step-budget') if closing else 'model-finished'
                 report['conclusion'] = decision['reason']; break
             if decision['action'] is None:
@@ -251,7 +264,7 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
     finally:
         report.update(finished=utc(), elapsedSeconds=time.monotonic() - started, decisions=count, usage=usage, recentActions=history[-8:])
         report['coverage'] = {'observedCheckpoints': list(knowledge['milestones']),
-                              'journeyComplete': all(k in knowledge['milestones'] for k in ['recruited-two-companions', 'visited-discovery', 'entered-dungeon']) if journey else None,
+                              'journeyComplete': memory.journey_complete(knowledge) if journey else None,
                               'experientialComments': len(experience.review(path)['comments']), 'finalReflection': experience.review(path)['debriefCurrent'],
                               'meaning': 'Observed checkpoints and model opinions, not automated assertions of usability or enjoyment.'}
         atomic_json(path / 'model-report.json', report)

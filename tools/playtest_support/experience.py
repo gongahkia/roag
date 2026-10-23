@@ -66,7 +66,7 @@ def review(path):
             'objective': state.get('objective'), 'assistedJourney': report.get('journey', False),
             'checkpoints': state.get('milestones', {}), 'plan': state.get('plan'),
             'comments': [n for n in notes if n.get('kind') == 'playtester-impression'],
-            'debrief': debrief, 'debriefCurrent': bool(debrief and debrief.get('modelStarted') == report.get('started')),
+            'debrief': debrief, 'debriefCurrent': bool(debrief and debrief.get('modelStarted') == report.get('started') and debrief.get('final', True)),
             'notebook': str(path / 'playtester-notes.md'),
             'coverage': report.get('coverage'), 'limitations': [
                 'Model impressions do not replace a human opinion about fun, aesthetics or accessibility.',
@@ -100,7 +100,7 @@ def write(path):
     debrief = data['debrief']
     if debrief:
         if not data['debriefCurrent']:
-            lines += ['This reflection belongs to an earlier controller invocation; the current continuation has not returned its final assessment.', '']
+            lines += ['This is an interim or earlier reflection; the current continuation has not returned an accepted final assessment.', '']
         for key, label in [('summary', 'Overall'), ('understanding', 'What I understood'), ('worldImpression', 'The world'),
                            ('friction', 'What got in the way'), ('nextAttempt', 'What I would try next'), ('wouldContinue', 'Would I continue')]:
             lines += ['**' + label + ':** ' + debrief['assessment'][key], '']
