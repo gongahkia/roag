@@ -115,6 +115,55 @@ class PlaytestingTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
 
+    def run_budget_fixture(self, decision_seconds, *, model_timeout=False):
+        clock = [0]
+        observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1}}
+        result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
+                  'state': {'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2}}}
+
+        def execute(*args):
+            clock[0] = decision_seconds
+            if model_timeout:
+                raise subprocess.TimeoutExpired('fixture-model', decision_seconds)
+            atomic_json(self.session / 'model/answer.json', {
+                'reason': 'Wait for the queued work', 'done': False,
+                'action': {'kind': 'wait', 'seconds': 5}, 'finding': None})
+            return 0, ''
+
+        with patch.object(model.driver, 'location', return_value=(self.session, {})), \
+             patch.object(model.driver, 'observe', return_value=observed), \
+             patch.object(model.driver, 'act', return_value=result) as act, \
+             patch.object(model.driver, 'stop') as stop, \
+             patch.object(model.shutil, 'which', return_value='/installed/codex'), \
+             patch.object(model.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(model, 'execute', side_effect=execute):
+            report = model.run(None, 'fixture', 'gpt-5.6-luna', 'Test queued work', max_steps=1, timeout=20)
+            stop.assert_called_once()
+        return report, act
+
+    def test_model_budget_does_not_submit_wait_that_cannot_finish(self):
+        report, act = self.run_budget_fixture(16)
+        self.assertEqual('time-budget', report['status'])
+        self.assertEqual({'kind': 'wait', 'seconds': 5}, report['deferredAction'])
+        self.assertEqual(1, report['decisions'])
+        act.assert_not_called()
+        self.assertFalse((self.session / 'pending.json').exists())
+
+    def test_model_budget_delivers_wait_when_receipt_fits(self):
+        report, act = self.run_budget_fixture(5)
+        self.assertEqual('step-budget', report['status'])
+        self.assertEqual(1, report['lastStep'])
+        act.assert_called_once()
+        self.assertEqual(15, act.call_args.kwargs['timeout'])
+
+    def test_model_timeout_distinguishes_overall_budget_from_slow_decision(self):
+        for elapsed, expected in [(20, 'time-budget'), (5, 'model-error')]:
+            with self.subTest(elapsed=elapsed):
+                report, act = self.run_budget_fixture(elapsed, model_timeout=True)
+                self.assertEqual(expected, report['status'])
+                self.assertEqual(expected == 'model-error', 'error' in report)
+                act.assert_not_called()
+
     def test_disconnected_controller_recovers_completed_actions_exactly_once(self):
         run_id = 'fixture-run'; path = self.root / run_id; path.mkdir()
         atomic_json(path / 'playtest.json', {'schemaVersion': 1, 'id': run_id, 'steps': 0, 'process': None})

@@ -51,6 +51,7 @@ def prompt(objective, observation, history, remaining):
         'A delivered mouse event is not proof that the intended gameplay action succeeded. Read the next notice, panel, party and battle state. Use screenshots for visual findings.',
         'Report concrete feedback only with evidence from the current observation. A finding is an opinion; never claim tests passed without observing them.',
         'If stuck, state exactly what blocked you. End with done=true and action=null when the objective is met, impossible with current evidence, or there is no useful next action.',
+        'A done=true decision executes no action. Finish only after an observation confirms the last action succeeded.',
         'Set unused action fields to null. Keep reasoning short. Do not ask questions; document uncertainty. Remaining decisions: ' + str(remaining),
         'Objective: ' + objective, 'Recent controller results: ' + json.dumps(history[-5:]),
         'Current observation JSON: ' + json.dumps(observation, ensure_ascii=False)])
@@ -166,7 +167,16 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 report['status'] = 'model-finished'; report['conclusion'] = decision['reason']; break
             if decision['action'] is None:
                 raise ValueError('An unfinished model decision needs a mouse action.')
-            result = driver.act(repo, run_id, decision['action'], root, expected=observed['state']['observation'], timeout=min(45, max(1, timeout - (time.monotonic() - started))))
+            remaining = timeout - (time.monotonic() - started)
+            action = driver.validate_action(decision['action'])
+            # Thinking can use most of the remaining budget. A submitted wait
+            # must still have time to run and publish its screenshot/receipt.
+            required = (action.get('seconds', 0) if action['kind'] == 'wait' else 0) + 5
+            if remaining < required:
+                report.update(status='time-budget', deferredAction=action,
+                              budgetReason='Not enough time to deliver the next action and receive its result.')
+                break
+            result = driver.act(repo, run_id, decision['action'], root, expected=observed['state']['observation'], timeout=min(45, remaining))
             history.append({'step': result['step'], 'action': decision['action'], 'delivered': result['delivered'],
                             'reason': result['response']['reason'], 'notice': result['state']['notice'], 'panel': result['state']['panel'], 'position': result['state']['position']})
             report.update(decisions=count, lastStep=result['step'], recentActions=history[-8:], usage=usage); atomic_json(path / 'model-report.json', report)
@@ -174,7 +184,12 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 report['status'] = 'model-stopped-client'; break
         else:
             report['status'] = 'step-budget'
-    except (ValueError, OSError, TimeoutError, subprocess.TimeoutExpired, KeyError, TypeError) as e:
+    except subprocess.TimeoutExpired as e:
+        if time.monotonic() - started >= timeout:
+            report.update(status='time-budget', budgetReason='Overall budget expired while waiting for a model decision.')
+        else:
+            report.update(status='model-error', error=str(e))
+    except (ValueError, OSError, TimeoutError, KeyError, TypeError) as e:
         report.update(status='model-error', error=str(e))
     except KeyboardInterrupt:
         report.update(status='interrupted')

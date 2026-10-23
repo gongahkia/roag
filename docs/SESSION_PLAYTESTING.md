@@ -88,6 +88,8 @@ The exact model ID passes through unchanged; unavailable models never trigger su
 
 Defaults: thirty decisions / ten minutes, sixty seconds per decision. The loop closes its client on completion/error; `--keep-open` deliberately leaves it held. `--dry-run` prints the invocation/limits without calling a model. `--codex-executable` chooses a trusted installed CLI or deterministic test stand-in. Bounded prompts/decisions/CLI events, reported token usage, linked feedback and an updated `model-report.json` remain inspectable. Status distinguishes completion, time/step budget, model/CLI error and client exit. A model finishing is not proof that assertions passed or that gameplay is fun. Account access and model quality require testing in your environment.
 
+At the overall time boundary, the loop defers the next action unless its wait duration plus five seconds for input delivery and the resulting receipt fit. The report keeps that unexecuted action as `deferredAction` and returns `time-budget`, leaving no request to replay. Overall budget exhaustion during model thinking also returns `time-budget`; a per-decision timeout before that boundary remains an error. A `done=true` decision executes no action, so completion should follow an observation confirming the final action succeeded. These limits govern the model controller; an interrupted external controller can still leave a pending action that must be reconciled with `observe`.
+
 ## Regression suite
 
 ```sh
