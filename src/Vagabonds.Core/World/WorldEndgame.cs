@@ -81,7 +81,8 @@ public sealed partial class WorldSession
         else if (Content.Entries[actor.Archetype] is CharacterDefinition character) rules = character.Behaviors;
         if (actor.VariantId.Length > 0) rules = rules.Concat(Content.Get<VariantDefinition>(actor.VariantId).Behaviors);
         return rules.Where(r => round >= r.FromRound && round % r.Every == 0 && unit.Health * 100 <= unit.MaxHealth * r.BelowHealthPercent
-            && Content.Get<AbilityDefinition>(r.Ability).Mana <= unit.Mana && EncounterBehaviorAvailable(unit, r));
+            && Content.Get<AbilityDefinition>(r.Ability).Mana <= unit.Mana && EncounterBehaviorAvailable(unit, r)
+            && (!r.NoRepeat || State.Battle!.LastEnemyActions.GetValueOrDefault(unit.Id) != r.Ability));
     }
     private void PlanEnemies()
     {
@@ -105,6 +106,10 @@ public sealed partial class WorldSession
             var candidates = b.Units.Where(u => u.Alive && (ability.Target is TargetKind.Ally or TargetKind.AllAllies ? !u.Friendly : u.Friendly)).ToArray();
             if (rule.Condition == "ally-wounded" && ability.Target is TargetKind.Ally or TargetKind.AllAllies)
                 candidates = candidates.Where(u => u.Health < u.MaxHealth).ToArray();
+            if (rule.Condition == "self-wounded" && ability.Target is TargetKind.Ally or TargetKind.AllAllies)
+                candidates = [enemy];
+            if (rule.Condition == "target-marked" && ability.Target is TargetKind.Enemy or TargetKind.AllEnemies)
+                candidates = candidates.Where(u => u.Mark > 0).ToArray();
             CombatUnit target = ability.Target == TargetKind.Self ? enemy : rule.Target switch
             {
                 "weakest" => candidates.MinBy(u => (u.Health, u.Id))!,

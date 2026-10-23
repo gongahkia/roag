@@ -13,10 +13,12 @@
   "behaviors": [
     {
       "ability": "ability.rend",
-      "weight": 3
+      "weight": 3,
+      "noRepeat": true
     },
     {
-      "ability": "ability.strike"
+      "ability": "ability.strike",
+      "weight": 1
     }
   ],
   "reward": "reward.raiders"

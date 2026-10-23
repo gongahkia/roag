@@ -17,7 +17,9 @@
     },
     {
       "ability": "ability.guard",
-      "every": 3
+      "every": 3,
+      "condition": "self-wounded",
+      "noRepeat": true
     }
   ],
   "reward": "reward.raiders"

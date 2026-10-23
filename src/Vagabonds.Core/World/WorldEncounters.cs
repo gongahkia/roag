@@ -23,7 +23,7 @@ public sealed partial class WorldSession
         if (actor.EncounterId.Length > 0)
         {
             var group = Content.Get<EncounterDefinition>(actor.EncounterId);
-            return group.Name + ": " + group.Tactics;
+            return group.Name + " / " + group.Tier + ": " + group.Tactics;
         }
         var leader = actor.EncounterLeader == 0 ? actor : State.Actors.FirstOrDefault(a => a.Id == actor.EncounterLeader);
         return leader != null && Content.Entries[leader.Archetype] is BossDefinition boss ? boss.Tactics + " " + boss.Weakness : "";
@@ -33,6 +33,8 @@ public sealed partial class WorldSession
     {
         "always" => true,
         "ally-wounded" => State.Battle!.Units.Any(u => u.Friendly == enemy.Friendly && u.Alive && u.Health < u.MaxHealth),
+        "self-wounded" => enemy.Health < enemy.MaxHealth,
+        "target-marked" => State.Battle!.Units.Any(u => u.Friendly != enemy.Friendly && u.Alive && u.Mark > 0),
         _ => false
     };
 
@@ -125,6 +127,11 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid thematic encounter reward.");
         }
         if (state.Battle is not { } battle) return;
+        if (battle.LastEnemyActions == null || battle.LastEnemyActions.Count > 4
+            || battle.LastEnemyActions.Any(pair => pair.Key < 0 || pair.Key >= battle.Units.Count || battle.Units[pair.Key].Friendly
+                || pair.Value == null || !catalog.Entries.TryGetValue(pair.Value, out var action) || action is not AbilityDefinition ability
+                || ability.Effect is "flee" or "potion" || ability.Cooperation != null))
+            throw new InvalidDataException("Invalid enemy action history.");
         if (battle.Prepared == null || battle.Prepared.Count > 4) throw new InvalidDataException("Invalid prepared attacks.");
         foreach (var (id, prepared) in battle.Prepared)
             if (id < 0 || id >= battle.Units.Count || battle.Units[id].Friendly || !battle.Units[id].Alive || prepared == null
@@ -132,7 +139,8 @@ public sealed partial class WorldSession
                 || prepared.Target < 0 || prepared.Target >= battle.Units.Count || battle.Units[prepared.Target].Friendly == battle.Units[id].Friendly
                 || prepared.ReadyRound < battle.Round || prepared.ReadyRound > battle.Round + 1
                 || !battle.Plans.TryGetValue(id, out var plan) || plan.Ability != prepared.Ability || plan.Target != prepared.Target || plan.Interrupted
-                || plan.Preparing != (prepared.ReadyRound > battle.Round))
+                || plan.Preparing != (prepared.ReadyRound > battle.Round)
+                || battle.LastEnemyActions.GetValueOrDefault(id) != prepared.Ability)
                 throw new InvalidDataException("Invalid prepared attack continuation.");
         foreach (var (id, plan) in battle.Plans)
         {

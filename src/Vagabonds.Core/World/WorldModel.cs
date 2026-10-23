@@ -471,6 +471,7 @@ public sealed class WorldState
 public sealed class WorldBattle
 {
     public Dictionary<int, PreparedAttack> Prepared { get; set; } = [];
+    public Dictionary<int, string> LastEnemyActions { get; set; } = [];
     [JsonRequired] public HashSet<int> Assisting { get; set; } = [];
     public HashSet<int> ShieldUsed { get; set; } = [];
     [JsonRequired] public Dictionary<int, PlannedAbility> Plans { get; set; } = [];

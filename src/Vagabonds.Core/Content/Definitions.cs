@@ -175,6 +175,7 @@ public sealed class CooperationRules
 public sealed class BehaviorRule
 {
     public string Condition { get; set; } = "always";
+    public bool NoRepeat { get; set; }
     public required string Ability { get; set; }
     public int Weight { get; set; } = 1;
     public int Every { get; set; } = 1;

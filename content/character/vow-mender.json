@@ -15,7 +15,8 @@
       "ability": "ability.mend",
       "target": "weakest",
       "weight": 5,
-      "condition": "ally-wounded"
+      "condition": "ally-wounded",
+      "noRepeat": true
     },
     {
       "ability": "ability.strike",

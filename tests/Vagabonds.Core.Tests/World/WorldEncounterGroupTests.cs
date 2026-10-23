@@ -102,7 +102,8 @@ public sealed class WorldEncounterGroupTests : IDisposable
         Assert.True(world.AdvanceEnemy().Success);
         Assert.Equal(0, battle.Units[charger].Stun);
         Assert.Contains(world.State.CombatEvents, e => e.Label == "Stun removed");
-        Assert.True(battle.Plans[charger].Preparing); Assert.False(battle.Prepared.ContainsKey(charger));
+        Assert.False(battle.Plans[charger].Preparing); Assert.Equal(world.Content.Game.EnemyFallback, battle.Plans[charger].Ability);
+        Assert.False(battle.Prepared.ContainsKey(charger));
         world.Save(Slot); var loaded = WorldSession.Load(Slot, catalog);
         GuardUntil(loaded, b => b.Active.Id == charger);
         Assert.True(loaded.AdvanceEnemy().Success);

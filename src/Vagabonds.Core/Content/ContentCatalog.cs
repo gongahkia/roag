@@ -115,7 +115,12 @@ public sealed class ContentCatalog
                     Ref<AbilityDefinition>(field, r.Ability); Range(field, r.Weight, 1, 100); Range(field, r.Every, 1, 20);
                     if (r.Ability != null && _entries.TryGetValue(r.Ability, out var entry) && entry is AbilityDefinition ability && (ability.Effect is "flee" or "potion" || ability.Cooperation != null)) Error(field, "Enemy rules cannot use party-only retreat, medicine or cooperative abilities.");
                     Range(field, r.FromRound, 1, 100); Range(field, r.BelowHealthPercent, 1, 100);
-                    if (r.Condition is not ("always" or "ally-wounded")) Error(field, "Unknown behavior condition.");
+                    if (r.Condition is not ("always" or "ally-wounded" or "self-wounded" or "target-marked")) Error(field, "Unknown behavior condition.");
+                    if (r.NoRepeat && _entries.GetValueOrDefault("game.vagabonds") is GameDefinition behaviorGame && r.Ability == behaviorGame.EnemyFallback)
+                        Error(field, "The unconditional fallback cannot forbid its own repetition; use another ability for a non-repeat rule.");
+                    if (r.Condition == "target-marked" && r.Ability != null && _entries.TryGetValue(r.Ability, out var markedAbility)
+                        && markedAbility is AbilityDefinition marked && marked.Target is not (Expeditions.TargetKind.Enemy or Expeditions.TargetKind.AllEnemies))
+                        Error(field, "A marked-target condition needs an attack against enemies.");
                     if (r.Target is not ("random" or "weakest" or "strongest" or "stressed")) Error(field, "Unknown targeting rule.");
                 }
             }

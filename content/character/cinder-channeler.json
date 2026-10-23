@@ -13,7 +13,8 @@
   "behaviors": [
     {
       "ability": "ability.cinder-surge",
-      "weight": 1
+      "weight": 1,
+      "noRepeat": true
     }
   ],
   "reward": "reward.raiders"

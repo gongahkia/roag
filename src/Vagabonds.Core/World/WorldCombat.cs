@@ -170,6 +170,7 @@ public sealed partial class WorldSession
         var planned = b.Plans[u.Id]; var ability = Content.Get<AbilityDefinition>(planned.Ability); var skill = ability.AsSkill();
         if (HandleEnemyPreparation(u, planned, skill))
         {
+            if (planned.Preparing && !planned.Interrupted) b.LastEnemyActions[u.Id] = skill.Id;
             SyncCombat();
             if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
             return new(true, u.Name + (planned.Interrupted ? ": preparation interrupted."
@@ -185,6 +186,7 @@ public sealed partial class WorldSession
         };
         u.Mana -= skill.Mana;
         ResolveAbility(u, skill, targets, u.Power - 6);
+        b.LastEnemyActions[u.Id] = skill.Id;
         SyncCombat();
         if (!CheckBattleEnd()) { StepCombatOrder(); BeginCombatTurn(); }
         return new(true, $"{u.Name}: {skill.Name}.");

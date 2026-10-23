@@ -72,4 +72,13 @@ public sealed class EncounterContentTests
         Assert.Contains(Changed("reward.cinder-ambush", node => node["signature"] = "item.iron-sword").Issues,
             issue => issue.Field == "signature");
     }
+
+    [Fact]
+    public void NonRepeatCannotContradictFallbackAndMarkedConditionsNeedEnemyTargets()
+    {
+        Assert.Contains(Changed("character.vow-mender", node => node["behaviors"]![1]!["noRepeat"] = true).Issues,
+            issue => issue.Field == "behaviors");
+        Assert.Contains(Changed("character.vow-mender", node => node["behaviors"]![0]!["condition"] = "target-marked").Issues,
+            issue => issue.Field == "behaviors");
+    }
 }
