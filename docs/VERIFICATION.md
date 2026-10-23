@@ -1,5 +1,23 @@
 # Vagabonds verification
 
+## Experiential playtester completion — 2026-10-23
+
+Final source `44b8e00`, fingerprint **`3c0fb00f2ee099f2dcd96ba49ea42b51bad024b9436c1ab19d81dc57203bf86e`**, passed these managed runs; each reports `fresh: true` and no artifact checksum errors:
+
+| Profile | Run | Result |
+| --- | --- | --- |
+| Core | `20261023-070225-f9095c8d` | Content validation and 661/661 .NET tests |
+| Tools | `20261023-070225-b0c19f2b` | 49/49 workflow tests |
+| Recorded playtest | `20261023-070225-eea4bf59` | 42/42 rendered assertions; 290 sealed artifacts |
+
+Full run `20261023-063002-c9885b61` passed on the preceding source (`2038c76`, fingerprint `b9f0dd8a9e3708a8a8f9597f8ee0aaf035702c63fb15ef9aa12cf3392ec24363`), with 466 sealed artifacts, 661 .NET tests, 45 workflow tests, 187 native mouse checks, 42 rendered checks, catalog/scenario/headless/world audits. Later changes were confined to Python controller validation/completion and their tests, so the final scoped profiles above replace stale whole-source evidence without rerunning unchanged native/world coverage. No Core rules, content or generation/save versions changed.
+
+The completed real-model pilot is `artifacts/playtests/20261023-060009-4a2805e9/`: lone start → two recruits → learned cistern → natural encounters/rewards → **Cairn ruin 17 entry at `(320,963)`, floor 1**, observation 293 / step 301. The retained entry action/observation/PNG, `assessment.md`, `completed-report.json`, notebook and exact isolated formation reproduction support review. Recording finalized cleanly with zero dropped events/no recorded crash, 734 successful movement commands, three encounters and two victories. The final reflection reports `journeyComplete: true` and acknowledges unfinished combat/deeper content. The live client and controller are stopped.
+
+Unaided seed-1337 run `20261023-061322-f15d69ff` completed sixteen decisions with fourteen impressions and a final reflection; it learned a shelter lead but did not visit it. Both live runs use GPT-5.6 Luna; the long pilot moved from low to medium reasoning with a clarified brief after low-reasoning navigation fixation. It also used labelled walking/camera assistance and spanned intermediate builds. **It is not claimed as a fresh end-to-end run of the final input transport or as a controlled reasoning benchmark.** Current transport/logic acceptance is the fresh managed evidence above. Explicit controller waits and old camera-drift misses must not become unsupported claims about human gameplay.
+
+Manually inspected the retained underground entry image, final live reflection, unaided comments, and the fresh stand-in notebook/Party capture. Observations, interpretation, expectations and evidence are readable; the fixture honestly states its untested world coverage. The new 49-case workflow suite covers persistent leads, explicit incomplete checkpoints, observed-only navigation, formation-context recovery, malformed-proposal repair/comment preservation, bounded repeated errors and stopping at journey completion without an extra gameplay action. See [the tooling/feedback review](EXPERIENTIAL_PLAYTESTER_REVIEW.md) for reviewed findings and limits. Retreat, healing, equipment, deeper exploration and human enjoyment remain outside this completed journey's coverage.
+
 ## Live lunch batch completion — 2026-10-23
 
 Continuation **`20261023-052014` finished at 05:39:49 UTC / 13:39:49 Singapore** after 1,152.77 seconds. Its three cases reached `time-budget` and closed normally (`forcedStop: false`); all client/worker identities are no longer live, all pending requests are absent, and all three recorders finalized with zero dropped events and no recorded managed crash. Original seed-42 failure/recovery evidence is preserved. Both batches together used **243 decisions**, plus the four-decision smoke check, and approximately 26 minutes of active testing. No player slot changed. The fresh 35-check regression and 31 Python checks from the budget fix remain the deterministic acceptance evidence; model budget completion is not a passing gameplay assertion.

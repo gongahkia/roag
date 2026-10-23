@@ -97,7 +97,7 @@ For a focused journey, use:
 
 ```sh
 ./dev playtest start --seed 42
-./dev playtest agent PLAYTEST_ID --model gpt-5.6-luna --reasoning low \
+./dev playtest agent PLAYTEST_ID --model gpt-5.6-luna --reasoning medium \
   --journey --max-steps 200 --timeout 1800 \
   --objective 'Recruit two companions, learn and visit a discovery, follow its linked dungeon and enter it. Explain what was clear, confusing or interesting about the world and navigation.'
 ./dev playtest review PLAYTEST_ID
@@ -108,6 +108,8 @@ The journey tracks observed recruitment/discovery/underground checkpoints and of
 For a long world journey, add `--keep-open` to each bounded model invocation. After a time/step budget, inspect its review and continue with the same ID and another explicitly bounded `playtest agent` command; memory and prior impressions survive. Stop with `./dev playtest stop ID` once finished. Without `--keep-open`, the default controller deliberately closes its game and cannot continue that live world. Idle clients still exit after ten minutes, and the per-client 1,000-action limit remains in force. The controller does not silently buy additional model calls or restart itself when its budget ends.
 
 An unmet micro-goal cannot end a journey successfully: early finishes receive a reminder of the measured missing checkpoints, then return `objective-incomplete` after repeated refusal to continue. Bounded `model-invocations.json` records earlier controller runs; an earlier/interim debrief cannot masquerade as the current final reflection. The notebook feeds prior impressions back to the model so it can revise its understanding. See [the milestone review](EXPERIENTIAL_PLAYTESTER_REVIEW.md) for dogfooding findings and interpretation guidance.
+
+Once all three journey checkpoints are observed, the next model call is a read-only reflection: no further move or combat action is executed, even if the model proposes one. Invalid model replies consume the model budget but deliver no input; valid accompanying comments are preserved and the next call receives the rejection reason. Three consecutive invalid replies stop the loop. Schema constraints cover learned destination IDs, mouse buttons and wait ranges. Longer qualitative tests benefited from medium reasoning during dogfooding; the general CLI default remains low, and model/reasoning selection is always explicit in the run report.
 
 Defaults: thirty decisions / ten minutes, sixty seconds per decision. The loop closes its client on completion/error; `--keep-open` deliberately leaves it held. `--dry-run` prints the invocation/limits without calling a model. `--codex-executable` chooses a trusted installed CLI or deterministic test stand-in. Bounded prompts/decisions/CLI events, reported token usage, linked feedback and an updated `model-report.json` remain inspectable. Status distinguishes completion, time/step budget, model/CLI error and client exit. A model finishing is not proof that assertions passed or that gameplay is fun. Account access and model quality require testing in your environment.
 
