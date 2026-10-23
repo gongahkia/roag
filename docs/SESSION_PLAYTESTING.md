@@ -51,7 +51,7 @@ Commands return versioned JSON; command errors exit nonzero. `act` distinguishes
 
 Every run has a fresh directory/save under `artifacts/playtests/`. Selected saves outside that directory and symlinked save paths are rejected. Explicit Save/Load/Save and quit affect only that slot. Controllers never edit save JSON, terrain, statistics or RNG. Ordinary launches have no control mailbox.
 
-The game holds simulation/dialogue/combat playback between decisions; **explicit waits** advance the normal frame/tick/animation handlers. This gives slower models time to inspect. `agentHold` reports this difference from continuous human input. The backend generates mouse press/release/drag states through the same Client input pipeline as human mouse input. Native focus/device delivery/timing remain separate `verify-native` coverage.
+The game holds simulation/dialogue/combat playback between decisions; **explicit waits** advance the normal frame/tick/animation handlers. This gives slower models time to inspect. `agentHold` reports this difference from continuous human input. The backend generates mouse press/release/drag states through the same Client input pipeline as human mouse input. Native focus/device delivery/timing remain separate `verify-native` coverage. UI reports include monotonic mouse-press receipts, exact targets and released states; native tests acknowledge those actual input edges instead of assuming a fixed-duration click was sampled.
 
 | Action | Fields |
 | --- | --- |

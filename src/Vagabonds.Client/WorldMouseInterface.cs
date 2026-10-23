@@ -12,6 +12,7 @@ internal sealed record WorldMouseControl(string Id, string Label, Rectangle Boun
 {
     public static WorldMouseControl? Hit(IEnumerable<WorldMouseControl> controls, Point pointer) => controls.Reverse().FirstOrDefault(c => c.Bounds.Contains(pointer));
 }
+internal sealed record WorldMousePress(long Sequence, int Button, int X, int Y, string? Control);
 
 internal sealed partial class WorldGame
 {
@@ -24,6 +25,7 @@ internal sealed partial class WorldGame
     private int _placesPage;
     private WorldPosition? _waypoint;
     private string _lastUiReport = "";
+    private WorldMousePress? _lastMousePress;
     private static readonly JsonSerializerOptions UiJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private Rectangle PanelBox(int w, int h) => new(32, 84, w - 64, h - 202);
     private static string Short(string text, int count) => text.Length > count ? text[..Math.Max(1, count - 3)] + "..." : text;
@@ -526,6 +528,8 @@ internal sealed partial class WorldGame
             seed = _session.Seed, contentHash = _session.Content.Hash, sessionId = _recording?.Id,
             width = w, height = h, panel = _panel, paused = _session.Paused, frozen = _session.Frozen,
             focused = _session.Focused, nativeFocused = IsActive, agentHold = _playtest != null && (_playtest.Holding || _playtest.NeedsObservation), pointer = new { x = _mouse.X, y = _mouse.Y },
+            mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
+                leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             routeCount = _route.Count, notice = _notice,

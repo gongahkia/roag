@@ -128,6 +128,7 @@ internal sealed partial class WorldGame : Game
             bool press = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
             if (press)
             {
+                _lastMousePress = new((_lastMousePress?.Sequence ?? 0) + 1, 1, mouse.X, mouse.Y, WorldMouseControl.Hit(_controls, mouse.Position)?.Id);
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
                 if (control != null) { if (control.Enabled) ActivateControl(control.Id); else { _notice = control.DisabledReason; _recording?.Record("ui-rejected", new { control.Id, reason = _notice }, _session.State.Tick); } }
                 else if (_panel == "person" && SpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
@@ -141,6 +142,7 @@ internal sealed partial class WorldGame : Game
             UpdateSelection(mouse);
             if (mouse.RightButton == ButtonState.Pressed && _mouse.RightButton == ButtonState.Released)
             {
+                _lastMousePress = new((_lastMousePress?.Sequence ?? 0) + 1, 3, mouse.X, mouse.Y, WorldMouseControl.Hit(_controls, mouse.Position)?.Id);
                 if (CombatStageVisible && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
                 if (_panel.Length > 0 || CombatStageVisible || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
                 else OpenContext(mouse.Position);

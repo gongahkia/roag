@@ -68,20 +68,27 @@ def main():
                     break
                 except RuntimeError:
                     if attempt == 2: raise
-            before = self.ui() if fast else None
+            self.wait(lambda u: not u['mouseInput']['leftPressed'] and not u['mouseInput']['rightPressed'], timeout=3, interval=.005)
+            before = self.ui()['mouseInput']['pressSequence']
             x('mousedown', button)
             try:
-                # Software-rendered frames can exceed a short fixed mouse hold.
-                # Release when a changed semantic report confirms an update,
-                # preserving brief animation phases without dropping the click.
-                if fast: self.wait(lambda u: u != before, timeout=2, interval=.005)
-                else: time.sleep(.1)
+                # The actual Update input edge is the receipt. Clock/animation
+                # changes alone cannot acknowledge a click on a slow frame.
+                self.wait(lambda u: u['mouseInput']['pressSequence'] > before
+                    and u['mouseInput']['lastPress']['button'] == button
+                    and u['mouseInput']['lastPress']['x'] == px and u['mouseInput']['lastPress']['y'] == py,
+                    timeout=3, interval=.005)
             finally: x('mouseup', button)
-            if not fast: time.sleep(.12)
+            released = 'leftPressed' if button == 1 else 'rightPressed'
+            if not fast:
+                self.wait(lambda u: not u['mouseInput'][released], timeout=3, interval=.005)
+                time.sleep(.06)
         def click(self, identifier, fast=False):
             ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
             button = next(c for c in ui['controls'] if c['id'] == identifier); r = button['bounds']
             self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
+            if self.ui()['mouseInput']['lastPress']['control'] != identifier:
+                raise RuntimeError('Mouse press hit a different control: ' + str(self.ui()['mouseInput']['lastPress']))
         def combat_ready(self):
             return self.wait(lambda u: not u.get('combatPresentation', {}).get('busy', False)
                 and (u['battle'] is None or u['battle']['activeFriendly']))
