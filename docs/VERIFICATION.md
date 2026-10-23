@@ -1,5 +1,20 @@
 # Vagabonds verification
 
+## Live lunch batch completion — 2026-10-23
+
+Continuation **`20261023-052014` finished at 05:39:49 UTC / 13:39:49 Singapore** after 1,152.77 seconds. Its three cases reached `time-budget` and closed normally (`forcedStop: false`); all client/worker identities are no longer live, all pending requests are absent, and all three recorders finalized with zero dropped events and no recorded managed crash. Original seed-42 failure/recovery evidence is preserved. Both batches together used **243 decisions**, plus the four-decision smoke check, and approximately 26 minutes of active testing. No player slot changed. The fresh 35-check regression and 31 Python checks from the budget fix remain the deterministic acceptance evidence; model budget completion is not a passing gameplay assertion.
+
+| Live case | Decisions | Final party | Successful movement commands | Observed coverage |
+| --- | ---: | ---: | ---: | --- |
+| Ordinary seed 42 | 65 | 3 | 51 | Two recruits, four known discoveries, one completed work order; original runner timeout |
+| Ordinary seed 1337 | 67 | 4 | 48 | Three recruits, three known discoveries, Journal and map/waypoint use |
+| Ordinary seed -42 | 67 | 3 | 28 | Two recruits, three known discoveries, tile selection |
+| Prepared combat | 44 | 4 | 0 | Round five, sixteen party actions, fifteen enemy actions, 102 combat feedback events; two allies downed |
+
+All final parties occupy distinct tiles. **No ordinary case visited a discovery or dungeon**, and the prepared fight remained unfinished with no reward shown. The model retained two neutral presentation observations with screenshots, not confirmed bug reports. Manually reviewed its first combat feedback capture and final stage: acting/target cues, health/status changes, dimmed downed portraits and disabled controls during playback are visible. Static captures and dummy audio do not establish full animation/audio quality. Frame metrics reflect software rendering and diagnostic capture, not a production benchmark.
+
+Retained assessment: `artifacts/lunch-playtests/20261023-052014/review.md` / `review.json`, with per-case evidence paths and limitations. The tester repeatedly returns to conversations/panels, and each decision retains only five recent action results; persistent objective/lead memory is a useful follow-up before interpreting limited exploration as game pacing. A focused journey and a combat recovery/victory/rewards objective remain necessary for that coverage. No new game bug or balance conclusion is inferred from these short low-reasoning runs.
+
 ## Live playtest budget recovery — 2026-10-23
 
 The original lunch batch `20261023-041153` aborted its remaining cases at seed 42's seven-minute boundary. Decision 65 submitted a five-second wait at `04:19:43.510Z`, but the controller's shortened deadline expired before the game acknowledged it at `04:19:48.701Z`. A subsequent marker collided with the still-pending request, obscuring the budget error as a driver error; cleanup forced the client closed. The preserved response/observation proves the game completed the action. Diagnostic recovery committed its receipt once without replaying it. `postmortem-report.json` retains three separated party members, 51 successful movement commands, two recruitments and one completed work order, with zero dropped recorder events. No dungeon or combat was reached; no model feedback notes were recorded.
