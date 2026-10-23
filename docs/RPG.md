@@ -132,3 +132,15 @@ With two or more companions in combat, Twin strike and Shared aid appear beside 
 The battle occupies the full play area with larger facing fighters and icon-based ability buttons. The chosen action plays a short anticipation, travel, impact and recovery sequence; further actions wait until it finishes. Twin strike still resolves as one combined hit. Defeated fighters remain visible through the finishing blow, then the reward screen shows awarded supplies and survivor condition.
 
 Use **Speed 1x / 2x**, **Motion full / low**, **Sound** (cycles volume through mute) and **Skip** above the stage. Skip finishes the current visual sequence without repeating or changing the resolved action. Inspection panels and focus loss pause its animation. Party, Tactics and Log remain accessible. These controls are mouse-only and do not change damage, costs, initiative or the minute advanced by a completed round.
+
+### Developing your companions
+
+Each generated person has a personal combat trait, visible before recruitment and in Party → Developments. At levels 2 and 4, choose one of two class specialisations. Select a card to inspect its full rule, then use **Learn permanently** to commit. You can inspect locked alternatives, but a learned choice cannot be replaced. Choices apply between encounters and cost no supplies or world time. Mana reductions affect the acting companion; cooperative helper costs stay as displayed.
+
+### Reading encounter groups
+
+Dungeon populations depend on the region, kind of site and depth. Patrols, warbands and elites have fixed compositions and strength; every floor is accessible from the start. Hover a visible foe or open **Tactics** during combat to read the group's identity, danger tier and counterplay. A mender can sustain an attacker, a marked companion can become a priority target, and bleeding or dread can wear down a party across several fights.
+
+A **Charging / stun** cue means an enemy has spent its turn preparing an attack for the next round. Stun before release to break it, defeat the caster, or guard to reduce the impact. A later cleanse cannot restore a broken preparation. Release keeps its declared single target even if that target falls. Some special actions need a different action before they can repeat; remaining mana and current intentions are visible.
+
+Victories automatically add the group's themed supplies and equipment to the shared pack. Guardian victories also grant a signature item from their family. Dungeon caches offer related equipment choices. Use **Manage party and equipment** to equip the new items or choose an unlocked development. Revisiting, retreating or reloading cannot respawn a defeated group or pay its reward twice.
