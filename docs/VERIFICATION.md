@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## First live lunch playtest launch — 2026-10-23
+
+On unchanged runtime source fingerprint `d1cb7d77d3574bbdaae9c33f6c7728cd78c9e15c04949c134045afadc6129b08`, managed `playtest` run **`20261023-041120-8396baea` passed 35/35 assertions**, with fresh evidence and no artifact checksum errors. This reruns ordinary recording/save isolation and rendered world/combat controls, using the deterministic model stand-in.
+
+Separately, actual `gpt-5.6-luna` / low reasoning completed four structured decisions in live smoke run `20261023-041046-added5ce`: observed Party open/close actions were delivered, 62,014 input tokens and 575 output tokens were reported, and the client closed cleanly. The model's final claim that it had finished closing the panel was imprecise: its third action reopened Party, and `done=true` does not execute a final action. This is model feedback quality to assess, not a regression assertion.
+
+Authorized detached exploratory batch **`20261023-041153`** is recorded under `artifacts/lunch-playtests/20261023-041153/`. It schedules three ordinary fresh seeds plus a clearly separate prepared combat scenario, at most 380 decisions and thirty minutes overall. The first seed launched and its first actor click moved the player. Its `report.md` and `batch.json` record completion or errors; live per-case `model-report.json` files record progress. Outcomes were pending when this launch entry was written; no dungeon reachability, combat victory or subjective quality claim is inferred from launching the batch. To cancel, create its `cancel` file. The generated worker uses existing playtest APIs and is retained only as an ignored local evidence artifact. No runtime/tooling source or player slot changed.
+
 ## Session recording and agent playtesting — 2026-10-23
 
 **Final managed run `20261023-034452-6e681eab` passed**, source fingerprint `d1cb7d77d3574bbdaae9c33f6c7728cd78c9e15c04949c134045afadc6129b08`, gameplay/tooling head `5c20d76`. Inspection reports `fresh: true`, **434 sealed artifacts** and no checksum errors. Subsequent Markdown-only closure does not change this repository's source fingerprint.
