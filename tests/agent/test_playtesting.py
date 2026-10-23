@@ -115,22 +115,25 @@ class PlaytestingTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
 
-    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None, done=False, journey=False, max_steps=1):
+    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None, done=False, journey=False, max_steps=1, invalid_first=0, comments=None):
         clock = [0]
         observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}, 'party': [{}, {}, {}]}}
         result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
                   'state': {'observation': 2, 'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2, 'floor': 0}}}
+        atomic_json(self.session / 'observation.json', {'observation': 1, 'screenshot': None, 'ui': observed['state']})
 
+        attempts = [0]
         def execute(*args):
+            attempts[0] += 1
             clock[0] = decision_seconds
             if model_timeout:
                 raise subprocess.TimeoutExpired('fixture-model', decision_seconds)
             atomic_json(self.session / 'model/answer.json', {
                 'reason': 'More action is needed', 'done': done,
-                'action': None if done else {'kind': 'wait', 'seconds': 5}, 'finding': None, 'plan': proposed_plan})
+                'action': None if done else {'kind': 'wait', 'seconds': 5, 'button': 0 if attempts[0] <= invalid_first else None}, 'finding': None, 'plan': proposed_plan, 'comments': comments or []})
             return 0, ''
 
-        with patch.object(model.driver, 'location', return_value=(self.session, {})), \
+        with patch.object(model.driver, 'location', return_value=(self.session, {'steps': 0})), \
              patch.object(model.driver, 'observe', return_value=observed), \
              patch.object(model.driver, 'act', return_value=result) as act, \
              patch.object(model.driver, 'stop') as stop, \
@@ -173,6 +176,35 @@ class PlaytestingTests(unittest.TestCase):
         self.assertEqual('step-budget', report['status'])
         self.assertFalse(report['coverage']['journeyComplete'])
         act.assert_not_called()
+
+    def test_bad_model_button_is_rejected_without_input_then_repaired(self):
+        report, act = self.run_budget_fixture(5, invalid_first=1, max_steps=2)
+        self.assertEqual('step-budget', report['status'])
+        self.assertEqual(2, report['decisions'])
+        self.assertEqual(1, report['rejectedDecisions'])
+        act.assert_called_once()
+        self.assertNotIn('decisionFeedback', json.loads((self.session / 'player-memory.json').read_text()))
+        rejected = json.loads((self.session / 'model/decision-0.json').read_text())
+        self.assertIn('button', rejected['rejected'])
+
+    def test_repeated_invalid_model_proposals_stop_with_a_bounded_error(self):
+        report, act = self.run_budget_fixture(5, invalid_first=10, max_steps=5)
+        self.assertEqual('model-error', report['status'])
+        self.assertEqual(3, report['decisions'])
+        self.assertEqual(3, report['rejectedDecisions'])
+        act.assert_not_called()
+
+    def test_rejected_action_keeps_valid_playtester_comments(self):
+        comment = {'topic': 'interaction', 'impression': 'mixed', 'observed': 'A clear place name is displayed.',
+                   'thought': 'I know where I want to go but am unsure how the map starts travel.',
+                   'expected': 'The marker would start movement.', 'suggestion': '', 'confidence': 'medium'}
+        report, act = self.run_budget_fixture(5, invalid_first=1, max_steps=2, comments=[comment])
+        notes = json.loads((self.session / 'feedback.json').read_text())
+        self.assertEqual(1, len(notes))
+        self.assertEqual(comment['thought'], notes[0]['thought'])
+        self.assertEqual(1, notes[0]['observation'])
+        self.assertEqual(1, report['coverage']['experientialComments'])
+        act.assert_called_once()
 
     def test_model_timeout_distinguishes_overall_budget_from_slow_decision(self):
         for elapsed, expected in [(20, 'time-budget'), (5, 'model-error')]:

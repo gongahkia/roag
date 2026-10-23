@@ -99,6 +99,7 @@ def context(state, observation, journey=False):
     result = {k: state[k] for k in ('objective', 'plan', 'places', 'journal', 'notices', 'milestones', 'actions', 'stationaryActions')}
     result['planFeedback'] = state.get('planFeedback')
     result['completionFeedback'] = state.get('completionFeedback')
+    result['decisionFeedback'] = state.get('decisionFeedback')
     result['currentPartySize'] = len(observation.get('party', []))
     result['milestoneMeaning'] = 'Observed checkpoints only; they do not certify understanding, enjoyment, victory or a completed objective.'
     result['commentDue'] = state['observations'] == 1 or state['observations'] % 8 == 0

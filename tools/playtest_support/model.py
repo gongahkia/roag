@@ -15,7 +15,8 @@ ACTION_PROPERTIES = {
     'kind': {'type': 'string', 'enum': driver.KINDS},
     'control': {'type': ['string', 'null']},
     **{key: {'type': ['integer', 'null']} for key in ['x', 'y', 'endX', 'endY', 'unit', 'actor', 'button']},
-    'seconds': {'type': ['number', 'null']}, 'label': {'type': ['string', 'null']}}
+    'seconds': {'type': ['number', 'null'], 'minimum': .05, 'maximum': 30}, 'label': {'type': ['string', 'null']}}
+ACTION_PROPERTIES['button']['enum'] = [1, 3, None]
 DECISION_SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['reason', 'done', 'action', 'finding', 'plan', 'comments', 'debrief'],
@@ -155,6 +156,7 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
         invocations.append({k: previous[k] for k in ('started', 'finished', 'status', 'objective', 'decisions', 'usage', 'coverage', 'controllerSource') if k in previous})
         atomic_json(path / 'model-invocations.json', invocations[-8:])
     started = time.monotonic(); history, usage, count = [], {'input_tokens': 0, 'output_tokens': 0}, 0
+    rejected_streak = 0
     report = {'schemaVersion': 1, 'id': run_id, 'model': model, 'reasoning': reasoning, 'objective': objective,
               'started': utc(), 'status': 'running', 'maxSteps': max_steps, 'timeoutSeconds': timeout,
               'backend': 'codex-cli-structured-decisions', 'modelExecutable': binary,
@@ -199,7 +201,32 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                     prefix = stream.read(32768)
                 answer.write_bytes(prefix)
                 raise ValueError('Model decision exceeds 32 KiB.')
-            decision = json.loads(answer.read_text()); validate_decision(decision); count += 1
+            count += 1
+            decision = None
+            try:
+                decision = json.loads(answer.read_text()); validate_decision(decision)
+            except ValueError as error:
+                rejected_streak += 1
+                report['rejectedDecisions'] = report.get('rejectedDecisions', 0) + 1
+                knowledge['decisionFeedback'] = 'Previous proposal rejected without game input: ' + str(error)[:700] + ' Use the current visible controls and null for unused fields.'
+                memory.save(path, knowledge)
+                atomic_json(folder / ('decision-' + str(index % 8) + '.json'), {'index': index + 1, 'observation': observed['state']['observation'],
+                            'rejected': str(error), 'decision': decision})
+                if isinstance(decision, dict) and isinstance(decision.get('comments'), list) and len(decision['comments']) <= 3:
+                    for comment in decision['comments']:
+                        try:
+                            experience.validate_comment(comment)
+                        except ValueError:
+                            continue
+                        experience.add(repo, run_id, [comment], root)
+                report.update(decisions=count, usage=usage, lastRejection=str(error))
+                if rejected_streak >= 3:
+                    report.update(status='model-error', error='Three consecutive invalid model decisions; no input was delivered. ' + str(error))
+                atomic_json(path / 'model-report.json', report); experience.write(path)
+                if rejected_streak >= 3:
+                    break
+                continue
+            rejected_streak = 0; knowledge.pop('decisionFeedback', None)
             atomic_json(folder / ('decision-' + str(index % 8) + '.json'), {'index': index + 1, 'observation': observed['state']['observation'], 'decision': decision})
             experience.add(repo, run_id, decision.get('comments', []), root)
             try:
@@ -293,3 +320,7 @@ def validate_decision(value):
             raise ValueError('Invalid structured finding.')
         if not all(isinstance(v, str) for v in finding.values()):
             raise ValueError('Finding fields must be strings.')
+        if finding['category'] not in ['usability', 'navigation', 'combat', 'performance', 'visual', 'bug', 'balance'] or finding['severity'] not in ['note', 'warning', 'error']:
+            raise ValueError('Unknown finding category or severity.')
+        if not finding['description'].strip() or len(finding['description']) > 2000 or len(finding['expected']) > 1000:
+            raise ValueError('Finding text exceeds feedback bounds.')

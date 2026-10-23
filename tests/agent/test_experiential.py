@@ -136,6 +136,7 @@ class ExperientialTests(unittest.TestCase):
 
     def test_schema_requires_player_comment_fields_but_does_not_invent_missing_legacy_feedback(self):
         self.assertTrue({'plan', 'comments', 'debrief'} <= set(model.DECISION_SCHEMA['required']))
+        self.assertEqual([1, 3, None], model.ACTION_PROPERTIES['button']['enum'])
         model.validate_decision({'reason': 'Legacy stand-in', 'done': True, 'action': None, 'finding': None})
         with self.assertRaises(ValueError):
             model.validate_decision({'reason': '', 'done': True, 'action': None, 'finding': None, 'comments': [{}]})
