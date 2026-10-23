@@ -75,7 +75,7 @@ def prompt(objective, observation, history, remaining, knowledge=None, remaining
         'In combat inspect HP and available healing before repeating basic attacks. Downed allies, low health, control descriptions and enemy intent should affect choices. Observing a difficult fight does not by itself prove bad balance.',
         'If stuck, state exactly what blocked you. End with done=true and action=null when the objective is met, impossible with current evidence, or there is no useful next action.',
         'A done=true decision executes no action. Finish only after an observation confirms the last action succeeded.',
-        'Before finishing, return a debrief: what you understood, your impression of the world, friction and why, what you would try next, and whether you would continue. A partial session must say which objectives were not reached. When closingSoon is true, spend this decision on comments and debrief, set done=true and action=null; the controller records a budget stop.',
+        'Before finishing, return a debrief: what you understood, your impression of the world, friction and why, what you would try next, and whether you would continue. A partial session must say which objectives were not reached. When closingSoon is true, spend this decision on comments and debrief, set done=true and action=null; the controller distinguishes measured journey completion from a budget stop.',
         'Set unused action fields to null. Keep reasoning short. Do not ask questions; document uncertainty. Remaining decisions: ' + str(remaining),
         'Time/closure: ' + json.dumps({'remainingSeconds': remaining_seconds, 'closingSoon': closing}),
         'Persistent player memory: ' + json.dumps(knowledge or {}, ensure_ascii=False),
@@ -177,7 +177,8 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 raise ValueError('Previous action is pending; observe until its receipt arrives before continuing the model.')
             memory.remember(knowledge, observed['state']); memory.save(path, knowledge)
             atomic_json(schema, decision_schema(knowledge))
-            closing = remaining <= min(35, timeout * .12) or index == max_steps - 1
+            goal_reached = journey and memory.journey_complete(knowledge)
+            closing = goal_reached or remaining <= min(35, timeout * .12) or index == max_steps - 1
             remembered = memory.context(knowledge, observed['state'], journey)
             remembered.update(experience.context(path, observed.get('steps', 0)))
             current = prompt(objective, observed['state'], history, max_steps - index, remembered, round(remaining, 1), closing)
@@ -247,6 +248,11 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
             if decision['finding']:
                 finding = decision['finding']
                 driver.feedback(repo, run_id, finding['description'], finding['category'], finding['severity'], root, finding['expected'])
+            if goal_reached:
+                # Journey coverage is measured from observations. Once reached,
+                # this final call is a read-only reflection, never another fight/move.
+                report.update(status='model-finished', conclusion=decision['reason'])
+                break
             if decision['done']:
                 if premature:
                     report['prematureFinishes'] = report.get('prematureFinishes', 0) + 1

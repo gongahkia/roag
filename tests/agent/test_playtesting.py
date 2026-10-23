@@ -115,9 +115,12 @@ class PlaytestingTests(unittest.TestCase):
         with self.assertRaises(subprocess.TimeoutExpired):
             model.execute([sys.executable, '-c', 'import time; time.sleep(10)'], 'x' * 100000, .1)
 
-    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None, done=False, journey=False, max_steps=1, invalid_first=0, comments=None):
+    def run_budget_fixture(self, decision_seconds, *, model_timeout=False, proposed_plan=None, done=False, journey=False, max_steps=1, invalid_first=0, comments=None, completed_journey=False):
         clock = [0]
         observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}, 'party': [{}, {}, {}]}}
+        if completed_journey:
+            observed['state'].update(position={'x': 1, 'y': 2, 'floor': 1}, discoveries=[{
+                'id': 'discovery-1', 'name': 'Visited shelter', 'x': 1, 'y': 2, 'visited': True}])
         result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
                   'state': {'observation': 2, 'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2, 'floor': 0}}}
         atomic_json(self.session / 'observation.json', {'observation': 1, 'screenshot': None, 'ui': observed['state']})
@@ -205,6 +208,14 @@ class PlaytestingTests(unittest.TestCase):
         self.assertEqual(1, notes[0]['observation'])
         self.assertEqual(1, report['coverage']['experientialComments'])
         act.assert_called_once()
+
+    def test_completed_journey_requests_reflection_without_executing_an_extra_action(self):
+        report, act = self.run_budget_fixture(5, journey=True, max_steps=3, completed_journey=True)
+        self.assertEqual('model-finished', report['status'])
+        self.assertEqual(1, report['decisions'])
+        self.assertTrue(report['coverage']['journeyComplete'])
+        self.assertFalse(report['coverage']['finalReflection'])  # No invented assessment from this stand-in.
+        act.assert_not_called()
 
     def test_model_timeout_distinguishes_overall_budget_from_slow_decision(self):
         for elapsed, expected in [(20, 'time-budget'), (5, 'model-error')]:
