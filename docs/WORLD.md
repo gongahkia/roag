@@ -53,7 +53,7 @@ Gameplay content keeps its existing exact hash; dialogue has `PresentationHash` 
 
 ## Companion identity and contextual encounters
 
-Generated `Person` actors receive one persistent `talent.*` disposition from a seed/actor-ID hash independent of identity and simulation/combat streams. Authored class choices at levels2 and4 alter existing deterministic combat handlers. Queries and rejected choices preserve state; save validation enforces trait, class, level and one-choice-per-milestone constraints. See [progression authoring](PROGRESSION_AUTHORING.md).
+Generated `Person` actors receive one persistent `talent.*` disposition from a seed/actor-ID hash independent of identity and simulation/combat streams. Authored class choices at levels 2 and 4 alter existing deterministic combat handlers. Queries and rejected choices preserve state; save validation enforces trait, class, level and one-choice-per-milestone constraints. See [progression authoring](PROGRESSION_AUTHORING.md).
 
 The world plans one contextual authored group for each site's three underground floors. Selection depends on purpose, biome and depth, uses stable weighted alternatives and avoids local repeats when possible. Actual activation happens during successful movement or stair travel, preserving lazy startup and exact load continuation. A bounded search places the complete group on existing connected free cells away from stair/cache approaches; failures are explicit persistent records. Defeated members never respawn. [Population authoring](ENCOUNTER_POPULATION.md) describes identities, limits and audits.
 

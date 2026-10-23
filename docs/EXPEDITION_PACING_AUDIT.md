@@ -28,3 +28,18 @@ Four ordinary encounters were won using the stated first-ability policy in 4–1
 Raw observations are retained locally under `artifacts/expedition-audit/baseline.json` and `baseline-extended.json`. The baseline used a preserved pre-change Core assembly, SHA-256 `b5ac9fd11d98532ab5d09e764208911420b3f725328ed5d901ea5f6e318b6a40`, from checkout `2817d53`. An isolated harness compiled the audit against that assembly so concurrent implementation could not silently change the baseline. These ignored artifacts are evidence from this checkout; a clean checkout reproduces the current catalog/runtime, not that archived binary.
 
 Three short tests cover deterministic fresh-world execution and real recruitment/time, honest reporting of uncovered goals under a tiny budget, and explicit seed/budget limits. Longer representative runs belong in milestone evidence rather than mandatory per-test multi-minute simulations.
+
+## Completed gameplay pass comparison
+
+The final-source four-seed sample, retained in managed run `20261023-013614-8663deaa/audit-expedition.json`, uses the same 900-step policy as the baseline. Each world again recruited a four-person party in nine steps. The sampled fights now distinguish composed situations from solitary creatures:
+
+| Seed | Before: actions / party HP lost | After: actions / party HP lost | New gold / food / XP |
+| --- | --- | --- | --- |
+| 42 | 10 / 4 | 17 / 24 | 16 / 2 / 20 |
+| 1337 | 6 / 6 | 6 / 6 | 3 / 0 / 8 |
+| −42 | 4 / 2 | 4 / 2 | 2 / 2 / 6 |
+| 2026 | 10 / 13 | 12 / 22 | 14 / 2 / 16 |
+
+All four sampled fights were victories. The two changed compositions demanded more actions and health than their earlier counterparts; solitary creature fights retained their sampled action counts while granting distinct rewards. This is a measured consequence of the changes, not proof that every composition is balanced or that basic attacks are always sufficient.
+
+Two camp rests completed and two recovery gaps remained. Seed 1337 failed to approach a serviceable camp; seed −42 had not observed one. No dungeon entry completed within this controller and budget. The separate population audit explicitly activates 576 floors across four seeds and establishes usable placement there; it does not fill this fresh-expedition route coverage gap. Human playtesting should therefore examine long journeys, supplies and recovery before changing world size, encounter weights or travel speeds.

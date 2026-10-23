@@ -1,6 +1,6 @@
 # Party identity and encounter design
 
-Approved 2026-10-23 from the user's attached three-point recommendation and follow-up: implement companion specialisations, composed enemy groups and encounter-linked rewards, then research Slay the Spire, Caves of Qud and related games and thoroughly extend the encounter system. Make atomic local commits. The complete scope remains active until implementation, authoring, persistence, mouse presentation and end-to-end evidence cover it.
+Approved 2026-10-23 from the user's attached three-point recommendation and follow-up: implement companion specialisations, composed enemy groups and encounter-linked rewards, then research Slay the Spire, Caves of Qud and related games and thoroughly extend the encounter system. Make atomic local commits. The complete scope is implemented and verified; the requirement review below records its evidence and remaining playtest limits.
 
 ## Required outcomes
 
@@ -28,4 +28,20 @@ The baseline is `b9cd63f`. It passed 477 .NET tests and 147 native checks before
 Implementation findings, source links, adopted design rules and measured results will be recorded as work progresses. The tracked task specification is `devtools/tasks/party-and-encounters.json`.
 
 
-Initial implementation now includes six generated traits, sixteen class choices, three composed groups, interruption-aware prepared actions and themed persistent rewards. Atomic commits separate progression definitions, encounter definitions/runtime, shared integration and mouse presentation. The remaining research extension follows [ENCOUNTER_RESEARCH.md](ENCOUNTER_RESEARCH.md); final acceptance remains open.
+The initial three-group implementation was followed by the primary-source [research pass](ENCOUNTER_RESEARCH.md), then expanded contextual populations and saved behavior cadence. Local commits separate progression, groups/rewards, mouse presentation, population generation, cadence, validation, agent tools and invariant fixes.
+
+## Requirement review
+
+| Requirement | Implemented result | Evidence |
+| --- | --- | --- |
+| Pacing | Real fresh-world recruitment, discoveries, fights and recovery across four seeds; bounded-controller gaps remain explicit. | Preserved pre-change baseline and `audit-expedition`; [audit limits](EXPEDITION_PACING_AUDIT.md). |
+| Companion identity | Six generated innate traits and sixteen choices, two alternatives at levels 2 and 4 for every class; actual combat effects and explicit permanent commitment. | Progression/content/no-cost/save tests,runtime previews for every new definition, `world-progression` mouse scenario. |
+| Enemy groups | Nine compatible role compositions; one group per underground floor, context eligibility/weights, local no-repeat and connected lazy placement. | 72 authored contexts and 576 placed groups across seeds 42, 1337, -42 and 2026; forward/reverse visitation, IDs, terrain/RNG purity and saved activation tests. |
+| Counterplay | Wounded-ally support, marked prey, limited mana, interruptible preparation and saved last-action non-repeat rules. | Real-resolver tests and paired seed 42/1337 audits: charge interruption, guard mitigation and healer-priority measurements. |
+| Rewards | 22 thematic profiles, eight guardian signatures, themed caches, independent generated gear and one-time source grants. | Retreat/partial-group/reload/capacity/equipment tests and actual three-item guardian reward capture. |
+| Research extension | Qud contextual populations, Spire readability, Crawl bands/habitat/meaningful decisions and Darkest Dungeon resource pressure informed explicit local adaptations. | Cited primary sources, documented limits and implemented context/roles/behavior/loot rules in [research notes](ENCOUNTER_RESEARCH.md). |
+| Invariants | Free dungeon/final-threat access, fixed enemy strength and membership, generated party, mouse input, frozen combat clock, shared needs, collision/privacy and safe saves. | Full regressions; party-size/level membership and visible-only threat tests; exact native continuation. |
+| Authoring and agent loop | Stable IDs, references, role/coverage/applicability validation, scaffolds/schema/previews, last-innate removal protection, three managed audits and explicit native scene impact guidance. | 53 runtime previews; temporary scaffold/validate/inspect/remove exercise; reference refusal, CLI tests and 17 workflow tests. |
+| Acceptance | Fresh full managed run includes every requested profile and all eleven native scenes. | Run `20261023-013614-8663deaa` passed with 650 .NET tests, 17 workflow tests, 38 catalog tests and 187 native checks. Final captures were inspected; see [verification](VERIFICATION.md). |
+
+The first final run was intentionally cancelled after review exposed inherited party-size scaling in ambient encounters. A shared pure opponent query now fixes that rule and feeds visible hover estimates. Two old single-target feedback fixtures now isolate their foe explicitly. A later authoring review also protected the last innate definition from deletion. These fixes have focused regression evidence and are included in the fresh final run.
