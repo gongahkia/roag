@@ -143,7 +143,7 @@ def compact(observation):
                 grid[actor['y'] - top][actor['x'] - left] = str(index + 1)
         chart = {'left': left, 'top': top, 'floor': ui['position']['floor'], 'rows': [''.join(row) for row in grid],
                  'legend': '? unknown, # rock/wall, T tree, ~ water, O prop, C storage, ^ camp, > down, < up, n person, ! hostile, 1-4 party; . , + = terrain. Center targets must be inside the map.'}
-    controls = [{k: c[k] for k in ('id', 'label', 'enabled', 'reason', 'tip') if c.get(k) not in ('', None)} for c in ui.get('controls', [])]
+    controls = [{k: c[k] for k in ('id', 'label', 'enabled', 'reason', 'tip', 'detail', 'selected') if c.get(k) not in ('', None)} for c in ui.get('controls', [])]
     return {'schemaVersion': 1, 'observation': observation['observation'], 'utc': observation['utc'], 'agentHold': True,
             'seed': ui.get('seed'), 'sessionId': ui.get('sessionId'), 'panel': ui['panel'], 'paused': ui['paused'],
             'tick': ui['tick'], 'position': ui['position'], 'notice': ui['notice'], 'routeCount': ui['routeCount'],
@@ -151,7 +151,14 @@ def compact(observation):
             'inventory': ui.get('inventory'), 'controls': controls,
             'actors': [{k: v for k, v in a.items() if k != 'bounds'} for a in ui.get('actors', [])],
             'map': chart, 'hover': ui.get('hover'), 'selection': ui.get('selection'), 'context': ui.get('context'),
-            'work': ui.get('work'), 'dialogue': ui.get('dialogue'), 'skills': ui.get('skills'),
+            'work': ui.get('work'), 'dialogue': {k: v for k, v in (ui.get('dialogue') or {}).items() if k != 'fullText'} or None, 'skills': ui.get('skills'),
+            'journal': ui.get('journal'), 'waypoint': ui.get('waypoint'), 'places': ui.get('places'),
+            'discoveries': [{k: d[k] for k in ('id', 'name', 'x', 'y', 'floor', 'visited', 'outcome') if k in d}
+                            for d in ui.get('discoveries', [])],
+            'localFeatures': [{k: c[k] for k in ('x', 'y', 'floor', 'material')} for c in cells
+                              if c['material'] in ('StairsDown', 'StairsUp')],
+            'localGround': [[c['x'], c['y'], bool(c.get('groundOpen')), bool(c.get('occupied')), c.get('clickable', True)] for c in cells],
+            'combatFeedback': ui.get('combatFeedback'), 'equipment': ui.get('equipment'), 'progression': ui.get('progression'),
             'selectedSkill': ui.get('selectedSkill'), 'battle': ui.get('battle'),
             'combatPresentation': ui.get('combatPresentation'), 'combatIntents': ui.get('combatIntents'),
             'encounterReward': ui.get('encounterReward'), 'screenshotAvailable': observation.get('screenshot') is not None}
@@ -310,7 +317,7 @@ def stop(repo, run_id, root=None):
 
 
 def report(repo, run_id, root=None):
-    from . import recordings
+    from . import recordings, experience
     path, state = location(repo, run_id, root)
     evidence = [read(p) for p in sorted((path / 'steps').glob('slot-*.json')) if not p.name.endswith('.observation.json')]
     evidence.sort(key=lambda e: e['step'])
@@ -321,7 +328,7 @@ def report(repo, run_id, root=None):
         entry['evidenceRetained'] = saved.get('number') == entry.get('number')
     return {'id': run_id, 'manifest': state, 'processAlive': runner.alive(state.get('process')),
             'sourceFresh': state['source'] == repo.fingerprint(), 'retainedSteps': len(evidence), 'recentSteps': evidence[-10:],
-            'feedback': feedback_entries, 'modelRun': read(path / 'model-report.json'),
+            'feedback': feedback_entries, 'modelRun': read(path / 'model-report.json'), 'playerReview': experience.review(path),
             'pendingAction': read(path / 'pending.json'), 'lastResponse': read(path / 'response.json'),
             'recordings': session_reports, 'assertions': read(path / 'assertions.json', []),
             'scope': 'Client-generated mouse states use the real input handlers. Native OS input remains covered separately by verify-native. Model judgments are not regression assertions.'}

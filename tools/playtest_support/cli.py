@@ -47,6 +47,7 @@ def main(argv=None):
         parser.add_argument('--codex-executable', default='codex')
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--keep-open', action='store_true')
+        parser.add_argument('--journey', action='store_true', help='Focus on two companions, a learned discovery and a dungeon, with labelled observed-ground walking suggestions.')
         args = parser.parse_args(argv); command = args.group + ' ' + args.command
         repo = Repository(Path(__file__).resolve().parents[2])
         if args.group == 'sessions':
@@ -67,8 +68,10 @@ def main(argv=None):
                 'playtest observe ID [--full]', 'playtest act ID --json \'{"kind":"control","control":"panel:inventory"}\'',
                 'playtest wait ID --seconds 1', 'playtest capture ID', 'playtest mark ID --label TEXT',
                 'playtest feedback ID --message TEXT [--category combat --severity warning]', 'playtest report ID', 'playtest stop ID',
+                'playtest review ID',
                 'playtest suite [--output DIR --no-build]',
-                'playtest agent ID --model MODEL --reasoning low --objective TEXT [--max-steps 30 --timeout 600 --dry-run]'],
+                'playtest agent ID --model MODEL --reasoning low --objective TEXT [--max-steps 30 --timeout 600 --dry-run]',
+                'playtest agent ID --model MODEL --journey --objective TEXT --max-steps 200 --timeout 1800'],
                 'actionKinds': driver.KINDS, 'scope': 'Isolated save; real Client mouse-state pipeline; held between decisions; explicit waits advance time.',
                 'limits': {'actions': driver.MAX_ACTIONS, 'retainedStepEvidence': driver.RETAINED_STEPS, 'idleExitMinutes': 10},
                 'guide': 'docs/SESSION_PLAYTESTING.md'}
@@ -104,6 +107,10 @@ def main(argv=None):
             result = driver.feedback(repo, args.id, args.message, args.category, args.severity, args.root, args.expected)
         elif args.command == 'report':
             result = driver.report(repo, args.id, args.root)
+        elif args.command == 'review':
+            from . import experience
+            path, _ = driver.location(repo, args.id, args.root)
+            result = experience.review(path)
         elif args.command == 'stop':
             result = driver.stop(repo, args.id, args.root)
         elif args.command == 'agent':
@@ -111,7 +118,7 @@ def main(argv=None):
             if not args.model or not args.objective:
                 raise ValueError('Agent playtests require explicit --model and --objective. No model is invoked by normal game launches.')
             result = run(repo, args.id, args.model, args.objective, args.reasoning, args.max_steps, args.timeout,
-                         args.decision_timeout, args.root, args.codex_executable, args.keep_open, args.dry_run)
+                         args.decision_timeout, args.root, args.codex_executable, args.keep_open, args.dry_run, args.journey)
         else:
             raise ValueError('Unknown command; use playtest help.')
         ok = result.get('passed', True) and result.get('status') not in ['model-error', 'client-exited', 'interrupted']

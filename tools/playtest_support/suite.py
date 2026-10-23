@@ -67,6 +67,13 @@ def run(repo, output=None, no_build=False):
         first = start('world'); path, state = driver.location(repo, current, root); ui = observe()
         check('starts-paused-alone-with-recording', ui['paused'] and len(ui['party']) == 1 and bool(ui['sessionId']))
         check('automation-has-an-isolated-slot', not Path(state['isolatedSave']).exists())
+        click('panel:journal')
+        check('compact-observation-retains-the-visible-journal', bool(driver.observe(repo, current, root)['state']['journal']))
+        click('close'); click('panel:map')
+        compact = driver.observe(repo, current, root)['state']
+        check('compact-observation-retains-visible-known-places', bool(compact['places']) and all(
+            any(c['id'] == 'waypoint:' + p['id'] for c in compact['controls']) for p in compact['places']))
+        click('close')
         time.sleep(.25); check('thinking-does-not-advance-game-time', observe()['tick'] == ui['tick'])
         rejected = act({'kind': 'control', 'control': 'absent-button'}, accepted=False)
         check('invalid-controls-return-explicit-feedback', not rejected['delivered'] and 'not visible' in rejected['response']['reason'])
@@ -160,20 +167,45 @@ def run(repo, output=None, no_build=False):
         check('combat-damage-and-command-are-recorded', combat_report['summary']['metrics'].get('damage', 0) > 0 and combat_report['summary']['counts'].get('combat-action', 0) >= 1)
 
         start('world')
+        path, _ = driver.location(repo, current, root)
         stub = output / 'codex-stub.py'
-        stub.write_text('#!/usr/bin/env python3\nimport sys,json\nfrom pathlib import Path\ntext=sys.stdin.read()\nui=json.loads(text.split("Current observation JSON: ",1)[1])\n'
-                        'done=ui["panel"]=="inventory"\naction=None if done else dict.fromkeys(["kind","control","x","y","endX","endY","unit","actor","button","seconds","label"])\n'
-                        'if action is not None: action.update(kind="control",control="panel:inventory")\n'
-                        'value={"reason":"Observed the requested party panel" if done else "Open the party panel", "done":done,"action":action,"finding":'
-                        '({"category":"usability","severity":"note","description":"The party panel opened through the mouse interface.","expected":""} if done else None)}\n'
-                        'Path(sys.argv[sys.argv.index("--output-last-message")+1]).write_text(json.dumps(value))\n'
-                        'print(json.dumps({"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":20}}))\n')
+        stub.write_text('''#!/usr/bin/env python3
+import sys,json
+from pathlib import Path
+text=sys.stdin.read()
+ui=json.loads(text.split("Current observation JSON: ",1)[1])
+done=ui["panel"]=="inventory"
+action=None if done else dict.fromkeys(["kind","control","x","y","endX","endY","unit","actor","button","seconds","label"])
+if action is not None: action.update(kind="control",control="panel:inventory")
+comment={"topic":"interaction" if done else "orientation","impression":"positive" if done else "mixed",
+ "observed":"The Party panel displays my character's health and class." if done else "The world starts paused with Party and Play controls.",
+ "thought":"I can find my character's condition in one place." if done else "I can see how to inspect my party, but have not learned where nearby adventures are.",
+ "expected":"Opening Party would explain my character's condition.","suggestion":"","confidence":"medium"}
+debrief={"summary":"I found the Party panel; this short check does not cover exploration.","understanding":"The Party control opens character information.",
+ "worldImpression":"I have not explored enough to judge the world.","friction":"No failed click was observed; dungeon navigation remains untested.",
+ "nextAttempt":"Ask an inhabitant about nearby places and follow a clue.","wouldContinue":"unsure"} if done else None
+value={"reason":"Observed the requested party panel" if done else "Open the party panel", "done":done,"action":action,"finding":None,
+ "plan":{"goal":"Inspect my party","targetId":None,"nextStep":"Review" if done else "Open Party","remember":"Exploration is not tested yet."},"comments":[comment],"debrief":debrief}
+Path(sys.argv[sys.argv.index("--output-last-message")+1]).write_text(json.dumps(value))
+print(json.dumps({"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":20}}))
+''')
         stub.chmod(0o755)
         result = model.run(repo, current, 'fixture-model', 'Open the party panel and report the observed result.', max_steps=3,
                            timeout=30, decision_timeout=10, root=root, executable=str(stub))
         check('structured-model-loop-drives-and-observes-real-controls', result['status'] == 'model-finished' and result['decisions'] == 2)
         check('model-feedback-is-evidence-linked-and-labelled-opinion', driver.report(repo, current, root)['feedback'][0]['judgment'] == 'tester-opinion')
         check('model-loop-retains-usage-and-ends-client', result['usage']['input_tokens'] == 200 and not driver.observe(repo, current, root)['processAlive'])
+        from . import experience, memory
+        review = experience.review(path)
+        check('playtester-comments-explain-observation-and-interpretation', len(review['comments']) == 2 and all(
+            c['observed'] and c['thought'] and c['expected'] and c['evidenceRetained'] for c in review['comments']))
+        check('playtester-reflection-admits-untested-world-coverage', 'not explored' in review['debrief']['assessment']['worldImpression'])
+        check('playtester-notebook-is-readable-with-linked-evidence', '## End-of-run reflection' in (path / 'playtester-notes.md').read_text()
+              and '[Screenshot]' in (path / 'playtester-notes.md').read_text())
+        remembered = memory.load(path, current, 'Continue the party inspection')
+        check('model-intent-and-action-survive-controller-continuation', remembered['plan']['goal'] == 'Inspect my party'
+              and remembered['actions'][0]['action']['control'] == 'panel:inventory')
+        check('model-review-does-not-invent-journey-completion', 'entered-dungeon' not in review['checkpoints'])
         report['passed'] = True
     except (Exception, KeyboardInterrupt) as e:
         report['error'] = type(e).__name__ + ': ' + str(e)

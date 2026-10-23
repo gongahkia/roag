@@ -42,6 +42,7 @@ Preview scenes, `--ui-report`, frame-limited captures and headless audits retain
 ./dev playtest mark PLAYTEST_ID --label 'This route felt unclear'
 ./dev playtest feedback PLAYTEST_ID --category navigation --severity warning --message 'Describe the observed issue'
 ./dev playtest report PLAYTEST_ID
+./dev playtest review PLAYTEST_ID
 ./dev playtest stop PLAYTEST_ID
 ```
 
@@ -85,6 +86,22 @@ Any coding agent can use observe/act/feedback directly. An optional adapter runs
 ```
 
 The exact model ID passes through unchanged; unavailable models never trigger substitution. The installed `codex exec` uses existing CLI authentication, ephemeral read-only sessions, screenshots/compact observations, short recent history and a strict JSON decision schema. Only validated mouse proposals reach the game. No game-side API key/SDK is needed. Calls use your account allowance only when this command is explicitly run.
+
+The tester now retains its own bounded `player-memory.json`: player-observed places, readable Journal rows, notices, explored ground, prior attempts and an explicit goal/next step. The compact view preserves clues and marked destinations instead of losing them between decisions. Plan destinations must reference learned places; remembered ground never permits clicking a hidden tile. Public observations omit unplayed dialogue and undiscovered bypass locations. A new controller invocation for the same still-running session reuses this memory rather than forgetting the journey.
+
+`./dev playtest review ID` returns the model's comments and reflection; `playtester-notes.md` presents them with evidence links. Each comment separates a concrete observation from the tester's first-person interpretation, expectation, optional suggestion, sentiment and confidence. Positive, negative and mixed impressions are useful; a repeated status such as “animation busy” is not a usability assessment. The prompt requests first impressions, new places/mechanics, confusion and periodic reflections. Closing decisions reserve an opportunity for a debrief about understanding, the world, friction and what to try next. Missing feedback or a missing debrief stays explicitly unassessed, and model completion never establishes enjoyment or a passed gameplay objective. Screenshots rotate under the existing bounds; `evidenceRetained` identifies retained anchors.
+
+For a focused journey, use:
+
+```sh
+./dev playtest start --seed 42
+./dev playtest agent PLAYTEST_ID --model gpt-5.6-luna --reasoning low \
+  --journey --max-steps 200 --timeout 1800 \
+  --objective 'Recruit two companions, learn and visit a discovery, follow its linked dungeon and enter it. Explain what was clear, confusing or interesting about the world and navigation.'
+./dev playtest review PLAYTEST_ID
+```
+
+The journey tracks observed recruitment/discovery/underground checkpoints and offers **labelled walking assistance** using only current visible walkable/unoccupied cells and learned destinations. It submits the same ordinary mouse actions as a player. It does not reveal a hidden path, teleport, change generation or grant resources. A map marker identifies a destination; it does not automatically walk there. Route guidance helps test a complete journey, but its success does not prove unaided wayfinding is clear. Ordinary mode leaves navigation choices to the model. Both modes are model proxies for playtesting: simulated impressions help find issues but do not establish a human's enjoyment, aesthetic preference or accessibility experience. Held simulation, screenshot evidence and dummy audio remain important limits.
 
 Defaults: thirty decisions / ten minutes, sixty seconds per decision. The loop closes its client on completion/error; `--keep-open` deliberately leaves it held. `--dry-run` prints the invocation/limits without calling a model. `--codex-executable` chooses a trusted installed CLI or deterministic test stand-in. Bounded prompts/decisions/CLI events, reported token usage, linked feedback and an updated `model-report.json` remain inspectable. Status distinguishes completion, time/step budget, model/CLI error and client exit. A model finishing is not proof that assertions passed or that gameplay is fun. Account access and model quality require testing in your environment.
 

@@ -117,9 +117,9 @@ class PlaytestingTests(unittest.TestCase):
 
     def run_budget_fixture(self, decision_seconds, *, model_timeout=False):
         clock = [0]
-        observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1}}
+        observed = {'processAlive': True, 'screenshot': None, 'state': {'observation': 1, 'position': {'x': 1, 'y': 2, 'floor': 0}}}
         result = {'step': 1, 'delivered': True, 'response': {'reason': 'delivered'},
-                  'state': {'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2}}}
+                  'state': {'observation': 2, 'notice': 'Moved', 'panel': '', 'position': {'x': 1, 'y': 2, 'floor': 0}}}
 
         def execute(*args):
             clock[0] = decision_seconds
