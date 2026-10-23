@@ -35,6 +35,15 @@ class WorkspaceTests(unittest.TestCase):
         result = impact(self.repo, ['src/Vagabonds.Client/WorldGame.cs'])
         self.assertIn('native', result['recommendedProfiles'])
         self.assertEqual(['full'], impact(self.repo, ['unmapped.config'])['recommendedProfiles'])
+    def test_party_and_encounter_content_requests_its_actual_native_scenarios(self):
+        for path, scene in [('content/talent/bulwark.json', 'world-progression'),
+                            ('content/encounter/cinder-retinue.json', 'world-encounters'),
+                            ('content/reward/cinder-retinue.json', 'world-boss')]:
+            result = impact(self.repo, [path])
+            self.assertIn('native', result['recommendedProfiles'])
+            self.assertIn('world', result['recommendedProfiles'])
+            self.assertIn(scene, result['nativeScenes'])
+            self.assertFalse(result['unmapped'])
     def test_changes_include_staged_and_untracked_files(self):
         (self.root / 'source.cs').write_text('changed'); subprocess.run(['git','-C',str(self.root),'add','source.cs'],check=True)
         (self.root / 'untracked.cs').write_text('new')

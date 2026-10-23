@@ -29,7 +29,8 @@ Definitions have `kind`, stable `id`, readable `name`, optional `description`, `
 | names / trait | Generated identity pools, backgrounds, motivations and disposition modifiers |
 | class | Role slot, base stats, sprite and three class abilities |
 | talent | Generated combat dispositions and permanent class developments; see [companion combat development](PROGRESSION_AUTHORING.md) |
-| ability | Target, mana, power, registered effect and status duration |
+| ability | Target, mana, power, registered effect, status duration and enemy-only preparation turns |
+| encounter / reward | Composed enemy roles, habitat eligibility, weighted placement and persistent themed victory grants; see [encounter authoring](ENCOUNTER_AUTHORING.md) |
 | interaction | Registered action, maximum distance, item costs and effect amount |
 | dialogue | Presentation-only interaction reference, conditional player/reply variants and world tokens |
 | item | Inventory key, value, appearance, equipment slot and stat modifiers |

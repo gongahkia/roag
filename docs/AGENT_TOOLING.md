@@ -132,3 +132,12 @@ Executed acceptance results and platform limits are recorded in [VERIFICATION.md
 ### Closing the combat presentation loop
 
 The combat milestone dogfoods this workflow with `devtools/tasks/combat-presentation.json`. Its native checks now capture semantic UI JSON beside screenshots, synchronize short clicks against actual control response, freeze reported animation phases through focus loss, and compare normal/fast/skipped saved states. Use `combatPresentation.busy` to gate actions even when the live battle has already advanced or ended; `combatIntents` and displayed-unit snapshots explain what the player should see. Stable ability IDs and an independent profile hash make visual tuning traceable without changing save compatibility. See [COMBAT_PRESENTATION.md](COMBAT_PRESENTATION.md) for the field contract and reproducible commands.
+
+
+## Party and encounter verification
+
+The world profile now also runs `audit-expedition`, `audit-encounters` and `audit-counterplay`, retaining their JSON reports alongside the other world checks. Expedition coverage gaps remain explicit even when invariants pass. Encounter generation audits examine authored contexts and actual placements; counterplay reports compare real resolver outcomes under stated fixture conditions. These tools are deterministic diagnostics, not a substitute for human balance playtesting.
+
+Native acceptance includes `world-progression` and `world-encounters`. Equipment clicks use item IDs from the current runtime UI report, including hidden/unowned signature gear and generated variants, rather than guessing indices from all authored items. Every test load requires an explicit success notice before comparing state; rejected temporary saves and their chunks are retained with diagnostic reports. This closes a false-positive path where load rejection preserved an apparently matching state. The scene registry requires eleven scenes for complete native coverage.
+
+The impact map explicitly associates talent, encounter and reward changes with world/core checks and the progression, encounter, battle and boss native scenes. This prevents a content-only change from silently omitting the UI where its consequences appear.

@@ -168,10 +168,28 @@ public static class DeveloperEntry
                     ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
                     cooperation = new { abilities = catalog.Game.CooperativeAbilities, preview = "preview ability ID", nativeScene = "world-cooperation", rule = "Both participants spend mana and one action; helper must still have a turn this round." },
                     progression = new { effects = TalentDefinition.Effects, preview = "preview talent ID", audit = "audit-expedition --seeds 42,1337,-42,2026", rule = "One generated innate trait; one permanent class choice at levels two and four." },
-                    encounters = new { preview = "preview encounter encounter.ID", rewards = "preview reward reward.ID", nativeScene = "world-encounters", rule = "Composed groups, fixed prepared targets, one-time rewards per persistent source." },
+                    encounters = new { preview = "preview encounter encounter.ID", rewards = "preview reward reward.ID", nativeScene = "world-encounters", populationAudit = "audit-encounters --seeds 42,1337,-42,2026", counterplayAudit = "audit-counterplay --seed N", rule = "Composed groups, fixed prepared targets, one-time rewards per persistent source." },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },
                     agentWorkflow = new { entry = "./dev agent help", reproduction = "./dev scenario run FILE", edits = "./dev content patch ID --patch FILE", diagnostics = "./dev diagnose save FILE" },
                     note = "Review real authoring friction and missing previews at each milestone; counts do not measure content quality." }); return catalog.Issues.Count == 0 ? 0 : 1;
+            }
+            if (command == "audit-counterplay")
+            {
+                RequireValid(catalog);
+                var report = EncounterCounterplayAudit.Run(catalog, seed);
+                string output = Value("--output", "artifacts/encounter-counterplay.json");
+                WriteNew(output, JsonSerializer.Serialize(report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(new { report.Passed, output }); return report.Passed ? 0 : 1;
+            }
+            if (command == "audit-encounters")
+            {
+                RequireValid(catalog);
+                int[] seeds = args.Contains("--seeds") ? Value("--seeds", "").Split(',').Select(s => int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray()
+                    : Enumerable.Range(0, int.Parse(Value("--samples", "4"), System.Globalization.CultureInfo.InvariantCulture)).Select(i => unchecked(seed + i)).ToArray();
+                var report = EncounterPopulationAudit.Run(catalog, seeds);
+                string output = Value("--output", "artifacts/encounter-populations.json");
+                WriteNew(output, JsonSerializer.Serialize(report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(new { report.Passed, output }); return report.Passed ? 0 : 1;
             }
             if (command == "audit-expedition")
             {
@@ -215,7 +233,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-expedition --seeds 42,1337,-42,2026 [--steps N] [--output FILE]", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
+            Print(new { commands = new[] { "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-expedition --seeds 42,1337,-42,2026 [--steps N] [--output FILE]", "audit-encounters --seeds 42,1337,-42,2026 [--output FILE]", "audit-counterplay --seed N [--output FILE]", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)
