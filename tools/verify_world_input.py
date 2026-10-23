@@ -57,7 +57,7 @@ def main():
                 if ui and predicate(ui): return ui
                 time.sleep(interval)
             raise RuntimeError('UI readiness timed out: ' + json.dumps(self.ui())[:1500])
-        def point(self, px, py, button=1, fast=False):
+        def point(self, px, py, button=1, fast=False, exit_ok=False):
             px, py = round(px), round(py)
             for attempt in range(3):
                 if attempt > 0 or not self.ui().get('focused', False):
@@ -74,11 +74,16 @@ def main():
             try:
                 # The actual Update input edge is the receipt. Clock/animation
                 # changes alone cannot acknowledge a click on a slow frame.
-                self.wait(lambda u: u['mouseInput']['pressSequence'] > before
-                    and u['mouseInput']['lastPress']['button'] == button
-                    and u['mouseInput']['lastPress']['x'] == px and u['mouseInput']['lastPress']['y'] == py,
-                    timeout=3, interval=.005)
+                def received(u):
+                    return (u['mouseInput']['pressSequence'] > before and u['mouseInput']['lastPress']['button'] == button
+                        and u['mouseInput']['lastPress']['x'] == px and u['mouseInput']['lastPress']['y'] == py)
+                if exit_ok:
+                    deadline = time.monotonic() + 3
+                    while self.process.poll() is None and not received(self.ui()) and time.monotonic() < deadline: time.sleep(.005)
+                    if self.process.poll() not in (None, 0): raise RuntimeError('Quit failed: ' + str(self.process.returncode))
+                else: self.wait(received, timeout=3, interval=.005)
             finally: x('mouseup', button)
+            if exit_ok: return  # Clean process exit acknowledges Save and quit.
             released = 'leftPressed' if button == 1 else 'rightPressed'
             if not fast:
                 self.wait(lambda u: not u['mouseInput'][released], timeout=3, interval=.005)
@@ -86,8 +91,8 @@ def main():
         def click(self, identifier, fast=False):
             ui = self.wait(lambda u: any(c['id'] == identifier and c['enabled'] for c in u['controls']))
             button = next(c for c in ui['controls'] if c['id'] == identifier); r = button['bounds']
-            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast)
-            if self.ui()['mouseInput']['lastPress']['control'] != identifier:
+            self.point(r['x'] + r['width'] / 2, r['y'] + r['height'] / 2, fast=fast, exit_ok=identifier == 'quit')
+            if identifier != 'quit' and self.ui()['mouseInput']['lastPress']['control'] != identifier:
                 raise RuntimeError('Mouse press hit a different control: ' + str(self.ui()['mouseInput']['lastPress']))
         def combat_ready(self):
             return self.wait(lambda u: not u.get('combatPresentation', {}).get('busy', False)
