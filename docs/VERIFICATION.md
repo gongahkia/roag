@@ -1,8 +1,20 @@
 # Vagabonds verification
 
-## Session diagnostics — implementation checkpoint
+## Session recording and agent playtesting — 2026-10-23
 
-The initial recorder builds in Release with zero warnings/errors. Focused .NET regressions cover exact state/RNG preservation with working and throwing observers, persistence with diagnostic failure, bounded evidence/retention/performance and protocol isolation. The first recorded native loop passed 29 exploration/combat/model-stand-in checks; separate ordinary OS mouse checks passed for automatic recording/marking/saving, opt-out and incompatible-startup crash capture with the isolated save preserved. Python tooling tests pass. These are implementation checkpoints; final fresh full acceptance and visual review follow below when executed.
+**Final managed run `20261023-034452-6e681eab` passed**, source fingerprint `d1cb7d77d3574bbdaae9c33f6c7728cd78c9e15c04949c134045afadc6129b08`, gameplay/tooling head `5c20d76`. Inspection reports `fresh: true`, **434 sealed artifacts** and no checksum errors. Subsequent Markdown-only closure does not change this repository's source fingerprint.
+
+- **661/661 Release .NET tests**, zero build warnings/errors. Recorder coverage includes exact state/RNG/save continuation with working/throwing observers, initialization failure, serialization failure, overloaded-queue fatal context, retention protecting live/foreign directories, file/marker bounds and performance sampling. Protocol tests cover real mouse edges, drag, holds/waits, duplicate/stale/malformed requests and isolated/symlink-safe save paths.
+- **28/28 Python workflow tests**, including bounded output/timeouts, structured nullable action defaults, compact visible maps, read-only diagnostic reports, evidence rotation, failed-image isolation, interrupted-controller recovery and nonempty managed evidence. **38/38 catalog tests**, catalog freshness and all five declarative scenarios pass.
+- Headless simulation and four-seed world/exploration/wildlife/situation/expedition/population/counterplay audits pass. The gameplay content hash and save/generation versions were not changed.
+- **187 native mouse checks across eleven scenes** pass. A preceding fixed-duration equipment click failure led to explicit input-edge/target receipts; clean quit uses successful process exit as its acknowledgment. Failed native runs now retain their isolated save/chunks beside screenshots and UI state. Assertions still inspect real gameplay effects.
+- **35 recorded playtest assertions** pass: ordinary automatic recording with actual OS mouse marking/saving, opt-out, incompatible-startup crash capture/save preservation, isolated world travel/recruitment/formation, drag-selection and timed building/digging, markers, save/load, staged combat/damage, no-time diagnostic capture, withheld unplayed results and a model decision/feedback loop using the exact nullable schema. The Codex stand-in drives the rendered game; **no paid model request was made**.
+
+At **1024×720**, manually reviewed the ordinary seed-1337 marker, four-foe combat marker, model-linked Party capture, and native battle/four-member Party captures. The normal marker notice is complete, scene captures preserve the game instead of the menu, and portraits/commands/health/intents remain readable. CLI session/playtest reports were inspected: the ordinary recording closes with seed 1337 and chunk/frame metrics; the stand-in finishes in two decisions, retains feedback evidence, leaves no pending action and closes its client.
+
+Retained evidence: `artifacts/agent/runs/20261023-034452-6e681eab/` (`native/`, `playtests/`, TRX, logs, audits and checksums). Earlier `20261023-032806-0fe4b270` failed native input; `20261023-033737-88c88613` passed its checks but became stale during the nullable-schema fix. Neither is final acceptance evidence.
+
+Limits: Linux/WSL with Xvfb/software GL only; native Windows/macOS, live Codex account/model availability and subjective long-run balance are untested. Recorder history is bounded and is not a deterministic replay; forced kills/native crashes may omit final context. No player slot, original artwork or remote repository was modified. See [SESSION_PLAYTESTING_REVIEW.md](SESSION_PLAYTESTING_REVIEW.md) for the requirement audit and [SESSION_PLAYTESTING.md](SESSION_PLAYTESTING.md) for commands.
 
 ## Completed companion and encounter milestone — 2026-10-23
 
