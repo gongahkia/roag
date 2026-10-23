@@ -160,7 +160,7 @@ internal sealed partial class WorldGame : Game
         if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
-        _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
+        if (_playtest == null || InputFocused) _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
         {
             if (!Execute(new(WorldCommandKind.Move, next))) { StopTravel(); _notice += " Click again to route around the obstruction."; }
@@ -183,7 +183,7 @@ internal sealed partial class WorldGame : Game
         else _enemyTimer = 0;
         UpdateConversation(gameTime.ElapsedGameTime.TotalSeconds);
         CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
-        UpdateMotions(_playtest != null && !InputFocused ? TimeSpan.Zero : gameTime.ElapsedGameTime);
+        UpdateMotions(_playtest is { AdvancesWorldPresentation: false } ? TimeSpan.Zero : gameTime.ElapsedGameTime);
         UpdateView();
         _lastUpdateMs = timer.Elapsed.TotalMilliseconds;
         if (_updates.Count < 10000) _updates.Add(_lastUpdateMs);

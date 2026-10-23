@@ -39,6 +39,9 @@ internal sealed class PlaytestBridge
     public long Revision { get; private set; }
     public bool Holding => _active == null;
     public bool RunsFrames => _active is { Kind: not ("capture" or "mark" or "stop") };
+    // A semantic click targets the held screenshot. Keep world-space hit boxes
+    // stable until its mouse edges are delivered; explicit waits animate travel.
+    public bool AdvancesWorldPresentation => _active is { Kind: "wait" };
     public bool NeedsObservation => _initial || _active != null && _mouse.Count == 0 && _wait <= 0;
     public bool StopRequested { get; private set; }
 

@@ -26,9 +26,11 @@ public sealed class PlaytestBridgeTests : IDisposable
         var bridge = new PlaytestBridge(_folder); Assert.True(bridge.Holding); Publish(bridge);
         Request("click-1", "control");
         var first = bridge.Next(.1, Resolve, _ => { }); Assert.Equal(ButtonState.Released, first.LeftButton); Assert.False(bridge.Holding);
+        Assert.True(bridge.RunsFrames); Assert.False(bridge.AdvancesWorldPresentation);
         Assert.Equal(ButtonState.Pressed, bridge.Next(.1, Resolve, _ => { }).LeftButton);
         Assert.Equal(ButtonState.Released, bridge.Next(.1, Resolve, _ => { }).LeftButton);
         Assert.True(bridge.NeedsObservation); Publish(bridge); Assert.True(bridge.Holding); Assert.Equal(2, bridge.Revision);
+        Assert.False(bridge.AdvancesWorldPresentation);
         Request("drag-1", "drag", 2);
         var states = new List<MouseState> { bridge.Next(.1, Resolve, _ => { }) };
         while (!bridge.NeedsObservation) states.Add(bridge.Next(.1, Resolve, _ => { }));
@@ -58,10 +60,12 @@ public sealed class PlaytestBridgeTests : IDisposable
     {
         var bridge = new PlaytestBridge(_folder); Publish(bridge);
         Request("wait-1", "wait", extra: new { seconds = .5 }); bridge.Next(.1, Resolve, _ => { });
+        Assert.True(bridge.AdvancesWorldPresentation);
         Assert.True(bridge.RunsFrames); Assert.False(bridge.NeedsObservation); bridge.Next(.2, Resolve, _ => { }); bridge.Next(.2, Resolve, _ => { });
         Assert.False(bridge.NeedsObservation); bridge.Next(.11, Resolve, _ => { }); Assert.True(bridge.NeedsObservation); Publish(bridge);
         string? marked = null; Request("mark-1", "mark", 2, new { label = "Look here" }); bridge.Next(.1, Resolve, label => marked = label);
         Assert.Equal("Look here", marked); Assert.False(bridge.RunsFrames); Assert.True(bridge.NeedsObservation); Publish(bridge);
+        Assert.False(bridge.AdvancesWorldPresentation);
         Request("too-long", "wait", 3, new { seconds = 300 }); bridge.Next(.1, Resolve, _ => { }); Assert.True(bridge.Holding);
         Assert.False(Response().GetProperty("success").GetBoolean());
     }
