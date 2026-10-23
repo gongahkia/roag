@@ -47,7 +47,9 @@ def add(repo, run_id, comments, root=None):
         if any(e.get('thought') == comment['thought'] and e.get('observed') == comment['observed'] for e in previous):
             continue
         category = comment['topic'] if comment['topic'] in ['navigation', 'combat'] else 'usability'
-        note = driver.feedback(repo, run_id, comment['thought'], category, 'note', root, comment['expected'])
+        # The generic feedback transport bounds its expectation at 1,000 chars;
+        # preserve the full validated impression in the enriched entry below.
+        driver.feedback(repo, run_id, comment['thought'], category, 'note', root, comment['expected'][:1000])
         entries = read(path / 'feedback.json', [])
         entries[-1].update(comment, kind='playtester-impression',
                            observationMeaning='Observed describes evidence; thought and suggestion are model opinions.')

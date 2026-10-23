@@ -82,6 +82,14 @@ class ExperientialTests(unittest.TestCase):
         self.assertIsNone(result['suggestedAction'])
         self.assertIn('No free observed', result['hint'])
 
+    def test_formation_dead_end_inspects_last_companion_without_teleporting_or_swapping(self):
+        party = [{'x': 1, 'y': 1}, {'x': 2, 'y': 1}, {'x': 2, 'y': 2}]
+        obs = self.observation(party=party, localGround=[[1, 1, True, True, True], [2, 1, True, True, True], [2, 2, True, True, True]])
+        memory.remember(self.state, obs)
+        result = memory.guidance(self.state, obs)
+        self.assertEqual({'kind': 'tile', 'x': 2, 'y': 2, 'button': 3}, result['suggestedAction'])
+        self.assertEqual([{'x': 1, 'y': 1}, {'x': 2, 'y': 1}, {'x': 2, 'y': 2}], party)
+
     def test_active_travel_waits_and_dungeon_stairs_are_selected_only_when_seen(self):
         obs = self.observation(routeCount=6, party=[{}, {}, {}])
         memory.remember(self.state, obs)
@@ -132,6 +140,18 @@ class ExperientialTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             model.validate_decision({'reason': '', 'done': True, 'action': None, 'finding': None, 'comments': [{}]})
         self.assertEqual([], experience.review(self.path)['comments'])
+
+    def test_long_valid_expectation_keeps_the_full_impression_without_exceeding_transport_limits(self):
+        path = self.path / 'fixture'; path.mkdir()
+        atomic_json(path / 'playtest.json', {'schemaVersion': 1, 'id': 'fixture', 'steps': 1})
+        atomic_json(path / 'observation.json', {'observation': 1, 'screenshot': None})
+        comment = {'topic': 'world', 'impression': 'mixed', 'observed': 'An inhabitant named a distant cistern.',
+                   'thought': 'I have a reason to explore, but want to understand the journey.',
+                   'expected': 'x' * 1200, 'suggestion': '', 'confidence': 'medium'}
+        experience.add(None, 'fixture', [comment], root=self.path)
+        result = json.loads((path / 'feedback.json').read_text())[0]
+        self.assertEqual(comment['expected'], result['expected'])
+        self.assertEqual('playtester-impression', result['kind'])
 
     def test_player_memory_bounds_repeated_journal_and_ground(self):
         for n in range(90):

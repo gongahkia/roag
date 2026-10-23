@@ -163,4 +163,11 @@ def guidance(state, observation):
         result['suggestedAction'] = {'kind': 'tile', 'x': step[0], 'y': step[1]}
     else:
         result['hint'] = 'No free observed walking step. Inspect the blocker and report it; no hidden route was queried.'
+        party = observation.get('party', [])
+        if len(party) > 1:
+            last = party[-1]
+            cell = (last.get('x'), last.get('y'))
+            if cell in visible and visible[cell][2]:
+                result['suggestedAction'] = {'kind': 'tile', 'x': cell[0], 'y': cell[1], 'button': 3}
+                result['hint'] = 'The formation may block the exit. Inspect the last companion’s normal right-click options and read the available actions; no character was moved by the controller.'
     return result
