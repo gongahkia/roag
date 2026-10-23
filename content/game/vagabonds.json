@@ -154,7 +154,13 @@
   "encounters": [
     "encounter.road-wardens",
     "encounter.cinder-ambush",
-    "encounter.hollow-vigil"
+    "encounter.hollow-vigil",
+    "encounter.lost-patrol",
+    "encounter.prowler-pack",
+    "encounter.cistern-haunting",
+    "encounter.penitent-procession",
+    "encounter.cinder-retinue",
+    "encounter.broken-guard"
   ],
   "defaultReward": "reward.wanderers"
 }

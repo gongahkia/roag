@@ -44,10 +44,15 @@ public sealed class WorldEncounterGroupTests : IDisposable
     public void AuthoredSiteGroupsAreReproducibleVariedAndHaveFixedDanger()
     {
         var world = WorldSession.Create(42); var again = WorldSession.Create(42);
+        Assert.Empty(world.State.EncounterPopulations);
+        var plans = world.Plan.Sites.SelectMany(s => world.EncounterPopulationPlan(s.Id)).ToArray();
+        Assert.Equal(world.Plan.Sites.Count * 3, plans.Length);
+        Assert.True(plans.Select(p => p.EncounterId).Distinct().Count() >= 6);
+        Assert.Equal(new[] { 1, 2, 3 }, plans.Select(p => p.Floor).Distinct().Order());
+        foreach (var plan in plans.Take(6))
+        { world.EnsureEncounterPopulation(plan.SiteId, plan.Floor); again.EnsureEncounterPopulation(plan.SiteId, plan.Floor); }
         var groups = world.State.Actors.Where(a => a.Id is >= 70000 and < 80000).GroupBy(a => a.EncounterLeader).ToArray();
-        Assert.Equal(world.Plan.Sites.Count, groups.Length);
-        Assert.Equal(ContentCatalog.Default.Game.Encounters.Order(), groups.Select(g => g.First().EncounterId).Distinct().Order());
-        Assert.Equal(new[] { 1, 2 }, groups.Select(g => g.First().Position.Floor).Distinct().Order());
+        Assert.Equal(6, groups.Length);
         foreach (var group in groups)
         {
             var definition = world.Content.Get<EncounterDefinition>(group.First().EncounterId);

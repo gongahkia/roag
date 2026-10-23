@@ -11,20 +11,9 @@ public sealed partial class WorldSession
 
     private void PopulateEncounterGroups()
     {
-        if (Content.Game.Encounters.Length == 0) return;
-        foreach (var site in Plan.Sites)
-        {
-            var random = WorldRandom.Stream(Seed, site.Id, salt: 7100);
-            var definition = Content.Get<EncounterDefinition>(Content.Game.Encounters[random.Next(Content.Game.Encounters.Length)]);
-            long leader = 70000 + site.Id * 4;
-            int floor = 1 + random.Next(2);
-            for (int i = 0; i < definition.Members.Length; i++)
-            {
-                var actor = ActorFactory.Create(Content, definition.Members[i], Seed, leader + i,
-                    site.Center.Offset(-3 + i * 2, 4) with { Floor = floor }, site.Id % 24, site.Culture, site.Id % 6);
-                actor.EncounterLeader = leader; actor.EncounterId = definition.Id; State.Actors.Add(actor);
-            }
-        }
+        // Plans are pure. Generate actual ground and actors only when travelling onto a floor.
+        // This keeps starting a world from eagerly generating all 144 dungeon footprints.
+        EnsureLocalEncounterPopulation();
     }
 
     public string EncounterDescription(long actorId)

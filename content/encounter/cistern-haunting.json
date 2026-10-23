@@ -1,0 +1,31 @@
+{
+  "kind": "encounter",
+  "id": "encounter.cistern-haunting",
+  "name": "Cistern haunting",
+  "sprite": "banner",
+  "members": [
+    "character.slime",
+    "character.wisp"
+  ],
+  "roles": [
+    "attacker",
+    "attrition"
+  ],
+  "tier": "warband",
+  "weight": 38,
+  "purposes": [
+    "mine",
+    "ruin"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 3,
+  "tactics": "The wisp raises stress and drains life while the slower slime scorches the party and recovers below half health. Defeat the fragile wisp first or burst through the slime before it heals; cleanse removes burning.",
+  "reward": "reward.cistern-haunting",
+  "description": "The wisp raises stress and drains life while the slower slime scorches the party and recovers below half health. Defeat the fragile wisp first or burst through the slime before it heals; cleanse removes burning."
+}

@@ -406,6 +406,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    [JsonRequired] public List<EncounterPopulationRecord> EncounterPopulations { get; set; } = [];
     public HashSet<long> RewardedEncounterIds { get; set; } = [];
     [JsonRequired] public HashSet<ChunkKey> EcologyChunks { get; set; } = [];
     public CampStory? LastCampStory { get; set; }

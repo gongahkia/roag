@@ -1,0 +1,15 @@
+{
+  "kind": "reward",
+  "id": "reward.prowler-pack",
+  "name": "Pack trophies",
+  "sprite": "chest",
+  "gold": 4,
+  "food": 5,
+  "experience": 14,
+  "supplies": {},
+  "equipmentPool": [
+    "item.wanderers-cloak",
+    "item.quick-silver"
+  ],
+  "equipmentChancePercent": 50
+}

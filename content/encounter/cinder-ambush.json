@@ -7,7 +7,28 @@
     "character.cinder-channeler",
     "character.road-bowman"
   ],
-  "tactics": "The channeler spends a turn preparing Cinder surge; stun it before release, defeat it, or guard the party. The bowman pressures the weakest companion.",
+  "roles": [
+    "preparer",
+    "attacker"
+  ],
+  "tier": "warband",
+  "weight": 40,
+  "purposes": [
+    "ruin",
+    "mine",
+    "fort"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 3,
+  "tactics": "The channeler prepares Cinder surge before release and leaves a recovery action afterward. Stun or defeat it before release, or guard the party. The bowman marks prey and favors marked or wounded companions.",
   "reward": "reward.cinder-ambush",
-  "description": "The channeler spends a turn preparing Cinder surge; stun it before release, defeat it, or guard the party. The bowman pressures the weakest companion."
+  "description": "The channeler prepares Cinder surge before release and leaves a recovery action afterward. Stun or defeat it before release, or guard the party. The bowman marks prey and favors marked or wounded companions."
 }

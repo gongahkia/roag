@@ -7,7 +7,28 @@
     "character.vow-mender",
     "character.road-bruiser"
   ],
-  "tactics": "The mender restores wounded allies while the bruiser strikes hard. Focus or stun the frail mender, then deal with the armoured bruiser. Healing uses a limited mana reserve.",
+  "roles": [
+    "support",
+    "attacker"
+  ],
+  "tier": "warband",
+  "weight": 40,
+  "purposes": [
+    "ruin",
+    "mine",
+    "fort"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 2,
+  "tactics": "The mender restores wounded allies between ordinary attacks, using a limited mana reserve. Focus or stun the frail mender; the bruiser guards only while wounded, leaving windows to strike.",
   "reward": "reward.road-wardens",
-  "description": "The mender restores wounded allies while the bruiser strikes hard. Focus or stun the frail mender, then deal with the armoured bruiser. Healing uses a limited mana reserve."
+  "description": "The mender restores wounded allies between ordinary attacks, using a limited mana reserve. Focus or stun the frail mender; the bruiser guards only while wounded, leaving windows to strike."
 }

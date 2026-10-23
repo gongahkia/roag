@@ -91,7 +91,7 @@ public sealed partial class WorldSession
     {
         if (!CanEnter(next, actor.Id)) return;
         actor.Position = next;
-        if (actor.Id == State.Party[0]) State.Position = next;
+        if (actor.Id == State.Party[0]) { State.Position = next; EnsureLocalEncounterPopulation(); }
         Reveal();
     }
 

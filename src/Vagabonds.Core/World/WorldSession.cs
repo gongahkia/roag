@@ -147,7 +147,7 @@ public sealed partial class WorldSession : IGameSession
                 ApplyPartyPlacement(command.Target, step);
                 if (State.WorkRally != null) State.WorkRally = command.Target;
                 foreach (var a in Party) a.Body.RestUntil = 0;
-                PrepareLocalCollision(); Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
+                EnsureLocalEncounterPopulation(); PrepareLocalCollision(); Reveal(); Contact(); CheckArc(); return new(true, "Moved.");
             case WorldCommandKind.Interact:
                 if (target != null && State.Position.Distance(target.Position) <= 2 && target.Life == LifeState.Alive)
                 {
@@ -164,7 +164,7 @@ public sealed partial class WorldSession : IGameSession
                     if (!TryPartyPlacement(arrival, out var landing)) return new(false, "The destination needs enough walkable space for every companion.");
                     ApplyPartyPlacement(arrival, landing);
                     if (State.WorkRally != null) State.WorkRally = arrival;
-                    Chunks.Prefetch(arrival); PrepareLocalCollision(); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
+                    Chunks.Prefetch(arrival); EnsureLocalEncounterPopulation(); PrepareLocalCollision(); Reveal(); CheckArc(); Contact(); return new(true, "You take the stairs.");
                 }
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
             case WorldCommandKind.Recruit:

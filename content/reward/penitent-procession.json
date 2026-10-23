@@ -1,0 +1,18 @@
+{
+  "kind": "reward",
+  "id": "reward.penitent-procession",
+  "name": "Procession reliquary",
+  "sprite": "chest",
+  "gold": 26,
+  "food": 3,
+  "experience": 32,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.warding-bell",
+    "item.heartstone",
+    "item.wanderers-cloak"
+  ],
+  "equipmentChancePercent": 100
+}
