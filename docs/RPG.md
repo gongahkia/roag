@@ -139,7 +139,7 @@ Each generated person has a personal combat trait, visible before recruitment an
 
 ### Reading encounter groups
 
-Dungeon populations depend on the region, kind of site and depth. Patrols, warbands and elites have fixed compositions and strength; every floor is accessible from the start. Hover a visible foe or open **Tactics** during combat to read the group's identity, danger tier and counterplay. A mender can sustain an attacker, a marked companion can become a priority target, and bleeding or dread can wear down a party across several fights.
+Dungeon populations depend on the region, kind of site and depth. Patrols, warbands and elites have fixed compositions and strength; every floor is accessible from the start. Hover a visible foe or open **Tactics** during combat to read the group's identity, danger tier and counterplay. Up to four nearby unaffiliated foes can also join an encounter, regardless of party size; hover estimates count the visible ones. A mender can sustain an attacker, a marked companion can become a priority target, and bleeding or dread can wear down a party across several fights.
 
 A **Charging / stun** cue means an enemy has spent its turn preparing an attack for the next round. Stun before release to break it, defeat the caster, or guard to reduce the impact. A later cleanse cannot restore a broken preparation. Release keeps its declared single target even if that target falls. Some special actions need a different action before they can repeat; remaining mana and current intentions are visible.
 

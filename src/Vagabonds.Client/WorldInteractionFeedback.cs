@@ -46,8 +46,7 @@ internal static class WorldInspection
     private static string Threat(WorldSession session, Actor actor)
     {
         double party = session.Party.Where(a => a.Life == LifeState.Alive).Sum(a => a.Health * Math.Max(1, a.Power));
-        var visibleGroup = actor.EncounterLeader == 0 ? new[] { actor } : session.State.Actors.Where(a => a.Life == LifeState.Alive
-            && a.EncounterLeader == actor.EncounterLeader && session.Visible.Contains(a.Position)).ToArray();
+        var visibleGroup = session.EncounterOpponents(actor.Id).Where(a => session.Visible.Contains(a.Position)).ToArray();
         double ratio = visibleGroup.Sum(a => a.Health * (double)Math.Max(1, a.Power)) / Math.Max(1, party);
         return "Visible threat estimate: " + (ratio > 2 ? "overwhelming" : ratio > 1 ? "severe" : ratio > .45 ? "dangerous" : "manageable") + " against the current party";
     }

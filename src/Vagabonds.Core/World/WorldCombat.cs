@@ -16,11 +16,7 @@ public sealed partial class WorldSession
         State.CombatEvents.Clear(); State.LastEncounterReward = null;
         var battle = new WorldBattle();
         foreach (var a in Party.Where(a => a.Life == LifeState.Alive)) AddUnit(a, true);
-        // A lone traveller meets one foe; larger parties can draw in nearby enemies.
-        AddUnit(enemy, false);
-        if (enemy.EncounterLeader > 0)
-            foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == enemy.EncounterLeader && a.Life == LifeState.Alive).Take(3)) AddUnit(a, false);
-        else if (State.Party.Count > 1) foreach (var a in State.Actors.Where(a => a.Id != enemyId && a.EncounterLeader == 0 && IsHostile(a) && a.Position.Distance(enemy.Position) < 8).Take(State.Party.Count - 1)) AddUnit(a, false);
+        foreach (var opponent in EncounterOpponents(enemy.Id)) AddUnit(opponent, false);
         State.Battle = battle; NewCombatRound(); BeginCombatTurn();
         void AddUnit(Actor a, bool friendly)
         {

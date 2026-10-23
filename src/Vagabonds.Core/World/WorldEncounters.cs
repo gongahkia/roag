@@ -16,6 +16,18 @@ public sealed partial class WorldSession
         EnsureLocalEncounterPopulation();
     }
 
+    /// <summary>Fixed opponents at this moment; party size/level never change which nearby foes join.</summary>
+    public IReadOnlyList<Actor> EncounterOpponents(long enemyId)
+    {
+        var enemy = State.Actors.FirstOrDefault(a => a.Id == enemyId && a.Life == LifeState.Alive
+            && a.Kind is ActorKind.Raider or ActorKind.Beast);
+        if (enemy == null) return [];
+        var others = enemy.EncounterLeader > 0
+            ? State.Actors.Where(a => a.Id != enemy.Id && a.EncounterLeader == enemy.EncounterLeader && a.Life == LifeState.Alive)
+            : State.Actors.Where(a => a.Id != enemy.Id && a.EncounterLeader == 0 && IsHostile(a) && a.Position.Distance(enemy.Position) < 8);
+        return new[] { enemy }.Concat(others.OrderBy(a => a.Id).Take(3)).ToArray();
+    }
+
     public string EncounterDescription(long actorId)
     {
         var actor = State.Actors.FirstOrDefault(a => a.Id == actorId);

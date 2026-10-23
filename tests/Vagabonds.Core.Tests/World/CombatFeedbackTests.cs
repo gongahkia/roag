@@ -11,6 +11,7 @@ public sealed class CombatFeedbackTests
     {
         var s = WorldSession.Create(42); var hero = s.Party.First(); hero.BaseSpeed = 30; hero.BaseHealth = hero.Health = 1000;
         var enemy = s.State.Actors.First(a => a.Kind == ActorKind.Beast); enemy.BaseHealth = enemy.Health = 1000;
+        enemy.Position = s.State.Position.Offset(8, 0); s.Chunks.Edit(enemy.Position, Material.Floor);
         s.StartBattle(enemy.Id); return s;
     }
     [Fact]

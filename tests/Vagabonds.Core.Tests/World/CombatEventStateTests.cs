@@ -17,6 +17,7 @@ public sealed class CombatEventStateTests : IDisposable
         hero.Role = role; hero.BaseSpeed = 30; hero.BaseHealth = hero.Health = 1000; hero.Mana = hero.MaxMana;
         var enemy = world.State.Actors.First(a => a.Kind == ActorKind.Beast);
         enemy.BaseSpeed = 1; enemy.BaseHealth = enemy.Health = 1000;
+        enemy.Position = world.State.Position.Offset(8, 0); world.Chunks.Edit(enemy.Position, Material.Floor);
         world.StartBattle(enemy.Id); Assert.True(world.State.Battle!.Active.Friendly); return world;
     }
     [Fact]
