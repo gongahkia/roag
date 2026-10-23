@@ -53,6 +53,18 @@ public sealed class DeveloperTests : IDisposable
         Assert.False(File.Exists(path));
     }
     [Fact]
+    public void RemovingTheLastInnateCannotLeaveGeneratedPeopleWithoutAValidTrait()
+    {
+        var innates = ContentCatalog.Default.All<TalentDefinition>().Where(t => t.Acquisition == "innate").ToArray();
+        foreach (var definition in innates.Skip(1))
+            Assert.Equal(0, Run("content", "remove", definition.Id, "--apply").Exit);
+        string last = innates[0].Id, path = Path.Combine(_root, last + ".json");
+        byte[] before = File.ReadAllBytes(path);
+        var rejected = Run("content", "remove", last, "--apply");
+        Assert.Equal(1, rejected.Exit); Assert.Contains("innateCombatTalent", rejected.Output);
+        Assert.Equal(before, File.ReadAllBytes(path)); Assert.Equal(0, Run("content", "validate").Exit);
+    }
+    [Fact]
     public void RemovingReferencedDefinitionsReportsTheirDependentsAndPreservesFiles()
     {
         string path = Path.Combine(_root, "ability.longsword.json"); byte[] before = File.ReadAllBytes(path);

@@ -450,8 +450,11 @@ public sealed class ContentCatalog
         foreach (var group in All<ItemDefinition>().GroupBy(c => c.Stack).Where(g => g.Count() > 1)) Issues.Add(new("$catalog", "stack", "Duplicate inventory key: " + group.Key));
         if (!_entries.TryGetValue("game.vagabonds", out var game) || game is not GameDefinition)
             Issues.Add(new("$catalog", "game", "The runtime entry point game.vagabonds is required."));
-        if (!All<TalentDefinition>().Any(t => t.Acquisition == "innate"))
+        var innateTalents = All<TalentDefinition>().Where(t => t.Acquisition == "innate").ToArray();
+        if (innateTalents.Length == 0)
             Issues.Add(new("$catalog", "talents", "Generated people require at least one innate combat talent."));
+        else if (innateTalents.Length == 1)
+            References.Add(new("$runtime", "innateCombatTalent", innateTalents[0].Id));
         foreach (var cls in All<ClassDefinition>()) CheckPlayerPool(cls.Id, "abilities", cls.Abilities);
         if (game is GameDefinition runtime)
         {

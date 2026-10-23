@@ -14,7 +14,7 @@ The shipped catalog contains six innates and sixteen class choices: two alternat
 ./dev preview talent talent.arcanist-conduit --seed 1337
 ```
 
-Each definition needs a sprite, description and one or two `bonuses` from the registered handlers below. `acquisition: innate` requires `level: 1` and no class; all loaded innate definitions enter the deterministic generation pool. At least one innate must remain. Innate bonuses must be usable by every class because assignment is independent of class. `acquisition: choice` requires a real `class.*` reference and `level: 2` or `4`. All loaded choices for that class appear in its development panel, including locked alternatives.
+Each definition needs a sprite, description and one or two `bonuses` from the registered handlers below. `acquisition: innate` requires `level: 1` and no class; all loaded innate definitions enter the deterministic generation pool. At least one innate must remain; reference-aware removal protects the last one. Add another innate before removing that final definition. Innate bonuses must be usable by every class because assignment is independent of class. `acquisition: choice` requires a real `class.*` reference and `level: 2` or `4`. All loaded choices for that class appear in its development panel, including locked alternatives.
 
 ```json
 {
