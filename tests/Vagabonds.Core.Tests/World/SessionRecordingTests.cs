@@ -118,6 +118,21 @@ public sealed class SessionRecordingTests : IDisposable
     }
 
     [Fact]
+    public void FatalContextSurvivesAnOverloadedEventQueue()
+    {
+        string folder;
+        using (var recorder = new LocalSessionRecorder(_root, new { }, new RecordingPolicy(QueueCapacity: 1)))
+        {
+            folder = recorder.Folder;
+            for (int i = 0; i < 2000; i++) recorder.Record("fixture", new { i });
+            recorder.Crash(new IOException("fatal fixture"));
+            Assert.True(File.Exists(Path.Combine(folder, "crash.json")));
+        }
+        Assert.Equal("crashed", Read(Path.Combine(folder, "summary.json")).GetProperty("status").GetString());
+        Assert.Contains("fatal fixture", File.ReadAllText(Path.Combine(folder, "crash.json")));
+    }
+
+    [Fact]
     public void PerformanceKeepsIntervalTotalsAndABoundedRecentPercentile()
     {
         var window = new PerformanceWindow(); Assert.Null(window.Take());

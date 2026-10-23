@@ -94,8 +94,7 @@ public sealed class LocalSessionRecorder : IDisposable
         {
             if (_disposed != 0 || Error != null) return -1;
             int number = Interlocked.Increment(ref _marker), slot = (number - 1) % Policy.MarkerSlots;
-            Enqueue(new("marker", tick, JsonSerializer.SerializeToElement(new { number, label = label[..Math.Min(500, label.Length)], state }, Json), slot));
-            return slot;
+            return Enqueue(new("marker", tick, JsonSerializer.SerializeToElement(new { number, label = label[..Math.Min(500, label.Length)], state }, Json), slot)) ? slot : -1;
         }
         catch (Exception) { Interlocked.Increment(ref _dropped); return -1; }
     }
@@ -105,12 +104,19 @@ public sealed class LocalSessionRecorder : IDisposable
         if (png.Length > Policy.AttachmentBytes) { Record("attachment-skipped", new { slot, bytes = png.Length, reason = "size-limit" }); return; }
         Enqueue(new("attachment", null, JsonSerializer.SerializeToElement(new { slot, bytes = png.Length }), slot, png));
     }
-    public void Crash(Exception e) => Record("crash", new { type = e.GetType().FullName,
-        message = Short(e.Message, 4000), stack = Short(e.StackTrace ?? "", 12000), inner = Short(e.InnerException?.Message ?? "", 2000) });
-    private static string Short(string value, int maximum) => value[..Math.Min(maximum, value.Length)];
-    private void Enqueue(Entry e)
+    public void Crash(Exception e)
     {
-        if (_disposed == 0 && Error == null && !_queue.Writer.TryWrite(e with { Utc = DateTimeOffset.UtcNow, Elapsed = _elapsed.Elapsed.TotalSeconds })) Interlocked.Increment(ref _dropped);
+        var detail = new { type = e.GetType().FullName, message = Short(e.Message, 4000), stack = Short(e.StackTrace ?? "", 12000), inner = Short(e.InnerException?.Message ?? "", 2000) };
+        // Fatal context has a separate bounded file even when the normal queue is full.
+        try { Atomic("crash.json", detail); } catch (Exception) { }
+        Record("crash", detail);
+    }
+    private static string Short(string value, int maximum) => value[..Math.Min(maximum, value.Length)];
+    private bool Enqueue(Entry e)
+    {
+        if (_disposed != 0 || Error != null) return false;
+        if (_queue.Writer.TryWrite(e with { Utc = DateTimeOffset.UtcNow, Elapsed = _elapsed.Elapsed.TotalSeconds })) return true;
+        Interlocked.Increment(ref _dropped); return false;
     }
 
     private async Task WriteLoop()
@@ -118,7 +124,8 @@ public sealed class LocalSessionRecorder : IDisposable
         long sequence = 0, writtenBytes = 0;
         int fileIndex = 0;
         StreamWriter? stream = null;
-        JsonElement? latest = null, crash = null;
+        JsonElement? latest = null, crash = null, worldIdentity = null;
+        var friendlyActors = new HashSet<long>();
         var counts = new Dictionary<string, long>();
         var commands = new Dictionary<string, long>();
         var metrics = new Dictionary<string, double>();
@@ -145,6 +152,7 @@ public sealed class LocalSessionRecorder : IDisposable
                 if (e.Kind == "snapshot") { latest = e.Data; Atomic("latest.json", new { schemaVersion = 1, sessionId = Id, sequence, utc = DateTimeOffset.UtcNow, state = latest }); }
                 if (e.Kind == "marker")
                 {
+                    File.Delete(Path.Combine(Folder, $"marker-{e.Slot:00}.png"));
                     markers[e.Slot] = new { slot = e.Slot, sequence, number = e.Data.GetProperty("number").GetInt32(), label = e.Data.GetProperty("label").GetString(), tick = e.Tick,
                         snapshot = $"marker-{e.Slot:00}.json", screenshot = $"marker-{e.Slot:00}.png" };
                     Atomic($"marker-{e.Slot:00}.json", new { schemaVersion = 1, sessionId = Id, sequence, utc = DateTimeOffset.UtcNow, data = e.Data });
@@ -153,19 +161,26 @@ public sealed class LocalSessionRecorder : IDisposable
                 if (_elapsed.Elapsed.TotalSeconds - lastSummary >= 2 || e.Kind is "marker" or "crash" or "session-state")
                 { Summary("running"); lastSummary = _elapsed.Elapsed.TotalSeconds; }
             }
+            if (crash == null && File.Exists(Path.Combine(Folder, "crash.json")))
+                using (var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(Folder, "crash.json")))) crash = document.RootElement.Clone();
             Summary(crash == null ? "closed" : "crashed");
         }
-        catch (Exception e) { Error = e.Message; Console.Error.WriteLine("Session recording stopped: " + e.Message); }
+        catch (Exception e)
+        {
+            Error = e.Message; Console.Error.WriteLine("Session recording stopped: " + e.Message);
+            try { Atomic("recording-error.json", new { type = e.GetType().Name, e.Message, utc = DateTimeOffset.UtcNow }); } catch (Exception) { }
+        }
         finally { if (stream != null) await stream.DisposeAsync(); }
 
         void Summary(string status) => Atomic("summary.json", new { schemaVersion = 1, id = Id, status,
             started = _started, updated = DateTimeOffset.UtcNow, elapsedSeconds = _elapsed.Elapsed.TotalSeconds,
             sequence, droppedEvents = Dropped, counts, commands, metrics, markers = markers.Values.ToArray(),
-            crash, eventHistoryIsBounded = true, state = latest });
+            crash, worldIdentity, eventHistoryIsBounded = true, state = latest });
         void Add(string name, double amount = 1) => metrics[name] = metrics.GetValueOrDefault(name) + amount;
         void UpdateMetrics(Entry e)
         {
             var data = e.Data;
+            if (e.Kind == "world-identity") worldIdentity = data;
             if (e.Kind == "command" && data.TryGetProperty("input", out var input))
             {
                 string key = input.GetProperty("kind").ToString(); commands[key] = commands.GetValueOrDefault(key) + 1;
@@ -175,9 +190,27 @@ public sealed class LocalSessionRecorder : IDisposable
             if (e.Kind == "combat-feedback")
             {
                 string kind = data.GetProperty("kind").GetString() ?? "";
-                if (kind is "damage" or "heal") Add(kind, data.GetProperty("amount").GetDouble());
+                if (kind is "damage" or "heal")
+                {
+                    double amount = data.GetProperty("amount").GetDouble(); Add(kind, amount);
+                    Add(kind == "damage" ? friendlyActors.Contains(data.GetProperty("target").GetInt64()) ? "partyDamageTaken" : "enemyDamageTaken" : "healing", amount);
+                }
             }
-            if (e.Kind == "encounter-start") Add("encounters");
+            if (e.Kind == "encounter-start")
+            {
+                Add("encounters"); friendlyActors.Clear();
+                var ids = data.GetProperty("actors").EnumerateArray().Select(v => v.GetInt64()).ToArray(); int i = 0;
+                foreach (var unit in data.GetProperty("units").EnumerateArray()) { if (unit.GetProperty("friendly").GetBoolean()) friendlyActors.Add(ids[i]); i++; }
+            }
+            if (e.Kind == "snapshot")
+            {
+                var state = data.TryGetProperty("world", out var world) ? world : data;
+                if (state.TryGetProperty("battle", out var battle) && battle.ValueKind == JsonValueKind.Object)
+                    foreach (var unit in battle.GetProperty("units").EnumerateArray())
+                        if (unit.GetProperty("friendly").GetBoolean()) friendlyActors.Add(unit.GetProperty("actorId").GetInt64());
+            }
+            if (e.Kind == "work-completed") Add("workCompleted");
+            if (e.Kind == "progression") Add("developmentsLearned");
             if (e.Kind == "encounter-end") Add(data.GetProperty("outcome").GetString() ?? "unknown");
             if (e.Kind == "chunk-generation")
             {
@@ -196,8 +229,9 @@ public sealed class LocalSessionRecorder : IDisposable
 
     private void Atomic(string name, object? value)
     {
-        string path = Path.Combine(Folder, name), temporary = path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(value, Json)); File.Move(temporary, path, true);
+        string path = Path.Combine(Folder, name), temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try { File.WriteAllText(temporary, JsonSerializer.Serialize(value, Json)); File.Move(temporary, path, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     public static void Prune(string root, RecordingPolicy policy)

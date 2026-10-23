@@ -128,6 +128,7 @@ public sealed partial class WorldSession
             Remember(worker, "finished-work", "My work made a difference.", Disposition(worker)?.Value == "craft" ? 8 : 4);
             var leader = Party.FirstOrDefault(a => a.Life == LifeState.Alive);
             if (leader != null && leader.Id != worker.Id && Remember(worker, "helped-party", "I helped " + leader.Name + "'s expedition.", 3, leader.Id)) ChangeTrust(worker, leader, 3);
+            Diagnose("work-completed", new { order.Id, kind = order.Kind.ToString(), order.Target, worker = worker.Id });
             State.Work.Remove(order); Log(worker.Name + " completed " + order.Kind.ToString().ToLowerInvariant() + "."); Reveal();
         }
         ReturnIdleParty();

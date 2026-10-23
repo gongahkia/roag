@@ -29,6 +29,7 @@ public sealed partial class WorldSession : IGameSession
     {
         Content = content ?? ContentCatalog.Default;
         Plan = plan; State = state; Chunks = new(plan, state, Content); DiagnosticSink = diagnostics;
+        Diagnose("world-identity", new { seed = plan.Seed, contentHash = Content.Hash, generationVersion = WorldPlan.GenerationVersion, sampleHash = plan.SampleHash });
         Chunks.Prefetch(state.Position); Reveal();
     }
     public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)

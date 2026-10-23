@@ -70,6 +70,7 @@ public sealed partial class WorldSession
         if (reason.Length > 0) return new(false, reason);
         var actor = Party.Single(a => a.Id == actorId); var talent = Content.Get<TalentDefinition>(id);
         actor.Talents.Add(id);
+        Diagnose("progression", new { actor = actorId, talent = id, actor.Level });
         Log(actor.Name + " chose " + talent.Name + " at level " + talent.Level + ". " + talent.Description);
         return new(true, actor.Name + " learned " + talent.Name + ". This development is permanent.");
     }
