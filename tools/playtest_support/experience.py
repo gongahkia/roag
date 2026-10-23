@@ -61,11 +61,13 @@ def review(path):
     for note in notes:
         snapshot = read(path / note['evidence']['snapshot'], {}) if note.get('evidence') else {}
         note['evidenceRetained'] = snapshot.get('number') == note.get('number')
+    debrief = read(path / 'playtester-debrief.json')
     return {'id': state.get('id', report.get('id')), 'status': report.get('status', 'not-started'),
             'objective': state.get('objective'), 'assistedJourney': report.get('journey', False),
             'checkpoints': state.get('milestones', {}), 'plan': state.get('plan'),
             'comments': [n for n in notes if n.get('kind') == 'playtester-impression'],
-            'debrief': read(path / 'playtester-debrief.json'), 'notebook': str(path / 'playtester-notes.md'),
+            'debrief': debrief, 'debriefCurrent': bool(debrief and debrief.get('modelStarted') == report.get('started')),
+            'notebook': str(path / 'playtester-notes.md'),
             'coverage': report.get('coverage'), 'limitations': [
                 'Model impressions do not replace a human opinion about fun, aesthetics or accessibility.',
                 'Observed-ground assistance is labelled; it does not establish unaided wayfinding.',
@@ -97,6 +99,8 @@ def write(path):
     lines += ['## End-of-run reflection', '']
     debrief = data['debrief']
     if debrief:
+        if not data['debriefCurrent']:
+            lines += ['This reflection belongs to an earlier controller invocation; the current continuation has not returned its final assessment.', '']
         for key, label in [('summary', 'Overall'), ('understanding', 'What I understood'), ('worldImpression', 'The world'),
                            ('friction', 'What got in the way'), ('nextAttempt', 'What I would try next'), ('wouldContinue', 'Would I continue')]:
             lines += ['**' + label + ':** ' + debrief['assessment'][key], '']
@@ -106,3 +110,10 @@ def write(path):
     lines += ['## Coverage and limits', '', str(data.get('coverage') or 'Coverage has not been assessed.'), '']
     lines += ['- ' + s for s in data['limitations']]
     (path / 'playtester-notes.md').write_text('\n'.join(lines) + '\n')
+
+
+def context(path, step):
+    notes = [e for e in read(path / 'feedback.json', []) if e.get('kind') == 'playtester-impression']
+    return {'commentDue': not notes or step - notes[-1]['step'] >= 8,
+            'previousImpressions': [{k: n[k] for k in ('number', 'topic', 'impression', 'observed', 'thought', 'step')} for n in notes[-8:]],
+            'reminder': 'Do not repeat these remarks. Describe a new insight or revise an earlier expectation when later evidence changes it. An empty comments list is usually appropriate between meaningful moments.'}

@@ -64,6 +64,7 @@ def prompt(objective, observation, history, remaining, knowledge=None, remaining
         'A delivered mouse event is not proof that the intended gameplay action succeeded. Read the next notice, panel, party and battle state. Use screenshots for visual findings.',
         'Use comments for real playtester impressions, including positive, negative, mixed and uncertain reactions. observed states concrete evidence; thought is a first-person interpretation; expected explains your mental model; suggestion is optional. Do not invent praise or demand changes without cause.',
         'Give a useful comment at the first impression, a new place/mechanic, an unexpected outcome, repeated confusion, and periodically when commentDue. Do not narrate every click or merely say an animation is busy. Explain WHY it helps/hurts understanding, navigation, agency, world identity or motivation.',
+        'Read previousImpressions before commenting. Avoid repeating the same concern in new words. If the game later does what you thought was missing, explicitly correct that earlier impression. Most actions need comments=[]; meaningful new observations matter more than frequent remarks.',
         'Keep actual bugs in finding. Ordinary impressions belong in comments; uncertainty is allowed. A delivered click and visible label do not prove a feature is understandable or fun. Ground feedback in the screenshot and the remembered play history.',
         'Persistent player memory includes learned places, journal text, past notices and action results. Keep plan focused: goal, an observed targetId or null, nextStep, and a short reminder of your intent. Do not return to recruitment after two companions unless that serves the objective. Use remembered clues instead of repeating conversations.',
         'Only completedCheckpoints/milestones are achieved; nextUnmetCheckpoint is still missing. Count current party members before claiming recruitment. plan.targetId is a learned map-place ID; use null for recruiting people. An actor ID is never a map-place ID.',
@@ -146,11 +147,17 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
         return {'id': run_id, 'argv': argv, 'objective': objective, 'model': model, 'reasoning': reasoning,
                 'maxSteps': max_steps, 'timeoutSeconds': timeout, 'modelInvoked': False}
     knowledge = memory.load(path, run_id, objective)
+    previous = driver.read(path / 'model-report.json')
+    if previous:
+        invocations = driver.read(path / 'model-invocations.json', [])
+        invocations.append({k: previous[k] for k in ('started', 'finished', 'status', 'objective', 'decisions', 'usage', 'coverage', 'controllerSource') if k in previous})
+        atomic_json(path / 'model-invocations.json', invocations[-8:])
     started = time.monotonic(); history, usage, count = [], {'input_tokens': 0, 'output_tokens': 0}, 0
     report = {'schemaVersion': 1, 'id': run_id, 'model': model, 'reasoning': reasoning, 'objective': objective,
               'started': utc(), 'status': 'running', 'maxSteps': max_steps, 'timeoutSeconds': timeout,
               'backend': 'codex-cli-structured-decisions', 'modelExecutable': binary,
               'journey': journey, 'memory': str(path / 'player-memory.json'), 'notebook': str(path / 'playtester-notes.md'),
+              'controllerSource': repo.fingerprint() if repo is not None else None,
               'assertions': 'Model findings are tester opinions. The deterministic suite reports assertions separately.'}
     atomic_json(path / 'model-report.json', report)
     experience.write(path)
@@ -167,8 +174,9 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
             memory.remember(knowledge, observed['state']); memory.save(path, knowledge)
             atomic_json(schema, decision_schema(knowledge))
             closing = remaining <= min(35, timeout * .12) or index == max_steps - 1
-            current = prompt(objective, observed['state'], history, max_steps - index,
-                             memory.context(knowledge, observed['state'], journey), round(remaining, 1), closing)
+            remembered = memory.context(knowledge, observed['state'], journey)
+            remembered.update(experience.context(path, observed.get('steps', 0)))
+            current = prompt(objective, observed['state'], history, max_steps - index, remembered, round(remaining, 1), closing)
             (folder / ('prompt-' + str(index % 8) + '.txt')).write_text(current[:50000])
             answer.unlink(missing_ok=True)
             argv = command(binary, model, reasoning, folder, schema, answer, observed['screenshot'])
@@ -202,7 +210,7 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
                 report['recoveredPlanProposals'] = report.get('recoveredPlanProposals', 0) + 1
             memory.save(path, knowledge)
             if decision.get('debrief'):
-                atomic_json(path / 'playtester-debrief.json', {'assessment': decision['debrief'], 'observation': observed['state']['observation'],
+                atomic_json(path / 'playtester-debrief.json', {'assessment': decision['debrief'], 'observation': observed['state']['observation'], 'modelStarted': report['started'],
                             'judgment': 'tester-opinion', 'basedOnComments': [e['number'] for e in driver.read(path / 'feedback.json', [])]})
             if decision['finding']:
                 finding = decision['finding']
@@ -244,7 +252,7 @@ def _run(repo, run_id, model, objective, reasoning='low', max_steps=30, timeout=
         report.update(finished=utc(), elapsedSeconds=time.monotonic() - started, decisions=count, usage=usage, recentActions=history[-8:])
         report['coverage'] = {'observedCheckpoints': list(knowledge['milestones']),
                               'journeyComplete': all(k in knowledge['milestones'] for k in ['recruited-two-companions', 'visited-discovery', 'entered-dungeon']) if journey else None,
-                              'experientialComments': len(experience.review(path)['comments']), 'finalReflection': (path / 'playtester-debrief.json').is_file(),
+                              'experientialComments': len(experience.review(path)['comments']), 'finalReflection': experience.review(path)['debriefCurrent'],
                               'meaning': 'Observed checkpoints and model opinions, not automated assertions of usability or enjoyment.'}
         atomic_json(path / 'model-report.json', report)
         experience.write(path)

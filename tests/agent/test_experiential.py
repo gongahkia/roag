@@ -119,6 +119,10 @@ class ExperientialTests(unittest.TestCase):
         self.assertIn('No final reflection', text)
         self.assertIn('journeyComplete', text)
         self.assertTrue(experience.review(self.path)['comments'][0]['evidenceRetained'])
+        context = experience.context(self.path, 6)
+        self.assertFalse(context['commentDue'])
+        self.assertEqual(comment['thought'], context['previousImpressions'][0]['thought'])
+        self.assertTrue(experience.context(self.path, 13)['commentDue'])
         atomic_json(self.path / 'feedback-00.json', {'number': 17})
         self.assertFalse(experience.review(self.path)['comments'][0]['evidenceRetained'])
 
