@@ -4,6 +4,15 @@ namespace Vagabonds.Client;
 
 internal sealed partial class WorldGame
 {
+    private void PrepareFourFoeBattleScene()
+    {
+        EncounterGroupPreview.Prepare(_session, "encounter.cinder-retinue");
+        var battle = _session.State.Battle!;
+        battle.Units[0].Name = "Alexandria of the Wandering Lantern";
+        var foe = battle.Units.First(u => !u.Friendly);
+        foe.Burn = 3; foe.Bleed = 2; foe.Mark = 2; foe.Stun = 1; foe.Guarding = true;
+    }
+
     private void PrepareProgressionScene()
     {
         CampPreview.Prepare(_session);

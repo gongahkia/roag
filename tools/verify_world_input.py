@@ -438,6 +438,10 @@ def main():
                         and 0 <= u['bounds']['y'] < u['bounds']['y'] + u['bounds']['height'] <= 720 for u in fighters))
                 check('abilityTrayHasSprites', all(c['sprite'] for c in ui['controls'] if c['id'].startswith('skill:')))
                 client.capture('battle-stage-four-by-four')
+                before = client.save()['state']; client.click('panel:tactics'); client.capture('tactics-four-foes')
+                check('fourFoeTacticsCostsNoTimeOrRandomness', client.save()['state'] == before)
+                client.click('close'); client.load()
+                check('authoredFourFoeFixtureSurvivesExactReload', client.save()['state'] == before)
                 flee = next(c for c in client.ui()['controls'] if c['id'].startswith('skill:') and 'retreat' in c['label'].lower())
                 client.click(flee['id']); client.wait(lambda u: u['battle'] is None); client.combat_ready(); client.pause()
                 check('retreatPreservesFourSeparateTiles', client.formation()); client.capture('formation-four')
@@ -575,6 +579,8 @@ def main():
             client = Client('world-boss', slot)
             try:
                 client.combat_ready()
+                guardian_fixture = client.save(); before = guardian_fixture['state']; client.click('panel:tactics'); client.capture('tactics-guardian')
+                check('guardianTacticsCostsNoTimeOrRandomness', client.save()['state'] == before); client.click('close')
                 before = client.save()['state']; client.click('panel:inventory'); client.click('gear:0'); client.capture('party-four'); modal = client.save()['state']
                 check('mouseCombatPanelConsumesNoTurn', before['battle'] == modal['battle'] and before['combatRandom'] == modal['combatRandom'] and before['tick'] == modal['tick'])
                 client.click('close'); client.click('skill:0'); selected = client.save()['state']
@@ -590,7 +596,26 @@ def main():
                 check('finalBossEndingWaitsForImpact', ending_ui['battle'] is None and ending_ui['combatPresentation']['stageVisible']
                     and not any(c['id'] == 'new-world' for c in ending_ui['controls']))
                 client.combat_ready()
-                ending = client.save()['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
+                ending_manifest = client.save(); ending = ending_manifest['state']; check('mouseFinalBossCompletion', ending['endgame']['victory'] and ending['battle'] is None); client.capture('victory')
+                # Replay the same authored guardian as an optional encounter so
+                # its actual signature/equipment/supply spoils can be reviewed.
+                optional = json.loads(json.dumps(guardian_fixture)); state = optional['state']; battle = state['battle']
+                other_guardian = next(a for a in state['actors'] if a['archetype'].startswith('boss.') and a['id'] != state['endgame']['actorId'])
+                state['endgame']['actorId'] = other_guardian['id']; state['endgame']['siteId'] = (other_guardian['id'] - 40000) // 8
+                for unit in battle['units']:
+                    if unit['heroId'] >= 0: continue
+                    unit['health'] = 1; next(a for a in state['actors'] if a['id'] == battle['actorIds'][unit['id']])['health'] = 1
+                client.restore(optional)
+                for _ in range(8):
+                    if client.ui()['battle'] is None: break
+                    enemy = next(u for u in client.ui()['battle']['units'] if not u['friendly'] and u['alive'])
+                    client.click('skill:0'); client.fighter(enemy['id']); client.combat_ready()
+                client.wait(lambda u: u['panel'] == 'spoils'); optional_won = client.save()
+                check('optionalGuardianAwardsSignatureGearAndSupplies', not optional_won['state']['endgame']['victory']
+                    and len(optional_won['state']['lastEncounterReward']['items']) == 3)
+                client.capture('guardian-three-item-spoils'); client.load()
+                check('optionalGuardianSpoilsSurviveReload', client.save()['state'] == optional_won['state'])
+                client.restore(ending_manifest)
                 client.click('new-world'); fresh = client.save(); check('mouseFreshRun', fresh['plan']['seed'] != 42 and len(fresh['state']['party']) == 1 and not fresh['state']['endgame']['victory'])
             finally: client.close()
         if 'world-progression' in args.scenes:

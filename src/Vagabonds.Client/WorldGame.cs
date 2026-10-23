@@ -65,32 +65,12 @@ internal sealed partial class WorldGame : Game
             _session.State.Position = d.Position.Offset(0, 1); foreach (var a in _session.Party) a.Position = _session.State.Position;
             _session.Reveal(); _session.Submit(new(WorldCommandKind.Discover, d.Position)); _discoveryId = d.Id; _panel = "discovery";
         }
-        if (!options.Load && options.Scene is "world-battle" or "world-boss")
+        if (!options.Load && options.Scene == "world-battle") PrepareFourFoeBattleScene();
+        if (!options.Load && options.Scene == "world-boss")
         {
             foreach (var person in _session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).Take(3).ToArray())
             { person.Position = _session.State.Position; _session.Submit(new(WorldCommandKind.Recruit, ActorId: person.Id)); }
-            if (options.Scene == "world-battle")
-            {
-                int role = 0;
-                foreach (var actor in _session.Party)
-                {
-                    var definition = _session.Content.Classes.OrderBy(c => c.Role).ElementAt(role++);
-                    actor.Role = definition.Role; actor.SpriteId = definition.Sprite!;
-                    actor.BaseHealth = definition.Health; actor.BaseMana = definition.Mana;
-                    actor.BaseArmor = definition.Armor; actor.BaseSpeed = definition.Speed;
-                    actor.Health = actor.MaxHealth; actor.Mana = actor.MaxMana;
-                }
-                var leader = _session.State.Actors.First(a => a.Kind == ActorKind.Beast);
-                foreach (var enemy in _session.State.Actors.Where(a => a.Id != leader.Id && a.EncounterLeader == 0 && _session.IsHostile(a)).Take(3))
-                { enemy.EncounterLeader = leader.Id; enemy.Position = leader.Position.Offset(1, 0); }
-                leader.EncounterLeader = leader.Id;
-            }
-            _session.StartBattle(options.Scene == "world-boss" ? _session.FinalBoss.Id : _session.State.Actors.First(a => a.Kind == ActorKind.Beast).Id);
-            if (options.Scene == "world-battle" && _session.State.Battle is { } preview)
-            {
-                preview.Units[0].Name = "Alexandria of the Wandering Lantern";
-                var foe = preview.Units.First(u => !u.Friendly); foe.Burn = 3; foe.Bleed = 2; foe.Mark = 2; foe.Stun = 1; foe.Guarding = true;
-            }
+            _session.StartBattle(_session.FinalBoss.Id);
         }
         if (_session.IsInCombat) _notice = "Choose an ability, then a fighter. Read enemy intentions before committing.";
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
