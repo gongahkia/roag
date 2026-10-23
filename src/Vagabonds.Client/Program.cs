@@ -35,6 +35,7 @@ try
               --ui-report PATH (mouse UI diagnostic snapshot; preview without autosaving)
               --session-root PATH (local session recordings; default ~/.vagabonds/sessions)
               --no-recording (disable ordinary session recording)
+              --playtest-control PATH (isolated local mouse automation; explicit waits advance time)
             Click ground to travel; click people, caches or stairs to approach and interact.
             Use on-screen Play/Pause, action buttons and Menu. Right-click stops/closes.
             """);
@@ -79,11 +80,11 @@ try
         Console.WriteLine(JsonSerializer.Serialize(campaign.Summary(), new JsonSerializerOptions { WriteIndented = true }));
         return 0;
     }
-    if (!options.NoRecording && !options.Preview && !options.SmokeTest)
+    if (!options.NoRecording && (!options.Preview || options.PlaytestDirectory != null) && !options.SmokeTest)
     {
         recording = LocalSessionRecorder.TryStart(options.SessionRoot, new { build = LocalSessionRecorder.BuildIdentity(typeof(GameEntry).Assembly),
             selectedSave = options.Save, requestedSeed = options.SeedSpecified ? (int?)options.Seed : null,
-            newGame = options.NewGame, requireLoad = options.Load, mode = "ordinary" });
+            newGame = options.NewGame, requireLoad = options.Load, mode = options.PlaytestDirectory == null ? "ordinary" : "automated-playtest" });
         if (recording != null)
         {
             Console.WriteLine("Session diagnostics: " + recording.Folder);
@@ -132,7 +133,7 @@ finally
             get; private set;
         }
         public bool NewGame { get; private set; }
-        public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null;
+        public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null || PlaytestDirectory != null;
         public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
         public bool WorldSmoke { get; private set; }
         private bool _sceneSpecified;
@@ -162,6 +163,7 @@ finally
         public string? UiReport { get; private set; }
         public string? SessionRoot { get; private set; }
         public bool NoRecording { get; private set; }
+        public string? PlaytestDirectory { get; private set; }
         public string? Screenshot
         {
             get; private set;
@@ -184,6 +186,7 @@ finally
                     case "--ui-report": o.UiReport = Path.GetFullPath(Value()); break;
                     case "--session-root": o.SessionRoot = Path.GetFullPath(Value()); break;
                     case "--no-recording": o.NoRecording = true; break;
+                    case "--playtest-control": o.PlaytestDirectory = Path.GetFullPath(Value()); break;
                     case "--world-report": o.WorldReport = true; break;
                     case "--world-smoke": o.WorldSmoke = true; o.SmokeTest = true; break;
                     case "--world-headless": o.WorldHeadless = true; break;
@@ -255,6 +258,26 @@ finally
                     default:
                         throw new ArgumentException("Unknown option: " + args[i]);
                 }
+            }
+            if (o.PlaytestDirectory is { } playtest)
+            {
+                if (o.LegacyScene || o.Headless || o.WorldHeadless || o.GenerationReport || o.WorldReport || o.SmokeTest || o.ValidateWorlds > 0 || o.ValidateSeeds > 0 || o.Frames > 0 || o.ImportLegacy != null)
+                    throw new ArgumentException("Playtest control requires an interactive world scene.");
+                if (!args.Contains("--save")) o.Save = Path.Combine(playtest, "campaign.json");
+                string relative = Path.GetRelativePath(playtest, o.Save);
+                if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    throw new ArgumentException("Automated playtest saves must stay inside the isolated control directory.");
+                foreach (string target in new[] { o.Save, o.Save + ".chunks" })
+                {
+                    string? current = target;
+                    while (current != null && current.Length >= playtest.Length)
+                    {
+                        if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                            throw new ArgumentException("Automated playtest save paths must not contain symbolic links.");
+                        current = Path.GetDirectoryName(current);
+                    }
+                }
+                o.SessionRoot ??= Path.Combine(playtest, "recordings");
             }
             if (o.Load && o.NewGame)
             {

@@ -25,9 +25,9 @@ internal sealed partial class WorldGame
     }
     private void UpdateCombatPlayback(double elapsed)
     {
-        if (IsActive) _presentationTime += Math.Clamp(elapsed, 0, .2);
+        if (InputFocused) _presentationTime += Math.Clamp(elapsed, 0, .2);
         CollectCombatFeedback();
-        bool paused = !IsActive || _panel.Length > 0;
+        bool paused = !InputFocused || _panel.Length > 0;
         if (!paused) _combatVisualTime += Math.Clamp(elapsed, 0, .2) * _combatSpeed;
         string cue = Playback.Current?.Profile.Sound ?? "slash";
         bool hasTarget = Playback.Current?.Targets.Length > 0;

@@ -39,7 +39,7 @@ internal sealed partial class WorldGame
     }
     private void UpdateConversation(double elapsed)
     {
-        if (_panel is not ("person" or "camp-story") || !IsActive) { _voice?.Stop(); return; }
+        if (_panel is not ("person" or "camp-story") || !InputFocused) { _voice?.Stop(); return; }
         EnsureConversation();
         _dialogue?.Update(elapsed, (actor, c) => (_voice ??= new()).Play(actor, c, _voiceVolume));
     }

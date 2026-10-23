@@ -509,14 +509,27 @@ internal sealed partial class WorldGame
     private void WriteUiReport(int w, int h)
     {
         if (_options.UiReport is not { } path) return;
+        string serialized = BuildUiReport(w, h);
+        if (serialized == _lastUiReport) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        string temporary = path + ".tmp";
+        File.WriteAllText(temporary, serialized); File.Move(temporary, path, true); _lastUiReport = serialized;
+    }
+    private string BuildUiReport(int w, int h)
+    {
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
-        string serialized = JsonSerializer.Serialize(new
+        return JsonSerializer.Serialize(new
         {
+            seed = _session.Seed, contentHash = _session.Content.Hash, sessionId = _recording?.Id,
             width = w, height = h, panel = _panel, paused = _session.Paused, frozen = _session.Frozen,
-            focused = IsActive, pointer = new { x = _mouse.X, y = _mouse.Y },
+            focused = _session.Focused, nativeFocused = IsActive, agentHold = _playtest != null && (_playtest.Holding || _playtest.NeedsObservation), pointer = new { x = _mouse.X, y = _mouse.Y },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             routeCount = _route.Count, notice = _notice,
+            route = _route.Take(16).ToArray(), inventory = _session.State.Inventory,
+            selectedSkill = _skill, cooperativePartner = _cooperativePartner,
+            skills = _session.ActiveSkills().Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
+                target = skill.Target.ToString(), skill.Cooperative, skill.PartnerMana, reason = _session.SkillUnavailable(index) }),
             context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding, hint = _contextHint },
             selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
             selecting = _dragStart != null,
@@ -543,16 +556,15 @@ internal sealed partial class WorldGame
                 playedCues = _combatAudio?.PlayedCues ?? 0, profileHash = CombatVisualProfiles.Default.Hash, area = Rect(CombatArea),
                 units = DisplayBattle?.Units.Select(u => new { id = u.Id, actorId = DisplayBattle.ActorIds[u.Id], name = u.Name, friendly = u.Friendly, alive = u.Alive, health = u.Health, mana = u.Mana, bounds = Rect(UnitRect(u)), spriteBounds = Rect(CombatSpriteBox(u)) }) },
             party = _session.Party.Where(a => a.Life != LifeState.Dead).Select(a => new { id = a.Id, name = a.Name, x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
+                classId = _session.Class(a).Id, a.Level, a.Experience, a.Health, a.MaxHealth, a.Mana, a.MaxMana,
+                life = a.Life.ToString(), a.Body.Hunger, a.Body.Fatigue, a.Body.Wounds,
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? Rect(ActorRect(motion.Position)) : null }),
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
-            actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor }),
+            actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
+                bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? (object)Rect(ActorRect(motion.Position)) : null }),
             battle = _session.State.Battle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting, prepared = battle.Prepared,
                 units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null
         }, UiJson);
-        if (serialized == _lastUiReport) return;
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        string temporary = path + ".tmp";
-        File.WriteAllText(temporary, serialized); File.Move(temporary, path, true); _lastUiReport = serialized;
     }
 }

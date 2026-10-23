@@ -53,6 +53,7 @@ internal sealed partial class WorldGame : Game
     public WorldGame(Options options, WorldSession session, LocalSessionRecorder? recording = null)
     {
         _recording = recording;
+        _playtest = options.PlaytestDirectory == null ? null : new(options.PlaytestDirectory);
         _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
@@ -117,11 +118,12 @@ internal sealed partial class WorldGame : Game
     protected override void Update(GameTime gameTime)
     {
         var timer = Stopwatch.StartNew(); Layout(); UpdateView();
-        UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
-        var mouse = Mouse.GetState();
-        _session.Focused = IsActive;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
-        if (IsActive && !_options.WorldSmoke)
+        var mouse = _playtest?.Next(gameTime.ElapsedGameTime.TotalSeconds, ResolvePlaytest, MarkMoment) ?? Mouse.GetState();
+        if (_playtest is { StopRequested: true, Holding: true }) { Exit(); return; }
+        UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
+        _session.Focused = InputFocused;
+        if (InputFocused && !_options.WorldSmoke)
         {
             bool press = mouse.LeftButton == ButtonState.Pressed && _mouse.LeftButton == ButtonState.Released;
             if (press)
@@ -146,7 +148,7 @@ internal sealed partial class WorldGame : Game
             if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !CombatStageVisible && _map.Contains(mouse.Position))
                 Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
         }
-        else if (!IsActive) { _dragStart = null; _dragging = false; }
+        else if (!InputFocused) { _dragStart = null; _dragging = false; }
         if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
@@ -166,7 +168,7 @@ internal sealed partial class WorldGame : Game
         {
             if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
             StopTravel();
-            bool ready = !_session.State.Battle!.Active.Friendly && !Playback.Busy && _panel.Length == 0 && IsActive;
+            bool ready = !_session.State.Battle!.Active.Friendly && !Playback.Busy && _panel.Length == 0 && InputFocused;
             _enemyTimer = ready ? _enemyTimer + Math.Min(.2, gameTime.ElapsedGameTime.TotalSeconds) : 0;
             if (ready && _enemyTimer > .45 / _combatSpeed) { ResolveEnemyPresentation(); _enemyTimer = 0; }
         }
@@ -321,6 +323,7 @@ internal sealed partial class WorldGame : Game
         }
         _lastDraw = Stopwatch.GetTimestamp();
         if (_markerSlot >= 0) CaptureMarker();
+        PublishPlaytest(w, h);
         _draws++;
         int end = _options.WorldSmoke ? Math.Max(120, _options.Frames) : _options.Frames;
         if (end > 0 && _draws >= end)
