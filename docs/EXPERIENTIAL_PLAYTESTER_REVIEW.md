@@ -1,0 +1,43 @@
+# Experiential playtester review
+
+The tester's purpose is to play and explain the experience: what it thinks it should do, what gives it a reason to explore, where its expectations fail, and what it learns. Command delivery and crash-free execution are supporting evidence. They do not constitute a usability review.
+
+## Implemented loop
+
+The compact player view retains readable Journal rows, learned discoveries, visible map-page places, a marked waypoint, observed ground, ability information and displayed combat feedback. It removes unrevealed dialogue text and undiscovered bypass coordinates. Persistent player memory records learned locations with their observation provenance, Journal text, bounded notices and terrain, prior attempts, intent and measured checkpoints. A destination in a model plan must be a learned place; each live response schema enumerates those IDs. Recruiting a person uses a null map destination rather than treating an actor ID as a location.
+
+Each comment separates **observed evidence**, **first-person interpretation**, **expectation**, **optional suggestion**, sentiment and confidence. The notebook links observations and screenshots and labels rotated evidence. Prior impressions return to the next model call so the tester can avoid repeating itself and correct an earlier interpretation. Final reflections discuss understanding, the world, friction, what to try next and willingness to continue; they are not scores predicting a human's enjoyment. Earlier/interim reflections remain labelled during continuation.
+
+The focused journey measures a three-person party, a visited discovery and an underground entry. A model saying “done” after a small step does not satisfy those checkpoints: incomplete early finishes receive corrective context, then eventually return `objective-incomplete` if the model repeatedly refuses to continue. Budget closure remains a distinct, honest outcome. The ordinary tester has no walking suggestions. The optional journey supplies labelled suggestions using learned destinations and currently visible free ground, including inspection of a last companion's contextual options when formation blocks every walking exit. It never consults a hidden route, changes a stat/save/terrain cell, teleports, or treats a suggested step as proof of navigation clarity.
+
+Controller continuations retain player knowledge and prior impressions and archive up to eight invocation summaries. Their source fingerprint is recorded separately from the original client launch. Game/client recording identity remains available so a later tools-only continuation is not confused with rebuilding the executable.
+
+## Dogfooding findings
+
+The seed-42 live pilot began alone, recruited Jora Juniper and Hana Lark, learned Alder Forgotten cistern through Cato Thorn, and retained that destination through interruptions and long travel. Its early probe confused actor IDs with map destinations; constrained schemas and recoverable plan validation corrected that. Another probe declared a micro-step finished while explicitly saying more action was needed; observed completion checks corrected that failure.
+
+The pilot also reached an actual terrain/formation dead end: the leader's free exit was occupied by a companion. It inspected the last companion's right-click menu, chose **Lead with Hana Lark**, then resumed walking through normal controls. The exact isolated slot and chunk directory were copied after the real Save control to `artifacts/playtests/20261023-060009-4a2805e9/repro-formation/`, with a marked capture. This is a recoverable party-control/discoverability concern, not proof that the procedural world has an unreachable dungeon. Its notes revised the earlier trapped interpretation after recovery.
+
+A separate ordinary seed-1337 first-impressions run, `20261023-061322-f15d69ff`, used no walking assistance. It completed sixteen decisions and returned an honest partial reflection. It found the conversation choices legible and the relationships/shelter warning interesting, while describing uncertainty around revealing a line, advancing it and finishing an exchange. It did not claim to have reached the shelter. Those are model impressions requiring evidence review, not assertions of a dialogue bug.
+
+The larger regression run uncovered an automation error: camera interpolation moved a selected NPC's hit box between symbolic resolution and the actual mouse edges. The recorded actor request consequently became a terrain click. Automated discrete gestures now pin world camera/sprite interpolation to the held view, and the movement timer stops accumulating while the controller is idle; explicit waits resume normal interpolation. Human input has no such hold. The unchanged regression sequence passed after that correction, rather than masking the failure with a longer wait or retrying blindly.
+
+Final journey outcome and final fresh acceptance are recorded in [VERIFICATION.md](VERIFICATION.md) when complete. Raw pilot comments and observations remain in `artifacts/playtests/20261023-060009-4a2805e9/`; some early screenshot anchors rotate under the normal bounds.
+
+## How to interpret the feedback
+
+- Keep positive, negative, mixed and uncertain impressions. Interesting relationships and actionable clues matter as well as friction.
+- A rendered label, successful click or enabled control is not proof that a new player understands it. Look at expectations and subsequent actions.
+- A model can misread the scene or a rule. Prefer notes that correct themselves after later evidence over filing the first reaction as a confirmed bug.
+- Explicit controller waits, held frames, model latency and symbolic target errors are automation effects. They must not be presented as buttons or delays a human necessarily experiences. Short-click travel across a large world can still be a legitimate question; assess it in game distance and normal UI interactions, not model wall-clock time.
+- Walking assistance supports journey coverage and remains labelled. It does not establish that an unaided player would find the route. The ordinary first-impressions run provides a separate sample without that assistance.
+- Static captures and dummy audio do not establish animation/audio quality; Linux software-rendered timing is not a production benchmark. Native OS input remains a separate acceptance path.
+- A completed batch is not a completed journey or a passed usability assertion. The review keeps measured checkpoints, opinions and final reflection status separate.
+
+## Tooling usefulness and next boundary
+
+The previous loop discarded clues after five recent actions and mostly emitted status notes. The new notebook, persistent intent, evidence links, measured checkpoints, semantic plan recovery and controller continuation make a longer playtest inspectable. Native and deterministic stand-in tests cover those mechanisms without account calls; live model runs are explicit and bounded. Repeated direct shell orchestration has been replaced by supported `playtest agent --journey` and `playtest review` commands for this workflow. The earlier lunch orchestrator remains an ignored historical artifact, not a service.
+
+World feedback still benefits from focused objectives and editorial review. Avoid silently upgrading models, inventing positive judgments, hiding incomplete coverage, or granting a tester privileged world knowledge to force a successful expedition. Future work can improve issue consolidation and additional play styles based on actual repeated use; those are not claims that this milestone already provides a human-quality opinion in every case.
+
+The implementation retains the existing [Codex structured non-interactive workflow](https://learn.chatgpt.com/docs/non-interactive-mode). The distinction between a final answer and the evidence of a whole playthrough follows the motivation of [trace grading](https://developers.openai.com/api/docs/guides/trace-grading); this project stores its own local evidence and does not add hosted tracing.
