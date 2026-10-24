@@ -21,7 +21,11 @@ public sealed partial class WorldSession
         return true;
     }
     private static void ChangeTrust(Actor actor, Actor other, int amount) => actor.Trust[other.Id] = Math.Clamp(actor.Trust.GetValueOrDefault(other.Id) + amount, -100, 100);
-    private bool HasWork(Actor actor) => State.Work.Any(w => w.Worker == actor.Id && !w.Suspended);
+    private bool HasWork(Actor actor)
+    {
+        foreach (var order in State.Work) if (order.Worker == actor.Id && !order.Suspended) return true;
+        return false;
+    }
     public double WorkRate(Actor actor) => (Disposition(actor)?.WorkPercent ?? 100) / 100.0 * Math.Min(2, 1 + (actor.Level - 1) * .02)
         * (actor.Body.Wounds > 0 ? .75 : 1) * (actor.Stress >= 60 ? .75 : 1);
     private void AdvanceBodies()
@@ -47,8 +51,8 @@ public sealed partial class WorldSession
                     actor.Cargo["food"] = actor.Cargo.GetValueOrDefault("food") + 2; State.ResourcesProduced += 2;
                 }
             }
-            actor.Memories.RemoveAll(m => m.Until <= State.Tick);
-            actor.Preparations.RemoveAll(p => p.Until <= State.Tick);
+            for (int i = actor.Memories.Count - 1; i >= 0; i--) if (actor.Memories[i].Until <= State.Tick) actor.Memories.RemoveAt(i);
+            for (int i = actor.Preparations.Count - 1; i >= 0; i--) if (actor.Preparations[i].Until <= State.Tick) actor.Preparations.RemoveAt(i);
             if (State.Tick % 50 != 0 || fighting) continue;
             if (body.Hunger >= settings.StarveAt)
             {

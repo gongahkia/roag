@@ -44,7 +44,8 @@ public sealed partial class WorldSession
         {
             if (!InWorkRally(order.Target)) { order.Status = "Outside the 16-tile rally area; move the party closer"; continue; }
             if (available.Count == 0) { order.Status = "Waiting for a free, rested party member"; continue; }
-            var choice = available.Where(a => (order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a, Path: WorkPath(a, order.Target, routes: Routes(a))))
+            var choice = available.Where(a => (order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a,
+                Path: a.Position.Distance(order.Target) <= 1 ? new List<WorldPosition>() : WorkPath(a, order.Target, routes: Routes(a))))
                 .Where(p => p.Path != null).OrderBy(p => p.Path!.Count).ThenBy(p => p.Actor.Id).FirstOrDefault();
             if (choice.Actor == null) { order.Status = "No free observed approach; open access or move blockers"; continue; }
             order.Worker = choice.Actor.Id; available.Remove(choice.Actor);
@@ -79,8 +80,17 @@ public sealed partial class WorldSession
         if (actor.Position.Distance(target) <= range) return [];
         if (!InWorkRally(target) || !InWorkRally(actor.Position)) return null;
         routes ??= BuildWorkRoutes(actor);
-        var approach = routes.Distance.Where(p => p.Key.Distance(target) <= range).OrderBy(p => p.Value).ThenBy(p => p.Key.Y).ThenBy(p => p.Key.X)
-            .Select(p => (WorldPosition?)p.Key).FirstOrDefault();
+        WorldPosition? approach = null;
+        int bestDistance = int.MaxValue;
+        // Only the target's small interaction neighbourhood can be an approach.
+        // Y/X iteration preserves the original distance, then Y, then X tie order.
+        for (int y = -range; y <= range; y++) for (int x = -range; x <= range; x++)
+        {
+            if (Math.Abs(x) + Math.Abs(y) > range) continue;
+            var cell = target.Offset(x, y);
+            if (routes.Distance.TryGetValue(cell, out int distance) && distance < bestDistance)
+            { approach = cell; bestDistance = distance; }
+        }
         if (approach == null) return null;
         var path = new List<WorldPosition>();
         for (var p = approach.Value; p != actor.Position; p = routes.Previous[p]) path.Add(p);

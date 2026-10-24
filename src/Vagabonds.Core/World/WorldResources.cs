@@ -14,24 +14,42 @@ public sealed record ResourceView(WorldPosition Position, ResourceDefinition Def
 
 public sealed partial class WorldSession
 {
-    private ResourceDefinition[]? _resourceDefinitions;
+    private Dictionary<(Material, bool, Biome), (ResourceDefinition Definition, int Salt)[]>? _resourceCandidates;
+    private void PrepareResourceCandidates()
+    {
+        var candidates = new Dictionary<(Material, bool, Biome), List<(ResourceDefinition, int)>>();
+        foreach (var definition in Content.Game.Resources.Select(Content.Get<ResourceDefinition>).OrderBy(d => d.Id, StringComparer.Ordinal))
+        {
+            int salt = 137; foreach (char c in definition.Id) salt = unchecked(salt * 31 + c);
+            foreach (var biome in definition.Biomes.Distinct())
+            {
+                var key = (definition.Terrain, definition.Underground, biome);
+                if (!candidates.TryGetValue(key, out var group)) candidates[key] = group = [];
+                group.Add((definition, salt));
+            }
+        }
+        _resourceCandidates = candidates.ToDictionary(p => p.Key, p => p.Value.ToArray());
+    }
     /// <summary>Pure coordinate query. Only harvested stock creates saved chunk data; looking never consumes RNG.</summary>
     public ResourceView? ResourceAt(WorldPosition p)
     {
         if (!Plan.Contains(p) || Chunks.IsEdited(p)) return null;
         var terrain = Chunks.At(p);
         if (terrain is not (Material.Tree or Material.Water or Material.Rock or Material.Grass or Material.Floor)) return null;
-        if (ObjectAt(p) is { Solid: true } or { Kind: "discovery" or "loot" }) return null;
-        _resourceDefinitions ??= Content.Game.Resources.Select(Content.Get<ResourceDefinition>).OrderBy(d => d.Id, StringComparer.Ordinal).ToArray();
+        if (ObjectAt(p, terrain) is { Solid: true } or { Kind: "discovery" or "loot" }) return null;
+        if (_resourceCandidates == null) PrepareResourceCandidates();
         var biome = Chunks.Get(p.Chunk).Biomes[p.LocalIndex];
-        foreach (var definition in _resourceDefinitions)
+        if (!_resourceCandidates!.TryGetValue((terrain, p.Floor > 0, biome), out var candidates)) return null;
+        foreach (var (definition, salt) in candidates)
         {
-            if (definition.Terrain != terrain || definition.Underground != (p.Floor > 0) || !definition.Biomes.Contains(biome)) continue;
-            // Stable string salt rather than process-randomised string.GetHashCode().
-            int salt = 137; foreach (char c in definition.Id) salt = unchecked(salt * 31 + c);
             if (WorldRandom.Hash(Seed, p.X, p.Y, salt ^ p.Floor) % 1000 >= definition.ChancePerThousand) continue;
             // Fish mark banks, not the middle of impassable lakes. A miner may tunnel to buried ore.
-            if (terrain == Material.Water && !Directions.Any(d => Materials.Walkable(Chunks.At(p.Offset(d.X, d.Y))))) continue;
+            if (terrain == Material.Water)
+            {
+                bool bank = false;
+                foreach (var (dx, dy) in Directions) if (Materials.Walkable(Chunks.At(p.Offset(dx, dy)))) { bank = true; break; }
+                if (!bank) continue;
+            }
             var stock = Chunks.ResourceStockAt(p);
             bool recovered = stock == null || stock.RecoverAt > 0 && State.Tick >= stock.RecoverAt;
             return new(p, definition, recovered ? definition.Capacity : stock!.Remaining,

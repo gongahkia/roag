@@ -10,8 +10,11 @@ public sealed partial class WorldSession
     private Dictionary<WorldPosition, WorldDiscovery> _discoveryObjects = [];
     private Dictionary<WorldPosition, LootCache> _cacheObjects = [];
     private ChunkKey? _collisionChunk;
+    private static readonly WorldObject Shrub = new("Shrub", "shrub", "decoration", false),
+        Bones = new("Scattered bones", "bones", "decoration", false), Barrel = new("Barrel", "barrel", "decoration", true, true);
 
-    public WorldObject? ObjectAt(WorldPosition p)
+    public WorldObject? ObjectAt(WorldPosition p) => ObjectAt(p, null);
+    private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {
         if (!Plan.Contains(p)) return null;
         if (_objectCount != State.Discoveries.Count + State.Loot.Count)
@@ -26,18 +29,21 @@ public sealed partial class WorldSession
             return new(discovery.Name, DiscoverySprite(discovery), "discovery", definition.Sprite is not ("animal-bones" or "grave-slab"));
         }
         if (_cacheObjects.TryGetValue(p, out var cache)) return cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", cache.SourceActor == 0);
-        if (Chunks.IsEdited(p) || Chunks.At(p) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
+        if (Chunks.IsEdited(p) || (terrain ?? Chunks.At(p)) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
         int culture = Chunks.Get(p.Chunk).Cultures[p.LocalIndex];
         if (WorldRandom.Hash(Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;
-        return culture < 0 ? new("Shrub", "shrub", "decoration", false)
-            : p.Floor > 0 ? new("Scattered bones", "bones", "decoration", false)
-            : new("Barrel", "barrel", "decoration", true, true);
+        return culture < 0 ? Shrub : p.Floor > 0 ? Bones : Barrel;
     }
 
     public Actor? OccupantAt(WorldPosition p, long except = 0, bool observedOnly = false) =>
         observedOnly && !Visible.Contains(p) ? null : State.Actors.FirstOrDefault(a => a.Id != except && a.Life != LifeState.Dead && a.Position == p);
 
-    public bool GroundOpen(WorldPosition p) => Plan.Contains(p) && Materials.Walkable(Chunks.At(p)) && Chunks.At(p) != Material.Camp && ObjectAt(p) is not { Solid: true };
+    public bool GroundOpen(WorldPosition p)
+    {
+        if (!Plan.Contains(p)) return false;
+        var terrain = Chunks.At(p);
+        return Materials.Walkable(terrain) && terrain != Material.Camp && ObjectAt(p, terrain) is not { Solid: true };
+    }
     public bool CanEnter(WorldPosition p, long actorId = 0, bool observedOnly = false) => GroundOpen(p) && OccupantAt(p, actorId, observedOnly) == null;
     public string MovementBlockReason(WorldPosition p, long actorId = 0, bool observedOnly = false)
     {

@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Terrain, blocked-route and worker hot paths — 2026-10-24
+
+58 targeted rule/tool tests passed after reusing immutable decorative objects, sharing terrain reads, pre-indexing resource candidates/salts, rejecting blocked destinations before flood search, skipping distance fields for adjacent workers and removing per-actor work/expiry closures. Resource stock and regrowth remain live queries; no location cache can go stale after edits or harvests. Worker approaches preserve distance/Y/X tie ordering.
+
+The seed-42/1337 reports under `artifacts/performance-review/optimized-core-*.json` retain **identical inspection checksums and final simulation hashes** to the baselines. Read-only visible-cell sweeps and blocked click routes now allocate zero bytes in these town fixtures; sample timing is retained in the reports. These measurements exclude setup and preserve the same sample/repetition count. The complete acceptance run follows after the presentation optimizations.
+
 ## Performance measurement foundation — 2026-10-24
 
 The Release build and two targeted diagnostics/benchmark regressions passed. They cover bounded percentile retention, interval-wide allocation/draw totals and reset, read-only inspection, deterministic simulation checksums and invalid benchmark sample counts. Baselines for seeds 42 and 1337 are retained under `artifacts/performance-review/baseline-core-*.json`; one operation examines 960 cells or advances one real work tick. Visible-cell queries allocated 46,800–48,096 bytes per sweep, blocked routes roughly 65–69 KB per click, and adjacent-worker ticks roughly 348–350 KB. Timings are local warmed observations, not CI thresholds.

@@ -2,6 +2,10 @@
 
 **Last reconciled: 2026-10-24.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
+## Performance hot paths — 2026-10-24
+
+Terrain/collision/resource inspection shares material reads and immutable decorations. Resource candidates and stable salts are indexed once per session by terrain/depth/biome; current edits, ownership, stocks and recovery are still checked on every query. Click routes reject solid destinations before flood search. Adjacent workers skip distance-field construction; approach selection checks only the target neighbourhood with unchanged tie ordering. Body/work checks avoid per-actor query/expiry closures. Comparative benchmarks retain deterministic state hashes; see VERIFICATION.md.
+
 ## Performance diagnostics — 2026-10-24
 
 `./dev benchmark` measures warmed visible-cell queries, blocked click routing and real adjacent-worker ticks, retaining allocations and deterministic workload checksums/state hashes. `./dev benchmark-render` measures stationary isolated world/resource/combat scenes with existing recording/input tools and no model calls. Ordinary recording now separates render/terrain wall time, main-thread frame allocations and draw submissions from update/frame timing. These tools support comparative optimization; software-rendered timings are not production FPS guarantees.

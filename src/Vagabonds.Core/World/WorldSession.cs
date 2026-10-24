@@ -299,6 +299,7 @@ public sealed partial class WorldSession : IGameSession
     public IReadOnlyList<WorldPosition> Route(WorldPosition destination)
     {
         if (destination.Floor != State.Position.Floor || !Chunks.Seen(destination)) return [];
+        if (destination != State.Position && !GroundOpen(destination)) return [];
         var occupied = State.Actors.Where(a => a.Life != LifeState.Dead && a.Id != State.Party[0] && Visible.Contains(a.Position)).Select(a => a.Position).ToHashSet();
         var previous = new Dictionary<WorldPosition, WorldPosition>(); var queue = new Queue<WorldPosition>();
         queue.Enqueue(State.Position); previous[State.Position] = State.Position;
