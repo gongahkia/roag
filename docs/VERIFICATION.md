@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Contact scan allocations — 2026-10-24
+
+38 targeted collision, wildlife, formation and benchmark checks passed after replacing nested actor/party predicates in hostile contact checks with ordered loops. This preserves first-contact order, downed-member contact, wildlife notice/leash rules and all benchmark state hashes. Final Core measurements are retained in `artifacts/performance-review/final-core-*.json` against the isolated `cced8ca` baseline, using 50 samples and `DOTNET_TieredCompilation=0` on both builds.
+
 ## Combat UI allocation reduction — 2026-10-24
 
 164 targeted combat/cooperation/mouse tests passed, including a new comparison of shared-list queries with fresh queries across every ability/target and changed mana. A separate benchmark regression enforces generous allocation bounds without machine-specific time limits. The stationary battle fixture's main-thread allocations dropped from about 1,998 KB/frame to 33 KB/frame in the first comparison; graphics submissions remain 99/frame, consistent with preserving drawing order. Shared ability lists are scoped to the current query or draw pass; authoritative actions continue resolving fresh state.

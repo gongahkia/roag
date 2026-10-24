@@ -325,8 +325,12 @@ public sealed partial class WorldSession : IGameSession
     {
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var positions = Party.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToArray();
-        var enemy = State.Actors.FirstOrDefault(a => IsHostile(a) && positions.Any(p => a.Position.Distance(p) <= 1));
-        if (enemy != null) StartBattle(enemy.Id);
+        foreach (var actor in State.Actors)
+        {
+            if (!IsHostile(actor)) continue;
+            foreach (var position in positions)
+                if (actor.Position.Distance(position) <= 1) { StartBattle(actor.Id); return; }
+        }
     }
     private void MoveActors()
     {
