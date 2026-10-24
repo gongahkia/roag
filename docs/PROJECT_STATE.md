@@ -2,6 +2,10 @@
 
 **Last reconciled: 2026-10-24.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
+## Performance diagnostics — 2026-10-24
+
+`./dev benchmark` measures warmed visible-cell queries, blocked click routing and real adjacent-worker ticks, retaining allocations and deterministic workload checksums/state hashes. `./dev benchmark-render` measures stationary isolated world/resource/combat scenes with existing recording/input tools and no model calls. Ordinary recording now separates render/terrain wall time, main-thread frame allocations and draw submissions from update/frame timing. These tools support comparative optimization; software-rendered timings are not production FPS guarantees.
+
 ## Exploration feedback — 2026-10-24
 
 Ordinary new/resumed/reloaded worlds run immediately and keep simulating while the game window is unfocused. Play/Pause and modal pauses remain available; preview scenes stay paused and controlled playtests hold time between observations. Combat rules, enemy decisions and focus-paused playback are retained. Hovering now performs only cell inspection, with no route search, discovered-cell count or occupancy fingerprint. Both hover and committed travel path lines are removed; the cursor tile remains highlighted, and clicks still compute observed routes. Active digging/dismantling workers make small intermittent sprite gestures, suppressed during movement, pause, rest, suspension and reduced motion. The camera and saved coordinates are unaffected.

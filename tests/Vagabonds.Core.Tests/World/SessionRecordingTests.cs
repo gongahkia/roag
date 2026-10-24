@@ -138,11 +138,17 @@ public sealed class SessionRecordingTests : IDisposable
     public void PerformanceKeepsIntervalTotalsAndABoundedRecentPercentile()
     {
         var window = new PerformanceWindow(); Assert.Null(window.Take());
-        for (int i = 0; i < 1000; i++) window.Add(i < 300 ? 80 : 10, 2);
+        for (int i = 0; i < 1000; i++) window.Add(i < 300 ? 80 : 10, 2, i < 300 ? 50 : 6, 3, 1024, 12);
         window.Add(double.NaN, 0);
         var report = JsonSerializer.SerializeToElement(window.Take());
         Assert.Equal(1000, report.GetProperty("frames").GetInt32()); Assert.Equal(300, report.GetProperty("slowFrames").GetInt32());
         Assert.Equal(600, report.GetProperty("percentileSampleCount").GetInt32()); Assert.Equal(10, report.GetProperty("frameP95Ms").GetDouble());
         Assert.Equal(80, report.GetProperty("worstFrameMs").GetDouble()); Assert.Null(window.Take(true));
+        Assert.Equal(6, report.GetProperty("renderP95Ms").GetDouble()); Assert.Equal(3, report.GetProperty("terrainP95Ms").GetDouble());
+        Assert.Equal(1_024_000, report.GetProperty("allocatedBytes").GetInt64()); Assert.Equal(1024, report.GetProperty("allocatedBytesPerFrame").GetDouble());
+        Assert.Equal(12, report.GetProperty("drawCallsPerFrame").GetDouble());
+        window.Add(20, 1, 2, 1, 32, 4);
+        report = JsonSerializer.SerializeToElement(window.Take(true));
+        Assert.Equal(32, report.GetProperty("allocatedBytes").GetInt64()); Assert.Equal(4, report.GetProperty("drawCallsPerFrame").GetDouble());
     }
 }

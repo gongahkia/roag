@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Performance measurement foundation — 2026-10-24
+
+The Release build and two targeted diagnostics/benchmark regressions passed. They cover bounded percentile retention, interval-wide allocation/draw totals and reset, read-only inspection, deterministic simulation checksums and invalid benchmark sample counts. Baselines for seeds 42 and 1337 are retained under `artifacts/performance-review/baseline-core-*.json`; one operation examines 960 cells or advances one real work tick. Visible-cell queries allocated 46,800–48,096 bytes per sweep, blocked routes roughly 65–69 KB per click, and adjacent-worker ticks roughly 348–350 KB. Timings are local warmed observations, not CI thresholds.
+
 ## Exploration responsiveness and work motion — 2026-10-24
 
 Source fingerprint **`60500d4bce68d36df634ce52db9dc2390aa89535ed4e57bfc25d0b118a79cbc4`** passed managed Core run `20261024-145340-16c72284` (content validation and **662/662 Release tests**) and native run `20261024-145312-bc14787e` (**54/54 native mouse checks** across `world` / `world-battle`, plus **42/42 rendered checks**). Both runs are fresh with intact sealed artifacts. The build reports zero warnings/errors. Task `exploration-feedback` is complete.

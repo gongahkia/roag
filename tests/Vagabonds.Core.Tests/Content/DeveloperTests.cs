@@ -25,6 +25,19 @@ public sealed class DeveloperTests : IDisposable
         finally { Console.SetOut(original); }
     }
     [Fact]
+    public void PerformanceWorkloadsRetainDeterministicStateAndRejectInvalidSampleCounts()
+    {
+        var a = Run("benchmark", "--samples", "3"); var b = Run("benchmark", "--samples", "3");
+        Assert.Equal(0, a.Exit); Assert.Equal(0, b.Exit);
+        var first = JsonSerializer.Deserialize<JsonElement>(a.Output); var second = JsonSerializer.Deserialize<JsonElement>(b.Output);
+        Assert.True(first.GetProperty("inspectionReadOnly").GetBoolean());
+        Assert.Equal(first.GetProperty("simulationHash").GetString(), second.GetProperty("simulationHash").GetString());
+        Assert.Equal(first.GetProperty("checksum").GetInt64(), second.GetProperty("checksum").GetInt64());
+        Assert.Equal(3, first.GetProperty("results").GetArrayLength());
+        Assert.Equal(1, Run("benchmark", "--samples", "0").Exit);
+        Assert.Equal(1, Run("benchmark", "--samples", "101").Exit);
+    }
+    [Fact]
     public void AgentCanScaffoldValidateInspectAndRemoveUnusedContentWithoutOverwriting()
     {
         int files = Directory.GetFiles(_root).Length;

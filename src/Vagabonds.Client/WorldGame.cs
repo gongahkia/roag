@@ -48,7 +48,7 @@ internal sealed partial class WorldGame : Game
     private readonly PerformanceWindow _performance = new();
     private double _snapshotTimer, _lastUpdateMs;
     private int _markerSlot = -1;
-    private long _lastDraw;
+    private long _lastDraw, _frameAllocatedStart;
     private static readonly Color Ink = new(222, 214, 189), Muted = new(151, 154, 150), Gold = new(234, 187, 94), Panel = new(27, 33, 38);
     public WorldGame(Options options, WorldSession session, LocalSessionRecorder? recording = null)
     {
@@ -118,7 +118,9 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Update(GameTime gameTime)
     {
-        var timer = Stopwatch.StartNew(); Layout(); UpdateView();
+        long started = Stopwatch.GetTimestamp();
+        if (_recording != null) _frameAllocatedStart = GC.GetAllocatedBytesForCurrentThread();
+        Layout(); UpdateView();
         MouseState mouse = default;
         if (_playtest != null)
         {
@@ -187,7 +189,7 @@ internal sealed partial class WorldGame : Game
         CollectCombatFeedback(); _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         UpdateMotions(_playtest is { AdvancesWorldPresentation: false } ? TimeSpan.Zero : gameTime.ElapsedGameTime);
         UpdateView();
-        _lastUpdateMs = timer.Elapsed.TotalMilliseconds;
+        _lastUpdateMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         if (_updates.Count < 10000) _updates.Add(_lastUpdateMs);
         _snapshotTimer += gameTime.ElapsedGameTime.TotalSeconds;
         if (_recording != null && _snapshotTimer >= 10) { RecordSnapshot(); _snapshotTimer = 0; }
@@ -310,12 +312,15 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Draw(GameTime gameTime)
     {
+        long started = Stopwatch.GetTimestamp(), drawCallsBefore = GraphicsDevice.Metrics.DrawCount;
         Layout(); UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
         if (_frame == null || _frame.Width != w || _frame.Height != h) { _frame?.Dispose(); _frame = new(GraphicsDevice, w, h); }
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
         GraphicsDevice.ScissorRectangle = _map;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        long terrainStarted = Stopwatch.GetTimestamp();
         if (!CombatStageVisible) DrawTerrain(); _batch.End();
+        double terrainMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
@@ -330,7 +335,12 @@ internal sealed partial class WorldGame : Game
         {
             double elapsed = Stopwatch.GetElapsedTime(_lastDraw).TotalMilliseconds;
             if (_frames.Count < 10000) _frames.Add(elapsed);
-            if (_recording != null) { _performance.Add(elapsed, _lastUpdateMs); if (_performance.Take() is { } performance) _recording.Record("performance", performance, _session.State.Tick); }
+            if (_recording != null)
+            {
+                _performance.Add(elapsed, _lastUpdateMs, Stopwatch.GetElapsedTime(started).TotalMilliseconds, terrainMs,
+                    Math.Max(0, GC.GetAllocatedBytesForCurrentThread() - _frameAllocatedStart), Math.Max(0, GraphicsDevice.Metrics.DrawCount - drawCallsBefore));
+                if (_performance.Take() is { } performance) _recording.Record("performance", performance, _session.State.Tick);
+            }
         }
         _lastDraw = Stopwatch.GetTimestamp();
         if (_markerSlot >= 0) CaptureMarker();
