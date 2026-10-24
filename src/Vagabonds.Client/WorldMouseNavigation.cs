@@ -21,6 +21,15 @@ internal sealed record WorldClickPlan(IReadOnlyList<WorldPosition> Path, WorldCl
 
 internal static class WorldMouseNavigation
 {
+    // Hover checks only this cell. Connected routes and approach searches are deferred until a click.
+    public static string HoverBlockReason(WorldSession session, WorldPosition cell)
+    {
+        if (!session.Plan.Contains(cell) || cell.Floor != session.State.Position.Floor) return "Choose ground on the current floor.";
+        if (!session.Chunks.Seen(cell)) return "Choose observed ground first.";
+        if (Intent(session, cell) != null) return "";
+        return session.MovementBlockReason(cell, session.State.Party[0], observedOnly: true);
+    }
+
     public static WorldClickIntent? Intent(WorldSession session, WorldPosition cell)
     {
         if (!session.Chunks.Seen(cell)) return null;

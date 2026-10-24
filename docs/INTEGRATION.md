@@ -10,7 +10,7 @@ The user authorized implementation on 2026-10-22 after the history replay. Vagab
 - Preserve turn-based party combat. Thinking/targeting costs no time; completed rounds advance the shared world clock.
 - One authoritative actor identity across background jobs, recruitment and combat. Construction takes actual work/time and can use background workers.
 - Adapt useful needs, memories, trust, work, repair and incident mechanisms to fantasy. Do not transplant lunar lore, suit oxygen or mandatory colony infrastructure.
-- Keep Vagabonds' sprite bindings, smooth movement, facing, hover routes, outdoor visibility and dungeon fog.
+- Keep Vagabonds' sprite bindings, smooth movement, facing, cursor highlighting, outdoor visibility and dungeon fog.
 - No save migration project. Invalid/incompatible slots must still be rejected safely and never silently overwritten.
 - Make agent authoring practical across characters, interactions, abilities, enemies, bosses, items, recipes and generation: stable IDs, validated data, reference queries, scaffolding, deletion checks, deterministic previews and documented extension points.
 - Review developer-tool usefulness at each substantial milestone. Turn repeated manual checks into reusable commands; use those commands to validate actual gameplay content.
@@ -20,6 +20,8 @@ Later input preference: the world client is mouse-only, with visible controls fo
 Later approved interaction model: any available party member automatically claims designated local work, with optional named assignments. Keep four active members and a shared pack; workers stay in a local rally area and danger starts the shared party encounter. Conversations pause time; Party/Work run unless explicitly paused. Conversations use large facing sprites, authored text, speaking motion and original synthesized voices with volume/reduced-motion controls.
 
 Clarified: everyone follows the same needs, fatigue and injury rules. Class, level, equipment and traits augment those shared defaults; party members do not become a separate simulated species.
+
+Later exploration feedback (2026-10-24): ordinary play runs from launch and while unfocused; hover shows only the selected tile and does not search or draw a route. Active digging/dismantling sprites occasionally wiggle. Preserve the current enemy combat design and its focus-paused playback.
 
 ## Implementation checkpoints
 

@@ -2,7 +2,7 @@ namespace Vagabonds.Client;
 
 internal sealed partial class WorldGame
 {
-    private object RecordingSnapshot() => new { world = _session.DiagnosticSnapshot(), ui = new { panel = _panel,
+    private object RecordingSnapshot() => new { world = _session.DiagnosticSnapshot(), ui = new { panel = _panel, nativeFocused = IsActive,
         notice = _notice, routeCount = _route.Count, pendingInteraction = _pendingInteraction,
         camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize },
         combatPresentation = new { Playback.Busy, Playback.Phase, Playback.Progress, _combatSpeed, _reducedMotion } } };

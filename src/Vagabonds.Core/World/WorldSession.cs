@@ -76,7 +76,7 @@ public sealed partial class WorldSession : IGameSession
         int townId = rng.Next(24), siteId = rng.Next(48);
         s.Arc = new() { Kind = (ArcKind)rng.Next(3), TownId = townId, SiteId = siteId, PatronId = 1000 + townId * 16 + 7 };
         session.UpdateObjective();
-        s.Journal.Add("You arrived alone. Click nearby inhabitants to find travelling companions. Play resumes the world.");
+        s.Journal.Add("You arrived alone. Click nearby inhabitants to find travelling companions.");
         s.Journal.Add(plan.History[0]);
         return session;
     }

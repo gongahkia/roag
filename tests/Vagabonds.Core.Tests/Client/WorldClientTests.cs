@@ -19,11 +19,11 @@ public sealed class WorldClientTests : IDisposable
     public void OrdinaryLaunchResumesWorldAndMissingSlotStartsAloneWithoutWriting()
     {
         var fresh = WorldStartup.Open(Options.Parse(["--save", Slot, "--seed", "1337"]));
-        Assert.False(fresh.Resumed); var s = Assert.IsType<WorldSession>(fresh.Session); Assert.Single(s.Party); Assert.False(File.Exists(Slot));
+        Assert.False(fresh.Resumed); var s = Assert.IsType<WorldSession>(fresh.Session); Assert.Single(s.Party); Assert.False(s.Paused); Assert.False(File.Exists(Slot));
         s.Paused = false; s.AdvanceTicks(47); s.Save(Slot); byte[] before = File.ReadAllBytes(Slot);
         var resumed = WorldStartup.Open(Options.Parse(["--save", Slot]));
         Assert.True(resumed.Resumed); var loaded = Assert.IsType<WorldSession>(resumed.Session);
-        Assert.Equal(1337, loaded.Seed); Assert.Equal(47, loaded.State.Tick); Assert.True(loaded.Paused); Assert.Equal(before, File.ReadAllBytes(Slot));
+        Assert.Equal(1337, loaded.Seed); Assert.Equal(47, loaded.State.Tick); Assert.False(loaded.Paused); Assert.Equal(before, File.ReadAllBytes(Slot));
     }
     [Fact]
     public void LegacySavesStillDispatchToTheirOriginalRules()
@@ -43,6 +43,7 @@ public sealed class WorldClientTests : IDisposable
         WorldSession.Create(1337).Save(Slot); byte[] before = File.ReadAllBytes(Slot);
         var started = WorldStartup.Open(Options.Parse([.. flags, "--save", Slot, "--seed", "7"]));
         Assert.False(started.Resumed); Assert.Equal(7, started.Session.Seed); Assert.Equal(before, File.ReadAllBytes(Slot));
+        Assert.Equal(Options.Parse(flags).Preview, Assert.IsType<WorldSession>(started.Session).Paused);
     }
     private static FieldInfo Field(string name) => typeof(WorldGame).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
     private WorldGame Client(WorldSession session)
@@ -76,11 +77,11 @@ public sealed class WorldClientTests : IDisposable
         Assert.Equal("inventory", Field("_panel").GetValue(client)); Assert.StartsWith("Load failed:", (string)Field("_notice").GetValue(client)!);
     }
     [Fact]
-    public void SuccessfulWorldF9RestoresPausedSessionAndClearsPendingInput()
+    public void SuccessfulWorldLoadResumesTimeAndClearsPendingInput()
     {
         var s = WorldSession.Create(1337); s.Save(Slot); var client = Client(WorldSession.Create(7));
         Reload(client);
-        var loaded = Assert.IsType<WorldSession>(Field("_session").GetValue(client)); Assert.Equal(1337, loaded.Seed); Assert.True(loaded.Paused);
+        var loaded = Assert.IsType<WorldSession>(Field("_session").GetValue(client)); Assert.Equal(1337, loaded.Seed); Assert.False(loaded.Paused);
         Assert.True((bool)Field("_autoSave").GetValue(client)!); Assert.Empty((Queue<WorldPosition>)Field("_route").GetValue(client)!); Assert.Equal("", Field("_panel").GetValue(client));
     }
     [Fact]

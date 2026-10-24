@@ -39,7 +39,7 @@ internal sealed partial class WorldGame : Game
     private WorldSession? _visualSession;
     private long _visualLeader;
     private const double MoveDuration = .14;
-    private double _moveTimer, _enemyTimer;
+    private double _moveTimer, _enemyTimer, _workVisualTime;
     private int _draws;
     private readonly Stopwatch _runtime = new();
     private readonly List<double> _updates = [];
@@ -89,6 +89,7 @@ internal sealed partial class WorldGame : Game
             _graphics.PreferredBackBufferHeight = Math.Max(720, Window.ClientBounds.Height); _graphics.ApplyChanges();
         };
         IsMouseVisible = true; IsFixedTimeStep = false;
+        InactiveSleepTime = TimeSpan.FromMilliseconds(20);
         Exiting += (_, _) => { if (_autoSave) TrySave(); Capture(); RecordSnapshot(); if (_performance.Take(true) is { } performance) _recording?.Record("performance", performance); };
         RecordSnapshot();
     }
@@ -127,7 +128,7 @@ internal sealed partial class WorldGame : Game
         if (_playtest is { StopRequested: true, Holding: true }) { Exit(); return; }
         UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
         if (_playtest == null) mouse = Mouse.GetState();
-        _session.Focused = InputFocused;
+        _session.Focused = WorldClockEnabled;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         if (InputFocused && !_options.WorldSmoke)
         {
@@ -170,8 +171,9 @@ internal sealed partial class WorldGame : Game
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.PartyTravelling = _route.Count > 0 || _pendingInteraction != null;
         bool wasInCombat = _session.IsInCombat;
-        // Long stalls/focus changes discard elapsed time rather than simulating an offline catch-up.
+        // Long stalls discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
+        if (!_session.Frozen) _workVisualTime += Math.Clamp(gameTime.ElapsedGameTime.TotalSeconds, 0, .2);
         if (_session.IsInCombat)
         {
             if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
@@ -250,10 +252,11 @@ internal sealed partial class WorldGame : Game
         try
         {
             var replacement = WorldSession.Load(_options.Save, diagnostics: _session.DiagnosticSink);
+            replacement.Paused = _options.Preview;
             _session = replacement; ResetCombatPresentation(); _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
-            _notice = "World restored and paused. Click a destination or Play to continue.";
+            _notice = _session.Paused ? "World restored and paused. Click a destination or Play to continue." : "World restored. Time is running.";
             _recording?.Record("world-load", new { _session.Seed, save = _options.Save }); RecordSnapshot();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)
@@ -400,11 +403,6 @@ internal sealed partial class WorldGame : Game
         _batch.End(); _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
         foreach (var resource in _resourceIcons) _sprites.Draw(_batch, resource.Sprite, resource.Rect, Gold * resource.Light);
         UpdatePointer(_mouse.Position);
-        if (_panel.Length == 0 && !_session.IsInCombat && !_session.State.AwaitingContinuation)
-        {
-            if (_pointer.Path.Count > 0 && (_route.Count == 0 || _route.Last() != _pointer.Path[^1])) DrawRoute(_pointer.Path, new(113, 187, 195), 2);
-            DrawRoute(_route, Gold, 3);
-        }
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
             _sprites.Draw(_batch, _session.DiscoverySprite(d), TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : d.Outcome.Length > 0 ? new Color(129, 200, 204) : Gold);
         foreach (var cache in _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position) && !_session.State.Discoveries.Any(d => d.Id == c.Id)))
@@ -413,7 +411,7 @@ internal sealed partial class WorldGame : Game
         {
             var motion = _actorMotions[actor.Id];
             if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
-            var rect = ActorRect(motion.Position); if (!_map.Intersects(rect)) continue;
+            var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)); if (!_map.Intersects(rect)) continue;
             _sprites.Draw(_batch, actor.Sprite, rect, _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
@@ -429,7 +427,8 @@ internal sealed partial class WorldGame : Game
         }
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
-            var motion = _actorMotions[actor.Id]; var rect = ActorRect(motion.Position);
+            var motion = _actorMotions[actor.Id];
+            var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion));
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         if (_panel.Length == 0 && !_session.IsInCombat && _session.State.WorkRally is { } rally)
@@ -451,7 +450,7 @@ internal sealed partial class WorldGame : Game
         if (_pointer.Cell is { } cell)
         {
             var rect = TileRect(cell);
-            bool blocked = _pointer.Plan is { Reachable: false };
+            bool blocked = _pointer.BlockReason.Length > 0;
             Color selector = blocked ? new(225, 127, 110) : Gold; FillClipped(rect, selector * .1f);
             int edge = Math.Clamp(rect.Width / 3, 3, 12), stroke = rect.Width >= 16 ? 2 : 1;
             foreach (int x in new[] { rect.Left, rect.Right - edge })
@@ -464,18 +463,6 @@ internal sealed partial class WorldGame : Game
     {
         var clipped = Rectangle.Intersect(_map, rectangle);
         if (clipped.Width > 0 && clipped.Height > 0) Fill(clipped, color);
-    }
-    private void DrawRoute(IEnumerable<WorldPosition> cells, Color color, int thickness)
-    {
-        var previous = _camera.WorldToScreen(new(_session.State.Position.X + .5f, _session.State.Position.Y + .5f));
-        foreach (var cell in cells)
-        {
-            var center = _camera.WorldToScreen(new(cell.X + .5f, cell.Y + .5f));
-            int x = (int)Math.Round(center.X), y = (int)Math.Round(center.Y), px = (int)Math.Round(previous.X), py = (int)Math.Round(previous.Y);
-            FillClipped(new(Math.Min(px, x) - thickness / 2, Math.Min(py, y) - thickness / 2, Math.Abs(x - px) + thickness, Math.Abs(y - py) + thickness), color * .75f);
-            FillClipped(new(x - thickness, y - thickness, thickness * 2 + 1, thickness * 2 + 1), color);
-            previous = center;
-        }
     }
     private void DrawHud(int w, int h)
     {

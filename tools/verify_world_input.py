@@ -231,6 +231,13 @@ def main():
                 for _ in range(12): client.click('zoom:out')
                 ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
                 client.click('zoom:default')
+                ui = client.ui(); origin = ui['position']
+                hover = next(c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['clickable']
+                    and c['y'] == origin['y'] and c['x'] == origin['x'] + 4)
+                px, py = client.tile_point(hover['x'], hover['y']); x('mousemove', '--window', client.window, round(px), round(py))
+                client.wait(lambda u: u['hover'] is not None)
+                check('hoverDoesNotMoveOrQueueTravel', client.ui()['position'] == origin and client.ui()['routeCount'] == 0)
+                client.capture('hover-selector')
                 ui = client.ui(); origin = ui['position']; barrel = next(c for c in ui['cells'] if c['prop'] == 'Barrel')
                 client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
                 check('solidPropClickOffersDismantlingWithoutWalkingThroughIt', client.ui()['position'] == origin and client.ui()['routeCount'] == 0 and any(c['id'] == 'context:dig' for c in client.ui()['controls']))
@@ -251,6 +258,7 @@ def main():
                 voice = client.ui()['dialogue']; check('conversationVoicePlaysOrReportsMissingDevice', voice['audioUnavailable'] or voice['playedSyllables'] > 0)
                 check('conversationShowsTwoLargePortraits', len(voice['portraits']) == 2 and all(p['bounds']['width'] >= 128 for p in voice['portraits']))
                 client.click('speech-motion'); check('conversationReducedMotion', client.ui()['dialogue']['reducedMotion'])
+                client.click('speech-motion')  # Restore full motion for the digging capture below.
                 client.click('voice-volume'); check('conversationVolumeControl', client.ui()['dialogue']['volume'] == .75)
                 client.finish_dialogue(); client.click('conversation:interaction.stories')
                 client.wait(lambda u: u['dialogue']['speaker'] == u['party'][0]['id']); client.capture('conversation-player')
@@ -308,6 +316,11 @@ def main():
                 client.drag(first, second); client.context(first); client.click('context:dig'); client.pause()
                 pending = client.save()['state']; check('batchDigReservationsSaved', len(pending['work']) == 2 and all(w['partyApproach'] for w in pending['work']))
                 client.load(); client.wait(lambda u: len(u['work']) == 2 and u['paused']); client.click('pause')
+                client.wait(lambda u: any(o['kind'] == 'Dig' and o['status'].startswith('Working:') for o in u['work']), interval=.01)
+                client.capture('dismantling')
+                subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-f', 'x11grab', '-framerate', '30',
+                    '-window_id', client.window, '-video_size', '1024x720', '-i', os.environ['DISPLAY'], '-t', '1.8',
+                    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(output / 'dismantling.mp4')], check=True, timeout=15)
                 client.wait(lambda u: len(u['work']) == 0, timeout=25); client.pause()
                 dug = client.save()['state']; check('batchDigResumesAfterLoadAndRefundsMaterials', dug['inventory']['stone'] == paved['inventory']['stone'] + 4 and len(dug['structures']) == len(paved['structures']) - 2)
                 origin = client.ui()['position']; client.context(client.free_cell())

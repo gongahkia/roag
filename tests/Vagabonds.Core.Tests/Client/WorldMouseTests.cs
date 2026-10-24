@@ -50,7 +50,7 @@ public sealed class WorldMouseTests
         Assert.True(plan.Reachable); Assert.Equal("storage", plan.Interaction!.Kind); Assert.Equal(origin.Offset(3, 0), plan.Path[^1]);
         var camera = new MapCamera { Center = new(origin.X + .5f, origin.Y + .5f), Viewport = new(0, 0, 480, 480) };
         var pointer = new WorldPointerPreview(); pointer.Update(session, camera, camera.WorldToScreen(new(chest.X + .5f, chest.Y + .5f)).ToPoint());
-        Assert.Equal(plan.Path, pointer.Path);
+        Assert.Equal(chest, pointer.Cell); Assert.Empty(pointer.BlockReason);
     }
     [Fact]
     public void AnApproachCannotInventAnUnknownConnectionToAKnownObject()
@@ -74,7 +74,7 @@ public sealed class WorldMouseTests
         var point = camera.WorldToScreen(new(cursorCell.X + .5f, cursorCell.Y + .5f)).ToPoint();
         pointer.Update(session, camera, point, interactionCell: person.Position);
         Assert.Equal(cursorCell, pointer.Cell); Assert.Equal(person.Position, pointer.NavigationCell);
-        Assert.Equal(WorldMouseNavigation.Plan(session, person.Position).Path, pointer.Path);
+        Assert.Empty(pointer.BlockReason);
         pointer.Update(session, camera, point);
         Assert.Equal(cursorCell, pointer.NavigationCell);
     }

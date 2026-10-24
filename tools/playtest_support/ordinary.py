@@ -45,6 +45,24 @@ def worker(repo, output, no_recording=False):
                     time.sleep(.05)
                 if not list(root.glob('*/marker-00.png')):
                     raise ValueError('The native Mark this moment click produced no screenshot.')
+                marker = recordings.read(next(root.glob('*/marker-00.json')))
+                # A normal launch must advance while the player stands still, including
+                # with X11 focus elsewhere. Automation previews intentionally keep holding.
+                initial = marker['data']['state']['world']
+                if initial['paused'] or initial['tick'] <= 0:
+                    raise ValueError('Ordinary world did not start running before any movement.')
+                x('windowfocus', '0')
+                deadline = time.monotonic() + 15
+                background = None
+                while time.monotonic() < deadline:
+                    latest = recordings.read(next(root.glob('*/latest.json')), {}).get('state', {})
+                    if latest.get('ui', {}).get('nativeFocused') is False and latest['world']['tick'] > initial['tick']:
+                        background = latest; break
+                    time.sleep(.1)
+                if background is None or background['world']['paused'] or background['world']['frozen'] or background['world']['position'] != initial['position']:
+                    raise ValueError('Unfocused world did not keep running while the player stood still.')
+                atomic_json(output / 'background-clock.json', {'initial': marker['data']['state'], 'background': background})
+                x('windowfocus', '--sync', window)
                 click(966, 33)
             click(220, 398); process.wait(timeout=10)
             if process.returncode != 0 or not slot.is_file():

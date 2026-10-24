@@ -1,5 +1,15 @@
 # Vagabonds verification
 
+## Exploration responsiveness and work motion — 2026-10-24
+
+Source fingerprint **`60500d4bce68d36df634ce52db9dc2390aa89535ed4e57bfc25d0b118a79cbc4`** passed managed Core run `20261024-145340-16c72284` (content validation and **662/662 Release tests**) and native run `20261024-145312-bc14787e` (**54/54 native mouse checks** across `world` / `world-battle`, plus **42/42 rendered checks**). Both runs are fresh with intact sealed artifacts. The build reports zero warnings/errors. Task `exploration-feedback` is complete.
+
+Regression coverage includes ordinary new/resumed/reloaded worlds starting unpaused, preview/save isolation, read-only hover inspection without connected-route searches, a bounded-allocation pointer/tooltip sweep, and intermittent gestures driven by real digging progress. Paused, suspended, travelling, resting and reduced-motion workers remain still; simulation state is unchanged by sampling animation.
+
+The ordinary native check observed **tick 3 → 47 at the same player coordinates** after removing X11 focus: the retained background snapshot has `nativeFocused=false`, `paused=false` and `frozen=false`. Evidence is `playtests/ordinary-launch/ordinary/background-clock.json` under the native run. Controlled playtest observations continue holding time. Mouse travel, work reservations/completion/refunds, recruitment, stairs, load rejection and the existing four-by-four combat stage also passed.
+
+Manually inspected `native/hover-selector.png`, `native/dismantling.png`, frames from `native/dismantling.mp4`, and `native/battle-stage-four-by-four.png`. The hover capture shows a single bracketed tile without a path line; the work clip shows subtle worker sprite shifts while progress advances and stops on completion. The battle layout is preserved. These checks used isolated saves, Xvfb/software rendering and dummy audio; they establish local behavior, not a production frame-time benchmark or native Windows/macOS coverage. No gameplay content hash, save version or generation version changed.
+
 ## Experiential playtester completion — 2026-10-23
 
 Final source `44b8e00`, fingerprint **`3c0fb00f2ee099f2dcd96ba49ea42b51bad024b9436c1ab19d81dc57203bf86e`**, passed these managed runs; each reports `fresh: true` and no artifact checksum errors:

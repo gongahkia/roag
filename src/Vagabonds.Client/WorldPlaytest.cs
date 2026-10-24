@@ -11,6 +11,8 @@ internal sealed partial class WorldGame
     // Test sessions freeze between observations. Explicit waits advance the normal
     // clock/animation path; no controller injects world ticks or combat results.
     private bool InputFocused => _playtest == null ? IsActive : _playtest.RunsFrames;
+    // Human exploration continues without native focus; controlled observations still hold time.
+    private bool WorldClockEnabled => _playtest == null ? !_session.IsInCombat || IsActive : _playtest.RunsFrames;
 
     private Point[] ResolvePlaytest(PlaytestRequest request)
     {
