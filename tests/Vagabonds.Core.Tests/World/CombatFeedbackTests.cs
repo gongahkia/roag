@@ -15,6 +15,28 @@ public sealed class CombatFeedbackTests
         s.StartBattle(enemy.Id); return s;
     }
     [Fact]
+    public void SharedFrameSkillsMatchFreshQueriesAndReflectChangesOnTheNextFrame()
+    {
+        var s = WorldSession.Create(42); CooperationPreview.Prepare(s);
+        while (!s.State.Battle!.Active.Friendly) s.AdvanceEnemy();
+        var battle = s.State.Battle;
+        foreach (int mana in new[] { battle.Active.Mana, 0 })
+        {
+            battle.Active.Mana = mana;
+            var skills = s.ActiveSkills(); string before = JsonSerializer.Serialize(s.State);
+            for (int i = 0; i < skills.Count; i++)
+            {
+                Assert.Equal(s.SkillUnavailable(i), s.SkillUnavailable(i, skills));
+                foreach (var unit in battle.Units)
+                {
+                    Assert.Equal(s.CooperationPartnerReason(i, unit.Id), s.CooperationPartnerReason(i, unit.Id, skills));
+                    Assert.Equal(JsonSerializer.Serialize(s.ActionPreview(i, unit.Id)), JsonSerializer.Serialize(s.ActionPreview(i, unit.Id, skills: skills)));
+                }
+            }
+            Assert.Equal(before, JsonSerializer.Serialize(s.State));
+        }
+    }
+    [Fact]
     public void DamagePreviewUsesActualGuardArmourMarkAndStressWithoutConsumingAnything()
     {
         var s = Fight(); var battle = s.State.Battle!; var enemy = battle.Units.First(u => !u.Friendly); var hero = battle.Active;

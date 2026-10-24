@@ -10,7 +10,11 @@ namespace Vagabonds.Client;
 
 internal sealed record WorldMouseControl(string Id, string Label, Rectangle Bounds, bool Enabled = true, bool Selected = false, string Tip = "", string DisabledReason = "", string? Sprite = null, string Detail = "", float Progress = -1, string? BadgeSprite = null, bool Dimmed = false)
 {
-    public static WorldMouseControl? Hit(IEnumerable<WorldMouseControl> controls, Point pointer) => controls.Reverse().FirstOrDefault(c => c.Bounds.Contains(pointer));
+    public static WorldMouseControl? Hit(IReadOnlyList<WorldMouseControl> controls, Point pointer)
+    {
+        for (int i = controls.Count - 1; i >= 0; i--) if (controls[i].Bounds.Contains(pointer)) return controls[i];
+        return null;
+    }
 }
 internal sealed record WorldMousePress(long Sequence, int Button, int X, int Y, string? Control);
 
@@ -364,11 +368,14 @@ internal sealed partial class WorldGame
             if (battle?.Active.Friendly == true)
             {
                 var skills = Playback.Busy ? Playback.Skills : _session.ActiveSkills(); int columns = 4, bw = (area.Width - 24) / columns;
-                for (int i = 0; i < skills.Count; i++) Add("skill:" + i, skills[i].Name, area.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
-                    !Playback.Busy && _session.SkillUnavailable(i).Length == 0, Playback.Busy ? skills[i].Id == Playback.Current?.AbilityId : i == _skill,
-                    skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description,
-                    Playback.Busy ? "Wait for the current action or choose Skip." : "", sprite: skills[i].Icon,
-                    detail: skills[i].Mana > 0 ? skills[i].Mana + " MP" : "No MP cost");
+                for (int i = 0; i < skills.Count; i++)
+                {
+                    string reason = Playback.Busy ? "Wait for the current action or choose Skip." : _session.SkillUnavailable(i, skills);
+                    Add("skill:" + i, skills[i].Name, area.X + i % columns * (bw + 8), h - 94 + i / columns * 44, bw, 36,
+                        reason.Length == 0, Playback.Busy ? skills[i].Id == Playback.Current?.AbilityId : i == _skill,
+                        skills[i].Cooperative ? _session.CooperationDescription(skills[i]) : skills[i].Description,
+                        reason, sprite: skills[i].Icon, detail: skills[i].Mana > 0 ? skills[i].Mana + " MP" : "No MP cost");
+                }
             }
             return;
         }
@@ -523,6 +530,7 @@ internal sealed partial class WorldGame
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
         bool playing = playerView && Playback.Busy;
         var reportedBattle = playerView ? DisplayBattle : _session.State.Battle;
+        var skills = playing ? Array.Empty<Skill>() : _session.ActiveSkills();
         CombatUnit? Presented(Actor actor) => playerView && reportedBattle is { } b && b.ActorIds.IndexOf(actor.Id) is var index && index >= 0 ? b.Units[index] : null;
         return JsonSerializer.Serialize(new
         {
@@ -536,8 +544,8 @@ internal sealed partial class WorldGame
             routeCount = _route.Count, notice = _notice,
             route = _route.Take(16).ToArray(), inventory = _session.State.Inventory,
             selectedSkill = _skill, cooperativePartner = _cooperativePartner,
-            skills = (playing ? Array.Empty<Skill>() : _session.ActiveSkills()).Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
-                target = skill.Target.ToString(), skill.Cooperative, skill.PartnerMana, reason = _session.SkillUnavailable(index) }),
+            skills = skills.Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
+                target = skill.Target.ToString(), skill.Cooperative, skill.PartnerMana, reason = _session.SkillUnavailable(index, skills) }),
             context = _contextCells == null ? null : new { bounds = Rect(_contextBox), building = _contextBuilding, hint = _contextHint },
             selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
             selecting = _dragStart != null,

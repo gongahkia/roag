@@ -71,9 +71,8 @@ internal sealed partial class WorldGame
     private string DisabledControlReason(string id)
     {
         string action = id.Split(':', 2)[0], argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";
-        Actor? member = _session.Party.FirstOrDefault();
-        if (member != null) member = SelectedMember();
-        var gear = EquipmentChoices().ElementAtOrDefault(_packItem);
+        Actor? member = action is "equip" or "unequip" or "revive" or "dismiss" or "abandon" && _session.Party.Any() ? SelectedMember() : null;
+        var gear = action is "equip" or "unequip" ? EquipmentChoices().ElementAtOrDefault(_packItem) : null;
         WorldCommand? command = action switch
         {
             "rest" => new(WorldCommandKind.Camp), "forage" => new(WorldCommandKind.Forage),
@@ -119,12 +118,13 @@ internal sealed partial class WorldGame
                 var b = _session.State.Battle!; var unit = b.Units.LastOrDefault(u => UnitRect(u).Contains(_mouse.Position));
                 if (unit != null)
                 {
-                    var preview = _session.ActionPreview(_skill, unit.Id, _cooperativePartner);
+                    var skills = _session.ActiveSkills();
+                    var preview = _session.ActionPreview(_skill, unit.Id, _cooperativePartner, skills);
                     string detail = $"HP {unit.Health}/{unit.MaxHealth}; MP {unit.Mana}; armour {unit.Armor}. " + WorldSession.StatusDescription(unit);
                     if (!unit.Friendly && BattleIntent(unit.Id) is { } intent)
                         detail += " Intent: " + intent.Name + ". " + (intent.Reason.Length > 0 ? intent.Reason : string.Join("; ", intent.Targets.Select(t => t.Name + " " + t.Minimum + "-" + t.Maximum)) + ". Current defenses; may change before its turn.");
-                    bool helper = b.Active.Friendly && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || unit.Friendly);
-                    _hover = new(unit.Name, detail, helper ? "Assist: spend this round's action and " + _session.ActiveSkills()[_skill].PartnerMana + " MP." : b.Active.Friendly ? preview.Description : _session.EnemyIntent(unit.Id), helper ? _session.CooperationPartnerReason(_skill, unit.Id) : b.Active.Friendly ? preview.Reason : "Wait for a companion's turn.", "combat");
+                    bool helper = b.Active.Friendly && skills.ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || unit.Friendly);
+                    _hover = new(unit.Name, detail, helper ? "Assist: spend this round's action and " + skills[_skill].PartnerMana + " MP." : b.Active.Friendly ? preview.Description : _session.EnemyIntent(unit.Id), helper ? _session.CooperationPartnerReason(_skill, unit.Id, skills) : b.Active.Friendly ? preview.Reason : "Wait for a companion's turn.", "combat");
                     hand = b.Active.Friendly && _hover.Reason.Length == 0;
                 }
             }

@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Combat UI allocation reduction — 2026-10-24
+
+164 targeted combat/cooperation/mouse tests passed, including a new comparison of shared-list queries with fresh queries across every ability/target and changed mana. A separate benchmark regression enforces generous allocation bounds without machine-specific time limits. The stationary battle fixture's main-thread allocations dropped from about 1,998 KB/frame to 33 KB/frame in the first comparison; graphics submissions remain 99/frame, consistent with preserving drawing order. Shared ability lists are scoped to the current query or draw pass; authoritative actions continue resolving fresh state.
+
+The first optimized software-rendered timings were affected by overlapping builds and unrelated machine load; they are retained, not treated as evidence of an FPS improvement. Controlled paired measurements and full acceptance follow below.
+
 ## Terrain, blocked-route and worker hot paths — 2026-10-24
 
 58 targeted rule/tool tests passed after reusing immutable decorative objects, sharing terrain reads, pre-indexing resource candidates/salts, rejecting blocked destinations before flood search, skipping distance fields for adjacent workers and removing per-actor work/expiry closures. Resource stock and regrowth remain live queries; no location cache can go stale after edits or harvests. Worker approaches preserve distance/Y/X tie ordering.

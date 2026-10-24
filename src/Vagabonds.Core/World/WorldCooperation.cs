@@ -4,9 +4,9 @@ namespace Vagabonds.Core.World;
 
 public sealed partial class WorldSession
 {
-    public string CooperationPartnerReason(int skillIndex, int partnerIndex)
+    public string CooperationPartnerReason(int skillIndex, int partnerIndex, IReadOnlyList<Skill>? skills = null)
     {
-        var skills = ActiveSkills();
+        skills ??= ActiveSkills();
         if (skillIndex < 0 || skillIndex >= skills.Count || !skills[skillIndex].Cooperative || State.Battle is not { } battle) return "Choose a cooperative ability first.";
         var partner = battle.Units.ElementAtOrDefault(partnerIndex);
         if (partner == null || !partner.Friendly || partner.Id == battle.Active.Id) return "Choose a different companion to assist.";

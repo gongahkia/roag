@@ -34,6 +34,11 @@ public sealed class DeveloperTests : IDisposable
         Assert.Equal(first.GetProperty("simulationHash").GetString(), second.GetProperty("simulationHash").GetString());
         Assert.Equal(first.GetProperty("checksum").GetInt64(), second.GetProperty("checksum").GetInt64());
         Assert.Equal(3, first.GetProperty("results").GetArrayLength());
+        foreach (var result in first.GetProperty("results").EnumerateArray())
+        {
+            double limit = result.GetProperty("name").GetString() == "adjacent-work-tick" ? 200_000 : 16_000;
+            Assert.True(result.GetProperty("bytesPerOperation").GetDouble() < limit, result.ToString());
+        }
         Assert.Equal(1, Run("benchmark", "--samples", "0").Exit);
         Assert.Equal(1, Run("benchmark", "--samples", "101").Exit);
     }

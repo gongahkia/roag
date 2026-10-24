@@ -56,7 +56,8 @@ internal sealed partial class WorldGame
         string label = Playback.Current is { } beat ? beat.Label
             : b.Active.Friendly ? b.Active.Name + " - choose an ability" : b.Active.Name + " is preparing an action";
         Text(Short(label, (area.Width - 40) / 8), area.X + 20, area.Y + 82, Playback.Busy ? Gold : Ink);
-        foreach (var unit in b.Units) DrawBattleFighter(b, unit);
+        var skills = Playback.Busy ? Array.Empty<Skill>() : _session.ActiveSkills();
+        foreach (var unit in b.Units) DrawBattleFighter(b, unit, skills);
         DrawBattleAction(b); DrawCombatFeedback();
     }
     private void DrawBattleBackdrop(Rectangle area)
@@ -102,14 +103,14 @@ internal sealed partial class WorldGame
         }
 
     }
-    private void DrawBattleFighter(WorldBattle b, CombatUnit u)
+    private void DrawBattleFighter(WorldBattle b, CombatUnit u, IReadOnlyList<Skill> skills)
     {
         var r = UnitRect(u); var sprite = CombatSpriteBox(u); long actor = b.ActorIds[u.Id];
         bool active = b.Active.Id == u.Id && u.Alive;
         bool choosing = !Playback.Busy && _session.State.Battle?.Active.Friendly == true;
-        bool helper = choosing && _session.ActiveSkills().ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || u.Friendly);
-        bool valid = choosing && (helper ? _session.CooperationPartnerReason(_skill, u.Id).Length == 0 : _session.ActionPreview(_skill, u.Id, _cooperativePartner).Reason.Length == 0);
+        bool helper = choosing && skills.ElementAtOrDefault(_skill)?.Cooperative == true && (_cooperativePartner < 0 || u.Friendly);
         bool hover = r.Contains(_mouse.Position) && _panel.Length == 0;
+        bool valid = choosing && hover && (helper ? _session.CooperationPartnerReason(_skill, u.Id, skills).Length == 0 : _session.ActionPreview(_skill, u.Id, _cooperativePartner, skills).Reason.Length == 0);
         var actorRecord = _session.State.Actors.FirstOrDefault(a => a.Id == actor);
         var boss = actorRecord == null ? null : _session.Content.Entries.GetValueOrDefault(actorRecord.Archetype) as BossDefinition;
         uint signature = 0; if (boss != null) foreach (char c in boss.Family) signature = signature * 31 + c;

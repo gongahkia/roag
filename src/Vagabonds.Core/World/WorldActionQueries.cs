@@ -11,23 +11,23 @@ public sealed record GearComparison(string Slot, string Previous, int Health, in
 
 public sealed partial class WorldSession
 {
-    public string SkillUnavailable(int index)
+    public string SkillUnavailable(int index, IReadOnlyList<Skill>? skills = null)
     {
-        var skills = ActiveSkills();
+        skills ??= ActiveSkills();
         if (index < 0 || index >= skills.Count) return "Wait for a conscious companion's turn.";
         var skill = skills[index];
         if (State.Battle!.Active.Mana < skill.Mana) return $"Needs {skill.Mana} MP; {State.Battle.Active.Mana} available.";
-        if (skill.Cooperative && !State.Battle.Units.Any(u => CooperationPartnerReason(index, u.Id).Length == 0)) return "Needs a conscious, unstunned companion with enough MP and an action still ahead this round.";
+        if (skill.Cooperative && !State.Battle.Units.Any(u => CooperationPartnerReason(index, u.Id, skills).Length == 0)) return "Needs a conscious, unstunned companion with enough MP and an action still ahead this round.";
         return skill.Effect == "potion" && Count("medicine") == 0 ? "Needs one medicine in the shared pack." : "";
     }
-    public CombatActionPreview ActionPreview(int index, int targetIndex = -1, int partnerIndex = -1)
+    public CombatActionPreview ActionPreview(int index, int targetIndex = -1, int partnerIndex = -1, IReadOnlyList<Skill>? skills = null)
     {
-        string reason = SkillUnavailable(index);
-        var skills = ActiveSkills();
+        skills ??= ActiveSkills();
+        string reason = SkillUnavailable(index, skills);
         if (index < 0 || index >= skills.Count) return new("Ability", reason, "", 0, 0, []);
         var skill = skills[index]; var b = State.Battle!; var caster = b.Active;
         var target = b.Units.ElementAtOrDefault(targetIndex);
-        if (reason.Length == 0 && skill.Cooperative) reason = CooperationPartnerReason(index, partnerIndex);
+        if (reason.Length == 0 && skill.Cooperative) reason = CooperationPartnerReason(index, partnerIndex, skills);
         if (reason.Length == 0 && skill.Target == TargetKind.Enemy && (target == null || target.Friendly || !target.Alive)) reason = "Choose a living enemy.";
         if (reason.Length == 0 && skill.Target == TargetKind.Ally && (target == null || !target.Friendly)) reason = "Choose a companion.";
         var targets = skill.Target switch

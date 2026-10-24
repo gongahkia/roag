@@ -6,7 +6,8 @@ namespace Vagabonds.Core.World;
 public sealed partial class WorldSession
 {
     public ContentCatalog Content { get; }
-    public ClassDefinition Class(Actor actor) => Content.Classes.Single(c => c.Role == actor.Role);
+    private ClassDefinition[]? _classes;
+    public ClassDefinition Class(Actor actor) => (_classes ??= Content.Classes).Single(c => c.Role == actor.Role);
     public IReadOnlyList<InteractionDefinition> Interactions(long actorId)
     {
         var actor = State.Actors.FirstOrDefault(a => a.Id == actorId && a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive);

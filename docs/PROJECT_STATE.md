@@ -4,7 +4,7 @@
 
 ## Performance hot paths — 2026-10-24
 
-Terrain/collision/resource inspection shares material reads and immutable decorations. Resource candidates and stable salts are indexed once per session by terrain/depth/biome; current edits, ownership, stocks and recovery are still checked on every query. Click routes reject solid destinations before flood search. Adjacent workers skip distance-field construction; approach selection checks only the target neighbourhood with unchanged tie ordering. Body/work checks avoid per-actor query/expiry closures. Comparative benchmarks retain deterministic state hashes; see VERIFICATION.md.
+Terrain/collision/resource inspection shares material reads and immutable decorations. Resource candidates and stable salts are indexed once per session by terrain/depth/biome; current edits, ownership, stocks and recovery are still checked on every query. Click routes reject solid destinations before flood search. Adjacent workers skip distance-field construction; approach selection checks only the target neighbourhood with unchanged tie ordering. Body/work checks avoid per-actor query/expiry closures. Combat inspection shares one current ability list within each query/draw pass; only the hovered fighter needs a full action preview. Disabled controls resolve equipment only for equipment actions, class definitions are reused per session, and pointer hit tests scan existing controls without reversing/copying the list. No ability list is retained across changing frames. Comparative benchmarks retain deterministic state hashes; see VERIFICATION.md.
 
 ## Performance diagnostics — 2026-10-24
 
