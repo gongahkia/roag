@@ -1,5 +1,19 @@
 # Vagabonds verification
 
+## Performance review acceptance — 2026-10-24
+
+Optimized code commit **`cca440a`**, source fingerprint **`8c864c683ca685ef495e237cf9406820eec8e6ad0bbba79ee48394340d68b424`**, passed all requested managed profiles with fresh evidence and no artifact checksum errors:
+
+| Profile | Run | Executed evidence |
+| --- | --- | --- |
+| Core | `20261024-152441-2e0795bb` | Zero-warning Release build, valid content and **664/664 tests** |
+| Native | `20261024-152442-083a6fd3` | **59/59 mouse checks** across world/resource/battle scenes and **42/42 rendered checks** |
+| World | `20261024-152442-474f3b3f` | Scenario suite, headless run, structural/exploration/wildlife/situation audits, four-seed expedition/encounter audits and counterplay audit |
+
+The [performance review](PERFORMANCE_REVIEW.md) records the diagnosis, exact workload comparisons, limitations and atomic commits. Retained `artifacts/performance-review/comparison.json` joins the raw baseline/final reports. Allocations fell **45.4% per exploration frame**, **32.6% in the resource scene**, **98.3% in battle**, and **93–96% per adjacent-worker tick**. Both Core seeds retain identical checksums and complete final simulation hashes. Draw submissions remain 36/38/99 per corresponding scene. Local paired frame p95 improved from 30.39/33.06/40.26 ms to 15.88/13.85/15.72 ms; these Xvfb/software-rendered observations are not a production FPS guarantee.
+
+Manually inspected current-source selector, depleted-resource and four-by-four battle captures. Hover highlighting, tooltips, depleted sprites, disabled controls, portraits, HP/MP, intentions and ability controls remain readable. The native suite also verifies ordinary startup/background clocks, work/reservations/refunds, recruitment, stairs, reloads and combat. No player save, content hash, save version or generation version changed. No paid model calls were used. Native Windows/macOS and actual GPU-driver profiling remain outside this executed coverage.
+
 ## Contact scan allocations — 2026-10-24
 
 38 targeted collision, wildlife, formation and benchmark checks passed after replacing nested actor/party predicates in hostile contact checks with ordered loops. This preserves first-contact order, downed-member contact, wildlife notice/leash rules and all benchmark state hashes. Final Core measurements are retained in `artifacts/performance-review/final-core-*.json` against the isolated `cced8ca` baseline, using 50 samples and `DOTNET_TieredCompilation=0` on both builds.

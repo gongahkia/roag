@@ -2,6 +2,10 @@
 
 **Last reconciled: 2026-10-24.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
+## Performance review — 2026-10-24
+
+The [performance review](PERFORMANCE_REVIEW.md) links recorded evidence, reproducible before/after benchmarks and atomic commits. Paired local fixtures allocated 45% less per exploration frame, 33% less in the resource scene and 98% less in battle. Adjacent work ticks allocated 93–96% less, with exact final state hashes retained for seeds 42/1337. Observed software-rendered timing improved; these measurements do not promise production FPS. Fresh acceptance is recorded in VERIFICATION.md.
+
 ## Performance hot paths — 2026-10-24
 
 Terrain/collision/resource inspection shares material reads and immutable decorations. Resource candidates and stable salts are indexed once per session by terrain/depth/biome; current edits, ownership, stocks and recovery are still checked on every query. Click routes reject solid destinations before flood search. Adjacent workers skip distance-field construction; approach selection checks only the target neighbourhood with unchanged tie ordering. Body/work and hostile-contact checks avoid per-actor query/expiry closures, preserving actor order and wildlife notice/leash behavior. Combat inspection shares one current ability list within each query/draw pass; only the hovered fighter needs a full action preview. Disabled controls resolve equipment only for equipment actions, class definitions are reused per session, and pointer hit tests scan existing controls without reversing/copying the list. No ability list is retained across changing frames. Comparative benchmarks retain deterministic state hashes; see VERIFICATION.md.
