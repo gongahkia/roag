@@ -73,6 +73,7 @@ def profile_steps(repo, profile, folder, scenes=None):
             add('audit-expedition', tool + ['audit-expedition', '--seeds', '42,1337,-42,2026', '--steps', '900', '--output', str(folder/'audit-expedition.json')], timeout=600, evidence='passed-json')
             add('audit-encounters', tool + ['audit-encounters', '--seeds', '42,1337,-42,2026', '--output', str(folder/'audit-encounters.json')], timeout=600, evidence='passed-json')
             add('audit-counterplay', tool + ['audit-counterplay', '--seed', '42', '--output', str(folder/'audit-counterplay.json')], evidence='passed-json')
+            add('audit-simulation', tool + ['audit-simulation', '--seeds', '42,1337,-42', '--steps', '7200', '--output', str(folder/'audit-simulation.json')], timeout=600, evidence='passed-json')
         if p == 'native':
             add('native', ['xvfb-run', '-a', '-s', '-screen 0 1920x1200x24', python, 'tools/verify_world_input.py', '--output', str(folder/'native'), '--scenes', *(scenes or NATIVE_SCENES)], timeout=900, evidence='native')
         if p in ['native', 'playtest']:

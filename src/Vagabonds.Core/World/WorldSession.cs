@@ -25,7 +25,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public IEnumerable<Actor> Party => State.Party.Select(ActorById);
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
-    public void Dispose() { Chunks.Dispose(); _actorIndex?.Dispose(); }
+    public void Dispose() { DisposeBodySchedule(); Chunks.Dispose(); _actorIndex?.Dispose(); }
     internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
         Content = content ?? ContentCatalog.Default;
@@ -112,6 +112,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     private void AdvanceWorldTick()
     {
+        PrepareBodyClock();
         State.Tick++;
         Contact(); AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
         if (State.Tick % 5 == 0) MoveActors();

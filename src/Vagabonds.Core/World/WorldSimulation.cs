@@ -30,46 +30,49 @@ public sealed partial class WorldSession
         * (actor.Body.Wounds > 0 ? .75 : 1) * (actor.Stress >= 60 ? .75 : 1);
     private void AdvanceBodies()
     {
-        var settings = Simulation;
-        foreach (var actor in State.Actors.Where(a => a.Life == LifeState.Alive))
+        GatherBodies();
+        foreach (var slot in _bodyPass)
         {
-            var body = actor.Body; bool fighting = State.Battle?.ActorIds.Contains(actor.Id) == true;
-            bool working = HasWork(actor) || body.ForageProgress > 0;
-            if (!actor.Recruited && !fighting && body.Fatigue >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
-            bool resting = !fighting && body.RestUntil > State.Tick;
-            body.Hunger = Math.Min(100, body.Hunger + settings.HungerPerTick);
-            double fatigueRate = settings.FatiguePerTick * (Disposition(actor)?.FatiguePercent ?? 100) / 100.0 / Math.Min(2, 1 + (actor.Level - 1) * .02);
-            body.Fatigue = Math.Clamp(body.Fatigue + (resting ? -settings.RestPerTick : fatigueRate * (working ? 2 : 1)), 0, 100);
-            if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
-            // Unmanaged people/creatures can spend time gathering food using the same forage work cost.
-            if (!actor.Recruited && !fighting && !HasWork(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
-            {
-                double forage = WorkRate(actor); body.ForageProgress += forage; body.WorkDone += forage;
-                if (body.ForageProgress >= settings.ForageWork)
-                {
-                    body.ForageProgress = 0; body.ForageAfter = State.Tick + TicksPerHour;
-                    actor.Cargo["food"] = actor.Cargo.GetValueOrDefault("food") + 2; State.ResourcesProduced += 2;
-                }
-            }
-            for (int i = actor.Memories.Count - 1; i >= 0; i--) if (actor.Memories[i].Until <= State.Tick) actor.Memories.RemoveAt(i);
-            for (int i = actor.Preparations.Count - 1; i >= 0; i--) if (actor.Preparations[i].Until <= State.Tick) actor.Preparations.RemoveAt(i);
-            if (State.Tick % 50 != 0 || fighting) continue;
-            if (body.Hunger >= settings.StarveAt)
-            {
-                actor.Health = Math.Max(1, actor.Health - 1);
-                Remember(actor, "hungry", "There was not enough to eat.", -8);
-            }
-            if (body.Fatigue >= 80) Remember(actor, "exhausted", "I need a break before more work.", Disposition(actor)?.Aversion == "overwork" ? -10 : -6);
-            if (resting && body.Hunger < settings.StarveAt)
-            {
-                bool camp = NearbyCamp(actor.Position);
-                actor.Health = Math.Min(actor.MaxHealth, actor.Health + (camp ? 8 : 2));
-                actor.Mana = Math.Min(actor.MaxMana, actor.Mana + (camp ? 4 : 1));
-                if (State.Tick % TicksPerHour == 0) body.Wounds = Math.Max(0, body.Wounds - 1);
-            }
-            if (actor.Position.Floor > 0 && Disposition(actor)?.Aversion == "confinement") Remember(actor, "confined", "The deep walls press close.", -3);
+            if (slot.Actor.Life == LifeState.Alive) { AdvanceBody(slot.Actor); _bodyProcessed++; }
+            ScheduleBody(slot);
         }
+        FinishBodyPass();
         if (State.Tick % TicksPerHour == 0 && !IsInCombat) AdvanceCommunity();
+    }
+    private void AdvanceBody(Actor actor)
+    {
+        var settings = Simulation;
+        var body = actor.Body; bool fighting = State.Battle?.ActorIds.Contains(actor.Id) == true;
+        if (!actor.Recruited && !fighting && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
+        bool resting = !fighting && body.RestUntil > State.Tick;
+        if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
+        // Unmanaged people/creatures can spend time gathering food using the same forage work cost.
+        if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
+        {
+            double forage = WorkRate(actor); body.ForageProgress += forage; body.WorkDone += forage;
+            if (body.ForageProgress >= settings.ForageWork)
+            {
+                body.ForageProgress = 0; body.ForageAfter = State.Tick + TicksPerHour;
+                actor.Cargo["food"] = actor.Cargo.GetValueOrDefault("food") + 2; State.ResourcesProduced += 2;
+            }
+        }
+        for (int i = actor.Memories.Count - 1; i >= 0; i--) if (actor.Memories[i].Until <= State.Tick) actor.Memories.RemoveAt(i);
+        for (int i = actor.Preparations.Count - 1; i >= 0; i--) if (actor.Preparations[i].Until <= State.Tick) actor.Preparations.RemoveAt(i);
+        if (State.Tick % 50 != 0 || fighting) return;
+        if (body.Hunger >= settings.StarveAt)
+        {
+            actor.Health = Math.Max(1, actor.Health - 1);
+            Remember(actor, "hungry", "There was not enough to eat.", -8);
+        }
+        if (body.Fatigue >= 80) Remember(actor, "exhausted", "I need a break before more work.", Disposition(actor)?.Aversion == "overwork" ? -10 : -6);
+        if (resting && body.Hunger < settings.StarveAt)
+        {
+            bool camp = NearbyCamp(actor.Position);
+            actor.Health = Math.Min(actor.MaxHealth, actor.Health + (camp ? 8 : 2));
+            actor.Mana = Math.Min(actor.MaxMana, actor.Mana + (camp ? 4 : 1));
+            if (State.Tick % TicksPerHour == 0) body.Wounds = Math.Max(0, body.Wounds - 1);
+        }
+        if (actor.Position.Floor > 0 && Disposition(actor)?.Aversion == "confinement") Remember(actor, "confined", "The deep walls press close.", -3);
     }
     private bool TryEat(Actor actor)
     {

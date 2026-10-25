@@ -30,8 +30,9 @@ internal sealed class ActorSpatialIndex : IDisposable
     private readonly Dictionary<(int X, int Y, int Floor), List<Actor>> _regions = [];
     private readonly Dictionary<long, List<Actor>> _identities = [];
     private readonly Dictionary<Actor, (int Order, long Id)> _actors = [];
+    private readonly Comparison<Actor> _compare;
     private bool _dirty;
-    public ActorSpatialIndex(ActorCollection source) { Source = source; source.Changed += Invalidate; Rebuild(); }
+    public ActorSpatialIndex(ActorCollection source) { Source = source; _compare = Compare; source.Changed += Invalidate; Rebuild(); }
     private void Invalidate() => _dirty = true;
     private void Ensure() { if (_dirty) Rebuild(); }
     private static int Region(int value) => (int)Math.Floor(value / (double)RegionSize);
@@ -64,7 +65,7 @@ internal sealed class ActorSpatialIndex : IDisposable
         if (!_actors.TryGetValue(actor, out var entry) || actor.Id != entry.Id) { Invalidate(); return; }
         Remove(_tiles, before, actor); Remove(_regions, Key(before), actor);
         Add(_tiles, actor.Position, actor); Add(_regions, Key(actor.Position), actor);
-        _tiles[actor.Position].Sort(Compare); _regions[Key(actor.Position)].Sort(Compare);
+        _tiles[actor.Position].Sort(_compare); _regions[Key(actor.Position)].Sort(_compare);
     }
     private int Compare(Actor left, Actor right) => _actors[left].Order.CompareTo(_actors[right].Order);
     public Actor Single(long id)
@@ -82,20 +83,22 @@ internal sealed class ActorSpatialIndex : IDisposable
     }
     public IReadOnlyList<Actor> Near(WorldPosition center, int radius)
     {
+        var result = new List<Actor>(); AddNearTo(center, radius, result); result.Sort(_compare); return result;
+    }
+    public void AddNearTo(WorldPosition center, int radius, ICollection<Actor> result)
+    {
         Ensure();
         if (radius < 0 || radius > WorldPlan.Size * 2) throw new ArgumentOutOfRangeException(nameof(radius));
-        var result = new List<Actor>();
         for (int y = Region(center.Y - radius); y <= Region(center.Y + radius); y++)
             for (int x = Region(center.X - radius); x <= Region(center.X + radius); x++)
                 if (_regions.TryGetValue((x, y, center.Floor), out var actors))
                     foreach (var actor in actors) if (actor.Life != LifeState.Dead && actor.Position.Distance(center) <= radius) result.Add(actor);
-        result.Sort(Compare); return result;
     }
     public IReadOnlyList<Actor> Near(IEnumerable<WorldPosition> centers, int radius)
     {
         var result = new HashSet<Actor>();
         foreach (var center in centers) foreach (var actor in Near(center, radius)) result.Add(actor);
-        var ordered = result.ToList(); ordered.Sort(Compare); return ordered;
+        var ordered = result.ToList(); ordered.Sort(_compare); return ordered;
     }
     public void Dispose()
     {

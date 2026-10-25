@@ -141,6 +141,8 @@ The combat milestone dogfoods this workflow with `devtools/tasks/combat-presenta
 
 The world profile now also runs `audit-expedition`, `audit-encounters` and `audit-counterplay`, retaining their JSON reports alongside the other world checks. Expedition coverage gaps remain explicit even when invariants pass. Encounter generation audits examine authored contexts and actual placements; counterplay reports compare real resolver outcomes under stated fixture conditions. These tools are deterministic diagnostics, not a substitute for human balance playtesting.
 
+`audit-simulation --seeds 42,1337,-42 --steps 7200` compares scheduled and full-cadence body simulation in real world pipelines, including an interrupted save, complete state hashes and resource conservation. It reports exact body-visit counts separately from elapsed timings. The world profile retains its JSON report and requires `passed=true`.
+
 Native acceptance includes `world-progression` and `world-encounters`. Equipment clicks use item IDs from the current runtime UI report, including hidden/unowned signature gear and generated variants, rather than guessing indices from all authored items. Every test load requires an explicit success notice before comparing state; rejected temporary saves and their chunks are retained with diagnostic reports. This closes a false-positive path where load rejection preserved an apparently matching state. The scene registry requires eleven scenes for complete native coverage.
 
 The impact map explicitly associates talent, encounter and reward changes with world/core checks and the progression, encounter, battle and boss native scenes. This prevents a content-only change from silently omitting the UI where its consequences appear.

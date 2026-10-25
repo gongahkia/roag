@@ -171,17 +171,42 @@ public sealed class Actor
     private WorldPosition _position;
     private long _id;
     internal event Action<Actor, WorldPosition>? IndexChanged;
+    internal event Action<Actor>? NeedsChanged;
+    private BodyState _body = new();
+    private StateList<Preparation> _preparations = [];
+    private StateList<ActorMemory> _memories = [];
+    private string _traitId = "";
+    private int _level = 1;
+    private LifeState _life;
+    private bool _recruited;
+    public Actor()
+    {
+        _body.Changed += NotifyNeedsChanged; _preparations.Changed += NotifyNeedsChanged; _memories.Changed += NotifyNeedsChanged;
+    }
+    private void NotifyNeedsChanged() => NeedsChanged?.Invoke(this);
     [JsonRequired] public WorldPosition? Habitat { get; set; }
     [JsonRequired] public long ProvokedUntil { get; set; }
-    [JsonRequired] public BodyState Body { get; set; } = new();
-    public List<Preparation> Preparations { get; set; } = [];
-    [JsonRequired] public List<ActorMemory> Memories { get; set; } = [];
+    [JsonRequired] public BodyState Body
+    {
+        get => _body;
+        set { if (_body != null) _body.Changed -= NotifyNeedsChanged; _body = value; if (_body != null) _body.Changed += NotifyNeedsChanged; NotifyNeedsChanged(); }
+    }
+    public StateList<Preparation> Preparations
+    {
+        get => _preparations;
+        set { if (_preparations != null) _preparations.Changed -= NotifyNeedsChanged; _preparations = value; if (_preparations != null) _preparations.Changed += NotifyNeedsChanged; NotifyNeedsChanged(); }
+    }
+    [JsonRequired] public StateList<ActorMemory> Memories
+    {
+        get => _memories;
+        set { if (_memories != null) _memories.Changed -= NotifyNeedsChanged; _memories = value; if (_memories != null) _memories.Changed += NotifyNeedsChanged; NotifyNeedsChanged(); }
+    }
     [JsonRequired] public Dictionary<long, int> Trust { get; set; } = [];
     public string VariantId { get; set; } = "";
     public long EncounterLeader { get; set; }
     [JsonRequired] public Dictionary<string, EquipmentState> Equipment { get; set; } = [];
     public string Archetype { get; set; } = "";
-    public string TraitId { get; set; } = "";
+    public string TraitId { get => _traitId; set { if (_traitId == value) return; _traitId = value; NotifyNeedsChanged(); } }
     public int BaseHealth { get; set; }
     public int BaseMana { get; set; }
     public int BaseArmor { get; set; } = 1;
@@ -219,7 +244,7 @@ public sealed class Actor
     [JsonRequired]
     public int Role { get; set; }
     [JsonRequired]
-    public int Level { get; set; } = 1;
+    public int Level { get => _level; set { if (_level == value) return; _level = value; NotifyNeedsChanged(); } }
     public string CombatTrait { get; set; } = "";
     public List<string> Talents { get; set; } = [];
     public string EncounterId { get; set; } = "";
@@ -232,9 +257,9 @@ public sealed class Actor
     [JsonRequired]
     public int Stress { get; set; }
     [JsonRequired]
-    public LifeState Life { get; set; }
+    public LifeState Life { get => _life; set { if (_life == value) return; _life = value; NotifyNeedsChanged(); } }
     [JsonRequired]
-    public bool Recruited { get; set; }
+    public bool Recruited { get => _recruited; set { if (_recruited == value) return; _recruited = value; NotifyNeedsChanged(); } }
     [JsonRequired]
     public Dictionary<string, int> Cargo { get; set; } = [];
     [JsonRequired]
@@ -256,13 +281,38 @@ public sealed class Actor
 }
 public sealed class BodyState
 {
-    [JsonRequired] public double Hunger { get; set; }
-    [JsonRequired] public double Fatigue { get; set; }
+    private NeedTimeline _hunger, _fatigue;
+    private Func<long>? _clock;
+    private long _restUntil, _forageAfter;
+    private double _forageProgress;
+    internal event Action? Changed;
+    private long Now => _clock?.Invoke() ?? 0;
+    [JsonRequired] public double Hunger { get => _hunger.At(Now); set { _hunger.Set(Now, value); Changed?.Invoke(); } }
+    [JsonRequired] public double Fatigue { get => _fatigue.At(Now); set { _fatigue.Set(Now, value); Changed?.Invoke(); } }
     [JsonRequired] public int Wounds { get; set; }
-    [JsonRequired] public long RestUntil { get; set; }
-    [JsonRequired] public long ForageAfter { get; set; }
-    [JsonRequired] public double ForageProgress { get; set; }
+    [JsonRequired] public long RestUntil { get => _restUntil; set { if (_restUntil == value) return; _restUntil = value; Changed?.Invoke(); } }
+    [JsonRequired] public long ForageAfter { get => _forageAfter; set { if (_forageAfter == value) return; _forageAfter = value; Changed?.Invoke(); } }
+    [JsonRequired] public double ForageProgress { get => _forageProgress; set { if (_forageProgress == value) return; _forageProgress = value; Changed?.Invoke(); } }
     [JsonRequired] public double WorkDone { get; set; }
+    internal void Bind(Func<long> clock, long tick)
+    {
+        double hunger = Hunger, fatigue = Fatigue;
+        _clock = clock; _hunger.Set(tick, hunger); _fatigue.Set(tick, fatigue);
+    }
+    internal void Unbind() { _hunger.Freeze(Now); _fatigue.Freeze(Now); _clock = null; }
+    internal void Reanchor(long before, long after) { _hunger.Reanchor(before, after); _fatigue.Reanchor(before, after); }
+    internal double FatigueAt(long tick) => _fatigue.At(tick);
+    internal void RatesAt(long tick, double hunger, double fatigue) { _hunger.RateAt(tick, hunger); _fatigue.RateAt(tick, fatigue); }
+    internal int ThresholdIn(int limit, int mealAt)
+    {
+        double hunger = Hunger, fatigue = Fatigue;
+        for (int i = 1; i < limit; i++)
+        {
+            hunger = Math.Clamp(hunger + _hunger.Rate, 0, 100); fatigue = Math.Clamp(fatigue + _fatigue.Rate, 0, 100);
+            if (hunger >= mealAt || fatigue >= 75 && _fatigue.Rate > 0) return i;
+        }
+        return limit;
+    }
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
 public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest, Camp, Discovery }
