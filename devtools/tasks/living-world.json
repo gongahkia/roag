@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "living-world",
+  "objective": "Implement the complete approved performance and world-granularity exploration with atomic feature commits and verification that never controls the user's desktop.",
+  "requirements": [
+    {"id":"streaming","description":"Predict upcoming chunks from movement/camera, generate terrain ahead on bounded background CPU work, deterministically integrate it with correct cache/eviction/diagnostics, and preserve generation/save results.","profiles":["core","world"]},
+    {"id":"spatial","description":"Index actor identities, tiles and regions; keep moves, insertion/removal/replacement, life states, hidden actors and stable query/contact ordering correct.","profiles":["core","world"]},
+    {"id":"scheduled","description":"Schedule distant needs, production and recovery around meaningful events while maintaining elapsed-time/resource/identity continuity and near/far equivalence.","profiles":["core","world"]},
+    {"id":"presentation","description":"Cache unchanged terrain/panel presentation with correct edit, depletion, discovery, visibility and resize invalidation; provide genuine CPU/GC/graphics profiling tools and measured comparisons.","profiles":["core","native"],"scenes":["world","world-resources","world-battle"],"manualReview":true},
+    {"id":"routines","description":"Implement danger/urgent-needs/work/social priority routines with identifiable food, rest, workplace and friend destinations, actual interruption/resumption and visible explanations.","profiles":["core","world","native"],"manualReview":true},
+    {"id":"logistics","description":"Implement gathering-to-storage and supply-to-construction chains with actual resource nodes/cargo/delivery/reservations, distinct regional accounting, route obstructions and exact save interruption.","profiles":["core","world","native"],"manualReview":true},
+    {"id":"ecology","description":"Implement persistent habitat pressure, food availability, migration and bounded population recovery with meaningful hunting/land-clearing effects.","profiles":["core","world"]},
+    {"id":"memories","description":"Make supplying food, interrupting work, aid in danger and damaged livelihoods create identity-based memories/trust and contextual dialogue/decisions.","profiles":["core","world","native"],"manualReview":true},
+    {"id":"climate","description":"Implement deterministic regional weather/seasons affecting gathering, shelter/travel and yields/recovery, with understandable presentation and saved continuity.","profiles":["core","world","native"],"manualReview":true},
+    {"id":"stress","description":"Add and execute long-world 7/30/100-day checkpoints across multiple seeds; streaming/floor journeys; four companions and 64 crowded/blocked/interrupted jobs; near/far accounting and identities; save/load during hauling, recovery, travel/work; track stalls, cache/memory/GC/history/save growth.","profiles":["core","world"],"manualReview":true},
+    {"id":"delivery","description":"Preserve current enemy combat, safe save rejection and existing artwork; document authoring, compatibility, real checks and remaining limits; make one atomic commit per addition. All rendered tests use private virtual displays and all profiling avoids the user's screen.","profiles":["core","world","native"],"manualReview":true}
+  ]
+}
