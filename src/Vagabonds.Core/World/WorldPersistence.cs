@@ -79,7 +79,7 @@ public sealed partial class WorldSession
             state.Chunks.Add(delta);
         }
         ValidateState(plan, state, catalog);
-        var session = new WorldSession(plan, state, catalog, diagnostics) { SavePath = Path.GetFullPath(path), Paused = true };
+        var session = new WorldSession(plan, state, catalog, diagnostics, observe: false) { SavePath = Path.GetFullPath(path), Paused = true };
         foreach (var chunk in state.Chunks)
             foreach (var (index, stock) in chunk.Resources)
             {
@@ -103,7 +103,7 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid camp duty.");
         }
         session.RestorePartyFormation();
-        session.PrepareLocalCollision(force: true); session.Reveal();
+        session.PrepareLocalCollision(force: true); session.RefreshVisibility(remember: false);
         return session;
     }
     private static void ValidateState(WorldPlan plan, WorldState s, ContentCatalog catalog)

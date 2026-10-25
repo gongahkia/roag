@@ -36,6 +36,10 @@ Observed residents choose danger, food, rest/treatment, assigned work, occupatio
 
 Routine kind, target, reason, start tick, related identity and blocked state are bounded, validated saved data. Older compatible saves may omit the optional routine field; first activation creates it without moving/cloning the actor. Recruited party members retain player control. Offscreen residents keep coarse needs/decisions and ordinary assigned work; unvisited settlements retain their regional abstraction. Detailed offscreen local journeys, actual occupation-node extraction and hauling remain part of the subsequent physical-logistics milestone. Observed guards no longer receive the old distant patrol teleport. `./dev preview routine` executes real food/rest destinations; `world-routines` supplies an isolated native fixture. Enemy combat and artwork are unchanged.
 
+## Save initialization — 2026-10-25
+
+Load initialization now rebuilds visibility from already remembered cells without discovering new terrain or activating discoveries/wildlife. Normal exploration and explicit camera observation still remember their current view. This preserves saved exploration/population state when a graphical viewport differs from the default Core sight radius. Existing legacy stacked-party placement repair remains in place. The independent fix and verification are recorded in VERIFICATION.md.
+
 ## Performance review — 2026-10-24
 
 The [performance review](PERFORMANCE_REVIEW.md) links recorded evidence, reproducible before/after benchmarks and atomic commits. Paired local fixtures allocated 45% less per exploration frame, 33% less in the resource scene and 98% less in battle. Adjacent work ticks allocated 93–96% less, with exact final state hashes retained for seeds 42/1337. Observed software-rendered timing improved; these measurements do not promise production FPS. Fresh acceptance is recorded in VERIFICATION.md.

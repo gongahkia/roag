@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Load initialization without extra discovery — 2026-10-25
+
+Isolated source `6c93f012c8d231dcc80895c50da9022e77518d774274bd8969cd9b1f41be4ec9` passed managed Core `20261025-043016-c0aa0fac` (**722/722 tests**, Release build and content validation), native `20261025-043017-7d2f7c15` (**73 mouse / 42 rendered checks**) and world `20261025-043017-07fbbf22` (all world audits). Freshness and sealed checksums were verified in `artifacts/performance-review/visibility-source/`; its run reports live beneath that checkout's `artifacts/agent/runs/`. The isolated checkout contains only this fix, excluding the concurrent, uncommitted supply work.
+
+Two seeded regressions save a restricted surface viewport, load through the real manifest/chunk loader, and compare the complete state and unchanged save-file bytes. Loaded visible cells must already be remembered, ecology observations remain unchanged, and reapplying the same viewport is idempotent. The new construction tests exposed the issue because loading previously called ordinary discovery-producing `Reveal` with the default sight radius. Initialization now hydrates visible cells without observation writes; actual exploration/camera observation retains its normal behavior. Legacy stacked-party repair is unchanged. No save/content/generation version changes. Graphical checks used private Xvfb, isolated saves and no model calls.
+
 ## Resident routine destinations — 2026-10-25
 
 Source `961a72dbcb70a2a553bdda06e122f4504a91b6efc65991d20124b7b1d3d51f77` passed fresh managed Core `20261025-035838-cf3c2954` (**720/720 tests**, Release build and content validation), tools `20261025-035838-47914552` (**52 workflow tests**), world `20261025-035838-7c444e99` (all scenarios, headless and world/expedition/encounter/counterplay/simulation audits) and native `20261025-035837-27b78a9e` (**73 mouse checks / 42 rendered assertions**, four scenes including `world-routines`). Source freshness and sealed artifact checksums were verified. All graphical checks used private Xvfb and isolated saves; no model calls or host-desktop input occurred.

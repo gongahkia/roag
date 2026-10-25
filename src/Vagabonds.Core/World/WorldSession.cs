@@ -26,12 +26,12 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
     public void Dispose() { DisposeBodySchedule(); Chunks.Dispose(); _actorIndex?.Dispose(); }
-    internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
+    internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null, bool observe = true)
     {
         Content = content ?? ContentCatalog.Default;
         Plan = plan; State = state; Chunks = new(plan, state, Content); DiagnosticSink = diagnostics;
         Diagnose("world-identity", new { seed = plan.Seed, contentHash = Content.Hash, generationVersion = WorldPlan.GenerationVersion, sampleHash = plan.SampleHash });
-        Chunks.Prefetch(state.Position); Reveal();
+        Chunks.Prefetch(state.Position); RefreshVisibility(observe);
     }
     public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
@@ -260,7 +260,8 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         State.Journal.Add($"Day {State.Tick / (TicksPerHour * 24) + 1}: {text}");
         if (State.Journal.Count > 500) State.Journal.RemoveAt(0);
     }
-    public void Reveal()
+    public void Reveal() => RefreshVisibility(remember: true);
+    private void RefreshVisibility(bool remember)
     {
         Visible.Clear(); var origin = State.Position;
         if (origin.Floor == 0 && _surfaceView is { } view)
@@ -268,9 +269,10 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             for (int y = view.Top; y < view.Bottom; y++) for (int x = view.Left; x < view.Right; x++)
             {
                 var p = new WorldPosition(x, y);
-                Visible.Add(p); Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
+                if (remember || Chunks.Seen(p)) Visible.Add(p);
+                if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
             }
-            ObserveDiscoveries(); ObserveWildlife(); return;
+            if (remember) { ObserveDiscoveries(); ObserveWildlife(); } return;
         }
         _surfaceView = null;
         const int radius = 11;
@@ -282,11 +284,12 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             {
                 var p = origin.Offset(length == 0 ? 0 : (int)Math.Round(dx * step / (double)length), length == 0 ? 0 : (int)Math.Round(dy * step / (double)length));
                 if (!Plan.Contains(p)) break;
-                Visible.Add(p); Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
+                if (remember || Chunks.Seen(p)) Visible.Add(p);
+                if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
                 if (p != origin && Materials.Opaque(Chunks.At(p))) break;
             }
         }
-        ObserveDiscoveries(); ObserveWildlife();
+        if (remember) { ObserveDiscoveries(); ObserveWildlife(); }
     }
     /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
     public void RevealSurface(int left, int top, int right, int bottom)
