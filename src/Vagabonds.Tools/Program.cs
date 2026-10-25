@@ -34,6 +34,13 @@ public static class DeveloperEntry
                 if (args.Contains("--output")) WriteNew(Value("--output", ""), JsonSerializer.Serialize(report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
                 Print(report); return 0;
             }
+            if (command == "benchmark-streaming")
+            {
+                RequireValid(catalog);
+                var report = StreamingBenchmarks.Run(catalog, seed, int.Parse(Value("--samples", "25"), System.Globalization.CultureInfo.InvariantCulture));
+                if (args.Contains("--output")) WriteNew(Value("--output", ""), JsonSerializer.Serialize(report, ContentCatalog.Json) + "\n", args.Contains("--replace"));
+                Print(report); return 0;
+            }
             if (command == "content")
             {
                 string operation = args.ElementAtOrDefault(1) ?? "list", id = args.ElementAtOrDefault(2) ?? "";
@@ -240,7 +247,7 @@ public static class DeveloperEntry
                 Print(new { audit.Passed, audit.Seeds, audit.Encounters, audit.Escapes, audit.DistinctHabitats, output }); return audit.Passed ? 0 : 1;
             }
             if (command != "help") throw new ArgumentException("Unknown developer command: " + command);
-            Print(new { commands = new[] { "benchmark [--seed N --samples 3..100 --output FILE]", "benchmark-render --output DIR [--seed N --scenes world world-resources world-battle]", "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-expedition --seeds 42,1337,-42,2026 [--steps N] [--output FILE]", "audit-encounters --seeds 42,1337,-42,2026 [--output FILE]", "audit-counterplay --seed N [--output FILE]", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
+            Print(new { commands = new[] { "benchmark [--seed N --samples 3..100 --output FILE]", "benchmark-streaming [--seed N --samples 3..100 --output FILE]", "benchmark-render --output DIR [--seed N --scenes world world-resources world-battle]", "content list [kind]", "content inspect ID", "content references ID", "content impact ID", "content patch ID --patch FILE [--apply --expect SHA256]", "content diff --against DIRECTORY", "content validate", "content schema [--output PATH]", "content scaffold KIND --id ID [--output PATH]", "content remove ID [--apply]", "preview KIND ID [--seed N] (boss uses encounter)", "audit-expedition --seeds 42,1337,-42,2026 [--steps N] [--output FILE]", "audit-encounters --seeds 42,1337,-42,2026 [--output FILE]", "audit-counterplay --seed N [--output FILE]", "audit-world --seed N --samples N [--output PREFIX]", "audit-wildlife --seed N --samples N [--output FILE]", "audit-situations --seed N --samples N [--output FILE]", "audit-exploration --seed N --samples N [--output PREFIX]", "scenario run FILE [--seed N] [--output FILE]", "scenario suite DIRECTORY", "scenario schema", "diagnose save FILE", "diagnose diff BEFORE AFTER", "agent help (managed workflows via ./dev)", "review-tooling" },
                 options = new[] { "--content DIRECTORY (authoring preview/validation only)", "--seed N" } }); return 0;
         }
         catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or InvalidOperationException or FormatException or OverflowException)

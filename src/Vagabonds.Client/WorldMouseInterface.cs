@@ -54,7 +54,8 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        _session = WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink); ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
+        var replacement = WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
+        _session.Dispose(); _session = replacement; _streamPosition = null; _streamDx = _streamDy = 0; ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         _session.Paused = _options.Preview;
         _recording?.Record("new-world", new { _session.Seed }); RecordSnapshot();
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;

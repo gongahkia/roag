@@ -38,6 +38,8 @@ internal sealed partial class WorldGame : Game
     private readonly List<(Rectangle Rect, string? Sprite, Color Tint, string? Prop, float Light, bool Door)> _terrain = [];
     private WorldSession? _visualSession;
     private long _visualLeader;
+    private WorldPosition? _streamPosition;
+    private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
     private int _draws;
@@ -114,6 +116,14 @@ internal sealed partial class WorldGame : Game
         WorldCameraScale.Apply(_camera);
         var left = _camera.ScreenToWorld(new(_map.Left, _map.Top));
         var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
+        var position = _session.State.Position;
+        var destination = _route.TryPeek(out var next) ? next : position;
+        var before = _streamPosition ?? position;
+        if (destination != position) { _streamDx = Math.Sign(destination.X - position.X); _streamDy = Math.Sign(destination.Y - position.Y); }
+        else if (before != position && before.Floor == position.Floor) { _streamDx = Math.Sign(position.X - before.X); _streamDy = Math.Sign(position.Y - before.Y); }
+        _session.Chunks.PrepareView(position, (int)Math.Floor(left.X), (int)Math.Floor(left.Y), (int)Math.Ceiling(right.X), (int)Math.Ceiling(right.Y),
+            _streamDx, _streamDy);
+        _streamPosition = position;
         _session.RevealSurface((int)Math.Floor(left.X), (int)Math.Floor(left.Y), (int)Math.Ceiling(right.X), (int)Math.Ceiling(right.Y));
     }
     protected override void Update(GameTime gameTime)
@@ -255,6 +265,7 @@ internal sealed partial class WorldGame : Game
         {
             var replacement = WorldSession.Load(_options.Save, diagnostics: _session.DiagnosticSink);
             replacement.Paused = _options.Preview;
+            _session.Dispose(); _streamPosition = null; _streamDx = _streamDy = 0;
             _session = replacement; ResetCombatPresentation(); _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
             _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
@@ -524,7 +535,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

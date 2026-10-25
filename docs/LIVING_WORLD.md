@@ -5,7 +5,7 @@ Approved scope: the complete performance and simulation proposal in the conversa
 ## Implementation order and completion evidence
 
 1. Spatial actor index: implemented ordered tile/region/identity queries and mutation notifications. Focused tests (35), full Core (667) and seed-42 final-state comparison passed; world/scaling acceptance remains part of final verification.
-2. Streaming: bounded background generation with independent worker generator, ordered publication, predictive camera/travel requests, cache limits, deterministic comparison and lifecycle tests.
+2. Streaming: implemented bounded independent background generation, demand-ordered adoption, visible/travel/stair prediction, lifecycle/failure tests and a reproducible `benchmark-streaming` command. Core (676), world audits and private native checks (59 mouse / 42 rendered) passed. Later native streaming-journey stress evidence remains required for the full expansion.
 3. Presentation/profile infrastructure: reusable terrain/panel cache invalidation, CPU/GC/graphics captures and before/after evidence in isolated sessions.
 4. Scheduled simulation: event deadlines and explicit near/far transitions, body/accounting equivalence, production/recovery continuity, deterministic saved deadlines.
 5. Purposeful routines: danger, needs, work, social priorities; food/rest/work/friend targets; visible activities and interruption/resumption.

@@ -1,5 +1,15 @@
 # Vagabonds verification
 
+## Predictive terrain preparation — 2026-10-25
+
+Source fingerprint `adf3efded0f6ffb2eb9d141933fdcf229495e749da5830113910155cacde55f2` passed fresh managed runs with sealed artifacts and no checksum errors:
+
+- Core `20261025-020619-4e47b094`: Release build, content validation and **676/676 .NET tests**. Nine new preparation cases cover signed seeds/floors, exact tile/biome/culture arrays, queued bounds, direction reversal during active work, nonblocking demand fallback/disposal, generation failure, stair privacy, immutable saved state and exact saved continuation. Focused generation/tooling checks passed 52 tests.
+- World `20261025-020621-c26e1043`: scenarios, headless conservation, world/exploration/wildlife/situation audits, four-seed expedition/encounter audits and counterplay passed.
+- Native `20261025-020620-9d7b92bb`: **59/59 mouse checks** across exploration/resources/battle and **42/42 rendered playtest assertions**. All clients ran on private Xvfb with isolated saves and dummy audio. No paid model was invoked. Inspected exploration, depleted-resource and four-by-four battle captures; existing artwork, selector, depleted-state explanation and battle layout remain readable.
+
+`benchmark-streaming --seed 42 --samples 25` produced `artifacts/performance-review/streaming-42.json`: all 25 terrain samples, demand miss order and saved state matched synchronous generation; all 25 demands adopted completed chunks, residents stayed at 25, speculative requests stayed at nine, and no worker failed. The explicit-wait fixture measured median adoption 0.070 ms versus 67.675 ms cold demand, with 4,081 ms total preparation. This run overlapped the start of verification; timing is illustrative only. It intentionally waits for preparation, includes speculative extra chunks and does not establish real-travel frame-rate gains. Long native journeys/cache-churn measurements remain part of the larger stress milestone.
+
 ## Performance review acceptance — 2026-10-24
 
 Optimized code commit **`cca440a`**, source fingerprint **`8c864c683ca685ef495e237cf9406820eec8e6ad0bbba79ee48394340d68b424`**, passed all requested managed profiles with fresh evidence and no artifact checksum errors:
@@ -407,7 +417,7 @@ Fresh minimum-size 1024×720 captures were visually inspected: four classes vers
 Developer-tool review reports **207 valid definitions across 19 families**. All 31 ability IDs map to 13 validated presentation profiles, with original sound synthesis and existing sprite references. Repeated debugging led to phase/source/target/profile diagnostics, paired semantic screenshots, focus-frozen phase capture, response-backed short mouse presses and direct native outcome comparison. Gameplay content hash remains `6D6DD0DD0D05320998C5243CF3CFEC4EFF0EE5DEDAE342F41D3C4CAC1768BCBD`; world/save versions are unchanged. Presentation profiles have an independent hash, and older compatible saves may omit the new event metadata.
 
 Native acceptance used local Xvfb/software Mesa and the null audio backend. Sound creation, playback, mute and fallback were exercised without an audible listening session. Fixtures use temporary slots and deliberately arranged combat stats; no player save was read or changed. These results do not establish long-form balance, subjective animation/sound quality, remote CI results or native Windows/macOS behavior. Tiny source sprites remain transformed single images, rather than new articulated animation assets.
-# Living-world spatial index — 2026-10-25
+## Living-world spatial index — 2026-10-25
 
 Managed Core run `20261025-020019-2e400872` passed the Release build, content validation and **667/667 .NET tests**. The new tests compare indexed queries against brute collection order after movement, floor/identity/life changes, insertion, replacement, removal, bulk insertion and collection replacement. They check hidden-actor privacy, query purity, exact saved continuation and 10,000 allocation-free occupied-tile checks. The focused collision/formation/work/index run passed 35 tests before the full run. All checks were headless.
 

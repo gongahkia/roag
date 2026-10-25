@@ -1,10 +1,14 @@
 # Vagabonds project state
 
-**Last reconciled: 2026-10-24.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
+**Last reconciled: 2026-10-25.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
 ## Living-world actor queries — 2026-10-25
 
 Actor identities, occupied cells and 16-tile regions have ephemeral ordered indexes. Collection insertion/removal/replacement and position/identity changes invalidate or update them; dead actors are filtered live and downed actors continue blocking cells. Party lookup, collision, nearby movement and contact use the indexes while retaining original collection ordering and observed-only privacy. The actor collection still serializes as the same JSON array; no content, generation or save version changed. The full expansion remains in progress in [LIVING_WORLD.md](LIVING_WORLD.md).
+
+## Predictive terrain preparation — 2026-10-25
+
+The graphical client prepares visible fringes, the recent travel direction and nearby stair destinations using one independent finite CPU worker. Up to nine speculative requests coexist with the 25-chunk resident LRU; one abandoned in-flight generation can finish without publishing. Prepared chunks enter the resident cache in demand order only, preserving deterministic terrain and eviction semantics. Unfinished/failed preparation falls back to the synchronous demand generator. Preparing terrain never discovers it or creates saved deltas. Session replacement and shutdown dispose the worker without waiting on generation. Core-only sessions start no worker unless explicitly asked to prepare a view. The new `benchmark-streaming` command measures ready adoption and preparation separately; verification and actual travel coverage are recorded in VERIFICATION.md. Content/save/generation versions are unchanged.
 
 ## Performance review — 2026-10-24
 

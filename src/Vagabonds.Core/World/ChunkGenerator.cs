@@ -161,7 +161,7 @@ public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = nul
     public static string Hash(Material[] cells) => Convert.ToHexString(SHA256.HashData(cells.Select(m => (byte)m).ToArray()));
 }
 
-public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog? content = null)
+public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog? content = null) : IDisposable
 {
     public Action<WorldDiagnosticEvent>? DiagnosticSink { get; set; }
     private int _landmarkCount = -1;
@@ -169,17 +169,24 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     private readonly Dictionary<ChunkKey, (GeneratedChunk Chunk, long Used)> _resident = [];
     private readonly Dictionary<ChunkKey, ChunkDelta> _deltas = state.Chunks.ToDictionary(c => c.Key);
     private long _use;
+    private ChunkPreparationQueue? _preparation;
+    private bool _disposed;
+    private (int X, int Y, int Floor, int Dx, int Dy, int Left, int Top, int Right, int Bottom)? _preparedView;
     public ChunkGenerator Generator { get; } = new(plan, content);
     public int ResidentCount => _resident.Count;
     public const int Capacity = 25;
+    public const int PreparationCapacity = ChunkPreparationQueue.Capacity;
+    public ChunkPreparationStatus PreparationStatus => _preparation?.Status ?? new(0, 0, 0, 0, 0, 0);
     public GeneratedChunk Get(ChunkKey key)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_resident.TryGetValue(key, out var item)) { _resident[key] = (item.Chunk, ++_use); return item.Chunk; }
         long started = DiagnosticSink == null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
-        var chunk = Generator.Generate(key);
+        var prepared = _preparation?.TakeReady(key);
+        var chunk = prepared ?? Generator.Generate(key);
         if (_resident.Count >= Capacity) _resident.Remove(_resident.MinBy(kv => kv.Value.Used).Key);
         _resident[key] = (chunk, ++_use);
-        try { DiagnosticSink?.Invoke(new("chunk-generation", state.Tick, new { key, elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds, resident = _resident.Count })); }
+        try { DiagnosticSink?.Invoke(new("chunk-generation", state.Tick, new { key, elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds, resident = _resident.Count, prepared = prepared != null, preparation = PreparationStatus })); }
         catch (Exception) { }
         return chunk;
     }
@@ -205,5 +212,47 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     {
         for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
         { var k = center.Chunk with { X = center.Chunk.X + dx, Y = center.Chunk.Y + dy }; if (k.X >= 0 && k.Y >= 0 && k.X < 64 && k.Y < 64) Get(k); }
+    }
+    /// <summary>CPU-only speculative work. Does not discover terrain or create saved chunk deltas.</summary>
+    public void PrepareView(WorldPosition center, int left, int top, int right, int bottom, int dx = 0, int dy = 0)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!plan.Contains(center) || left > right || top > bottom) throw new ArgumentException("Invalid preparation view.");
+        dx = Math.Sign(dx); dy = Math.Sign(dy);
+        int x0 = Math.Clamp(left, 0, WorldPlan.Size - 1) / 64, y0 = Math.Clamp(top, 0, WorldPlan.Size - 1) / 64;
+        int x1 = Math.Clamp(right, 0, WorldPlan.Size - 1) / 64, y1 = Math.Clamp(bottom, 0, WorldPlan.Size - 1) / 64;
+        var view = (center.X / 16, center.Y / 16, center.Floor, dx, dy, x0, y0, x1, y1);
+        if (_preparedView == view) return;
+        _preparedView = view;
+        int aheadX = Math.Clamp(center.X + dx * 48, 0, WorldPlan.Size - 1) / 64;
+        int aheadY = Math.Clamp(center.Y + dy * 48, 0, WorldPlan.Size - 1) / 64;
+        var keys = new HashSet<ChunkKey>();
+        // Include the visible fringe and predicted travel. A large viewport still
+        // has a bounded request set; missing visible terrain always wins priority.
+        for (int y = Math.Max(0, y0 - 1); y <= Math.Min(63, y1 + 1); y++)
+            for (int x = Math.Max(0, x0 - 1); x <= Math.Min(63, x1 + 1); x++) keys.Add(new(x, y, center.Floor));
+        for (int y = Math.Max(0, aheadY - 1); y <= Math.Min(63, aheadY + 1); y++)
+            for (int x = Math.Max(0, aheadX - 1); x <= Math.Min(63, aheadX + 1); x++) keys.Add(new(x, y, center.Floor));
+        foreach (var site in plan.Sites)
+        {
+            var local = site.Center with { Floor = center.Floor };
+            if (center.Distance(local) > 12) continue;
+            if (center.Floor + 1 < WorldPlan.Floors) keys.Add((local.Offset(2, 0) with { Floor = center.Floor + 1 }).Chunk);
+            if (center.Floor > 0) keys.Add((local.Offset(-2, 0) with { Floor = center.Floor - 1 }).Chunk);
+        }
+        if (_preparation == null)
+        {
+            var generator = new ChunkGenerator(plan, content);
+            _preparation = new(generator.Generate);
+        }
+        _preparation.Request(keys.Where(k => !_resident.ContainsKey(k))
+            .OrderBy(k => k.Floor != center.Floor ? 1 : k.X >= x0 && k.X <= x1 && k.Y >= y0 && k.Y <= y1 ? 0 : 2)
+            .ThenBy(k => Math.Abs(k.X - aheadX) + Math.Abs(k.Y - aheadY)).ThenBy(k => k.Y).ThenBy(k => k.X));
+    }
+    public Task PreparationCompletion => _preparation?.Completion ?? Task.CompletedTask;
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true; _preparation?.Dispose(); _resident.Clear();
     }
 }

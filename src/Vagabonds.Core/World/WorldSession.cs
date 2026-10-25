@@ -6,7 +6,7 @@ namespace Vagabonds.Core.World;
 public enum WorldCommandKind { Move, Interact, Recruit, Dig, Build, Revive, Abandon, Buy, Sell, Store, Take, Camp, ResolveArc, Continue, CompleteDelivery, Loot, Equip, Unequip, Wait, AssignWork, CancelWork, Repair, Craft, Forage, Dismiss, Discover, LeadParty, ConfigureWork, Harvest, CampActivity, ApproachDiscovery, ChooseProgression }
 public sealed record WorldCommand(WorldCommandKind Kind, WorldPosition Target = default, long ActorId = 0, Material Material = Material.Wall, string Item = "food", int Amount = 1, long WorkId = 0);
 
-public sealed partial class WorldSession : IGameSession
+public sealed partial class WorldSession : IGameSession, IDisposable
 {
     public const int TicksPerSecond = 5;
     public const int TicksPerHour = 300;
@@ -25,6 +25,7 @@ public sealed partial class WorldSession : IGameSession
     public IEnumerable<Actor> Party => State.Party.Select(ActorById);
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
+    public void Dispose() { Chunks.Dispose(); _actorIndex?.Dispose(); }
     internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
     {
         Content = content ?? ContentCatalog.Default;
