@@ -64,9 +64,7 @@ public sealed class TextLayoutCacheTests
     {
         var cache = new TextLayoutCache(); var expected = cache.Get("Food 8 / Gold 25", 10);
         IReadOnlyList<string>? actual = null;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 10_000; i++) actual = cache.Get("Food 8 / Gold 25", 10);
-        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        long bytes = WarmAllocationProbe.Measure(() => actual = cache.Get("Food 8 / Gold 25", 10));
         Assert.Same(expected, actual); Assert.InRange(bytes, 0, 1024);
         Assert.NotSame(expected, cache.Get("Food 9 / Gold 25", 10));
     }

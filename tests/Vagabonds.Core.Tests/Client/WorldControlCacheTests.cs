@@ -11,9 +11,7 @@ public sealed class WorldControlCacheTests
     {
         var controls = new List<WorldMouseControl>(); var cache = new WorldControlCache(controls);
         cache.Begin(); cache.Add("action", "Work", new(1, 2, 30, 20)); var first = Assert.Single(controls);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 10_000; i++) { cache.Begin(); cache.Add("action", "Work", new(1, 2, 30, 20)); }
-        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        long bytes = WarmAllocationProbe.Measure(() => { cache.Begin(); cache.Add("action", "Work", new(1, 2, 30, 20)); });
         Assert.Same(first, Assert.Single(controls)); Assert.InRange(bytes, 0, 1024);
         cache.Begin(); Assert.Null(WorldMouseControl.Hit(controls, new(5, 5)));
         cache.Begin(); Assert.Equal(0, cache.Retained);

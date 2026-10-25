@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Warm cache allocation probes — 2026-10-25
+
+The constant-layout/control tests now exercise cache hits before measuring, then retain the minimum of three complete 10,000-operation batches. The 1,024-byte bound remains unchanged; a new allocating-operation control proves that per-call allocations still exceed it. This separates settled cache use from one-off runtime/test-host bookkeeping. No production cache code changes. The focused layout/control/probe run passed **16/16** (`artifacts/habitat-allocation-checks.log`). This follows intermittent full-suite failures in different existing cache tests: control 6,728 bytes during the occupation milestone and text 3,944 bytes in habitat run `20261025-140037-c5db827b`; all 30 habitat tests passed in the latter run. These failures are retained, not counted as acceptance.
+
 ## Physical resident occupations — 2026-10-25
 
 Source `ede4051b463139943ade6f6d79b56f3a097de4aea29798ef2f283fb0f473e3cf` passed fresh managed Core `20261025-133921-056a633a` (**817/817 tests**, Release build and content validation), native `20261025-133610-7d60b910` (**101 mouse checks / 42 rendered assertions**, seven mouse scenes) and tools `20261025-133610-0d7514e0` (**52 workflow tests**). Sealed artifacts and source freshness were checked. World `20261025-133609-b4e1dde9` passed all scenarios/headless/world/exploration/wildlife/situation/expedition/encounter/counterplay/simulation audits, including three seeded 7,200-tick scheduled/full-cadence state/accounting and exact-save comparisons. All graphical work used private Xvfb with isolated saves and dummy/null audio, without host input or model calls.
