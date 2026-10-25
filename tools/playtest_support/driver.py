@@ -70,7 +70,7 @@ def prune(root, keep=10, maximum=536870912):
             shutil.rmtree(path); total -= size; count -= 1
 
 
-def start(repo, seed=42, scene='world', visible=False, no_build=False, root=None):
+def start(repo, seed=42, scene='world', visible=False, no_build=False, root=None, launch_prefix=None):
     if not sys.platform.startswith('linux'):
         raise ValueError('The managed playtest driver currently requires Linux/WSL. The Client mouse protocol itself is platform-independent.')
     if scene not in SCENES:
@@ -79,6 +79,8 @@ def start(repo, seed=42, scene='world', visible=False, no_build=False, root=None
         raise ValueError('Seed must be a signed 32-bit integer.')
     if visible and not os.environ.get('DISPLAY'):
         raise ValueError('--visible requires a working DISPLAY.')
+    if visible and launch_prefix:
+        raise ValueError('Instrumented launches require an isolated private display.')
     if not visible and not shutil.which('xvfb-run'):
         raise ValueError('Unattended playtests require xvfb-run. Use --visible with a working DISPLAY.')
     if not no_build:
@@ -92,7 +94,7 @@ def start(repo, seed=42, scene='world', visible=False, no_build=False, root=None
     argv = [str(repo.root / 'tools/dotnet.sh'), str(dll), '--scene', scene, '--seed', str(seed),
             '--save', str(path / 'campaign.json'), '--playtest-control', str(path), '--window-size', '1024x720']
     if not visible:
-        argv = ['xvfb-run', '-a', '-s', '-screen 0 1280x900x24', *argv]
+        argv = ['xvfb-run', '-a', '-s', '-screen 0 1280x900x24', *(launch_prefix or []), *argv]
     env = {**os.environ, 'SDL_VIDEODRIVER': 'x11'}
     if not visible:
         env.update({'LIBGL_ALWAYS_SOFTWARE': '1', 'SDL_AUDIODRIVER': 'dummy'})

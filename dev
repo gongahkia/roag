@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
+if [ "${1:-}" = profile ]; then
+    shift
+    exec python3 tools/profile_game.py "$@"
+fi
 if [ "${1:-}" = benchmark-render ]; then
     shift
     exec python3 tools/benchmark_render.py "$@"

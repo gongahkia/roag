@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Runtime and OpenGL profiling — 2026-10-25
+
+Source `d4f339d65754891aeab3af4c8a118441c83603c199d528a2c848990af60d512b` passed fresh managed tools run `20261025-022125-f64af048` (**52 Python workflow tests**). New cases reject mistaking an owned shell wrapper for the .NET client, reject instrumented host-display launches before process creation, and reject graphics evidence containing only headers, missing frames or zero-duration queries.
+
+`./dev profile --kind all --live --seconds 8 --no-build --output artifacts/performance-review/profile-accepted` passed on the same source. Runtime evidence contains eight sampled thread profiles and 218 runtime counter events; actual process CPU/allocation/GC/pause counters and the Speedscope trace/top-method report are retained. Graphics evidence contains a 5.3 MB API trace, 37 frames and 1,403 profiled draw samples, including 1,332 positive software GPU-query samples. Capture and replay ran on private Xvfb, the isolated clients closed cleanly, and no player save or model was used. These are collector/graphics correctness checks, not portable speed claims or actual-hardware GPU acceptance. Earlier failed collector identification and RenderDoc trials remain retained and are not counted as passes. See [PROFILING.md](PROFILING.md).
+
 ## Predictive terrain preparation — 2026-10-25
 
 Source fingerprint `adf3efded0f6ffb2eb9d141933fdcf229495e749da5830113910155cacde55f2` passed fresh managed runs with sealed artifacts and no checksum errors:

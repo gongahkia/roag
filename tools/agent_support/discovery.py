@@ -33,5 +33,7 @@ def capabilities():
                 './dev content impact ID', './dev content diff --against DIRECTORY',
                 './dev scenario run FILE', './dev scenario suite devtools/scenarios',
                 './dev diagnose save FILE', './dev diagnose diff BEFORE AFTER', './dev sessions list',
-                './dev sessions report SESSION_ID', './dev playtest help', './dev playtest suite'],
+                './dev sessions report SESSION_ID', './dev playtest help', './dev playtest suite',
+                './dev profile --kind runtime --live --output NEW_DIRECTORY',
+                './dev profile --kind graphics --output NEW_DIRECTORY', './dev benchmark-streaming --seed 42 --samples 25'],
             'protocol': 'Versioned JSON on stdout; nonzero for errors, failed/blocked/stale verification and incomplete completion checks.'}
