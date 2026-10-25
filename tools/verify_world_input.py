@@ -33,6 +33,9 @@ def main():
     class Client:
         def __init__(self, scene, slot):
             self.slot = slot; self.report = slot.with_suffix('.ui.json'); self.window = None
+            # A preceding client used this report path. Only this new process's
+            # first frame can establish readiness, even on a heavily loaded host.
+            self.report.unlink(missing_ok=True)
             self.log = (output / (scene + '.log')).open('w')
             self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(args.dll.resolve()), '--scene', scene, '--seed', '42', '--save', str(slot), '--window-size', '1024x720', '--ui-report', str(self.report)], cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT, env={**os.environ, 'SDL_VIDEODRIVER': 'x11'})
             try:
@@ -41,7 +44,7 @@ def main():
                     if self.process.poll() is not None: raise RuntimeError(f'{scene} exited before readiness.')
                     found = subprocess.run(['xdotool', 'search', '--all', '--onlyvisible', '--pid', str(self.process.pid), '--name', 'Vagabonds'], capture_output=True, text=True).stdout.split()
                     if found:
-                        self.window = found[-1]; x('mousemove', '--window', self.window, 100, 100); time.sleep(2)
+                        self.window = found[-1]; x('mousemove', '--window', self.window, 100, 100)
                         x('windowfocus', '--sync', self.window); self.wait(lambda ui: len(ui['controls']) > 0); return
                     time.sleep(.1)
                 raise RuntimeError('Window readiness timed out.')

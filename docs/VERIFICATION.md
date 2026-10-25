@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Native client startup freshness — 2026-10-25
+
+Two consecutive private mouse scenarios (`world-output`, then `world-supplies`) passed **17 checks** in `artifacts/performance-review/native-startup-freshness`. The preceding broad run exposed a genuine harness race: its new window was still black while the shared report contained the previous resource scene’s position/inventory. Startup now deletes that preceding report before launching and waits for the new client’s actual frame report. The fixed two-second sleep is removed. This changes test readiness only; game rules are unchanged. The concurrent resident-journey implementation and its acceptance are recorded separately.
+
 ## Physical work-output delivery — 2026-10-25
 
 Source `d1b09ce4fa9a3fe527ddf62b47de02ba95300e30aa8ecd2072ba52b1765ccc3f` (implementation in `466bbf6`) passed fresh managed Core `20261025-053150-09b62e0d` (**767/767 tests**, Release build and valid content), world `20261025-053150-15e6ce0d` (all scenarios/headless/world/exploration/wildlife/situation/expedition/encounter/counterplay/simulation audits), native `20261025-053150-02a5f5c4` (**89 mouse checks / 42 rendered assertions**, six mouse scenes including `world-output`) and tools `20261025-053151-e49e3229` (**52 workflow tests**). Source freshness and sealed artifact checksums were verified for all four runs. Graphical tests used private Xvfb, temporary saves and dummy/null audio; no host-desktop input or model calls occurred.
