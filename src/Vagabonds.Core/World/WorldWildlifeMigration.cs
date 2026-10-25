@@ -129,6 +129,7 @@ public sealed partial class WorldSession
             {
                 if (!WildlifeHomeSuitable(target, rules)) { migration.Target = null; actor.Journey = null; continue; }
                 actor.Habitat = target; actor.Migration = null; actor.Journey = null; actor.WildlifeAfter = State.Tick + TicksPerHour;
+                NoteWildlifeHome(actor);
                 Diagnose("wildlife-migration-arrived", new { actor = actor.Id, home = target }); continue;
             }
             var next = ResidentStep(actor, target);

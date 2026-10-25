@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -535,6 +535,33 @@ def main():
                     and len(client.save()['state']['actors']) == count and animal(client.ui())['habitat'] == settled['habitat'])
                 subject = animal(client.ui()); x('mousemove', '--window', client.window, *map(round, client.tile_point(subject['x'], subject['y'])))
                 client.wait(lambda u: u['hover'] is not None and subject['name'] in u['hover']['title']); client.capture('migration-arrived')
+            finally: client.close()
+        if 'world-recovery' in args.scenes:
+            client = Client('world-recovery', slot)
+            try:
+                fixture = client.ui()['recoveryFixture']; root = str(fixture['population']); old_id = fixture['originalActor']
+                initial = client.save(); population = initial['state']['wildlifePopulations'][root]
+                corpse = next(c for c in initial['state']['loot'] if c['sourceActor'] == old_id)
+                check('recoveryStartsWithTheHuntedIndividualStillDead', population['generation'] == 0 and population['recoverAt'] > initial['state']['tick']
+                    and next(a for a in initial['state']['actors'] if a['id'] == old_id)['life'] == 2)
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(corpse['position']['x'], corpse['position']['y'])))
+                client.wait(lambda u: u['hover'] is not None and 'recovery' in u['hover']['detail']); client.capture('recovery-quiet-period')
+                pending = client.save(); client.load(); check('pendingPopulationSurvivesMouseReload', client.save()['state'] == pending['state'])
+                client.click('pause'); client.wait(lambda u: u['wildlifeRecovery']['generation'] == 1, timeout=30); client.pause(); recovered = client.save()
+                population = recovered['state']['wildlifePopulations'][root]; animal = next(a for a in recovered['state']['actors'] if a['id'] == population['actor'])
+                check('recoveryCreatesADistinctAnimalAndPreservesOriginalRemains', animal['id'] != old_id and animal['life'] == 0
+                    and animal['habitat'] == fixture['home'] and old_id in population['history']
+                    and len(recovered['state']['actors']) == len(initial['state']['actors']) + 1
+                    and next(c for c in recovered['state']['loot'] if c['sourceActor'] == old_id) == corpse)
+                party_id = recovered['state']['party'][0]
+                check('populationRecoveryDoesNotGrantAnotherHuntReward', animal['id'] not in recovered['state']['rewardedEncounterIds']
+                    and recovered['state']['inventory'] == initial['state']['inventory']
+                    and next(a for a in recovered['state']['actors'] if a['id'] == party_id)['experience']
+                    == next(a for a in initial['state']['actors'] if a['id'] == party_id)['experience'])
+                subject = next(a for a in client.ui()['actors'] if a['id'] == animal['id'])
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(subject['x'], subject['y'])))
+                client.wait(lambda u: u['hover'] is not None and subject['name'] in u['hover']['title']); client.capture('recovery-new-individual')
+                client.load(); check('newGenerationAndOldHistorySurviveMouseReload', client.save()['state'] == recovered['state'])
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

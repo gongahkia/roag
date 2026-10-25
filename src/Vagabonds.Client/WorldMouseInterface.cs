@@ -562,6 +562,8 @@ internal sealed partial class WorldGame
             journeyFixture = playerView ? null : _routineFarField,
             occupationFixture = playerView ? null : _occupationFixture,
             migrationFixture = playerView ? null : _migrationFixture,
+            recoveryFixture = playerView ? null : _recoveryFixture,
+            wildlifeRecovery = playerView || _recoveryFixture == null ? null : _session.State.WildlifePopulations.GetValueOrDefault(_recoveryFixture.Population),
             residentJourneys = playerView ? null : _session.ResidentJourneys,
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             terrainCache = new { hits = _terrainCacheHits, rebuilds = _terrainCacheRebuilds, bypasses = _terrainCacheBypasses,

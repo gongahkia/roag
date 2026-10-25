@@ -51,6 +51,7 @@ public sealed partial class WorldSession
         foreach (var key in Visible.Select(p => p.Chunk).Distinct().OrderBy(k => k.Floor).ThenBy(k => k.Y).ThenBy(k => k.X))
         {
             if (!State.EcologyChunks.Add(key)) continue;
+            if (State.WildlifePopulations.Count >= WildlifePopulationLimit || !WildlifeActorRoom()) continue;
             if (State.Actors.Any(a => a.Life != LifeState.Dead && (a.Habitat?.Chunk == key || a.Migration?.Target?.Chunk == key))) continue;
             if (WildlifeHabitatAt(key) is not { } habitat) continue;
             var occupied = State.Actors.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToHashSet();
@@ -59,6 +60,7 @@ public sealed partial class WorldSession
             var animal = ActorFactory.Create(Content, habitat.Character, Seed, State.NextActorId++, spawn, town.Id, town.Culture, town.FactionId);
             animal.Habitat = habitat.Home; animal.Job = "wildlife";
             State.Actors.Add(animal);
+            RegisterWildlifePopulation(animal);
         }
     }
 
@@ -128,6 +130,7 @@ public sealed partial class WorldSession
     {
         if (Ecology(actor) is not { } rules || State.Loot.Any(c => c.SourceActor == actor.Id)) return;
         actor.Migration = null; actor.Journey = null; actor.WildlifeAfter = 0;
+        NoteWildlifeDeath(actor);
         PressureHabitat(actor.Habitat!.Value, 120);
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });

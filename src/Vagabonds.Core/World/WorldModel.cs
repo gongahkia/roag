@@ -213,6 +213,7 @@ public sealed class Actor
     private ResidentRoutine? _routine;
     private OccupationJob? _occupation;
     private WildlifeMigration? _migration;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long WildlifePopulation { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public WorldPosition? NatalHabitat { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long WildlifeAfter { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -550,6 +551,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public SortedDictionary<long, WildlifePopulation> WildlifePopulations { get; set; } = [];
     public Dictionary<int, HabitatState> Habitats { get; set; } = [];
     [JsonRequired] public List<EncounterPopulationRecord> EncounterPopulations { get; set; } = [];
     public HashSet<long> RewardedEncounterIds { get; set; } = [];

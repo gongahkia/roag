@@ -115,6 +115,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         PrepareBodyClock();
         State.Tick++;
         Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceOccupations(); AdvanceIncidents();
+        AdvanceWildlifePopulations();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
