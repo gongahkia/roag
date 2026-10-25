@@ -48,6 +48,7 @@ public sealed partial class WorldSession
     }
     private ActionResult QueueForage()
     {
+        string unavailable = WildFoodUnavailable(State.Position); if (unavailable.Length > 0) return new(false, unavailable);
         if (Party.First(a => a.Life == LifeState.Alive).Body.ForageAfter > State.Tick || !Materials.Walkable(Chunks.At(State.Position))) return new(false, "Let the nearby gathering grounds recover for an hour.");
         return QueueWork(new() { Kind = WorkKind.Forage, Target = State.Position, Before = Chunks.At(State.Position), After = Chunks.At(State.Position), Required = Simulation.ForageWork, Yield = new() { ["food"] = 2 } });
     }
@@ -92,6 +93,7 @@ public sealed partial class WorldSession
             if (RoutineInterruptsWork(worker)) { order.Status = "Interrupted: " + RoutineDescription(worker); continue; }
             if (!CampWorkerEligible(order, worker)) { order.Status = "This companion needs time before another camp story"; continue; }
             if (order.Output == null && order.Kind == WorkKind.Forage && worker.Body.ForageAfter > State.Tick) { order.Status = "Gathering grounds recovering"; continue; }
+            if (order.Output == null && order.Kind == WorkKind.Forage && WildFoodUnavailable(order.Target) is { Length: > 0 } depleted) { order.Status = depleted; continue; }
             if (worker.Body.RestUntil > State.Tick || worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
             { order.Status = "Worker needs food, rest or treatment"; continue; }
             if (order.Output != null) { AdvanceWorkOutput(order, worker); continue; }
@@ -118,16 +120,20 @@ public sealed partial class WorldSession
             switch (order.Kind)
             {
                 case WorkKind.Build:
+                    RecordHabitatClearing(order.Target, order.Before, order.After);
                     Chunks.Edit(order.Target, order.After);
                     State.Structures.Add(new() { Position = order.Target, Material = order.After, Foundation = order.Before, Cost = new(order.Reserved) }); break;
                 case WorkKind.Dig:
+                    RecordHabitatClearing(order.Target, order.Before, order.After);
                     Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target); CheckExcavatedBypass(order); break;
                 case WorkKind.Repair:
                     State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
                 case WorkKind.Harvest: HarvestResource(order.Target); break;
                 case WorkKind.Discovery: CompleteSituationWork(order); break;
                 case WorkKind.Camp: CompleteCampActivity(order, worker); break;
-                case WorkKind.Forage: worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
+                case WorkKind.Forage:
+                    if (!TakeWildFood(order.Target, 2)) throw new InvalidOperationException("Forage stock changed during sequential completion.");
+                    worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
             }
             if (order.OutputVersion == 1)
             {

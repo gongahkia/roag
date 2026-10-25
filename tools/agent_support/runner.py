@@ -20,7 +20,7 @@ def reap():
     _workers[:] = [p for p in _workers if p.poll() is None]
 
 TERMINAL = {'passed', 'failed', 'blocked', 'cancelled', 'timed_out', 'interrupted', 'stale'}
-NATIVE_SCENES = ['world', 'world-output', 'world-supplies', 'world-occupations', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters']
+NATIVE_SCENES = ['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters']
 
 def identity(pid):
     """Linux/WSL identity includes boot and process start ticks; never signal a reused PID."""

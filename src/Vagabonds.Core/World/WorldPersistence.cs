@@ -125,6 +125,7 @@ public sealed partial class WorldSession
                 || routine.Since < 0 || routine.Since > s.Tick || string.IsNullOrWhiteSpace(routine.Reason) || routine.Reason.Length > 256
                 || routine.Other != 0 && !actorIds.Contains(routine.Other))) throw new InvalidDataException("Invalid resident routine.");
         if (s.EcologyChunks == null || s.EcologyChunks.Count > 16384 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor is < 0 or >= WorldPlan.Floors)) throw new InvalidDataException("Invalid observed ecology chunks.");
+        ValidateHabitats(plan, s);
         foreach (var actor in s.Actors)
         {
             var ecology = (catalog.Entries[actor.Archetype] as CharacterDefinition)?.Ecology;

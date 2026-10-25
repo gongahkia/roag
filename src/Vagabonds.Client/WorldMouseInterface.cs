@@ -292,7 +292,8 @@ internal sealed partial class WorldGame
                 case "actions":
                     string[] actionIds = ["wait:5", "wait:300", "forage"];
                     string[] actionLabels = ["Wait / 1 minute", "Wait / 1 hour", "Gather food"];
-                    for (int i = 0; i < actionIds.Length; i++) Add(actionIds[i], actionLabels[i], x + i % 2 * (width / 2 + 4), y + i / 2 * 54, width / 2 - 8, 42, DisabledControlReason(actionIds[i]).Length == 0);
+                    for (int i = 0; i < actionIds.Length; i++) Add(actionIds[i], actionLabels[i], x + i % 2 * (width / 2 + 4), y + i / 2 * 54, width / 2 - 8, 42, DisabledControlReason(actionIds[i]).Length == 0,
+                        tip: actionIds[i] == "forage" ? _session.HabitatDescription(_session.State.Position) : "");
                     break;
                 case "discovery":
                     if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
@@ -557,6 +558,7 @@ internal sealed partial class WorldGame
             mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
+            habitat = _session.HabitatAt(_session.State.Position),
             journeyFixture = playerView ? null : _routineFarField,
             occupationFixture = playerView ? null : _occupationFixture,
             residentJourneys = playerView ? null : _session.ResidentJourneys,

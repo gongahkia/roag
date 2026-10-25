@@ -540,6 +540,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public Dictionary<int, HabitatState> Habitats { get; set; } = [];
     [JsonRequired] public List<EncounterPopulationRecord> EncounterPopulations { get; set; } = [];
     public HashSet<long> RewardedEncounterIds { get; set; } = [];
     [JsonRequired] public HashSet<ChunkKey> EcologyChunks { get; set; } = [];

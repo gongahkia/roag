@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -480,6 +480,27 @@ def main():
                     and delivered['state']['namedResourcesProduced'] - initial['state']['namedResourcesProduced'] == amount)
                 person = resident(client.ui()); x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
                 client.wait(lambda u: u['hover'] is not None and person['name'] in u['hover']['title']); client.capture('occupation-delivered-grain')
+            finally: client.close()
+        if 'world-habitat' in args.scenes:
+            client = Client('world-habitat', slot)
+            try:
+                initial = client.save(); food = initial['state']['inventory']['food']
+                check('habitatSceneExposesActualWildFood', client.ui()['habitat']['food'] == 2)
+                client.click('panel:actions'); control = next(c for c in client.ui()['controls'] if c['id'] == 'forage')
+                check('habitatGatherControlExplainsLocalStock', control['enabled'] and 'Wild food 2/' in control['tip'])
+                client.click('forage'); client.wait(lambda u: not u['work'] and u['inventory']['food'] == food + 2); client.pause()
+                check('nativeForageConsumesHabitatStockAndAddsPressure', client.ui()['habitat']['food'] == 0 and client.ui()['habitat']['pressure'] == 8)
+                client.click('panel:actions'); control = next(c for c in client.ui()['controls'] if c['id'] == 'forage')
+                check('depletedHabitatDisablesGatherWithRecoveryReason', not control['enabled'] and 'depleted' in control['reason'])
+                r = control['bounds']; x('mousemove', '--window', client.window, r['x'] + r['width'] // 2, r['y'] + r['height'] // 2)
+                client.capture('habitat-depleted-grounds'); saved = client.save(); client.click('close'); client.load()
+                check('habitatDepletionAndPressureSurviveMouseReload', client.save()['state'] == saved['state'])
+                client.click('panel:actions'); client.click('wait:300')
+                if client.ui()['habitat']['food'] < 2:
+                    client.click('panel:actions'); client.click('wait:300')
+                check('habitatRecoversThroughActualWait', client.ui()['habitat']['food'] >= 2 and client.ui()['habitat']['pressure'] == 0)
+                client.click('panel:actions'); control = next(c for c in client.ui()['controls'] if c['id'] == 'forage')
+                check('recoveredHabitatAllowsGatherAgain', control['enabled']); client.capture('habitat-recovered-grounds')
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

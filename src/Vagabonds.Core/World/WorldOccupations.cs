@@ -167,9 +167,11 @@ public sealed partial class WorldSession
             foreach (var (stack, count) in job.Inputs) { actor.Cargo[stack] -= count; State.ResourcesConsumed += count; }
             job.Carried.Clear(); job.Progress = job.Required;
             if (job.Kind == OccupationKind.Gather) HarvestResource(job.Target);
-            else if (job.Kind is OccupationKind.Fell or OccupationKind.Quarry) Chunks.Edit(job.Target, Material.Earth);
+            else if (job.Kind is OccupationKind.Fell or OccupationKind.Quarry)
+            { RecordHabitatClearing(job.Target, job.Before, Material.Earth); Chunks.Edit(job.Target, Material.Earth); }
             else if (job.Kind == OccupationKind.BuildWorkplace)
             {
+                RecordHabitatClearing(job.Target, job.Before, Material.Camp);
                 Chunks.Edit(job.Target, Material.Camp); State.Structures.Add(new() { Position = job.Target, Material = Material.Camp, Foundation = job.Before, Cost = new(job.Inputs) });
                 actor.Occupation = null; actor.OccupationAfter = State.Tick + 25; continue;
             }

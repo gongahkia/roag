@@ -64,6 +64,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-routines") { RoutinePreview.Prepare(_session); _routineFarField = JourneyPreview.PrepareFarField(_session); }
         if (!options.Load && options.Scene == "world-occupations") _occupationFixture = OccupationPreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-habitat") HabitatPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");

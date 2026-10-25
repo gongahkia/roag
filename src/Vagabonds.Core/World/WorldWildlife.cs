@@ -124,6 +124,7 @@ public sealed partial class WorldSession
     private void LeaveWildlifeRemains(Actor actor)
     {
         if (Ecology(actor) is not { } rules || State.Loot.Any(c => c.SourceActor == actor.Id)) return;
+        PressureHabitat(actor.Habitat!.Value, 120);
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });
     }

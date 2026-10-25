@@ -74,6 +74,7 @@ public sealed partial class WorldSession
         // Recovery begins only on exhaustion. Partial stock never duplicates through repeated inspections.
         long recoverAt = remaining == 0 && node.Definition.RegrowTicks > 0 ? State.Tick + node.Definition.RegrowTicks : 0;
         Chunks.Delta(p.Chunk).Resources[p.LocalIndex] = new(node.Definition.Id, remaining, recoverAt);
+        PressureHabitat(p, 8);
     }
     public double WorkMultiplier(Actor actor, WorkOrder order)
     {

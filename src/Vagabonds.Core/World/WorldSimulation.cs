@@ -46,11 +46,12 @@ public sealed partial class WorldSession
         if (!actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
         bool resting = !fighting && body.RestUntil > State.Tick;
         if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
-        // Unmanaged people/creatures can spend time gathering food using the same forage work cost.
+        // Wild forage shares the finite habitat stock with other actors and the party.
         if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
         {
-            double forage = WorkRate(actor); body.ForageProgress += forage; body.WorkDone += forage;
-            if (body.ForageProgress >= settings.ForageWork)
+            double forage = HabitatAt(actor.Position).Food >= 2 ? WorkRate(actor) : 0; body.ForageProgress += forage; body.WorkDone += forage;
+            if (forage == 0) body.ForageProgress = 0;
+            if (body.ForageProgress >= settings.ForageWork && TakeWildFood(actor.Position, 2))
             {
                 body.ForageProgress = 0; body.ForageAfter = State.Tick + TicksPerHour;
                 actor.Cargo["food"] = actor.Cargo.GetValueOrDefault("food") + 2; State.ResourcesProduced += 2;

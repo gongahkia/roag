@@ -257,6 +257,7 @@ public sealed partial class WorldSession
                 if (State.Work.Any(w => w.Target == camp)) return "This camp already has a work order.";
                 break;
             case WorldCommandKind.Forage:
+                string wildFood = WildFoodUnavailable(State.Position); if (wildFood.Length > 0) return wildFood;
                 if (Party.First(a => a.Life == LifeState.Alive).Body.ForageAfter > State.Tick) return "These gathering grounds need an hour to recover.";
                 if (State.Work.Any(w => w.Target == State.Position)) return "A work order already occupies this cell.";
                 break;
