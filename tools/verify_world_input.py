@@ -224,19 +224,30 @@ def main():
                     x('keydown', key); time.sleep(.1); x('keyup', key); time.sleep(.1)
                 check('keyboardGameplayDisabled', client.ui()['tick'] == initial['tick'] and client.ui()['position'] == {k: initial['position'][k] for k in ('x', 'y', 'floor')} and client.ui()['panel'] == '' and slot.stat().st_mtime_ns == stamp)
                 ui = client.ui(); check('readableDefaultCamera', ui['camera']['cellSize'] >= 36 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
+                check('stationaryTerrainReusesBoundedLayer', ui['terrainCache']['hits'] > 0 and ui['terrainCache']['bytes'] == ui['width'] * ui['height'] * 4)
                 client.capture('exploration')
                 client.click('panel:game'); client.click('panel:guide'); client.capture('guide'); client.click('close')
                 client.click('panel:game'); client.click('panel:inspector'); client.click('inspect:2'); client.capture('inspector')
                 check('mouseGuideAndInspector', any(c['id'] == 'inspect:2' and c['selected'] for c in client.ui()['controls'])); client.click('close')
+                terrain_before_zoom = client.ui()['terrainCache']['rebuilds']
                 for _ in range(12): client.click('zoom:out')
                 ui = client.ui(); check('boundedMouseZoom', ui['camera']['cellSize'] >= 24 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
+                check('zoomInvalidatesTerrainLayer', ui['terrainCache']['rebuilds'] > terrain_before_zoom)
+                x('windowsize', client.window, '1280', '800')
+                resized = client.wait(lambda u: u['width'] == 1280 and u['height'] == 800 and u['terrainCache']['bytes'] == 1280 * 800 * 4)
+                check('resizeReallocatesBoundedTerrainLayer', resized['terrainCache']['rebuilds'] > ui['terrainCache']['rebuilds'])
+                x('windowsize', client.window, '1024', '720')
+                client.wait(lambda u: u['width'] == 1024 and u['height'] == 720 and u['terrainCache']['bytes'] == 1024 * 720 * 4)
                 client.click('zoom:default')
                 ui = client.ui(); origin = ui['position']
+                terrain_before_hover = ui['terrainCache']
                 hover = next(c for c in ui['cells'] if c['groundOpen'] and not c['occupied'] and c['clickable']
                     and c['y'] == origin['y'] and c['x'] == origin['x'] + 4)
                 px, py = client.tile_point(hover['x'], hover['y']); x('mousemove', '--window', client.window, round(px), round(py))
                 client.wait(lambda u: u['hover'] is not None)
                 check('hoverDoesNotMoveOrQueueTravel', client.ui()['position'] == origin and client.ui()['routeCount'] == 0)
+                terrain_after_hover = client.ui()['terrainCache']
+                check('hoverOverlayDoesNotRebuildTerrain', terrain_after_hover['hits'] > terrain_before_hover['hits'] and terrain_after_hover['rebuilds'] == terrain_before_hover['rebuilds'])
                 client.capture('hover-selector')
                 ui = client.ui(); origin = ui['position']; barrel = next(c for c in ui['cells'] if c['prop'] == 'Barrel')
                 client.tile(barrel['x'], barrel['y']); client.wait(lambda u: u['context'] is not None)
@@ -250,9 +261,11 @@ def main():
                 check('digWorksWithoutFoodAndExplainsWorkCost', dig['enabled'] and 'no food is reserved' in dig['tip'])
                 client.capture('context-dig'); client.click('context:clear'); slot.write_text(json.dumps(baseline)); client.load()
                 ui = client.ui(); origin = ui['position']; people = [a for a in ui['actors'] if a['kind'] == 'Person']
+                terrain_before_travel = ui['terrainCache']['bypasses']
                 person = min(people, key=lambda a: abs(a['x'] - origin['x']) + abs(a['y'] - origin['y']))
                 client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
                 check('mouseApproachConversation', True)
+                check('movingViewBypassesTerrainTarget', client.ui()['terrainCache']['bypasses'] > terrain_before_travel)
                 conversation_tick = client.ui()['tick']; time.sleep(.5); client.capture('conversation')
                 check('conversationPausesWorldAndRevealsText', client.ui()['tick'] == conversation_tick and bool(client.ui()['dialogue']['text']))
                 voice = client.ui()['dialogue']; check('conversationVoicePlaysOrReportsMissingDevice', voice['audioUnavailable'] or voice['playedSyllables'] > 0)
@@ -367,11 +380,27 @@ def main():
                 client.click('panel:inventory'); client.click('panel:supplies'); client.capture('ingredients-pack')
                 check('packIllustratesHarvestedIngredients', any(c['id'] == 'supply:item.apple' and c['sprite'] == 'apple' and 'x2' in c['label'] for c in client.ui()['controls']))
                 client.click('close')
+                terrain_before_depletion = client.ui()['terrainCache']['rebuilds']
                 for _ in range(remaining):
                     client.context(fruit); client.click('context:harvest'); client.wait(lambda u: not u['work']); client.pause()
                 client.context(fruit); client.capture('resource-depleted')
                 harvest = next(c for c in client.ui()['controls'] if c['id'] == 'context:harvest')
                 check('exhaustedResourceExplainsRecovery', not harvest['enabled'] and 'recovers' in harvest['reason'])
+                check('depletionInvalidatesTerrainLayer', client.ui()['terrainCache']['rebuilds'] > terrain_before_depletion)
+                client.click('context:clear')
+                # Valid isolated deadline fixture; only the test clock is moved.
+                # Keep the immutable stock snapshot and cross recovery through Play.
+                depleted = client.save()
+                reference = next(c for c in depleted['chunks'] if c['key'] == {'x': fruit['x'] // 64, 'y': fruit['y'] // 64, 'floor': 0})
+                delta = json.loads((Path(str(slot) + '.chunks') / (reference['hash'] + '.json')).read_text())
+                stock = delta['resources'][str((fruit['y'] % 64) * 64 + fruit['x'] % 64)]
+                depleted['state']['tick'] = stock['recoverAt'] - 1
+                slot.write_text(json.dumps(depleted)); client.load()
+                terrain_before_recovery = client.ui()['terrainCache']['rebuilds']
+                client.click('pause')
+                client.wait(lambda u: any(c['x'] == fruit['x'] and c['y'] == fruit['y'] and c['resource'] and c['resource']['available'] > 0 for c in u['cells']))
+                client.pause(); client.capture('resource-recovered')
+                check('recoveryDeadlineInvalidatesTerrainLayer', client.ui()['terrainCache']['rebuilds'] > terrain_before_recovery)
             finally: client.close()
         if 'world-wildlife' in args.scenes:
             client = Client('world-wildlife', slot)

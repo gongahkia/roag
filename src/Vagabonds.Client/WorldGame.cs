@@ -35,7 +35,6 @@ internal sealed partial class WorldGame : Game
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
     private readonly Dictionary<long, GridMotion> _actorMotions = [];
-    private readonly List<(Rectangle Rect, string? Sprite, Color Tint, string? Prop, float Light, bool Door)> _terrain = [];
     private WorldSession? _visualSession;
     private long _visualLeader;
     private WorldPosition? _streamPosition;
@@ -99,6 +98,7 @@ internal sealed partial class WorldGame : Game
     {
         _batch = new(GraphicsDevice); _pixel = new(GraphicsDevice, 1, 1); _pixel.SetData(new[] { Color.White });
         _sprites = new(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "assets"));
+        GraphicsDevice.DeviceReset += (_, _) => _terrainLayerDirty = true;
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
                 if (!_sprites.HasBinding(Materials.Sprite(material, biome, culture))) throw new InvalidDataException("Missing world material sprite.");
@@ -326,12 +326,15 @@ internal sealed partial class WorldGame : Game
         long started = Stopwatch.GetTimestamp(), drawCallsBefore = GraphicsDevice.Metrics.DrawCount;
         Layout(); UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
         if (_frame == null || _frame.Width != w || _frame.Height != h) { _frame?.Dispose(); _frame = new(GraphicsDevice, w, h); }
+        long terrainStarted = Stopwatch.GetTimestamp();
+        if (!CombatStageVisible) PrepareTerrainLayer();
+        double terrainPreparationMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
         GraphicsDevice.ScissorRectangle = _map;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
-        long terrainStarted = Stopwatch.GetTimestamp();
+        terrainStarted = Stopwatch.GetTimestamp();
         if (!CombatStageVisible) DrawTerrain(); _batch.End();
-        double terrainMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
+        double terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
@@ -377,52 +380,9 @@ internal sealed partial class WorldGame : Game
         Directory.CreateDirectory(Path.GetDirectoryName(path)!); using var file = File.Create(path); _frame.SaveAsPng(file, _frame.Width, _frame.Height);
     }
     private static double Percentile(List<double> values) => values.Count == 0 ? 0 : values.Order().ElementAt((int)((values.Count - 1) * .95));
-    private readonly List<(Rectangle Rect, string Sprite, float Light)> _resourceIcons = [];
     private void DrawTerrain()
     {
-        Fill(_map, new(9, 16, 21)); _terrain.Clear(); _resourceIcons.Clear();
-        var left = _camera.ScreenToWorld(new(_map.Left, _map.Top)); var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
-        for (int y = (int)Math.Floor(left.Y); y <= (int)right.Y; y++) for (int x = (int)Math.Floor(left.X); x <= (int)right.X; x++)
-        {
-            var p = new WorldPosition(x, y, _session.State.Position.Floor);
-            if (!_session.Chunks.Seen(p)) continue;
-            var rect = TileRect(p); if (!_map.Intersects(rect)) continue;
-            var chunk = _session.Chunks.Get(p.Chunk); var biome = chunk.Biomes[p.LocalIndex]; int culture = chunk.Cultures[p.LocalIndex];
-            var material = _session.Chunks.At(p);
-            Color tint = material switch { Material.Water => new(72, 132, 158), Material.Tree => new(104, 141, 104), Material.StairsDown or Material.StairsUp => Gold, Material.Camp => new(241, 159, 88), _ => biome switch { Biome.Forest => new(127, 150, 112), Biome.Marsh => new(127, 144, 110), Biome.Badland => new(187, 144, 103), Biome.Snow => new(199, 211, 217), Biome.Highland => new(160, 163, 159), _ => new(156, 170, 123) } };
-            if (material is Material.Wall or Material.Floor or Material.Door) tint = new(191, 184, 163);
-            bool bright = _session.Visible.Contains(p);
-            float light = bright ? 1 : .35f;
-            bool ground = material is Material.Grass or Material.Earth or Material.Floor;
-            var background = material switch { Material.Grass => new Color(29, 42, 33), Material.Floor => new Color(51, 45, 36), Material.Earth => new Color(49, 43, 33), Material.Water => new Color(19, 38, 47), _ => new Color(32, 36, 34) };
-            Fill(rect, background * light);
-            string? sprite = material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0
-                ? Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]) : null;
-            var resource = _session.ResourceAt(p);
-            if (resource != null)
-            {
-                if (material is Material.Tree or Material.Rock or Material.Water)
-                {
-                    if (resource.Available > 0) _resourceIcons.Add((new(rect.Right - rect.Width / 2, rect.Top, rect.Width / 2, rect.Height / 2), resource.Sprite, light));
-                    else { sprite = resource.Definition.DepletedSprite; tint = Muted; }
-                }
-                else { sprite = resource.Sprite; tint = resource.Available > 0 ? Gold : Muted; ground = false; }
-            }
-            string? prop = resource == null && _session.ObjectAt(p) is { Kind: "decoration" } decoration ? decoration.Sprite : null;
-            _terrain.Add((rect, sprite, tint * light * (ground ? .32f : 1), prop, light, material == Material.Door));
-        }
-        // Backgrounds, terrain and props are separate layers so texture sorting preserves their order.
-        _batch.End(); _batch.Begin(SpriteSortMode.Texture, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
-        foreach (var tile in _terrain)
-            if (tile.Sprite is { } sprite) _sprites.Draw(_batch, sprite, tile.Rect, tile.Tint);
-        _batch.End(); _batch.Begin(SpriteSortMode.Texture, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
-        foreach (var tile in _terrain)
-        {
-            if (tile.Prop is { } prop) _sprites.Draw(_batch, prop, tile.Rect, new Color(154, 141, 105) * tile.Light);
-            if (tile.Door) Fill(new(tile.Rect.Center.X - 2, tile.Rect.Top + tile.Rect.Height / 3, 4, tile.Rect.Height / 2), Gold * .7f);
-        }
-        _batch.End(); _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
-        foreach (var resource in _resourceIcons) _sprites.Draw(_batch, resource.Sprite, resource.Rect, Gold * resource.Light);
+        DrawCachedTerrain();
         UpdatePointer(_mouse.Position);
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
             _sprites.Draw(_batch, _session.DiscoverySprite(d), TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : d.Outcome.Length > 0 ? new Color(129, 200, 204) : Gold);
@@ -535,7 +495,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _terrainLayer?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

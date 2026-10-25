@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Terrain layer reuse — 2026-10-25
+
+Source `2c876d41cf4ae8f059eb688a4232025f62da8c47deb7c10a4da53e59dfd2eb31` passed fresh managed Core run `20261025-023537-67dcec22` (**676/676 tests**, Release build and valid content) and native run `20261025-023537-9c6cf26e` (**66/66 mouse checks**, **42/42 rendered assertions**, private Xvfb/isolated saves/dummy audio/no model calls). Artifacts are sealed and checksums verified. New native checks establish bounded stationary reuse, zoom/resize invalidation, hover reuse, direct drawing during travel, depletion invalidation and recovery-deadline invalidation. The last uses an explicitly isolated clock fixture just before a saved recovery deadline and crosses it through Play. Existing construction, digging, loading, formation, stairs, dialogue and battle checks still pass. Inspected fresh recovered-resource and underground captures.
+
+Paired seed-42 stationary `benchmark-render` scenes at 1024×720 with `LP_NUM_THREADS=1` are retained in `artifacts/performance-review/terrain-cache-before` and `terrain-cache-final`. Decoded RGBA comparison found **zero changed pixels out of 737,280 in each complete frame**, for both exploration and resource scenes. `terrain-cache-final-pixels.json` retains image hashes and comparison counts. Warm draw submissions fell **36→34** and **38→36**, respectively. Main-thread allocation totals were essentially unchanged. Timings varied substantially, including update time in unchanged code, so the full observed timing difference is not attributed to caching. The extra target costs 2.81 MiB at this viewport; actual terrain/resource queries remain live. Intermediate `terrain-cache-after` results and cancelled verification runs are retained separately, not counted as final acceptance.
+
 ## Runtime and OpenGL profiling — 2026-10-25
 
 Source `d4f339d65754891aeab3af4c8a118441c83603c199d528a2c848990af60d512b` passed fresh managed tools run `20261025-022125-f64af048` (**52 Python workflow tests**). New cases reject mistaking an owned shell wrapper for the .NET client, reject instrumented host-display launches before process creation, and reject graphics evidence containing only headers, missing frames or zero-duration queries.
