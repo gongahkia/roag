@@ -114,7 +114,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     {
         PrepareBodyClock();
         State.Tick++;
-        Contact(); AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
+        Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
@@ -338,17 +338,13 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     {
         foreach (var a in ActorsNear(State.Position, 100))
         {
+            if (a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive)
+            { MoveResident(a); continue; }
             if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             if (Ecology(a) is { } ecology) { MoveWildlife(a, ecology); continue; }
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);
             WorldPosition destination;
-            if (a.Kind == ActorKind.Person)
-            {
-                var center = Plan.Towns[a.HomeTown].Center;
-                int hour = (int)(State.Tick / TicksPerHour % 24);
-                destination = center.Offset((int)(a.Id % 5) * 3 - 6, hour < 6 || hour > 19 ? -18 : 12);
-            }
-            else destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);
+            destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);
             var next = rng.Next(2) == 0 ? a.Position.Offset(Math.Sign(destination.X - a.Position.X), 0) : a.Position.Offset(0, Math.Sign(destination.Y - a.Position.Y));
             if (next == a.Position || !CanEnter(next, a.Id)) next = LocalStep(a.Position, destination, a.Id);
             if (CanEnter(next, a.Id)) a.Position = next;

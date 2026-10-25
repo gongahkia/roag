@@ -66,8 +66,10 @@ public sealed class WorldDesignationTests : IDisposable
         var s = WorldCollisionTests.Arena(); var target = s.State.Position.Offset(1, 0);
         Assert.Equal(1, s.DesignateWork(WorldCommandKind.Build, [target], Material.Camp).Queued);
         var person = s.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited);
-        person.Position = target; person.Body.RestUntil = 1000;
+        // A downed occupant is stationary; resting residents now walk home.
+        person.Position = target; person.Life = LifeState.Downed; person.Health = 0;
         s.Submit(new(WorldCommandKind.Wait, Amount: 50)); Assert.Equal(Material.Floor, s.Chunks.At(target));
+        Assert.Equal(target, person.Position);
         Assert.Equal("Clear the target cell", s.State.Work.Single().Status);
         person.Position = target.Offset(1, 0); s.Submit(new(WorldCommandKind.Wait, Amount: 50));
         Assert.Empty(s.State.Work); Assert.Equal(Material.Camp, s.Chunks.At(target));

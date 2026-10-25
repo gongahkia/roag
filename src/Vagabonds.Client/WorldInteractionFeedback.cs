@@ -23,6 +23,7 @@ internal static class WorldInspection
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
+            if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");

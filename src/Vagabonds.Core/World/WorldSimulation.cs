@@ -43,11 +43,11 @@ public sealed partial class WorldSession
     {
         var settings = Simulation;
         var body = actor.Body; bool fighting = State.Battle?.ActorIds.Contains(actor.Id) == true;
-        if (!actor.Recruited && !fighting && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
+        if (!actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
         bool resting = !fighting && body.RestUntil > State.Tick;
         if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
         // Unmanaged people/creatures can spend time gathering food using the same forage work cost.
-        if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
+        if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
         {
             double forage = WorkRate(actor); body.ForageProgress += forage; body.WorkDone += forage;
             if (body.ForageProgress >= settings.ForageWork)
@@ -84,6 +84,8 @@ public sealed partial class WorldSession
         if (actor.Cargo.GetValueOrDefault("food") > 0)
         { actor.Cargo["food"]--; State.ResourcesConsumed++; return true; }
         var town = State.Towns[actor.HomeTown];
+        if (actor.Kind == ActorKind.Person && actor.Position.Distance(State.Position) <= 100 && actor.Routine is { } routine
+            && (routine.Kind != RoutineKind.Food || actor.Position.Distance(routine.Target) > 1)) return false;
         if (actor.Position.Distance(Plan.Towns[actor.HomeTown].Center) > 28 || town.Stocks["food"] < 1) return false;
         town.Stocks["food"]--; State.ResourcesConsumed++; return true;
     }

@@ -1,5 +1,7 @@
 # Content authoring and developer tools
 
+Resident routine priorities are registered Core rules (`RoutineKind`), using existing simulation hunger/rest thresholds, character jobs, stable actor/friend identities and real work orders. Add enum values by appending; persisted numeric kinds must keep their meaning. `./dev preview routine --seed 42` executes actual food and rest trips, and `./dev verify-native --scenes world-routines` checks their presentation (run this under private Xvfb during unattended work). `review-tooling` lists the kinds and preview. This adds no content family or catalog hash change. Job-node extraction, hauling and regional supply balancing remain separate mechanics; an activity label alone does not produce physical goods.
+
 Run `./dev` from any working directory. The graphics-free `Vagabonds.Tools` project uses the same Core content loader, actor factory, abilities and interactions as the game. Game definitions are embedded at build time; developer commands can inspect edits from `content/` before rebuilding the client. Previews and scenarios never open player saves. `diagnose save FILE` reads only the explicitly selected save and never writes it.
 
 ## Discover and edit

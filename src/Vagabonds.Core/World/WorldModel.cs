@@ -166,6 +166,8 @@ public sealed class WorldPlan
 
 public sealed record Preparation(string Definition, string Effect, int Power, long Until);
 public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
+public enum RoutineKind { Danger, Food, Rest, AssignedWork, Occupation, Social, Home }
+public sealed record ResidentRoutine(RoutineKind Kind, WorldPosition Target, long Since, string Reason, long Other = 0, bool Blocked = false);
 public sealed class Actor
 {
     private WorldPosition _position;
@@ -179,11 +181,13 @@ public sealed class Actor
     private int _level = 1;
     private LifeState _life;
     private bool _recruited;
+    private ResidentRoutine? _routine;
     public Actor()
     {
         _body.Changed += NotifyNeedsChanged; _preparations.Changed += NotifyNeedsChanged; _memories.Changed += NotifyNeedsChanged;
     }
     private void NotifyNeedsChanged() => NeedsChanged?.Invoke(this);
+    public ResidentRoutine? Routine { get => _routine; set { if (_routine == value) return; _routine = value; NotifyNeedsChanged(); } }
     [JsonRequired] public WorldPosition? Habitat { get; set; }
     [JsonRequired] public long ProvokedUntil { get; set; }
     [JsonRequired] public BodyState Body
@@ -303,13 +307,13 @@ public sealed class BodyState
     internal void Reanchor(long before, long after) { _hunger.Reanchor(before, after); _fatigue.Reanchor(before, after); }
     internal double FatigueAt(long tick) => _fatigue.At(tick);
     internal void RatesAt(long tick, double hunger, double fatigue) { _hunger.RateAt(tick, hunger); _fatigue.RateAt(tick, fatigue); }
-    internal int ThresholdIn(int limit, int mealAt)
+    internal int ThresholdIn(int limit, int mealAt, bool restThreshold = true)
     {
         double hunger = Hunger, fatigue = Fatigue;
         for (int i = 1; i < limit; i++)
         {
             hunger = Math.Clamp(hunger + _hunger.Rate, 0, 100); fatigue = Math.Clamp(fatigue + _fatigue.Rate, 0, 100);
-            if (hunger >= mealAt || fatigue >= 75 && _fatigue.Rate > 0) return i;
+            if (hunger >= mealAt || restThreshold && fatigue >= 75 && _fatigue.Rate > 0) return i;
         }
         return limit;
     }

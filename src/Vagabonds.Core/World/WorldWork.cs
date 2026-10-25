@@ -88,6 +88,7 @@ public sealed partial class WorldSession
             if (worker == null) { order.Worker = 0; continue; }
             if (worker.Recruited && (PartyTravelling || !order.PartyApproach && worker.Position.Distance(order.Target) > 1 || !InWorkRally(order.Target))) { order.Status = PartyTravelling ? "Travelling with the party" : "Outside rally area or work stopped"; continue; }
             if (State.Battle?.ActorIds.Contains(worker.Id) == true) { order.Status = "Worker in combat"; continue; }
+            if (RoutineInterruptsWork(worker)) { order.Status = "Interrupted: " + RoutineDescription(worker); continue; }
             if (!CampWorkerEligible(order, worker)) { order.Status = "This companion needs time before another camp story"; continue; }
             if (order.Kind == WorkKind.Forage && worker.Body.ForageAfter > State.Tick) { order.Status = "Gathering grounds recovering"; continue; }
             if (worker.Body.RestUntil > State.Tick || worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
@@ -101,7 +102,13 @@ public sealed partial class WorldSession
                     if (path == null) { order.Status = "No free observed approach; open access or move blockers"; if (!order.PinnedWorker) order.Worker = 0; }
                     else if (path.Count > 0) { MoveWorker(worker, path[0]); Contact(); }
                 }
-                else if (State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor) worker.Position = LocalStep(worker.Position, order.Target, worker.Id);
+                else if (State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor)
+                {
+                    var next = LocalStep(worker.Position, order.Target, worker.Id);
+                    MarkResidentBlocked(worker, next == worker.Position);
+                    if (next == worker.Position) order.Status = "No free approach; waiting for access";
+                    else worker.Position = next;
+                }
                 continue;
             }
             if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))

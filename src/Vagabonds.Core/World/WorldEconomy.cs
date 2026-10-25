@@ -136,7 +136,7 @@ public sealed partial class WorldSession
             }
         }
         // Patrols are persistent people, not duplicate actors created when chunks become active.
-        foreach (var guard in State.Actors.Where(a => a.Job == "guard" && !HasWork(a) && !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(State.Position) > 100))
+        foreach (var guard in State.Actors.Where(a => a.Job == "guard" && a.Routine == null && !HasWork(a) && !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(State.Position) > 100))
             { var destination = Plan.Towns[guard.HomeTown].Center.Offset((epoch % 5 - 2) * 4, 12); if (OccupantAt(destination, guard.Id) == null && (destination.Distance(State.Position) > 120 || GroundOpen(destination))) guard.Position = destination; }
     }
     private ActionResult Trade(WorldCommand command)

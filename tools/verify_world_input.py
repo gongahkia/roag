@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -367,6 +367,36 @@ def main():
                 check('surfaceLandingHasSeparatePartyTiles', client.formation())
                 before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
                 check('mouseRejectedLoadPreservesState', before == restored)
+            finally: client.close()
+        if 'world-routines' in args.scenes:
+            client = Client('world-routines', slot)
+            try:
+                person = next(a for a in client.ui()['actors'] if a['routine'] == 'Food')
+                check('residentExplainsFoodDestination', 'Seeking food from home supplies' in person['activity'])
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
+                client.capture('routine-food-destination')
+                initial = client.save(); food = initial['state']['towns'][0]['stocks']['food']
+                client.click('pause'); client.wait(lambda u: u['tick'] >= initial['state']['tick'] + 22); client.pause()
+                meal = client.save(); actor = next(a for a in meal['state']['actors'] if a['id'] == person['id'])
+                check('residentWalksToSuppliesBeforeEating', actor['body']['hunger'] < 10 and meal['state']['towns'][0]['stocks']['food'] == food - 1)
+                actor['body']['fatigue'] = 80; actor['body']['restUntil'] = 0; actor['routine'] = None
+                client.restore(meal); client.click('pause')
+                client.wait(lambda u: any(a['id'] == person['id'] and a['routine'] == 'Rest' for a in u['actors']))
+                client.pause(); travelling = client.save(); actor = next(a for a in travelling['state']['actors'] if a['id'] == person['id'])
+                check('walkingHomeDoesNotAlreadyRecoverFatigue', actor['body']['restUntil'] == 0 and actor['body']['fatigue'] >= 80)
+                # Explicit isolated arrival fixture: Core checks the full walk;
+                # native checks the rendered destination, actual rest and reload.
+                target = actor['routine']['target']; actor['position'] = {**target, 'y': target['y'] + 1}
+                leader = next(a for a in travelling['state']['actors'] if a['id'] == travelling['state']['party'][0])
+                leader['position'] = {**target, 'x': target['x'] + 1, 'y': target['y'] + 1}
+                travelling['state']['position'] = dict(leader['position']); client.restore(travelling)
+                before = client.ui()['tick']; client.click('pause'); client.wait(lambda u: u['tick'] >= before + 15); client.pause()
+                rested = client.save(); actor = next(a for a in rested['state']['actors'] if a['id'] == person['id'])
+                check('residentRecoversAtActualRestDestination', actor['body']['restUntil'] > rested['state']['tick'] and actor['body']['fatigue'] < 80)
+                person = next(a for a in client.ui()['actors'] if a['id'] == person['id'])
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
+                client.capture('routine-rest-home'); client.load(); restored = client.save()
+                check('physicalRoutineAndRestSurviveMouseReload', rested['state'] == restored['state'])
             finally: client.close()
         if 'world-resources' in args.scenes:
             client = Client('world-resources', slot)

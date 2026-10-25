@@ -69,6 +69,7 @@ internal sealed partial class WorldGame
         Text("Trust " + player.Trust.GetValueOrDefault(person.Id), middle, box.Top + 120, Gold);
         Text($"Hunger {person.Body.Hunger:0} / Fatigue {person.Body.Fatigue:0}", middle, box.Top + 144, Muted);
         Text($"Wounds {person.Body.Wounds} / {person.Job}", middle, box.Top + 168, Muted);
+        Text(Short(_session.RoutineDescription(person), 32), middle, box.Top + 212, Muted);
         if (_session.Content.Entries.GetValueOrDefault(person.CombatTrait) is TalentDefinition trait)
         {
             Text(Short(trait.Name, 32), middle, box.Top + 190, Gold);

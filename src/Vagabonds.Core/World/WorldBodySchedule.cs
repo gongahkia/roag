@@ -83,7 +83,7 @@ public sealed partial class WorldSession
     private void GatherBodies()
     {
         _bodyWorkers.Clear();
-        foreach (var work in State.Work) if (work.Worker > 0 && !work.Suspended) _bodyWorkers.Add(work.Worker);
+        foreach (var work in State.Work) if (work.Worker > 0 && !work.Suspended && !RoutineInterruptsWork(ActorById(work.Worker))) _bodyWorkers.Add(work.Worker);
         _bodyNear.Clear();
         ActorIndex.AddNearTo(State.Position, 100, _bodyNear);
         _bodyCandidates.Clear();
@@ -117,10 +117,10 @@ public sealed partial class WorldSession
         var body = actor.Body;
         if (actor.Life != LifeState.Alive) { body.RatesAt(at, 0, 0); return; }
         bool fighting = BodyFighting(actor);
-        bool automaticRest = !actor.Recruited && !fighting && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
+        bool automaticRest = !actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
         bool resting = !fighting && (body.RestUntil > next || automaticRest);
         double fatigue = Simulation.FatiguePerTick * (Disposition(actor)?.FatiguePercent ?? 100) / 100.0 / Math.Min(2, 1 + (actor.Level - 1) * .02);
-        body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 ? 2 : 1));
+        body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 && CanResidentForage(actor) ? 2 : 1));
     }
     private void ScheduleBody(BodySlot slot)
     {
@@ -134,10 +134,10 @@ public sealed partial class WorldSession
         if (_bodyNear.Contains(actor) || DetailedBodiesEverywhere) return;
         long due = State.Tick + (50 - State.Tick % 50);
         if (body.RestUntil > State.Tick) due = Math.Min(due, body.RestUntil);
-        if (body.Fatigue >= 75 && body.RestUntil <= State.Tick + 1) due = State.Tick + 1;
+        if (body.Fatigue >= 75 && CanBeginResidentRest(actor) && body.RestUntil <= State.Tick + 1) due = State.Tick + 1;
         for (int i = 0; i < actor.Memories.Count; i++) if (actor.Memories[i].Until > State.Tick) due = Math.Min(due, actor.Memories[i].Until);
         for (int i = 0; i < actor.Preparations.Count; i++) if (actor.Preparations[i].Until > State.Tick) due = Math.Min(due, actor.Preparations[i].Until);
-        due = State.Tick + body.ThresholdIn((int)(due - State.Tick), Simulation.MealAt);
+        due = State.Tick + body.ThresholdIn((int)(due - State.Tick), Simulation.MealAt, CanBeginResidentRest(actor));
         QueueBody(slot, due);
     }
     private void FinishBodyPass()
