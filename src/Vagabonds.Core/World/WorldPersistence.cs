@@ -94,6 +94,7 @@ public sealed partial class WorldSession
                 || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid resource work order.");
         }
+        if (state.Work.Any(session.SupplySourceChanged)) throw new InvalidDataException("Reserved storage no longer exists.");
         foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Camp))
         {
             if (order.Station is not { } station || !session.ServiceableCamp(station) || order.Target.Distance(station) > 2
@@ -180,6 +181,7 @@ public sealed partial class WorldSession
                 || !StackValid(b.Cost) || !double.IsFinite(b.Condition) || b.Condition is < 0 or > 100)
             || s.Structures.Select(b => b.Position).Distinct().Count() != s.Structures.Count
             || s.IncidentAfter.Any(p => !catalog.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
+        ValidateWorkSupplies(plan, s, catalog);
         foreach (var actor in s.Actors)
         {
             if (actor.VariantId == null || actor.VariantId.Length > 0 && (!catalog.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)
@@ -200,6 +202,7 @@ public sealed partial class WorldSession
                 || c.Choices.Any(id => id == null || SavedItem(id) is not { Slot: not "none" })
                 || (c.Choices.Length > 0 && c.Taken ? c.Selected == null || !c.Choices.Contains(c.Selected) : c.Selected != null))
             || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
+        if (s.Loot.Any(c => IsWorkSupplyCache(c) && (c.Choices.Length != 0 || c.Selected != null))) throw new InvalidDataException("Invalid returned supply bundle.");
         foreach (var cache in s.Loot.Where(c => c.SourceActor != 0))
         {
             var actor = s.Actors.FirstOrDefault(a => a.Id == cache.SourceActor);

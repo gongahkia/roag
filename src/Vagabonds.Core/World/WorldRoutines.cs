@@ -54,7 +54,7 @@ public sealed partial class WorldSession
             return;
         }
         var work = State.Work.FirstOrDefault(w => w.Worker == actor.Id && !w.Suspended);
-        if (work != null) { SetResidentRoutine(actor, RoutineKind.AssignedWork, work.Target, "Completing assigned " + work.Kind.ToString().ToLowerInvariant(), ground: false); return; }
+        if (work != null) { SetResidentRoutine(actor, RoutineKind.AssignedWork, WorkStop(work, actor.Id), "Completing assigned " + work.Kind.ToString().ToLowerInvariant(), ground: false); return; }
         int hour = (int)(State.Tick / TicksPerHour % 24);
         if (hour is >= 17 and <= 20 && actor.FriendId > 0)
         {

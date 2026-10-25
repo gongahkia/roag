@@ -28,7 +28,7 @@ public sealed partial class WorldSession
         }
         if (workerId == 0 && definition.Role == "stories" && !Party.Any(a => a.Life == LifeState.Alive && !a.Memories.Any(m => m.Key == "camp-story" && m.Until > State.Tick))) return "The companions have already shared their stories; let two game hours pass.";
         if (definition.Role == "treat" && !Party.Any(a => a.Life == LifeState.Alive && a.Position.Distance(camp) <= 6 && (a.Health < a.MaxHealth || a.Body.Wounds > 0))) return "No nearby conscious companion needs treatment.";
-        if (definition.Cost.Count > 0 && MissingSupplies(definition.Cost) is { Length: > 0 } missing) return missing;
+        if (definition.Cost.Count > 0 && WorkSuppliesReason(definition.Cost.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value), camp) is { Length: > 0 } missing) return missing;
         return CampWorkCell(camp, workerId) == null ? "Clear observed ground beside the camp for another duty." : "";
     }
     private WorldPosition? CampWorkCell(WorldPosition camp, long workerId)

@@ -48,6 +48,17 @@ public sealed partial class WorldSession
         if (cache == null || State.Position.Distance(target) > 1) return new(false, "Approach an unopened cache.");
         var discovery = State.Discoveries.FirstOrDefault(d => d.Id == cache.Id);
         if (discovery != null && DiscoveryGuarded(discovery)) return new(false, "Living foes still guard these supplies.");
+        if (IsWorkSupplyCache(cache))
+        {
+            int picked = 0;
+            foreach (var (stack, count) in cache.Contents.ToArray())
+            {
+                int amount = Math.Min(count, Math.Max(0, 9999 - Count(stack)));
+                Add(stack, amount); cache.Contents[stack] -= amount; picked += amount;
+            }
+            cache.Taken = cache.Contents.Values.All(v => v == 0);
+            return new(picked > 0, picked > 0 ? "Recovered " + picked + " supplies." + (cache.Taken ? "" : " The remaining bundle stays here.") : "Make room in the pack before recovering this supply bundle.");
+        }
         if (cache.Choices.Length > 0 && !cache.Choices.Contains(choice)) return new(false, "Choose one of the three offered pieces of equipment.");
         foreach (var (item, amount) in cache.Contents) Add(item, amount);
         if (cache.Choices.Length > 0) { var item = Item(choice); Add(item.Stack, 1); cache.Selected = choice; }

@@ -32,9 +32,10 @@ public sealed partial class WorldSession
     {
         if (State.Work.Count == 0 || IsInCombat || PartyTravelling) return;
         if (State.Work.Count > 0) State.WorkRally ??= State.Position;
-        // Reconsider automatic claims every tick, so high priority accessible work wins
-        // and an exhausted person never monopolises an order another member can do.
-        foreach (var order in State.Work.Where(o => !o.PinnedWorker && o.PartyApproach && !o.Suspended)) order.Worker = 0;
+        // Reconsider unladen automatic claims every tick. A ready carrier keeps
+        // the trip until delivery; an unavailable carrier can hand off the cargo.
+        foreach (var order in State.Work.Where(o => !o.PinnedWorker && o.PartyApproach && !o.Suspended))
+            if (!HoldsWorkSupplies(order, order.Worker) || !ReadyForWork(ActorById(order.Worker))) order.Worker = 0;
         var available = Party.Where(a => ReadyForWork(a) && !State.Work.Any(o => o.Worker == a.Id))
             .OrderBy(a => a.Id).ToList();
         var routes = new Dictionary<long, WorkRoutes>();
@@ -45,7 +46,7 @@ public sealed partial class WorldSession
             if (!InWorkRally(order.Target)) { order.Status = "Outside the 16-tile rally area; move the party closer"; continue; }
             if (available.Count == 0) { order.Status = "Waiting for a free, rested party member"; continue; }
             var choice = available.Where(a => (order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a,
-                Path: a.Position.Distance(order.Target) <= 1 ? new List<WorldPosition>() : WorkPath(a, order.Target, routes: Routes(a))))
+                Path: a.Position.Distance(WorkStop(order, a.Id)) <= 1 ? new List<WorldPosition>() : WorkPath(a, WorkStop(order, a.Id), routes: Routes(a))))
                 .Where(p => p.Path != null).OrderBy(p => p.Path!.Count).ThenBy(p => p.Actor.Id).FirstOrDefault();
             if (choice.Actor == null) { order.Status = "No free observed approach; open access or move blockers"; continue; }
             order.Worker = choice.Actor.Id; available.Remove(choice.Actor);

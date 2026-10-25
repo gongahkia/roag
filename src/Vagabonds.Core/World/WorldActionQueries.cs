@@ -182,10 +182,10 @@ public sealed partial class WorldSession
             .Select(c => $"{c.Value} {Content.Get<ItemDefinition>(c.Key).Name} ({Count(Content.Get<ItemDefinition>(c.Key).Stack)} carried)").ToArray();
         return missing.Length == 0 ? "" : "Needs " + string.Join(", ", missing) + ".";
     }
-    public string RecipeSuppliesReason(Material material)
+    public string RecipeSuppliesReason(Material material, WorldPosition? target = null)
     {
         var recipe = Content.Game.Recipes.Select(Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Output == null && r.Material == material);
-        return recipe == null ? "No construction recipe is available." : MissingSupplies(recipe.Cost);
+        return recipe == null ? "No construction recipe is available." : WorkSuppliesReason(RecipeCost(recipe), target ?? State.Position);
     }
     public string TargetBlockReason(WorldCommandKind kind, WorldPosition target, Material build = Material.Wall, bool requireAdjacent = true)
     {
@@ -209,12 +209,12 @@ public sealed partial class WorldSession
             if (owned != null || before == build) return "Dismantle the existing structure before replacing it.";
             if (!GroundOpen(target) && before != Material.Water || before == Material.Water && build != Material.Bridge) return "Build on clear ground; water requires a bridge.";
             if ((!Materials.Walkable(build) || build == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == target)) return "Someone is standing on the construction site.";
-            return RecipeSuppliesReason(build);
+            return RecipeSuppliesReason(build, target);
         }
         if (kind == WorldCommandKind.Dig)
         {
             if (prop is not { Removable: true } && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
-            if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == target.Chunk)?.Storage.GetValueOrDefault(target.LocalIndex)?.Values.Any(v => v > 0) == true) return "Empty the storage before dismantling it.";
+            if (before == Material.Storage && (StorageReservedForWork(target) || State.Chunks.FirstOrDefault(c => c.Key == target.Chunk)?.Storage.GetValueOrDefault(target.LocalIndex)?.Values.Any(v => v > 0) == true)) return "Empty the storage and release its reserved work supplies before dismantling it.";
             return "";
         }
         if (kind == WorldCommandKind.Repair)
@@ -222,7 +222,7 @@ public sealed partial class WorldSession
             if (owned == null) return "Choose an owned structure.";
             if (owned.Condition >= 95) return "This structure does not need repairs.";
             string stack = owned.Material is Material.Wall or Material.Floor ? "stone" : "wood";
-            return Count(stack) < 1 ? "Repairs need one " + stack + "." : "";
+            return WorkSuppliesReason(new() { [stack] = 1 }, target);
         }
         return "";
     }
@@ -252,7 +252,7 @@ public sealed partial class WorldSession
                 var recipe = Content.Game.Recipes.Select(Content.Get<RecipeDefinition>).FirstOrDefault(r => r.Id == command.Item && r.Output != null);
                 if (recipe == null) return "Choose a camp crafting recipe.";
                 if (!NearbyCamp(State.Position)) return "Approach a serviceable camp first.";
-                string missing = MissingSupplies(recipe.Cost); if (missing.Length > 0) return missing;
+                string missing = WorkSuppliesReason(RecipeCost(recipe), State.Position); if (missing.Length > 0) return missing;
                 var camp = new[] { State.Position }.Concat(Directions.Select(d => State.Position.Offset(d.X, d.Y))).First(p => Chunks.At(p) == Material.Camp);
                 if (State.Work.Any(w => w.Target == camp)) return "This camp already has a work order.";
                 break;

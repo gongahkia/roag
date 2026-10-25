@@ -64,7 +64,12 @@ public sealed partial class WorldSession
         if (requireAdjacent && State.Position.Distance(d.Position) > 1) return "Approach this landmark first.";
         if (State.Work.Any(w => w.Target == d.Position)) return "An order is already addressing this place.";
         if (approach.Work > 0 && State.Work.Count >= 64) return "The work list is full.";
-        if (approach.Cost.Any(p => Count(Content.Get<ItemDefinition>(p.Key).Stack) < p.Value)) return "Needs " + ApproachCost(approach) + ".";
+        if (approach.Work > 0)
+        {
+            string supplies = WorkSuppliesReason(approach.Cost.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value), d.Position);
+            if (supplies.Length > 0) return supplies;
+        }
+        else if (approach.Cost.Any(p => Count(Content.Get<ItemDefinition>(p.Key).Stack) < p.Value)) return "Needs " + ApproachCost(approach) + ".";
         return "";
     }
     private ActionResult ApproachDiscovery(WorldPosition p, string action)

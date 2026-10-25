@@ -52,7 +52,10 @@ public sealed class SimulationTests : IDisposable
         Assert.True(s.Submit(new(WorldCommandKind.Build, p, Material: Material.Wall)).Success);
         var order = Assert.Single(s.State.Work); order.Required = 1000;
         Assert.True(s.Submit(new(WorldCommandKind.AssignWork, ActorId: worker.Id, WorkId: order.Id)).Success);
-        Wait(s, 30); Assert.True(order.Progress > 0); Assert.InRange(worker.Position.Distance(p), 0, 1);
+        // Collecting supplies adds a real trip; a passing resident can also
+        // occupy the site briefly before the assigned builder starts.
+        for (int i = 0; i < 20 && order.Progress == 0; i++) Wait(s, 5);
+        Assert.True(order.Progress > 0, $"{order.Status}; worker {worker.Position}; target {p}; supplies {JsonSerializer.Serialize(order.Supplies)}"); Assert.InRange(worker.Position.Distance(p), 0, 1);
         double progress = order.Progress; var workingCell = worker.Position;
         Assert.InRange(worker.Position.Distance(s.State.Position), 0, 2);
         Assert.True(s.Submit(new(WorldCommandKind.Recruit, ActorId: worker.Id)).Success);

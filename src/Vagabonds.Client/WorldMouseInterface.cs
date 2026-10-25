@@ -249,7 +249,7 @@ internal sealed partial class WorldGame
                         var order = orders[_workPage * 5 + i];
                         var assigned = _session.State.Actors.FirstOrDefault(a => a.Id == order.Worker);
                         Add("work:" + order.Id, WorkName(order) + " / " + (assigned?.Name ?? "Waiting for worker"), x, y + 28 + i * 42, leftWidth, 38, selected: SelectedWork()?.Id == order.Id,
-                            tip: $"#{order.Id} at {order.Target.X}, {order.Target.Y}: {order.Status}. {order.Progress:0}/{order.Required:0} work. Reserved: " + string.Join(", ", order.Reserved.Select(c => c.Value + " " + c.Key)),
+                            tip: $"#{order.Id} at {order.Target.X}, {order.Target.Y}: {order.Status}. {order.Progress:0}/{order.Required:0} work. " + _session.WorkSupplyDescription(order),
                             sprite: WorkSprite(order), detail: order.Suspended ? "Suspended" : order.Status, progress: (float)(order.Progress / Math.Max(1, order.Required)), badge: assigned?.Sprite);
                     }
                     for (int i = 0; i < Math.Min(5, workers.Length - _workerPage * 5); i++)
@@ -263,7 +263,7 @@ internal sealed partial class WorldGame
                     Add("workerpage:-1", "Previous", rightX, y + 244, 112, enabled: _workerPage > 0); Add("workerpage:1", "Next", rightX + 120, y + 244, 96, enabled: (1 + _workerPage) * 5 < workers.Length);
                     string assignment = _session.CommandBlockReason(new(WorldCommandKind.AssignWork, ActorId: SelectedWorker()?.Id ?? 0, WorkId: SelectedWork()?.Id ?? 0));
                     Add("assign", "Assign selected worker", x, box.Bottom - 104, 256, enabled: assignment.Length == 0, reason: assignment);
-                    Add("cancel-work", "Cancel and refund", x + 268, box.Bottom - 104, 224, enabled: SelectedWork() != null);
+                    Add("cancel-work", "Cancel and release", x + 268, box.Bottom - 104, 224, enabled: SelectedWork() != null, tip: "Return nearby supplies; remote materials remain in a recoverable supply bundle.");
                     var selectedOrder = SelectedWork();
                     Add("work-setting:" + (selectedOrder?.Suspended == true ? "resume" : "suspend"), selectedOrder?.Suspended == true ? "Resume" : "Suspend", x, box.Bottom - 60, 140, enabled: selectedOrder != null);
                     Add("work-setting:priority", "Priority: " + new[] { "Low", "Normal", "High" }[selectedOrder?.Priority ?? 1], x + 152, box.Bottom - 60, 200, enabled: selectedOrder != null);
@@ -561,7 +561,8 @@ internal sealed partial class WorldGame
                 material = _session.Chunks.At(p).ToString(), groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
                 clickable = WorldMouseControl.Hit(_controls, TileRect(p).Center) == null,
                 prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
-            work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker }),
+            work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker,
+                supplies = o.Supplies?.Select(s => new { s.Stack, s.Count, phase = s.Phase.ToString(), s.Carrier, s.Storage }), supplyDescription = _session.WorkSupplyDescription(o) }),
             rally = _session.State.WorkRally,
             dialogue = _panel is not ("person" or "camp-story") || _dialogue == null ? null : new { speaker = _dialogue.Line?.Speaker, name = _dialogue.Line?.Name, text = _dialogue.Text, fullText = playerView ? _dialogue.Text : _dialogue.Line?.Text, speaking = _dialogue.Speaking, finished = _dialogue.Finished, volume = _voiceVolume, reducedMotion = _reducedMotion, audioUnavailable = _voice?.Unavailable ?? false, playedSyllables = _voice?.PlayedSyllables ?? 0, portraits = _session.State.Actors.Where(a => a.Id == _person || a.Id == _session.State.Party[0]).Select(a => new { id = a.Id, bounds = Rect(SpeakingPortrait(a, PanelBox(w, h), a.Id == _person)) }) },
             hover = _hover, waypoint = _waypoint is { } mark ? new { x = mark.X, y = mark.Y, floor = mark.Floor } : null,

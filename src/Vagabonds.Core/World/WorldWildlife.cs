@@ -127,6 +127,6 @@ public sealed partial class WorldSession
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });
     }
-    public string LootName(LootCache cache) => cache.SourceActor > 0 ? State.Actors.First(a => a.Id == cache.SourceActor).Name + " remains" : "Unopened cache";
+    public string LootName(LootCache cache) => IsWorkSupplyCache(cache) ? "Returned supply bundle" : cache.SourceActor > 0 ? State.Actors.First(a => a.Id == cache.SourceActor).Name + " remains" : "Unopened cache";
     public static string LootSprite(LootCache cache) => cache.SourceActor > 0 ? "animal-bones" : "chest";
 }

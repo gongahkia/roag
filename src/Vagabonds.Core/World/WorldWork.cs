@@ -25,7 +25,7 @@ public sealed partial class WorldSession
         var before = Chunks.At(p); var owned = State.Structures.FirstOrDefault(s => s.Position == p);
         bool prop = ObjectAt(p) is { Removable: true };
         if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
-        if (before == Material.Storage && State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true) return new(false, "Empty the storage first.");
+        if (before == Material.Storage && (StorageReservedForWork(p) || State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true)) return new(false, "Empty the storage and release its reserved work supplies first.");
         int hardness = prop ? 1 : Materials.Hardness(before);
         return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
             Required = hardness * 5, Reserved = [],
@@ -54,8 +54,8 @@ public sealed partial class WorldSession
     private ActionResult QueueWork(WorkOrder order)
     {
         if (State.Work.Count >= 64 || State.Work.Any(w => w.Target == order.Target)) return new(false, "A work order already occupies this cell, or the work list is full.");
-        if (order.Reserved.Any(p => Count(p.Key) < p.Value)) return new(false, "Required supplies: " + string.Join(", ", order.Reserved.Select(p => p.Value + " " + p.Key)) + ".");
-        foreach (var (item, amount) in order.Reserved) Add(item, -amount);
+        if (!PlanWorkSupplies(order.Reserved, order.Target, out var supplies)) return new(false, WorkSuppliesReason(order.Reserved, order.Target));
+        ReserveWorkSupplies(order, supplies);
         order.Id = State.NextWorkId++; order.PartyApproach = true;
         State.WorkRally ??= State.Position;
         order.Worker = Party.FirstOrDefault(a => a.Life == LifeState.Alive && !State.Work.Any(o => o.Worker == a.Id) && a.Position.Distance(order.Target) <= 1)?.Id ?? 0;
@@ -73,15 +73,15 @@ public sealed partial class WorldSession
     {
         var order = State.Work.FirstOrDefault(w => w.Id == id);
         if (order == null) return new(false, "Choose a pending order.");
-        foreach (var (item, amount) in order.Reserved) Add(item, amount);
-        State.Work.Remove(order); return new(true, "Work cancelled; reserved supplies returned once.");
+        ReturnWorkSupplies(order);
+        State.Work.Remove(order); return new(true, "Work cancelled; supplies returned locally or left in a recoverable supply cache.");
     }
     private void AdvanceWork()
     {
         DispatchPartyWork();
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
-            if (order.Kind == WorkKind.Discovery && !SituationWorkValid(order) || order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
+            if (SupplySourceChanged(order) || order.Kind == WorkKind.Discovery && !SituationWorkValid(order) || order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target))
             { CancelWork(order.Id); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
@@ -93,22 +93,18 @@ public sealed partial class WorldSession
             if (order.Kind == WorkKind.Forage && worker.Body.ForageAfter > State.Tick) { order.Status = "Gathering grounds recovering"; continue; }
             if (worker.Body.RestUntil > State.Tick || worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
             { order.Status = "Worker needs food, rest or treatment"; continue; }
-            if (worker.Position.Distance(order.Target) > 1)
+            if (!AdvanceWorkSupplies(order, worker) || !ApproachWorkStop(order, worker, order.Target, "Approaching")) continue;
+            if (worker.Position == order.Target && order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp))
             {
-                order.Status = "Approaching: " + worker.Name;
-                if (worker.Recruited)
-                {
-                    var path = WorkPath(worker, order.Target);
-                    if (path == null) { order.Status = "No free observed approach; open access or move blockers"; if (!order.PinnedWorker) order.Worker = 0; }
-                    else if (path.Count > 0) { MoveWorker(worker, path[0]); Contact(); }
-                }
-                else if (State.Tick % 5 == 0 && worker.Position.Floor == order.Target.Floor)
-                {
-                    var next = LocalStep(worker.Position, order.Target, worker.Id);
-                    MarkResidentBlocked(worker, next == worker.Position);
-                    if (next == worker.Position) order.Status = "No free approach; waiting for access";
-                    else worker.Position = next;
-                }
+                order.Status = "Stepping clear of the construction site";
+                if (worker.Recruited || State.Tick % 5 == 0)
+                    foreach (var (dx, dy) in Directions)
+                    {
+                        var next = worker.Position.Offset(dx, dy);
+                        if (!CanEnter(next, worker.Id) || worker.Recruited && (!InWorkRally(next) || !Chunks.Seen(next))) continue;
+                        if (worker.Recruited) { MoveWorker(worker, next); Contact(); } else worker.Position = next;
+                        break;
+                    }
                 continue;
             }
             if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))

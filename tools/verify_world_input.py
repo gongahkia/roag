@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -367,6 +367,40 @@ def main():
                 check('surfaceLandingHasSeparatePartyTiles', client.formation())
                 before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
                 check('mouseRejectedLoadPreservesState', before == restored)
+            finally: client.close()
+        if 'world-supplies' in args.scenes:
+            client = Client('world-supplies', slot)
+            try:
+                origin = client.ui()['position']; target = {'x': origin['x'] + 5, 'y': origin['y']}
+                check('supplySceneStartsWithoutCarriedStone', client.ui()['inventory'].get('stone', 0) == 0)
+                client.context(target); client.click('context:build')
+                check('constructionCanUseObservedStorage', next(c for c in client.ui()['controls'] if c['id'] == 'context:construct:Wall')['enabled'])
+                client.click('context:construct:Wall'); client.pause()
+                waiting = client.save(); work = waiting['state']['work'][0]
+                check('storageReservationWaitsForActualPickup', work['progress'] == 0 and work['supplies'][0]['phase'] == 0)
+                client.click('panel:work'); client.capture('supply-pickup-order'); client.click('close'); client.click('pause')
+                client.wait(lambda u: u['work'] and any(s['phase'] == 'Carrying' for s in u['work'][0]['supplies']))
+                client.pause(); carrying = client.save(); work = carrying['state']['work'][0]
+                carrier = next(a for a in carrying['state']['actors'] if a['id'] == work['supplies'][0]['carrier'])
+                check('actualWorkerCarriesReservedMaterial', carrier['cargo'].get('stone') == 2 and work['progress'] == 0)
+                client.click('panel:work'); client.capture('supply-hauling-order'); client.click('close'); client.load(); restored = client.save()
+                check('carriedSupplyOwnerSurvivesMouseReload', restored['state']['work'] == carrying['state']['work']
+                    and next(a for a in restored['state']['actors'] if a['id'] == carrier['id'])['cargo'] == carrier['cargo'])
+                client.click('pause'); client.wait(lambda u: not u['work']); client.pause(); completed = client.save()
+                check('deliveredSupplyBecomesActualStructureCost', any(s['position']['x'] == target['x'] and s['position']['y'] == target['y'] and s['cost'].get('stone') == 2 for s in completed['state']['structures'])
+                    and next(a for a in completed['state']['actors'] if a['id'] == carrier['id'])['cargo'].get('stone', 0) == 0)
+                next_target = client.free_cell(distance=3); client.context(next_target); client.click('context:build'); client.click('context:construct:Wall')
+                client.wait(lambda u: u['work'] and any(s['phase'] == 'Carrying' for s in u['work'][0]['supplies'])
+                    and abs(u['position']['x'] - (origin['x'] - 5)) + abs(u['position']['y'] - origin['y']) > 1)
+                client.pause(); client.click('panel:work'); client.click('cancel-work'); client.click('close'); cancelled = client.save()
+                bundle = next(c for c in cancelled['state']['loot'] if c['id'].startswith('work-return-') and not c['taken'])
+                check('remoteCancellationLeavesRecoverableBundle', bundle['contents'].get('stone') == 2 and not cancelled['state']['work'])
+                free = client.free_cell(); client.tile(free['x'], free['y']); client.wait(lambda u: u['position']['x'] == free['x'] and u['position']['y'] == free['y']); client.pause()
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(bundle['position']['x'], bundle['position']['y'])))
+                client.capture('supply-return-bundle'); client.tile(bundle['position']['x'], bundle['position']['y'])
+                client.wait(lambda u: u['notice'].startswith('Recovered') and u['inventory'].get('stone') == 2)
+                recovered = client.save(); check('returnedSupplyCanBeRecoveredWithoutDuplication', recovered['state']['inventory'].get('stone') == 2
+                    and next(c for c in recovered['state']['loot'] if c['id'] == bundle['id'])['taken'])
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

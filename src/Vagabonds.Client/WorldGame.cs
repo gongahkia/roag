@@ -61,6 +61,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-routines") RoutinePreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
         if (!options.Load && options.Scene == "world-situation") { _discoveryId = SituationPreview.Prepare(_session, "discovery.trapped-storeroom").Id; _panel = "discovery"; }
         if (!options.Load && options.Scene == "world-cooperation") CooperationPreview.Prepare(_session);

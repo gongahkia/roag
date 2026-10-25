@@ -81,7 +81,7 @@ public sealed partial class WorldSession
             if (Count("food") < 1) return false;
             Add("food", -1); return true;
         }
-        if (actor.Cargo.GetValueOrDefault("food") > 0)
+        if (FreeCargo(actor, "food") > 0)
         { actor.Cargo["food"]--; State.ResourcesConsumed++; return true; }
         var town = State.Towns[actor.HomeTown];
         if (actor.Kind == ActorKind.Person && actor.Position.Distance(State.Position) <= 100 && actor.Routine is { } routine

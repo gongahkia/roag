@@ -202,6 +202,7 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     public bool Seen(WorldPosition p) => plan.Contains(p) && _deltas.TryGetValue(p.Chunk, out var delta) && delta.Discovered.Contains(p.LocalIndex);
     public bool IsEdited(WorldPosition p) => _deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.ContainsKey(p.LocalIndex);
     public ResourceStock? ResourceStockAt(WorldPosition p) => _deltas.GetValueOrDefault(p.Chunk)?.Resources.GetValueOrDefault(p.LocalIndex);
+    internal ChunkDelta? ExistingDelta(ChunkKey key) => _deltas.GetValueOrDefault(key);
     public ChunkDelta Delta(ChunkKey key)
     {
         if (_deltas.TryGetValue(key, out var delta)) return delta;

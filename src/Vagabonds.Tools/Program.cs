@@ -149,6 +149,7 @@ public static class DeveloperEntry
                 else if (kind == "resource") Print(ResourcePreview.Run(catalog, id, seed));
                 else if (kind == "party-work") Print(PartyWorkPreview.Run(catalog, seed));
                 else if (kind == "routine") Print(RoutinePreview.Run(catalog, seed));
+                else if (kind == "work-supplies") Print(WorkSupplyPreview.Run(catalog, seed));
                 else if (kind == "recipe") Print(SimulationPreview.Recipe(catalog, id, seed));
                 else if (kind == "simulation") Print(SimulationPreview.Simulation(SimulationPreview.WithGame(catalog, g => g["simulation"] = catalog.Get<SimulationDefinition>(id).Id), seed));
                 else if (kind == "incident") Print(SimulationPreview.Incident(catalog, id, seed));
@@ -186,11 +187,11 @@ public static class DeveloperEntry
             {
                 Print(new { catalogValid = catalog.Issues.Count == 0, count = catalog.Entries.Count,
                     kinds = ContentCatalog.Kinds.Select(k => new { kind = k, definitions = catalog.Entries.Values.Count(d => ContentCatalog.Kind(d) == k) }),
-                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "talent", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "reward", "party-work", "routine" },
+                    previews = new[] { "character", "ability", "interaction", "generation", "encounter", "recipe", "simulation", "incident", "item", "class", "names", "trait", "talent", "variant", "game", "discovery", "dialogue", "resource", "camp", "affix", "reward", "party-work", "routine", "work-supplies" },
                     registeredEffects = ContentCatalog.Effects, registeredInteractions = ContentCatalog.Actions,
                     ecology = new { behaviors = new[] { "flee", "defend", "roost" }, preview = "preview character ID", audit = "audit-wildlife --seed N --samples N" },
                     cooperation = new { abilities = catalog.Game.CooperativeAbilities, preview = "preview ability ID", nativeScene = "world-cooperation", rule = "Both participants spend mana and one action; helper must still have a turn this round." },
-                    simulation = new { audit = "audit-simulation --seeds 42,1337,-42 --steps 7200 [--output FILE]", routinePreview = "preview routine", routineKinds = Enum.GetNames<RoutineKind>(), nativeScene = "world-routines", rule = "Compare real scheduled and full-cadence ticks, resource conservation and exact interrupted saves." },
+                    simulation = new { audit = "audit-simulation --seeds 42,1337,-42 --steps 7200 [--output FILE]", routinePreview = "preview routine", supplyPreview = "preview work-supplies", routineKinds = Enum.GetNames<RoutineKind>(), nativeScene = "world-routines", rule = "Compare real scheduled and full-cadence ticks, resource conservation and exact interrupted saves." },
                     progression = new { effects = TalentDefinition.Effects, preview = "preview talent ID", audit = "audit-expedition --seeds 42,1337,-42,2026", rule = "One generated innate trait; one permanent class choice at levels two and four." },
                     encounters = new { preview = "preview encounter encounter.ID", rewards = "preview reward reward.ID", nativeScene = "world-encounters", populationAudit = "audit-encounters --seeds 42,1337,-42,2026", counterplayAudit = "audit-counterplay --seed N", rule = "Composed groups, fixed prepared targets, one-time rewards per persistent source." },
                     documentation = new { authoring = File.Exists("docs/CONTENT_AUTHORING.md"), integration = File.Exists("docs/INTEGRATION.md") },

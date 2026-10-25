@@ -53,7 +53,7 @@ public sealed partial class WorldSession
             talents = a.Talents.ToArray(), equipment = a.Equipment.ToDictionary(p => p.Key, p => p.Value) }).ToArray(),
         inventory = new Dictionary<string, int>(State.Inventory),
         work = State.Work.Select(o => new { o.Id, kind = o.Kind.ToString(), o.Target, o.Worker, o.Progress,
-            o.Status, o.Priority, o.Suspended }).ToArray(),
+            o.Status, o.Priority, o.Suspended, supplies = o.Supplies?.Select(s => new { s.Stack, s.Count, phase = s.Phase.ToString(), s.Carrier, s.Storage }).ToArray() }).ToArray(),
         knownDiscoveries = State.Discoveries.Count(d => d.Known), visitedDiscoveries = State.Discoveries.Count(d => d.Visited),
         visitedSites = State.VisitedSites.Count, residentChunks = Chunks.ResidentCount,
         modifiedChunks = State.Chunks.Count, cachedFootprints = Chunks.Generator.CachedFootprints,

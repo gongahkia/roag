@@ -66,6 +66,7 @@ public sealed class ResidentRoutineTests : IDisposable
         threat.Position = p.Offset(12, 0); threat.Body.RestUntil = 1000;
         Assert.True(world.Submit(new(WorldCommandKind.Build, p.Offset(1, 0), Material: Material.Wall)).Success);
         var work = Assert.Single(world.State.Work); work.Required = 1000; work.Progress = 3;
+        foreach (var supply in work.Supplies!) supply.Phase = SupplyPhase.Delivered; // Already supplied partial construction.
         Assert.True(world.Submit(new(WorldCommandKind.AssignWork, ActorId: person.Id, WorkId: work.Id)).Success);
         var reserved = new Dictionary<string, int>(work.Reserved); int distance = person.Position.Distance(threat.Position);
         world.AdvanceTicks(5);
@@ -92,12 +93,14 @@ public sealed class ResidentRoutineTests : IDisposable
     {
         using var world = Prepare(out var person); var p = world.State.Position;
         Assert.True(world.Submit(new(WorldCommandKind.Build, p.Offset(1, 0), Material: Material.Wall)).Success);
-        var work = Assert.Single(world.State.Work); work.Required = 1000; work.Progress = 3;
+        var work = Assert.Single(world.State.Work); work.Required = 1000;
         Assert.True(world.Submit(new(WorldCommandKind.AssignWork, ActorId: person.Id, WorkId: work.Id)).Success);
+        for (int i = 0; i < 100 && work.Progress < 3; i++) world.AdvanceTicks(1);
+        Assert.True(work.Progress >= 3); double progress = work.Progress;
         person.Body.Fatigue = 80; world.AdvanceTicks(5); Assert.Equal(RoutineKind.Rest, person.Routine!.Kind);
         var far = world.Plan.Towns[1].Center; world.State.Position = world.Party.Single().Position = far; world.Reveal();
         Assert.Equal(400, world.AdvanceTicks(400));
-        Assert.True(work.Progress > 3); Assert.Equal(person.Id, work.Worker);
+        Assert.True(work.Progress > progress); Assert.Equal(person.Id, work.Worker);
         Assert.Same(person, world.ActorById(person.Id)); Assert.Single(world.State.Actors, a => a.Id == person.Id);
     }
 

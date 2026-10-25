@@ -320,8 +320,20 @@ public sealed class BodyState
 }
 public sealed record ActorMemory(string Key, string Text, long Tick, long Until, int Mood, long Other = 0);
 public enum WorkKind { Build, Dig, Repair, Craft, Forage, Harvest, Camp, Discovery }
+public enum SupplyPhase { Waiting, Carrying, Delivered }
+public sealed class WorkSupply
+{
+    [JsonRequired] public string Stack { get; set; } = "";
+    [JsonRequired] public int Count { get; set; }
+    [JsonRequired] public WorldPosition? Storage { get; set; }
+    [JsonRequired] public SupplyPhase Phase { get; set; }
+    [JsonRequired] public long Carrier { get; set; }
+}
 public sealed class WorkOrder
 {
+    // Version zero is an older order whose reserved cost was already onsite.
+    public int SupplyVersion { get; set; }
+    public List<WorkSupply>? Supplies { get; set; }
     public string Method { get; set; } = "";
     [JsonRequired] public long Id { get; set; }
     [JsonRequired] public WorkKind Kind { get; set; }
