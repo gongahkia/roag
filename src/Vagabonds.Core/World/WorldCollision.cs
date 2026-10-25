@@ -36,7 +36,7 @@ public sealed partial class WorldSession
     }
 
     public Actor? OccupantAt(WorldPosition p, long except = 0, bool observedOnly = false) =>
-        observedOnly && !Visible.Contains(p) ? null : State.Actors.FirstOrDefault(a => a.Id != except && a.Life != LifeState.Dead && a.Position == p);
+        observedOnly && !Visible.Contains(p) ? null : ActorIndex.Occupant(p, except);
 
     public bool GroundOpen(WorldPosition p)
     {

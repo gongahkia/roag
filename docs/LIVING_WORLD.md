@@ -4,7 +4,7 @@ Approved scope: the complete performance and simulation proposal in the conversa
 
 ## Implementation order and completion evidence
 
-1. Spatial actor index: ordered tile/region/identity queries, mutation notifications, collision/hidden-actor tests and serialization/save continuation.
+1. Spatial actor index: implemented ordered tile/region/identity queries and mutation notifications. Focused tests (35), full Core (667) and seed-42 final-state comparison passed; world/scaling acceptance remains part of final verification.
 2. Streaming: bounded background generation with independent worker generator, ordered publication, predictive camera/travel requests, cache limits, deterministic comparison and lifecycle tests.
 3. Presentation/profile infrastructure: reusable terrain/panel cache invalidation, CPU/GC/graphics captures and before/after evidence in isolated sessions.
 4. Scheduled simulation: event deadlines and explicit near/far transitions, body/accounting equivalence, production/recovery continuity, deterministic saved deadlines.

@@ -2,6 +2,10 @@
 
 **Last reconciled: 2026-10-24.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
 
+## Living-world actor queries — 2026-10-25
+
+Actor identities, occupied cells and 16-tile regions have ephemeral ordered indexes. Collection insertion/removal/replacement and position/identity changes invalidate or update them; dead actors are filtered live and downed actors continue blocking cells. Party lookup, collision, nearby movement and contact use the indexes while retaining original collection ordering and observed-only privacy. The actor collection still serializes as the same JSON array; no content, generation or save version changed. The full expansion remains in progress in [LIVING_WORLD.md](LIVING_WORLD.md).
+
 ## Performance review — 2026-10-24
 
 The [performance review](PERFORMANCE_REVIEW.md) links recorded evidence, reproducible before/after benchmarks and atomic commits. Paired local fixtures allocated 45% less per exploration frame, 33% less in the resource scene and 98% less in battle. Adjacent work ticks allocated 93–96% less, with exact final state hashes retained for seeds 42/1337. Observed software-rendered timing improved; these measurements do not promise production FPS. Fresh acceptance is recorded in VERIFICATION.md.

@@ -22,7 +22,7 @@ public sealed partial class WorldSession : IGameSession
     public bool DeathPending { get; private set; }
     public string? SavePath { get; set; }
     public HashSet<WorldPosition> Visible { get; } = [];
-    public IEnumerable<Actor> Party => State.Party.Select(id => State.Actors.Single(a => a.Id == id));
+    public IEnumerable<Actor> Party => State.Party.Select(ActorById);
     private long _frameRemainder;
     private (int Left, int Top, int Right, int Bottom)? _surfaceView;
     internal WorldSession(WorldPlan plan, WorldState state, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
@@ -325,7 +325,7 @@ public sealed partial class WorldSession : IGameSession
     {
         if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var positions = Party.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToArray();
-        foreach (var actor in State.Actors)
+        foreach (var actor in ActorIndex.Near(positions, 1))
         {
             if (!IsHostile(actor)) continue;
             foreach (var position in positions)
@@ -334,7 +334,7 @@ public sealed partial class WorldSession : IGameSession
     }
     private void MoveActors()
     {
-        foreach (var a in State.Actors)
+        foreach (var a in ActorsNear(State.Position, 100))
         {
             if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             if (Ecology(a) is { } ecology) { MoveWildlife(a, ecology); continue; }

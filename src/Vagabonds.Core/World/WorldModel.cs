@@ -168,6 +168,9 @@ public sealed record Preparation(string Definition, string Effect, int Power, lo
 public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
 public sealed class Actor
 {
+    private WorldPosition _position;
+    private long _id;
+    internal event Action<Actor, WorldPosition>? IndexChanged;
     [JsonRequired] public WorldPosition? Habitat { get; set; }
     [JsonRequired] public long ProvokedUntil { get; set; }
     [JsonRequired] public BodyState Body { get; set; } = new();
@@ -186,13 +189,17 @@ public sealed class Actor
     public int BaseSpeed { get; set; } = 6;
     public string SpriteId { get; set; } = "";
     [JsonRequired]
-    public long Id { get; set; }
+    public long Id { get => _id; set { if (_id == value) return; _id = value; IndexChanged?.Invoke(this, _position); } }
     [JsonRequired]
     public string Name { get; set; } = "";
     [JsonRequired]
     public ActorKind Kind { get; set; }
     [JsonRequired]
-    public WorldPosition Position { get; set; }
+    public WorldPosition Position
+    {
+        get => _position;
+        set { if (_position == value) return; var before = _position; _position = value; IndexChanged?.Invoke(this, before); }
+    }
     [JsonRequired]
     public int HomeTown { get; set; }
     [JsonRequired]
@@ -433,7 +440,7 @@ public sealed class WorldState
     [JsonRequired]
     public long NextActorId { get; set; } = 100000;
     [JsonRequired]
-    public List<Actor> Actors { get; set; } = [];
+    public ActorCollection Actors { get; set; } = [];
     [JsonRequired]
     public List<long> Party { get; set; } = [];
     [JsonRequired]
