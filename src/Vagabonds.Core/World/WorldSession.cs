@@ -355,27 +355,33 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         }
         Contact();
     }
-    private WorldPosition LocalStep(WorldPosition start, WorldPosition destination, long actorId = 0)
+    private sealed class LocalRouteScratch
     {
-        var occupied = State.Actors.Where(a => a.Life != LifeState.Dead && a.Id != actorId).Select(a => a.Position).ToHashSet();
-        var open = new PriorityQueue<WorldPosition, (int Score, int Tie)>();
-        var previous = new Dictionary<WorldPosition, WorldPosition> { [start] = start };
-        var costs = new Dictionary<WorldPosition, int> { [start] = 0 };
+        public readonly PriorityQueue<WorldPosition, (int Score, int Tie)> Open = new(512);
+        public readonly Dictionary<WorldPosition, (WorldPosition Previous, int Cost)> Nodes = new(512);
+    }
+    private LocalRouteScratch? _localRouteScratch;
+    internal WorldPosition LocalStep(WorldPosition start, WorldPosition destination, long actorId = 0)
+    {
+        // Sequential searches share bounded storage; occupancy stays live through
+        // the tile index as earlier actors move during this same simulation pass.
+        var scratch = _localRouteScratch ??= new(); var open = scratch.Open; var nodes = scratch.Nodes;
+        open.Clear(); nodes.Clear(); nodes[start] = (start, 0);
         WorldPosition best = start; int tie = 0;
         open.Enqueue(start, (start.Distance(destination), tie++));
-        while (open.TryDequeue(out var current, out _) && previous.Count < 256)
+        while (open.TryDequeue(out var current, out _) && nodes.Count < 256)
         {
             if (current.Distance(destination) < best.Distance(destination)) best = current;
             if (current == destination) break;
             foreach (var (x, y) in Directions)
             {
-                var next = current.Offset(x, y); int cost = costs[current] + 1;
-                if (!Plan.Contains(next) || next.Distance(start) > 24 || occupied.Contains(next) || !GroundOpen(next) || costs.TryGetValue(next, out int old) && old <= cost) continue;
-                costs[next] = cost; previous[next] = current; open.Enqueue(next, (cost + next.Distance(destination), tie++));
+                var next = current.Offset(x, y); int cost = nodes[current].Cost + 1;
+                if (!Plan.Contains(next) || next.Distance(start) > 24 || OccupantAt(next, actorId) != null || !GroundOpen(next) || nodes.TryGetValue(next, out var old) && old.Cost <= cost) continue;
+                nodes[next] = (current, cost); open.Enqueue(next, (cost + next.Distance(destination), tie++));
             }
         }
         if (best == start) return start;
-        while (previous[best] != start) best = previous[best];
+        while (nodes[best].Previous != start) best = nodes[best].Previous;
         return best;
     }
     private void CheckArc()

@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Local actor route allocations — 2026-10-25
+
+Source `0fc518cbf00994bb2e41d12e24865caf2173c7c8b82e481376fb36900de90407` passed fresh Core `20261025-033713-7876d84d` (**705/705 tests**, Release build and content validation), world `20261025-033713-c2fd2f30` (all world audits including three-seed scheduled/full-cadence simulation) and private native `20261025-033714-e6b456ba` (**68 mouse checks / 42 rendered assertions**). Sealed artifacts and source freshness were verified. The focused routing/collision/wildlife/party-work run passed 38 tests. New differential cases compare the previous route algorithm across walls, live/removed/moving/downed/dead occupants, floors, occupied goals and the search cutoff; 1,000 warmed searches allocate less than 1 KiB total and retain current-tick occupancy.
+
+The retained `routing-oracle/` harness compares Release builds at previous commit `02471af` and current source with identical tiering settings. Both seeds execute 1,250 routes across 25 targets, retain exact route hashes/checksums and leave saved state unchanged. Measured allocations fell from **66,279→0.89 bytes/route**, including sample-list measurement overhead; the route itself passes the zero-allocation warm fixture. Median route times were **0.098→0.068 ms** (42) and **0.119→0.052 ms** (1337), with overlapping verification load, so the timings remain local evidence. The separate three-day real-tick oracle also retained all **81 complete-state hashes**, including save/load; see `body-oracle/routing-comparison.json`. No gameplay, artwork, content hash or save format changed.
+
 ## Distant body scheduling — 2026-10-25
 
 Source `d4e0ac427709bf3bfcdadeecb88ab22ae0f0f0b59e6c73a230ed5642b1d50bcd` passed managed Core `20261025-032828-6cb1988e` (**703/703 tests**, Release build and content validation), tools `20261025-032829-2026c6c3` (**52 workflow tests**), world `20261025-032829-f75ff446` (all scenarios/headless/world/exploration/wildlife/situation/expedition/encounter/counterplay audits plus the new simulation audit) and native `20261025-033008-8daeff3b` (**68 mouse checks**, **42 rendered assertions**). Artifact checksums and source freshness were verified. Inspected fresh exploration and four-by-four battle captures. All tests were headless or private Xvfb with isolated saves, dummy audio and no model calls.
