@@ -40,6 +40,7 @@ internal sealed partial class WorldGame : Game
     private WorldPosition? _streamPosition;
     private readonly WorldPosition? _routineFarField;
     private readonly OccupationFixture? _occupationFixture;
+    private readonly MigrationFixture? _migrationFixture;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
@@ -65,6 +66,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-routines") { RoutinePreview.Prepare(_session); _routineFarField = JourneyPreview.PrepareFarField(_session); }
         if (!options.Load && options.Scene == "world-occupations") _occupationFixture = OccupationPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-habitat") HabitatPreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-migration") _migrationFixture = MigrationPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");

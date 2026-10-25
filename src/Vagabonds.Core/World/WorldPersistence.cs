@@ -135,7 +135,7 @@ public sealed partial class WorldSession
                     || actor.ProvokedUntil < 0 || actor.ProvokedUntil > s.Tick + 75)
                 throw new InvalidDataException("Invalid wildlife habitat or provocation.");
         }
-        if (s.Actors.Where(a => a.Habitat != null).GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1)) throw new InvalidDataException("Duplicate wildlife habitat in a chunk.");
+        ValidateWildlifeMigrations(plan, s, catalog);
         if (s.GeneratedEquipment == null || s.GeneratedEquipment.Count > 6144) throw new InvalidDataException("Invalid generated equipment registry.");
         foreach (var (id, gear) in s.GeneratedEquipment)
             if (!System.Text.RegularExpressions.Regex.IsMatch(id, "^gear\\.[0-9]+\\.[0-9]+\\.[0-9]+$") || gear == null || gear.Base == null

@@ -51,6 +51,7 @@ public sealed partial class WorldSession
         foreach (var key in Visible.Select(p => p.Chunk).Distinct().OrderBy(k => k.Floor).ThenBy(k => k.Y).ThenBy(k => k.X))
         {
             if (!State.EcologyChunks.Add(key)) continue;
+            if (State.Actors.Any(a => a.Life != LifeState.Dead && (a.Habitat?.Chunk == key || a.Migration?.Target?.Chunk == key))) continue;
             if (WildlifeHabitatAt(key) is not { } habitat) continue;
             var occupied = State.Actors.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToHashSet();
             if (!TryFreeCell(habitat.Position, occupied, out var spawn, radius: 3)) continue;
@@ -75,9 +76,11 @@ public sealed partial class WorldSession
     public string WildlifeDescription(Actor actor)
     {
         if (Ecology(actor) is not { } rules) return "";
-        if (rules.Behavior == "flee") return "Timid; flees nearby travellers. Will fight only if hunted.";
+        string movement = actor.Migration is not { } migration ? "" : migration.Target == null ? "Seeking a viable habitat after " + MigrationCause(migration.Reason) + ". "
+            : "Migrating to a viable habitat after " + MigrationCause(migration.Reason) + (actor.Journey is { Steps.Count: 0 } ? "; route blocked, waiting for access. " : ". ");
+        if (rules.Behavior == "flee") return movement + "Timid; flees nearby travellers. Will fight only if hunted.";
         string place = rules.Resource is { } id ? Content.Get<ResourceDefinition>(id).Name.ToLowerInvariant() : "cave roost";
-        return (IsHostile(actor) ? "Defending its " : "Guards its ") + place +
+        return movement + (IsHostile(actor) ? "Defending its " : "Guards its ") + place +
             $". Keep {rules.Notice + 1} tiles away; pursuit stops beyond {rules.Leash} tiles.";
     }
 
@@ -124,10 +127,13 @@ public sealed partial class WorldSession
     private void LeaveWildlifeRemains(Actor actor)
     {
         if (Ecology(actor) is not { } rules || State.Loot.Any(c => c.SourceActor == actor.Id)) return;
+        actor.Migration = null; actor.Journey = null; actor.WildlifeAfter = 0;
         PressureHabitat(actor.Habitat!.Value, 120);
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });
     }
     public string LootName(LootCache cache) => IsWorkSupplyCache(cache) ? "Returned supply bundle" : cache.SourceActor > 0 ? State.Actors.First(a => a.Id == cache.SourceActor).Name + " remains" : "Unopened cache";
     public static string LootSprite(LootCache cache) => cache.SourceActor > 0 ? "animal-bones" : "chest";
+    private static string MigrationCause(MigrationReason reason) => reason switch
+    { MigrationReason.Food => "local food depletion", MigrationReason.Pressure => "habitat pressure", _ => "the old home was cleared or depleted" };
 }

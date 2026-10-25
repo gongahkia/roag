@@ -339,6 +339,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     private void MoveActors()
     {
+        AdvanceWildlifeMigrations();
         foreach (var resident in State.Actors)
             if (resident.Kind == ActorKind.Person && !resident.Recruited && resident.Life == LifeState.Alive && resident.Routine != null) MoveResident(resident);
         foreach (var a in ActorsNear(State.Position, 100))
@@ -346,7 +347,8 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             if (a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive)
                 continue;
             if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
-            if (Ecology(a) is { } ecology) { MoveWildlife(a, ecology); continue; }
+            if (Ecology(a) is { } ecology)
+            { if (!_wildlifeMigrationHandled.Contains(a.Id) || WildlifeThreatened(a, ecology)) MoveWildlife(a, ecology); continue; }
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);
             WorldPosition destination;
             destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);

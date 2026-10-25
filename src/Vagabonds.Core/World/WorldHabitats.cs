@@ -51,10 +51,11 @@ public sealed partial class WorldSession
     private bool TakeWildFood(WorldPosition position, int amount)
     {
         if (HabitatAt(position).Food < amount) return false;
-        var state = SettleHabitat(position); state.Food -= amount; state.Pressure = Math.Min(HabitatPressureLimit, state.Pressure + amount * 4); return true;
+        var state = SettleHabitat(position); state.Food -= amount; state.Pressure = Math.Min(HabitatPressureLimit, state.Pressure + amount * 4);
+        if (state.Food < 2 || state.Pressure >= 600) WakeHabitatWildlife(position); return true;
     }
     private void PressureHabitat(WorldPosition position, int amount)
-    { var state = SettleHabitat(position); state.Pressure = Math.Min(HabitatPressureLimit, state.Pressure + amount); }
+    { var state = SettleHabitat(position); state.Pressure = Math.Min(HabitatPressureLimit, state.Pressure + amount); if (state.Pressure >= 600) WakeHabitatWildlife(position); }
     private static int Vegetation(Material material) => material == Material.Tree ? 8 : material == Material.Grass ? 2 : 0;
     private void RecordHabitatClearing(WorldPosition position, Material before, Material after)
     {
@@ -64,6 +65,7 @@ public sealed partial class WorldSession
         if (loss == 0) state.LandLoss.Remove(index); else state.LandLoss[index] = loss;
         state.Food = Math.Min(state.Food, HabitatCapacity(Plan, position.Chunk, state));
         state.Pressure = Math.Min(HabitatPressureLimit, state.Pressure + Math.Max(0, change) * 2);
+        WakeHabitatWildlife(position);
     }
     public string WildFoodUnavailable(WorldPosition position)
     {

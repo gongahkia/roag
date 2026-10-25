@@ -91,7 +91,8 @@ public sealed partial class WorldSession
         foreach (var actor in state.Actors)
         {
             if (actor.Journey is not { } journey) continue;
-            if (actor.Kind != ActorKind.Person || actor.Recruited || journey.Steps == null || journey.Steps.Count > ResidentJourneyLimit
+            if (actor.Kind != ActorKind.Person && (actor.Kind != ActorKind.Beast || actor.Migration?.Target != journey.Target)
+                || actor.Recruited || journey.Steps == null || journey.Steps.Count > ResidentJourneyLimit
                 || !plan.Contains(journey.Origin) || !plan.Contains(journey.Target) || journey.Origin.Floor != journey.Target.Floor
                 || journey.Next < 0 || journey.Next > journey.Steps.Count || journey.RetryAt < 0 || journey.RetryAt > state.Tick + 25
                 || journey.Revision < 0 || journey.Revision > state.NavigationRevision)

@@ -212,6 +212,15 @@ public sealed class Actor
     private bool _recruited;
     private ResidentRoutine? _routine;
     private OccupationJob? _occupation;
+    private WildlifeMigration? _migration;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public WorldPosition? NatalHabitat { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long WildlifeAfter { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public WildlifeMigration? Migration
+    {
+        get => _migration;
+        set { if (_migration == value) return; if (IndexChanged != null && Journey is { } journey && journey.Target != value?.Target) Journey = null; _migration = value; NotifyNeedsChanged(); }
+    }
     public int OccupationVersion { get; set; }
     public long OccupationAfter { get; set; }
     public WorldPosition? OccupationWorkplace { get; set; }
@@ -274,9 +283,10 @@ public sealed class Actor
         set
         {
             if (_position == value) return; var before = _position; _position = value;
+            if (IndexChanged != null && before.Distance(value) > 1 && _migration != null) { Migration = null; WildlifeAfter = 0; }
             if (IndexChanged != null) Journey = null;
             IndexChanged?.Invoke(this, before);
-            if (_routine?.Kind is RoutineKind.Food or RoutineKind.Rest) NotifyNeedsChanged();
+            if (_routine?.Kind is RoutineKind.Food or RoutineKind.Rest || _migration != null) NotifyNeedsChanged();
         }
     }
     [JsonRequired]
