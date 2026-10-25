@@ -32,7 +32,9 @@ internal static class WorldInspection
         if (discovery != null && session.Situation(discovery) != null) return WithAccess(discovery.Name, session.SituationDescription(discovery), "Right-click for approaches; click to investigate", "discovery");
         if (discovery != null) return WithAccess(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."
             : session.DiscoveryGuarded(discovery) ? "An inhabited landmark. Living foes guard its supplies." : "A local landmark connected to " + session.Plan.Towns[discovery.TownId].Name + ".", "Approach and investigate", "discovery");
-        if (session.Visible.Contains(cell) && session.State.Loot.FirstOrDefault(c => c.Position == cell && !c.Taken) is { } cache) return WithAccess(session.LootName(cache), cache.SourceActor > 0 ? "Recover ingredients for camp cooking and crafting." : "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
+        if (session.Visible.Contains(cell) && session.State.Loot.FirstOrDefault(c => c.Position == cell && !c.Taken) is { } cache) return WithAccess(session.LootName(cache), WorldSession.IsWorkSupplyCache(cache)
+            ? "Supplies released from cancelled work. Click to recover them; anything that does not fit stays in this bundle."
+            : cache.SourceActor > 0 ? "Recover ingredients for camp cooking and crafting." : "Supplies and equipment. Open it to inspect any reward alternatives.", "Approach and recover", "loot");
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithAccess(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
         if (session.SituationAtWall(cell) is { Known: true, Outcome.Length: 0 } place)
             return new("Side wall / " + place.Name, "Excavating this wall opens a physical bypass to the supplies.", "Right-click and choose Dig; companions can do the work.", session.TargetBlockReason(WorldCommandKind.Dig, cell, requireAdjacent: false), "discovery");

@@ -12,6 +12,8 @@ Native checks queue construction with zero carried stone, verify a storage-backe
 
 No catalog hash, save-format or generation version changes. Older jobs without supply metadata retain their onsite cost representation. This milestone implements construction inputs; physical work-output gathering/delivery, named/regional production separation, ecology, consequences, climate and full long-world acceptance remain pending.
 
+Follow-up hover-copy source `b763d1a211070857037a014129e73a221de9d095206790698cd30dbd16fd4937` passed 56 focused supply/pointer/mouse tests and nine private mouse checks in `artifacts/performance-review/supply-tooltip-final`. Inspected the updated returned-bundle capture: it now explains direct recovery and retained overflow, rather than suggesting equipment choices. The change exposes the existing pure bundle predicate to presentation and changes no simulation or save rules; the full rules acceptance above applies to the preceding mechanics source.
+
 ## Load initialization without extra discovery — 2026-10-25
 
 Isolated source `6c93f012c8d231dcc80895c50da9022e77518d774274bd8969cd9b1f41be4ec9` passed managed Core `20261025-043016-c0aa0fac` (**722/722 tests**, Release build and content validation), native `20261025-043017-7d2f7c15` (**73 mouse / 42 rendered checks**) and world `20261025-043017-07fbbf22` (all world audits). Freshness and sealed checksums were verified in `artifacts/performance-review/visibility-source/`; its run reports live beneath that checkout's `artifacts/agent/runs/`. The isolated checkout contains only this fix, excluding the concurrent, uncommitted supply work.

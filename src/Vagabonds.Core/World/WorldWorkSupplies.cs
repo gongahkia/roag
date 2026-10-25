@@ -229,5 +229,5 @@ public sealed partial class WorldSession
         foreach (var (key, count) in claims)
             if (actors[key.Actor].Cargo.GetValueOrDefault(key.Stack) < count) throw new InvalidDataException("Reserved work cargo is missing or claimed twice.");
     }
-    private static bool IsWorkSupplyCache(LootCache cache) => cache.SourceActor == 0 && cache.Id.StartsWith("work-return-", StringComparison.Ordinal);
+    public static bool IsWorkSupplyCache(LootCache cache) => cache.SourceActor == 0 && cache.Id.StartsWith("work-return-", StringComparison.Ordinal);
 }
