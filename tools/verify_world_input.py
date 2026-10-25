@@ -225,6 +225,8 @@ def main():
                 check('keyboardGameplayDisabled', client.ui()['tick'] == initial['tick'] and client.ui()['position'] == {k: initial['position'][k] for k in ('x', 'y', 'floor')} and client.ui()['panel'] == '' and slot.stat().st_mtime_ns == stamp)
                 ui = client.ui(); check('readableDefaultCamera', ui['camera']['cellSize'] >= 36 and ui['map']['width'] / ui['camera']['cellSize'] <= 48.01)
                 check('stationaryTerrainReusesBoundedLayer', ui['terrainCache']['hits'] > 0 and ui['terrainCache']['bytes'] == ui['width'] * ui['height'] * 4)
+                check('panelTextReusesBoundedLayouts', ui['textCache']['hits'] > 0 and ui['textCache']['entries'] <= 128 and ui['textCache']['characters'] <= 65536)
+                check('unchangedControlsReusePresentation', ui['controlCache']['hits'] > 0)
                 client.capture('exploration')
                 client.click('panel:game'); client.click('panel:guide'); client.capture('guide'); client.click('close')
                 client.click('panel:game'); client.click('panel:inspector'); client.click('inspect:2'); client.capture('inspector')

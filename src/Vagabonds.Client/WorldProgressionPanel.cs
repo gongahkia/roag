@@ -16,7 +16,7 @@ internal sealed partial class WorldGame
     {
         void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false,
             string? sprite = null, string detail = "", string tip = "", string reason = "")
-            => _controls.Add(new(id, label, bounds, enabled, selected, tip, reason, sprite, detail));
+            => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, sprite, detail);
         int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
         var party = _session.Party.ToArray(); var member = SelectedMember();
         int card = (width - (party.Length - 1) * 8) / party.Length;

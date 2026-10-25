@@ -31,6 +31,7 @@ public sealed class SpriteLibrary : IDisposable
     private readonly GraphicsDevice _device;
     private readonly string _assetRoot;
     public int BindingCount => _bindings.Count;
+    public TextLayoutCache TextLayouts { get; } = new();
     public bool HasBinding(string name) => _bindings.ContainsKey(name);
 
     public SpriteLibrary(GraphicsDevice device, string assetRoot, string manifestFile = "ithica-expedition-sprites.json")
@@ -172,41 +173,10 @@ public sealed class SpriteLibrary : IDisposable
         scale = Math.Max(1, scale);
         int columns = Math.Max(1, (int)(width / (8 * scale)));
         float y = position.Y;
-        foreach (string paragraph in text.Split('\n'))
+        var lines = TextLayouts.Get(text, columns);
+        for (int i = 0; i < lines.Count; i++)
         {
-            string line = "";
-            foreach (string word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (line.Length > 0 && line.Length + word.Length + 1 > columns)
-                {
-                    Text(batch, line, new(position.X, y), color, scale);
-                    y += 16 * scale + lineSpacing;
-                    line = "";
-                }
-                if (word.Length > columns)
-                {
-                    if (line.Length > 0)
-                    {
-                        Text(batch, line, new(position.X, y), color, scale);
-                        y += 16 * scale + lineSpacing;
-                        line = "";
-                    }
-                    for (int i = 0; i < word.Length; i += columns)
-                    {
-                        Text(batch, word.Substring(i, Math.Min(columns, word.Length - i)), new(position.X, y), color, scale);
-                        y += 16 * scale + lineSpacing;
-                    }
-                }
-                else
-                {
-                    line += (line.Length > 0 ? " " : "") + word;
-                }
-            }
-            if (line.Length > 0)
-            {
-                Text(batch, line, new(position.X, y), color, scale);
-            }
-
+            if (lines[i].Length > 0) Text(batch, lines[i], new(position.X, y), color, scale);
             y += 16 * scale + lineSpacing;
         }
         return y - position.Y;

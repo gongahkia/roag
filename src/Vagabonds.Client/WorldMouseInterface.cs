@@ -21,6 +21,8 @@ internal sealed record WorldMousePress(long Sequence, int Button, int X, int Y, 
 internal sealed partial class WorldGame
 {
     private readonly List<WorldMouseControl> _controls = [];
+    private WorldControlCache? _controlCache;
+    private WorldControlCache ControlCache => _controlCache ??= new(_controls);
     private int _workPage, _workerPage, _storagePage, _gearPage, _craftPage, _interactionPage;
     private WorldPosition _storage;
     private string _discoveryId = "";
@@ -105,9 +107,9 @@ internal sealed partial class WorldGame
     }
     private void BuildMouseControls(int w, int h)
     {
-        _controls.Clear();
+        ControlCache.Begin();
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
-            => _controls.Add(new(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed));
+            => ControlCache.Add(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed);
         bool ended = !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation);
         Add("pause", _session.Paused ? "Play" : "Pause", w - 376, 16, 84, enabled: !ended && !CombatStageVisible, tip: "Pause stops travel. Work and Party stay open while time runs. Conversations remain paused.");
         Add("save", "Save", w - 284, 16, 84); Add("load", "Load", w - 192, 16, 84); Add("panel:game", "Menu", w - 100, 16, 84);
@@ -544,6 +546,9 @@ internal sealed partial class WorldGame
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             terrainCache = new { hits = _terrainCacheHits, rebuilds = _terrainCacheRebuilds, bypasses = _terrainCacheBypasses,
                 bytes = _terrainLayer == null ? 0L : (long)_terrainLayer.Width * _terrainLayer.Height * 4 },
+            textCache = new { entries = _sprites.TextLayouts.Count, characters = _sprites.TextLayouts.Characters,
+                hits = _sprites.TextLayouts.Hits, misses = _sprites.TextLayouts.Misses },
+            controlCache = new { hits = ControlCache.Hits, misses = ControlCache.Misses, retained = ControlCache.Retained },
             routeCount = _route.Count, notice = _notice,
             route = _route.Take(16).ToArray(), inventory = _session.State.Inventory,
             selectedSkill = _skill, cooperativePartner = _cooperativePartner,

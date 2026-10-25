@@ -173,7 +173,7 @@ internal sealed partial class WorldGame
         for (int i = 0; i < options.Count; i++)
         {
             var option = options[i];
-            _controls.Add(new("context:" + option.Id, option.Label, new(_contextBox.X + 8, _contextBox.Y + 36 + i * 34, width - 16, 30), option.Reason.Length == 0, Tip: option.Tip, DisabledReason: option.Reason));
+            ControlCache.Add("context:" + option.Id, option.Label, new(_contextBox.X + 8, _contextBox.Y + 36 + i * 34, width - 16, 30), option.Reason.Length == 0, tip: option.Tip, reason: option.Reason);
         }
     }
     private void ActivateContext(string action)
