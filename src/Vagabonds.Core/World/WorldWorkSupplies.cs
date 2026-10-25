@@ -153,9 +153,9 @@ public sealed partial class WorldSession
         }
         else if (State.Tick % 5 == 0 && worker.Position.Floor == target.Floor)
         {
-            var next = LocalStep(worker.Position, target, worker.Id); MarkResidentBlocked(worker, next == worker.Position);
+            var next = ResidentStep(worker, target); MarkResidentBlocked(worker, next == worker.Position);
             if (next == worker.Position) order.Status = "No free approach for " + activity.ToLowerInvariant() + "; waiting for access";
-            else worker.Position = next;
+            else CommitResidentStep(worker, next);
         }
         return false;
     }

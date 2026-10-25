@@ -465,7 +465,7 @@ def main():
                 check('walkingHomeDoesNotAlreadyRecoverFatigue', actor['body']['restUntil'] == 0 and actor['body']['fatigue'] >= 80)
                 # Explicit isolated arrival fixture: Core checks the full walk;
                 # native checks the rendered destination, actual rest and reload.
-                target = actor['routine']['target']; actor['position'] = {**target, 'y': target['y'] + 1}
+                target = actor['routine']['target']; actor['position'] = {**target, 'y': target['y'] + 1}; actor['journey'] = None
                 leader = next(a for a in travelling['state']['actors'] if a['id'] == travelling['state']['party'][0])
                 leader['position'] = {**target, 'x': target['x'] + 1, 'y': target['y'] + 1}
                 travelling['state']['position'] = dict(leader['position']); client.restore(travelling)
@@ -476,6 +476,32 @@ def main():
                 x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
                 client.capture('routine-rest-home'); client.load(); restored = client.save()
                 check('physicalRoutineAndRestSurviveMouseReload', rested['state'] == restored['state'])
+                # Keep the activated identity but leave its region during a food
+                # trip. Only the observer is relocated to an isolated preview field.
+                home = restored['plan']['towns'][0]['center']; field = client.ui()['journeyFixture']
+                actor = next(a for a in restored['state']['actors'] if a['id'] == person['id'])
+                actor['position'] = {**home, 'x': home['x'] + 8}; start = dict(actor['position'])
+                actor['body'].update(hunger=40, fatigue=0, restUntil=0); actor['journey'] = None
+                actor['routine'].update(kind=1, target=dict(home), since=restored['state']['tick'], reason='Seeking food from home supplies', blocked=False, other=0)
+                leader = next(a for a in restored['state']['actors'] if a['id'] == restored['state']['party'][0])
+                leader['position'] = dict(field); restored['state']['position'] = dict(field); client.restore(restored)
+                check('offscreenJourneyKeepsHiddenResidentPrivate', all(a['id'] != person['id'] for a in client.ui()['actors']))
+                tick = client.ui()['tick']; food = restored['state']['towns'][0]['stocks']['food']
+                client.click('pause'); client.wait(lambda u: u['tick'] >= tick + 15); client.pause(); travelling = client.save()
+                walker = next(a for a in travelling['state']['actors'] if a['id'] == person['id'])
+                check('offscreenFoodTripStillRequiresWalking', walker['position'] != start and walker['body']['hunger'] >= 40
+                    and travelling['state']['towns'][0]['stocks']['food'] == food and walker['journey'] is not None)
+                client.load(); reloaded = client.save(); loaded_walker = next(a for a in reloaded['state']['actors'] if a['id'] == person['id'])
+                check('offscreenJourneySurvivesMouseReload', loaded_walker == walker)
+                tick = client.ui()['tick']; client.click('pause'); client.wait(lambda u: u['tick'] >= tick + 35); client.pause(); arrived = client.save()
+                walker = next(a for a in arrived['state']['actors'] if a['id'] == person['id'])
+                check('offscreenResidentReachesFoodAndEats', walker['body']['hunger'] < 10 and arrived['state']['towns'][0]['stocks']['food'] == food - 1)
+                leader = next(a for a in arrived['state']['actors'] if a['id'] == arrived['state']['party'][0])
+                leader['position'] = {**home, 'y': home['y'] + 2}; arrived['state']['position'] = dict(leader['position']); client.restore(arrived)
+                returned = client.save(); same = next(a for a in returned['state']['actors'] if a['id'] == person['id'])
+                check('returningToRegionKeepsJourneyAndIdentity', same == walker and any(a['id'] == person['id'] for a in client.ui()['actors']))
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(walker['position']['x'], walker['position']['y'])))
+                client.capture('routine-returned-journey')
             finally: client.close()
         if 'world-resources' in args.scenes:
             client = Client('world-resources', slot)

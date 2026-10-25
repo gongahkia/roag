@@ -194,6 +194,11 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     {
         if (!plan.Contains(p)) return Material.Rock;
         if (_deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.TryGetValue(p.LocalIndex, out var edit)) return edit;
+        return UneditedAt(p);
+    }
+    internal Material UneditedAt(WorldPosition p)
+    {
+        if (!plan.Contains(p)) return Material.Rock;
         if (_landmarkCount != state.Discoveries.Count) { _landmarks = DiscoveryPlacement.Terrain(state.Discoveries, content ?? ContentCatalog.Default); _landmarkCount = state.Discoveries.Count; }
         var original = Get(p.Chunk).Tiles[p.LocalIndex];
         return _landmarks.TryGetValue(p, out var landmark) && original is not (Material.StairsDown or Material.StairsUp)

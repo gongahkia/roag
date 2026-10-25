@@ -557,6 +557,8 @@ internal sealed partial class WorldGame
             mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
+            journeyFixture = playerView ? null : _routineFarField,
+            residentJourneys = playerView ? null : _session.ResidentJourneys,
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             terrainCache = new { hits = _terrainCacheHits, rebuilds = _terrainCacheRebuilds, bypasses = _terrainCacheBypasses,
                 bytes = _terrainLayer == null ? 0L : (long)_terrainLayer.Width * _terrainLayer.Height * 4 },

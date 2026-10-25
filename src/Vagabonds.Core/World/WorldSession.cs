@@ -339,10 +339,12 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     private void MoveActors()
     {
+        foreach (var resident in State.Actors)
+            if (resident.Kind == ActorKind.Person && !resident.Recruited && resident.Life == LifeState.Alive && resident.Routine != null) MoveResident(resident);
         foreach (var a in ActorsNear(State.Position, 100))
         {
             if (a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive)
-            { MoveResident(a); continue; }
+                continue;
             if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && State.Battle!.ActorIds.Contains(a.Id) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             if (Ecology(a) is { } ecology) { MoveWildlife(a, ecology); continue; }
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);

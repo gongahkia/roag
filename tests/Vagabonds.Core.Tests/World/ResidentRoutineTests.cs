@@ -99,7 +99,14 @@ public sealed class ResidentRoutineTests : IDisposable
         Assert.True(work.Progress >= 3); double progress = work.Progress;
         person.Body.Fatigue = 80; world.AdvanceTicks(5); Assert.Equal(RoutineKind.Rest, person.Routine!.Kind);
         var far = world.Plan.Towns[1].Center; world.State.Position = world.Party.Single().Position = far; world.Reveal();
-        Assert.Equal(400, world.AdvanceTicks(400));
+        bool restedAtHome = false;
+        for (int i = 0; i < 750 && work.Progress == progress; i++)
+        {
+            var before = person.Position; Assert.Equal(1, world.AdvanceTicks(1)); Assert.InRange(before.Distance(person.Position), 0, 1);
+            if (person.Body.RestUntil > world.State.Tick)
+            { restedAtHome = true; Assert.InRange(person.Position.Distance(person.Routine!.Target), 0, 1); }
+        }
+        Assert.True(restedAtHome);
         Assert.True(work.Progress > progress); Assert.Equal(person.Id, work.Worker);
         Assert.Same(person, world.ActorById(person.Id)); Assert.Single(world.State.Actors, a => a.Id == person.Id);
     }

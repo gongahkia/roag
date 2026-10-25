@@ -38,6 +38,7 @@ internal sealed partial class WorldGame : Game
     private WorldSession? _visualSession;
     private long _visualLeader;
     private WorldPosition? _streamPosition;
+    private readonly WorldPosition? _routineFarField;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
@@ -60,7 +61,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
-        if (!options.Load && options.Scene == "world-routines") RoutinePreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-routines") { RoutinePreview.Prepare(_session); _routineFarField = JourneyPreview.PrepareFarField(_session); }
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");

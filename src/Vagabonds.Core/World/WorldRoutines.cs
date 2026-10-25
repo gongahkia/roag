@@ -3,27 +3,28 @@ namespace Vagabonds.Core.World;
 public sealed partial class WorldSession
 {
     private readonly List<Actor> _routineActors = [], _routineThreats = [];
-    // Physical destinations activate around the player. Previously observed
-    // residents still reconsider offscreen work/needs on the regional cadence.
+    // Activation is local; activated people keep the same decisions and journeys
+    // when the player leaves. No second regional copy of the actor is created.
     private void AdvanceRoutines()
     {
         if (IsInCombat) return;
         _routineActors.Clear(); ActorIndex.AddNearTo(State.Position, 100, _routineActors);
+        if (State.Tick % 5 == 0)
+            foreach (var actor in State.Actors)
+                if (actor.Routine != null && actor.Kind == ActorKind.Person && !actor.Recruited && actor.Life == LifeState.Alive && actor.Position.Distance(State.Position) > 100)
+                    _routineActors.Add(actor);
+        _routineActors.Sort(static (a, b) => a.Id.CompareTo(b.Id));
         foreach (var actor in _routineActors)
         {
             if (actor.Kind != ActorKind.Person || actor.Recruited || actor.Life != LifeState.Alive || actor.EncounterLeader > 0) continue;
             if (actor.Routine != null && State.Tick % 5 != 0) continue;
             SelectResidentRoutine(actor);
         }
-        if (State.Tick % 50 == 0)
-            foreach (var actor in State.Actors)
-                if (actor.Routine != null && actor.Kind == ActorKind.Person && !actor.Recruited && actor.Life == LifeState.Alive && actor.Position.Distance(State.Position) > 100)
-                    SelectResidentRoutine(actor, physical: false);
     }
-    private void SelectResidentRoutine(Actor actor, bool physical = true)
+    private void SelectResidentRoutine(Actor actor)
     {
         Actor? danger = null; int distance = 7;
-        _routineThreats.Clear(); if (physical) ActorIndex.AddNearTo(actor.Position, 6, _routineThreats);
+        _routineThreats.Clear(); ActorIndex.AddNearTo(actor.Position, 6, _routineThreats);
         foreach (var other in _routineThreats)
         {
             int next = actor.Position.Distance(other.Position);
@@ -49,8 +50,8 @@ public sealed partial class WorldSession
         {
             SetResidentRoutine(actor, RoutineKind.Rest, home.Offset((int)(actor.Id % 5) * 3 - 6, -18), "Resting at home");
             // A physically activated resident must reach home before resting.
-            if (physical && actor.Position.Distance(actor.Routine!.Target) > 1 && actor.Body.RestUntil > State.Tick) actor.Body.RestUntil = State.Tick;
-            if (physical && actor.Position.Distance(actor.Routine!.Target) <= 1 && actor.Body.RestUntil <= State.Tick) actor.Body.RestUntil = State.Tick + 300;
+            if (actor.Position.Distance(actor.Routine!.Target) > 1 && actor.Body.RestUntil > State.Tick) actor.Body.RestUntil = State.Tick;
+            if (actor.Position.Distance(actor.Routine!.Target) <= 1 && actor.Body.RestUntil <= State.Tick) actor.Body.RestUntil = State.Tick + 300;
             return;
         }
         var work = State.Work.FirstOrDefault(w => w.Worker == actor.Id && !w.Suspended);
@@ -80,10 +81,9 @@ public sealed partial class WorldSession
     }
     private void SetResidentRoutine(Actor actor, RoutineKind kind, WorldPosition target, string reason, long other = 0, bool ground = true)
     {
-        ground &= actor.Position.Distance(State.Position) <= 100;
         // Home/work anchors stay stable across decisions and save/load. Dynamic
         // friend/danger targets are reconsidered without storing route history.
-        if (ground && actor.Routine is { } previous && previous.Kind == kind && previous.Reason == reason && previous.Other == other && previous.Target.Distance(target) <= 6 && GroundOpen(previous.Target)
+        if (ground && actor.Routine is { } previous && previous.Kind == kind && previous.Reason == reason && previous.Other == other && previous.Target.Distance(target) <= 6 && ResidentAnchorOpen(actor, previous.Target)
             && kind is not (RoutineKind.Danger or RoutineKind.Social)) target = previous.Target;
         else if (ground) target = ResidentGround(target, actor.Position);
         var old = actor.Routine;
@@ -100,22 +100,22 @@ public sealed partial class WorldSession
             }
         return Plan.Contains(anchor) ? anchor : fallback;
     }
-    private bool CanBeginResidentRest(Actor actor) => actor.Routine == null || actor.Recruited || actor.Position.Distance(State.Position) > 100
+    private bool CanBeginResidentRest(Actor actor) => actor.Routine == null || actor.Recruited
         || actor.Routine.Kind == RoutineKind.Rest && actor.Position.Distance(actor.Routine.Target) <= 1;
     private bool RoutineInterruptsWork(Actor actor) => !actor.Recruited && actor.Routine?.Kind is RoutineKind.Danger or RoutineKind.Food or RoutineKind.Rest;
-    private bool CanResidentForage(Actor actor) => actor.Kind != ActorKind.Person || actor.Routine == null || actor.Position.Distance(State.Position) > 100
+    private bool CanResidentForage(Actor actor) => actor.Kind != ActorKind.Person || actor.Routine == null
         || actor.Routine is { Kind: RoutineKind.Food, Reason: "Foraging for food" };
     private void MoveResident(Actor actor)
     {
         if (actor.Routine is not { } routine || actor.EncounterLeader > 0 || State.Battle?.ActorIds.Contains(actor.Id) == true
-            || actor.Position.Floor != State.Position.Floor || routine.Kind == RoutineKind.AssignedWork) return;
+            || routine.Kind == RoutineKind.AssignedWork) return;
         if (routine.Kind != RoutineKind.Danger && (actor.Body.RestUntil > State.Tick || actor.Body.ForageProgress > 0 && CanResidentForage(actor))) return;
         if (actor.Position.Distance(routine.Target) <= 1) { MarkResidentBlocked(actor, routine.Kind == RoutineKind.Danger); return; }
-        var step = LocalStep(actor.Position, routine.Target, actor.Id);
+        var step = ResidentStep(actor, routine.Target);
         if (routine.Kind == RoutineKind.Danger && State.Actors.FirstOrDefault(a => a.Id == routine.Other && a.Life == LifeState.Alive) is { } threat
             && step.Distance(threat.Position) <= actor.Position.Distance(threat.Position)) step = actor.Position;
-        bool moved = step != actor.Position && CanEnter(step, actor.Id);
-        if (moved) actor.Position = step;
+        bool moved = step != actor.Position;
+        if (moved) CommitResidentStep(actor, step);
         MarkResidentBlocked(actor, !moved);
     }
     private static void MarkResidentBlocked(Actor actor, bool blocked)

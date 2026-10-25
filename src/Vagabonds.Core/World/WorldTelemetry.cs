@@ -59,6 +59,7 @@ public sealed partial class WorldSession
         visitedSites = State.VisitedSites.Count, residentChunks = Chunks.ResidentCount,
         modifiedChunks = State.Chunks.Count, cachedFootprints = Chunks.Generator.CachedFootprints,
         bodySimulation = BodySimulation,
+        residentJourneys = ResidentJourneys,
         chunkPreparation = Chunks.PreparationStatus,
         journal = State.Journal.TakeLast(12).ToArray(),
         battle = State.Battle is not { } b ? null : new { b.Round, active = b.Active.Id, b.Active.Friendly,

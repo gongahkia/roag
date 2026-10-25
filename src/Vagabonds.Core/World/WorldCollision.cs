@@ -17,6 +17,14 @@ public sealed partial class WorldSession
     private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {
         if (!Plan.Contains(p)) return null;
+        if (TryExplicitObject(p, out var placed)) return placed;
+        if (Chunks.IsEdited(p) || (terrain ?? Chunks.At(p)) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
+        int culture = Chunks.Get(p.Chunk).Cultures[p.LocalIndex];
+        if (WorldRandom.Hash(Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;
+        return culture < 0 ? Shrub : p.Floor > 0 ? Bones : Barrel;
+    }
+    private bool TryExplicitObject(WorldPosition p, out WorldObject? placed)
+    {
         if (_objectCount != State.Discoveries.Count + State.Loot.Count)
         {
             _objectCount = State.Discoveries.Count + State.Loot.Count;
@@ -26,13 +34,11 @@ public sealed partial class WorldSession
         if (_discoveryObjects.TryGetValue(p, out var discovery))
         {
             var definition = Content.Get<DiscoveryDefinition>(discovery.Definition);
-            return new(discovery.Name, DiscoverySprite(discovery), "discovery", definition.Sprite is not ("animal-bones" or "grave-slab"));
+            placed = new(discovery.Name, DiscoverySprite(discovery), "discovery", definition.Sprite is not ("animal-bones" or "grave-slab")); return true;
         }
-        if (_cacheObjects.TryGetValue(p, out var cache)) return cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", cache.SourceActor == 0 && !IsWorkSupplyCache(cache));
-        if (Chunks.IsEdited(p) || (terrain ?? Chunks.At(p)) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
-        int culture = Chunks.Get(p.Chunk).Cultures[p.LocalIndex];
-        if (WorldRandom.Hash(Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;
-        return culture < 0 ? Shrub : p.Floor > 0 ? Bones : Barrel;
+        if (_cacheObjects.TryGetValue(p, out var cache))
+        { placed = cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", cache.SourceActor == 0 && !IsWorkSupplyCache(cache)); return true; }
+        placed = null; return false;
     }
 
     public Actor? OccupantAt(WorldPosition p, long except = 0, bool observedOnly = false) =>

@@ -168,6 +168,15 @@ public sealed record Preparation(string Definition, string Effect, int Power, lo
 public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
 public enum RoutineKind { Danger, Food, Rest, AssignedWork, Occupation, Social, Home }
 public sealed record ResidentRoutine(RoutineKind Kind, WorldPosition Target, long Since, string Reason, long Other = 0, bool Blocked = false);
+public sealed class ResidentJourney
+{
+    [JsonRequired] public WorldPosition Origin { get; set; }
+    [JsonRequired] public WorldPosition Target { get; set; }
+    [JsonRequired] public List<WorldPosition> Steps { get; set; } = [];
+    [JsonRequired] public int Next { get; set; }
+    [JsonRequired] public long RetryAt { get; set; }
+    [JsonRequired] public long Revision { get; set; }
+}
 public sealed class Actor
 {
     private WorldPosition _position;
@@ -182,12 +191,20 @@ public sealed class Actor
     private LifeState _life;
     private bool _recruited;
     private ResidentRoutine? _routine;
+    public ResidentJourney? Journey { get; set; }
+    internal ResidentJourney? GroundJourney;
+    internal ResidentGround[]? JourneyGround;
+    internal (WorldPosition Position, ResidentGround Ground)? AnchorGround;
     public Actor()
     {
         _body.Changed += NotifyNeedsChanged; _preparations.Changed += NotifyNeedsChanged; _memories.Changed += NotifyNeedsChanged;
     }
     private void NotifyNeedsChanged() => NeedsChanged?.Invoke(this);
-    public ResidentRoutine? Routine { get => _routine; set { if (_routine == value) return; _routine = value; NotifyNeedsChanged(); } }
+    public ResidentRoutine? Routine
+    {
+        get => _routine;
+        set { if (_routine == value) return; if (IndexChanged != null && Journey is { } journey && journey.Target != value?.Target) Journey = null; _routine = value; NotifyNeedsChanged(); }
+    }
     [JsonRequired] public WorldPosition? Habitat { get; set; }
     [JsonRequired] public long ProvokedUntil { get; set; }
     [JsonRequired] public BodyState Body
@@ -227,7 +244,13 @@ public sealed class Actor
     public WorldPosition Position
     {
         get => _position;
-        set { if (_position == value) return; var before = _position; _position = value; IndexChanged?.Invoke(this, before); }
+        set
+        {
+            if (_position == value) return; var before = _position; _position = value;
+            if (IndexChanged != null) Journey = null;
+            IndexChanged?.Invoke(this, before);
+            if (_routine?.Kind is RoutineKind.Food or RoutineKind.Rest) NotifyNeedsChanged();
+        }
     }
     [JsonRequired]
     public int HomeTown { get; set; }
@@ -263,7 +286,7 @@ public sealed class Actor
     [JsonRequired]
     public LifeState Life { get => _life; set { if (_life == value) return; _life = value; NotifyNeedsChanged(); } }
     [JsonRequired]
-    public bool Recruited { get => _recruited; set { if (_recruited == value) return; _recruited = value; NotifyNeedsChanged(); } }
+    public bool Recruited { get => _recruited; set { if (_recruited == value) return; _recruited = value; if (value && IndexChanged != null) Journey = null; NotifyNeedsChanged(); } }
     [JsonRequired]
     public Dictionary<string, int> Cargo { get; set; } = [];
     [JsonRequired]
