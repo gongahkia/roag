@@ -62,6 +62,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-routines") RoutinePreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
         if (!options.Load && options.Scene == "world-situation") { _discoveryId = SituationPreview.Prepare(_session, "discovery.trapped-storeroom").Id; _panel = "discovery"; }
         if (!options.Load && options.Scene == "world-cooperation") CooperationPreview.Prepare(_session);
@@ -399,6 +400,7 @@ internal sealed partial class WorldGame : Game
         }
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {
+            if (order.Output != null) continue;
             var rect = TileRect(order.Target); FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * order.Progress / order.Required)), 3), Gold);
             FillClipped(new(rect.Left + 2, rect.Bottom - 5, Math.Max(2, rect.Width - 4), 2), Gold * .5f);
         }

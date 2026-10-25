@@ -242,7 +242,7 @@ public sealed partial class WorldSession
                 var order = State.Work.FirstOrDefault(w => w.Id == command.WorkId);
                 if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person) return "Select a pending order and a living worker.";
                 if (State.Work.Any(w => w.Id != order.Id && w.Worker == actor.Id)) return actor.Name + " already has another work order.";
-                if (actor.Position.Distance(order.Target) > 100) return "This worker is too far from the order.";
+                if (actor.Position.Distance(order.Output == null ? order.Target : WorkStop(order, actor.Id)) > 100) return "This worker is too far from the order.";
                 break;
             case WorldCommandKind.Camp:
                 if (!NearbyCamp(State.Position)) return "Approach a serviceable camp first.";

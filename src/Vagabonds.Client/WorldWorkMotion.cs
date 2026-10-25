@@ -9,7 +9,7 @@ internal static class WorldWorkMotion
     public static Vector2 Offset(WorldSession session, Actor actor, bool moving, double seconds, bool reducedMotion)
     {
         if (reducedMotion || moving || session.Frozen || session.PartyTravelling || actor.Life != LifeState.Alive) return Vector2.Zero;
-        var order = session.State.Work.FirstOrDefault(o => o.Worker == actor.Id && o.Kind == WorkKind.Dig && !o.Suspended
+        var order = session.State.Work.FirstOrDefault(o => o.Worker == actor.Id && o.Kind == WorkKind.Dig && o.Output == null && !o.Suspended
             && o.Progress > 0 && o.Status.StartsWith("Working:", StringComparison.Ordinal) && actor.Position.Distance(o.Target) <= 1);
         if (order == null) return Vector2.Zero;
         double phase = (seconds + actor.Id % 11 * .137) % 1.7;

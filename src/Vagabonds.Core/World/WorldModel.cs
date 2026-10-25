@@ -331,6 +331,10 @@ public sealed class WorkSupply
 }
 public sealed class WorkOrder
 {
+    // Older orders grant their result directly; new ones retain real cargo until delivery.
+    public int OutputVersion { get; set; }
+    public WorkOutput? Output { get; set; }
+    public WorldPosition? DeliveryStorage { get; set; }
     // Version zero is an older order whose reserved cost was already onsite.
     public int SupplyVersion { get; set; }
     public List<WorkSupply>? Supplies { get; set; }
@@ -352,6 +356,13 @@ public sealed class WorkOrder
     public WorldPosition? Station { get; set; }
     public bool PinnedWorker { get; set; }
     public int Priority { get; set; } = 1;
+}
+public sealed class WorkOutput
+{
+    [JsonRequired] public long Carrier { get; set; }
+    [JsonRequired] public long ProducedTick { get; set; }
+    [JsonRequired] public Dictionary<string, int> Remaining { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Delivered { get; set; } = [];
 }
 public sealed class BuiltStructure
 {

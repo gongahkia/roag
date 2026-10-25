@@ -10,7 +10,7 @@ public sealed partial class WorldSession
     public bool PartyTravelling { get; set; }
     public bool InWorkRally(WorldPosition p) => p.Distance(State.WorkRally ?? State.Position) <= WorkRallyRadius;
 
-    private ActionResult ConfigureWork(long id, string setting, int value)
+    private ActionResult ConfigureWork(long id, string setting, int value, WorldPosition? destination = null)
     {
         var order = State.Work.FirstOrDefault(o => o.Id == id);
         if (order == null) return new(false, "That order has finished or been cancelled.");
@@ -20,7 +20,12 @@ public sealed partial class WorldSession
             case "resume": order.Suspended = false; order.PartyApproach = true; order.Status = "Waiting for an available worker"; break;
             case "automatic": order.Worker = 0; order.PinnedWorker = false; order.PartyApproach = true; order.Suspended = false; break;
             case "priority" when value is >= 0 and <= 2: order.Priority = value; break;
-            default: return new(false, "Choose suspend, resume, automatic assignment or priority 0..2.");
+            case "deliver-pack": case "deliver-storage":
+                var storage = setting == "deliver-storage" ? destination : null;
+                if (setting == "deliver-storage" && storage == null) return new(false, "Choose a delivery storage tile.");
+                string reason = WorkDeliveryReason(order, storage); if (reason.Length > 0) return new(false, reason);
+                order.OutputVersion = 1; order.DeliveryStorage = storage; order.Status = "Delivery destination updated"; break;
+            default: return new(false, "Choose suspend, resume, automatic assignment, priority 0..2 or a delivery destination.");
         }
         return new(true, "Work order updated; reserved supplies and progress retained.");
     }
@@ -43,9 +48,9 @@ public sealed partial class WorldSession
         foreach (var order in State.Work.Where(o => o.Worker == 0 && !o.Suspended && o.PartyApproach)
             .OrderByDescending(o => o.Priority).ThenBy(o => o.Id))
         {
-            if (!InWorkRally(order.Target)) { order.Status = "Outside the 16-tile rally area; move the party closer"; continue; }
+            if (order.Output == null && !InWorkRally(order.Target)) { order.Status = "Outside the 16-tile rally area; move the party closer"; continue; }
             if (available.Count == 0) { order.Status = "Waiting for a free, rested party member"; continue; }
-            var choice = available.Where(a => (order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a,
+            var choice = available.Where(a => (order.Output != null || order.Kind != WorkKind.Forage || a.Body.ForageAfter <= State.Tick) && CampWorkerEligible(order, a)).Select(a => (Actor: a,
                 Path: a.Position.Distance(WorkStop(order, a.Id)) <= 1 ? new List<WorldPosition>() : WorkPath(a, WorkStop(order, a.Id), routes: Routes(a))))
                 .Where(p => p.Path != null).OrderBy(p => p.Path!.Count).ThenBy(p => p.Actor.Id).FirstOrDefault();
             if (choice.Actor == null) { order.Status = "No free observed approach; open access or move blockers"; continue; }

@@ -190,7 +190,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             case WorldCommandKind.ApproachDiscovery: return ApproachDiscovery(command.Target, command.Item);
             case WorldCommandKind.CampActivity: return QueueCampActivity(command.Target, command.Item, command.ActorId);
             case WorldCommandKind.Wait: return Wait(command.Amount);
-            case WorldCommandKind.ConfigureWork: return ConfigureWork(command.WorkId, command.Item, command.Amount);
+            case WorldCommandKind.ConfigureWork: return ConfigureWork(command.WorkId, command.Item, command.Amount, command.Target);
             case WorldCommandKind.AssignWork: return AssignWork(command.WorkId, command.ActorId);
             case WorldCommandKind.CancelWork: return CancelWork(command.WorkId);
             case WorldCommandKind.LeadParty:

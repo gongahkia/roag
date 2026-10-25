@@ -89,7 +89,8 @@ public sealed partial class WorldSession
         foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Harvest))
         {
             if (!catalog.Entries.TryGetValue(order.Definition, out var entry) || entry is not ResourceDefinition resource
-                || session.ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != resource.Id
+                || (order.Output == null ? session.ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != resource.Id
+                    : session.Chunks.ResourceStockAt(order.Target)?.Definition != resource.Id)
                 || order.Required != resource.Work || order.Reserved.Count != 0 || order.Before != order.After
                 || order.Yield.Count != resource.Yield.Count || resource.Yield.Any(y => order.Yield.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid resource work order.");
@@ -168,7 +169,7 @@ public sealed partial class WorldSession
             || s.Work.Any(w => w == null || w.Id < 1 || w.Id >= s.NextWorkId || !Enum.IsDefined(w.Kind) || !plan.Contains(w.Target)
                 || w.Before is Material.StairsUp or Material.StairsDown || !Enum.IsDefined(w.Before) || !Enum.IsDefined(w.After)
                 || w.Kind == WorkKind.Build && w.After is not (Material.Wall or Material.Floor or Material.Door or Material.Bridge or Material.Storage or Material.Camp)
-                || w.Method == null || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress >= w.Required
+                || w.Method == null || !double.IsFinite(w.Required) || w.Required is < 1 or > 1000 || !double.IsFinite(w.Progress) || w.Progress < 0 || w.Progress > w.Required || w.Progress == w.Required && w.Output == null
                 || w.Worker != 0 && !actorIds.Contains(w.Worker) || !StackValid(w.Reserved) || !StackValid(w.Yield) || w.Status == null || w.Priority is < 0 or > 2
                 || w.Kind == WorkKind.Camp && (!catalog.Entries.TryGetValue(w.Definition, out var campDuty) || campDuty is not CampDefinition || w.Station == null || !plan.Contains(w.Station.Value))
                 || w.Kind == WorkKind.Discovery && (!catalog.Entries.TryGetValue(w.Definition, out var discoveryDefinition) || discoveryDefinition is not DiscoveryDefinition { Situation: not null } sd
@@ -181,7 +182,7 @@ public sealed partial class WorldSession
                 || !StackValid(b.Cost) || !double.IsFinite(b.Condition) || b.Condition is < 0 or > 100)
             || s.Structures.Select(b => b.Position).Distinct().Count() != s.Structures.Count
             || s.IncidentAfter.Any(p => !catalog.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
-        ValidateWorkSupplies(plan, s, catalog);
+        ValidateWorkOutputs(plan, s, catalog); ValidateWorkSupplies(plan, s, catalog);
         foreach (var actor in s.Actors)
         {
             if (actor.VariantId == null || actor.VariantId.Length > 0 && (!catalog.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)

@@ -46,7 +46,7 @@ New cost-bearing orders reserve actual counts from the shared pack first, then o
 
 Cancellation restores supplies locally when the original source is within reach; remote materials remain in a walkable, recoverable supply bundle at their actual location. Full stacks keep overflow in that bundle, and partial recovery preserves the remainder. Storage with uncollected reservations cannot be dismantled. Saved supply version/phase/source/carrier/counts are validated against the job cost and actual cargo; older orders without metadata keep their already-reserved onsite supplies. Existing regional accounting excludes this tagged player-owned cargo. `AccountedMaterial` provides a broader per-stack ownership view including pack, towns, actors, storage, job material, structures and untaken caches for transfer audits. Actual extraction/consumption are separate changes to that total.
 
-`./dev preview work-supplies` and private native scene `world-supplies` reproduce real reservation, pickup, delivery and building. No catalog, save-format or generation version changes. This completes the construction-input chain only; physical gathering/delivery of job output, regional production separation and detailed offscreen journeys remain part of the active logistics milestone.
+`./dev preview work-supplies` and private native scene `world-supplies` reproduce real reservation, pickup, delivery and building. No catalog, save-format or generation version changes. The construction-input chain and the output-delivery chain below compose into physical player-directed logistics; regional production separation and detailed offscreen journeys remain part of the active logistics milestone.
 
 ## Performance review — 2026-10-24
 
@@ -174,6 +174,14 @@ Distant people still use regional production rather than individual hauling; aut
 
 
 The five integration checkpoints are implemented and locally verified; INTEGRATION.md records the scope. Integration acceptance included 210 .NET tests, 38 catalog tests, published-world/legacy headless checks and 15 native input checks. Subsequent mouse/camera acceptance is recorded in VERIFICATION.md. The current world uses manifest v3 and generation v4; the party formation fix preserves those versions and the content hash, so compatible current saves remain usable. The 136-footprint structural report and graphical captures are development artifacts under ignored `artifacts/integration/`. The local Ithica reference stays there for future development and is neither published nor needed by the game.
+
+## Work output collection and delivery — 2026-10-25
+
+New digging/dismantling, harvesting, emergency foraging and crafting orders place produced materials in the actual worker’s cargo. Extraction changes the node/terrain or consumes ingredients once; the order remains pending until delivery. Work → To cycles between the shared pack and observed storage in the rally. Workers approach the destination, deposit available capacity and retain any remainder. Full, obstructed or removed storage does not discard cargo. A replacement approaches the previous carrier to recover the same goods, including from a downed carrier. Food promised to a delivery cannot be eaten as personal cargo.
+
+Output ownership, production tick, remaining/delivered counts and destination are validated saved state. Loading depleted resources or changed source terrain during delivery does not repeat extraction. Cancellation returns only the remaining output locally or in a recoverable bundle; crafting inputs already consumed are not refunded. Per-material accounting counts output cargo once and stops counting consumed job inputs. Legacy jobs with absent output metadata retain their previous completion behavior. There is no catalog, generation or save-format version change.
+
+`./dev preview work-output` and private native scene `world-output` reproduce a natural apple-tree harvest, actor cargo and storage delivery. Player-directed output logistics is implemented here; ordinary occupational production, named/regional balancing and detailed offscreen journeys remain pending. Enemy combat and artwork are unchanged.
 
 ## Expedition expansion
 

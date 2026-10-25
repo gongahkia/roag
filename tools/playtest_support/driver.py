@@ -13,7 +13,7 @@ from agent_support import runner
 from .recordings import read
 
 KINDS = ['control', 'tile', 'actor', 'unit', 'point', 'hover', 'drag', 'wait', 'capture', 'mark', 'stop']
-SCENES = ['world', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery',
+SCENES = ['world', 'world-output', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery',
           'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters']
 MAX_ACTIONS = 1000
 RETAINED_STEPS = 64

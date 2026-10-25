@@ -113,6 +113,17 @@ public sealed class WorldMouseTests
         Assert.Equal(long.Parse(selected.Id[7..], System.Globalization.CultureInfo.InvariantCulture), session.State.Work.Single().Worker);
     }
     [Fact]
+    public void DeliveryControlCyclesKnownStorageAndPackThroughRealCommands()
+    {
+        using var session = WorldSession.Create(42); var (target, storage) = WorkOutputPreview.Prepare(session); var client = Client(session);
+        Assert.Equal(1, session.DesignateWork(WorldCommandKind.Harvest, [target]).Queued); var order = Assert.Single(session.State.Work);
+        var control = Controls(client, "work").Single(c => c.Id == "work-delivery"); Assert.True(control.Enabled); Assert.Equal("To: Pack", control.Label);
+        string before = JsonSerializer.Serialize(session.State); Controls(client, "work"); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateControl", "work-delivery"); Assert.Equal(storage, order.DeliveryStorage);
+        Assert.Contains(storage.X.ToString(), Controls(client, "work").Single(c => c.Id == "work-delivery").Label);
+        Invoke(client, "ActivateControl", "work-delivery"); Assert.Null(order.DeliveryStorage);
+    }
+    [Fact]
     public void ConversationChoicesWaitForSpeechAndPaidEffectsRunOncePerChoice()
     {
         var session = WorldSession.Create(42); var client = Client(session);

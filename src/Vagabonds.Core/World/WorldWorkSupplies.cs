@@ -53,6 +53,7 @@ public sealed partial class WorldSession
     }
     private bool HoldsWorkSupplies(WorkOrder order, long actor)
     {
+        if (actor > 0 && order.Output?.Carrier == actor) return true;
         if (actor <= 0 || order.Supplies == null) return false;
         foreach (var supply in order.Supplies) if (supply.Phase == SupplyPhase.Carrying && supply.Carrier == actor) return true;
         return false;
@@ -60,15 +61,20 @@ public sealed partial class WorldSession
     private long ReservedCargo(long actor, string? stack = null)
     {
         long count = 0;
-        foreach (var order in State.Work) if (order.Supplies != null)
-            foreach (var supply in order.Supplies)
+        foreach (var order in State.Work)
+        {
+            if (order.Supplies != null) foreach (var supply in order.Supplies)
                 if (supply.Phase == SupplyPhase.Carrying && supply.Carrier == actor && (stack == null || supply.Stack == stack)) count += supply.Count;
+            if (order.Output is { } output && output.Carrier == actor)
+                count += stack == null ? output.Remaining.Values.Sum(v => (long)v) : output.Remaining.GetValueOrDefault(stack);
+        }
         return count;
     }
     private long FreeCargo(Actor actor, string stack)
     { int amount = actor.Cargo.GetValueOrDefault(stack); return amount == 0 ? 0 : amount - ReservedCargo(actor.Id, stack); }
     public string WorkSupplyDescription(WorkOrder order)
     {
+        if (order.Output != null) return WorkOutputDescription(order);
         if (order.Reserved.Count == 0) return "No supplies needed.";
         if (order.Supplies == null) return "Reserved supplies are at the site.";
         int waiting = 0, carrying = 0, delivered = 0;
@@ -89,6 +95,7 @@ public sealed partial class WorldSession
     }
     private WorldPosition WorkStop(WorkOrder order, long worker)
     {
+        if (order.Output is { } output) return output.Carrier != worker ? ActorById(output.Carrier).Position : order.DeliveryStorage ?? State.Position;
         var supply = NextSupply(order, worker);
         return supply == null ? order.Target : supply.Phase == SupplyPhase.Carrying ? ActorById(supply.Carrier).Position : supply.Storage ?? State.Position;
     }
@@ -186,10 +193,14 @@ public sealed partial class WorldSession
         int index = 0;
         foreach (var (position, contents) in dropped)
         {
-            var existing = State.Loot.FirstOrDefault(c => !c.Taken && c.Position == position && IsWorkSupplyCache(c));
-            if (existing == null) State.Loot.Add(new() { Id = $"work-return-{order.Id}-{index++}", Position = position, Contents = contents });
-            else foreach (var (stack, count) in contents) existing.Contents[stack] = existing.Contents.GetValueOrDefault(stack) + count;
+            DropWorkBundle(order.Id, index++, position, contents);
         }
+    }
+    private void DropWorkBundle(long order, int index, WorldPosition position, Dictionary<string, int> contents)
+    {
+        var existing = State.Loot.FirstOrDefault(c => !c.Taken && c.Position == position && IsWorkSupplyCache(c));
+        if (existing == null) State.Loot.Add(new() { Id = $"work-return-{order}-{index}", Position = position, Contents = contents });
+        else foreach (var (stack, count) in contents) existing.Contents[stack] = existing.Contents.GetValueOrDefault(stack) + count;
     }
     // Explicit ownership view for construction audits. Reserved cargo is counted
     // once, and a built structure retains the cost recoverable by dismantling.
@@ -197,7 +208,7 @@ public sealed partial class WorldSession
         + State.Towns.Sum(t => (long)t.Stocks.GetValueOrDefault(stack))
         + State.Actors.Sum(a => (long)a.Cargo.GetValueOrDefault(stack))
         + State.Chunks.Sum(c => c.Storage.Values.Sum(v => (long)v.GetValueOrDefault(stack)))
-        + State.Work.Sum(o => o.Supplies == null ? (long)o.Reserved.GetValueOrDefault(stack)
+        + State.Work.Sum(o => o.Output != null ? 0 : o.Supplies == null ? (long)o.Reserved.GetValueOrDefault(stack)
             : o.Supplies.Where(s => s.Stack == stack && s.Phase != SupplyPhase.Carrying).Sum(s => (long)s.Count))
         + State.Structures.Sum(s => (long)s.Cost.GetValueOrDefault(stack))
         + State.Loot.Where(c => !c.Taken).Sum(c => (long)c.Contents.GetValueOrDefault(stack));
@@ -226,6 +237,9 @@ public sealed partial class WorldSession
             foreach (var supply in order.Supplies.Where(s => s.Phase == SupplyPhase.Carrying))
             { var key = (supply.Carrier, supply.Stack); claims[key] = claims.GetValueOrDefault(key) + supply.Count; }
         }
+        foreach (var order in state.Work)
+            if (order.Output is { } output) foreach (var (stack, count) in output.Remaining)
+            { var key = (output.Carrier, stack); claims[key] = claims.GetValueOrDefault(key) + count; }
         foreach (var (key, count) in claims)
             if (actors[key.Actor].Cargo.GetValueOrDefault(key.Stack) < count) throw new InvalidDataException("Reserved work cargo is missing or claimed twice.");
     }

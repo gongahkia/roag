@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Mouse-only world acceptance under local X11/WSLg, using temporary save slots."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -367,6 +368,47 @@ def main():
                 check('surfaceLandingHasSeparatePartyTiles', client.formation())
                 before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
                 check('mouseRejectedLoadPreservesState', before == restored)
+            finally: client.close()
+        if 'world-output' in args.scenes:
+            client = Client('world-output', slot)
+            try:
+                ui = client.ui(); origin = ui['position']
+                fruit = next(c for c in ui['cells'] if c['resource'] and c['resource']['id'] == 'resource.apple-tree'
+                    and abs(c['x'] - origin['x']) + abs(c['y'] - origin['y']) == 1)
+                client.context(fruit); client.click('context:harvest'); client.pause(); client.click('panel:work')
+                check('outputDefaultDestinationIsPack', next(c for c in client.ui()['controls'] if c['id'] == 'work-delivery')['label'] == 'To: Pack')
+                client.click('work-delivery'); client.capture('output-destination'); client.click('close')
+                planned = client.save()['state']['work'][0]; storage = planned['deliveryStorage']
+                check('mouseSelectsObservedDeliveryStorage', storage['x'] == origin['x'] + 7 and storage['y'] == origin['y'])
+                client.click('pause'); client.wait(lambda u: u['work'] and u['work'][0]['output'] is not None); client.pause()
+                carrying = client.save(); work = carrying['state']['work'][0]
+                carrier = next(a for a in carrying['state']['actors'] if a['id'] == work['output']['carrier'])
+                check('harvestOutputIsOwnedByActualCarrier', carrier['cargo'].get('apple') == 2
+                    and carrying['state']['inventory'].get('apple', 0) == 0 and work['progress'] == work['required'])
+                client.click('panel:work'); client.capture('output-carrying'); client.click('close'); client.load(); restored = client.save()
+                check('harvestOutputAndOwnerSurviveMouseReload', restored['state']['work'] == carrying['state']['work']
+                    and next(a for a in restored['state']['actors'] if a['id'] == carrier['id'])['cargo'] == carrier['cargo'])
+                client.click('pause'); client.wait(lambda u: not u['work']); client.pause(); delivered = client.save()
+                reference = next(c for c in delivered['chunks'] if c['key'] ==
+                    {'x': storage['x'] // 64, 'y': storage['y'] // 64, 'floor': storage['floor']})
+                chunk_directory = Path(str(slot) + '.chunks')
+                delta = json.loads((chunk_directory / (reference['hash'] + '.json')).read_text())
+                depot = delta['storage'][str(storage['y'] % 64 * 64 + storage['x'] % 64)]
+                check('outputReachesStorageWithoutPackTeleport', depot.get('apple') == 2 and delivered['state']['inventory'].get('apple', 0) == 0
+                    and next(a for a in delivered['state']['actors'] if a['id'] == carrier['id'])['cargo'].get('apple', 0) == 0)
+                # A full-storage fixture still uses the real manifest/checksum
+                # loader. Preserve the original immutable chunk snapshot.
+                depot['apple'] = 9999; depot['food'] = 9999
+                data = json.dumps(delta).encode(); reference['hash'] = hashlib.sha256(data).hexdigest().upper()
+                (chunk_directory / (reference['hash'] + '.json')).write_bytes(data); client.restore(delivered)
+                client.context(fruit); client.click('context:harvest'); client.pause(); client.click('panel:work'); client.click('work-delivery'); client.click('close')
+                client.click('pause'); client.wait(lambda u: u['work'] and 'destination full' in u['work'][0]['status']); client.pause()
+                full = client.save(); check('fullOutputStorageRetainsCargo', full['state']['work'][0]['output']['remaining'].get('apple') == 2)
+                client.click('panel:work'); client.capture('output-storage-full'); client.click('work-delivery'); client.click('close')
+                client.click('pause'); client.wait(lambda u: not u['work']); client.pause(); rerouted = client.save()
+                check('mouseReroutesRetainedOutputToPack', rerouted['state']['inventory'].get('apple') == 2)
+                resource = next(c for c in client.ui()['cells'] if c['x'] == fruit['x'] and c['y'] == fruit['y'])['resource']
+                check('deliveryAndRerouteDoNotRepeatHarvest', resource['available'] == fruit['resource']['available'] - 2)
             finally: client.close()
         if 'world-supplies' in args.scenes:
             client = Client('world-supplies', slot)
