@@ -49,7 +49,7 @@ public sealed class SessionTests
     public void CoarseTradeConservesStocksAndCargoAccountingForProductionAndConsumption()
     {
         var s = Open(); long initial = s.AccountedResources(); s.Paused = false; s.AdvanceTicks(2400);
-        Assert.Equal(initial + s.State.ResourcesProduced - s.State.ResourcesConsumed - s.State.ResourcesLost, s.AccountedResources());
+        Assert.Equal(initial + s.RegionalResourceFlow, s.AccountedResources());
         Assert.Contains(s.State.Actors, a => a.Kind == ActorKind.Caravan && a.Traveling);
     }
     [Theory]

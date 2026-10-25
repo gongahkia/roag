@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -446,6 +446,40 @@ def main():
                 client.wait(lambda u: u['notice'].startswith('Recovered') and u['inventory'].get('stone') == 2)
                 recovered = client.save(); check('returnedSupplyCanBeRecoveredWithoutDuplication', recovered['state']['inventory'].get('stone') == 2
                     and next(c for c in recovered['state']['loot'] if c['id'] == bundle['id'])['taken'])
+            finally: client.close()
+        if 'world-occupations' in args.scenes:
+            client = Client('world-occupations', slot)
+            try:
+                fixture = client.ui()['occupationFixture']; actor_id = fixture['actor']; source = fixture['source']
+                def resident(ui): return next(a for a in ui['actors'] if a['id'] == actor_id)
+                person = resident(client.ui())
+                check('occupationExplainsActualGathering', person['occupation']['kind'] == 'Gather' and 'Gathering grain' in person['activity'])
+                x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
+                client.wait(lambda u: u['hover'] is not None and person['name'] in u['hover']['title']); client.capture('occupation-grain-work')
+                initial = client.save(); actor = next(a for a in initial['state']['actors'] if a['id'] == actor_id)
+                town = actor['homeTown']; food = initial['state']['towns'][town]['stocks']['food']; pack = initial['state']['inventory']['food']
+                available = next(c['resource']['available'] for c in client.ui()['cells'] if c['x'] == source['x'] and c['y'] == source['y'])
+                client.click('pause'); client.wait(lambda u: resident(u)['occupation'] is not None and resident(u)['occupation']['phase'] == 'Delivering')
+                client.pause(); carrying = client.save(); actor = next(a for a in carrying['state']['actors'] if a['id'] == actor_id)
+                job = actor['occupation']; amount = job['yield']['food']
+                check('occupationExplainsCarryingImmediately', 'Carrying ' + str(amount) + ' food' in resident(client.ui())['activity'])
+                check('occupationHarvestEntersRealCargoBeforeTownStorage', actor['cargo']['food'] == amount and job['carried']['food'] == amount
+                    and carrying['state']['towns'][town]['stocks']['food'] == food and carrying['state']['inventory']['food'] == pack and not carrying['state']['work'])
+                person = resident(client.ui()); x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
+                client.wait(lambda u: u['hover'] is not None and person['name'] in u['hover']['title']); client.capture('occupation-carrying-grain')
+                client.load(); restored = client.save()
+                check('occupationOwnerAndLedgerSurviveMouseReload', restored['state'] == carrying['state'])
+                client.click('pause'); client.wait(lambda u: resident(u)['occupation'] is None); client.pause(); delivered = client.save()
+                actor = next(a for a in delivered['state']['actors'] if a['id'] == actor_id)
+                check('occupationCompletionClearsCarryingExplanation', 'Carrying' not in resident(client.ui())['activity'])
+                check('occupationWalksHomeAndDepositsWithoutPackTeleport', actor['cargo']['food'] == 0
+                    and abs(actor['position']['x'] - fixture['home']['x']) + abs(actor['position']['y'] - fixture['home']['y']) <= 1
+                    and delivered['state']['towns'][town]['stocks']['food'] == food + amount and delivered['state']['inventory']['food'] == pack)
+                resource = next(c['resource'] for c in client.ui()['cells'] if c['x'] == source['x'] and c['y'] == source['y'])
+                check('occupationDeliveryDoesNotRepeatExtraction', resource['available'] == available - 1
+                    and delivered['state']['namedResourcesProduced'] - initial['state']['namedResourcesProduced'] == amount)
+                person = resident(client.ui()); x('mousemove', '--window', client.window, *map(round, client.tile_point(person['x'], person['y'])))
+                client.wait(lambda u: u['hover'] is not None and person['name'] in u['hover']['title']); client.capture('occupation-delivered-grain')
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

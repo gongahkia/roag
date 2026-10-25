@@ -1,0 +1,17 @@
+{
+  "kind": "resource",
+  "id": "resource.field-grain",
+  "name": "Hardy grain patch",
+  "description": "A patch of hardy grain gathered by settlement farmers. Clearing or building over it removes this source.",
+  "sprite": "tuft",
+  "depletedSprite": "grass",
+  "terrain": "Grass",
+  "biomes": ["Grassland", "Forest", "Marsh", "Highland", "Badland", "Snow"],
+  "chancePerThousand": 20,
+  "capacity": 3,
+  "work": 30,
+  "regrowTicks": 1800,
+  "activity": "harvest",
+  "yield": {"item.food": 8},
+  "underground": false
+}

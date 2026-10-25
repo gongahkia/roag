@@ -35,11 +35,11 @@ public static class WorldDiagnostics
         var rest = s.Submit(new(WorldCommandKind.Camp));
         var trade = s.Submit(new(WorldCommandKind.Buy, Item: "food", Amount: 3));
         s.Paused = false; long resources = s.AccountedResources();
-        long produced = s.State.ResourcesProduced, consumed = s.State.ResourcesConsumed, lost = s.State.ResourcesLost;
+        long flow = s.RegionalResourceFlow;
         var samples = new List<double>();
         for (int i = 0; i < 600; i++) { var timer = Stopwatch.StartNew(); s.AdvanceTicks(1); samples.Add(timer.Elapsed.TotalMilliseconds); }
         samples.Sort();
-        if (!recruit.Success || !build.Success || !rest.Success || !trade.Success || resources + (s.State.ResourcesProduced - produced) - (s.State.ResourcesConsumed - consumed) - (s.State.ResourcesLost - lost) != s.AccountedResources()) throw new InvalidDataException("World headless scenario failed.");
+        if (!recruit.Success || !build.Success || !rest.Success || !trade.Success || resources + s.RegionalResourceFlow - flow != s.AccountedResources()) throw new InvalidDataException("World headless scenario failed.");
         return new { seed, world = s.Plan.Id, generatedHero = s.Party.First().Name, party = s.Party.Select(a => new { a.Id, a.Name, a.Role }), ticks = s.State.Tick, recruit = recruit.Success, camp = build.Success && rest.Success, trade = trade.Success, resourceConservation = true, residentChunks = s.Chunks.ResidentCount, cacheCapacity = ChunkCache.Capacity, simulationTickP95Ms = samples[(int)(samples.Count * .95)], simulationTickMaxMs = samples[^1], note = "Measured Core tick timings; graphical frame rate is a separate native check." };
     }
 }

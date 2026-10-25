@@ -131,8 +131,8 @@ public sealed partial class WorldSession
             }
             void Produce(string item, string job, int rate)
             {
-                int amount = (int)workers.Where(w => w.Job == job).Sum(w => rate * WorkRate(w));
-                int accepted = Math.Min(amount, Math.Max(0, 9999 - town.Stocks[item])); town.Stocks[item] += accepted; State.ResourcesProduced += accepted;
+                int amount = (int)workers.Where(w => w.OccupationVersion == 0 && w.Job == job).Sum(w => rate * WorkRate(w));
+                int accepted = Math.Min(amount, Math.Max(0, 9999 - town.Stocks[item])); town.Stocks[item] += accepted; State.ResourcesProduced += accepted; State.RegionalResourcesProduced += accepted;
             }
         }
         // Patrols are persistent people, not duplicate actors created when chunks become active.
@@ -148,11 +148,13 @@ public sealed partial class WorldSession
         {
             if (town.Stocks[command.Item] < amount || Count("gold") < (long)price * amount) return new(false, "The stock or your gold is insufficient.");
             town.Stocks[command.Item] -= amount; Add("gold", -price * amount); Add(command.Item, amount);
+            State.ResourcesExported += amount;
         }
         else
         {
             if (Count(command.Item) < amount) return new(false, "You do not have that stack.");
             Add(command.Item, -amount); town.Stocks[command.Item] += amount; Add("gold", Math.Max(1, price / 2) * amount);
+            State.ResourcesImported += amount;
         }
         return new(true, $"Traded {amount} {command.Item} in {townPlan.Name}.");
     }
@@ -160,4 +162,5 @@ public sealed partial class WorldSession
         + State.Actors.Sum(a => a.Cargo.Values.Sum(v => (long)v))
         - State.Work.Sum(o => (o.Supplies?.Where(s => s.Phase == SupplyPhase.Carrying).Sum(s => (long)s.Count) ?? 0)
             + (o.Output?.Remaining.Values.Sum(v => (long)v) ?? 0));
+    public long RegionalResourceFlow => State.ResourcesProduced - State.ResourcesConsumed - State.ResourcesLost + State.ResourcesImported - State.ResourcesExported;
 }

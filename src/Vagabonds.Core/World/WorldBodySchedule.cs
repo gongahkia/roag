@@ -84,6 +84,7 @@ public sealed partial class WorldSession
     {
         _bodyWorkers.Clear();
         foreach (var work in State.Work) if (work.Worker > 0 && !work.Suspended && !RoutineInterruptsWork(ActorById(work.Worker))) _bodyWorkers.Add(work.Worker);
+        foreach (var actor in State.Actors) if (OccupationActive(actor)) _bodyWorkers.Add(actor.Id);
         _bodyNear.Clear();
         ActorIndex.AddNearTo(State.Position, 100, _bodyNear);
         _bodyCandidates.Clear();

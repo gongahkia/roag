@@ -23,6 +23,7 @@ public sealed partial class WorldSession
     }
     private void SelectResidentRoutine(Actor actor)
     {
+        ActivateOccupation(actor);
         Actor? danger = null; int distance = 7;
         _routineThreats.Clear(); ActorIndex.AddNearTo(actor.Position, 6, _routineThreats);
         foreach (var other in _routineThreats)
@@ -43,7 +44,7 @@ public sealed partial class WorldSession
         {
             bool supplies = actor.Position.Floor == 0 && actor.Position.Distance(home) <= 100 && State.Towns[actor.HomeTown].Stocks["food"] > 0;
             SetResidentRoutine(actor, RoutineKind.Food, supplies ? home : actor.Position,
-                supplies ? "Seeking food from home supplies" : "Foraging for food");
+                supplies ? "Seeking food from home supplies" : "Foraging for food", ground: false);
             return;
         }
         if (actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick || actor.Health < actor.MaxHealth / 4)
@@ -56,6 +57,7 @@ public sealed partial class WorldSession
         }
         var work = State.Work.FirstOrDefault(w => w.Worker == actor.Id && !w.Suspended);
         if (work != null) { SetResidentRoutine(actor, RoutineKind.AssignedWork, WorkStop(work, actor.Id), work.Output != null ? "Delivering gathered materials" : "Completing assigned " + work.Kind.ToString().ToLowerInvariant(), ground: false); return; }
+        if (actor.Occupation?.Phase is OccupationPhase.Delivering or OccupationPhase.Returning && SelectOccupationRoutine(actor)) return;
         int hour = (int)(State.Tick / TicksPerHour % 24);
         if (hour is >= 17 and <= 20 && actor.FriendId > 0)
         {
@@ -70,6 +72,7 @@ public sealed partial class WorldSession
         }
         if (hour is >= 6 and < 17)
         {
+            if (SelectOccupationRoutine(actor)) return;
             var target = actor.Job switch
             {
                 "farmer" => home.Offset(-14, 12), "woodcutter" => home.Offset(24, 12), "quarrier" => home.Offset(20, -12),
@@ -125,9 +128,14 @@ public sealed partial class WorldSession
     public string RoutineDescription(Actor actor)
     {
         if (actor.Recruited || actor.Routine is not { } routine) return "";
-        string activity = routine.Reason;
+        string activity = routine.Reason; var target = routine.Target;
+        if (routine.Kind == RoutineKind.Occupation && actor.OccupationVersion == 1 && ProductiveOccupation(actor))
+        {
+            activity = actor.Occupation == null ? "Waiting for local work supplies or sources" : OccupationDescription(actor);
+            target = actor.Occupation is { } job ? OccupationStop(actor, job) : OccupationHome(actor);
+        }
         if (routine.Kind == RoutineKind.Social && State.Actors.FirstOrDefault(a => a.Id == routine.Other) is { } friend && Visible.Contains(friend.Position)) activity = "Seeking company with " + friend.Name;
-        if (routine.Blocked) return activity + "; route blocked, waiting for access.";
-        return activity + (actor.Position.Distance(routine.Target) <= 1 ? "; at the destination." : "; on the way.");
+        if (routine.Blocked && target == routine.Target) return activity + "; route blocked, waiting for access.";
+        return activity + (actor.Position.Distance(target) <= 1 ? "; at the destination." : "; on the way.");
     }
 }

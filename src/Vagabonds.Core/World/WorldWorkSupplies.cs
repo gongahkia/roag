@@ -61,6 +61,8 @@ public sealed partial class WorldSession
     private long ReservedCargo(long actor, string? stack = null)
     {
         long count = 0;
+        if (ActorById(actor).Occupation is { } occupation)
+            count += stack == null ? occupation.Carried.Values.Sum(v => (long)v) : occupation.Carried.GetValueOrDefault(stack);
         foreach (var order in State.Work)
         {
             if (order.Supplies != null) foreach (var supply in order.Supplies)
@@ -240,6 +242,9 @@ public sealed partial class WorldSession
         foreach (var order in state.Work)
             if (order.Output is { } output) foreach (var (stack, count) in output.Remaining)
             { var key = (output.Carrier, stack); claims[key] = claims.GetValueOrDefault(key) + count; }
+        foreach (var actor in state.Actors)
+            if (actor.Occupation is { } occupation) foreach (var (stack, count) in occupation.Carried)
+            { var key = (actor.Id, stack); claims[key] = claims.GetValueOrDefault(key) + count; }
         foreach (var (key, count) in claims)
             if (actors[key.Actor].Cargo.GetValueOrDefault(key.Stack) < count) throw new InvalidDataException("Reserved work cargo is missing or claimed twice.");
     }

@@ -558,6 +558,7 @@ internal sealed partial class WorldGame
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             journeyFixture = playerView ? null : _routineFarField,
+            occupationFixture = playerView ? null : _occupationFixture,
             residentJourneys = playerView ? null : _session.ResidentJourneys,
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),
             terrainCache = new { hits = _terrainCacheHits, rebuilds = _terrainCacheRebuilds, bypasses = _terrainCacheBypasses,
@@ -606,6 +607,7 @@ internal sealed partial class WorldGame
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), routine = a.Routine?.Kind.ToString(), activity = _session.RoutineDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,
+                occupation = playerView || a.Occupation is not { } job ? null : new { id = job.Id, kind = job.Kind.ToString(), phase = job.Phase.ToString(), target = job.Target, progress = job.Progress, required = job.Required, carried = job.Carried, delivered = job.Delivered },
                 bounds = _actorMotions.TryGetValue(a.Id, out var motion) ? (object)Rect(ActorRect(motion.Position)) : null }),
             battle = reportedBattle is { } battle ? new { round = battle.Round, activeFriendly = battle.Active.Friendly, active = battle.Active.Id, partner = _cooperativePartner, assisting = battle.Assisting, prepared = battle.Prepared,
                 units = battle.Units.Select(u => new { id = u.Id, friendly = u.Friendly, alive = u.Alive, mana = u.Mana, partnerReason = playing ? "Wait for presentation." : _session.CooperationPartnerReason(_skill, u.Id), bounds = Rect(UnitRect(u)) }) } : null

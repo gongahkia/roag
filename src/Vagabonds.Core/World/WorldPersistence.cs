@@ -182,7 +182,7 @@ public sealed partial class WorldSession
                 || !StackValid(b.Cost) || !double.IsFinite(b.Condition) || b.Condition is < 0 or > 100)
             || s.Structures.Select(b => b.Position).Distinct().Count() != s.Structures.Count
             || s.IncidentAfter.Any(p => !catalog.Entries.TryGetValue(p.Key, out var entry) || entry is not IncidentDefinition || p.Value < 0)) throw new InvalidDataException("Invalid work or incident state.");
-        ValidateWorkOutputs(plan, s, catalog); ValidateWorkSupplies(plan, s, catalog); ValidateResidentJourneys(plan, s);
+        ValidateWorkOutputs(plan, s, catalog); ValidateOccupations(plan, s, catalog); ValidateWorkSupplies(plan, s, catalog); ValidateResidentJourneys(plan, s);
         foreach (var actor in s.Actors)
         {
             if (actor.VariantId == null || actor.VariantId.Length > 0 && (!catalog.Entries.TryGetValue(actor.VariantId, out var variant) || variant is not VariantDefinition)

@@ -114,7 +114,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     {
         PrepareBodyClock();
         State.Tick++;
-        Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceIncidents();
+        Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceOccupations(); AdvanceIncidents();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
@@ -176,7 +176,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
                 if (!TryPartyPlacement(State.Position, Party.Append(target).ToArray(), true, out var recruitedPositions)) return new(false, "The new companion needs a free walkable tile nearby.");
-                target.Recruited = true; target.Body.ForageProgress = 0;
+                RecruitOccupation(target); target.Recruited = true; target.Body.ForageProgress = 0;
                 foreach (var job in State.Work.Where(o => o.Worker == target.Id)) job.PartyApproach = true;
                 Remember(target, "recruited", "I set out with a new travelling party.", 5);
                 State.Party.Add(target.Id); ApplyPartyPlacement(State.Position, recruitedPositions); State.Towns[target.HomeTown].Vacancies++;
@@ -242,7 +242,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             case WorldCommandKind.CompleteDelivery:
                 var delivery = State.Tasks.FirstOrDefault(t => !t.Complete && t.RoadId == null && State.Position.Distance(Plan.Towns[t.TownId].Center) < 28);
                 if (delivery == null || Count("food") < 20) return new(false, "A town with a delivery request needs 20 food.");
-                Add("food", -20); State.Towns[delivery.TownId].Stocks["food"] += 20; delivery.Complete = true; Add("gold", 30); Log($"Delivery completed in {Plan.Towns[delivery.TownId].Name}; trade can recover.");
+                Add("food", -20); State.Towns[delivery.TownId].Stocks["food"] += 20; State.ResourcesImported += 20; delivery.Complete = true; Add("gold", 30); Log($"Delivery completed in {Plan.Towns[delivery.TownId].Name}; trade can recover.");
                 return new(true, "Delivery accepted; 30 gold paid.");
             case WorldCommandKind.Continue:
                 NewLoneHero(); Paused = true; Log("A new traveller takes up the story in the same changed world."); return new(true, "A new expedition begins alone.");
@@ -409,7 +409,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         string item = arc.Kind == ArcKind.SpreadingBlight ? "medicine" : "food";
         int amount = arc.Kind == ArcKind.SpreadingBlight ? 3 : arc.Kind == ArcKind.TradeConflict ? 20 : 0;
         if (Count(item) < amount || arc.Kind == ArcKind.ContestedSuccession && State.Party.Count < 2) return new(false, arc.Objective);
-        Add(item, -amount); State.Towns[recipient.Id].Stocks[item] += amount;
+        Add(item, -amount); State.Towns[recipient.Id].Stocks[item] += amount; State.ResourcesImported += amount;
         arc.Status = ArcStatus.Resolved; Add("gold", 100);
         arc.Outcome = recipient.Id == arc.TownId ? "The original compact was restored." : $"A new compact formed under {recipient.Name}; the old patron lost influence.";
         foreach (var f in State.Factions) if (f.Id != Plan.Towns[arc.TownId].FactionId) f.Relations[Plan.Towns[arc.TownId].FactionId] = Math.Min(100, f.Relations[Plan.Towns[arc.TownId].FactionId] + 20);

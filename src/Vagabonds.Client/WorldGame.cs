@@ -39,6 +39,7 @@ internal sealed partial class WorldGame : Game
     private long _visualLeader;
     private WorldPosition? _streamPosition;
     private readonly WorldPosition? _routineFarField;
+    private readonly OccupationFixture? _occupationFixture;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
@@ -62,6 +63,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
         if (!options.Load && options.Scene == "world-resources") { ResourcePreview.Prepare(_session, "resource.apple-tree"); _session.Paused = true; }
         if (!options.Load && options.Scene == "world-routines") { RoutinePreview.Prepare(_session); _routineFarField = JourneyPreview.PrepareFarField(_session); }
+        if (!options.Load && options.Scene == "world-occupations") _occupationFixture = OccupationPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
@@ -404,6 +406,12 @@ internal sealed partial class WorldGame : Game
             if (order.Output != null) continue;
             var rect = TileRect(order.Target); FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * order.Progress / order.Required)), 3), Gold);
             FillClipped(new(rect.Left + 2, rect.Bottom - 5, Math.Max(2, rect.Width - 4), 2), Gold * .5f);
+        }
+        foreach (var actor in _session.State.Actors)
+        {
+            if (actor.Occupation is not { Phase: OccupationPhase.Working, Progress: > 0 } job || !_session.Visible.Contains(job.Target)) continue;
+            var rect = TileRect(job.Target);
+            FillClipped(new(rect.Left + 2, rect.Top + 2, Math.Max(2, (int)((rect.Width - 4) * job.Progress / job.Required)), 3), Muted);
         }
         if (_waypoint is { } mark && _session.State.Position.Floor == mark.Floor)
         {

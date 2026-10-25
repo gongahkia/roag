@@ -177,6 +177,26 @@ public sealed class ResidentJourney
     [JsonRequired] public long RetryAt { get; set; }
     [JsonRequired] public long Revision { get; set; }
 }
+public enum OccupationKind { Gather, Fell, Quarry, Craft, BuildWorkplace, RepairWorkplace }
+public enum OccupationPhase { Collecting, Working, Delivering, Returning }
+public sealed class OccupationJob
+{
+    [JsonRequired] public long Id { get; set; }
+    [JsonRequired] public OccupationKind Kind { get; set; }
+    [JsonRequired] public OccupationPhase Phase { get; set; }
+    [JsonRequired] public WorldPosition Target { get; set; }
+    [JsonRequired] public string Definition { get; set; } = "";
+    [JsonRequired] public Material Before { get; set; }
+    [JsonRequired] public double Required { get; set; }
+    [JsonRequired] public double Progress { get; set; }
+    [JsonRequired] public Dictionary<string, int> Inputs { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Yield { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Carried { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Delivered { get; set; } = [];
+    [JsonRequired] public Dictionary<string, int> Consumed { get; set; } = [];
+    [JsonRequired] public long LastProgressTick { get; set; }
+    [JsonRequired] public WorldPosition LastPosition { get; set; }
+}
 public sealed class Actor
 {
     private WorldPosition _position;
@@ -191,6 +211,13 @@ public sealed class Actor
     private LifeState _life;
     private bool _recruited;
     private ResidentRoutine? _routine;
+    private OccupationJob? _occupation;
+    public int OccupationVersion { get; set; }
+    public long OccupationAfter { get; set; }
+    public WorldPosition? OccupationWorkplace { get; set; }
+    public WorldPosition? OccupationAvoid { get; set; }
+    public long OccupationAvoidUntil { get; set; }
+    public OccupationJob? Occupation { get => _occupation; set { if (_occupation == value) return; _occupation = value; NotifyNeedsChanged(); } }
     public ResidentJourney? Journey { get; set; }
     internal ResidentJourney? GroundJourney;
     internal ResidentGround[]? JourneyGround;
@@ -573,6 +600,10 @@ public sealed class WorldState
     public long ResourcesConsumed { get; set; }
     [JsonRequired]
     public long ResourcesLost { get; set; }
+    public long ResourcesExported { get; set; }
+    public long ResourcesImported { get; set; }
+    public long NamedResourcesProduced { get; set; }
+    public long RegionalResourcesProduced { get; set; }
 }
 
 public sealed class WorldBattle

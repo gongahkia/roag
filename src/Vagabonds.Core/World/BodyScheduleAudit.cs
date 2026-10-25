@@ -27,8 +27,7 @@ public static class BodyScheduleAudit
         var scheduled = WorldSession.Create(seed, catalog); using var detailed = WorldSession.Create(seed, catalog);
         detailed.DetailedBodiesEverywhere = true;
         Prepare(scheduled); Prepare(detailed);
-        long initial = scheduled.AccountedResources(), produced = scheduled.State.ResourcesProduced,
-            consumed = scheduled.State.ResourcesConsumed, lost = scheduled.State.ResourcesLost;
+        long initial = scheduled.AccountedResources(), flow = scheduled.RegionalResourceFlow;
         long completedVisits = 0; double scheduledMs = 0, detailedMs = 0; bool resumed = false;
         var checkpoints = new List<BodyAuditCheckpoint>();
         string directory = Path.Combine(Path.GetTempPath(), "vagabonds-body-audit-" + Guid.NewGuid().ToString("N"));
@@ -48,7 +47,7 @@ public static class BodyScheduleAudit
                     string expected = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(detailed.State)));
                     if (actual != expected) throw new InvalidDataException($"Body audit seed {seed} diverged at {tick}: {actual} / {expected}.");
                     long resources = scheduled.AccountedResources();
-                    if (resources != initial + scheduled.State.ResourcesProduced - produced - (scheduled.State.ResourcesConsumed - consumed) - (scheduled.State.ResourcesLost - lost))
+                    if (resources != initial + scheduled.RegionalResourceFlow - flow)
                         throw new InvalidDataException($"Body audit seed {seed} violated resource conservation at {tick}.");
                     checkpoints.Add(new(tick, actual, expected, resources, scheduled.State.Actors.Count, scheduled.BodySimulation.QueuedDeadlines));
                 }

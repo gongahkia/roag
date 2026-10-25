@@ -54,6 +54,7 @@ public sealed partial class WorldSession
             {
                 body.ForageProgress = 0; body.ForageAfter = State.Tick + TicksPerHour;
                 actor.Cargo["food"] = actor.Cargo.GetValueOrDefault("food") + 2; State.ResourcesProduced += 2;
+                if (actor.Kind == ActorKind.Person) State.NamedResourcesProduced += 2;
             }
         }
         for (int i = actor.Memories.Count - 1; i >= 0; i--) if (actor.Memories[i].Until <= State.Tick) actor.Memories.RemoveAt(i);
@@ -81,6 +82,7 @@ public sealed partial class WorldSession
             if (Count("food") < 1) return false;
             Add("food", -1); return true;
         }
+        if (EatOccupationFood(actor)) return true;
         if (FreeCargo(actor, "food") > 0)
         { actor.Cargo["food"]--; State.ResourcesConsumed++; return true; }
         var town = State.Towns[actor.HomeTown];
