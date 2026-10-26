@@ -99,6 +99,12 @@ public sealed partial class TacticalCombat
                 throw new InvalidDataException("No handler for this scheduled tactical work.");
             var actor = Actor(work.ActorId);
             if (actor.Life == LifeState.Dead) continue;
+            if (!Friendly(actor) && actor.Tactics!.EnemySnareDelay > 0)
+            {
+                int delay = actor.Tactics.EnemySnareDelay; actor.Tactics.EnemySnareDelay = 0;
+                State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + delay), actor.Id);
+                continue;
+            }
             if (actor.Life == LifeState.Downed)
             {
                 ResolveAtomically(RootCause(0), () =>
@@ -183,6 +189,7 @@ public sealed partial class TacticalCombat
         {
             // Recovery is committed before reactive effects, so downing/stun cannot erase its cost.
             State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + preview.Recovery), actor.Id, Friendly(actor));
+            actor.Tactics.EnemySnareDelay = 0;
             State.ActiveActor = 0;
             if (preview.Vow is { } vow)
             {
@@ -231,6 +238,10 @@ public sealed partial class TacticalCombat
         long due = checked(Clock + ActionTiming.Recovery(windupCost, EffectiveSpeed(actor)));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(recoveryCost);
         EnemyAttackRules.Validate(support, advance);
+        if (support is { Target: > 0 }) _ = Actor(support.Target);
+        if (support?.Kind == EnemySupportKind.Ward && actor.Tactics?.DefinitionId != "core:enemy/ward_weaver"
+            || support?.Kind == EnemySupportKind.Snare && actor.Tactics?.DefinitionId != "core:enemy/snare_scribe")
+            throw new ArgumentException("Support effect does not match the enemy role.");
         if ((support != null || advance != null) && actor.Tactics?.Enemy == null)
             throw new ArgumentException("Enemy attack effects require a native enemy.");
         bool deferredRecovery = actor.Tactics?.Enemy != null;
@@ -286,10 +297,11 @@ public sealed partial class TacticalCombat
             if (attack.Support != null) ResolveEnemySupport(attack);
             else
             {
-                if (attack.RecoveryCost != null)
+                if (attack.RecoveryCost != null || attack.ClassGenerated && attack.Ability == "core:ability/tinkerer_sentry")
                     Emit("AttackPerformed", attack.Source, 0, attack.Id, attack.Origin, ability: attack.Ability,
                         snapshot: CaptureBoonEvent(BoonTrigger.AttackPerformed, attack.Source, 0, attack.Id, attack.Origin, attack.Ability)
-                            with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = true, WindupId = attack.Id });
+                            with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = !attack.ClassGenerated,
+                                WindupId = attack.RecoveryCost != null ? attack.Id : null });
                 ResolveDamageBatch(attack);
             }
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
@@ -300,7 +312,7 @@ public sealed partial class TacticalCombat
         });
     }
 
-    private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable);
+    private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable, EnemyProtection? Protection);
 
     private void ResolveDamageBatch(LockedAttack attack)
     {
@@ -329,7 +341,8 @@ public sealed partial class TacticalCombat
                 Emit("RingReversalSpent", source.Id, target.Id, attack.Id, target.Position, bonus);
             }
             bool invulnerable = target.Tactics?.Invulnerable == true;
-            int afterDefense = invulnerable ? 0 : Math.Max(0, attempted - target.Armor);
+            var protection = SquadProtection(target, source, direct);
+            int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - target.Armor);
             int prevented = ClassProtection(target, source, attack, afterDefense);
             if (Guards(target, attack)) prevented += (int)((long)(afterDefense - prevented) * Tuning.GuardReductionPercent / 100);
             if (target.Tactics is { } targetTactics)
@@ -349,7 +362,7 @@ public sealed partial class TacticalCombat
                 AdjacentHostileCount = neighbors.Count(a => BoonFaction(a) != BoonFaction(source)),
                 AdjacentBurningCount = neighbors.Count(a => BoonFaction(a) == BoonFaction(target) && a.Tactics?.Burning != null)
             };
-            hits.Add(new(target, damage, prevented, snapshot, invulnerable));
+            hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection));
             if (attack.Delivery == AttackDelivery.Projectile) break;
         }
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
@@ -359,7 +372,7 @@ public sealed partial class TacticalCombat
         {
             var target = hit.Target;
             Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", source.Id, target.Id, attack.Id,
-                target.Position, hit.Snapshot.ActualLoss!.Value, hit.Prevented, attack.Ability, snapshot: hit.Snapshot);
+                target.Position, hit.Snapshot.ActualLoss!.Value, hit.Prevented, attack.Ability, snapshot: hit.Snapshot, protection: hit.Protection);
             if (hit.Snapshot.ActualLoss > 0 && target.Health > 0 && HostileTo(source, target)
                 && target.Tactics is { DefinitionId: "core:enemy/bastion_bulwark", Enemy: { } memory })
             {
@@ -413,6 +426,9 @@ public sealed partial class TacticalCombat
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
         actor.Life = LifeState.Dead; actor.Health = 0;
+        // Owned traps disappear on death, including traps on an offscreen floor.
+        State.EnemySnares.RemoveAll(s => s.Source == actor.Id);
+        if (actor.Tactics != null) actor.Tactics.EnemySnareDelay = 0;
         if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; }
         State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); CancelAttacks(actor.Id, source, action, "death");
         if (State.ActiveActor == actor.Id) State.ActiveActor = 0;
@@ -435,9 +451,10 @@ public sealed partial class TacticalCombat
     private void ScheduleReady(Actor actor, int cost)
         => State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + ActionTiming.Recovery(cost, EffectiveSpeed(actor))), actor.Id, Friendly(actor));
     private void Emit(string kind, long source, long target, long action, WorldPosition position, int amount = 0,
-        int prevented = 0, string ability = "", bool forced = false, WorldPosition? from = null, BoonEvent? snapshot = null, LootChange? loot = null)
+        int prevented = 0, string ability = "", bool forced = false, WorldPosition? from = null, BoonEvent? snapshot = null, LootChange? loot = null,
+        EnemyProtection? protection = null)
     {
-        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot);
+        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection);
         State.Events.Add(entry);
         if (State.Events.Count > 512) State.Events.RemoveRange(0, State.Events.Count - 512);
         QueueBoonEvent(entry, snapshot);

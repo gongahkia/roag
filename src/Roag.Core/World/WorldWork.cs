@@ -24,7 +24,7 @@ public sealed partial class WorldSession
         if (!Plan.Contains(p) || State.Position.Distance(p) > (designated ? 100 : 1) || !Chunks.Seen(p)) return new(false, "Choose observed adjacent terrain.");
         var before = Chunks.At(p); var owned = State.Structures.FirstOrDefault(s => s.Position == p);
         bool prop = ObjectAt(p) is { Removable: true };
-        if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
+        if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Barricade or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
         if (before == Material.Storage && (StorageReservedForWork(p) || State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true)) return new(false, "Empty the storage and release its reserved work supplies first.");
         int hardness = prop ? 1 : Materials.Hardness(before);
         return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),

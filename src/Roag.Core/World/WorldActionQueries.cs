@@ -214,7 +214,7 @@ public sealed partial class WorldSession
         }
         if (kind == WorldCommandKind.Dig)
         {
-            if (prop is not { Removable: true } && owned == null && before is not (Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
+            if (prop is not { Removable: true } && owned == null && before is not (Material.Rock or Material.Wall or Material.Barricade or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return "Choose rock, a tree, a wall or a removable structure.";
             if (before == Material.Storage && (StorageReservedForWork(target) || State.Chunks.FirstOrDefault(c => c.Key == target.Chunk)?.Storage.GetValueOrDefault(target.LocalIndex)?.Values.Any(v => v > 0) == true)) return "Empty the storage and release its reserved work supplies before dismantling it.";
             return "";
         }

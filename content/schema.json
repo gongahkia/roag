@@ -685,7 +685,8 @@
             "StairsDown",
             "StairsUp",
             "Storage",
-            "Camp"
+            "Camp",
+            "Barricade"
           ]
         },
         "work": {
@@ -1460,7 +1461,8 @@
             "StairsDown",
             "StairsUp",
             "Storage",
-            "Camp"
+            "Camp",
+            "Barricade"
           ]
         },
         "biomes": {

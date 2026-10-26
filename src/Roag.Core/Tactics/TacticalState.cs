@@ -15,6 +15,7 @@ public sealed class ActorTactics
     public int BleedTurns { get; set; }
     public int MoveCost { get; set; } = 100;
     public long SnaredBy { get; set; }
+    public int EnemySnareDelay { get; set; }
     public bool ImmuneToPull { get; set; }
     public bool Invulnerable { get; set; }
     public bool RegularEnemy { get; set; }
@@ -34,7 +35,7 @@ public sealed class ActorTactics
     public void Validate()
     {
         if ((Build is null) == (InnateStats is null) || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
-            || MoveCost <= 0 || SnaredBy < 0 || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
+            || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay) || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
@@ -45,6 +46,10 @@ public sealed class ActorTactics
         {
             if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
+            if (Enemy.WardReady && DefinitionId != "core:enemy/ward_weaver"
+                || Enemy.ShieldLowered && DefinitionId != "core:enemy/shield_bearer"
+                || Enemy.Squad is { } squad && DefinitionId != EnemySquads.Roster(squad.Kind).Leader && DefinitionId != EnemySquads.Roster(squad.Kind).Follower)
+                throw new InvalidDataException("Enemy squad role/state mismatch.");
         }
         Resources.Validate(Build?.Class);
         Boons.Validate(Build?.Class);
@@ -66,7 +71,7 @@ public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, lon
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
     long Action, WorldPosition Position, int Amount = 0, int Prevented = 0, string Ability = "",
-    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null);
+    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null, EnemyProtection? Protection = null);
 
 /// <summary>Persisted work queue and event identities shared across terrain/floors.</summary>
 public sealed class TacticalWorldState
@@ -89,6 +94,7 @@ public sealed class TacticalWorldState
     public HashSet<long> Participants { get; set; } = [];
     public List<LockedAttack> Attacks { get; set; } = [];
     public List<TacticalEvent> Events { get; set; } = [];
+    public List<EnemySnare> EnemySnares { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();

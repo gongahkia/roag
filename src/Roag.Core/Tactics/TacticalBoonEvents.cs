@@ -78,7 +78,8 @@ public sealed partial class TacticalCombat
             if (!visions.TryGetValue(owner, out var vision)) visions.Add(owner, vision = _world.VisionFrom(Actor(owner).Position));
             return vision.Contains(p);
         }
-        string? Terrain(WorldPosition p) => !_world.Plan.Contains(p) ? null : _world.Chunks.At(p) == Material.Water ? "~" : _world.GroundOpen(p) ? "." : "#";
+        string? Terrain(WorldPosition p) => !_world.Plan.Contains(p) ? null : _world.Chunks.At(p) switch
+        { Material.Barricade => "B", Material.Water => "~", _ => _world.GroundOpen(p) ? "." : "#" };
         return new(Clock, BoonBodies(), Terrain, p => _world.Plan.Contains(p) ? _world.ObjectAt(p)?.Kind : null, Visible,
             definition => _world.State.Actors.FirstOrDefault(a => TacticalDefinition(a) == definition)?.Tactics?.CurrencyDrop,
             _lastWasDash);
@@ -152,7 +153,10 @@ public sealed partial class TacticalCombat
             }
         }
         if (e.Kind == BoonTrigger.TileEntered && source.Life == LifeState.Alive && e.Position is { } entered)
+        {
             TriggerSnares(source, e.RootActionId ?? 0, entered);
+            TriggerEnemySnares(source, e.RootActionId ?? 0, entered);
+        }
     }
 
     private static double AbilityCoefficient(string ability) => ability is "core:ability/pursuer_strike" or "core:ability/tinkerer_sentry" ? 0 : 1;

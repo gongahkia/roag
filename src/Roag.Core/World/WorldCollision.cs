@@ -76,7 +76,7 @@ public sealed partial class WorldSession
         return Chunks.At(p) switch
         {
             Material.Water => "Water blocks travel. Right-click adjacent ground to build a bridge.",
-            Material.Rock or Material.Wall or Material.Tree => "This terrain blocks travel. Right-click to dig or clear it.",
+            Material.Rock or Material.Wall or Material.Barricade or Material.Tree => "This terrain blocks travel. Right-click to dig or clear it.",
             Material.Storage or Material.Camp => "This structure occupies the tile. Interact from beside it.", _ => ""
         };
     }

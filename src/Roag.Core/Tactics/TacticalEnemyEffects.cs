@@ -11,8 +11,9 @@ internal static class EnemyAttackRules
         if (support != null && advance != null
             || support != null && (support.Kind switch
             {
-                EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0,
-                EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3,
+                EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0 || support.Target < 0,
+                EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3 || support.Target != 0,
+                EnemySupportKind.Ward or EnemySupportKind.Snare => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
                 _ => true
             })
             || advance != null && (!Enum.IsDefined(advance.Facing) || !AttackGeometry.Cardinal(advance.Facing) || advance.Steps is < 1 or > 3))
@@ -31,14 +32,30 @@ public sealed partial class TacticalCombat
             foreach (var cell in attack.Cells)
             {
                 var target = _world.OccupantAt(cell, owner.Id);
-                if (target is not { Life: LifeState.Alive, Tactics: not null } || HostileTo(owner, target)) continue;
+                if (target is not { Life: LifeState.Alive, Tactics: not null } || HostileTo(owner, target)
+                    || support.Target != 0 && support.Target != target.Id) continue;
                 int gain = Math.Min(support.Power, target.MaxHealth - target.Health);
                 if (gain <= 0) continue;
                 target.Health += gain;
                 Emit("Healed", owner.Id, target.Id, attack.Id, cell, gain, ability: attack.Ability);
             }
         }
-        else
+        else if (support.Kind == EnemySupportKind.Ward)
+        {
+            owner.Tactics!.Enemy!.WardReady = true;
+            Emit("SquadWardRaised", owner.Id, 0, attack.Id, owner.Position);
+        }
+        else if (support.Kind == EnemySupportKind.Snare)
+        {
+            foreach (var cell in attack.Cells)
+                if (State.EnemySnares.Count(s => s.Source == owner.Id) < EnemySquads.SnareCap
+                    && !State.EnemySnares.Any(s => s.Position == cell) && _world.CanEnter(cell))
+                {
+                    State.EnemySnares.Add(new(owner.Id, cell));
+                    Emit("EnemySnarePlaced", owner.Id, 0, attack.Id, cell);
+                }
+        }
+        else if (support.Kind == EnemySupportKind.Summon)
         {
             int active = _world.State.Actors.Count(a => a.Life == LifeState.Alive && a.Tactics?.Enemy?.SummonedBy == owner.Id);
             foreach (var cell in attack.Cells)

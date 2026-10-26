@@ -65,12 +65,203 @@ public sealed class EnemyExpansionPlanningTests
 
 public sealed partial class ClassActionTests
 {
+    [Fact]
+    public void ExpansionPublicCommandsMatchOriginalEffectsHealthMovementAndMemory()
+    {
+        using var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+            "Tactics/Fixtures/original-expansion-turns.json")));
+        int decisions = 0;
+        foreach (var sample in fixture.RootElement.GetProperty("cases").EnumerateArray())
+        {
+            var input = sample.GetProperty("input"); string name = input.GetProperty("name").GetString()!;
+            using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+            var origin = a.Hero.Position; a.Friend.Position = new(110, 110);
+            bool Flag(string key) => input.TryGetProperty(key, out var value) && value.GetBoolean();
+            EnemyProfile(a, input.GetProperty("enemy").GetString()!);
+            a.Enemy.Position = origin.Offset(input.GetProperty("dx").GetInt32(), 0);
+            a.Enemy.Tactics!.Enemy!.Retaliate = Flag("retaliate");
+            if (input.TryGetProperty("summons", out var summons)) a.Enemy.Tactics.Enemy.Summons = summons.GetInt32();
+            if (Flag("wall")) a.World.Chunks.Edit(origin.Offset(2, 0), Material.Barricade);
+            if (Flag("ally"))
+            {
+                a.Friend.Position = origin.Offset(2, 0);
+                a.Combat.RegisterEnemy(a.Friend, "core:enemy/mossbound_guard", 10000); a.Friend.Health = 2;
+            }
+            string Label(long id) => id == a.Hero.Id ? "hero" : id == a.Enemy.Id ? "enemy" : id == a.Friend.Id ? "ally" : "summon";
+            a.Combat.State.RandomState = 37; a.World.Reveal(); int index = 0;
+            foreach (var expected in sample.GetProperty("expected").EnumerateArray())
+            {
+                if (index == 1 && Flag("evade")) a.Hero.Position = origin.Offset(0, -1);
+                if (index == 1 && Flag("ally_moves")) a.Friend.Position = origin.Offset(2, 2);
+                long first = a.Combat.State.NextEvent; a.Act(TacticalAction.Wait);
+                for (int i = 0; ; i++)
+                {
+                    Assert.True(i < 100, name + " did not return control");
+                    var actor = a.Combat.AdvanceToDecision(); Assert.NotNull(actor);
+                    if (actor.Id == a.Hero.Id) break;
+                    a.Combat.CommitEnemyTurn(a.Hero.Id, (from, goals) => EnemyPlanningTests.FirstStep(from, goals,
+                        p => p.X is >= 95 and <= 110 && p.Y is >= 95 and <= 110 && a.World.CanEnter(p, actor.Id)));
+                }
+                var trace = a.Combat.State.Events.Where(e => e.Sequence >= first).Select(e => e.Kind switch
+                {
+                    "AttackPerformed" or "SupportResolved" => $"{e.Kind}:{e.Time}:{Label(e.Source)}:{e.Ability}",
+                    "DamageTaken" => $"damage:{e.Time}:{Label(e.Source)}:{Label(e.Target)}:{e.Amount}",
+                    "Healed" => $"heal:{e.Time}:{Label(e.Source)}:{Label(e.Target)}:{e.Amount}",
+                    "EnemySummoned" => $"summon:{e.Time}:{e.Position.X - origin.X}:{e.Position.Y - origin.Y}",
+                    "TerrainBroken" => $"break:{e.Time}:{e.Position.X - origin.X}:{e.Position.Y - origin.Y}",
+                    _ => null
+                }).Where(e => e != null).ToArray();
+                Assert.True(expected.GetProperty("trace").EnumerateArray().Select(e => e.GetString()).SequenceEqual(trace),
+                    name + " / " + index + " trace: " + string.Join(", ", trace));
+                Assert.Equal(expected.GetProperty("clock").GetInt64(), a.Combat.Clock);
+                Assert.Equal(expected.GetProperty("random").GetInt32(), a.Combat.State.RandomState);
+                Assert.Equal(expected.GetProperty("summons").GetInt32(), a.Enemy.Tactics.Enemy.Summons);
+                Assert.Equal(expected.GetProperty("retaliate").GetBoolean(), a.Enemy.Tactics.Enemy.Retaliate);
+                Assert.Equal(expected.GetProperty("alerted").GetBoolean(), a.Enemy.Tactics.Enemy.Alerted);
+                Assert.Equal(expected.GetProperty("wall").GetString(), a.World.Chunks.At(origin.Offset(2, 0)) == Material.Barricade ? "B" : ".");
+                Assert.Equal(expected.GetProperty("actors").EnumerateArray().Select(x =>
+                    (x.GetProperty("label").GetString(), x.GetProperty("hp").GetInt32(), x.GetProperty("dx").GetInt32(), x.GetProperty("dy").GetInt32())),
+                    a.World.State.Actors.Where(x => x.Life == LifeState.Alive && a.Combat.State.Participants.Contains(x.Id))
+                        .OrderBy(x => Label(x.Id), StringComparer.Ordinal).ThenBy(x => x.Position.X).ThenBy(x => x.Position.Y)
+                        .Select(x => ((string?)Label(x.Id), x.Health, x.Position.X - origin.X, x.Position.Y - origin.Y)));
+                TacticalValidation.Validate(a.World.Plan, a.World.State); index++; decisions++;
+            }
+        }
+        Assert.Equal(40, decisions);
+    }
+
+    [Fact]
+    public void ExpansionSupportAndMinionOwnershipSurviveActualWorldSaveResume()
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+        var attack = BeginExpansion(a, "forge_conjurer");
+        var wall = new WorldPosition(104, 100); a.World.Chunks.Edit(wall, Material.Barricade);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-expansion-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "world.json"); a.World.Save(slot);
+            using var loaded = WorldSession.Load(slot); var resumed = new TacticalCombat(loaded, _ => { });
+            Assert.Equal(attack.Support, Assert.Single(resumed.State.Attacks).Support);
+            for (int i = 0; i < 8; i++)
+            {
+                Assert.Equal(a.Combat.AdvanceToDecision()!.Id, resumed.AdvanceToDecision()!.Id);
+                Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+                a.Act(TacticalAction.Wait); Assert.True(resumed.Commit(new(TacticalAction.Wait, Facing.East)).Success);
+            }
+            Assert.Contains(loaded.State.Actors, x => x.Tactics?.Enemy?.SummonedBy == a.Enemy.Id);
+            Assert.Equal(Material.Barricade, loaded.Chunks.At(wall));
+            loaded.Save(slot);
+            using var again = WorldSession.Load(slot);
+            TacticalValidation.Validate(again.Plan, again.State);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void PlayerAttacksBreakBarricadesThroughTheSameTerrainEventPipeline()
+    {
+        using var a = new Arena(ClassKind.Adventurer);
+        var wall = a.Hero.Position.Offset(1, 0); a.World.Chunks.Edit(wall, Material.Barricade);
+        a.Act(TacticalAction.BasicAttack); a.Next();
+        Assert.Equal(Material.Floor, a.World.Chunks.At(wall));
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "TerrainBroken" && e.Source == a.Hero.Id);
+    }
+
+    [Fact]
+    public void SentryHitsBreakNewBarricadesWithoutGrantingOrdinaryAttackProcs()
+    {
+        using var a = new Arena(ClassKind.Tinkerer);
+        Grant(a.Hero, "core:boon/temporal_echo");
+        a.Act(TacticalAction.Special); a.Next(); // sentry has locked its shot
+        Assert.Equal(SentryPhase.Impact, a.Hero.Tactics!.Resources.Sentry!.Phase);
+        var wall = new WorldPosition(102, 100); a.World.Chunks.Edit(wall, Material.Barricade);
+        a.Act(TacticalAction.Wait); a.Next();
+        Assert.Equal(Material.Floor, a.World.Chunks.At(wall));
+        Assert.Equal(a.Enemy.MaxHealth, a.Enemy.Health);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "TerrainBroken");
+        Assert.DoesNotContain(a.Combat.State.Events, e => e.Kind == "BoonActivated");
+    }
+
+    [Fact]
+    public void WorldBarricadesAlsoAllowOrdinaryDismantlingWork()
+    {
+        using var world = Roag.Core.Tests.World.WorldCollisionTests.Arena();
+        var wall = world.State.Position.Offset(1, 0); world.Chunks.Edit(wall, Material.Barricade); world.Reveal();
+        Assert.Empty(world.TargetBlockReason(WorldCommandKind.Dig, wall));
+        var result = world.Submit(new(WorldCommandKind.Dig, wall)); Assert.True(result.Success, result.Message);
+        Assert.Contains(world.State.Work, w => w.Target == wall && w.Kind == WorkKind.Dig);
+        Assert.Contains(Roag.Client.WorldContextActions.Options(world, [wall]), c => c.Id == "dig");
+    }
+
     private static LockedAttack BeginExpansion(Arena a, string definition)
     {
         EnemyProfile(a, definition); a.Act(TacticalAction.Wait);
         Assert.Same(a.Enemy, a.Combat.AdvanceToDecision());
         a.Combat.CommitEnemyTurn(a.Hero.Id, (from, goals) => EnemyRoute(a, from, goals));
         return Assert.Single(a.Combat.State.Attacks);
+    }
+
+    [Theory]
+    [InlineData("cinder_mender")]
+    [InlineData("forge_conjurer")]
+    public void ExpansionSupportCannotResolveAfterItsOwnerDies(string definition)
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+        a.Friend.Position = new(102, 100);
+        a.Combat.RegisterEnemy(a.Friend, "core:enemy/mossbound_guard", 10000); a.Friend.Health = 2;
+        var attack = BeginExpansion(a, definition);
+        Assert.NotNull(attack.Support);
+        a.Hit(a.Enemy, 1000, source: a.Hero); FinishExpansion(a, attack);
+        Assert.Equal(2, a.Friend.Health);
+        Assert.DoesNotContain(a.Combat.State.Events, e => e.Kind is "SupportResolved" or "EnemySummoned" or "Healed");
+    }
+
+    [Fact]
+    public void ExpansionChargeStopsBeforeBodiesAndSolidTerrain()
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+        var attack = BeginExpansion(a, "glass_charger");
+        a.World.Chunks.Edit(new(101, 100), Material.Wall);
+        FinishExpansion(a, attack);
+        Assert.Equal(new(102, 100), a.Enemy.Position);
+        Assert.Equal(a.Hero.MaxHealth, a.Hero.Health);
+    }
+
+    [Fact]
+    public void ExpansionSavesRejectInvalidSupportAdvanceAndSummonerReferences()
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+        var attack = BeginExpansion(a, "forge_conjurer");
+        foreach (var invalid in new[]
+        {
+            attack with { Support = new(EnemySupportKind.Heal, Power: 0) },
+            attack with { Support = attack.Support! with { MaximumActive = 4 } },
+            attack with { Support = attack.Support! with { Definition = "core:enemy/missing" } },
+            attack with { Advance = new(Facing.NorthEast, 3) },
+            attack with { Support = null, Advance = new(Facing.North, 4) }
+        })
+        {
+            a.Combat.State.Attacks[0] = invalid;
+            Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
+        }
+        a.Combat.State.Attacks[0] = attack;
+        a.Enemy.Tactics!.Enemy!.SummonedBy = a.Enemy.Id;
+        Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
+        a.Enemy.Tactics.Enemy.SummonedBy = long.MaxValue;
+        Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
+    }
+
+    [Fact]
+    public void NativeSummonOwnershipRetainsItsDeadSummonerUntilTheMinionIsReclaimed()
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
+        var attack = BeginExpansion(a, "forge_conjurer"); FinishExpansion(a, attack);
+        var child = Assert.Single(a.World.State.Actors, x => x.Tactics?.Enemy?.SummonedBy == a.Enemy.Id);
+        a.Hit(a.Enemy, 1000, source: a.Hero);
+        a.Combat.State.Events.Clear(); a.Combat.State.Loot.Drops.Clear();
+        Assert.True(TacticalReferences.RetainsActor(a.World.State, a.Enemy.Id));
+        Assert.Equal(LifeState.Alive, child.Life);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
     private static void FinishExpansion(Arena a, LockedAttack attack)
     {

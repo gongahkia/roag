@@ -97,6 +97,16 @@ public sealed class ActionTimeline
         return true;
     }
 
+    /// <summary>Extend committed work while preserving its original tie-breaking sequence.</summary>
+    public bool Delay(long sequence, long delay)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(delay);
+        if (!_bySequence.TryGetValue(sequence, out var entry)) return false;
+        var delayed = entry with { Due = checked(entry.Due + delay) };
+        _pending.Remove(entry); _pending.Add(delayed); _bySequence[sequence] = delayed;
+        return true;
+    }
+
     public int CancelActor(long actorId, ScheduledKind? kind = null)
     {
         var removed = _pending.Where(e => e.ActorId == actorId && (kind is null || e.Kind == kind)).ToArray();

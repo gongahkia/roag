@@ -92,7 +92,7 @@ internal static class WorldContextActions
                 if (session.State.Tasks.Any(t => t.TownId == actor.HomeTown && t.RoadId == null && !t.Complete)) options.Add(new("delivery", "Deliver requested food"));
             }
         }
-        if (cells.Any(c => session.Chunks.At(c) is Material.Rock or Material.Wall or Material.Tree or Material.Door or Material.Storage or Material.Camp || session.ObjectAt(c) is { Removable: true } || session.State.Structures.Any(s => s.Position == c)))
+        if (cells.Any(c => session.Chunks.At(c) is Material.Rock or Material.Wall or Material.Barricade or Material.Tree or Material.Door or Material.Storage or Material.Camp || session.ObjectAt(c) is { Removable: true } || session.State.Structures.Any(s => s.Position == c)))
             Work("dig", "Dig / dismantle", WorldCommandKind.Dig);
         if (cells.Any(c => session.ResourceAt(c) != null)) Work("harvest", "Gather resources", WorldCommandKind.Harvest);
         if (cells.Any(c => session.State.Structures.Any(s => s.Position == c && s.Condition < 95))) Work("repair", "Repair", WorldCommandKind.Repair);

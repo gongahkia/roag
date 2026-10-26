@@ -27,6 +27,20 @@ public static class TacticalValidation
             if (actor.Tactics?.Enemy is { SummonedBy: > 0 } summoned
                 && (summoned.SummonedBy == actor.Id || !actors.TryGetValue(summoned.SummonedBy, out var summoner) || summoner.Tactics?.Enemy == null))
                 throw new InvalidDataException("Missing native summoner identity.");
+        foreach (var actor in world.Actors)
+            if (actor.Tactics?.Enemy?.Squad is { } squad)
+            {
+                if (!plan.Contains(squad.Home) || !actors.TryGetValue(squad.Leader, out var leader)
+                    || leader.Tactics?.DefinitionId != EnemySquads.Roster(squad.Kind).Leader
+                    || leader.Tactics.Enemy?.Squad != squad)
+                    throw new InvalidDataException("Missing or inconsistent squad leader.");
+            }
+        if (state.EnemySnares is null || state.EnemySnares.Any(s => s == null || !plan.Contains(s.Position)
+            || !actors.TryGetValue(s.Source, out var owner) || owner.Life != LifeState.Alive
+            || owner.Tactics?.DefinitionId != "core:enemy/snare_scribe")
+            || state.EnemySnares.Select(s => s.Position).Distinct().Count() != state.EnemySnares.Count
+            || state.EnemySnares.GroupBy(s => s.Source).Any(g => g.Count() > EnemySquads.SnareCap))
+            throw new InvalidDataException("Invalid owned enemy traps.");
         if (state.Rewards is null) throw new InvalidDataException("Missing tactical rewards.");
         state.Rewards.Validate(actors);
         if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
@@ -94,6 +108,10 @@ public static class TacticalValidation
         foreach (var attack in state.Attacks)
         {
             EnemyAttackRules.Validate(attack.Support, attack.Advance);
+            if (attack.Support is { Target: > 0 } support && !actors.ContainsKey(support.Target)
+                || attack.Support?.Kind == EnemySupportKind.Ward && actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/ward_weaver"
+                || attack.Support?.Kind == EnemySupportKind.Snare && actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/snare_scribe")
+                throw new InvalidDataException("Invalid support ownership or healing target.");
             if ((attack.Support != null || attack.Advance != null) && attack.RecoveryCost == null)
                 throw new InvalidDataException("Enemy effects lack their windup recovery.");
             if (attack.RecoveryCost is <= 0
@@ -142,6 +160,9 @@ public static class TacticalValidation
         long previous = 0;
         foreach (var entry in state.Events)
         {
+            if (entry?.Protection is { } protection && (!actors.ContainsKey(protection.Source)
+                || protection.Reason is not ("forcefield" or "directional shield")))
+                throw new InvalidDataException("Invalid squad protection event.");
             if (entry?.Loot is { } loot && (loot.Drop <= 0 || loot.Drop >= state.Loot.NextDrop
                 || !Enum.IsDefined(loot.Kind) || loot.Amount <= 0 || loot.ActualGain < 0 || loot.ActualGain > loot.Amount || loot.Balance < 0))
                 throw new InvalidDataException("Invalid loot event.");

@@ -44,10 +44,16 @@ public sealed class EnemyMemory
     public bool Retaliate { get; set; }
     public int Summons { get; set; }
     public long SummonedBy { get; set; }
+    public EnemySquad? Squad { get; set; }
+    public bool WardReady { get; set; }
+    public Facing ShieldFacing { get; set; } = Facing.South;
+    public bool ShieldLowered { get; set; }
 
     internal void Validate()
     {
+        Squad?.Validate();
         if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0
+            || !Enum.IsDefined(ShieldFacing) || !AttackGeometry.Cardinal(ShieldFacing)
             || LastMovement is { } facing && (!Enum.IsDefined(facing) || !AttackGeometry.Cardinal(facing)))
             throw new InvalidDataException("Invalid enemy decision memory.");
     }

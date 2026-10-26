@@ -57,7 +57,8 @@ public sealed partial class TacticalCombat
             if (actor.Health <= vow.HealthCost) return Invalid($"Vow costs {vow.HealthCost} HP and must leave 1 HP.");
             preview = preview with { Vow = vow, Damage = checked((int)(preview.Damage!.Value + vow.DamageBonus)) };
         }
-        return preview with { BoonCells = PreviewBoonPatterns(actor, intent, preview, immediate, delivery) };
+        return preview with { BoonCells = PreviewBoonPatterns(actor, intent, preview, immediate, delivery),
+            Recovery = checked(preview.Recovery + (Friendly(actor) ? actor.Tactics!.EnemySnareDelay : 0)) };
     }
 
     private IReadOnlyList<BoonPreviewCell> PreviewBoonPatterns(Actor actor, TacticalIntent intent, TacticalPreview preview,

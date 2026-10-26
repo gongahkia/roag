@@ -31,7 +31,10 @@ public sealed partial class TacticalCombat
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (_ => false),
                 goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
                 _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))
-                    .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a))).ToArray()));
+                    .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a),
+                        a.Tactics!.DefinitionId, a.Tactics.Enemy?.Squad)).ToArray(),
+                new(actor.Id, actor.Position, actor.Health, actor.MaxHealth, true, actor.Tactics.DefinitionId, actor.Tactics.Enemy.Squad),
+                State.EnemySnares, p => _world.CanEnter(p, target.Id)));
     }
 
     public EnemyIntent CommitEnemyTurn(long targetId,
@@ -41,6 +44,11 @@ public sealed partial class TacticalCombat
         var intent = PreviewEnemyTurn(targetId, nextStep, mistBlocks);
         var actor = Active!; var definition = EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId);
         var memory = actor.Tactics.Enemy!;
+        if (intent.ShieldFacing is { } shield)
+        {
+            memory.ShieldFacing = shield;
+            memory.ShieldLowered = intent.Kind == EnemyIntentKind.Windup;
+        }
         if (intent.Kind == EnemyIntentKind.Windup)
         {
             // Validate before changing the pattern counter or committing recovery.
@@ -48,9 +56,9 @@ public sealed partial class TacticalCombat
                 throw new InvalidOperationException("Enemy controller produced invalid world cells.");
             if (definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.HollowRegent or EnemyBrainKind.BiomeElite)
                 memory.Attacks = checked(memory.Attacks + 1);
-            CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
-                checked(actor.Power + intent.DamageBonus), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance);
             if (intent.ClearRetaliation) memory.Retaliate = false;
+            CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
+                checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance);
         }
         else if (intent.Kind == EnemyIntentKind.Move)
         {

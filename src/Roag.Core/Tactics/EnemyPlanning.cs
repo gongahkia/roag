@@ -7,18 +7,20 @@ public enum EnemyIntentKind { Wait, Move, Windup }
 public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.South, string Ability = "",
     AttackDelivery Delivery = AttackDelivery.Melee, ImmutableArray<WorldPosition> Cells = default,
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null);
 
-public enum EnemySupportKind { Heal, Summon }
-public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0);
+public enum EnemySupportKind { Heal, Summon, Ward, Snare }
+public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0, long Target = 0);
 public sealed record EnemyAdvance(Facing Facing, int Steps);
-public sealed record EnemyNeighbor(long Id, WorldPosition Position, int Health, int MaximumHealth, bool Ally);
+public sealed record EnemyNeighbor(long Id, WorldPosition Position, int Health, int MaximumHealth, bool Ally,
+    string Definition = "", EnemySquad? Squad = null);
 
 /// <summary>Read-only terrain and navigation queries, independent of camera, floor windows and selected party member.</summary>
 public sealed record EnemyPlanningContext(WorldPosition Source, WorldPosition Target,
     Func<WorldPosition, bool> Free, Func<WorldPosition, bool> ProjectileOpen, Func<WorldPosition, bool> MistBlocks,
     Func<IReadOnlySet<WorldPosition>, Facing?> NextStep,
-    Func<WorldPosition, bool>? Barricade = null, IReadOnlyList<EnemyNeighbor>? Neighbors = null);
+    Func<WorldPosition, bool>? Barricade = null, IReadOnlyList<EnemyNeighbor>? Neighbors = null,
+    EnemyNeighbor? Self = null, IReadOnlyList<EnemySnare>? Snares = null, Func<WorldPosition, bool>? TargetFree = null);
 
 public static partial class EnemyPlanning
 {
@@ -38,7 +40,7 @@ public static partial class EnemyPlanning
     public static bool Supported(EnemyBrainKind brain) => brain is EnemyBrainKind.Guard or EnemyBrainKind.Spitter
         or EnemyBrainKind.Skitter or EnemyBrainKind.Warden or EnemyBrainKind.Pursuer or EnemyBrainKind.SporeHerald
         or EnemyBrainKind.CanalLancer or EnemyBrainKind.CinderBellkeeper or EnemyBrainKind.HollowRegent or EnemyBrainKind.BiomeElite
-        or EnemyBrainKind.ExpansionRegular;
+        or EnemyBrainKind.ExpansionRegular or EnemyBrainKind.Squad;
 
     public static EnemyIntent Choose(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {
@@ -46,6 +48,7 @@ public static partial class EnemyPlanning
         if (world.Source.Floor != world.Target.Floor) throw new ArgumentException("Route between floors before selecting a local attack.");
         if (!Supported(definition.Ai)) throw new NotSupportedException("This enemy controller still requires its native support/effect port: " + definition.Ai);
         if (definition.Ai == EnemyBrainKind.ExpansionRegular) return Expansion(definition, memory, world);
+        if (definition.Ai == EnemyBrainKind.Squad) return Squad(definition, memory, world);
         var source = world.Source; var target = world.Target;
         int dx = target.X - source.X, dy = target.Y - source.Y, distance = source.Distance(target);
         EnemyIntent Windup(string ability, IEnumerable<WorldPosition> cells, AttackDelivery delivery = AttackDelivery.Melee)
