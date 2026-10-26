@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Sustained ecology matrix — 2026-10-26
+
+Managed `20261026-042206-8c677319` passed all three actual **hundred-day** ecology processes (42/1337/-42), each terminal with exit zero and a checked report checksum. Each retains **2,465** exact complete-state/accounting checkpoints, **32 hunts /31 births /27 safe reclaimed identities**, a full day blocked by untaken remains, exact migration/walking/recovery/remains/reclamation saves, and actual day 0/7/30/50/60/90/100 growth reloads. Final actors/unique IDs are 616/621/624; history stays at four; all growth saves have zero obsolete snapshots. Scheduled p99 is bounded by 4ms, worst calls are 84.775/58.445/93.9262ms, and none exceeds 200ms in this workload.
+
+[STRESS_REVIEW.md](STRESS_REVIEW.md) records source/assembly/report pins, save sizes, allocations, GC and fixture limits. The deliberately resting background roster produces no regional food and consequently starves; this is controlled lifecycle evidence, not ordinary survival balance. The ordinary hundred-day runs retain their separate corrected resident-food outcomes. The Core source tree is unchanged after this matrix; the later client-only smoke check correctly expects four people in `world-streaming` and now passes all seven private rendered assertions. The fresh integrated suite is running separately. Earlier failures/cancellations remain excluded.
+
 ## Actual streaming/floor journey milestone — 2026-10-26
 
 All three focused `StreamingJourneyAuditTests` and actual `audit-travel` commands pass for **42/1337/-42**: **346** cardinal steps, four separate party members, **six** stair transfers, every floor, surface/deep chunk crossings, **25** resident chunks, exact demanded terrain/biome/culture arrays, cache demand order, regional accounting and interrupted walking/floor saves against full cadence. Reports are `artifacts/performance-review/streaming-journey-{seed}.json`; focused log is `artifacts/streaming-journey-corners.log`. Actual ready adoptions are **10/5/5** of **59/55/55** misses without awaiting preparation. This tests synchronous fallback as well as successful speculation.
