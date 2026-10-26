@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.egg",
-  "name": "Wild egg",
-  "sprite": "egg",
-  "stack": "egg",
-  "value": 3,
-  "description": "An ingredient carried in the shared pack."
-}

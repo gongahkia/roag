@@ -1,0 +1,2750 @@
+{
+  "candidate_label": "candidate cells (current reuse labelled)",
+  "cards": [
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "tiny:32",
+              "tiny:74"
+            ],
+            "label": "Glowing fixture / bowl",
+            "role": "prop",
+            "sheet": "tiny"
+          },
+          {
+            "cells": [
+              "rpg:563"
+            ],
+            "label": "Cyan stone alternative",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:690",
+              "onebit:691"
+            ],
+            "label": "Vessel/urn alternatives",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:690",
+              "onebit:691"
+            ],
+            "label": "Vessel/urn alternatives",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 5,
+      "decisions": "Damage-plus-recovery pacing needs seed tests. A lethal pending attack remains lethal; paying HP does not grant invulnerability.",
+      "dependencies": [],
+      "effort": "medium",
+      "example": "At 18/24 HP, pay 5 HP and take one displayed boon: 13/24 HP remains. At 5/24 HP, the same font refuses payment.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Shrine room templates and gold chests exist, but no HP-payment altar interaction does.",
+      "groups": [
+        {
+          "cells": [
+            "tiny:32",
+            "tiny:74"
+          ],
+          "label": "Glowing fixture / bowl",
+          "role": "prop",
+          "sheet": "tiny"
+        },
+        {
+          "cells": [
+            "rpg:563"
+          ],
+          "label": "Cyan stone alternative",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:690",
+            "onebit:691"
+          ],
+          "label": "Vessel/urn alternatives",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "offering-font",
+      "idea": "Pay a visible, nonlethal HP cost for one of three fixed boon offers at a one-use font.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Interaction",
+          "Inspect an adjacent visible font, see its three offers and exact HP payment, then confirm one offer. Closing the menu costs nothing."
+        ],
+        [
+          "Proposed cost",
+          "Pay ceil(20% of maximum HP), at least 1 HP. Refuse payment if it would leave less than 1 HP. Confirming spends a normal action; pending enemy attacks can still resolve during recovery."
+        ],
+        [
+          "Reward",
+          "Use the run's frozen, class-eligible boon pool and normal rarity rules. Save the offers when the font is created; inspecting, cancelling and reloading cannot reroll them."
+        ],
+        [
+          "Difference",
+          "A permanent boon purchased with current HP, rather than the future Pilgrim boon's repeated health-spending trigger. Never required for a route."
+        ]
+      ],
+      "suggested": {
+        "kenney": "tiny:74",
+        "onebit": "onebit:690"
+      },
+      "title": "One-use HP offering font",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:23",
+              "rpg:24",
+              "rpg:25",
+              "rpg:26",
+              "rpg:27"
+            ],
+            "label": "Barrel variants",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "tiny:63",
+              "tiny:75"
+            ],
+            "label": "Crate forms",
+            "role": "prop",
+            "sheet": "tiny"
+          },
+          {
+            "cells": [
+              "onebit:650",
+              "onebit:651"
+            ],
+            "label": "Barrel forms",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:650",
+              "onebit:651"
+            ],
+            "label": "Barrel forms",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 9,
+      "decisions": "The HUD must show remaining actions and whether the one-hit ward has been spent. It must not block every hit in a burst.",
+      "dependencies": [],
+      "effort": "small-medium",
+      "example": "Before entering a fight at full health, take the ward; after a fight at 12/24 HP, take food to reach 16/24.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Food/health drops and a three-action ward already exist. This combines existing effects in one explicit choice, not a new hunger system.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:23",
+            "rpg:24",
+            "rpg:25",
+            "rpg:26",
+            "rpg:27"
+          ],
+          "label": "Barrel variants",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "tiny:63",
+            "tiny:75"
+          ],
+          "label": "Crate forms",
+          "role": "prop",
+          "sheet": "tiny"
+        },
+        {
+          "cells": [
+            "onebit:650",
+            "onebit:651"
+          ],
+          "label": "Barrel forms",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "ration-cache",
+      "idea": "Open a sealed cache and choose a small immediate heal or protection for the next fight.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Choose one",
+          "Eat for +4 HP, capped at maximum, or brace against the next positive damage hit during the next three committed player actions."
+        ],
+        [
+          "Finite use",
+          "One paid action and one reward per cache. Refuse the food choice at full HP instead of consuming it for nothing. A new ward replaces rather than stacks another supply ward."
+        ],
+        [
+          "Placement",
+          "A small supply node in an optional room, from the shared new-interaction budget. It is not an explosive barrel and cannot be broken repeatedly for gold."
+        ],
+        [
+          "Difference",
+          "Existing food and health drops stay unchanged at +4 and +10. This adds an explicit recovery-versus-protection choice."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:23",
+        "onebit": "onebit:650"
+      },
+      "title": "Sealed ration cache",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "tiny:113",
+              "tiny:114",
+              "tiny:115",
+              "tiny:116"
+            ],
+            "label": "Potion colours",
+            "role": "icon",
+            "sheet": "tiny"
+          },
+          {
+            "cells": [
+              "micro:107"
+            ],
+            "label": "Approved-shape spare flask",
+            "role": "icon",
+            "sheet": "micro"
+          },
+          {
+            "cells": [
+              "onebit:579",
+              "onebit:580",
+              "onebit:581",
+              "onebit:671",
+              "onebit:718",
+              "onebit:719",
+              "onebit:720"
+            ],
+            "label": "Bottle/vial alternatives",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:579",
+              "onebit:580",
+              "onebit:581",
+              "onebit:671",
+              "onebit:718",
+              "onebit:719",
+              "onebit:720"
+            ],
+            "label": "Bottle/vial alternatives",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "art_notes": {
+        "kenney": "Fresh visual check: Tiny:117 in the earlier pool is a hammer, so it is omitted here. The original feedback remains intact. Micro:107 is a round blue vessel/orb alternative; prefer a clear bottle if that reading is ambiguous."
+      },
+      "candidate_count": 12,
+      "decisions": "A carried-item workflow is new. Prefer one visible slot and explicit Use/Cancel over a full equipment or backpack screen.",
+      "dependencies": [],
+      "effort": "medium",
+      "example": "Burning has two ticks left. Drink the flask before the next tick to remove both; an already-resolved tick is not healed.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Burning and healing exist; no poison system is assumed.",
+      "groups": [
+        {
+          "cells": [
+            "tiny:113",
+            "tiny:114",
+            "tiny:115",
+            "tiny:116"
+          ],
+          "label": "Potion colours",
+          "role": "icon",
+          "sheet": "tiny"
+        },
+        {
+          "cells": [
+            "micro:107"
+          ],
+          "label": "Approved-shape spare flask",
+          "role": "icon",
+          "sheet": "micro"
+        },
+        {
+          "cells": [
+            "onebit:579",
+            "onebit:580",
+            "onebit:581",
+            "onebit:671",
+            "onebit:718",
+            "onebit:719",
+            "onebit:720"
+          ],
+          "label": "Bottle/vial alternatives",
+          "role": "icon",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "cleanse-flask",
+      "idea": "Carry one finite dose that removes Burning when deliberately used.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Utility slot",
+          "Propose one shared carried utility slot for a flask, escape scroll or unplanted return token. No silent replacement: show the occupied slot and ask before exchanging."
+        ],
+        [
+          "Use",
+          "Select Use in an Items section of the existing I inspection screen. If Burning, confirm one normal action, remove that status and cancel only its pending ticks, then consume the charge."
+        ],
+        [
+          "Invalid use",
+          "If not Burning, refuse without consuming the item or advancing time. Do not promise cures for nonexistent poison, enemy snares, webs or unrelated delayed attacks."
+        ],
+        [
+          "Persistence",
+          "An unused carried charge survives stairs and stage changes. Save its charge and identity; no refill from leaving and returning."
+        ]
+      ],
+      "suggested": {
+        "kenney": "tiny:114",
+        "onebit": "onebit:580"
+      },
+      "title": "Single-use cleansing flask",
+      "visual_omissions": [
+        "tiny:117"
+      ]
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:896",
+              "rpg:897",
+              "rpg:898",
+              "rpg:899"
+            ],
+            "label": "Paper/scroll forms",
+            "role": "icon",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:139",
+              "onebit:140"
+            ],
+            "label": "Scroll/flag-like alternatives",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:139",
+              "onebit:140"
+            ],
+            "label": "Scroll/flag-like alternatives",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 6,
+      "decisions": "Movement must use existing collision, terrain and event rules. Your rejected onebit:525 is removed from both candidate pools.",
+      "dependencies": [],
+      "effort": "medium-high",
+      "example": "A two-tile route into a visible side alcove is legal. A destination beyond a closed door, even if previously explored, is not.",
+      "excluded": false,
+      "excluded_cells": [
+        "onebit:525"
+      ],
+      "existing": "Dash already exists. A carried consumable would be new and must not replace class identity.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:896",
+            "rpg:897",
+            "rpg:898",
+            "rpg:899"
+          ],
+          "label": "Paper/scroll forms",
+          "role": "icon",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:139",
+            "onebit:140"
+          ],
+          "label": "Scroll/flag-like alternatives",
+          "role": "icon",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [
+          "kenney: great mostly agree, just don't use onebit 525",
+          "onebit: great mostly agree, just don't use onebit 525"
+        ],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "escape-scroll",
+      "idea": "Spend one carried scroll on a short, previewed escape step without bypassing walls or stairs.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Target",
+          "Choose a cardinal direction and a landing up to three tiles away. Every traversed cell must be visible, walkable and clear of actors and closed doors; the landing must be empty."
+        ],
+        [
+          "Commit",
+          "Show the exact path before confirmation. A successful move consumes the shared utility charge and one normal action. An invalid target or cancelled preview costs nothing."
+        ],
+        [
+          "Boundaries",
+          "No crossing floors, activating stairs, passing closed gates or entering unseen cells. Entered tiles still trigger their real hazards and pickups."
+        ],
+        [
+          "Difference",
+          "A scarce three-tile consumable available to any class; it does not replace the repeatable class-specific X ability or promise a guaranteed dodge."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:898",
+        "onebit": "onebit:139"
+      },
+      "title": "One-charge escape scroll",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "onebit:574"
+            ],
+            "label": "Linked-circle / spark motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:574"
+            ],
+            "label": "Linked-circle / spark motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 1,
+      "decisions": "Its only previously approved icon, onebit:574, now also marks the Oath Twins' link effect. Reuse is disclosed below; comment if this is too confusing or the item overlaps Wayfinder too much.",
+      "dependencies": [],
+      "effort": "high",
+      "example": "Plant before approaching the room's far side; return once if the marker remains visible and unoccupied. It cannot rescue you across a locked gate.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Wayfinder now has a saved same-room beacon and a paid six-step return. Shade also has a decoy swap. This proposal must earn its place as a finite utility, not duplicate a class for free.",
+      "groups": [
+        {
+          "cells": [
+            "onebit:574"
+          ],
+          "label": "Linked-circle / spark motifs",
+          "role": "icon",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "return-token",
+      "idea": "Plant a consumable marker, then make one paid return inside that same room.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Plant",
+          "Use the shared utility slot to plant at the player's current legal room cell, spending one normal action and committing that charge. The planted token allows one return, not repeated replanting."
+        ],
+        [
+          "Return",
+          "Spend another normal action to return to the visible empty marker through a known, currently walkable same-room path of at most four steps. Closed gates and occupied landings invalidate it."
+        ],
+        [
+          "Expiry",
+          "Leaving the room or floor forfeits the planted return, with a clear warning. Cancelling an inspection does not consume it. An unplanted carried token can persist between floors."
+        ],
+        [
+          "Difference",
+          "Wayfinder is already implemented: its reusable class workflow has a six-step return and an adjacent beacon. This token is shorter-range, finite and takes two paid actions to set up and use."
+        ]
+      ],
+      "suggested": {
+        "kenney": "onebit:574",
+        "onebit": "onebit:574"
+      },
+      "title": "Room-bound return token",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "onebit:435",
+              "onebit:436",
+              "onebit:437",
+              "onebit:438"
+            ],
+            "label": "Pendant/charm motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          },
+          {
+            "cells": [
+              "rpg:853",
+              "rpg:854",
+              "rpg:911"
+            ],
+            "label": "Vessel/chalice forms",
+            "role": "prop",
+            "sheet": "rpg"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:435",
+              "onebit:436",
+              "onebit:437",
+              "onebit:438"
+            ],
+            "label": "Pendant/charm motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 7,
+      "decisions": "Multi-target attacks need a precise single primary-batch rule. RPG:855 was rejected and is excluded. Numbers are a proposal, not an applied balance change.",
+      "dependencies": [],
+      "effort": "medium",
+      "example": "Take Focus immediately before a planned Sword Strike; it helps that attack but does not multiply a delayed echo and every triggered boon.",
+      "excluded": false,
+      "excluded_cells": [
+        "rpg:855"
+      ],
+      "existing": "Ward flask already exists. The new choice must be a small mutually exclusive menu rather than automatic buffs.",
+      "groups": [
+        {
+          "cells": [
+            "onebit:435",
+            "onebit:436",
+            "onebit:437",
+            "onebit:438"
+          ],
+          "label": "Pendant/charm motifs",
+          "role": "icon",
+          "sheet": "onebit"
+        },
+        {
+          "cells": [
+            "rpg:853",
+            "rpg:854",
+            "rpg:911"
+          ],
+          "label": "Vessel/chalice forms",
+          "role": "prop",
+          "sheet": "rpg"
+        }
+      ],
+      "history": {
+        "comments": [
+          "kenney: yes agree, just dont use rpg:855 the others are ok"
+        ],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "charm-well",
+      "idea": "Choose a brief offensive or defensive preparation rather than another permanent stat bonus.",
+      "kind": "item",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Choose one",
+          "Brace: block the next positive damage hit. Focus: add +2 damage to the next direct player attack, applied once to its primary hit batch, not separately to every chain or DOT tick."
+        ],
+        [
+          "Duration",
+          "Either choice expires after three committed player actions if unused. The next eligible event consumes it. Replacing a supply condition is explicit; no stockpiling or additive refresh loop."
+        ],
+        [
+          "Use",
+          "One normal action, one choice per well. Inspection and cancellation are free. Display remaining actions and the exact active condition in the existing HUD/inspection view."
+        ],
+        [
+          "Difference",
+          "Ration caches offer healing versus defense. This well offers offense versus defense and neither gold nor a permanent boon."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:853",
+        "onebit": "onebit:435"
+      },
+      "title": "Charm well — choose one short condition",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:13",
+              "rpg:14",
+              "rpg:510",
+              "rpg:511",
+              "rpg:624",
+              "rpg:625"
+            ],
+            "label": "Forge/hearth assemblies",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:570",
+              "onebit:400",
+              "onebit:401",
+              "onebit:402"
+            ],
+            "label": "Hearth/workshop motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:570",
+              "onebit:400",
+              "onebit:401",
+              "onebit:402"
+            ],
+            "label": "Hearth/workshop motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 10,
+      "decisions": "Transformation removal and proc-dependent state must be recalculated without resetting HP, floor, pending attacks or other boon stacks. This is one of the more involved interactions.",
+      "dependencies": [],
+      "effort": "high",
+      "example": "Trade one Common stack and 3 gold for one displayed Common alternative; a Legendary stack of the same original boon remains owned.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Current chests give three offers and mixed-rarity stacks are uncapped. This adds a controlled build correction, not a free rarity upgrade.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:13",
+            "rpg:14",
+            "rpg:510",
+            "rpg:511",
+            "rpg:624",
+            "rpg:625"
+          ],
+          "label": "Forge/hearth assemblies",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:570",
+            "onebit:400",
+            "onebit:401",
+            "onebit:402"
+          ],
+          "label": "Hearth/workshop motifs",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "attunement-forge",
+      "idea": "Trade one selected boon stack plus a little gold for one fixed alternative of the same rarity.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Select",
+          "Choose the exact owned stack, including rarity, rather than removing every stack of that boon. Show the before/after ability and stat consequences."
+        ],
+        [
+          "Proposed exchange",
+          "Pay 3 gold plus that one stack; choose one of three different eligible boon alternatives at the removed stack's rarity. No automatic rarity upgrade. If fewer than three are legal, show the actual smaller set."
+        ],
+        [
+          "Stable offers",
+          "Derive and save alternatives per selectable stack identity from the frozen class-eligible run pool. Reopening or changing selection cannot farm rerolls. No valid alternative means no trade."
+        ],
+        [
+          "Confirm",
+          "Apply removal, payment and chosen replacement together as one paid action. Cancel leaves everything intact. One completed exchange per forge."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:13",
+        "onebit": "onebit:400"
+      },
+      "title": "Attunement forge — trade one stack",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:239",
+              "rpg:240",
+              "rpg:241",
+              "rpg:296",
+              "rpg:297",
+              "rpg:298",
+              "rpg:353",
+              "rpg:354",
+              "rpg:355",
+              "rpg:668",
+              "rpg:669",
+              "rpg:670"
+            ],
+            "label": "Stall goods and gold",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:768",
+              "onebit:769"
+            ],
+            "label": "Stall/cart-like motifs; stationary only",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:768",
+              "onebit:769"
+            ],
+            "label": "Stall/cart-like motifs; stationary only",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 14,
+      "decisions": "Prices need real early-stage affordability tests before implementation is accepted. RPG stall groups contain assembly pieces; choosing an isolated fragment does not approve a complete stall.",
+      "dependencies": [],
+      "effort": "medium-high",
+      "example": "At 11/24 HP and 3 gold, buy food for 2 or keep the HP risk and buy the displayed escape scroll for 3.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Gold chests already supply boons. The trader needs a useful service choice rather than cheaper duplicate rewards.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:239",
+            "rpg:240",
+            "rpg:241",
+            "rpg:296",
+            "rpg:297",
+            "rpg:298",
+            "rpg:353",
+            "rpg:354",
+            "rpg:355",
+            "rpg:668",
+            "rpg:669",
+            "rpg:670"
+          ],
+          "label": "Stall goods and gold",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:768",
+            "onebit:769"
+          ],
+          "label": "Stall/cart-like motifs; stationary only",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "travelling-trader",
+      "idea": "A stationary supply stall offers two fixed services and allows one purchase.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Proposed stock",
+          "Always offer food (+4 HP) for 2 gold. The second service is one seeded, saved utility item: a cleanse flask for 2 gold or an escape scroll for 3 gold."
+        ],
+        [
+          "Purchase",
+          "Choose one service, inspect price and consequences, then confirm a normal action. Insufficient gold, full HP or an occupied utility slot must not silently spend currency."
+        ],
+        [
+          "Finite stock",
+          "One completed purchase per stall, no sale-back, interest, changing stock or refresh-on-reload. Closing the menu is free; it is not a moving cart enemy."
+        ],
+        [
+          "Difference",
+          "Normal chests remain the main three-offer boon source. The trader sells tactical supplies, so it does not undercut chest rarity or duplicate the forge."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:239",
+        "onebit": "onebit:768"
+      },
+      "title": "One-visit supply trader",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:564",
+              "rpg:565",
+              "rpg:566",
+              "rpg:677",
+              "rpg:678",
+              "rpg:679",
+              "rpg:680"
+            ],
+            "label": "Memorial gravestones",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:72",
+              "onebit:539"
+            ],
+            "label": "Headstone motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:72",
+              "onebit:539"
+            ],
+            "label": "Headstone motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 9,
+      "decisions": "Removing transformations needs the same careful inventory recomputation as the forge. onebit:24 is excluded; onebit:539 now also serves the revival corpse cue.",
+      "dependencies": [],
+      "effort": "high",
+      "example": "At 6/24 HP, retire one unwanted stack to recover 9 HP and reach 15/24. The preview must also show any changed attack geometry.",
+      "excluded": false,
+      "excluded_cells": [
+        "onebit:24"
+      ],
+      "existing": "This is different from a free heal and from the proposed forge’s alternate offer.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:564",
+            "rpg:565",
+            "rpg:566",
+            "rpg:677",
+            "rpg:678",
+            "rpg:679",
+            "rpg:680"
+          ],
+          "label": "Memorial gravestones",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:72",
+            "onebit:539"
+          ],
+          "label": "Headstone motifs",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [
+          "kenney: mostly agree, just dont use onebit:24",
+          "onebit: mostly agree, just dont use onebit:24"
+        ],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "memorial-choice",
+      "idea": "Retire one exact boon stack for meaningful immediate recovery, with the loss previewed first.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Proposed recovery",
+          "Recover ceil(35% of maximum HP), capped at the missing amount, in exchange for one chosen owned stack. No gold cost, resurrection or permanent maximum-HP gain."
+        ],
+        [
+          "Selection",
+          "Show rarity, remaining stacks, actual HP restored and any transformation or ability changes before confirmation. Never remove the entire mixed-rarity boon collection by accident."
+        ],
+        [
+          "Commit",
+          "One normal action and one use per memorial. Refuse at full HP or without an eligible stack. Cancel does not retire anything."
+        ],
+        [
+          "Difference",
+          "A survival trade, unlike the forge's lateral build correction. Existing healing drops stay intact and the memorial is never required to finish a floor."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:564",
+        "onebit": "onebit:72"
+      },
+      "title": "Memorial — retire a boon for recovery",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:681",
+              "rpg:682",
+              "rpg:683",
+              "rpg:963",
+              "rpg:964"
+            ],
+            "label": "Bell/gong-like props",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:867",
+              "onebit:915",
+              "onebit:964"
+            ],
+            "label": "Bell-like symbols",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:867",
+              "onebit:915",
+              "onebit:964"
+            ],
+            "label": "Bell-like symbols",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "art_notes": {
+        "onebit": "These historically approved silhouettes do not read unambiguously as bells: 867/915 can look like round bombs and 964 like a lantern. No primary sprite is suggested. Vote/comment on repurposing them as labelled gongs, or request a different specific 1-Bit cell; this is not permission to add bombs."
+      },
+      "candidate_count": 8,
+      "decisions": "Symbol overlays/labels must remain unambiguous at normal zoom. onebit:915 is already the Alarm Keeper's cue; the other approved bell candidates avoid that reuse.",
+      "dependencies": [],
+      "effort": "medium",
+      "example": "The plaque says Sun → Leaf → Moon. Ring those labelled bells; an incorrect first choice resets the three-step attempt and is explained.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Sidequests already record clues/plate state. This adds a short visible sequence, not real-time rhythm input.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:681",
+            "rpg:682",
+            "rpg:683",
+            "rpg:963",
+            "rpg:964"
+          ],
+          "label": "Bell/gong-like props",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:867",
+            "onebit:915",
+            "onebit:964"
+          ],
+          "label": "Bell-like symbols",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "bell-sequence",
+      "idea": "Read a visible three-symbol clue, then ring the room's bells in order for one optional reward.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Readable clue",
+          "Show the ordered symbols with plain text labels in inspection. Match those labels on the three bells in both art packs; audio reinforces rather than supplies the solution."
+        ],
+        [
+          "Actions",
+          "Each adjacent bell activation spends one normal action. A wrong bell visibly resets sequence progress without surprise damage, new enemies or a new random solution."
+        ],
+        [
+          "Reward",
+          "Complete the fixed sequence once for 5 gold from the room's reward budget. Record the solution, progress and collected reward in the floor save; no repeat reward on reload."
+        ],
+        [
+          "Placement",
+          "A safe optional side-room assembly with a reachable clue and every bell accessible. Never lock the main route or require real-time rhythm input."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:681",
+        "onebit": null
+      },
+      "title": "Bell-order side room",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:475",
+              "rpg:476",
+              "rpg:477",
+              "rpg:478"
+            ],
+            "label": "Suspended fixture candidates",
+            "role": "assembly",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:547",
+              "onebit:549"
+            ],
+            "label": "Hanging/fixture-like alternatives",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:547",
+              "onebit:549"
+            ],
+            "label": "Hanging/fixture-like alternatives",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "art_notes": {
+        "kenney": "The RPG candidates read as candelabra. They need an explicit overhead placement/trigger cue, not an unexplained floating floor ornament. The shared 1-Bit candidates below are unresolved alternatives, not finished hanging art.",
+        "onebit": "Visual check: 547 reads as a chair, and 549 as a headstone. They were in the earlier approved pool, but neither is a finished overhead fixture assignment. No primary is suggested: reject/comment on the artwork if you want another cell or a falling-stone interpretation instead. Approving the mechanic alone does not settle its art."
+      },
+      "candidate_count": 6,
+      "decisions": "Requires locked-cell telegraph, friendly-fire attribution, same-time ordering and fresh-process pending-impact tests. It is not a new explosive barrel or spore bomb.",
+      "dependencies": [],
+      "effort": "medium-high",
+      "example": "Lure a brute onto the marked cross, trigger the switch from a safe tile, then respect its already-committed attack while the fixture falls.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Not a volatile bomb or spore pod. It is an explicit one-use room trap with friendly fire.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:475",
+            "rpg:476",
+            "rpg:477",
+            "rpg:478"
+          ],
+          "label": "Suspended fixture candidates",
+          "role": "assembly",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:547",
+            "onebit:549"
+          ],
+          "label": "Hanging/fixture-like alternatives",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "falling-fixture",
+      "idea": "A visible switch commits a one-use falling hazard onto fixed, clearly outlined cells.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Preview",
+          "Inspect the switch to see a five-cell cross around the hanging fixture, its damage and its exact scheduled impact delay. No hidden target tracking."
+        ],
+        [
+          "Trigger",
+          "Activating costs one normal action; impact is committed for +100 world time at the previewed cells. The strict scheduler remains unchanged: this does not guarantee another player action before impact."
+        ],
+        [
+          "Proposed impact",
+          "Deal a base 4 physical damage, using normal defense and damage rules, to every actor in those cells, including the player and allies. Ordinary damage does not cancel surviving enemies' windups."
+        ],
+        [
+          "Afterward",
+          "One saved activation, no repeat drop, no permanent rubble collision and no blocked mandatory route. Pause/rebase its pending time with the inactive floor."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:475",
+        "onebit": null
+      },
+      "title": "Announced falling fixture",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:16",
+              "rpg:17",
+              "rpg:18",
+              "rpg:19",
+              "rpg:20",
+              "rpg:21"
+            ],
+            "label": "Signs/boards",
+            "role": "prop",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:674",
+              "onebit:675",
+              "onebit:502",
+              "onebit:503"
+            ],
+            "label": "Sign/information motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:674",
+              "onebit:675",
+              "onebit:502",
+              "onebit:503"
+            ],
+            "label": "Sign/information motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 10,
+      "decisions": "Six rejected RPG cells (22, 425, 737, 794, 851, 908) are excluded from this review. A pictured arrow must agree with the actual branch direction.",
+      "dependencies": [],
+      "effort": "small-medium",
+      "example": "A branch sign reads 'Supplies →'. It helps you choose that corridor without lighting up its unseen rooms or showing an enemy count.",
+      "excluded": false,
+      "excluded_cells": [
+        "rpg:22",
+        "rpg:425",
+        "rpg:737",
+        "rpg:794",
+        "rpg:851",
+        "rpg:908"
+      ],
+      "existing": "Route choices, fog and secrets already exist. This adds readable local hints, not full-map revelation.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:16",
+            "rpg:17",
+            "rpg:18",
+            "rpg:19",
+            "rpg:20",
+            "rpg:21"
+          ],
+          "label": "Signs/boards",
+          "role": "prop",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:674",
+            "onebit:675",
+            "onebit:502",
+            "onebit:503"
+          ],
+          "label": "Sign/information motifs",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [
+          "kenney: great all these are ok, just dont use rpg22,425, 737, 794, 851, 908"
+        ],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "signposted-routes",
+      "idea": "Place truthful pictorial signs at selected branches so exploration decisions are easier to read.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Information",
+          "A visible sign describes an already-generated local branch as supplies, treasure or danger, with an arrow and a plain-language inspection label."
+        ],
+        [
+          "Fog rule",
+          "Do not reveal the destination's cells, hidden enemies, exact loot, secret rooms or a full-map path. The sign only discloses its intended coarse category."
+        ],
+        [
+          "Interaction",
+          "Reading is inspection only: no world time, RNG draw or reward. Use a deterministic destination chosen during generation; no misleading or dynamically tracking signs."
+        ],
+        [
+          "Placement",
+          "Do not occupy stairs or close a corridor. Multiple sign variants are visual alternatives rather than new mechanics, and remain legible in both Kenney looks."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:16",
+        "onebit": "onebit:674"
+      },
+      "title": "Pictorial route signposts",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "micro:117"
+            ],
+            "label": "Tent/hooded shelter-like prop",
+            "role": "prop",
+            "sheet": "micro"
+          },
+          {
+            "cells": [
+              "onebit:508",
+              "onebit:509"
+            ],
+            "label": "Tent-like motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:508",
+              "onebit:509"
+            ],
+            "label": "Tent-like motifs",
+            "role": "prop",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 3,
+      "decisions": "Use only the expressly accepted shelter silhouettes: Micro:117 and onebit:508/509. All six rejected RPG tent-part cells stay excluded.",
+      "dependencies": [],
+      "effort": "medium",
+      "example": "At 10/24 HP, Rest heals 6 HP; if Burning and about to fight, Prepare removes the burn and gives a brief one-hit ward instead.",
+      "excluded": false,
+      "excluded_cells": [
+        "rpg:616",
+        "rpg:617",
+        "rpg:618",
+        "rpg:619",
+        "rpg:674",
+        "rpg:675"
+      ],
+      "existing": "Food and wards exist; this is a visible pacing node rather than another permanent stat bonus.",
+      "groups": [
+        {
+          "cells": [
+            "micro:117"
+          ],
+          "label": "Tent/hooded shelter-like prop",
+          "role": "prop",
+          "sheet": "micro"
+        },
+        {
+          "cells": [
+            "onebit:508",
+            "onebit:509"
+          ],
+          "label": "Tent-like motifs",
+          "role": "prop",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [
+          "kenney: great, just dont use the tent parts, the other ones like 117, 508 and 509 are great and good"
+        ],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "camp-choice",
+      "idea": "At a rare one-use camp, choose substantial recovery or a cleanse-and-ward preparation.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Choose one",
+          "Rest: recover ceil(25% of maximum HP), capped at missing HP. Prepare: remove Burning and block one positive damage hit within the next three committed actions."
+        ],
+        [
+          "Commit",
+          "One normal action, one completed choice per camp. Inspection/cancel is free. Time and enemies resume during the ordinary recovery; this is not unlimited wait-healing or a global safe zone."
+        ],
+        [
+          "Placement",
+          "A rarer optional room node sharing the finite new-interaction budget with caches and wells. Do not add a guaranteed camp to every floor or remove an existing chest without pacing evidence."
+        ],
+        [
+          "Difference",
+          "A larger recovery stop than a ration cache, and no cost in gold or boon stacks. The alternative is useful when hurt by Burning but preparing to fight."
+        ]
+      ],
+      "suggested": {
+        "kenney": "micro:117",
+        "onebit": "onebit:508"
+      },
+      "title": "One-use camp choice",
+      "visual_omissions": []
+    },
+    {
+      "art": {
+        "kenney": [
+          {
+            "cells": [
+              "rpg:896",
+              "rpg:897",
+              "rpg:899",
+              "rpg:901",
+              "rpg:902",
+              "rpg:903",
+              "rpg:904",
+              "rpg:905",
+              "rpg:906",
+              "rpg:907"
+            ],
+            "label": "Books/papers",
+            "role": "icon",
+            "sheet": "rpg"
+          },
+          {
+            "cells": [
+              "onebit:392",
+              "onebit:441",
+              "onebit:442",
+              "onebit:448"
+            ],
+            "label": "Book/scroll-like motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ],
+        "onebit": [
+          {
+            "cells": [
+              "onebit:392",
+              "onebit:441",
+              "onebit:442",
+              "onebit:448"
+            ],
+            "label": "Book/scroll-like motifs",
+            "role": "icon",
+            "sheet": "onebit"
+          }
+        ]
+      },
+      "candidate_count": 14,
+      "decisions": "Class fairness, companion attribution, already-committed enemies and frozen-floor continuation need explicit tests. Cannot farm a contract by reopening the menu or reviving the same target.",
+      "dependencies": [],
+      "effort": "high",
+      "example": "Accept 'No movement abilities'. Walk and fight normally; using Dash escapes safely but forfeits the displayed bonus. Stormcaller's nonmovement grounding is not forbidden just because it uses X.",
+      "excluded": false,
+      "excluded_cells": [],
+      "existing": "Sidequests already exist. The new piece is a voluntarily accepted, visible action constraint.",
+      "groups": [
+        {
+          "cells": [
+            "rpg:896",
+            "rpg:897",
+            "rpg:899",
+            "rpg:901",
+            "rpg:902",
+            "rpg:903",
+            "rpg:904",
+            "rpg:905",
+            "rpg:906",
+            "rpg:907"
+          ],
+          "label": "Books/papers",
+          "role": "icon",
+          "sheet": "rpg"
+        },
+        {
+          "cells": [
+            "onebit:392",
+            "onebit:441",
+            "onebit:442",
+            "onebit:448"
+          ],
+          "label": "Book/scroll-like motifs",
+          "role": "icon",
+          "sheet": "onebit"
+        }
+      ],
+      "history": {
+        "comments": [],
+        "note": "The broad concept was approved previously. This separate vote covers the concrete proposal below; blank answers do not erase that earlier approval.",
+        "vote": "approve"
+      },
+      "id": "archive-contract",
+      "idea": "Accept a visible optional room challenge; obey a movement constraint to earn one fixed bonus.",
+      "kind": "room",
+      "needs_counterpart": false,
+      "plan": [
+        [
+          "Offer",
+          "Before combat in that optional room, show a fixed list of living ordinary enemy IDs and the condition: defeat them without committing a movement ability or leaving the room."
+        ],
+        [
+          "Controls",
+          "Never disable an ability. Attempting a forbidden movement still works normally but explicitly fails the contract. Nonmovement X abilities, ordinary walking and attacks remain allowed."
+        ],
+        [
+          "Reward",
+          "Propose 8 gold once all marked original targets are defeated by player-attributed actions, including commanded companions. No duplicate reward from fragments or revivals; pending revivals must settle."
+        ],
+        [
+          "Failure / scope",
+          "Leaving, abandoning or breaking the condition ends the bonus, with a clear message and no loss of normal kill rewards. No mandatory objective, extra boss, endless spawn or permanent-profile bonus."
+        ]
+      ],
+      "suggested": {
+        "kenney": "rpg:901",
+        "onebit": "onebit:392"
+      },
+      "title": "Archivist’s optional contract",
+      "visual_omissions": []
+    }
+  ],
+  "cells": {
+    "micro:107": {
+      "nontransparent_pixels": 46,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "micro:117": {
+      "nontransparent_pixels": 44,
+      "proposals": [
+        "camp-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:139": {
+      "nontransparent_pixels": 61,
+      "proposals": [
+        "escape-scroll"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:140": {
+      "nontransparent_pixels": 66,
+      "proposals": [
+        "escape-scroll"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:392": {
+      "nontransparent_pixels": 85,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:400": {
+      "nontransparent_pixels": 84,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:401": {
+      "nontransparent_pixels": 100,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:402": {
+      "nontransparent_pixels": 65,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:435": {
+      "nontransparent_pixels": 32,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:436": {
+      "nontransparent_pixels": 30,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:437": {
+      "nontransparent_pixels": 36,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:438": {
+      "nontransparent_pixels": 34,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:441": {
+      "nontransparent_pixels": 148,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:442": {
+      "nontransparent_pixels": 118,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:448": {
+      "nontransparent_pixels": 118,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:502": {
+      "nontransparent_pixels": 65,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:503": {
+      "nontransparent_pixels": 88,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:508": {
+      "nontransparent_pixels": 100,
+      "proposals": [
+        "camp-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:509": {
+      "nontransparent_pixels": 90,
+      "proposals": [
+        "camp-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:539": {
+      "nontransparent_pixels": 132,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [
+          "core:ui/idea_corpse_effect"
+        ],
+        "onebit": [
+          "core:ui/idea_corpse_effect"
+        ]
+      }
+    },
+    "onebit:547": {
+      "nontransparent_pixels": 104,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:549": {
+      "nontransparent_pixels": 86,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:570": {
+      "nontransparent_pixels": 54,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:574": {
+      "nontransparent_pixels": 40,
+      "proposals": [
+        "return-token"
+      ],
+      "usage": {
+        "kenney": [
+          "core:ui/idea_oath_effect"
+        ],
+        "onebit": [
+          "core:ui/idea_oath_effect"
+        ]
+      }
+    },
+    "onebit:579": {
+      "nontransparent_pixels": 52,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:580": {
+      "nontransparent_pixels": 86,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:581": {
+      "nontransparent_pixels": 98,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:650": {
+      "nontransparent_pixels": 59,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:651": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:671": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:674": {
+      "nontransparent_pixels": 29,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:675": {
+      "nontransparent_pixels": 107,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:690": {
+      "nontransparent_pixels": 84,
+      "proposals": [
+        "offering-font"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:691": {
+      "nontransparent_pixels": 90,
+      "proposals": [
+        "offering-font"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:718": {
+      "nontransparent_pixels": 38,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:719": {
+      "nontransparent_pixels": 38,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:72": {
+      "nontransparent_pixels": 186,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:720": {
+      "nontransparent_pixels": 34,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:768": {
+      "nontransparent_pixels": 127,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:769": {
+      "nontransparent_pixels": 123,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:867": {
+      "nontransparent_pixels": 90,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "onebit:915": {
+      "nontransparent_pixels": 78,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [
+          "core:ui/idea_alarm_effect"
+        ],
+        "onebit": [
+          "core:ui/idea_alarm_effect"
+        ]
+      }
+    },
+    "onebit:964": {
+      "nontransparent_pixels": 54,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:13": {
+      "nontransparent_pixels": 116,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:14": {
+      "nontransparent_pixels": 116,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:16": {
+      "nontransparent_pixels": 126,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:17": {
+      "nontransparent_pixels": 157,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:18": {
+      "nontransparent_pixels": 157,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:19": {
+      "nontransparent_pixels": 122,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:20": {
+      "nontransparent_pixels": 97,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:21": {
+      "nontransparent_pixels": 97,
+      "proposals": [
+        "signposted-routes"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:23": {
+      "nontransparent_pixels": 95,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:239": {
+      "nontransparent_pixels": 137,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:24": {
+      "nontransparent_pixels": 95,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:240": {
+      "nontransparent_pixels": 149,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:241": {
+      "nontransparent_pixels": 130,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:25": {
+      "nontransparent_pixels": 95,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:26": {
+      "nontransparent_pixels": 95,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:27": {
+      "nontransparent_pixels": 95,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:296": {
+      "nontransparent_pixels": 154,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:297": {
+      "nontransparent_pixels": 161,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:298": {
+      "nontransparent_pixels": 155,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:353": {
+      "nontransparent_pixels": 157,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:354": {
+      "nontransparent_pixels": 164,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:355": {
+      "nontransparent_pixels": 154,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:475": {
+      "nontransparent_pixels": 83,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:476": {
+      "nontransparent_pixels": 87,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:477": {
+      "nontransparent_pixels": 83,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:478": {
+      "nontransparent_pixels": 87,
+      "proposals": [
+        "falling-fixture"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:510": {
+      "nontransparent_pixels": 204,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:511": {
+      "nontransparent_pixels": 204,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:563": {
+      "nontransparent_pixels": 149,
+      "proposals": [
+        "offering-font"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:564": {
+      "nontransparent_pixels": 108,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:565": {
+      "nontransparent_pixels": 124,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:566": {
+      "nontransparent_pixels": 45,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:624": {
+      "nontransparent_pixels": 222,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:625": {
+      "nontransparent_pixels": 222,
+      "proposals": [
+        "attunement-forge"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:668": {
+      "nontransparent_pixels": 77,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:669": {
+      "nontransparent_pixels": 140,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:670": {
+      "nontransparent_pixels": 175,
+      "proposals": [
+        "travelling-trader"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:677": {
+      "nontransparent_pixels": 237,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:678": {
+      "nontransparent_pixels": 159,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:679": {
+      "nontransparent_pixels": 163,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:680": {
+      "nontransparent_pixels": 163,
+      "proposals": [
+        "memorial-choice"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:681": {
+      "nontransparent_pixels": 57,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:682": {
+      "nontransparent_pixels": 32,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:683": {
+      "nontransparent_pixels": 32,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:853": {
+      "nontransparent_pixels": 35,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:854": {
+      "nontransparent_pixels": 35,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:896": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "escape-scroll",
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:897": {
+      "nontransparent_pixels": 57,
+      "proposals": [
+        "escape-scroll",
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:898": {
+      "nontransparent_pixels": 29,
+      "proposals": [
+        "escape-scroll"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:899": {
+      "nontransparent_pixels": 103,
+      "proposals": [
+        "escape-scroll",
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:901": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:902": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:903": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:904": {
+      "nontransparent_pixels": 56,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:905": {
+      "nontransparent_pixels": 69,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:906": {
+      "nontransparent_pixels": 69,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:907": {
+      "nontransparent_pixels": 69,
+      "proposals": [
+        "archive-contract"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:911": {
+      "nontransparent_pixels": 36,
+      "proposals": [
+        "charm-well"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:963": {
+      "nontransparent_pixels": 96,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "rpg:964": {
+      "nontransparent_pixels": 96,
+      "proposals": [
+        "bell-sequence"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:113": {
+      "nontransparent_pixels": 110,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:114": {
+      "nontransparent_pixels": 110,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:115": {
+      "nontransparent_pixels": 110,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:116": {
+      "nontransparent_pixels": 110,
+      "proposals": [
+        "cleanse-flask"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:32": {
+      "nontransparent_pixels": 256,
+      "proposals": [
+        "offering-font"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:63": {
+      "nontransparent_pixels": 254,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:74": {
+      "nontransparent_pixels": 175,
+      "proposals": [
+        "offering-font"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    },
+    "tiny:75": {
+      "nontransparent_pixels": 256,
+      "proposals": [
+        "ration-cache"
+      ],
+      "usage": {
+        "kenney": [],
+        "onebit": []
+      }
+    }
+  },
+  "feedback_filename": "roag-items-rooms-feedback.json",
+  "feedback_schema": "roag-item-room-feedback/1",
+  "fingerprint": "4e21562e8ad55b23030d08433ed41a96177b8d6661229d38aab452e3b4a83b3d",
+  "mapping_checksum": "cf0769721bd03f2f",
+  "origin": {
+    "feedback_path": "docs/sprite-audit/ideas-feedback.json",
+    "feedback_sha256": "32c9fe58f71068c15c5610130305a7421bf4564440fefa14a691217cb3c8d0f5",
+    "proposal_fingerprint": "5a915a054757e645a396a54b70bab32033339f847ab737fbd27f8c3deb10f3c9"
+  },
+  "queue_note": "earlier approvals preserved",
+  "requirements": 399,
+  "review_kind": "items-rooms",
+  "schema": "roag-item-room-review/1",
+  "sources": {
+    "micro": {
+      "checksum": "5407eab40dd3457c",
+      "columns": 16,
+      "height": 80,
+      "label": "Micro Roguelike",
+      "path": "assets/kenney/micro-roguelike/tiles.png",
+      "sha256": "a3ef37b07dfee7367f17513d0d3ff1256e2cc208af76bd094666b61db69d3812",
+      "stride": 8,
+      "tile": 8,
+      "width": 128
+    },
+    "onebit": {
+      "checksum": "3fc46971ed866cba",
+      "columns": 49,
+      "height": 352,
+      "label": "1-Bit",
+      "path": "assets/kenney/1-bit-pack/symbols.png",
+      "sha256": "0d9abf9b812a441e1673bc166d61abb6236c0bc46b3775700bd4d4364ba170e0",
+      "stride": 16,
+      "tile": 16,
+      "width": 784
+    },
+    "rpg": {
+      "checksum": "a2cba6dbb9cac15d",
+      "columns": 57,
+      "height": 526,
+      "label": "Roguelike/RPG",
+      "path": "assets/kenney/approved/roguelike-rpg.png",
+      "sha256": "808c8d734480bc949b284f3bcc252e87e1ee53b24178791a6838cce6a319c439",
+      "stride": 17,
+      "tile": 16,
+      "width": 968
+    },
+    "tiny": {
+      "checksum": "d407b7ab694fa5d5",
+      "columns": 12,
+      "height": 186,
+      "label": "Tiny Dungeon",
+      "path": "assets/kenney/approved/tiny-dungeon.png",
+      "sha256": "5653222ac495d89e942f9b636300759b3f38e85b26e9b888676f2e9ab834095a",
+      "stride": 17,
+      "tile": 16,
+      "width": 203
+    }
+  },
+  "summary": {
+    "categories": {
+      "item": 6,
+      "room": 8
+    },
+    "held_cells": 0,
+    "held_groups": 0,
+    "needs_counterpart": 0,
+    "proposals": 14,
+    "proposed_cells": 111,
+    "reused": 3,
+    "unused": 108
+  },
+  "summary_text": "14 detail votes · 6 items + 8 room interactions · both Kenney looks · 111 candidate cells, 3 already used in game"
+}

@@ -1,9 +1,0 @@
-{
-  "kind": "trait",
-  "id": "trait.generous",
-  "name": "generous",
-  "value": "fellowship",
-  "aversion": "conflict",
-  "workPercent": 100,
-  "fatiguePercent": 100
-}

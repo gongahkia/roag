@@ -1,0 +1,7235 @@
+{
+  "mapping_checksum": "1e8c2586a2b2270b",
+  "packs": {
+    "onebit": {
+      "actor_count": 65,
+      "actor_silhouettes": 63,
+      "bindings": [
+        {
+          "height": 16,
+          "id": "core:actor/adventurer",
+          "index": 468,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/adventurer/attack",
+          "index": 468,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/adventurer/hurt",
+          "index": 468,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/alchemist",
+          "index": 469,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/alchemist/attack",
+          "index": 469,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/alchemist/hurt",
+          "index": 469,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/arcanist",
+          "index": 467,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/arcanist/attack",
+          "index": 467,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/arcanist/hurt",
+          "index": 467,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/berserker",
+          "index": 226,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/berserker/attack",
+          "index": 226,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/berserker/hurt",
+          "index": 226,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist",
+          "index": 124,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/attack",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/duelist/hurt",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer",
+          "index": 466,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/attack",
+          "index": 466,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/geomancer/hurt",
+          "index": 466,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner",
+          "index": 80,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/attack",
+          "index": 80,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/hurt",
+          "index": 80,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/ranger",
+          "index": 472,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/ranger/attack",
+          "index": 472,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/ranger/hurt",
+          "index": 472,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/sentinel",
+          "index": 324,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/sentinel/attack",
+          "index": 324,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/sentinel/hurt",
+          "index": 324,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade",
+          "index": 79,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade/attack",
+          "index": 79,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade/hurt",
+          "index": 79,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder",
+          "index": 122,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/attack",
+          "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/spiritbinder/hurt",
+          "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller",
+          "index": 175,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/attack",
+          "index": 175,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/hurt",
+          "index": 175,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/tinkerer",
+          "index": 222,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/tinkerer/attack",
+          "index": 222,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/tinkerer/hurt",
+          "index": 222,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper",
+          "index": 77,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/attack",
+          "index": 77,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/hurt",
+          "index": 77,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder",
+          "index": 473,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/attack",
+          "index": 473,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/wayfinder/hurt",
+          "index": 473,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/aftershock/detail",
+          "index": 706,
+          "motif": "shock burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/aftershock/icon",
+          "index": 706,
+          "motif": "shock burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/alchemical_flip/detail",
+          "index": 669,
+          "motif": "potion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/alchemical_flip/icon",
+          "index": 669,
+          "motif": "potion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/anchor_maul/detail",
+          "index": 1055,
+          "motif": "curled impact hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/anchor_maul/icon",
+          "index": 1055,
+          "motif": "curled impact hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backswing/detail",
+          "index": 40,
+          "motif": "curved crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backswing/icon",
+          "index": 40,
+          "motif": "curved crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backtrail_mantle/detail",
+          "index": 87,
+          "motif": "travelling mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/backtrail_mantle/icon",
+          "index": 87,
+          "motif": "travelling mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/battle_march/detail",
+          "index": 89,
+          "motif": "marching boots",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/battle_march/icon",
+          "index": 89,
+          "motif": "marching boots",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beacon_afterglow/detail",
+          "index": 1048,
+          "motif": "four-way beacon",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beacon_afterglow/icon",
+          "index": 1048,
+          "motif": "four-way beacon",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beggars_cap/detail",
+          "index": 33,
+          "motif": "broad travelling hat",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/beggars_cap/icon",
+          "index": 33,
+          "motif": "broad travelling hat",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/betrayal_ward/detail",
+          "index": 185,
+          "motif": "quartered shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/betrayal_ward/icon",
+          "index": 185,
+          "motif": "quartered shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bishops_wake/detail",
+          "index": 1024,
+          "motif": "chess bishop",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bishops_wake/icon",
+          "index": 1024,
+          "motif": "chess bishop",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bloodrush/detail",
+          "index": 1013,
+          "motif": "rushing boot",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bloodrush/icon",
+          "index": 1013,
+          "motif": "rushing boot",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/borrowed_guard/detail",
+          "index": 1066,
+          "motif": "blocked strike seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/borrowed_guard/icon",
+          "index": 1066,
+          "motif": "blocked strike seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bramble_compact/detail",
+          "index": 104,
+          "motif": "thorn bush",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/bramble_compact/icon",
+          "index": 104,
+          "motif": "thorn bush",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/brokers_seal/detail",
+          "index": 489,
+          "motif": "star seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/brokers_seal/icon",
+          "index": 489,
+          "motif": "star seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cinder_stopper/detail",
+          "index": 916,
+          "motif": "sealed fire flask",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cinder_stopper/icon",
+          "index": 916,
+          "motif": "sealed fire flask",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/circuit_chorus/detail",
+          "index": 575,
+          "motif": "linked nodes",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/circuit_chorus/icon",
+          "index": 575,
+          "motif": "linked nodes",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cluster_rupture/detail",
+          "index": 830,
+          "motif": "scattered burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cluster_rupture/icon",
+          "index": 830,
+          "motif": "scattered burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/counterweight/detail",
+          "index": 230,
+          "motif": "mace",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/counterweight/icon",
+          "index": 230,
+          "motif": "mace",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crescent_reach/detail",
+          "index": 563,
+          "motif": "curved slash",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crescent_reach/icon",
+          "index": 563,
+          "motif": "curved slash",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crossfire_omen/detail",
+          "index": 569,
+          "motif": "crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crossfire_omen/icon",
+          "index": 569,
+          "motif": "crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crosswind/detail",
+          "index": 584,
+          "motif": "four-point cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crosswind/icon",
+          "index": 584,
+          "motif": "four-point cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crowdbreaker/detail",
+          "index": 384,
+          "motif": "great axe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crowdbreaker/icon",
+          "index": 384,
+          "motif": "great axe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crownfire/detail",
+          "index": 141,
+          "motif": "crown",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crownfire/icon",
+          "index": 141,
+          "motif": "crown",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crystal_harmony/detail",
+          "index": 522,
+          "motif": "faceted gem",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/crystal_harmony/icon",
+          "index": 522,
+          "motif": "faceted gem",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/detonation_bloom/detail",
+          "index": 618,
+          "motif": "burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/detonation_bloom/icon",
+          "index": 618,
+          "motif": "burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/distant_bastion/detail",
+          "index": 585,
+          "motif": "projecting round bastion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/distant_bastion/icon",
+          "index": 585,
+          "motif": "projecting round bastion",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/doorward_lamp/detail",
+          "index": 158,
+          "motif": "arched doorway",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/doorward_lamp/icon",
+          "index": 158,
+          "motif": "arched doorway",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/earthshaker/detail",
+          "index": 380,
+          "motif": "war hammer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/earthshaker/icon",
+          "index": 380,
+          "motif": "war hammer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/emberbrand/detail",
+          "index": 567,
+          "motif": "flame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/emberbrand/icon",
+          "index": 567,
+          "motif": "flame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/executioners_thread/detail",
+          "index": 381,
+          "motif": "execution axe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/executioners_thread/icon",
+          "index": 381,
+          "motif": "execution axe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/expanding_sigil/detail",
+          "index": 709,
+          "motif": "circular sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/expanding_sigil/icon",
+          "index": 709,
+          "motif": "circular sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fan_of_blades/detail",
+          "index": 39,
+          "motif": "crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fan_of_blades/icon",
+          "index": 39,
+          "motif": "crossed blades",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/far_witness/detail",
+          "index": 771,
+          "motif": "eye",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/far_witness/icon",
+          "index": 771,
+          "motif": "eye",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fateful_dice/detail",
+          "index": 728,
+          "motif": "one-pip die",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fateful_dice/icon",
+          "index": 728,
+          "motif": "one-pip die",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/field_dressing/detail",
+          "index": 1052,
+          "motif": "crossed bandage",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/field_dressing/icon",
+          "index": 1052,
+          "motif": "crossed bandage",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/final_spark/detail",
+          "index": 619,
+          "motif": "fading spark ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/final_spark/icon",
+          "index": 619,
+          "motif": "fading spark ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/flashpoint/detail",
+          "index": 566,
+          "motif": "fire burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/flashpoint/icon",
+          "index": 566,
+          "motif": "fire burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fourfold_ledger/detail",
+          "index": 856,
+          "motif": "four-club ledger card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fourfold_ledger/icon",
+          "index": 856,
+          "motif": "four-club ledger card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fracture_dividend/detail",
+          "index": 2,
+          "motif": "stone fragments",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fracture_dividend/icon",
+          "index": 2,
+          "motif": "stone fragments",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/froststep_catalyst/detail",
+          "index": 707,
+          "motif": "frost sparks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/froststep_catalyst/icon",
+          "index": 707,
+          "motif": "frost sparks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/funeral_coin/detail",
+          "index": 773,
+          "motif": "stamped coin",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/funeral_coin/icon",
+          "index": 773,
+          "motif": "stamped coin",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grasping_hand/detail",
+          "index": 1054,
+          "motif": "open grasping hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grasping_hand/icon",
+          "index": 1054,
+          "motif": "open grasping hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grave_dividend/detail",
+          "index": 622,
+          "motif": "skull",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grave_dividend/icon",
+          "index": 622,
+          "motif": "skull",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grounding_rod/detail",
+          "index": 1050,
+          "motif": "vertical grounding rod",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grounding_rod/icon",
+          "index": 1050,
+          "motif": "vertical grounding rod",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/guardians_vow/detail",
+          "index": 236,
+          "motif": "ward shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/guardians_vow/icon",
+          "index": 236,
+          "motif": "ward shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/harriers_response/detail",
+          "index": 623,
+          "motif": "target corners",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/harriers_response/icon",
+          "index": 623,
+          "motif": "target corners",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_crown/detail",
+          "index": 816,
+          "motif": "crowned card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_crown/icon",
+          "index": 816,
+          "motif": "crowned card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_sigil/detail",
+          "index": 930,
+          "motif": "nested hollow square sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hollow_sigil/icon",
+          "index": 930,
+          "motif": "nested hollow square sigil",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hourglass_clasp/detail",
+          "index": 1072,
+          "motif": "small hourglass",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hourglass_clasp/icon",
+          "index": 1072,
+          "motif": "small hourglass",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/knights_gambit/detail",
+          "index": 1027,
+          "motif": "chess knight",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/knights_gambit/icon",
+          "index": 1027,
+          "motif": "chess knight",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/linebreaker_pawn/detail",
+          "index": 1021,
+          "motif": "chess pawn",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/linebreaker_pawn/icon",
+          "index": 1021,
+          "motif": "chess pawn",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/long_wick/detail",
+          "index": 488,
+          "motif": "long burning candle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/long_wick/icon",
+          "index": 488,
+          "motif": "long burning candle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/longblade_geometry/detail",
+          "index": 378,
+          "motif": "long sword",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/longblade_geometry/icon",
+          "index": 378,
+          "motif": "long sword",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mirror_dividend/detail",
+          "index": 1028,
+          "motif": "paired mirror frames",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mirror_dividend/icon",
+          "index": 1028,
+          "motif": "paired mirror frames",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_lullaby/detail",
+          "index": 1061,
+          "motif": "resting musical note",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_lullaby/icon",
+          "index": 1061,
+          "motif": "resting musical note",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_veil/detail",
+          "index": 717,
+          "motif": "drifting flecks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/mist_veil/icon",
+          "index": 717,
+          "motif": "drifting flecks",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/needle_flight/detail",
+          "index": 1063,
+          "motif": "paired flight feathers",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/needle_flight/icon",
+          "index": 1063,
+          "motif": "paired flight feathers",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/opening_cut/detail",
+          "index": 326,
+          "motif": "dagger",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/opening_cut/icon",
+          "index": 326,
+          "motif": "dagger",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ordered_ranks/detail",
+          "index": 187,
+          "motif": "formation shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ordered_ranks/icon",
+          "index": 187,
+          "motif": "formation shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/overflow_chalice/detail",
+          "index": 824,
+          "motif": "prize cup",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/overflow_chalice/icon",
+          "index": 824,
+          "motif": "prize cup",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/packed_powder/detail",
+          "index": 486,
+          "motif": "bomb",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/packed_powder/icon",
+          "index": 486,
+          "motif": "bomb",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pain_dividend/detail",
+          "index": 532,
+          "motif": "marked heart",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pain_dividend/icon",
+          "index": 532,
+          "motif": "marked heart",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/passing_ember/detail",
+          "index": 195,
+          "motif": "lit passing fuse",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/passing_ember/icon",
+          "index": 195,
+          "motif": "lit passing fuse",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/patient_rebuke/detail",
+          "index": 1069,
+          "motif": "held stop seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/patient_rebuke/icon",
+          "index": 1069,
+          "motif": "held stop seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/perfect_guard/detail",
+          "index": 184,
+          "motif": "round shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/perfect_guard/icon",
+          "index": 184,
+          "motif": "round shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/phantom_lunge/detail",
+          "index": 564,
+          "motif": "long slash",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/phantom_lunge/icon",
+          "index": 564,
+          "motif": "long slash",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pilgrims_vow/detail",
+          "index": 318,
+          "motif": "hooded pilgrim",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pilgrims_vow/icon",
+          "index": 318,
+          "motif": "hooded pilgrim",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pommel_return/detail",
+          "index": 1026,
+          "motif": "short chess pommel",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pommel_return/icon",
+          "index": 1026,
+          "motif": "short chess pommel",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/prospectors_heart/detail",
+          "index": 818,
+          "motif": "coins",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/prospectors_heart/icon",
+          "index": 818,
+          "motif": "coins",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pulse_step/detail",
+          "index": 705,
+          "motif": "pulse ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pulse_step/icon",
+          "index": 705,
+          "motif": "pulse ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/purging_seal/detail",
+          "index": 1065,
+          "motif": "cleansing cross seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/purging_seal/icon",
+          "index": 1065,
+          "motif": "cleansing cross seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pursuit_spark/detail",
+          "index": 1010,
+          "motif": "movement arrow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/pursuit_spark/icon",
+          "index": 1010,
+          "motif": "movement arrow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ration_reserve/detail",
+          "index": 817,
+          "motif": "wrapped ration",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ration_reserve/icon",
+          "index": 817,
+          "motif": "wrapped ration",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/recurve/detail",
+          "index": 333,
+          "motif": "recurve bow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/recurve/icon",
+          "index": 333,
+          "motif": "recurve bow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/reprisal_nova/detail",
+          "index": 716,
+          "motif": "radial burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/reprisal_nova/icon",
+          "index": 716,
+          "motif": "radial burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/resonant_wounds/detail",
+          "index": 708,
+          "motif": "clustered stars",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/resonant_wounds/icon",
+          "index": 708,
+          "motif": "clustered stars",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rhythm_of_steel/detail",
+          "index": 823,
+          "motif": "musical notes",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rhythm_of_steel/icon",
+          "index": 823,
+          "motif": "musical notes",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rime_disk/detail",
+          "index": 1056,
+          "motif": "crossed circular disk",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rime_disk/icon",
+          "index": 1056,
+          "motif": "crossed circular disk",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ring_of_reversal/detail",
+          "index": 337,
+          "motif": "reversal ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ring_of_reversal/icon",
+          "index": 337,
+          "motif": "reversal ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/road_flask/detail",
+          "index": 965,
+          "motif": "travelling chalice",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/road_flask/icon",
+          "index": 965,
+          "motif": "travelling chalice",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rooks_wake/detail",
+          "index": 1023,
+          "motif": "chess rook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/rooks_wake/icon",
+          "index": 1023,
+          "motif": "chess rook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/scavengers_hook/detail",
+          "index": 1053,
+          "motif": "curved gathering hook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/scavengers_hook/icon",
+          "index": 1053,
+          "motif": "curved gathering hook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/secret_apple/detail",
+          "index": 915,
+          "motif": "hidden apple",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/secret_apple/icon",
+          "index": 915,
+          "motif": "hidden apple",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sentry_quartermaster/detail",
+          "index": 1039,
+          "motif": "supply drawer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sentry_quartermaster/icon",
+          "index": 1039,
+          "motif": "supply drawer",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/shared_agony/detail",
+          "index": 531,
+          "motif": "paired hearts",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/shared_agony/icon",
+          "index": 531,
+          "motif": "paired hearts",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spirit_shelter/detail",
+          "index": 1075,
+          "motif": "crossed spirit ward",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spirit_shelter/icon",
+          "index": 1075,
+          "motif": "crossed spirit ward",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/split_thrust/detail",
+          "index": 1062,
+          "motif": "paired pointed projectiles",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/split_thrust/icon",
+          "index": 1062,
+          "motif": "paired pointed projectiles",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/splitflight/detail",
+          "index": 282,
+          "motif": "drawn bow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/splitflight/icon",
+          "index": 282,
+          "motif": "drawn bow",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spoils_aegis/detail",
+          "index": 1076,
+          "motif": "crowned shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/spoils_aegis/icon",
+          "index": 1076,
+          "motif": "crowned shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/static_footsteps/detail",
+          "index": 1012,
+          "motif": "winged boot",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/static_footsteps/icon",
+          "index": 1012,
+          "motif": "winged boot",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/stone_backstop/detail",
+          "index": 1077,
+          "motif": "rigid backstop frame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/stone_backstop/icon",
+          "index": 1077,
+          "motif": "rigid backstop frame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/stonewake/detail",
+          "index": 262,
+          "motif": "stone block",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/stonewake/icon",
+          "index": 262,
+          "motif": "stone block",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/storm_conductor/detail",
+          "index": 616,
+          "motif": "radiating spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/storm_conductor/icon",
+          "index": 616,
+          "motif": "radiating spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sunderers_mark/detail",
+          "index": 383,
+          "motif": "pickaxe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/sunderers_mark/icon",
+          "index": 383,
+          "motif": "pickaxe",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/temporal_echo/detail",
+          "index": 629,
+          "motif": "hourglass",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/temporal_echo/icon",
+          "index": 629,
+          "motif": "hourglass",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/thorn_mirror/detail",
+          "index": 233,
+          "motif": "spiked shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/thorn_mirror/icon",
+          "index": 233,
+          "motif": "spiked shield",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/threefold_remedy/detail",
+          "index": 953,
+          "motif": "three-pip remedy card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/threefold_remedy/icon",
+          "index": 953,
+          "motif": "three-pip remedy card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/turncoat_spark/detail",
+          "index": 617,
+          "motif": "small spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/turncoat_spark/icon",
+          "index": 617,
+          "motif": "small spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/twin_seals/detail",
+          "index": 903,
+          "motif": "two diamond seals",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/twin_seals/icon",
+          "index": 903,
+          "motif": "two diamond seals",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/vent_mantle/detail",
+          "index": 38,
+          "motif": "vented protective mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/vent_mantle/icon",
+          "index": 38,
+          "motif": "vented protective mantle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/volatile_vial/detail",
+          "index": 194,
+          "motif": "stoppered square vial",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/volatile_vial/icon",
+          "index": 194,
+          "motif": "stoppered square vial",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ward_ledger/detail",
+          "index": 854,
+          "motif": "ace medical cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ward_ledger/icon",
+          "index": 854,
+          "motif": "ace medical cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/windup_hunter/detail",
+          "index": 624,
+          "motif": "target reticle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/windup_hunter/icon",
+          "index": 624,
+          "motif": "target reticle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:chest/free_elite",
+          "index": 301,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:chest/standard",
+          "index": 302,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:drop/currency",
+          "index": 818,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:drop/food",
+          "index": 238,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:drop/health",
+          "index": 670,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper",
+          "index": 173,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/attack",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/alarm_keeper/hurt",
+          "index": 173,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ash_marshal",
+          "index": 43,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ash_marshal/attack",
+          "index": 43,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ash_marshal/hurt",
+          "index": 43,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain",
+          "index": 172,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/attack",
+          "index": 172,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/hurt",
+          "index": 172,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower",
+          "index": 174,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/attack",
+          "index": 174,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/hurt",
+          "index": 174,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bastion_bulwark",
+          "index": 274,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bastion_bulwark/attack",
+          "index": 274,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bastion_bulwark/hurt",
+          "index": 274,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute",
+          "index": 270,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/attack",
+          "index": 270,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/hurt",
+          "index": 270,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_fragment/hurt",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter",
+          "index": 323,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/attack",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bone_splitter/hurt",
+          "index": 323,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lancer",
+          "index": 26,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lancer/attack",
+          "index": 26,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lancer/hurt",
+          "index": 26,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lockmaster",
+          "index": 128,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lockmaster/attack",
+          "index": 128,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/canal_lockmaster/hurt",
+          "index": 128,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_bellkeeper",
+          "index": 32,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_bellkeeper/attack",
+          "index": 32,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_bellkeeper/hurt",
+          "index": 32,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_mender",
+          "index": 75,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_mender/attack",
+          "index": 75,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/cinder_mender/hurt",
+          "index": 75,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/crystal_bombardier",
+          "index": 271,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/crystal_bombardier/attack",
+          "index": 271,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/crystal_bombardier/hurt",
+          "index": 271,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_crucible",
+          "index": 273,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_crucible/attack",
+          "index": 273,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_crucible/hurt",
+          "index": 273,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth",
+          "index": 411,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/attack",
+          "index": 411,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ember_moth/hurt",
+          "index": 411,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/extraction_pursuer",
+          "index": 421,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/extraction_pursuer/attack",
+          "index": 421,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/extraction_pursuer/hurt",
+          "index": 421,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/forge_conjurer",
+          "index": 471,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/forge_conjurer/attack",
+          "index": 471,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/forge_conjurer/hurt",
+          "index": 471,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/glass_charger",
+          "index": 410,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/glass_charger/attack",
+          "index": 410,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/glass_charger/hurt",
+          "index": 410,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gloom_strider",
+          "index": 367,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gloom_strider/attack",
+          "index": 367,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gloom_strider/hurt",
+          "index": 367,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor",
+          "index": 318,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/attack",
+          "index": 318,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/grave_cantor/hurt",
+          "index": 318,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad",
+          "index": 422,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/attack",
+          "index": 422,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/gulp_toad/hurt",
+          "index": 422,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache",
+          "index": 417,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/attack",
+          "index": 417,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/hurt",
+          "index": 417,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer",
+          "index": 129,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/attack",
+          "index": 129,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/hurt",
+          "index": 129,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_regent",
+          "index": 269,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_regent/attack",
+          "index": 269,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_regent/hurt",
+          "index": 269,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith",
+          "index": 416,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/attack",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/hollow_wraith/hurt",
+          "index": 416,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/index_keeper",
+          "index": 76,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/index_keeper/attack",
+          "index": 76,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/index_keeper/hurt",
+          "index": 76,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte",
+          "index": 123,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/attack",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/hurt",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mire_binder",
+          "index": 420,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mire_binder/attack",
+          "index": 420,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mire_binder/hurt",
+          "index": 420,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer",
+          "index": 320,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/attack",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mirror_hexer/hurt",
+          "index": 320,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbound_guard",
+          "index": 275,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbound_guard/attack",
+          "index": 275,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbound_guard/hurt",
+          "index": 275,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbreaker",
+          "index": 325,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbreaker/attack",
+          "index": 325,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mossbreaker/hurt",
+          "index": 325,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mycelial_matriarch",
+          "index": 419,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mycelial_matriarch/attack",
+          "index": 419,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mycelial_matriarch/hurt",
+          "index": 419,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a",
+          "index": 124,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/attack",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/hurt",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b",
+          "index": 127,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/attack",
+          "index": 127,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/hurt",
+          "index": 127,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pack_chorister",
+          "index": 461,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pack_chorister/attack",
+          "index": 461,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pack_chorister/hurt",
+          "index": 461,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer",
+          "index": 78,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/attack",
+          "index": 78,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/hurt",
+          "index": 78,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/prism_curator",
+          "index": 227,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/prism_curator/attack",
+          "index": 227,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/prism_curator/hurt",
+          "index": 227,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel",
+          "index": 224,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/attack",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rotating_sentinel/hurt",
+          "index": 224,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ruin_skitter",
+          "index": 459,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ruin_skitter/attack",
+          "index": 459,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ruin_skitter/hurt",
+          "index": 459,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing",
+          "index": 415,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/attack",
+          "index": 415,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/hurt",
+          "index": 415,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer",
+          "index": 126,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/attack",
+          "index": 126,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/hurt",
+          "index": 126,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp",
+          "index": 321,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/attack",
+          "index": 321,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/hurt",
+          "index": 321,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm",
+          "index": 371,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/attack",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/silt_worm/hurt",
+          "index": 371,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe",
+          "index": 221,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/attack",
+          "index": 221,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/hurt",
+          "index": 221,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/spore_herald",
+          "index": 418,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/spore_herald/attack",
+          "index": 418,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/spore_herald/hurt",
+          "index": 418,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thorn_warden",
+          "index": 272,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thorn_warden/attack",
+          "index": 272,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thorn_warden/hurt",
+          "index": 272,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thornspitter",
+          "index": 171,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thornspitter/attack",
+          "index": 171,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/thornspitter/hurt",
+          "index": 171,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/vault_lurker",
+          "index": 31,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/vault_lurker/attack",
+          "index": 31,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/vault_lurker/hurt",
+          "index": 31,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver",
+          "index": 319,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/attack",
+          "index": 319,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/hurt",
+          "index": 319,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver",
+          "index": 366,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/attack",
+          "index": 366,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/web_weaver/hurt",
+          "index": 366,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/bolt_sentry",
+          "index": 262,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/bound_spirit",
+          "index": 417,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/chest_open",
+          "index": 344,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/door_closed",
+          "index": 548,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/door_open",
+          "index": 443,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_bone_a",
+          "index": 620,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_bone_b",
+          "index": 621,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_seat",
+          "index": 452,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_camp_table",
+          "index": 396,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_alcove",
+          "index": 248,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_chapel_window",
+          "index": 246,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_bottom",
+          "index": 204,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_middle",
+          "index": 175,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_a_top",
+          "index": 146,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_bottom",
+          "index": 205,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_middle",
+          "index": 176,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_column_b_top",
+          "index": 147,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_forge_panel",
+          "index": 147,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_a",
+          "index": 24,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_grave_b",
+          "index": 72,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_face",
+          "index": 135,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_leaf",
+          "index": 234,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_mural_sigil",
+          "index": 138,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_a",
+          "index": 51,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_plant_b",
+          "index": 98,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_prison_bars",
+          "index": 201,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_a",
+          "index": 3,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_rock_b",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_empty",
+          "index": 346,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_shelf_full",
+          "index": 299,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_hearth",
+          "index": 400,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/env_workshop_supplies",
+          "index": 405,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/exit",
+          "index": 451,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/geomancer_bulwark",
+          "index": 262,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_cache_dormant",
+          "index": 303,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_silt_trail",
+          "index": 268,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_archive_contract",
+          "index": 392,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_attunement_forge",
+          "index": 400,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell",
+          "index": 867,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell_clue",
+          "index": 392,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_camp",
+          "index": 508,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_charm_well",
+          "index": 435,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_cleanse_flask",
+          "index": 580,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_escape_scroll",
+          "index": 139,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_falling_fixture",
+          "index": 549,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_memorial",
+          "index": 72,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_offering_font",
+          "index": 690,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_ration_cache",
+          "index": 650,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_marker",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_token",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_route_sign",
+          "index": 674,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_travelling_trader",
+          "index": 768,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/return_beacon",
+          "index": 408,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_brazier_lit",
+          "index": 739,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_brazier_unlit",
+          "index": 738,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_bottom",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_tiny",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_top",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_key",
+          "index": 571,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_1",
+          "index": 103,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_2",
+          "index": 54,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore",
+          "index": 6,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore_depleted",
+          "index": 524,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_overgrowth_1",
+          "index": 49,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_overgrowth_2",
+          "index": 50,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_bottom",
+          "index": 640,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_middle",
+          "index": 591,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_top",
+          "index": 542,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_down",
+          "index": 112,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_down",
+          "index": 112,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_up",
+          "index": 111,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_up",
+          "index": 111,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_left",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_right",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_left",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_right",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_left",
+          "index": 245,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_right",
+          "index": 245,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_secret_clue",
+          "index": 3,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_bottom",
+          "index": 552,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_top",
+          "index": 552,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ward",
+          "index": 578,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/stairs_down",
+          "index": 295,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/stairs_up",
+          "index": 296,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/ashen_bastion/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/ashen_bastion/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/ashen_bastion/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/barricade",
+          "index": 121,
+          "motif": "cross-braced crate",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/bramble_bed",
+          "index": 104,
+          "motif": "thorn bush",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_broken/wall/base",
+          "index": 39,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_carpet/floor/base",
+          "index": 852,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_drowned/water/base",
+          "index": 60,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_garden/floor/base",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ironworks/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_mosaic/floor/base",
+          "index": 341,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_observatory/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_pale/floor/base",
+          "index": 5,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "derived": true,
+          "height": 16,
+          "id": "core:terrain/env_ruin_carved/wall/base",
+          "index": 68,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fractured_archive/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fractured_archive/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fractured_archive/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_armed",
+          "index": 600,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_closed",
+          "index": 600,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fragile_intact",
+          "index": 70,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fungal_hollows/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fungal_hollows/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/fungal_hollows/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/glacial_observatory/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/glacial_observatory/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/glacial_observatory/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/glazed_ice",
+          "index": 616,
+          "motif": "ice star",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_burst",
+          "index": 29,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_cooldown",
+          "index": 9,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/heat_vent_warning",
+          "index": 29,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/obscuring_mist",
+          "index": 267,
+          "motif": "layered wisps",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/overgrown_ruins/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/overgrown_ruins/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/overgrown_ruins/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_east",
+          "index": 1004,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_north",
+          "index": 1003,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_south",
+          "index": 1005,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/push_west",
+          "index": 1006,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/resonant_crystal",
+          "index": 523,
+          "motif": "crystal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sticky_bog",
+          "index": 268,
+          "motif": "uneven ripples",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sundered_forge/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sundered_forge/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sundered_forge/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sunken_aqueduct/floor/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sunken_aqueduct/wall/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:terrain/sunken_aqueduct/water/base",
+          "index": -1,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_axe_icon",
+          "index": 385,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_bow_icon",
+          "index": 283,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_hook_icon",
+          "index": 134,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_knife_icon",
+          "index": 131,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_mace_icon",
+          "index": 382,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_move_icon",
+          "index": 1004,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_shield_icon",
+          "index": 188,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_slash_icon",
+          "index": 376,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_staff_icon",
+          "index": 183,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_sword_icon",
+          "index": 330,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_vial_icon",
+          "index": 241,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_volley_icon",
+          "index": 334,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/ability_wand_icon",
+          "index": 228,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/attack_center_effect",
+          "index": 625,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/attack_impact_effect",
+          "index": 626,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/block_effect",
+          "index": 233,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/boon_effect",
+          "index": 616,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/burning_effect",
+          "index": 567,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_block_effect",
+          "index": 711,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_boon_effect",
+          "index": 713,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_echo_effect",
+          "index": 710,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_fire_effect",
+          "index": 568,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_slash_effect",
+          "index": 565,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/cue_spark_effect",
+          "index": 615,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/currency_icon",
+          "index": 818,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_1_icon",
+          "index": 728,
+          "motif": "1: heal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_2_icon",
+          "index": 729,
+          "motif": "2: heavy",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_3_icon",
+          "index": 730,
+          "motif": "3: Burning",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_4_icon",
+          "index": 731,
+          "motif": "4: ward",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_5_icon",
+          "index": 732,
+          "motif": "5: arc",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_6_icon",
+          "index": 733,
+          "motif": "6: burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_7_icon",
+          "index": 727,
+          "motif": "SKULL",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_8_icon",
+          "index": 726,
+          "motif": "MISS",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/hit_effect",
+          "index": 618,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/hp_icon",
+          "index": 530,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_alarm_effect",
+          "index": 915,
+          "motif": "core:ui/idea_alarm_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_corpse_effect",
+          "index": 539,
+          "motif": "core:ui/idea_corpse_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_mirror_effect",
+          "index": 493,
+          "motif": "core:ui/idea_mirror_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_oath_effect",
+          "index": 574,
+          "motif": "core:ui/idea_oath_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/idea_reflect_effect",
+          "index": 494,
+          "motif": "core:ui/idea_reflect_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_armed_effect",
+          "index": 630,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_safe_effect",
+          "index": 628,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/signal_spent_effect",
+          "index": 627,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_heal_effect",
+          "index": 535,
+          "motif": "squad_heal_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_rally_effect",
+          "index": 527,
+          "motif": "squad_rally_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_shield_effect",
+          "index": 239,
+          "motif": "squad_shield_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_snare_effect",
+          "index": 715,
+          "motif": "squad_snare_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_ward_effect",
+          "index": 636,
+          "motif": "squad_ward_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_0_icon",
+          "index": 631,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_1_icon",
+          "index": 632,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_2_icon",
+          "index": 633,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_charge_3_icon",
+          "index": 634,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_focus_icon",
+          "index": 538,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_heal_icon",
+          "index": 533,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/status_ward_icon",
+          "index": 576,
+          "monochrome": true,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/storm_charge_effect",
+          "index": 615,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_bow_icon",
+          "index": 328,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_dagger_icon",
+          "index": 331,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_hook_icon",
+          "index": 332,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_spell_icon",
+          "index": 329,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_sword_icon",
+          "index": 327,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/xp_icon",
+          "index": 706,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        }
+      ],
+      "missing": [],
+      "shared_actors": [
+        {
+          "ids": [
+            "core:actor/duelist",
+            "core:enemy/oath_twin_a"
+          ],
+          "index": 124,
+          "sheet": "onebit"
+        },
+        {
+          "ids": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
+          ],
+          "index": 323,
+          "sheet": "onebit"
+        }
+      ],
+      "static_pose_aliases": 130,
+      "usage": {
+        "caves": {
+          "146": [
+            "core:object/env_column_a_top"
+          ],
+          "147": [
+            "core:object/env_column_b_top"
+          ],
+          "175": [
+            "core:object/env_column_a_middle"
+          ],
+          "176": [
+            "core:object/env_column_b_middle"
+          ],
+          "204": [
+            "core:object/env_column_a_bottom"
+          ],
+          "205": [
+            "core:object/env_column_b_bottom"
+          ],
+          "3": [
+            "core:object/env_rock_a",
+            "environment broken accent"
+          ],
+          "38": [
+            "environment broken frame"
+          ],
+          "39": [
+            "environment broken"
+          ],
+          "5": [
+            "core:object/env_rock_b"
+          ]
+        },
+        "onebit": {
+          "1003": [
+            "core:terrain/push_north",
+            "core:terrain/push_north"
+          ],
+          "1004": [
+            "core:terrain/push_east",
+            "core:terrain/push_east",
+            "core:ui/ability_move_icon"
+          ],
+          "1005": [
+            "core:terrain/push_south",
+            "core:terrain/push_south"
+          ],
+          "1006": [
+            "core:terrain/push_west",
+            "core:terrain/push_west"
+          ],
+          "1010": [
+            "core:boon/pursuit_spark/icon + /detail"
+          ],
+          "1012": [
+            "core:boon/static_footsteps/icon + /detail"
+          ],
+          "1013": [
+            "core:boon/bloodrush/icon + /detail"
+          ],
+          "1021": [
+            "core:boon/linebreaker_pawn/icon + /detail"
+          ],
+          "1023": [
+            "core:boon/rooks_wake/icon + /detail"
+          ],
+          "1024": [
+            "core:boon/bishops_wake/icon + /detail"
+          ],
+          "1026": [
+            "core:boon/pommel_return/icon + /detail"
+          ],
+          "1027": [
+            "core:boon/knights_gambit/icon + /detail"
+          ],
+          "1028": [
+            "core:boon/mirror_dividend/icon + /detail"
+          ],
+          "103": [
+            "core:object/review_mushroom_1"
+          ],
+          "1039": [
+            "core:boon/sentry_quartermaster/icon + /detail"
+          ],
+          "104": [
+            "core:boon/bramble_compact/icon + /detail",
+            "core:terrain/bramble_bed"
+          ],
+          "1048": [
+            "core:boon/beacon_afterglow/icon + /detail"
+          ],
+          "1050": [
+            "core:boon/grounding_rod/icon + /detail"
+          ],
+          "1052": [
+            "core:boon/field_dressing/icon + /detail"
+          ],
+          "1053": [
+            "core:boon/scavengers_hook/icon + /detail"
+          ],
+          "1054": [
+            "core:boon/grasping_hand/icon + /detail"
+          ],
+          "1055": [
+            "core:boon/anchor_maul/icon + /detail"
+          ],
+          "1056": [
+            "core:boon/rime_disk/icon + /detail"
+          ],
+          "1061": [
+            "core:boon/mist_lullaby/icon + /detail"
+          ],
+          "1062": [
+            "core:boon/split_thrust/icon + /detail"
+          ],
+          "1063": [
+            "core:boon/needle_flight/icon + /detail"
+          ],
+          "1065": [
+            "core:boon/purging_seal/icon + /detail"
+          ],
+          "1066": [
+            "core:boon/borrowed_guard/icon + /detail"
+          ],
+          "1069": [
+            "core:boon/patient_rebuke/icon + /detail"
+          ],
+          "1072": [
+            "core:boon/hourglass_clasp/icon + /detail"
+          ],
+          "1075": [
+            "core:boon/spirit_shelter/icon + /detail"
+          ],
+          "1076": [
+            "core:boon/spoils_aegis/icon + /detail"
+          ],
+          "1077": [
+            "core:boon/stone_backstop/icon + /detail"
+          ],
+          "111": [
+            "core:object/review_plate_tiny_up",
+            "core:object/review_plate_up"
+          ],
+          "112": [
+            "core:object/review_plate_down",
+            "core:object/review_plate_tiny_down"
+          ],
+          "116": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "117": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "118": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "121": [
+            "core:terrain/barricade"
+          ],
+          "122": [
+            "core:actor/spiritbinder"
+          ],
+          "123": [
+            "core:enemy/mend_acolyte"
+          ],
+          "124": [
+            "core:actor/duelist",
+            "core:enemy/oath_twin_a"
+          ],
+          "126": [
+            "core:enemy/shield_bearer"
+          ],
+          "127": [
+            "core:enemy/oath_twin_b"
+          ],
+          "128": [
+            "core:enemy/canal_lockmaster"
+          ],
+          "129": [
+            "core:enemy/heavy_rammer"
+          ],
+          "131": [
+            "core:ui/ability_knife_icon"
+          ],
+          "134": [
+            "core:ui/ability_hook_icon"
+          ],
+          "135": [
+            "core:object/env_mural_face"
+          ],
+          "138": [
+            "core:object/env_mural_sigil"
+          ],
+          "139": [
+            "core:object/interaction_escape_scroll"
+          ],
+          "141": [
+            "core:boon/crownfire/icon + /detail"
+          ],
+          "147": [
+            "core:object/env_forge_panel"
+          ],
+          "158": [
+            "core:boon/doorward_lamp/icon + /detail"
+          ],
+          "16": [
+            "composite terrain material: wall"
+          ],
+          "169": [
+            "composite terrain material: frame"
+          ],
+          "171": [
+            "core:enemy/thornspitter"
+          ],
+          "172": [
+            "core:enemy/banner_captain"
+          ],
+          "173": [
+            "core:enemy/alarm_keeper"
+          ],
+          "174": [
+            "core:enemy/banner_follower"
+          ],
+          "175": [
+            "core:actor/stormcaller"
+          ],
+          "18": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "183": [
+            "core:ui/ability_staff_icon"
+          ],
+          "184": [
+            "core:boon/perfect_guard/icon + /detail"
+          ],
+          "185": [
+            "core:boon/betrayal_ward/icon + /detail"
+          ],
+          "187": [
+            "core:boon/ordered_ranks/icon + /detail"
+          ],
+          "188": [
+            "core:ui/ability_shield_icon"
+          ],
+          "19": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "194": [
+            "core:boon/volatile_vial/icon + /detail"
+          ],
+          "195": [
+            "core:boon/passing_ember/icon + /detail"
+          ],
+          "2": [
+            "core:boon/fracture_dividend/icon + /detail"
+          ],
+          "20": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "201": [
+            "core:object/env_prison_bars"
+          ],
+          "221": [
+            "core:enemy/snare_scribe"
+          ],
+          "222": [
+            "core:actor/tinkerer"
+          ],
+          "224": [
+            "core:enemy/rotating_sentinel"
+          ],
+          "226": [
+            "core:actor/berserker"
+          ],
+          "227": [
+            "core:enemy/prism_curator"
+          ],
+          "228": [
+            "core:ui/ability_wand_icon"
+          ],
+          "230": [
+            "core:boon/counterweight/icon + /detail"
+          ],
+          "233": [
+            "core:boon/thorn_mirror/icon + /detail",
+            "core:ui/block_effect"
+          ],
+          "234": [
+            "core:object/env_mural_leaf"
+          ],
+          "236": [
+            "core:boon/guardians_vow/icon + /detail"
+          ],
+          "238": [
+            "core:drop/food"
+          ],
+          "239": [
+            "core:ui/squad_shield_effect"
+          ],
+          "24": [
+            "core:object/env_grave_a"
+          ],
+          "241": [
+            "core:ui/ability_vial_icon"
+          ],
+          "245": [
+            "core:object/review_rail_top_left",
+            "core:object/review_rail_top_right"
+          ],
+          "246": [
+            "core:object/env_chapel_window"
+          ],
+          "248": [
+            "core:object/env_chapel_alcove"
+          ],
+          "26": [
+            "core:enemy/canal_lancer"
+          ],
+          "262": [
+            "core:boon/stonewake/icon + /detail",
+            "core:object/bolt_sentry",
+            "core:object/geomancer_bulwark"
+          ],
+          "267": [
+            "core:terrain/obscuring_mist"
+          ],
+          "268": [
+            "composite terrain material: water",
+            "core:object/idea_silt_trail",
+            "core:terrain/sticky_bog"
+          ],
+          "269": [
+            "core:enemy/hollow_regent"
+          ],
+          "270": [
+            "core:enemy/bodyguard_brute"
+          ],
+          "271": [
+            "core:enemy/crystal_bombardier"
+          ],
+          "272": [
+            "core:enemy/thorn_warden"
+          ],
+          "273": [
+            "core:enemy/ember_crucible"
+          ],
+          "274": [
+            "core:enemy/bastion_bulwark"
+          ],
+          "275": [
+            "core:enemy/mossbound_guard"
+          ],
+          "282": [
+            "core:boon/splitflight/icon + /detail"
+          ],
+          "283": [
+            "core:ui/ability_bow_icon"
+          ],
+          "294": [
+            "core:object/review_rail_bottom_left",
+            "core:object/review_rail_bottom_right",
+            "core:object/review_rail_middle_left",
+            "core:object/review_rail_middle_right"
+          ],
+          "295": [
+            "core:object/stairs_down"
+          ],
+          "296": [
+            "core:object/stairs_up"
+          ],
+          "299": [
+            "core:object/env_shelf_full"
+          ],
+          "3": [
+            "core:object/review_secret_clue"
+          ],
+          "301": [
+            "core:chest/free_elite"
+          ],
+          "302": [
+            "core:chest/standard"
+          ],
+          "303": [
+            "core:object/idea_cache_dormant"
+          ],
+          "31": [
+            "core:enemy/vault_lurker"
+          ],
+          "318": [
+            "core:boon/pilgrims_vow/icon + /detail",
+            "core:enemy/grave_cantor"
+          ],
+          "319": [
+            "core:enemy/ward_weaver"
+          ],
+          "32": [
+            "core:enemy/cinder_bellkeeper"
+          ],
+          "320": [
+            "core:enemy/mirror_hexer"
+          ],
+          "321": [
+            "core:enemy/siege_wisp"
+          ],
+          "323": [
+            "core:enemy/bone_fragment",
+            "core:enemy/bone_splitter"
+          ],
+          "324": [
+            "core:actor/sentinel"
+          ],
+          "325": [
+            "core:enemy/mossbreaker"
+          ],
+          "326": [
+            "core:boon/opening_cut/icon + /detail"
+          ],
+          "327": [
+            "core:ui/weapon_sword_icon"
+          ],
+          "328": [
+            "core:ui/weapon_bow_icon"
+          ],
+          "329": [
+            "core:ui/weapon_spell_icon"
+          ],
+          "33": [
+            "core:boon/beggars_cap/icon + /detail"
+          ],
+          "330": [
+            "core:ui/ability_sword_icon"
+          ],
+          "331": [
+            "core:ui/weapon_dagger_icon"
+          ],
+          "332": [
+            "core:ui/weapon_hook_icon"
+          ],
+          "333": [
+            "core:boon/recurve/icon + /detail"
+          ],
+          "334": [
+            "core:ui/ability_volley_icon"
+          ],
+          "337": [
+            "core:boon/ring_of_reversal/icon + /detail"
+          ],
+          "341": [
+            "environment mosaic"
+          ],
+          "344": [
+            "core:object/chest_open"
+          ],
+          "346": [
+            "core:object/env_shelf_empty"
+          ],
+          "366": [
+            "core:enemy/web_weaver"
+          ],
+          "367": [
+            "core:enemy/gloom_strider"
+          ],
+          "371": [
+            "core:enemy/silt_worm"
+          ],
+          "376": [
+            "core:ui/ability_slash_icon"
+          ],
+          "378": [
+            "core:boon/longblade_geometry/icon + /detail"
+          ],
+          "38": [
+            "core:boon/vent_mantle/icon + /detail"
+          ],
+          "380": [
+            "core:boon/earthshaker/icon + /detail"
+          ],
+          "381": [
+            "core:boon/executioners_thread/icon + /detail"
+          ],
+          "382": [
+            "core:ui/ability_mace_icon"
+          ],
+          "383": [
+            "core:boon/sunderers_mark/icon + /detail"
+          ],
+          "384": [
+            "core:boon/crowdbreaker/icon + /detail"
+          ],
+          "385": [
+            "core:ui/ability_axe_icon"
+          ],
+          "39": [
+            "core:boon/fan_of_blades/icon + /detail"
+          ],
+          "392": [
+            "core:object/interaction_archive_contract",
+            "core:object/interaction_bell_clue"
+          ],
+          "396": [
+            "core:object/env_camp_table"
+          ],
+          "40": [
+            "core:boon/backswing/icon + /detail"
+          ],
+          "400": [
+            "core:object/env_workshop_hearth",
+            "core:object/interaction_attunement_forge"
+          ],
+          "405": [
+            "core:object/env_workshop_supplies"
+          ],
+          "408": [
+            "core:object/return_beacon"
+          ],
+          "410": [
+            "core:enemy/glass_charger"
+          ],
+          "411": [
+            "core:enemy/ember_moth"
+          ],
+          "415": [
+            "core:enemy/rushwing"
+          ],
+          "416": [
+            "core:enemy/hollow_wraith"
+          ],
+          "417": [
+            "core:enemy/haunted_cache",
+            "core:object/bound_spirit"
+          ],
+          "418": [
+            "core:enemy/spore_herald"
+          ],
+          "419": [
+            "core:enemy/mycelial_matriarch"
+          ],
+          "420": [
+            "core:enemy/mire_binder"
+          ],
+          "421": [
+            "core:enemy/extraction_pursuer"
+          ],
+          "422": [
+            "core:enemy/gulp_toad"
+          ],
+          "43": [
+            "core:enemy/ash_marshal"
+          ],
+          "435": [
+            "core:object/interaction_charm_well"
+          ],
+          "443": [
+            "core:object/door_open"
+          ],
+          "451": [
+            "core:object/exit"
+          ],
+          "452": [
+            "core:object/env_camp_seat"
+          ],
+          "459": [
+            "core:enemy/ruin_skitter"
+          ],
+          "461": [
+            "core:enemy/pack_chorister"
+          ],
+          "466": [
+            "core:actor/geomancer"
+          ],
+          "467": [
+            "core:actor/arcanist"
+          ],
+          "468": [
+            "core:actor/adventurer"
+          ],
+          "469": [
+            "core:actor/alchemist"
+          ],
+          "471": [
+            "core:enemy/forge_conjurer"
+          ],
+          "472": [
+            "core:actor/ranger"
+          ],
+          "473": [
+            "core:actor/wayfinder"
+          ],
+          "486": [
+            "core:boon/packed_powder/icon + /detail"
+          ],
+          "488": [
+            "core:boon/long_wick/icon + /detail"
+          ],
+          "489": [
+            "core:boon/brokers_seal/icon + /detail"
+          ],
+          "49": [
+            "core:object/review_overgrowth_1"
+          ],
+          "493": [
+            "core:ui/idea_mirror_effect"
+          ],
+          "494": [
+            "core:ui/idea_reflect_effect"
+          ],
+          "5": [
+            "composite terrain material: floor",
+            "environment garden",
+            "environment pale"
+          ],
+          "50": [
+            "core:object/review_overgrowth_2"
+          ],
+          "508": [
+            "core:object/interaction_camp"
+          ],
+          "51": [
+            "core:object/env_plant_a"
+          ],
+          "522": [
+            "core:boon/crystal_harmony/icon + /detail"
+          ],
+          "523": [
+            "core:terrain/resonant_crystal"
+          ],
+          "524": [
+            "core:object/review_ore_depleted"
+          ],
+          "527": [
+            "core:ui/squad_rally_effect"
+          ],
+          "530": [
+            "core:ui/hp_icon"
+          ],
+          "531": [
+            "core:boon/shared_agony/icon + /detail"
+          ],
+          "532": [
+            "core:boon/pain_dividend/icon + /detail"
+          ],
+          "533": [
+            "core:ui/status_heal_icon"
+          ],
+          "535": [
+            "core:ui/squad_heal_effect"
+          ],
+          "538": [
+            "core:ui/status_focus_icon"
+          ],
+          "539": [
+            "core:ui/idea_corpse_effect"
+          ],
+          "54": [
+            "core:object/review_mushroom_2"
+          ],
+          "542": [
+            "core:object/review_pillar_top"
+          ],
+          "548": [
+            "core:object/door_closed"
+          ],
+          "549": [
+            "core:object/interaction_falling_fixture"
+          ],
+          "552": [
+            "core:object/review_vault_bottom",
+            "core:object/review_vault_top"
+          ],
+          "563": [
+            "core:boon/crescent_reach/icon + /detail"
+          ],
+          "564": [
+            "core:boon/phantom_lunge/icon + /detail"
+          ],
+          "565": [
+            "core:terrain/heat_vent_burst",
+            "core:terrain/heat_vent_cooldown",
+            "core:terrain/heat_vent_warning",
+            "core:ui/cue_slash_effect"
+          ],
+          "566": [
+            "core:boon/flashpoint/icon + /detail"
+          ],
+          "567": [
+            "core:boon/emberbrand/icon + /detail",
+            "core:ui/burning_effect"
+          ],
+          "568": [
+            "core:ui/cue_fire_effect"
+          ],
+          "569": [
+            "core:boon/crossfire_omen/icon + /detail"
+          ],
+          "571": [
+            "core:object/review_key"
+          ],
+          "574": [
+            "core:object/interaction_return_marker",
+            "core:object/interaction_return_token",
+            "core:ui/idea_oath_effect"
+          ],
+          "575": [
+            "core:boon/circuit_chorus/icon + /detail"
+          ],
+          "576": [
+            "core:ui/status_ward_icon"
+          ],
+          "578": [
+            "core:object/review_ward"
+          ],
+          "580": [
+            "core:object/interaction_cleanse_flask"
+          ],
+          "584": [
+            "core:boon/crosswind/icon + /detail"
+          ],
+          "585": [
+            "core:boon/distant_bastion/icon + /detail"
+          ],
+          "591": [
+            "core:object/review_pillar_middle"
+          ],
+          "6": [
+            "core:object/review_ore"
+          ],
+          "600": [
+            "core:terrain/fragile_armed",
+            "core:terrain/fragile_armed",
+            "core:terrain/fragile_closed",
+            "core:terrain/fragile_closed"
+          ],
+          "607": [
+            "core:object/review_gate_bottom",
+            "core:object/review_gate_tiny",
+            "core:object/review_gate_top"
+          ],
+          "615": [
+            "core:ui/cue_spark_effect",
+            "core:ui/storm_charge_effect"
+          ],
+          "616": [
+            "core:boon/storm_conductor/icon + /detail",
+            "core:terrain/glazed_ice",
+            "core:ui/boon_effect"
+          ],
+          "617": [
+            "core:boon/turncoat_spark/icon + /detail"
+          ],
+          "618": [
+            "core:boon/detonation_bloom/icon + /detail",
+            "core:ui/hit_effect"
+          ],
+          "619": [
+            "core:boon/final_spark/icon + /detail"
+          ],
+          "620": [
+            "core:object/env_bone_a"
+          ],
+          "621": [
+            "core:object/env_bone_b"
+          ],
+          "622": [
+            "core:boon/grave_dividend/icon + /detail"
+          ],
+          "623": [
+            "core:boon/harriers_response/icon + /detail"
+          ],
+          "624": [
+            "core:boon/windup_hunter/icon + /detail"
+          ],
+          "625": [
+            "core:ui/attack_center_effect"
+          ],
+          "626": [
+            "core:ui/attack_impact_effect"
+          ],
+          "627": [
+            "core:ui/signal_spent_effect"
+          ],
+          "628": [
+            "core:ui/signal_safe_effect"
+          ],
+          "629": [
+            "core:boon/temporal_echo/icon + /detail"
+          ],
+          "630": [
+            "core:ui/signal_armed_effect"
+          ],
+          "631": [
+            "core:ui/status_charge_0_icon"
+          ],
+          "632": [
+            "core:ui/status_charge_1_icon"
+          ],
+          "633": [
+            "core:ui/status_charge_2_icon"
+          ],
+          "634": [
+            "core:ui/status_charge_3_icon"
+          ],
+          "636": [
+            "core:ui/squad_ward_effect"
+          ],
+          "640": [
+            "core:object/review_pillar_bottom"
+          ],
+          "650": [
+            "core:object/interaction_ration_cache"
+          ],
+          "669": [
+            "core:boon/alchemical_flip/icon + /detail"
+          ],
+          "67": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "670": [
+            "core:drop/health"
+          ],
+          "674": [
+            "core:object/interaction_route_sign"
+          ],
+          "68": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "69": [
+            "environment ironworks",
+            "environment observatory",
+            "environment ruin",
+            "environment ruin_carved"
+          ],
+          "690": [
+            "core:object/interaction_offering_font"
+          ],
+          "70": [
+            "core:terrain/fragile_intact",
+            "core:terrain/fragile_intact"
+          ],
+          "705": [
+            "core:boon/pulse_step/icon + /detail"
+          ],
+          "706": [
+            "core:boon/aftershock/icon + /detail",
+            "core:ui/xp_icon"
+          ],
+          "707": [
+            "core:boon/froststep_catalyst/icon + /detail"
+          ],
+          "708": [
+            "core:boon/resonant_wounds/icon + /detail"
+          ],
+          "709": [
+            "core:boon/expanding_sigil/icon + /detail"
+          ],
+          "710": [
+            "core:ui/cue_echo_effect"
+          ],
+          "711": [
+            "core:ui/cue_block_effect"
+          ],
+          "713": [
+            "core:ui/cue_boon_effect"
+          ],
+          "715": [
+            "core:ui/squad_snare_effect"
+          ],
+          "716": [
+            "core:boon/reprisal_nova/icon + /detail"
+          ],
+          "717": [
+            "core:boon/mist_veil/icon + /detail"
+          ],
+          "72": [
+            "core:object/env_grave_b",
+            "core:object/interaction_memorial"
+          ],
+          "728": [
+            "core:boon/fateful_dice/icon + /detail"
+          ],
+          "738": [
+            "core:object/review_brazier_unlit"
+          ],
+          "739": [
+            "core:object/review_brazier_lit"
+          ],
+          "75": [
+            "core:enemy/cinder_mender"
+          ],
+          "76": [
+            "core:enemy/index_keeper"
+          ],
+          "768": [
+            "core:object/interaction_travelling_trader"
+          ],
+          "77": [
+            "core:actor/trapper"
+          ],
+          "771": [
+            "core:boon/far_witness/icon + /detail"
+          ],
+          "773": [
+            "core:boon/funeral_coin/icon + /detail"
+          ],
+          "78": [
+            "core:enemy/pin_archer"
+          ],
+          "79": [
+            "core:actor/shade"
+          ],
+          "80": [
+            "core:actor/hookrunner"
+          ],
+          "816": [
+            "core:boon/hollow_crown/icon + /detail"
+          ],
+          "817": [
+            "core:boon/ration_reserve/icon + /detail"
+          ],
+          "818": [
+            "core:boon/prospectors_heart/icon + /detail",
+            "core:drop/currency",
+            "core:ui/currency_icon"
+          ],
+          "823": [
+            "core:boon/rhythm_of_steel/icon + /detail"
+          ],
+          "824": [
+            "core:boon/overflow_chalice/icon + /detail"
+          ],
+          "830": [
+            "core:boon/cluster_rupture/icon + /detail"
+          ],
+          "852": [
+            "environment carpet"
+          ],
+          "854": [
+            "core:boon/ward_ledger/icon + /detail"
+          ],
+          "856": [
+            "core:boon/fourfold_ledger/icon + /detail"
+          ],
+          "867": [
+            "core:object/interaction_bell"
+          ],
+          "87": [
+            "core:boon/backtrail_mantle/icon + /detail"
+          ],
+          "89": [
+            "core:boon/battle_march/icon + /detail"
+          ],
+          "903": [
+            "core:boon/twin_seals/icon + /detail"
+          ],
+          "915": [
+            "core:boon/secret_apple/icon + /detail",
+            "core:ui/idea_alarm_effect"
+          ],
+          "916": [
+            "core:boon/cinder_stopper/icon + /detail"
+          ],
+          "930": [
+            "core:boon/hollow_sigil/icon + /detail"
+          ],
+          "953": [
+            "core:boon/threefold_remedy/icon + /detail"
+          ],
+          "965": [
+            "core:boon/road_flask/icon + /detail"
+          ],
+          "98": [
+            "core:object/env_plant_b",
+            "environment garden accent"
+          ]
+        },
+        "rpg": {
+          "114": [
+            "environment drowned concave corner"
+          ],
+          "115": [
+            "environment drowned concave corner"
+          ],
+          "116": [
+            "environment drowned"
+          ],
+          "117": [
+            "environment drowned"
+          ],
+          "118": [
+            "environment drowned"
+          ],
+          "2": [
+            "environment drowned"
+          ],
+          "3": [
+            "environment drowned"
+          ],
+          "4": [
+            "environment drowned"
+          ],
+          "57": [
+            "environment drowned concave corner"
+          ],
+          "58": [
+            "environment drowned concave corner"
+          ],
+          "59": [
+            "environment drowned"
+          ],
+          "60": [
+            "environment drowned"
+          ],
+          "61": [
+            "environment drowned"
+          ]
+        },
+        "tiny": {
+          "29": [
+            "core:terrain/heat_vent_burst",
+            "core:terrain/heat_vent_warning"
+          ],
+          "9": [
+            "core:terrain/heat_vent_cooldown"
+          ]
+        }
+      },
+      "wall_masks": 47,
+      "water_masks": 47
+    }
+  },
+  "pixel_inventory": [
+    {
+      "empty": 0,
+      "grid": 522,
+      "nonempty": 522,
+      "onebit": 10,
+      "sheet": "caves",
+      "union": 10,
+      "unused_onebit": 512,
+      "unused_union": 512
+    },
+    {
+      "empty": 1,
+      "grid": 1078,
+      "nonempty": 1077,
+      "onebit": 296,
+      "sheet": "onebit",
+      "union": 296,
+      "unused_onebit": 781,
+      "unused_union": 781
+    },
+    {
+      "empty": 63,
+      "grid": 1767,
+      "nonempty": 1704,
+      "onebit": 13,
+      "sheet": "rpg",
+      "union": 13,
+      "unused_onebit": 1691,
+      "unused_union": 1691
+    },
+    {
+      "empty": 0,
+      "grid": 132,
+      "nonempty": 132,
+      "onebit": 2,
+      "sheet": "tiny",
+      "union": 2,
+      "unused_onebit": 130,
+      "unused_union": 130
+    }
+  ],
+  "requirements": [
+    "core:actor/adventurer",
+    "core:actor/adventurer/attack",
+    "core:actor/adventurer/hurt",
+    "core:actor/alchemist",
+    "core:actor/alchemist/attack",
+    "core:actor/alchemist/hurt",
+    "core:actor/arcanist",
+    "core:actor/arcanist/attack",
+    "core:actor/arcanist/hurt",
+    "core:actor/berserker",
+    "core:actor/berserker/attack",
+    "core:actor/berserker/hurt",
+    "core:actor/duelist",
+    "core:actor/duelist/attack",
+    "core:actor/duelist/hurt",
+    "core:actor/geomancer",
+    "core:actor/geomancer/attack",
+    "core:actor/geomancer/hurt",
+    "core:actor/hookrunner",
+    "core:actor/hookrunner/attack",
+    "core:actor/hookrunner/hurt",
+    "core:actor/ranger",
+    "core:actor/ranger/attack",
+    "core:actor/ranger/hurt",
+    "core:actor/sentinel",
+    "core:actor/sentinel/attack",
+    "core:actor/sentinel/hurt",
+    "core:actor/shade",
+    "core:actor/shade/attack",
+    "core:actor/shade/hurt",
+    "core:actor/spiritbinder",
+    "core:actor/spiritbinder/attack",
+    "core:actor/spiritbinder/hurt",
+    "core:actor/stormcaller",
+    "core:actor/stormcaller/attack",
+    "core:actor/stormcaller/hurt",
+    "core:actor/tinkerer",
+    "core:actor/tinkerer/attack",
+    "core:actor/tinkerer/hurt",
+    "core:actor/trapper",
+    "core:actor/trapper/attack",
+    "core:actor/trapper/hurt",
+    "core:actor/wayfinder",
+    "core:actor/wayfinder/attack",
+    "core:actor/wayfinder/hurt",
+    "core:boon/aftershock/detail",
+    "core:boon/aftershock/icon",
+    "core:boon/alchemical_flip/detail",
+    "core:boon/alchemical_flip/icon",
+    "core:boon/anchor_maul/detail",
+    "core:boon/anchor_maul/icon",
+    "core:boon/backswing/detail",
+    "core:boon/backswing/icon",
+    "core:boon/backtrail_mantle/detail",
+    "core:boon/backtrail_mantle/icon",
+    "core:boon/battle_march/detail",
+    "core:boon/battle_march/icon",
+    "core:boon/beacon_afterglow/detail",
+    "core:boon/beacon_afterglow/icon",
+    "core:boon/beggars_cap/detail",
+    "core:boon/beggars_cap/icon",
+    "core:boon/betrayal_ward/detail",
+    "core:boon/betrayal_ward/icon",
+    "core:boon/bishops_wake/detail",
+    "core:boon/bishops_wake/icon",
+    "core:boon/bloodrush/detail",
+    "core:boon/bloodrush/icon",
+    "core:boon/borrowed_guard/detail",
+    "core:boon/borrowed_guard/icon",
+    "core:boon/bramble_compact/detail",
+    "core:boon/bramble_compact/icon",
+    "core:boon/brokers_seal/detail",
+    "core:boon/brokers_seal/icon",
+    "core:boon/cinder_stopper/detail",
+    "core:boon/cinder_stopper/icon",
+    "core:boon/circuit_chorus/detail",
+    "core:boon/circuit_chorus/icon",
+    "core:boon/cluster_rupture/detail",
+    "core:boon/cluster_rupture/icon",
+    "core:boon/counterweight/detail",
+    "core:boon/counterweight/icon",
+    "core:boon/crescent_reach/detail",
+    "core:boon/crescent_reach/icon",
+    "core:boon/crossfire_omen/detail",
+    "core:boon/crossfire_omen/icon",
+    "core:boon/crosswind/detail",
+    "core:boon/crosswind/icon",
+    "core:boon/crowdbreaker/detail",
+    "core:boon/crowdbreaker/icon",
+    "core:boon/crownfire/detail",
+    "core:boon/crownfire/icon",
+    "core:boon/crystal_harmony/detail",
+    "core:boon/crystal_harmony/icon",
+    "core:boon/detonation_bloom/detail",
+    "core:boon/detonation_bloom/icon",
+    "core:boon/distant_bastion/detail",
+    "core:boon/distant_bastion/icon",
+    "core:boon/doorward_lamp/detail",
+    "core:boon/doorward_lamp/icon",
+    "core:boon/earthshaker/detail",
+    "core:boon/earthshaker/icon",
+    "core:boon/emberbrand/detail",
+    "core:boon/emberbrand/icon",
+    "core:boon/executioners_thread/detail",
+    "core:boon/executioners_thread/icon",
+    "core:boon/expanding_sigil/detail",
+    "core:boon/expanding_sigil/icon",
+    "core:boon/fan_of_blades/detail",
+    "core:boon/fan_of_blades/icon",
+    "core:boon/far_witness/detail",
+    "core:boon/far_witness/icon",
+    "core:boon/fateful_dice/detail",
+    "core:boon/fateful_dice/icon",
+    "core:boon/field_dressing/detail",
+    "core:boon/field_dressing/icon",
+    "core:boon/final_spark/detail",
+    "core:boon/final_spark/icon",
+    "core:boon/flashpoint/detail",
+    "core:boon/flashpoint/icon",
+    "core:boon/fourfold_ledger/detail",
+    "core:boon/fourfold_ledger/icon",
+    "core:boon/fracture_dividend/detail",
+    "core:boon/fracture_dividend/icon",
+    "core:boon/froststep_catalyst/detail",
+    "core:boon/froststep_catalyst/icon",
+    "core:boon/funeral_coin/detail",
+    "core:boon/funeral_coin/icon",
+    "core:boon/grasping_hand/detail",
+    "core:boon/grasping_hand/icon",
+    "core:boon/grave_dividend/detail",
+    "core:boon/grave_dividend/icon",
+    "core:boon/grounding_rod/detail",
+    "core:boon/grounding_rod/icon",
+    "core:boon/guardians_vow/detail",
+    "core:boon/guardians_vow/icon",
+    "core:boon/harriers_response/detail",
+    "core:boon/harriers_response/icon",
+    "core:boon/hollow_crown/detail",
+    "core:boon/hollow_crown/icon",
+    "core:boon/hollow_sigil/detail",
+    "core:boon/hollow_sigil/icon",
+    "core:boon/hourglass_clasp/detail",
+    "core:boon/hourglass_clasp/icon",
+    "core:boon/knights_gambit/detail",
+    "core:boon/knights_gambit/icon",
+    "core:boon/linebreaker_pawn/detail",
+    "core:boon/linebreaker_pawn/icon",
+    "core:boon/long_wick/detail",
+    "core:boon/long_wick/icon",
+    "core:boon/longblade_geometry/detail",
+    "core:boon/longblade_geometry/icon",
+    "core:boon/mirror_dividend/detail",
+    "core:boon/mirror_dividend/icon",
+    "core:boon/mist_lullaby/detail",
+    "core:boon/mist_lullaby/icon",
+    "core:boon/mist_veil/detail",
+    "core:boon/mist_veil/icon",
+    "core:boon/needle_flight/detail",
+    "core:boon/needle_flight/icon",
+    "core:boon/opening_cut/detail",
+    "core:boon/opening_cut/icon",
+    "core:boon/ordered_ranks/detail",
+    "core:boon/ordered_ranks/icon",
+    "core:boon/overflow_chalice/detail",
+    "core:boon/overflow_chalice/icon",
+    "core:boon/packed_powder/detail",
+    "core:boon/packed_powder/icon",
+    "core:boon/pain_dividend/detail",
+    "core:boon/pain_dividend/icon",
+    "core:boon/passing_ember/detail",
+    "core:boon/passing_ember/icon",
+    "core:boon/patient_rebuke/detail",
+    "core:boon/patient_rebuke/icon",
+    "core:boon/perfect_guard/detail",
+    "core:boon/perfect_guard/icon",
+    "core:boon/phantom_lunge/detail",
+    "core:boon/phantom_lunge/icon",
+    "core:boon/pilgrims_vow/detail",
+    "core:boon/pilgrims_vow/icon",
+    "core:boon/pommel_return/detail",
+    "core:boon/pommel_return/icon",
+    "core:boon/prospectors_heart/detail",
+    "core:boon/prospectors_heart/icon",
+    "core:boon/pulse_step/detail",
+    "core:boon/pulse_step/icon",
+    "core:boon/purging_seal/detail",
+    "core:boon/purging_seal/icon",
+    "core:boon/pursuit_spark/detail",
+    "core:boon/pursuit_spark/icon",
+    "core:boon/ration_reserve/detail",
+    "core:boon/ration_reserve/icon",
+    "core:boon/recurve/detail",
+    "core:boon/recurve/icon",
+    "core:boon/reprisal_nova/detail",
+    "core:boon/reprisal_nova/icon",
+    "core:boon/resonant_wounds/detail",
+    "core:boon/resonant_wounds/icon",
+    "core:boon/rhythm_of_steel/detail",
+    "core:boon/rhythm_of_steel/icon",
+    "core:boon/rime_disk/detail",
+    "core:boon/rime_disk/icon",
+    "core:boon/ring_of_reversal/detail",
+    "core:boon/ring_of_reversal/icon",
+    "core:boon/road_flask/detail",
+    "core:boon/road_flask/icon",
+    "core:boon/rooks_wake/detail",
+    "core:boon/rooks_wake/icon",
+    "core:boon/scavengers_hook/detail",
+    "core:boon/scavengers_hook/icon",
+    "core:boon/secret_apple/detail",
+    "core:boon/secret_apple/icon",
+    "core:boon/sentry_quartermaster/detail",
+    "core:boon/sentry_quartermaster/icon",
+    "core:boon/shared_agony/detail",
+    "core:boon/shared_agony/icon",
+    "core:boon/spirit_shelter/detail",
+    "core:boon/spirit_shelter/icon",
+    "core:boon/split_thrust/detail",
+    "core:boon/split_thrust/icon",
+    "core:boon/splitflight/detail",
+    "core:boon/splitflight/icon",
+    "core:boon/spoils_aegis/detail",
+    "core:boon/spoils_aegis/icon",
+    "core:boon/static_footsteps/detail",
+    "core:boon/static_footsteps/icon",
+    "core:boon/stone_backstop/detail",
+    "core:boon/stone_backstop/icon",
+    "core:boon/stonewake/detail",
+    "core:boon/stonewake/icon",
+    "core:boon/storm_conductor/detail",
+    "core:boon/storm_conductor/icon",
+    "core:boon/sunderers_mark/detail",
+    "core:boon/sunderers_mark/icon",
+    "core:boon/temporal_echo/detail",
+    "core:boon/temporal_echo/icon",
+    "core:boon/thorn_mirror/detail",
+    "core:boon/thorn_mirror/icon",
+    "core:boon/threefold_remedy/detail",
+    "core:boon/threefold_remedy/icon",
+    "core:boon/turncoat_spark/detail",
+    "core:boon/turncoat_spark/icon",
+    "core:boon/twin_seals/detail",
+    "core:boon/twin_seals/icon",
+    "core:boon/vent_mantle/detail",
+    "core:boon/vent_mantle/icon",
+    "core:boon/volatile_vial/detail",
+    "core:boon/volatile_vial/icon",
+    "core:boon/ward_ledger/detail",
+    "core:boon/ward_ledger/icon",
+    "core:boon/windup_hunter/detail",
+    "core:boon/windup_hunter/icon",
+    "core:chest/free_elite",
+    "core:chest/standard",
+    "core:drop/currency",
+    "core:drop/food",
+    "core:drop/health",
+    "core:enemy/alarm_keeper",
+    "core:enemy/alarm_keeper/attack",
+    "core:enemy/alarm_keeper/hurt",
+    "core:enemy/ash_marshal",
+    "core:enemy/ash_marshal/attack",
+    "core:enemy/ash_marshal/hurt",
+    "core:enemy/banner_captain",
+    "core:enemy/banner_captain/attack",
+    "core:enemy/banner_captain/hurt",
+    "core:enemy/banner_follower",
+    "core:enemy/banner_follower/attack",
+    "core:enemy/banner_follower/hurt",
+    "core:enemy/bastion_bulwark",
+    "core:enemy/bastion_bulwark/attack",
+    "core:enemy/bastion_bulwark/hurt",
+    "core:enemy/bodyguard_brute",
+    "core:enemy/bodyguard_brute/attack",
+    "core:enemy/bodyguard_brute/hurt",
+    "core:enemy/bone_fragment",
+    "core:enemy/bone_fragment/attack",
+    "core:enemy/bone_fragment/hurt",
+    "core:enemy/bone_splitter",
+    "core:enemy/bone_splitter/attack",
+    "core:enemy/bone_splitter/hurt",
+    "core:enemy/canal_lancer",
+    "core:enemy/canal_lancer/attack",
+    "core:enemy/canal_lancer/hurt",
+    "core:enemy/canal_lockmaster",
+    "core:enemy/canal_lockmaster/attack",
+    "core:enemy/canal_lockmaster/hurt",
+    "core:enemy/cinder_bellkeeper",
+    "core:enemy/cinder_bellkeeper/attack",
+    "core:enemy/cinder_bellkeeper/hurt",
+    "core:enemy/cinder_mender",
+    "core:enemy/cinder_mender/attack",
+    "core:enemy/cinder_mender/hurt",
+    "core:enemy/crystal_bombardier",
+    "core:enemy/crystal_bombardier/attack",
+    "core:enemy/crystal_bombardier/hurt",
+    "core:enemy/ember_crucible",
+    "core:enemy/ember_crucible/attack",
+    "core:enemy/ember_crucible/hurt",
+    "core:enemy/ember_moth",
+    "core:enemy/ember_moth/attack",
+    "core:enemy/ember_moth/hurt",
+    "core:enemy/extraction_pursuer",
+    "core:enemy/extraction_pursuer/attack",
+    "core:enemy/extraction_pursuer/hurt",
+    "core:enemy/forge_conjurer",
+    "core:enemy/forge_conjurer/attack",
+    "core:enemy/forge_conjurer/hurt",
+    "core:enemy/glass_charger",
+    "core:enemy/glass_charger/attack",
+    "core:enemy/glass_charger/hurt",
+    "core:enemy/gloom_strider",
+    "core:enemy/gloom_strider/attack",
+    "core:enemy/gloom_strider/hurt",
+    "core:enemy/grave_cantor",
+    "core:enemy/grave_cantor/attack",
+    "core:enemy/grave_cantor/hurt",
+    "core:enemy/gulp_toad",
+    "core:enemy/gulp_toad/attack",
+    "core:enemy/gulp_toad/hurt",
+    "core:enemy/haunted_cache",
+    "core:enemy/haunted_cache/attack",
+    "core:enemy/haunted_cache/hurt",
+    "core:enemy/heavy_rammer",
+    "core:enemy/heavy_rammer/attack",
+    "core:enemy/heavy_rammer/hurt",
+    "core:enemy/hollow_regent",
+    "core:enemy/hollow_regent/attack",
+    "core:enemy/hollow_regent/hurt",
+    "core:enemy/hollow_wraith",
+    "core:enemy/hollow_wraith/attack",
+    "core:enemy/hollow_wraith/hurt",
+    "core:enemy/index_keeper",
+    "core:enemy/index_keeper/attack",
+    "core:enemy/index_keeper/hurt",
+    "core:enemy/mend_acolyte",
+    "core:enemy/mend_acolyte/attack",
+    "core:enemy/mend_acolyte/hurt",
+    "core:enemy/mire_binder",
+    "core:enemy/mire_binder/attack",
+    "core:enemy/mire_binder/hurt",
+    "core:enemy/mirror_hexer",
+    "core:enemy/mirror_hexer/attack",
+    "core:enemy/mirror_hexer/hurt",
+    "core:enemy/mossbound_guard",
+    "core:enemy/mossbound_guard/attack",
+    "core:enemy/mossbound_guard/hurt",
+    "core:enemy/mossbreaker",
+    "core:enemy/mossbreaker/attack",
+    "core:enemy/mossbreaker/hurt",
+    "core:enemy/mycelial_matriarch",
+    "core:enemy/mycelial_matriarch/attack",
+    "core:enemy/mycelial_matriarch/hurt",
+    "core:enemy/oath_twin_a",
+    "core:enemy/oath_twin_a/attack",
+    "core:enemy/oath_twin_a/hurt",
+    "core:enemy/oath_twin_b",
+    "core:enemy/oath_twin_b/attack",
+    "core:enemy/oath_twin_b/hurt",
+    "core:enemy/pack_chorister",
+    "core:enemy/pack_chorister/attack",
+    "core:enemy/pack_chorister/hurt",
+    "core:enemy/pin_archer",
+    "core:enemy/pin_archer/attack",
+    "core:enemy/pin_archer/hurt",
+    "core:enemy/prism_curator",
+    "core:enemy/prism_curator/attack",
+    "core:enemy/prism_curator/hurt",
+    "core:enemy/rotating_sentinel",
+    "core:enemy/rotating_sentinel/attack",
+    "core:enemy/rotating_sentinel/hurt",
+    "core:enemy/ruin_skitter",
+    "core:enemy/ruin_skitter/attack",
+    "core:enemy/ruin_skitter/hurt",
+    "core:enemy/rushwing",
+    "core:enemy/rushwing/attack",
+    "core:enemy/rushwing/hurt",
+    "core:enemy/shield_bearer",
+    "core:enemy/shield_bearer/attack",
+    "core:enemy/shield_bearer/hurt",
+    "core:enemy/siege_wisp",
+    "core:enemy/siege_wisp/attack",
+    "core:enemy/siege_wisp/hurt",
+    "core:enemy/silt_worm",
+    "core:enemy/silt_worm/attack",
+    "core:enemy/silt_worm/hurt",
+    "core:enemy/snare_scribe",
+    "core:enemy/snare_scribe/attack",
+    "core:enemy/snare_scribe/hurt",
+    "core:enemy/spore_herald",
+    "core:enemy/spore_herald/attack",
+    "core:enemy/spore_herald/hurt",
+    "core:enemy/thorn_warden",
+    "core:enemy/thorn_warden/attack",
+    "core:enemy/thorn_warden/hurt",
+    "core:enemy/thornspitter",
+    "core:enemy/thornspitter/attack",
+    "core:enemy/thornspitter/hurt",
+    "core:enemy/vault_lurker",
+    "core:enemy/vault_lurker/attack",
+    "core:enemy/vault_lurker/hurt",
+    "core:enemy/ward_weaver",
+    "core:enemy/ward_weaver/attack",
+    "core:enemy/ward_weaver/hurt",
+    "core:enemy/web_weaver",
+    "core:enemy/web_weaver/attack",
+    "core:enemy/web_weaver/hurt",
+    "core:object/bolt_sentry",
+    "core:object/bound_spirit",
+    "core:object/chest_open",
+    "core:object/door_closed",
+    "core:object/door_open",
+    "core:object/env_bone_a",
+    "core:object/env_bone_b",
+    "core:object/env_camp_seat",
+    "core:object/env_camp_table",
+    "core:object/env_chapel_alcove",
+    "core:object/env_chapel_window",
+    "core:object/env_column_a_bottom",
+    "core:object/env_column_a_middle",
+    "core:object/env_column_a_top",
+    "core:object/env_column_b_bottom",
+    "core:object/env_column_b_middle",
+    "core:object/env_column_b_top",
+    "core:object/env_forge_panel",
+    "core:object/env_grave_a",
+    "core:object/env_grave_b",
+    "core:object/env_mural_face",
+    "core:object/env_mural_leaf",
+    "core:object/env_mural_sigil",
+    "core:object/env_plant_a",
+    "core:object/env_plant_b",
+    "core:object/env_prison_bars",
+    "core:object/env_rock_a",
+    "core:object/env_rock_b",
+    "core:object/env_shelf_empty",
+    "core:object/env_shelf_full",
+    "core:object/env_workshop_hearth",
+    "core:object/env_workshop_supplies",
+    "core:object/exit",
+    "core:object/geomancer_bulwark",
+    "core:object/idea_cache_dormant",
+    "core:object/idea_silt_trail",
+    "core:object/interaction_archive_contract",
+    "core:object/interaction_attunement_forge",
+    "core:object/interaction_bell",
+    "core:object/interaction_bell_clue",
+    "core:object/interaction_camp",
+    "core:object/interaction_charm_well",
+    "core:object/interaction_cleanse_flask",
+    "core:object/interaction_escape_scroll",
+    "core:object/interaction_falling_fixture",
+    "core:object/interaction_memorial",
+    "core:object/interaction_offering_font",
+    "core:object/interaction_ration_cache",
+    "core:object/interaction_return_marker",
+    "core:object/interaction_return_token",
+    "core:object/interaction_route_sign",
+    "core:object/interaction_travelling_trader",
+    "core:object/return_beacon",
+    "core:object/review_brazier_lit",
+    "core:object/review_brazier_unlit",
+    "core:object/review_gate_bottom",
+    "core:object/review_gate_tiny",
+    "core:object/review_gate_top",
+    "core:object/review_key",
+    "core:object/review_mushroom_1",
+    "core:object/review_mushroom_2",
+    "core:object/review_ore",
+    "core:object/review_ore_depleted",
+    "core:object/review_overgrowth_1",
+    "core:object/review_overgrowth_2",
+    "core:object/review_pillar_bottom",
+    "core:object/review_pillar_middle",
+    "core:object/review_pillar_top",
+    "core:object/review_plate_down",
+    "core:object/review_plate_tiny_down",
+    "core:object/review_plate_tiny_up",
+    "core:object/review_plate_up",
+    "core:object/review_rail_bottom_left",
+    "core:object/review_rail_bottom_right",
+    "core:object/review_rail_middle_left",
+    "core:object/review_rail_middle_right",
+    "core:object/review_rail_top_left",
+    "core:object/review_rail_top_right",
+    "core:object/review_secret_clue",
+    "core:object/review_vault_bottom",
+    "core:object/review_vault_top",
+    "core:object/review_ward",
+    "core:object/stairs_down",
+    "core:object/stairs_up",
+    "core:terrain/ashen_bastion/floor/base",
+    "core:terrain/ashen_bastion/wall/base",
+    "core:terrain/ashen_bastion/water/base",
+    "core:terrain/barricade",
+    "core:terrain/bramble_bed",
+    "core:terrain/env_broken/wall/base",
+    "core:terrain/env_carpet/floor/base",
+    "core:terrain/env_drowned/water/base",
+    "core:terrain/env_garden/floor/base",
+    "core:terrain/env_ironworks/wall/base",
+    "core:terrain/env_mosaic/floor/base",
+    "core:terrain/env_observatory/wall/base",
+    "core:terrain/env_pale/floor/base",
+    "core:terrain/env_ruin/wall/base",
+    "core:terrain/env_ruin_carved/wall/base",
+    "core:terrain/fractured_archive/floor/base",
+    "core:terrain/fractured_archive/wall/base",
+    "core:terrain/fractured_archive/water/base",
+    "core:terrain/fragile_armed",
+    "core:terrain/fragile_closed",
+    "core:terrain/fragile_intact",
+    "core:terrain/fungal_hollows/floor/base",
+    "core:terrain/fungal_hollows/wall/base",
+    "core:terrain/fungal_hollows/water/base",
+    "core:terrain/glacial_observatory/floor/base",
+    "core:terrain/glacial_observatory/wall/base",
+    "core:terrain/glacial_observatory/water/base",
+    "core:terrain/glazed_ice",
+    "core:terrain/heat_vent_burst",
+    "core:terrain/heat_vent_cooldown",
+    "core:terrain/heat_vent_warning",
+    "core:terrain/obscuring_mist",
+    "core:terrain/overgrown_ruins/floor/base",
+    "core:terrain/overgrown_ruins/wall/base",
+    "core:terrain/overgrown_ruins/water/base",
+    "core:terrain/push_east",
+    "core:terrain/push_north",
+    "core:terrain/push_south",
+    "core:terrain/push_west",
+    "core:terrain/resonant_crystal",
+    "core:terrain/sticky_bog",
+    "core:terrain/sundered_forge/floor/base",
+    "core:terrain/sundered_forge/wall/base",
+    "core:terrain/sundered_forge/water/base",
+    "core:terrain/sunken_aqueduct/floor/base",
+    "core:terrain/sunken_aqueduct/wall/base",
+    "core:terrain/sunken_aqueduct/water/base",
+    "core:ui/ability_axe_icon",
+    "core:ui/ability_bow_icon",
+    "core:ui/ability_hook_icon",
+    "core:ui/ability_knife_icon",
+    "core:ui/ability_mace_icon",
+    "core:ui/ability_move_icon",
+    "core:ui/ability_shield_icon",
+    "core:ui/ability_slash_icon",
+    "core:ui/ability_staff_icon",
+    "core:ui/ability_sword_icon",
+    "core:ui/ability_vial_icon",
+    "core:ui/ability_volley_icon",
+    "core:ui/ability_wand_icon",
+    "core:ui/attack_center_effect",
+    "core:ui/attack_impact_effect",
+    "core:ui/block_effect",
+    "core:ui/boon_effect",
+    "core:ui/burning_effect",
+    "core:ui/cue_block_effect",
+    "core:ui/cue_boon_effect",
+    "core:ui/cue_echo_effect",
+    "core:ui/cue_fire_effect",
+    "core:ui/cue_slash_effect",
+    "core:ui/cue_spark_effect",
+    "core:ui/currency_icon",
+    "core:ui/fate_1_icon",
+    "core:ui/fate_2_icon",
+    "core:ui/fate_3_icon",
+    "core:ui/fate_4_icon",
+    "core:ui/fate_5_icon",
+    "core:ui/fate_6_icon",
+    "core:ui/fate_7_icon",
+    "core:ui/fate_8_icon",
+    "core:ui/hit_effect",
+    "core:ui/hp_icon",
+    "core:ui/idea_alarm_effect",
+    "core:ui/idea_corpse_effect",
+    "core:ui/idea_mirror_effect",
+    "core:ui/idea_oath_effect",
+    "core:ui/idea_reflect_effect",
+    "core:ui/signal_armed_effect",
+    "core:ui/signal_safe_effect",
+    "core:ui/signal_spent_effect",
+    "core:ui/squad_heal_effect",
+    "core:ui/squad_rally_effect",
+    "core:ui/squad_shield_effect",
+    "core:ui/squad_snare_effect",
+    "core:ui/squad_ward_effect",
+    "core:ui/status_charge_0_icon",
+    "core:ui/status_charge_1_icon",
+    "core:ui/status_charge_2_icon",
+    "core:ui/status_charge_3_icon",
+    "core:ui/status_focus_icon",
+    "core:ui/status_heal_icon",
+    "core:ui/status_ward_icon",
+    "core:ui/storm_charge_effect",
+    "core:ui/weapon_bow_icon",
+    "core:ui/weapon_dagger_icon",
+    "core:ui/weapon_hook_icon",
+    "core:ui/weapon_spell_icon",
+    "core:ui/weapon_sword_icon",
+    "core:ui/xp_icon"
+  ],
+  "sheets": {
+    "caves": {
+      "checksum": "974b7d14df86b1d7",
+      "columns": 29,
+      "height": 305,
+      "path": "assets/kenney/caves-dungeons/terrain.png",
+      "stride": 17,
+      "tile": 16,
+      "width": 492
+    },
+    "onebit": {
+      "checksum": "3fc46971ed866cba",
+      "columns": 49,
+      "height": 352,
+      "path": "assets/kenney/1-bit-pack/symbols.png",
+      "stride": 16,
+      "tile": 16,
+      "width": 784
+    },
+    "rpg": {
+      "checksum": "a2cba6dbb9cac15d",
+      "columns": 57,
+      "height": 526,
+      "path": "assets/kenney/approved/roguelike-rpg.png",
+      "stride": 17,
+      "tile": 16,
+      "width": 968
+    },
+    "tiny": {
+      "checksum": "d407b7ab694fa5d5",
+      "columns": 12,
+      "height": 186,
+      "path": "assets/kenney/approved/tiny-dungeon.png",
+      "stride": 17,
+      "tile": 16,
+      "width": 203
+    }
+  },
+  "version": 1
+}

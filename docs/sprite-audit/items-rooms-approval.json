@@ -1,0 +1,33 @@
+{
+  "approval_text": "i aporoveall jsut go ahead",
+  "approved_ids": [
+    "offering-font",
+    "ration-cache",
+    "cleanse-flask",
+    "escape-scroll",
+    "return-token",
+    "charm-well",
+    "attunement-forge",
+    "travelling-trader",
+    "memorial-choice",
+    "bell-sequence",
+    "falling-fixture",
+    "signposted-routes",
+    "camp-choice",
+    "archive-contract"
+  ],
+  "authority": "explicit_user_message",
+  "inventory_path": "docs/sprite-audit/items-rooms-review-inventory.json",
+  "mapping_checksum": "cf0769721bd03f2f",
+  "note": "Approval covers all fourteen concrete proposals. Preserve previous exclusions; the implementation resolves labelled art ambiguities without introducing rejected mechanics. This record is not a fabricated browser feedback export.",
+  "proposal_fingerprint": "4e21562e8ad55b23030d08433ed41a96177b8d6661229d38aab452e3b4a83b3d",
+  "review_files": {
+    "docs/sprite-audit/items-rooms-review-inventory.json": "dfcc24d340691406e28484c50a2047983199d80afc8d84217ed89f1c98c32734",
+    "docs/sprite-audit/items-rooms.html": "dc72c0ea196d4a85ef6a681ee3fcde2d72d598d38624db7a522361da3600c24b",
+    "docs/sprite-audit/items-rooms.json": "83ad0395c39cdca6ca960c69346711fec84574c779efce324f16e5f9d65d9dc8",
+    "tools/item_room_proposals.json": "f83bbf6ad662723e673cc7472b184c572bec40991bbaa05123ee0b6dd06d3aac",
+    "tools/item_room_review_client.js": "ac63de327f34da23041386980f81eb3e1540406c14a6a924fadfe59e85639ede",
+    "tools/item_room_review_template.html": "b8e9853530ca0c76484e168dca0bc0cca5fc3bd0e17d024f16affd41f460ce5f"
+  },
+  "schema": "roag-item-room-approval/1"
+}

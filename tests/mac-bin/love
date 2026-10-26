@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Run a copied GUI fixture with its own LÖVE identity on Intel macOS."""
+import hashlib
+import os
+from pathlib import Path
+import re
+import sys
+
+
+def fail(message):
+    raise SystemExit(message)
+
+
+if len(sys.argv) < 2:
+    fail("usage: ROAG_LOVE_BIN=/path/to/love tests/mac-bin/love DISPOSABLE_APP [args]")
+app = Path(sys.argv[1]).resolve()
+if not app.is_dir():
+    fail("LÖVE fixture must be a directory")
+temporary_roots = [Path(p).resolve() for p in ("/tmp", "/var/tmp", "/var/folders")]
+if not any(app.is_relative_to(root) and app != root for root in temporary_roots):
+    fail("Refusing to change conf.lua outside a disposable macOS temporary directory")
+conf = app / "conf.lua"
+if not conf.is_file():
+    fail("Fixture has no conf.lua")
+source = conf.read_text()
+match = re.search(r'(t\.identity\s*=\s*")([^"]+)(")', source)
+if not match or (match.group(2) != "roag-foundation" and
+                 not match.group(2).startswith("roag-mac-test-")):
+    fail("Unexpected LÖVE identity; refusing to change fixture")
+data = os.environ.get("XDG_DATA_HOME", "")
+data = os.path.realpath(data) if data else ""
+identity = "roag-mac-test-" + hashlib.sha256(
+    (str(app) + "|" + data).encode()).hexdigest()[:16]
+conf.write_text(source[:match.start(2)] + identity + source[match.end(2):])
+binary = os.environ.get("ROAG_LOVE_BIN", "")
+if not binary or not Path(binary).is_file():
+    fail("Set ROAG_LOVE_BIN to love.app/Contents/MacOS/love")
+# A prior test crash can trigger macOS's "reopen windows" modal before LÖVE
+# starts the fixture. Suppress state restoration for disposable GUI runs.
+os.execv("/usr/bin/arch", ["arch", "-x86_64", binary, *sys.argv[1:],
+                           "-ApplePersistenceIgnoreState", "YES"])

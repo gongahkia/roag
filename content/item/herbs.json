@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.herbs",
-  "name": "Marsh herbs",
-  "sprite": "leaf",
-  "stack": "herbs",
-  "value": 4,
-  "description": "An ingredient carried in the shared pack."
-}

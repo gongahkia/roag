@@ -1,9 +1,0 @@
-{
-  "kind": "trait",
-  "id": "trait.patient",
-  "name": "patient",
-  "value": "security",
-  "aversion": "conflict",
-  "workPercent": 105,
-  "fatiguePercent": 95
-}

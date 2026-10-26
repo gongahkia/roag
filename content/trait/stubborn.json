@@ -1,9 +1,0 @@
-{
-  "kind": "trait",
-  "id": "trait.stubborn",
-  "name": "stubborn",
-  "value": "craft",
-  "aversion": "overwork",
-  "workPercent": 110,
-  "fatiguePercent": 110
-}

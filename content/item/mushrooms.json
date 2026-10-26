@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.mushrooms",
-  "name": "Cave mushrooms",
-  "sprite": "button-mushroom",
-  "stack": "mushrooms",
-  "value": 3,
-  "description": "An ingredient carried in the shared pack."
-}

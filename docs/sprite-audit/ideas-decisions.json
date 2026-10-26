@@ -1,0 +1,259 @@
+{
+  "schema": "roag-sprite-ideas-decisions/1",
+  "status": "reviewed; implementation pending",
+  "feedback_file": "docs/sprite-audit/ideas-feedback.json",
+  "feedback_sha256": "32c9fe58f71068c15c5610130305a7421bf4564440fefa14a691217cb3c8d0f5",
+  "exported_at": "2026-10-18T16:15:43.164Z",
+  "proposal_fingerprint": "5a915a054757e645a396a54b70bab32033339f847ab737fbd27f8c3deb10f3c9",
+  "review_mapping_checksum": "1202bc99da0ba099",
+  "review_files": {
+    "docs/sprite-audit/ideas.html": "a9a4c324c79e19fbcd041a6433053778071490d6003679d95853fa8e7e6919d5",
+    "docs/sprite-audit/ideas.json": "724adf8a82355117b2003369f1fdb299d15b28c3bf52b8f0bd28776abd1b2b6c",
+    "tools/sprite_ideas_client.js": "af377063c060e6cd381a1862f54e91a02dee5b210fc8e4daab475b3d7bdee13f",
+    "tools/sprite_ideas_template.html": "e8a6aca6ee2d2966ff9225f3f94d06838b9a773039f0870742f5ff1dac161ee8",
+    "tools/sprite_idea_proposals.py": "4533cbb4737e18a1a6f1349f20c1c5b227a1d338a7bbffbe56f24f4701dc68fe"
+  },
+  "sources": {
+    "assets/kenney/caves-dungeons/terrain.png": "3abd8d294c523fe78078e2123146a2b9d2c0f2dd3cfbbd60dec8f508c3fe8c2c",
+    "assets/kenney/micro-roguelike/tiles.png": "a3ef37b07dfee7367f17513d0d3ff1256e2cc208af76bd094666b61db69d3812",
+    "assets/kenney/1-bit-pack/symbols.png": "0d9abf9b812a441e1673bc166d61abb6236c0bc46b3775700bd4d4364ba170e0",
+    "assets/kenney/approved/roguelike-rpg.png": "808c8d734480bc949b284f3bcc252e87e1ee53b24178791a6838cce6a319c439",
+    "assets/kenney/approved/tiny-dungeon.png": "5653222ac495d89e942f9b636300759b3f38e85b26e9b888676f2e9ab834095a"
+  },
+  "counts": {
+    "total": 89,
+    "approve": 55,
+    "reject": 30,
+    "discuss": 4,
+    "approved_with_two_art_approvals": 48,
+    "preferred_sprite_selections": 0
+  },
+  "approved_ids": [
+    "reanimator",
+    "haunted-cache",
+    "heavy-rammer",
+    "web-weaver",
+    "gulp-toad",
+    "mirror-hexer",
+    "trail-worm",
+    "pain-linked-twins",
+    "alarm-keeper",
+    "ember-moth",
+    "bone-splitter",
+    "rotating-sentinel",
+    "duelist-class",
+    "geomancer-class",
+    "spiritbinder-class",
+    "tinkerer-class",
+    "stormcaller-class",
+    "wayfinder-class",
+    "offering-font",
+    "ration-cache",
+    "cleanse-flask",
+    "escape-scroll",
+    "return-token",
+    "charm-well",
+    "attunement-forge",
+    "travelling-trader",
+    "memorial-choice",
+    "bell-sequence",
+    "heat-vents",
+    "push-floor",
+    "fragile-crossing",
+    "falling-fixture",
+    "signposted-routes",
+    "camp-choice",
+    "archive-contract",
+    "secret-mural",
+    "crypt-kit",
+    "observatory-mosaic",
+    "root-garden-kit",
+    "drowned-sanctum",
+    "forge-masonry",
+    "library-carpet",
+    "broken-cavern-kit",
+    "ruin-masonry-kit",
+    "camp-furniture",
+    "workshop-fixtures",
+    "archive-shelves",
+    "chapel-windows",
+    "prison-dressing",
+    "stone-column-kit",
+    "weapon-icon-families",
+    "status-icon-family",
+    "combat-bursts",
+    "trap-signals",
+    "onebit-symbol-library"
+  ],
+  "rejected_ids": [
+    "brood-keeper",
+    "echo-duelist",
+    "cantor-class",
+    "weapon-practice",
+    "mirror-puzzle",
+    "prism-relay",
+    "sluice-room",
+    "sparring-trial",
+    "timber-mine-kit",
+    "open-court-ground",
+    "ember-ground",
+    "rose-geode",
+    "ice-crossings",
+    "faction-banners",
+    "boon-ring-art",
+    "sprite-hud-skin",
+    "bitmap-labels",
+    "map-signals",
+    "control-help-icons",
+    "existing-body-variants",
+    "tiny-dungeon-kit",
+    "tiny-fixture-kit",
+    "micro-wall-kit",
+    "micro-prop-kit",
+    "cave-portal-kit",
+    "cave-material-variants",
+    "rpg-open-ground-kit",
+    "rpg-architecture-kit",
+    "theme-colour-frames",
+    "onebit-architecture"
+  ],
+  "discussion_ids": [
+    "hollow-wraith",
+    "pilgrim-class",
+    "sandstone-kit",
+    "oracle-choice"
+  ],
+  "constraints_by_idea": {
+    "web-weaver": {
+      "approved": [
+        "tiny:122"
+      ],
+      "excluded": [
+        "onebit:414",
+        "onebit:463",
+        "micro:60"
+      ],
+      "presentation": "Use drawn lines for webs; curate another native 1-Bit spider."
+    },
+    "hollow-wraith": {
+      "only_actor": [
+        "onebit:416"
+      ],
+      "requested_change": "Phase through walls and retain an attack; do not use the other proposed bodies."
+    },
+    "pilgrim-class": {
+      "requested_change": "Make the HP-spend vow a boon, not a playable class."
+    },
+    "cantor-class": {
+      "requested_change": "Do not add Cantor. Consider onebit:33 and onebit:824 for boon/item icons."
+    },
+    "escape-scroll": {
+      "excluded": [
+        "onebit:525"
+      ]
+    },
+    "charm-well": {
+      "excluded": [
+        "rpg:855"
+      ]
+    },
+    "memorial-choice": {
+      "excluded": [
+        "onebit:24"
+      ]
+    },
+    "heat-vents": {
+      "requested_change": "Allow approved Tiny/mixed heat artwork converted to monochrome for the 1-Bit choice where needed."
+    },
+    "push-floor": {
+      "requested_change": "Find all related Micro arrows, not only the pictured samples."
+    },
+    "signposted-routes": {
+      "excluded": [
+        "rpg:22",
+        "rpg:425",
+        "rpg:737",
+        "rpg:794",
+        "rpg:851",
+        "rpg:908"
+      ]
+    },
+    "camp-choice": {
+      "approved": [
+        "micro:117",
+        "onebit:508",
+        "onebit:509"
+      ],
+      "excluded": [
+        "rpg:616",
+        "rpg:617",
+        "rpg:618",
+        "rpg:619",
+        "rpg:674",
+        "rpg:675"
+      ],
+      "requested_change": "Use the specified small shelter motifs; exclude the proposed RPG tent-part assemblies."
+    },
+    "crypt-kit": {
+      "merge_with": "sandstone-kit",
+      "requested_change": "Crypt art supplies foreground/interactables/dressing; Pale Sanctuary supplies ground/background."
+    },
+    "sandstone-kit": {
+      "merge_into": "crypt-kit",
+      "requested_change": "Use as background/ground of the combined Crypt environment, not a separate area."
+    },
+    "drowned-sanctum": {
+      "requested_change": "Use approved mixed RPG surfaces converted to monochrome to fill the 1-Bit counterpart."
+    },
+    "broken-cavern-kit": {
+      "requested_change": "Use approved mixed art converted/touched up to monochrome for the 1-Bit counterpart."
+    },
+    "stone-column-kit": {
+      "requested_change": "Use corresponding approved mixed pillar art converted to monochrome for the 1-Bit counterpart."
+    },
+    "weapon-icon-families": {
+      "excluded": [
+        "micro:78",
+        "micro:79"
+      ]
+    },
+    "bitmap-labels": {
+      "requested_change": "Overall feature rejected even though both art-pool votes are approve. Do not implement bitmap labels."
+    },
+    "oracle-choice": {
+      "requested_change": "Do not add Oracle room. Replace with a dice boon changing attacks on each roll: faces 1–6, skull instant-kill, cross miss. Exact roll outcomes/probabilities and boss treatment need a rule.",
+      "skull_rule": "Regular enemies only; minibosses and final boss exempt. Confirmed explicitly in conversation."
+    },
+    "onebit-symbol-library": {
+      "requested_change": "For icons left unused, brainstorm 50+ distinct materially gameplay-changing boons with matching icons; no additional approval round is required for that brainstorming."
+    }
+  },
+  "interpretation_rules": [
+    "Original downloaded bytes, votes and literal comments are authoritative; this record is a human-readable triage, not a changed vote.",
+    "Overall rejection overrides art-pool approvals. Discussion comments can redirect a proposal without approving its original class/room.",
+    "No preferred cells or priorities were selected. No selected-actor conflicts does not establish a final collision-free assignment.",
+    "Monochrome derivatives are allowed for approved art/gaps; preserve original PNG bytes, nearest sampling and alpha. This changes the earlier standalone-only-source assumption.",
+    "Excluded cells are excluded for their specified proposal; do not infer a global ban on a sprite explicitly approved elsewhere.",
+    "Preserve every existing rejection and the two held groups. Do not restart the rejected generic art-pool proposals as hidden features.",
+    "No gameplay, rendering, save or source PNG changes are part of receiving this feedback."
+  ],
+  "open_questions": [],
+  "clarifications": [
+    {
+      "id": "dice-skull-boss-policy",
+      "source": "Explicit user reply in conversation, 2026-10-19",
+      "answer": "Regular enemies only (recommended)",
+      "rule": "Skull may instantly kill ordinary regular enemies only. Minibosses and the final boss are exempt; a special encounter is not implicitly a regular enemy.",
+      "status": "resolved"
+    }
+  ],
+  "review_inventory": {
+    "path": "docs/sprite-audit/ideas-review-inventory.json",
+    "sha256": "3b2e394d40d489ffe5d71f6f122b95ff8e801712bbaf31397a8b356807517006"
+  },
+  "superseded_reports": {
+    "docs/sprite-audit/surplus.html": "bf15f760f700b50f7bcdd250a253acbd0285668c5d046b3ae4790de360eec48f",
+    "docs/sprite-audit/surplus.json": "5f8eafcad917b6266ddfd26dc187128d076858e150207b0671ca2a2ec96a952f",
+    "docs/sprite-audit/surplus-candidates.json": "5fb89d147af5cd285712ad9f5ff1d2873c1cdfd78c5d1a524cdeb2a26eb49195"
+  }
+}
