@@ -133,7 +133,9 @@ def main():
             observed = self.wait(lambda u: u.get('combatPresentation', {}).get('phase') == phase
                 and (source is None or u['combatPresentation']['source'] == source), interval=.01)
             x('windowfocus', '0')
-            frozen = self.wait(lambda u: not u['focused'], interval=.01)
+            # Exploration's world clock can remain enabled after the live battle
+            # resolves; presentation still freezes on actual window focus loss.
+            frozen = self.wait(lambda u: not u['nativeFocused'], interval=.01)
             check(name + 'Phase', frozen['combatPresentation']['phase'] == phase)
             time.sleep(.2)
             still = self.ui()
@@ -141,7 +143,7 @@ def main():
                 and still['tick'] == frozen['tick'])
             self.capture(name)
             x('windowfocus', '--sync', self.window)
-            self.wait(lambda u: u['focused'])
+            self.wait(lambda u: u['nativeFocused'])
             return observed
         def finish_dialogue(self):
             deadline = time.monotonic() + 40
