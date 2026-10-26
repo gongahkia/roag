@@ -20,7 +20,7 @@ def reap():
     _workers[:] = [p for p in _workers if p.poll() is None]
 
 TERMINAL = {'passed', 'failed', 'blocked', 'cancelled', 'timed_out', 'interrupted', 'stale'}
-NATIVE_SCENES = ['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters']
+NATIVE_SCENES = ['world', 'world-streaming', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters']
 
 def identity(pid):
     """Linux/WSL identity includes boot and process start ticks; never signal a reused PID."""
@@ -61,7 +61,7 @@ def profile_steps(repo, profile, folder, scenes=None):
         if p in ['quick', 'world']:
             add('scenarios', tool + ['scenario', 'suite', 'devtools/scenarios', '--output', str(folder/'scenarios.json')], evidence='passed-json')
         if p == 'core':
-            add('core-tests', [dotnet, 'test', 'Vagabonds.sln', '--configuration', 'Release', '--no-build', '--nologo', '-v:minimal', '--logger', 'trx;LogFileName=tests.trx', '--results-directory', str(folder/'tests')], evidence='trx')
+            add('core-tests', [dotnet, 'test', 'Vagabonds.sln', '--configuration', 'Release', '--no-build', '--nologo', '-v:minimal', '--logger', 'trx;LogFileName=tests.trx', '--results-directory', str(folder/'tests')], timeout=600, evidence='trx')
         if p == 'assets':
             add('catalog', [python, 'tools/build_game_catalog.py', '--check'])
             add('catalog-tests', [python, '-m', 'unittest', 'discover', '-s', 'tests/catalog', '-v'])
@@ -75,6 +75,8 @@ def profile_steps(repo, profile, folder, scenes=None):
             add('audit-counterplay', tool + ['audit-counterplay', '--seed', '42', '--output', str(folder/'audit-counterplay.json')], evidence='passed-json')
             add('audit-simulation', tool + ['audit-simulation', '--seeds', '42,1337,-42', '--steps', '7200', '--output', str(folder/'audit-simulation.json')], timeout=600, evidence='passed-json')
             add('audit-crowded-work', tool + ['audit-crowded-work', '--seed', '42', '--output', str(folder/'audit-crowded-work.json')], timeout=600, evidence='passed-json')
+            add('audit-ecology', tool + ['audit-ecology', '--seed', '42', '--steps', '50400', '--output', str(folder/'audit-ecology.json')], timeout=600, evidence='passed-json')
+            add('audit-travel', tool + ['audit-travel', '--seed', '42', '--output', str(folder/'audit-travel.json')], timeout=600, evidence='passed-json')
         if p == 'native':
             add('native', ['xvfb-run', '-a', '-s', '-screen 0 1920x1200x24', python, 'tools/verify_world_input.py', '--output', str(folder/'native'), '--scenes', *(scenes or NATIVE_SCENES)], timeout=900, evidence='native')
         if p in ['native', 'playtest']:

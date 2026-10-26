@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-streaming', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-streaming', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -371,6 +371,49 @@ def main():
                 check('surfaceLandingHasSeparatePartyTiles', client.formation())
                 before = client.save()['state']; slot.write_text('{"format":"vagabonds-world","version":999}'); client.click('load'); restored = client.save()['state']
                 check('mouseRejectedLoadPreservesState', before == restored)
+            finally: client.close()
+        if 'world-streaming' in args.scenes:
+            client = Client('world-streaming', slot)
+            try:
+                fixture = client.ui()['streamingFixture']; start = dict(client.ui()['position'])
+                check('streamingStartsWithFourSeparateTravellers', len(client.ui()['party']) == 4 and client.formation())
+                client.capture('streaming-start')
+                positions = [start]; saved_walking = False; floors = {0}; transfers = 0; peak = 0; hits = 0
+                for index, stop in enumerate(fixture['stops']):
+                    target = stop['target']
+                    while True:
+                        client.formation()  # Settle interpolation before resolving a world cell to pixels.
+                        current = client.ui()['position']; distance = abs(current['x'] - target['x']) + abs(current['y'] - target['y'])
+                        if current['floor'] != target['floor']: raise AssertionError('Travel stop is on another floor')
+                        if distance <= (1 if stop['stairs'] else 0): break
+                        waypoint = dict(current)
+                        for axis in ('x', 'y'): waypoint[axis] += max(-6, min(6, target[axis] - current[axis]))
+                        client.tile(waypoint['x'], waypoint['y'])
+                        client.wait(lambda u: u['routeCount'] == 0 and u['position'] == waypoint, timeout=20)
+                        positions.append(dict(waypoint)); ui = client.ui(); status = ui['chunkPreparation']
+                        peak = max(peak, ui['residentChunks']); hits = max(hits, status['hits'])
+                        if ui['residentChunks'] > 25 or status['requested'] > 9 or status['inFlight'] > 1: raise AssertionError('Travel exceeded cache/preparation bounds')
+                        if not saved_walking and current['x'] // 64 != waypoint['x'] // 64:
+                            client.pause(); before = client.save()['state']; client.load(); after = client.save()['state']
+                            check('streamingMouseReloadPreservesActualWalkingState', before == after)
+                            client.capture('streaming-surface-crossing'); saved_walking = True
+                    if stop['stairs']:
+                        client.formation()
+                        previous_floor = client.ui()['position']['floor']; client.tile(target['x'], target['y'])
+                        client.wait(lambda u: u['position']['floor'] != previous_floor and u['routeCount'] == 0)
+                        floor = client.ui()['position']['floor']; floors.add(floor); transfers += 1
+                        if abs(floor - previous_floor) != 1: raise AssertionError('Travel skipped a floor')
+                        if transfers in (3, 6):
+                            client.pause(); before = client.save()['state']; client.load(); after = client.save()['state']
+                            check('streamingFloorReload' + str(transfers), before == after and client.formation())
+                            client.capture('streaming-deepest' if transfers == 3 else 'streaming-surface-return')
+                    if index == 8: client.capture('streaming-deep-chunk-crossing')
+                client.pause(); check('streamingWalksAcrossSurfaceAndDeepChunks', saved_walking and len({(p['x'] // 64, p['y'] // 64, p['floor']) for p in positions}) >= 5)
+                check('streamingTraversesEveryFloorAndReturnsToItsStart', floors == {0, 1, 2, 3} and transfers == 6 and client.ui()['position'] == start)
+                check('streamingRetainsSeparatePartyAfterTheRoundTrip', client.formation())
+                check('streamingUsesBoundedPreparationDuringActualTravel', peak <= 25 and hits > 0)
+                client.capture('streaming-returned')
+                (output / 'streaming-journey.json').write_text(json.dumps({'positions': positions, 'floors': sorted(floors), 'transfers': transfers, 'peakResidentChunks': peak, 'observedPreparedHits': hits, 'scope': 'Actual mouse walking and stairs on cleared isolated corridors, with four companions, bounded preparation and exact interrupted reloads. Private X11 display; not untouched-map accessibility or ecology.'}, indent=2) + '\n')
             finally: client.close()
         if 'world-output' in args.scenes:
             client = Client('world-output', slot)

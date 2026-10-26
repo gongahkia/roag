@@ -44,6 +44,7 @@ internal sealed partial class WorldGame : Game
     private readonly RecoveryFixture? _recoveryFixture;
     private readonly ConsequenceFixture? _consequenceFixture;
     private readonly WeatherFixture? _weatherFixture;
+    private readonly StreamingJourneyFixture? _streamingFixture;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
@@ -73,6 +74,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-recovery") _recoveryFixture = RecoveryPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-memories") _consequenceFixture = ConsequencePreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-weather") _weatherFixture = WeatherPreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-streaming") _streamingFixture = StreamingJourneyAudit.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
