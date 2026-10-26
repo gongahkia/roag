@@ -7,11 +7,11 @@ public sealed partial class WorldSession
 {
     public SimulationDefinition Simulation => Content.Get<SimulationDefinition>(Content.Game.Simulation);
     private TraitDefinition? Disposition(Actor actor) => actor.TraitId.Length > 0 ? Content.Get<TraitDefinition>(actor.TraitId) : null;
-    private bool Remember(Actor actor, string key, string text, int mood, long other = 0)
+    private bool Remember(Actor actor, string key, string text, int mood, long other = 0, long? duration = null)
     {
         if (actor.Life == LifeState.Dead || actor.Memories.Any(m => m.Key == key && m.Other == other && m.Until > State.Tick)) return false;
         if (actor.Memories.Count >= 12) actor.Memories.RemoveAt(0);
-        actor.Memories.Add(new(key, text, State.Tick, State.Tick + Simulation.MemoryTicks, mood, other));
+        actor.Memories.Add(new(key, text, State.Tick, State.Tick + (duration ?? Simulation.MemoryTicks), mood, other));
         actor.Stress = Math.Clamp(actor.Stress - mood, 0, 100);
         if (State.Battle is { } battle)
         {

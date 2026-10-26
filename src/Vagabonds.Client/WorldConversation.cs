@@ -66,7 +66,7 @@ internal sealed partial class WorldGame
         DrawSpeaker(person, SpeakingPortrait(person, box, true), true);
         int middle = box.Center.X - 128;
         Text(_panel == "camp-story" ? "BY THE CAMPFIRE" : "A MOMENT OFF THE ROAD", middle, box.Top + 88, Muted);
-        Text("Trust " + player.Trust.GetValueOrDefault(person.Id), middle, box.Top + 120, Gold);
+        Text("Trust " + person.Trust.GetValueOrDefault(player.Id), middle, box.Top + 120, Gold);
         Text($"Hunger {person.Body.Hunger:0} / Fatigue {person.Body.Fatigue:0}", middle, box.Top + 144, Muted);
         Text($"Wounds {person.Body.Wounds} / {person.Job}", middle, box.Top + 168, Muted);
         Text(Short(_session.RoutineDescription(person), 32), middle, box.Top + 212, Muted);

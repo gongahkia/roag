@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -562,6 +562,47 @@ def main():
                 x('mousemove', '--window', client.window, *map(round, client.tile_point(subject['x'], subject['y'])))
                 client.wait(lambda u: u['hover'] is not None and subject['name'] in u['hover']['title']); client.capture('recovery-new-individual')
                 client.load(); check('newGenerationAndOldHistorySurviveMouseReload', client.save()['state'] == recovered['state'])
+            finally: client.close()
+        if 'world-memories' in args.scenes:
+            client = Client('world-memories', slot)
+            try:
+                fixture = client.ui()['consequenceFixture']; actor_id = fixture['actor']; source = fixture['source']
+                def resident(ui): return next(a for a in ui['actors'] if a['id'] == actor_id)
+                def consequence_line(word):
+                    for _ in range(16):
+                        dialogue = client.ui().get('dialogue') or {}
+                        if word in (dialogue.get('fullText') or ''):
+                            if dialogue['speaking']: client.click('dialogue-next')
+                            return client.wait(lambda u: word in u['dialogue']['text'])
+                        client.click('dialogue-next')
+                    raise RuntimeError('The actual conversation did not mention ' + word)
+                initial = client.save(); leader = initial['state']['party'][0]
+                client.context(source); client.click('context:build'); client.click('context:construct:Floor')
+                client.wait(lambda u: not u['work']); client.pause(); harmed = client.save()
+                person = next(a for a in harmed['state']['actors'] if a['id'] == actor_id)
+                receipt = person['consequences']['DamagedLivelihood']
+                check('completedSourceDamageRemembersTheActualRequester', person['trust'][str(leader)] == -12 and receipt['other'] == leader
+                    and any(b['position'] == source for b in harmed['state']['structures']))
+                client.load(); check('harmReceiptAndTrustSurviveMouseReload', client.save()['state'] == harmed['state'])
+                person = resident(client.ui()); client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
+                consequence_line('livelihood'); client.capture('memory-damaged-livelihood'); client.finish_dialogue()
+                recruit = next(c for c in client.ui()['controls'] if c['id'] == 'conversation:interaction.recruit')
+                check('recentHarmExplainsARefusedRecruitment', not recruit['enabled'] and 'trust' in recruit['reason']
+                    and resident(client.ui())['relationship']['trust'] == -12)
+                client.capture('memory-refused-recruitment')
+                client.click('close'); client.pause(); person = resident(client.ui())
+                client.context(person); client.click('context:delivery'); relieved = client.save()
+                person = next(a for a in relieved['state']['actors'] if a['id'] == actor_id)
+                check('actualFoodDeliveryRepairsTheNamedRelationship', person['trust'][str(leader)] == -4
+                    and person['consequences']['SuppliedFood']['other'] == leader
+                    and relieved['state']['inventory']['food'] == initial['state']['inventory']['food'] - 20
+                    and relieved['state']['towns'][fixture['town']]['stocks']['food'] >= 20)
+                client.load(); check('repairedRelationshipSurvivesMouseReload', client.save()['state'] == relieved['state'])
+                person = resident(client.ui()); client.tile(person['x'], person['y']); client.wait(lambda u: u['panel'] == 'person')
+                consequence_line('food'); client.capture('memory-food-relief'); client.finish_dialogue()
+                check('foodReliefReopensRecruitment', next(c for c in client.ui()['controls'] if c['id'] == 'conversation:interaction.recruit')['enabled']
+                    and resident(client.ui())['relationship']['grievance'] == '')
+                client.capture('memory-restored-recruitment')
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

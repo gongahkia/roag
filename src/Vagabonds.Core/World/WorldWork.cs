@@ -59,6 +59,7 @@ public sealed partial class WorldSession
         ReserveWorkSupplies(order, supplies);
         order.OutputVersion = order.Yield.Values.Any(v => v > 0) ? 1 : 0;
         order.Id = State.NextWorkId++; order.PartyApproach = true;
+        order.RequestedBy = ConsequenceLeader()?.Id ?? 0; CaptureLivelihoodStakeholders(order);
         State.WorkRally ??= State.Position;
         order.Worker = Party.FirstOrDefault(a => a.Life == LifeState.Alive && !State.Work.Any(o => o.Worker == a.Id) && a.Position.Distance(order.Target) <= 1)?.Id ?? 0;
         State.Work.Add(order);
@@ -69,12 +70,16 @@ public sealed partial class WorldSession
         var order = State.Work.FirstOrDefault(w => w.Id == workId); var actor = State.Actors.FirstOrDefault(a => a.Id == actorId);
         if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person || State.Work.Any(w => w.Id != workId && w.Worker == actorId)
             || actor.Position.Distance(order.Output == null ? order.Target : WorkStop(order, actor.Id)) > 100) return new(false, "Choose a living nearby person without another work order.");
+        string grievance = ResidentGrievance(actor); if (grievance.Length > 0) return new(false, grievance);
+        if (order.Worker != actor.Id && order.Worker > 0 && order.Progress > 0) NoteInterruptedWork(ActorById(order.Worker), "work:" + order.Id);
+        if (actor.Occupation is { Progress: > 0 } occupation && order.Worker != actor.Id) NoteInterruptedWork(actor, "occupation:" + occupation.Id);
         order.Worker = actor.Id; order.PinnedWorker = true; order.PartyApproach = actor.Recruited; order.Suspended = false; order.Status = "Assigned to " + actor.Name; return new(true, order.Status + ". Their usual job pauses until this is finished.");
     }
-    private ActionResult CancelWork(long id)
+    private ActionResult CancelWork(long id, bool deliberate = true)
     {
         var order = State.Work.FirstOrDefault(w => w.Id == id);
         if (order == null) return new(false, "Choose a pending order.");
+        if (deliberate && order.Worker > 0 && order.Progress > 0) NoteInterruptedWork(ActorById(order.Worker), "work:" + order.Id);
         if (order.Output != null) ReturnWorkOutput(order); else ReturnWorkSupplies(order);
         State.Work.Remove(order); return new(true, "Work cancelled; supplies returned locally or left in a recoverable supply cache.");
     }
@@ -84,7 +89,7 @@ public sealed partial class WorldSession
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
             if (order.Output == null && (SupplySourceChanged(order) || order.Kind == WorkKind.Discovery && !SituationWorkValid(order) || order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target)))
-            { CancelWork(order.Id); Log("A changed work target released its reserved supplies."); continue; }
+            { CancelWork(order.Id, deliberate: false); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
             if (worker == null) { order.Worker = 0; continue; }
@@ -135,6 +140,7 @@ public sealed partial class WorldSession
                     if (!TakeWildFood(order.Target, 2)) throw new InvalidOperationException("Forage stock changed during sequential completion.");
                     worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
             }
+            NoteLivelihoodDamage(order);
             if (order.OutputVersion == 1)
             {
                 order.Progress = order.Required;

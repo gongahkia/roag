@@ -16,9 +16,13 @@ public sealed partial class WorldSession
         if (order == null) return new(false, "That order has finished or been cancelled.");
         switch (setting)
         {
-            case "suspend": if (!order.PinnedWorker) order.Worker = 0; order.Suspended = true; order.Status = "Suspended"; break;
+            case "suspend":
+                if (!order.Suspended && order.Worker > 0 && order.Progress > 0) NoteInterruptedWork(ActorById(order.Worker), "work:" + order.Id);
+                if (!order.PinnedWorker) order.Worker = 0; order.Suspended = true; order.Status = "Suspended"; break;
             case "resume": order.Suspended = false; order.PartyApproach = true; order.Status = "Waiting for an available worker"; break;
-            case "automatic": order.Worker = 0; order.PinnedWorker = false; order.PartyApproach = true; order.Suspended = false; break;
+            case "automatic":
+                if (order.Worker > 0 && order.Progress > 0) NoteInterruptedWork(ActorById(order.Worker), "work:" + order.Id);
+                order.Worker = 0; order.PinnedWorker = false; order.PartyApproach = true; order.Suspended = false; break;
             case "priority" when value is >= 0 and <= 2: order.Priority = value; break;
             case "deliver-pack": case "deliver-storage":
                 var storage = setting == "deliver-storage" ? destination : null;

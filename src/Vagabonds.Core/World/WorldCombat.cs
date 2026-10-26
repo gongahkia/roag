@@ -247,6 +247,7 @@ public sealed partial class WorldSession
         State.Battle = null;
         if (victory)
         {
+            NoteDangerAid(b);
             State.LastEncounterReward = GrantEncounterRewards(b);
             var reward = State.LastEncounterReward;
             Diagnose("reward", reward);

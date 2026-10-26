@@ -212,6 +212,7 @@ public sealed class Actor
     private bool _recruited;
     private ResidentRoutine? _routine;
     private OccupationJob? _occupation;
+    public Dictionary<ConsequenceKind, ConsequenceReceipt> Consequences { get; set; } = [];
     private WildlifeMigration? _migration;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long WildlifePopulation { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public WorldPosition? NatalHabitat { get; set; }
@@ -392,6 +393,8 @@ public sealed class WorkSupply
 }
 public sealed class WorkOrder
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public long RequestedBy { get; set; }
+    public long[] LivelihoodStakeholders { get; set; } = [];
     // Older orders grant their result directly; new ones retain real cargo until delivery.
     public int OutputVersion { get; set; }
     public WorkOutput? Output { get; set; }

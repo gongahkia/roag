@@ -13,8 +13,10 @@ public static class WorldDialogue
     {
         var actor = world.State.Actors.Single(a => a.Id == person);
         var player = world.Party.First(a => a.Life == LifeState.Alive);
+        string consequence = world.ConsequenceDialogue(actor, player);
+        if (interaction == null && consequence.Length > 0) return [new(actor.Id, actor.Name, actor.Sprite, consequence)];
         var definition = world.Content.All<DialogueDefinition>().FirstOrDefault(d => d.Interaction == interaction);
-        if (definition == null) return [new(actor.Id, actor.Name, actor.Sprite, result.Length > 0 ? result : "Good to meet you. I am " + actor.Name + ".")];
+        if (definition == null) return [new(actor.Id, actor.Name, actor.Sprite, consequence.Length > 0 ? consequence : result.Length > 0 ? result : "Good to meet you. I am " + actor.Name + ".")];
         bool Eligible(DialogueVariant v) => v.When switch
         {
             "always" => true, "trusted" => actor.Trust.GetValueOrDefault(player.Id) >= 10,
@@ -38,6 +40,7 @@ public static class WorldDialogue
         string Resolve(string line) => Regex.Replace(line, "\\{([^{}]+)\\}", match => tokens[match.Groups[1].Value]);
         var lines = new List<DialogueLine>();
         if (variant.Player.Length > 0) lines.Add(new(player.Id, player.Name, player.Sprite, Resolve(variant.Player)));
+        if (consequence.Length > 0) lines.Add(new(actor.Id, actor.Name, actor.Sprite, consequence));
         lines.AddRange(variant.Replies.Select(line => new DialogueLine(actor.Id, actor.Name, actor.Sprite, Resolve(line))));
         return lines;
     }

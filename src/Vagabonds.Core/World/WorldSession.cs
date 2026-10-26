@@ -174,6 +174,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 return new(true, $"{material}. {Plan.BiomeAt(command.Target.X, command.Target.Y)} country.");
             case WorldCommandKind.Recruit:
                 if (target == null || target.Kind != ActorKind.Person || target.Life != LifeState.Alive || target.Recruited || State.Position.Distance(target.Position) > 2) return new(false, "Speak to an available inhabitant nearby.");
+                string grievance = ResidentGrievance(target); if (grievance.Length > 0) return new(false, grievance);
                 if (!Interactions(target.Id).Any(i => i.Action == "recruit")) return new(false, "This person is not offering to travel.");
                 if (State.Party.Count >= 4) return new(false, "Four travellers already fill the active party.");
                 if (!TryPartyPlacement(State.Position, Party.Append(target).ToArray(), true, out var recruitedPositions)) return new(false, "The new companion needs a free walkable tile nearby.");
@@ -243,7 +244,9 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             case WorldCommandKind.CompleteDelivery:
                 var delivery = State.Tasks.FirstOrDefault(t => !t.Complete && t.RoadId == null && State.Position.Distance(Plan.Towns[t.TownId].Center) < 28);
                 if (delivery == null || Count("food") < 20) return new(false, "A town with a delivery request needs 20 food.");
+                bool needed = State.Towns[delivery.TownId].Shortage > 0 || State.Towns[delivery.TownId].Stocks["food"] < 28;
                 Add("food", -20); State.Towns[delivery.TownId].Stocks["food"] += 20; State.ResourcesImported += 20; delivery.Complete = true; Add("gold", 30); Log($"Delivery completed in {Plan.Towns[delivery.TownId].Name}; trade can recover.");
+                NoteFoodSupply(delivery.TownId, "delivery:" + delivery.Id, needed);
                 return new(true, "Delivery accepted; 30 gold paid.");
             case WorldCommandKind.Continue:
                 NewLoneHero(); Paused = true; Log("A new traveller takes up the story in the same changed world."); return new(true, "A new expedition begins alone.");

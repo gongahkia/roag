@@ -173,6 +173,7 @@ public sealed partial class WorldSession
         if (interaction == null || actor == null || actor.Position.Distance(State.Position) > interaction.Distance) return "Approach someone who offers this interaction.";
         string cost = MissingSupplies(interaction.Cost); if (cost.Length > 0) return cost;
         if (interaction.Action == "recruit" && State.Party.Count >= 4) return "Four travellers already fill the active party.";
+        if (interaction.Action == "recruit" && ResidentGrievance(actor) is { Length: > 0 } grievance) return grievance;
         if (interaction.Action == "heal" && !Party.Any(a => a.Life == LifeState.Alive && (a.Health < a.MaxHealth || a.Body.Wounds > 0))) return "No conscious traveller needs treatment.";
         return "";
     }
@@ -234,6 +235,10 @@ public sealed partial class WorldSession
         var actor = State.Actors.FirstOrDefault(a => a.Id == command.ActorId);
         switch (command.Kind)
         {
+            case WorldCommandKind.Recruit:
+                if (actor is not { Kind: ActorKind.Person, Life: LifeState.Alive, Recruited: false } || actor.Position.Distance(State.Position) > 2)
+                    return "Speak to an available inhabitant nearby.";
+                return ResidentGrievance(actor);
             case WorldCommandKind.ChooseProgression: return ProgressionChoiceReason(command.ActorId, command.Item);
             case WorldCommandKind.Build: case WorldCommandKind.Dig: case WorldCommandKind.Repair: case WorldCommandKind.Harvest: return TargetBlockReason(command.Kind, command.Target, command.Material);
             case WorldCommandKind.ApproachDiscovery: return State.Discoveries.FirstOrDefault(d => d.Position == command.Target) is { } discovery ? SituationApproachReason(discovery, command.Item) : "Choose an observed landmark.";
@@ -241,6 +246,7 @@ public sealed partial class WorldSession
             case WorldCommandKind.AssignWork:
                 var order = State.Work.FirstOrDefault(w => w.Id == command.WorkId);
                 if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person) return "Select a pending order and a living worker.";
+                string workGrievance = ResidentGrievance(actor); if (workGrievance.Length > 0) return workGrievance;
                 if (State.Work.Any(w => w.Id != order.Id && w.Worker == actor.Id)) return actor.Name + " already has another work order.";
                 if (actor.Position.Distance(order.Output == null ? order.Target : WorkStop(order, actor.Id)) > 100) return "This worker is too far from the order.";
                 break;

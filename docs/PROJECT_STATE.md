@@ -1,6 +1,14 @@
 # Vagabonds project state
 
-**Last reconciled: 2026-10-25.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
+**Last reconciled: 2026-10-26.** Master reference for the independent fantasy RPG. Update alongside behavioral changes; [DEVELOPMENT.md](DEVELOPMENT.md) gives repository guidance and [VERIFICATION.md](VERIFICATION.md) records executed checks.
+
+## Consequential resident memories — 2026-10-26
+
+Residents remember actual needed food relief, deliberate interruption of started work, victory over the specific threat they were taking cover from, and completed damage to their claimed occupation source or healer workplace. Food deliveries transfer the existing 20 food and pay the existing reward; a paid shared meal can also help a hungry resident. Merely queueing/cancelling untouched terrain, ordinary resident extraction, automatic danger/need pauses and target invalidation do not invent harm. Harvesting a claimed node creates livelihood damage only when it exhausts that source. Player orders retain their original requester and up to 16 actual stakeholders, so abandoning a now-claimed source or changing party leader cannot erase or redirect blame.
+
+Four saved receipts per resident bound consequence history and each kind's one-day cooldown, including after the ordinary twelve-memory list evicts its descriptive entry. Memories alter stress and identity-specific trust; dialogue addresses the current leader only. Recent harm/disruption with trust at -5 or lower discourages social company and refuses new work/recruitment with an explanation. Existing work and urgent danger/food/rest routines remain intact. Real help can rebuild trust; the active grievance expires after one game day while numerical trust persists. The conversation panel displays the resident's trust toward the current leader.
+
+Optional receipts and order attribution have explicit save validation. Compatible saves may omit them and do not invent historical attribution; content, generation and save versions are unchanged. `./dev preview consequences --seed 42` exercises all four real event chains; private `world-memories` checks completed paving, harm dialogue/refused recruitment, actual food relief and successful exact mouse reload. This milestone passed Core (934), tools (52), all world audits and private native checks (30 mouse /42 rendered), with reviewed harm/relief and refused/restored recruitment captures. VERIFICATION.md records the fresh retained runs. Weather/seasons, long stress/balance and final scope acceptance remain pending.
 
 ## Bounded wildlife population recovery — 2026-10-25
 

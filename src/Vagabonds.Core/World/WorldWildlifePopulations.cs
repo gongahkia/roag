@@ -52,9 +52,9 @@ public sealed partial class WorldSession
         if (State.Party.Contains(id) || State.Battle?.ActorIds.Contains(id) == true || State.LastEncounterReward?.Sources.Contains(id) == true
             || State.CombatEvents.Any(e => e.Source == id || e.Target == id) || State.LastCampStory?.Speaker == id || State.Endgame.ActorId == id
             || State.Discoveries.Any(d => d.WitnessId == id || d.Enemies.Contains(id))
-            || State.Work.Any(w => w.Worker == id || w.PinnedWorker && w.Worker == id || w.Output?.Carrier == id || w.Supplies?.Any(s => s.Carrier == id) == true)) return true;
+            || State.Work.Any(w => w.Worker == id || w.RequestedBy == id || w.LivelihoodStakeholders.Contains(id) || w.Output?.Carrier == id || w.Supplies?.Any(s => s.Carrier == id) == true)) return true;
         return State.Actors.Any(a => a.Id != id && (a.FriendId == id || a.EncounterLeader == id || a.Routine?.Other == id
-            || a.Trust.ContainsKey(id) || a.Memories.Any(m => m.Other == id)));
+            || a.Trust.ContainsKey(id) || a.Memories.Any(m => m.Other == id) || a.Consequences.Values.Any(c => c.Other == id)));
     }
     private bool ReclaimWildlifeHistory(WildlifePopulation population)
     {

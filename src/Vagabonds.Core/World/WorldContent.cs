@@ -38,13 +38,16 @@ public sealed partial class WorldSession
             case "rumour": return LocalRumour(actor);
             case "heal": injured!.Body.Wounds = Math.Max(0, injured.Body.Wounds - 1); Remember(injured, "treated", actor.Name + " tended my injuries.", 6, actor.Id); ChangeTrust(injured, actor, 5); injured.Health = Math.Min(injured.MaxHealth, injured.Health + interaction.Amount); return new(true, actor.Name + " treated " + injured.Name + ".");
             case "share-meal":
+                bool neededFood = actor.Body.Hunger >= Simulation.MealAt || State.Towns[actor.HomeTown].Shortage > 0;
                 foreach (var friend in Party)
                 {
                     friend.Body.Hunger = Math.Max(0, friend.Body.Hunger - Simulation.MealReduction);
                     if (Remember(friend, "shared-meal", "A meal with " + actor.Name + ".", interaction.Amount, actor.Id)) ChangeTrust(friend, actor, 5);
                 }
                 actor.Body.Hunger = Math.Max(0, actor.Body.Hunger - Simulation.MealReduction);
-                actor.Stress = Math.Max(0, actor.Stress - interaction.Amount); return new(true, "A meal shared with " + actor.Name + ".");
+                actor.Stress = Math.Max(0, actor.Stress - interaction.Amount);
+                if (neededFood && costs.Any(c => c.Stack == "food" && c.Value > 0)) ApplyConsequence(actor, ConsequenceLeader(), ConsequenceKind.SuppliedFood, "meal:" + interaction.Id + ":" + State.Tick);
+                return new(true, "A meal shared with " + actor.Name + ".");
             case "converse":
                 var leader = Party.First(a => a.Life == LifeState.Alive);
                 if (Remember(actor, "conversation", "We exchanged stories with " + leader.Name + ".", 3, leader.Id)) { ChangeTrust(actor, leader, 3); ChangeTrust(leader, actor, 3); }

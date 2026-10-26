@@ -64,9 +64,10 @@ public sealed partial class WorldSession
             // Answer a friend's invitation before starting another one; a chain
             // of equally fast people chasing moving friends never meets.
             var friend = _routineActors.Where(a => a.Life == LifeState.Alive && a.Routine is { Kind: RoutineKind.Social } r && r.Other == actor.Id
-                && a.Position.Distance(actor.Position) <= 28 && actor.Trust.GetValueOrDefault(a.Id) > -20).MinBy(a => a.Id)
+                && a.Position.Distance(actor.Position) <= 28 && actor.Trust.GetValueOrDefault(a.Id) > -20 && !HasGrievanceToward(actor, a.Id)).MinBy(a => a.Id)
                 ?? State.Actors.FirstOrDefault(a => a.Id == actor.FriendId && a.Life == LifeState.Alive);
             if (friend != null && friend.Position.Distance(actor.Position) <= 28 && actor.Trust.GetValueOrDefault(friend.Id) > -20
+                && !HasGrievanceToward(actor, friend.Id)
                 && (friend.Routine?.Kind != RoutineKind.Social || friend.Routine.Other == actor.Id))
             { SetResidentRoutine(actor, RoutineKind.Social, friend.Position, "Seeking a friend's company", friend.Id, ground: false); return; }
         }
