@@ -23,6 +23,10 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        foreach (var actor in world.Actors)
+            if (actor.Tactics?.Enemy is { SummonedBy: > 0 } summoned
+                && (summoned.SummonedBy == actor.Id || !actors.TryGetValue(summoned.SummonedBy, out var summoner) || summoner.Tactics?.Enemy == null))
+                throw new InvalidDataException("Missing native summoner identity.");
         if (state.Rewards is null) throw new InvalidDataException("Missing tactical rewards.");
         state.Rewards.Validate(actors);
         if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
@@ -89,6 +93,9 @@ public static class TacticalValidation
             throw new InvalidDataException("Duplicate tactical attack identities.");
         foreach (var attack in state.Attacks)
         {
+            EnemyAttackRules.Validate(attack.Support, attack.Advance);
+            if ((attack.Support != null || attack.Advance != null) && attack.RecoveryCost == null)
+                throw new InvalidDataException("Enemy effects lack their windup recovery.");
             if (attack.RecoveryCost is <= 0
                 || attack.RecoveryCost != null && (attack.ClassGenerated || !actors.TryGetValue(attack.Source, out var recovering) || recovering.Tactics?.Enemy == null)
                 || actors.TryGetValue(attack.Source, out var enemy) && enemy.Tactics?.Enemy != null && !attack.ClassGenerated && attack.RecoveryCost == null)
@@ -108,7 +115,8 @@ public static class TacticalValidation
                 || !attack.ClassGenerated && attack.Causality is null
                 || !attack.ClassGenerated && actors[attack.Source].Life != LifeState.Alive || attack.Due < queue.Clock
                 || attack.Damage < 0 || attack.IgnoresTerrain || attack.FateFace != null || string.IsNullOrWhiteSpace(attack.Ability) || !plan.Contains(attack.Origin)
-                || attack.Cells is null || attack.Cells.Length == 0 || attack.Cells.Distinct().Count() != attack.Cells.Length
+                || attack.Cells is null || attack.Cells.Length == 0 && (attack.RecoveryCost == null || attack.Delivery != AttackDelivery.Area)
+                || attack.Cells.Distinct().Count() != attack.Cells.Length
                 || attack.Cells.Any(c => !plan.Contains(c) || c.Floor != attack.Origin.Floor)
                 || !Enum.IsDefined(attack.Delivery) || !Enum.IsDefined(attack.Element) || !Enum.IsDefined(attack.Cause)
                 || queue.Pending.Count(e => e.Kind == ScheduledKind.Impact && e.ActorId == attack.Source

@@ -60,7 +60,8 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     string Ability, AttackDelivery Delivery, DamageElement Element, int Damage, long Due,
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
-    int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null);
+    int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
+    EnemySupport? Support = null, EnemyAdvance? Advance = null);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,

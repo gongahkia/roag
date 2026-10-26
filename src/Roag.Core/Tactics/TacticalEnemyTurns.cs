@@ -29,7 +29,9 @@ public sealed partial class TacticalCombat
         var aim = target.Tactics?.Resources.Decoy is { } decoy && decoy.Floor == actor.Position.Floor ? decoy : target.Position;
         return EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics.DefinitionId), actor.Tactics.Enemy,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (_ => false),
-                goals => nextStep(actor.Position, goals)));
+                goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
+                _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))
+                    .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a))).ToArray()));
     }
 
     public EnemyIntent CommitEnemyTurn(long targetId,
@@ -42,12 +44,13 @@ public sealed partial class TacticalCombat
         if (intent.Kind == EnemyIntentKind.Windup)
         {
             // Validate before changing the pattern counter or committing recovery.
-            if (intent.Cells.IsDefaultOrEmpty || intent.Cells.Any(p => !_world.Plan.Contains(p)))
+            if (intent.Cells.IsDefault || intent.Cells.Any(p => !_world.Plan.Contains(p)))
                 throw new InvalidOperationException("Enemy controller produced invalid world cells.");
             if (definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.HollowRegent or EnemyBrainKind.BiomeElite)
                 memory.Attacks = checked(memory.Attacks + 1);
             CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
-                actor.Power, definition.Windup, definition.Recovery, targetId);
+                checked(actor.Power + intent.DamageBonus), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance);
+            if (intent.ClearRetaliation) memory.Retaliate = false;
         }
         else if (intent.Kind == EnemyIntentKind.Move)
         {
@@ -68,6 +71,7 @@ public sealed partial class TacticalCombat
                 Emit("Waited", actor.Id, actor.Id, action, actor.Position);
             });
         }
+        if (intent.Alert) memory.Alerted = true;
         return intent;
     }
 }

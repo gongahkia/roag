@@ -1,0 +1,12 @@
+{
+  "kind": "character",
+  "id": "character.roag-ruin-skitter",
+  "name": "Ruin Skitter",
+  "sprite": "spider",
+  "actorKind": "Raider",
+  "health": 4,
+  "mana": 0,
+  "power": 1,
+  "armor": 0,
+  "speed": 16
+}

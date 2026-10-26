@@ -19,6 +19,7 @@ public static class TacticalReferences
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics is not { } tactics) continue;
+            if (tactics.Enemy?.SummonedBy == id) return true;
             if (tactics.SnaredBy == id || tactics.Burning is { } burn && Activation(burn.Activation)) return true;
             var resources = tactics.Resources;
             if (actor.Id == id && (resources.Snare != null || resources.Decoy != null || resources.Spirit != null

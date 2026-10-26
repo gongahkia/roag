@@ -129,6 +129,13 @@ public sealed partial class TacticalCombat
     {
         if (e.SourceId is not { } id || id == 0) return;
         var source = Actor(id);
+        if (e.Kind == BoonTrigger.AttackPerformed)
+            foreach (var cell in e.TargetCells)
+                if (_world.Chunks.At(cell) == Material.Barricade)
+                {
+                    _world.Chunks.Edit(cell, Material.Floor);
+                    Emit("TerrainBroken", id, 0, e.RootActionId ?? 0, cell, ability: "core:terrain/barricade");
+                }
         if (e.Kind == BoonTrigger.HitConfirmed && e.ActualLoss > 0 && e.DirectAttack && !e.ClassGenerated && e.RootActionId is { } action)
             ChargeStorm(source, new(action, source.Id, source.Position, [], e.AbilityId ?? "", AttackDelivery.Melee,
                 e.DamageType ?? DamageElement.Physical, 0, Clock));

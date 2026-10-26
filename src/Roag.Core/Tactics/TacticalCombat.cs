@@ -218,23 +218,28 @@ public sealed partial class TacticalCombat
 
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
-        DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0)
+        DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0,
+        EnemySupport? support = null, EnemyAdvance? advance = null)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
         if (intendedTarget != 0) _ = Actor(intendedTarget);
         if (actor.Life != LifeState.Alive || damage < 0 || string.IsNullOrWhiteSpace(ability)
-            || cells.Count == 0 || cells.Distinct().Count() != cells.Count
+            || cells.Count == 0 && (actor.Tactics?.Enemy == null || delivery != AttackDelivery.Area) || cells.Distinct().Count() != cells.Count
             || cells.Any(p => p.Floor != actor.Position.Floor || !_world.Plan.Contains(p))
             || !Enum.IsDefined(delivery) || !Enum.IsDefined(element)) throw new ArgumentException("Invalid locked attack.");
         long due = checked(Clock + ActionTiming.Recovery(windupCost, EffectiveSpeed(actor)));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(recoveryCost);
+        EnemyAttackRules.Validate(support, advance);
+        if ((support != null || advance != null) && actor.Tactics?.Enemy == null)
+            throw new ArgumentException("Enemy attack effects require a native enemy.");
         bool deferredRecovery = actor.Tactics?.Enemy != null;
         long? ready = deferredRecovery ? null : checked(due + ActionTiming.Recovery(recoveryCost, EffectiveSpeed(actor)));
         long action = State.NextAction++;
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
         var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
-            Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null);
+            Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null,
+            Support: support, Advance: advance);
         ResolveAtomically(cause, () =>
         {
             foreach (var owner in _world.State.Actors)
@@ -278,7 +283,16 @@ public sealed partial class TacticalCombat
             ProcCoefficient = attack.Cause == DamageCause.DirectAttack ? AbilityCoefficient(attack.Ability) : cause.ProcCoefficient };
         ResolveAtomically(cause, () =>
         {
-            ResolveDamageBatch(attack);
+            if (attack.Support != null) ResolveEnemySupport(attack);
+            else
+            {
+                if (attack.RecoveryCost != null)
+                    Emit("AttackPerformed", attack.Source, 0, attack.Id, attack.Origin, ability: attack.Ability,
+                        snapshot: CaptureBoonEvent(BoonTrigger.AttackPerformed, attack.Source, 0, attack.Id, attack.Origin, attack.Ability)
+                            with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = true, WindupId = attack.Id });
+                ResolveDamageBatch(attack);
+            }
+            if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
             // Original enemy recovery is committed at impact, before reactive boon work.
             // Death/stun reactions can then cancel or extend the committed readiness.
             if (attack.RecoveryCost is { } cost && Actor(attack.Source) is { Life: LifeState.Alive } actor)
@@ -346,6 +360,12 @@ public sealed partial class TacticalCombat
             var target = hit.Target;
             Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", source.Id, target.Id, attack.Id,
                 target.Position, hit.Snapshot.ActualLoss!.Value, hit.Prevented, attack.Ability, snapshot: hit.Snapshot);
+            if (hit.Snapshot.ActualLoss > 0 && target.Health > 0 && HostileTo(source, target)
+                && target.Tactics is { DefinitionId: "core:enemy/bastion_bulwark", Enemy: { } memory })
+            {
+                memory.Retaliate = true;
+                Emit("RetaliationReadied", target.Id, target.Id, attack.Id, target.Position);
+            }
             if (attack.FateFace == 7 && (!RegularBoonTarget(target) || hit.Snapshot.ActualLoss < hit.Snapshot.HpBefore))
                 Emit("FateSkullResisted", source.Id, target.Id, attack.Id, target.Position);
             if (hit.Damage <= 0) continue;

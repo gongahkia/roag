@@ -40,10 +40,15 @@ public sealed class EnemyMemory
     public long Attacks { get; set; }
     public bool PhaseTwo { get; set; }
     public Facing? LastMovement { get; set; }
+    public bool Alerted { get; set; }
+    public bool Retaliate { get; set; }
+    public int Summons { get; set; }
+    public long SummonedBy { get; set; }
 
     internal void Validate()
     {
-        if (Attacks < 0 || LastMovement is { } facing && (!Enum.IsDefined(facing) || !AttackGeometry.Cardinal(facing)))
+        if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0
+            || LastMovement is { } facing && (!Enum.IsDefined(facing) || !AttackGeometry.Cardinal(facing)))
             throw new InvalidDataException("Invalid enemy decision memory.");
     }
 }
