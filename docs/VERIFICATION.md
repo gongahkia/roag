@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Large-roster spatial query acceptance — 2026-10-26
+
+`artifacts/performance-review/spatial-scaling-final.json` passes synthetic **1,000/10,000 content-backed actor** rosters against the same pinned Core assembly as the final ecology matrix. Ordered tile/region/identity results match brute references before and after floor moves and collection removal/reinsertion; queries preserve complete state. Ten thousand warmed tile lookups allocate **zero bytes** at each roster size. A real temporary **10,000-actor save/load** preserves complete state and rebuilt identity lookups exactly. The local probe source/project are retained under `spatial-scaling-probe/`; its log is `artifacts/spatial-scaling-final.log`. The first synthetic placement attempted invalid occupied terrain near the observer; the accepted fixture keeps synthetic grid actors on other floors, leaving the real local placement intact.
+
+Raw timings remain in the report, with explicitly different indexed/brute sample counts and host/JIT load. They are not a controlled speed comparison, active 10,000-agent AI throughput, client frame time or FPS. The probe uses temporary saves and no graphics. This closes query/metadata scaling evidence; final full verification and sustained ecology acceptance remain pending.
+
 ## Stable reward receipts after wildlife reclamation — 2026-10-26
 
 The actual seed-1337 ecology diagnostic `20261026-040711-c97a177d` reproduces a difference at tick **118,800**: `RewardedEncounterIds` contains the same five IDs but enumerates in different orders after a reclaimed identity and an interrupted reload. Complete failure snapshots in `artifacts/performance-review/ecology-preflight-1337.json.failure/` confirm that every other state field matches. This is serialization order, not different body simulation or duplicated rewards. Earlier long attempts and cancelled full run `20261026-040114-86b866d3` remain excluded from acceptance.
