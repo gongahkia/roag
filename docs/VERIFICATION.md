@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Hundred-day world comparisons — 2026-10-26
+
+Source `3970f59c7cf623ba2d9c631d9dca8c9dd9aa8fdb57449abd5732649cc597cc0d` (rules commit `119f1b4`) passed real **720,000-tick** scheduled/full-cadence comparisons for **42, 1337 and -42**, retaining **7,209** matching complete-state/accounting checkpoints, exact midpoint continuation and exact growth save/load at days **0/7/30/50/60/90/100**. All three process handles were observed terminal with exit zero. Source and the actually loaded Tools/Core assembly checksums match `artifacts/performance-review/hundred-day-source.json`. The complete reports are `hundred-day-42.json`, `hundred-day-1337.json` and `hundred-day--42.json` beneath that directory. Every growth save has zero unreferenced snapshots and equal referenced/disk bytes. No graphical windows or player slots were used.
+
+[STRESS_REVIEW.md](STRESS_REVIEW.md) records actual allocations, GC, retained state/memory/save sizes, body visits, latency bounds and limits. All asserted cache/history/identity bounds hold and no measured scheduled/reference tick exceeds 200ms. The fixture has no active wildlife populations or terrain-preparation worker, so those workloads remain separate acceptance. At day 100 seeds 42/1337/-42 have 4/1/9 starving people; the finite-food idle hero is identified as seed 1337's sole starver by `artifacts/hundred-day-starvation-probe.log`. Identity/routine probes for the other seeds are in progress. No survival/balance or full-goal completion is claimed merely from matching hashes.
+
 ## Obsolete save-snapshot cleanup — 2026-10-26
 
 Source `3970f59c7cf623ba2d9c631d9dca8c9dd9aa8fdb57449abd5732649cc597cc0d` passed **29 focused save/persistence/visibility/body tests** in `artifacts/save-snapshot-after.log`. Both new filesystem regressions failed on the preceding implementation (`save-snapshot-before.log`), then passed: twelve changed saves retain precisely the referenced snapshots while preserving an unrelated JSON file and independent slot; deliberately failed serialization retains the previous byte-identical manifest and every old chunk, and a subsequent successful save cleans the failed attempt's unreferenced snapshot too. Cleanup follows manifest replacement and treats IO/access failure as a retryable diagnostic, preserving successful-save semantics.
