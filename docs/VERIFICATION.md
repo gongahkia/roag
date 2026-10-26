@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Obsolete save-snapshot cleanup — 2026-10-26
+
+Source `3970f59c7cf623ba2d9c631d9dca8c9dd9aa8fdb57449abd5732649cc597cc0d` passed **29 focused save/persistence/visibility/body tests** in `artifacts/save-snapshot-after.log`. Both new filesystem regressions failed on the preceding implementation (`save-snapshot-before.log`), then passed: twelve changed saves retain precisely the referenced snapshots while preserving an unrelated JSON file and independent slot; deliberately failed serialization retains the previous byte-identical manifest and every old chunk, and a subsequent successful save cleans the failed attempt's unreferenced snapshot too. Cleanup follows manifest replacement and treats IO/access failure as a retryable diagnostic, preserving successful-save semantics.
+
+The actual one-day rerun in `artifacts/performance-review/simulation-growth-cleanup.json` retains **zero** obsolete snapshots at ticks **0/3,600/7,200**. Disk bytes equal referenced bytes (**994,644 /1,084,893 /1,098,214**). All **27** complete-state/accounting checkpoints are identical to the pre-cleanup run; saved continuation still matches. No content or save-version changes, and only isolated temporary slots were used. Longer runs and final full-scope acceptance remain pending.
+
 ## Simulation growth diagnostics — 2026-10-26
 
 Source `80a24ba413642b762e1e764689e24a09c624648d7e0180f89ea83ed69ca6ad64` passed the augmented real 100-tick audit test in `artifacts/simulation-growth-focused.log` and the actual seed-42 7,200-tick preflight in `artifacts/performance-review/simulation-growth-preflight.json`. All complete-state/accounting checkpoints and midpoint continuation match. New growth snapshots save/load exactly at 0/3,600/7,200; measurements cover actual scheduled/detailed tick calls and fixed timing histograms, with process metrics explicitly including both worlds and audit overhead. No game/content/save rules change.

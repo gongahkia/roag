@@ -37,8 +37,29 @@ public sealed partial class WorldSession
         }
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
         WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest("vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
+        PruneSaveSnapshots(directory, refs);
         SavePath = path; DeathPending = false;
         Diagnose("save", new { path, chunks = refs.Count });
+    }
+    private void PruneSaveSnapshots(string directory, List<ChunkReference> references)
+    {
+        // The manifest is already committed. Before that point the old hashes
+        // remain necessary if serialization or atomic replacement fails.
+        var retained = references.Select(r => r.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (string file in Directory.EnumerateFiles(directory, "*.json"))
+            {
+                string hash = Path.GetFileNameWithoutExtension(file);
+                if (hash.Length == 64 && hash.All(char.IsAsciiHexDigit) && !retained.Contains(hash)) File.Delete(file);
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            // Cleanup cannot turn an already committed save into a reported
+            // save failure. A later successful save retries obsolete files.
+            Diagnose("save-cleanup-failed", new { type = error.GetType().Name });
+        }
     }
     private static void WriteAtomic(string path, byte[] data)
     {
