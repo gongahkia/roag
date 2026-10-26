@@ -4,7 +4,7 @@
 
 ## Living-world final acceptance — 2026-10-26
 
-The approved implementation is complete; final integrated verification is running as `20261026-045117-9ad93410`. Scope is frozen. [LIVING_WORLD.md](LIVING_WORLD.md) maps all eleven original requirements to implementation and direct evidence. [VERIFICATION.md](VERIFICATION.md) records actual checks and [STRESS_REVIEW.md](STRESS_REVIEW.md) records long-world measurements and fixture limits. Earlier milestone counts below are historical checkpoints, not the current final test total.
+The approved implementation is complete; final integrated verification is running as `20261026-045916-2b7addda`. Scope is frozen. [LIVING_WORLD.md](LIVING_WORLD.md) maps all eleven original requirements to implementation and direct evidence. [VERIFICATION.md](VERIFICATION.md) records actual checks and [STRESS_REVIEW.md](STRESS_REVIEW.md) records long-world measurements and fixture limits. Earlier milestone counts below are historical checkpoints, not the current final test total.
 
 The corrected ordinary hundred-day runs pass seeds **42/1337/-42**, **7,209** exact state/accounting checkpoints and every growth/midpoint save. Day-100 starvers improve **4/1/9 → 1/1/1**; exact-duration identity probes identify the idle finite-food hero in the reproduced resident traps, with no starving NPCs there. Empty towns remain 1/1/2. The bounded viable-food search requires real travel/arrival and preserves existing jobs/cargo. One 200.8637ms tick under concurrent host load remains recorded.
 

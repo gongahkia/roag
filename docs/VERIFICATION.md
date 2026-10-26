@@ -1,5 +1,9 @@
 # Vagabonds verification
 
+## Finishing-phase native focus check — 2026-10-26
+
+Integrated `20261026-045117-9ad93410` passed **996/996 Core tests**, 52 workflow tests, 38 catalog tests, all world audits and 42 recorded/rendered playtest checks, but remains **failed**: the mouse harness stopped during finishing-hit capture after 215 successful assertions. At that point live combat had resolved, so the intentionally enabled exploration clock reported `focused=true` while actual window focus was `nativeFocused=false`. Playback itself uses input focus and remained frozen. The capture helper now waits for `nativeFocused` on both loss and regain, retaining the exact phase/progress/tick freeze assertions. No game behavior or Core source changes. A fresh complete run, `20261026-045916-2b7addda`, is required and running; the failed run is excluded from acceptance.
+
 ## Sustained ecology matrix — 2026-10-26
 
 Managed `20261026-042206-8c677319` passed all three actual **hundred-day** ecology processes (42/1337/-42), each terminal with exit zero and a checked report checksum. Each retains **2,465** exact complete-state/accounting checkpoints, **32 hunts /31 births /27 safe reclaimed identities**, a full day blocked by untaken remains, exact migration/walking/recovery/remains/reclamation saves, and actual day 0/7/30/50/60/90/100 growth reloads. Final actors/unique IDs are 616/621/624; history stays at four; all growth saves have zero obsolete snapshots. Scheduled p99 is bounded by 4ms, worst calls are 84.775/58.445/93.9262ms, and none exceeds 200ms in this workload.
