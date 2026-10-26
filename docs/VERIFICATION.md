@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Stable reward receipts after wildlife reclamation — 2026-10-26
+
+The actual seed-1337 ecology diagnostic `20261026-040711-c97a177d` reproduces a difference at tick **118,800**: `RewardedEncounterIds` contains the same five IDs but enumerates in different orders after a reclaimed identity and an interrupted reload. Complete failure snapshots in `artifacts/performance-review/ecology-preflight-1337.json.failure/` confirm that every other state field matches. This is serialization order, not different body simulation or duplicated rewards. Earlier long attempts and cancelled full run `20261026-040114-86b866d3` remain excluded from acceptance.
+
+Both new regressions fail before the fix in `artifacts/reward-receipt-order-before.log`: a real fifth-generation reclamation, reload and next hunt produce different full-state JSON; a valid legacy unsorted receipt array remains unsorted on the next explicit save. The correction passes **47/47** recovery/reward/save checks in `reward-receipt-order-after.log`, including both regressions. Saved receipts now sort numerically; live membership remains a hash set. The legacy file stays byte-identical during load and its identities are preserved. No save/content/version change. Fresh long ecology and full verification are still required.
+
 ## Corrected-rule hundred-day acceptance — 2026-10-26
 
 Rules `3d3d73d`, source `4fbbef75f38a91bca06d49eeb761e7a53866fe3da3caa67a82c5717f0c3c5edc`, pass all three refreshed **720,000-tick** scheduled/full-cadence runs (42/1337/-42), **7,209** complete-state/accounting checkpoints, all actual growth saves and exact midpoint continuation. All handles were observed terminal with exit zero. Reports and immutable assembly/content/source checksums live under `artifacts/performance-review/forage-hundred-*`; logs are `artifacts/forage-hundred-day-{seed}.log`. Fresh standard world run `20261026-032531-069ac36a` also passed every configured audit and sealed with no artifact errors before later audit additions.

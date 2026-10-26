@@ -138,6 +138,37 @@ public sealed class WildlifeRecoveryTests : IDisposable
         string path = Path.Combine(_root, "reclaimed.json"); world.Save(path); using var loaded = WorldSession.Load(path); Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
     }
     [Fact]
+    public void ANewHuntAfterReclaimAndReloadKeepsExactRewardReceiptsAndWorldState()
+    {
+        using var world = Prepare(out var population);
+        for (int i = 0; i < 4; i++) { var animal = Birth(world, population); Hunt(world, animal); }
+        var cache = world.State.Loot.Single(c => c.SourceActor == population.History[0]);
+        var side = WorldSession.Directions.Select(d => cache.Position.Offset(d.X, d.Y)).First(p => p != population.Home);
+        world.Chunks.Edit(side, Material.Floor); world.State.Position = world.Party.Single().Position = side;
+        Assert.True(world.Submit(new(WorldCommandKind.Loot, cache.Position)).Success);
+        var next = Birth(world, population); Assert.Equal(5, population.Generation);
+        string path = Path.Combine(_root, "reclaimed-reward.json"); world.Save(path);
+        using var loaded = WorldSession.Load(path);
+        Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+        Hunt(world, next); Hunt(loaded, loaded.ActorById(next.Id));
+        Assert.True(world.State.RewardedEncounterIds.SetEquals(loaded.State.RewardedEncounterIds));
+        Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+    }
+    [Fact]
+    public void LegacyUnsortedRewardReceiptsLoadWithoutRewritingAndSaveInStableOrder()
+    {
+        using var world = Prepare(out var population); Hunt(world, Birth(world, population));
+        string path = Path.Combine(_root, "legacy-reward-order.json"); world.Save(path);
+        var json = JsonNode.Parse(File.ReadAllText(path))!;
+        json["state"]!["rewardedEncounterIds"] = new JsonArray(world.State.RewardedEncounterIds.OrderDescending().Select(id => JsonValue.Create(id)).ToArray());
+        string legacy = json.ToJsonString(); File.WriteAllText(path, legacy);
+        using var loaded = WorldSession.Load(path);
+        Assert.Equal(legacy, File.ReadAllText(path)); Assert.True(world.State.RewardedEncounterIds.SetEquals(loaded.State.RewardedEncounterIds));
+        string output = Path.Combine(_root, "ordered-rewards.json"); loaded.Save(output);
+        var ids = JsonNode.Parse(File.ReadAllText(output))!["state"]!["rewardedEncounterIds"]!.AsArray().Select(v => v!.GetValue<long>()).ToArray();
+        Assert.Equal(ids.Order(), ids);
+    }
+    [Fact]
     public void OldestDeadlinesGetTheBoundedBudgetEvenWhenEarlierPopulationsKeepFailing()
     {
         using var world = Prepare(out var population); world.State.Tick = population.RecoverAt;

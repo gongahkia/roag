@@ -562,6 +562,7 @@ public sealed class WorldState
     public SortedDictionary<long, WildlifePopulation> WildlifePopulations { get; set; } = [];
     public Dictionary<int, HabitatState> Habitats { get; set; } = [];
     [JsonRequired] public List<EncounterPopulationRecord> EncounterPopulations { get; set; } = [];
+    [JsonConverter(typeof(RewardReceiptSetConverter))]
     public HashSet<long> RewardedEncounterIds { get; set; } = [];
     [JsonRequired] public HashSet<ChunkKey> EcologyChunks { get; set; } = [];
     public CampStory? LastCampStory { get; set; }
