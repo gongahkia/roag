@@ -17,3 +17,21 @@ Approved scope: the complete performance and simulation proposal in the conversa
 11. Fresh full scoped verification, isolated visual review and requirement-by-requirement completion audit.
 
 The implementation is in progress. This file is not a completion claim. New persisted mechanics require explicit validation and documented content/save compatibility; player saves are never used as test fixtures.
+
+## Final evidence map
+
+Fresh acceptance and the sustained ecology matrix are pending. This map preserves the approved requirements while those checks run; a passing narrow preview alone does not complete a row.
+
+| Requirement | Implementation and direct evidence |
+| --- | --- |
+| Streaming | `ChunkPreparationQueue`, `ChunkCache.PrepareView` and the client view/movement/stair predictions; bounded/failure/disposal tests; `benchmark-streaming`; three actual `audit-travel` runs and private `world-streaming`. Ready-hit measurements remain separate from ordinary travel. |
+| Spatial queries | `ActorSpatialIndex` and collection/movement notifications; ordered brute-reference mutation/privacy/save tests and warm occupied-cell allocation checks; ordinary long-world, dense work and journey workloads. |
+| Scheduled simulation | `WorldBodySchedule` and lazy body clocks; threshold/expiry/life/roster/near-far tests; three actual hundred-day scheduled/full-cadence comparisons, saved continuations and resource ledgers. |
+| Presentation/profiling | Terrain, text and control reuse with edit/depletion/visibility/resize invalidation; measured allocation comparisons in PERFORMANCE_REVIEW/VERIFICATION; genuine EventPipe/counter and OpenGL capture/replay artifacts; fresh native presentation checks. Software graphics measurements do not establish intended-hardware FPS. |
+| Resident routines | Danger/food/rest/work/social/home/shelter priorities, bounded physical journeys and viable-food search; pure explanations, retained interrupted jobs and actual arrival; Core routine/journey/forage checks and native routine/weather captures. |
+| Logistics | Real node extraction, inputs, reservations, carrier cargo, storage/delivery and recoverable cancellations; physical occupations excluded from aggregate double production; conservation and saved hauling/work checks; native supply/output/occupation scenes. |
+| Ecology | Finite wild food, pressure, clearing/restoration, shared stocks, identity-preserving migration and bounded population/history recovery; invalid-save and near/far checks; sustained migration/hunt/recovery/remains/collection matrix. |
+| Memories | Actual-effect food relief, interruption, threat aid and livelihood damage; original requester/witness identities, bounded receipts, trust/cooldowns and contextual decisions/dialogue; Core consequence and native harm/refusal/relief checks. |
+| Climate | Seeded regional weather/seasons, actual exposed movement/work, home/camp cover, latched resource timers and bounded elapsed habitat recovery; legacy/save/rate/transition tests and native exposed/covered/weather-change scenes. |
+| Stress | Three seeded 7/30/100-day world checkpoints; repeated active ecology; maximum four-person party and 64 blocked/interrupted extraction jobs; actual chunk/floor journeys; exact saves, accounting, identities and bounded state/cache/history/save growth. Measurements distinguish tick calls, process overhead and rendering. |
+| Delivery | Existing enemy rules/artwork, safe save rejection and explicit content compatibility; original feature commits and independent discovered fixes; current authoring/tool discovery and reproducible checks; every graphical capture/replay runs privately with temporary slots. |
