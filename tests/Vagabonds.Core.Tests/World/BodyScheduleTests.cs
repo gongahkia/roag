@@ -133,6 +133,15 @@ public sealed class BodyScheduleTests
         Assert.True(report.Passed); var seed = Assert.Single(report.Seeds);
         Assert.True(seed.SaveContinued); Assert.True(seed.ScheduledVisits < seed.DetailedVisits / 3);
         Assert.All(seed.Checkpoints, point => Assert.Equal(point.ScheduledHash, point.DetailedHash));
+        Assert.Equal(100, seed.Measurements.Scheduled.Samples); Assert.Equal(100, seed.Measurements.Detailed.Samples);
+        Assert.True(seed.Measurements.Scheduled.AllocatedBytes > 0); Assert.True(seed.Measurements.Detailed.AllocatedBytes > 0);
+        Assert.Equal(new long[] { 0, 50, 100 }, seed.Measurements.Growth.Select(point => point.Tick));
+        Assert.All(seed.Measurements.Growth, point =>
+        {
+            Assert.True(point.StateBytes > 0); Assert.True(point.ProcessRetainedManagedBytes > 0);
+            Assert.True(point.Save.ReferencedBytes > point.StateBytes); Assert.True(point.Save.DirectoryBytes >= point.Save.ReferencedBytes);
+            Assert.Equal(point.Counts["actors"], point.Counts["uniqueActorIds"]); Assert.Equal(3, point.Collections.Length);
+        });
     }
 
     private static void Prepare(WorldSession world)

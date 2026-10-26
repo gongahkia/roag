@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Vagabonds.Core.Content;
@@ -7,7 +6,7 @@ namespace Vagabonds.Core.World;
 
 public sealed record BodyAuditCheckpoint(long Tick, string ScheduledHash, string DetailedHash, long Resources, int Actors, int QueuedDeadlines);
 public sealed record BodyAuditSeed(int Seed, int Ticks, long ScheduledVisits, long DetailedVisits, double ScheduledMs, double DetailedMs,
-    bool SaveContinued, IReadOnlyList<BodyAuditCheckpoint> Checkpoints);
+    bool SaveContinued, IReadOnlyList<BodyAuditCheckpoint> Checkpoints, AuditMeasurements Measurements);
 public sealed record BodyAuditReport(bool Passed, int SchemaVersion, string ContentHash, IReadOnlyList<BodyAuditSeed> Seeds, string Scope);
 
 /// <summary>Real tick pipelines compared against full body cadence, including an interrupted save.</summary>
@@ -19,8 +18,8 @@ public static class BodyScheduleAudit
         if (ticks is < 50 or > 720_000) throw new ArgumentOutOfRangeException(nameof(ticks), "Choose 50..720000 ticks.");
         var reports = new List<BodyAuditSeed>();
         foreach (int seed in seeds) reports.Add(RunSeed(catalog, seed, ticks));
-        return new(true, 1, catalog.Hash, reports,
-            "Headless real world ticks, scheduled versus full body cadence. Includes hunger/rest/forage pressure, non-hour expiry, near/far moves, live mutations, exact save interruption and resource conservation. Visit counts are exact; paired elapsed times include JIT/scheduling and are not FPS predictions. No player saves, graphics or model calls.");
+        return new(true, 2, catalog.Hash, reports,
+            "Headless real world ticks, scheduled versus full body cadence. Includes hunger/rest/forage pressure, non-hour expiry, near/far moves, live mutations, exact save interruption and resource conservation. Growth checkpoints include actual day 7/30/60/90/100 when reached. Tick timing/allocation excludes assertions/snapshots; percentile values are histogram upper bounds, null above 1024ms. Process retained memory (forced GC), allocation and collection counts include both worlds and audit/report overhead. Save sizes distinguish referenced data from all slot files. Visit counts are exact; elapsed timings include JIT/scheduling, not rendering/FPS. No player saves, graphics or model calls.");
     }
     private static BodyAuditSeed RunSeed(ContentCatalog catalog, int seed, int ticks)
     {
@@ -28,17 +27,20 @@ public static class BodyScheduleAudit
         detailed.DetailedBodiesEverywhere = true;
         Prepare(scheduled); Prepare(detailed);
         long initial = scheduled.AccountedResources(), flow = scheduled.RegionalResourceFlow;
-        long completedVisits = 0; double scheduledMs = 0, detailedMs = 0; bool resumed = false;
+        long completedVisits = 0; bool resumed = false;
+        var scheduledMeter = new AuditTickMeter(); var detailedMeter = new AuditTickMeter(); var growth = new List<AuditGrowth>();
+        long allocatedAtStart = GC.GetTotalAllocatedBytes(); int[] collectionsAtStart = Enumerable.Range(0, 3).Select(GC.CollectionCount).ToArray();
         var checkpoints = new List<BodyAuditCheckpoint>();
         string directory = Path.Combine(Path.GetTempPath(), "vagabonds-body-audit-" + Guid.NewGuid().ToString("N"));
         try
         {
+            string file = Path.Combine(directory, "world.json");
+            growth.Add(SimulationAuditMetrics.Capture(scheduled, file, allocatedAtStart, collectionsAtStart));
             for (int tick = 1; tick <= ticks; tick++)
             {
                 Mutate(scheduled, tick); Mutate(detailed, tick);
                 if (tick % 17 == 0) foreach (var actor in scheduled.State.Actors) { _ = actor.Body.Hunger; _ = actor.Body.Fatigue; }
-                long started = Stopwatch.GetTimestamp(); int a = scheduled.AdvanceTicks(1); scheduledMs += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-                started = Stopwatch.GetTimestamp(); int b = detailed.AdvanceTicks(1); detailedMs += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                int a = scheduledMeter.Advance(scheduled), b = detailedMeter.Advance(detailed);
                 if (a != 1 || b != 1) throw new InvalidDataException($"Body audit seed {seed} froze at {tick}; combat/end-state coverage is not silently skipped.");
                 if (scheduled.BodySimulation.QueuedDeadlines > scheduled.State.Actors.Count) throw new InvalidDataException("Body deadlines exceeded actor count.");
                 if (tick is 17 or 23 or 50 || tick % 300 == 0 || tick == ticks || tick == ticks / 2)
@@ -51,9 +53,9 @@ public static class BodyScheduleAudit
                         throw new InvalidDataException($"Body audit seed {seed} violated resource conservation at {tick}.");
                     checkpoints.Add(new(tick, actual, expected, resources, scheduled.State.Actors.Count, scheduled.BodySimulation.QueuedDeadlines));
                 }
+                if (SimulationAuditMetrics.GrowthCheckpoint(tick, ticks)) growth.Add(SimulationAuditMetrics.Capture(scheduled, file, allocatedAtStart, collectionsAtStart));
                 if (tick == ticks / 2)
                 {
-                    string file = Path.Combine(directory, "world.json"); scheduled.Save(file);
                     var loaded = WorldSession.Load(file, catalog); loaded.Paused = false;
                     if (JsonSerializer.Serialize(scheduled.State) != JsonSerializer.Serialize(loaded.State))
                     { loaded.Dispose(); throw new InvalidDataException($"Body audit seed {seed}: immediate saved continuation differed."); }
@@ -61,7 +63,8 @@ public static class BodyScheduleAudit
                 }
             }
             return new(seed, ticks, completedVisits + scheduled.BodySimulation.Processed, detailed.BodySimulation.Processed,
-                scheduledMs, detailedMs, resumed, checkpoints);
+                scheduledMeter.Report().TotalMs, detailedMeter.Report().TotalMs, resumed, checkpoints,
+                new(scheduledMeter.Report(), detailedMeter.Report(), growth));
         }
         finally { scheduled.Dispose(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

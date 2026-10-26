@@ -1,5 +1,13 @@
 # Vagabonds verification
 
+## Simulation growth diagnostics — 2026-10-26
+
+Source `80a24ba413642b762e1e764689e24a09c624648d7e0180f89ea83ed69ca6ad64` passed the augmented real 100-tick audit test in `artifacts/simulation-growth-focused.log` and the actual seed-42 7,200-tick preflight in `artifacts/performance-review/simulation-growth-preflight.json`. All complete-state/accounting checkpoints and midpoint continuation match. New growth snapshots save/load exactly at 0/3,600/7,200; measurements cover actual scheduled/detailed tick calls and fixed timing histograms, with process metrics explicitly including both worlds and audit overhead. No game/content/save rules change.
+
+At one day, scheduled tick calls allocated **146,691,952 bytes**, p95 at most **1ms**, worst **73.3326ms**, and no >200ms calls in this local headless fixture. Reference calls allocated **140,038,584 bytes**, p95 at most **2ms**. These are observations, not portable thresholds or rendering claims. Retained managed process memory grew **21,160,688→28,224,712 bytes**, including both worlds, loaders and diagnostics. Actor identities remain **611/611**; terrain/footprint caches, body deadlines, history, weather and habitat caches remain within asserted bounds.
+
+The new save counters expose existing stale-snapshot accumulation: active save data is **1,098,214 bytes**, slot files total **1,103,774**, with **seven unreferenced chunk snapshots** after the three actual saves. The diagnostics commit records this finding without claiming bounded disk growth; the next independent fix will prune obsolete slot snapshots only after a successful manifest replacement. Hundred-day, crowded-work, streaming/floor and full-scope acceptance remain pending.
+
 ## Caravan departure cargo conservation — 2026-10-26
 
 Source `a7e2335beddf02084a056ab5c4a4da779c6e5885c108170a84c186e2ead10571` passed **18 focused cargo/simulation tests** in `artifacts/caravan-cargo-focused.log`. Four new cases use actual departures with food/wood already carried and almost-full/full stacks, checking that town withdrawals equal added cargo and that the regional ledger remains conserved. Pickups add rather than replace and cap the added amount to remaining room below 9,999; full cargo leaves stocks untouched. No save/content/version or presentation changes.
