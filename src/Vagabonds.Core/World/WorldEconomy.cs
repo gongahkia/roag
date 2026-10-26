@@ -76,9 +76,9 @@ public sealed partial class WorldSession
             string export = new[] { "food", "wood", "stone", "medicine" }[a.HomeTown % 4];
             var demand = origin.Stocks.OrderByDescending(e => e.Value - State.Towns[destination].Stocks[e.Key]).First();
             if (demand.Value - State.Towns[destination].Stocks[demand.Key] > 8) export = demand.Key;
-            int quantity = Math.Min(12, Math.Max(0, origin.Stocks[export] - 20));
+            int quantity = Math.Min(12, Math.Min(Math.Max(0, origin.Stocks[export] - 20), Math.Max(0, 9999 - a.Cargo.GetValueOrDefault(export))));
             if (quantity == 0) { a.NextTravelTick = State.Tick + 300; continue; }
-            origin.Stocks[export] -= quantity; a.Cargo[export] = quantity;
+            origin.Stocks[export] -= quantity; a.Cargo[export] = a.Cargo.GetValueOrDefault(export) + quantity;
             a.Route = route; a.Traveling = true; a.DepartureTick = State.Tick; a.NextTravelTick = State.Tick + route.Sum(id => Plan.Roads[id].Length);
         }
     }

@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Caravan departure cargo conservation — 2026-10-26
+
+Source `a7e2335beddf02084a056ab5c4a4da779c6e5885c108170a84c186e2ead10571` passed **18 focused cargo/simulation tests** in `artifacts/caravan-cargo-focused.log`. Four new cases use actual departures with food/wood already carried and almost-full/full stacks, checking that town withdrawals equal added cargo and that the regional ledger remains conserved. Pickups add rather than replace and cap the added amount to remaining room below 9,999; full cargo leaves stocks untouched. No save/content/version or presentation changes.
+
+`artifacts/performance-review/caravan-seven-day.json` passed real **50,400-tick** scheduled/full-cadence pipelines for **42, 1337 and -42**. All **513** complete-state hash/accounting checkpoints match, with exact actual midpoint saves/continuations for every seed. Final actor counts are **611 /615 /618** and accounted regional resources **111,999 /113,840 /113,789**. Scheduled body visits are **2,664,194 /2,286,901 /2,421,558**, versus full cadence **30,794,390 /30,995,990 /31,147,190**. The failed preceding preflight and first-loss snapshots below remain retained, not acceptance. These headless runs exercise the body-audit fixture's actual world pipeline and existing near/far mutations; they do not establish long seasonal balance, streaming/64-order acceptance or measured GC/save-growth bounds. Those and fresh final full-scope verification remain pending.
+
 ## Regional weather and seasons — 2026-10-26
 
 Source `b85c6fa05fd3708d397bbd9d8b87801888732a566db3fcf7617a9c07fb478341` passed fresh managed Core `20261026-015551-9f25907f` (**973/973 tests**, Release/content), world `20261026-015551-a6b4c474` (all scenarios/headless/world/exploration/wildlife/situation/expedition/encounter/counterplay/simulation audits), private native `20261026-015550-8c197406` (**44 mouse checks /42 rendered assertions**, six mouse scenes) and tools `20261026-015551-9d676522` (**52 workflow tests**). Source freshness and sealed checksums were verified for all four. All visual clients/captures used private Xvfb, isolated saves and dummy/null audio; no host input or model calls occurred. This verifies the weather milestone, not the remaining long-world stress scope.
