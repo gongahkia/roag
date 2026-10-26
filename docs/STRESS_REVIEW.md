@@ -18,12 +18,26 @@ Scheduled body decisions total **52,453,595 /47,507,506 /54,833,140**, versus **
 
 Local artifacts: `artifacts/performance-review/hundred-day-source.json` pins source and assembly hashes; `hundred-day-42.json`, `hundred-day-1337.json` and `hundred-day--42.json` retain the complete reports. Logs are `artifacts/hundred-day-{seed}.log`. Reproduce with `./dev audit-simulation --seeds 42,1337,-42 --steps 720000 --output artifacts/hundred-day.json`.
 
+## Corrected food-search results
+
+Rules `3d3d73d`, source `4fbbef75f38a91bca06d49eeb761e7a53866fe3da3caa67a82c5717f0c3c5edc`, now pass three further **720,000-tick** comparisons and **7,209** complete-state/accounting checkpoints, every growth save and exact midpoint continuation. All three handles were observed terminal with exit zero. Immutable Tools/Core/content copies and checksums are pinned by `artifacts/performance-review/forage-hundred-source.json`; reports are `forage-hundred-day-{seed}.json` under that directory.
+
+| Seed | Final starving people, before → after | Save bytes (referenced = disk) | Retained managed process bytes | Scheduled p99 / worst / >200ms calls |
+| --- | ---: | ---: | ---: | ---: |
+| 42 | 4 → 1 | 1,171,651 | 28,979,896 | ≤2ms / 81.159ms / 0 |
+| 1337 | 1 → 1 | 1,165,965 | 28,802,672 | ≤2ms / 200.8637ms / 1 |
+| -42 | 9 → 1 | 1,184,890 | 28,623,352 | ≤2ms / 112.0592ms / 0 |
+
+All growth saves retain zero obsolete snapshots; all asserted state/cache/history bounds hold. Actor identities remain 611/615/618. Seed -42 now observes two wildlife populations; this still does not exercise repeated hunting/recovery/history pressure. Separate actual hundred-day identity probes for 42/-42 match these reports' complete final hashes and identify their sole remaining starver as the idle, finite-pack-food hero **100000**, with no starving NPCs. Probes are `artifacts/forage-hundred-starvers-{seed}.jsonl`. The earlier seed-1337 probe identified its sole starver as the idle hero; the corrected report retains one starving person. Empty towns remain 1/1/2; this does not promise that every settlement always has surplus food.
+
+The single >200ms call is retained. Runs overlap compilation and other headless workloads; workload and allocations change after the behavior fix, so timings are observations rather than a controlled speed comparison. Process memory/GC include both worlds and audit overhead. No GUI or player saves were used.
+
 ## Balance and remaining scope
 
 At day 100, seeds 42/1337/-42 report **4/1/9 starving people** and **1/0/2 empty-food towns**. The fixture leaves the hero idle with finite pack food; a separate seven-day seed-1337 probe identifies that seed's sole starving person as the hero. Further actual hundred-day probes in `artifacts/hundred-day-starvation-42.jsonl` and `hundred-day-starvation--42.jsonl` match the comparison runs' complete final hashes. In seed -42, all eight original town-zero residents remain in food routines from roughly day 44 onward. Their cleared chunk has **capacity one**, food one and pressure zero, so it can never supply the required two-food gather. They keep targeting their current position rather than seeking another viable habitat. This is a real routine/food-search defect to fix; matching state and conserved resources do not establish healthy resident behavior.
 
 The three-seed `audit-crowded-work` now passes the maximum four-person party, twelve downed blockers and **64 actual excavation orders**. All cases preserve regional resources every tick, extract/deliver exactly **320 stone**, hold progress while suspended, and retain exact blocked/walking/work/hauling/completed saves against full cadence. Scripted cleared terrain/background rest/gate and blocker removal isolate the workload. Completion ticks are **3,582 /674 /580**; retained comparison checkpoints **144 /27 /24**. Tick p99 upper bounds are **8/16/32ms**, with zero >200ms calls, in the concurrent local headless run. Full reports are `artifacts/performance-review/crowded-work-{seed}.json`. This verifies dense work and interruption ownership, with controlled supplies; it is not a survival balance scenario.
 
-The measured food-search defect now has a bounded neighboring-habitat planner and actual arrival-before-gathering checks. All 990 Core tests pass, including 74 focused forage/routine/journey/habitat cases. Corrected-rule hundred-day runs for the same three seeds are underway using immutable assemblies/content pinned in `artifacts/performance-review/forage-hundred-source.json`; neither their completion nor improved long-term balance is claimed yet.
+The measured food-search defect now has a bounded neighboring-habitat planner and actual arrival-before-gathering checks. All 990 Core tests pass, including 74 focused forage/routine/journey/habitat cases. The corrected-rule results above verify improved outcomes in the reproduced trap without weakening conservation or inventing food. The standard world profile also passes.
 
-Still required: review refreshed long balance evidence; exercise active ecology over elapsed time; actual moving-observer chunk/floor journeys with bounded preparation and native review; then fresh full verification and the original requirement-by-requirement completion audit.
+Still required: exercise active ecology over elapsed time; actual moving-observer chunk/floor journeys with bounded preparation and native review; then fresh full verification and the original requirement-by-requirement completion audit.
