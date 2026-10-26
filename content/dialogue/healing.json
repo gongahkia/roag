@@ -1,0 +1,16 @@
+{
+  "kind": "dialogue",
+  "id": "dialogue.healing",
+  "name": "Healing dialogue",
+  "variants": [
+    {
+      "when": "always",
+      "player": "One of us needs treatment. Can you help?",
+      "replies": [
+        "Stay still and let me have a look. There... that should help.",
+        "{result}"
+      ]
+    }
+  ],
+  "interaction": "interaction.healing"
+}

@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.smite",
+  "name": "Smite",
+  "sprite": "cross",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 7,
+  "effect": "damage",
+  "duration": 3,
+  "description": "Smite."
+}

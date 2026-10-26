@@ -1,0 +1,18 @@
+{
+  "kind": "reward",
+  "id": "reward.hollow-vigil",
+  "name": "Vigil keepsakes",
+  "sprite": "chest",
+  "gold": 16,
+  "food": 2,
+  "experience": 20,
+  "supplies": {
+    "item.medicine": 1
+  },
+  "equipmentPool": [
+    "item.warding-bell",
+    "item.heartstone",
+    "item.wanderers-cloak"
+  ],
+  "equipmentChancePercent": 100
+}

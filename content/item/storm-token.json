@@ -1,0 +1,24 @@
+{
+  "kind": "item",
+  "id": "item.storm-token",
+  "name": "Storm token",
+  "sprite": "arc",
+  "stack": "item.storm-token",
+  "slot": "charm",
+  "health": 0,
+  "power": 1,
+  "armor": 0,
+  "speed": 3,
+  "value": 80,
+  "effects": [
+    "affix.steadfast"
+  ],
+  "affixPool": [
+    "affix.kindled",
+    "affix.mending"
+  ],
+  "tags": [
+    "signature"
+  ],
+  "description": "A feather sealed around a thunderstone. The impatient pulse within it draws its bearer toward the front of the fighting."
+}

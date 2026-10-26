@@ -1,0 +1,35 @@
+{
+  "kind": "discovery",
+  "id": "discovery.road-blockade",
+  "name": "Raider toll camp",
+  "action": "encounter",
+  "sprite": "banner",
+  "text": "Raiders have seized a {faction} waystation. {witness} in {town} identified the stolen banner; their spoils include equipment taken on the road to {site}.",
+  "layout": [
+    ".........",
+    "..##.##..",
+    "..#...#..",
+    ".........",
+    ".........",
+    ".........",
+    "..#...#..",
+    "..##.##..",
+    "........."
+  ],
+  "supplies": {
+    "item.gold": 15,
+    "item.food": 3
+  },
+  "rewards": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.ember-staff",
+    "item.chainmail",
+    "item.wanderers-cloak",
+    "item.heartstone",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "enemies": [],
+  "encounter": "encounter.cinder-ambush"
+}

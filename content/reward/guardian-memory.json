@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-memory",
+  "name": "Forgotten court spoils",
+  "sprite": "chest",
+  "gold": 44,
+  "food": 3,
+  "experience": 34,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.warding-bell",
+    "item.heartstone",
+    "item.wardens-shield"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.memory-crown"
+}

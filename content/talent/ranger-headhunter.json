@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.ranger-headhunter",
+  "name": "Headhunter",
+  "sprite": "sword",
+  "acquisition": "choice",
+  "class": "class.ranger",
+  "level": 4,
+  "bonuses": {
+    "wounded-damage": 4
+  },
+  "description": "Direct attacks gain 4 power against a target already at half health or lower."
+}

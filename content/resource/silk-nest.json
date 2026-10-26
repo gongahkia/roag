@@ -1,0 +1,20 @@
+{
+  "kind": "resource",
+  "id": "resource.silk-nest",
+  "name": "Silk nest",
+  "sprite": "web",
+  "depletedSprite": "tuft",
+  "terrain": "Grass",
+  "biomes": [
+    "Forest",
+    "Marsh"
+  ],
+  "chancePerThousand": 5,
+  "capacity": 2,
+  "work": 25,
+  "regrowTicks": 5400,
+  "activity": "harvest",
+  "yield": {
+    "item.silk": 2
+  }
+}

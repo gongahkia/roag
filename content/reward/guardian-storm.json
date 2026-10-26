@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-storm",
+  "name": "Storm covenant spoils",
+  "sprite": "chest",
+  "gold": 42,
+  "food": 5,
+  "experience": 33,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.ember-staff",
+    "item.quick-silver",
+    "item.warding-bell"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.storm-token"
+}

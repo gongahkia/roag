@@ -1,0 +1,67 @@
+# Living-world stress review
+
+This records executed stress evidence, alongside [LIVING_WORLD.md](LIVING_WORLD.md) and [VERIFICATION.md](VERIFICATION.md). The sustained workloads are complete; the final integrated suite is running. Earlier results below retain their original rules and limitations.
+
+## Sustained ecology acceptance
+
+Managed run `20261026-042206-8c677319` passed all three independent **720,000-tick** ecology processes, with exit zero and report hashes checked. Each seed (42/1337/-42) passes **2,465 complete-state/accounting checkpoints**, 32 actual hunts, 31 births, 27 safe historical-identity reclamations, and a full day of recovery blocked by untaken remains. Actual saved phases cover migration, walking, pending recovery, birth, retained remains, reclamation and completion. Growth saves at elapsed days **0/7/30/50/60/90/100** reload exactly; winter is reached. No logical-clock jumps replace elapsed days.
+
+| Seed | Final actors / unique IDs | Final save bytes (referenced = disk) | Retained managed process bytes | Scheduled p99 / worst / >200ms calls |
+| --- | ---: | ---: | ---: | ---: |
+| 42 | 616 / 616 | 1,130,151 | 26,102,824 | ≤4ms / 84.775ms / 0 |
+| 1337 | 621 / 621 | 1,128,092 | 26,745,848 | ≤4ms / 58.445ms / 0 |
+| -42 | 624 / 624 | 1,142,045 | 26,198,824 | ≤4ms / 93.9262ms / 0 |
+
+All growth saves contain zero orphan snapshots. Population history stays at four; populations remain 1/2/4, weather/habitat read caches stay within 64/128 slots, and journal history stays within 500 entries. The planner examines 864/1,986/558 migration candidates and performs 82 recovery attempts per seed. Scheduled tick allocations total 13,891,956,104 /13,776,828,392 /14,117,995,768 bytes. Process allocations total 42,596,024,648 /42,296,227,920 /43,158,354,672 bytes, with GC counts [5812,2035,1250] /[5762,2044,1239] /[5871,2045,1236]. Process metrics include both worlds, assertions, serialization and diagnostic overhead; timing is under concurrent host load and does not establish client FPS.
+
+These are controlled ecology fixtures: initial pressure, cleared approaches, a strong hunter, ample pack food and near/far/other-floor observer relocations isolate the lifecycle. **The background roster is deliberately kept resting throughout.** Consequently regional production is zero, all 24 towns exhaust food and 192 background people reach starvation/one health. This is an expected fixture consequence, not evidence about natural settlement balance; the ordinary hundred-day food outcomes below supply that separate evidence.
+
+`artifacts/performance-review/ecology-final-source.json` pins source `6fd627924cb6b1e05f4e19d8370a2a43b7b0927f2fc66bd83bb000b8332cf80a`, immutable Tools/Core/content copies and actual Core DLL SHA-256 `57761807ec9a7249b3328afc24611f9e79a54f9736cc9eb6a5ba3f93c603e856`. Reports are `ecology-final-hundred-day-{seed}.json`; `ecology-final-matrix.json` records each successful process closure and report checksum. The final client smoke expectation is the only later runtime-source edit; Core's Git tree remains exactly `0a987c3f9017e002662c33c8cafbba10f9b15da2`, matching receipt-fix commit `fa4136e`. Earlier failed/cancelled ecology attempts remain excluded.
+
+## Hundred-day comparisons
+
+Rules commit `119f1b4`, source `3970f59c7cf623ba2d9c631d9dca8c9dd9aa8fdb57449abd5732649cc597cc0d`. Three independent headless processes each executed **720,000 actual ticks**, comparing scheduled bodies with full cadence. Each passed **2,403** complete-state/accounting checkpoints, exact midpoint continuation and real save/load at days **0, 7, 30, 50, 60, 90, 100**. No logical-clock jumps replace elapsed days. All seasons through winter are reached.
+
+| Seed | Final actors / unique IDs | Peak sampled resident chunks | Final referenced/on-disk save bytes | Final retained managed process bytes | Scheduled tick p99 upper bound / worst |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 42 | 611 / 611 | 20 | 1,166,301 | 28,990,120 | 2ms / 43.3965ms |
+| 1337 | 615 / 615 | 21 | 1,168,950 | 29,172,216 | 2ms / 52.4771ms |
+| -42 | 618 / 618 | 17 | 1,173,010 | 28,568,016 | 2ms / 36.6848ms |
+
+All growth snapshots retain **zero obsolete chunk snapshots**. Terrain/footprint caches, body deadlines, route steps, actor memory, journal, weather/habitat read caches and saved habitat counts satisfy the asserted bounds. Journal history reaches its 500-entry cap; actor identity counts remain constant. The stationary-observer fixture activates six physical workers per seed. It does not materialize wildlife populations or run speculative terrain preparation, so its zero population/history/preparation counts do not prove those workloads.
+
+Scheduled body decisions total **52,453,595 /47,507,506 /54,833,140**, versus **439,919,990 /442,799,990 /444,959,990** for full cadence. No measured tick call exceeds 200ms. Scheduled calls allocate **14,283,277,600 /14,198,555,192 /14,727,566,536 bytes** across the hundred days. Process GC counts are **[5139,1208,545] /[5113,1103,546] /[5293,1394,552]**. These include both worlds, serialization, checkpoint loaders, diagnostic data and forced checkpoint collections; they are not client-only GC/memory or FPS estimates. Tick-call allocations exclude assertions and snapshots; timing remains subject to JIT/host scheduling.
+
+Local artifacts: `artifacts/performance-review/hundred-day-source.json` pins source and assembly hashes; `hundred-day-42.json`, `hundred-day-1337.json` and `hundred-day--42.json` retain the complete reports. Logs are `artifacts/hundred-day-{seed}.log`. Reproduce with `./dev audit-simulation --seeds 42,1337,-42 --steps 720000 --output artifacts/hundred-day.json`.
+
+## Corrected food-search results
+
+Rules `3d3d73d`, source `4fbbef75f38a91bca06d49eeb761e7a53866fe3da3caa67a82c5717f0c3c5edc`, now pass three further **720,000-tick** comparisons and **7,209** complete-state/accounting checkpoints, every growth save and exact midpoint continuation. All three handles were observed terminal with exit zero. Immutable Tools/Core/content copies and checksums are pinned by `artifacts/performance-review/forage-hundred-source.json`; reports are `forage-hundred-day-{seed}.json` under that directory.
+
+| Seed | Final starving people, before → after | Save bytes (referenced = disk) | Retained managed process bytes | Scheduled p99 / worst / >200ms calls |
+| --- | ---: | ---: | ---: | ---: |
+| 42 | 4 → 1 | 1,171,651 | 28,979,896 | ≤2ms / 81.159ms / 0 |
+| 1337 | 1 → 1 | 1,165,965 | 28,802,672 | ≤2ms / 200.8637ms / 1 |
+| -42 | 9 → 1 | 1,184,890 | 28,623,352 | ≤2ms / 112.0592ms / 0 |
+
+All growth saves retain zero obsolete snapshots; all asserted state/cache/history bounds hold. Actor identities remain 611/615/618. Seed -42 now observes two wildlife populations; this still does not exercise repeated hunting/recovery/history pressure. Separate actual hundred-day identity probes for 42/-42 match these reports' complete final hashes and identify their sole remaining starver as the idle, finite-pack-food hero **100000**, with no starving NPCs. Probes are `artifacts/forage-hundred-starvers-{seed}.jsonl`. The earlier seed-1337 probe identified its sole starver as the idle hero; the corrected report retains one starving person. Empty towns remain 1/1/2; this does not promise that every settlement always has surplus food.
+
+The single >200ms call is retained. Runs overlap compilation and other headless workloads; workload and allocations change after the behavior fix, so timings are observations rather than a controlled speed comparison. Process memory/GC include both worlds and audit overhead. No GUI or player saves were used.
+
+## Earlier balance diagnosis and correction
+
+At day 100, the preceding rules for seeds 42/1337/-42 report **4/1/9 starving people** and **1/0/2 empty-food towns**. The fixture leaves the hero idle with finite pack food; a separate seven-day seed-1337 probe identifies that seed's sole starving person as the hero. Further actual hundred-day probes in `artifacts/hundred-day-starvation-42.jsonl` and `hundred-day-starvation--42.jsonl` match the comparison runs' complete final hashes. In seed -42, all eight original town-zero residents remain in food routines from roughly day 44 onward. Their cleared chunk has **capacity one**, food one and pressure zero, so it can never supply the required two-food gather. They keep targeting their current position rather than seeking another viable habitat. This is a real routine/food-search defect to fix; matching state and conserved resources do not establish healthy resident behavior.
+
+The three-seed `audit-crowded-work` now passes the maximum four-person party, twelve downed blockers and **64 actual excavation orders**. All cases preserve regional resources every tick, extract/deliver exactly **320 stone**, hold progress while suspended, and retain exact blocked/walking/work/hauling/completed saves against full cadence. Scripted cleared terrain/background rest/gate and blocker removal isolate the workload. Completion ticks are **3,582 /674 /580**; retained comparison checkpoints **144 /27 /24**. Tick p99 upper bounds are **8/16/32ms**, with zero >200ms calls, in the concurrent local headless run. Full reports are `artifacts/performance-review/crowded-work-{seed}.json`. This verifies dense work and interruption ownership, with controlled supplies; it is not a survival balance scenario.
+
+The measured food-search defect now has a bounded neighboring-habitat planner and actual arrival-before-gathering checks. All 990 Core tests pass, including 74 focused forage/routine/journey/habitat cases. The corrected-rule results above verify improved outcomes in the reproduced trap without weakening conservation or inventing food. The standard world profile also passes.
+
+## Actual chunk and floor journeys
+
+`audit-travel` passes seeds **42/1337/-42** with **346 actual cardinal party steps** each, four separate travellers, **six stair transfers**, all four floors and return to the starting position. Surface chunk crossings are **4/4/4**; deep crossings **8/2/2**. Both prepared and synchronous worlds reach the **25-chunk** cache cap and compare every demanded terrain/biome/culture array, demand ordering, resources and complete state, including walking/floor reloads against full body cadence. Preparation is never awaited. It supplies **10/5/5** of **59/55/55** measured demand misses; ordinary synchronous fallback remains necessary and correct.
+
+Reports are `artifacts/performance-review/streaming-journey-{seed}.json`; focused tests pass all three cases in `artifacts/streaming-journey-corners.log`. The private `streaming-native-settled` scene passes **nine actual mouse checks**, including surface walking reload, deep/surface floor reloads, all floors, separate drawn formation, bounded preparation and a complete round trip. Reviewed the deepest-floor and deep-chunk-crossing captures. The first native attempt clicked before camera interpolation settled; the accepted harness waits for actual drawn formation before resolving click pixels.
+
+Cleared corridors, parked route threats, preobserved ecology and ample pack food isolate streaming. Headless tick timings exclude movement command costs and native mouse checks do not establish FPS or untouched-map accessibility. All clients, captures and inputs use private Xvfb/software rendering and temporary slots.
+
+The completed ecology matrix above closes the sustained lifecycle workload. Fresh full verification and the original requirement-by-requirement completion audit remain the final acceptance steps.

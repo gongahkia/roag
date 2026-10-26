@@ -1,0 +1,53 @@
+{
+  "kind": "boss",
+  "id": "boss.gorge-tyrant",
+  "name": "Gorge Tyrant",
+  "family": "buried beasts",
+  "sprite": "wolf",
+  "description": "A guardian of the buried beasts; its realm changes with every world.",
+  "weakness": "Stop bleeding early; interrupt recovery below a third health.",
+  "tactics": "Rend pressures strongest targets; sweep is eligible every 3 rounds. Below 45% health, drain and recover enter its repertoire.",
+  "health": 312,
+  "power": 9,
+  "armor": 2,
+  "speed": 7,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.rend",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.sweep",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.drain",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.rend",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.emberborne",
+    "variant.ironbound",
+    "variant.mournful"
+  ],
+  "reward": "reward.guardian-night"
+}

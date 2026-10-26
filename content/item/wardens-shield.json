@@ -1,0 +1,16 @@
+{
+  "kind": "item",
+  "id": "item.wardens-shield",
+  "name": "Warden's shield",
+  "sprite": "shield",
+  "stack": "item.wardens-shield",
+  "slot": "armor",
+  "armor": 1,
+  "value": 28,
+  "effects": [
+    "affix.sentinel"
+  ],
+  "affixPool": [
+    "affix.steadfast"
+  ]
+}

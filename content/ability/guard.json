@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.guard",
+  "name": "Guard",
+  "sprite": "shield",
+  "mana": 0,
+  "target": "Self",
+  "power": 0,
+  "effect": "guard",
+  "duration": 3,
+  "description": "Guard."
+}

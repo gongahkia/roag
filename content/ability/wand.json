@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.wand",
+  "name": "Wand",
+  "sprite": "staff",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 7,
+  "effect": "damage",
+  "duration": 3,
+  "description": "Wand."
+}

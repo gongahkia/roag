@@ -1,0 +1,18 @@
+{
+  "kind": "reward",
+  "id": "reward.road-wardens",
+  "name": "Wardens' stores",
+  "sprite": "chest",
+  "gold": 14,
+  "food": 2,
+  "experience": 16,
+  "supplies": {
+    "item.medicine": 1
+  },
+  "equipmentPool": [
+    "item.wardens-shield",
+    "item.chainmail",
+    "item.iron-sword"
+  ],
+  "equipmentChancePercent": 100
+}

@@ -1,0 +1,12 @@
+{
+  "kind": "interaction",
+  "id": "interaction.meal",
+  "name": "Share a meal",
+  "action": "share-meal",
+  "cost": {
+    "item.food": 1
+  },
+  "amount": 8,
+  "distance": 2,
+  "description": "Share your food and improve resolve and trust."
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "New world remains paused and saves exactly",
+  "seed": 1337,
+  "fixture": "world",
+  "steps": [
+    {"op": "assert", "path": "/paused", "expected": true},
+    {"op": "assert", "path": "/partyCount", "expected": 1},
+    {"op": "save-load"},
+    {"op": "assert", "path": "/tick", "expected": 0}
+  ]
+}

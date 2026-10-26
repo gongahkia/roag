@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><EmbeddedResource Include="../../assets/ithica-generation.json" LogicalName="Roag.Generation.json" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/world/*.json" LogicalName="Roag.World.%(Filename)%(Extension)" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../content/**/*.json" Exclude="../../content/schema.json" LogicalName="Roag.Content.%(RecursiveDir)%(Filename)%(Extension)" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../../assets/ithica-expedition-sprites.json" LogicalName="Roag.ContentSprites.json" /></ItemGroup>
+</Project>

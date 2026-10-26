@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "experiential-playtester",
+  "objective": "Make the model tester remember its playthrough, follow a focused journey through normal mouse controls, and give evidence-backed player impressions about understanding, navigation, interaction and the world.",
+  "requirements": [
+    {"id":"memory","description":"Persist player-observed leads, journal, explored ground, attempted actions and goals across decisions and controller continuation; preserve useful UI information without exposing unknown terrain or unplayed outcomes.","profiles":["tools","playtest"]},
+    {"id":"experience","description":"Produce durable positive, negative and uncertain playtester comments explaining observations, expectations, interpretation and suggestions, with retained evidence and a readable end-of-run review rather than only command-status reports.","profiles":["tools","playtest"],"manualReview":true},
+    {"id":"journey","description":"Support a focused settlement-to-discovery-to-dungeon journey, observed-only route guidance, stagnation feedback and measured checkpoints; dogfood the live model and state incomplete coverage honestly.","profiles":["tools","playtest"],"manualReview":true},
+    {"id":"boundaries","description":"Preserve isolated saves, real mouse input, dungeon privacy, bounded storage/time, recovery, exact model selection and deterministic gameplay; document the limits of model opinions and any navigation assistance.","profiles":["core","tools","playtest"]}
+  ]
+}

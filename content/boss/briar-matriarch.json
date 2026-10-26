@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.briar-matriarch",
+  "name": "Briar Matriarch",
+  "family": "thorn courts",
+  "sprite": "willow",
+  "description": "A guardian of the thorn courts; its realm changes with every world.",
+  "weakness": "Bleed her before the recovery window; cleanse marks.",
+  "tactics": "Hex pressures weakest targets; rend is eligible every 2 rounds. Below 40% health, drain and recover enter its repertoire.",
+  "health": 180,
+  "power": 8,
+  "armor": 1,
+  "speed": 4,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.rend",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.drain",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [
+    "character.hollow"
+  ],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ],
+  "reward": "reward.guardian-thorn"
+}

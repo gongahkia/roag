@@ -1,0 +1,9 @@
+{
+  "kind": "item",
+  "id": "item.apple",
+  "name": "Orchard apple",
+  "sprite": "apple",
+  "stack": "apple",
+  "value": 2,
+  "description": "An ingredient carried in the shared pack."
+}

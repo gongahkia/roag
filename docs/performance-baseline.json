@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-20",
+  "cpu": "Intel Core i5-8279U @ 2.40GHz",
+  "sdk": "10.0.402",
+  "configuration": "Release",
+  "warmupTicks": 16,
+  "notes": "Individual local samples. Completion counts include warmup. Managed memory excludes native graphics. See PERFORMANCE.md for workload and limits.",
+  "runs": [
+    {
+      "scenario": "sealed habitat, live needs, staggered work assignment, BFS routes, mining, power, full active-floor diffusion",
+      "runtime": ".NET 10.0.13", "os": "macOS 15.7.7", "architecture": "X64",
+      "width": 256, "height": 256, "cells": 65536, "activeAtmosphereCells": 64516,
+      "agents": 1000, "ticks": 120, "actualTick": 136,
+      "totalMilliseconds": 491.33, "meanTickMilliseconds": 4.094, "p95TickMilliseconds": 10.988,
+      "allocatedBytes": 219280, "allocatedBytesPerTick": 1827, "pathSearches": 3421,
+      "completedWork": 1000, "jobsRemaining": 0, "living": 1000, "managedMemoryBytes": 4845680
+    },
+    {
+      "scenario": "sealed habitat, live needs, staggered work assignment, BFS routes, mining, power, full active-floor diffusion",
+      "runtime": ".NET 10.0.13", "os": "macOS 15.7.7", "architecture": "X64",
+      "width": 512, "height": 512, "cells": 262144, "activeAtmosphereCells": 257315,
+      "agents": 10000, "ticks": 120, "actualTick": 136,
+      "totalMilliseconds": 1879.94, "meanTickMilliseconds": 15.666, "p95TickMilliseconds": 16.731,
+      "allocatedBytes": 1020712, "allocatedBytesPerTick": 8505, "pathSearches": 7680,
+      "completedWork": 7215, "jobsRemaining": 2785, "living": 10000, "managedMemoryBytes": 21827136
+    },
+    {
+      "scenario": "sealed habitat, live needs, staggered work assignment, BFS routes, mining, power, full active-floor diffusion",
+      "runtime": ".NET 10.0.13", "os": "macOS 15.7.7", "architecture": "X64",
+      "width": 1024, "height": 1024, "cells": 1048576, "activeAtmosphereCells": 1041699,
+      "agents": 10000, "ticks": 120, "actualTick": 136,
+      "totalMilliseconds": 7735.8, "meanTickMilliseconds": 64.465, "p95TickMilliseconds": 65.901,
+      "allocatedBytes": 1010872, "allocatedBytesPerTick": 8423, "pathSearches": 7680,
+      "completedWork": 7215, "jobsRemaining": 2785, "living": 10000, "managedMemoryBytes": 64284184
+    }
+  ]
+}

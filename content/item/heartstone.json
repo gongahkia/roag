@@ -1,0 +1,22 @@
+{
+  "kind": "item",
+  "id": "item.heartstone",
+  "name": "Heartstone",
+  "sprite": "crystal",
+  "stack": "item.heartstone",
+  "slot": "charm",
+  "health": 12,
+  "power": 0,
+  "armor": 0,
+  "speed": 0,
+  "value": 40,
+  "affixPool": [
+    "affix.sentinel",
+    "affix.kindled",
+    "affix.mending",
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
+}

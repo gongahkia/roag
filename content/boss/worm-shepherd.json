@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.worm-shepherd",
+  "name": "Worm Shepherd",
+  "family": "deep swarms",
+  "sprite": "bandit",
+  "description": "A guardian of the deep swarms; its realm changes with every world.",
+  "weakness": "Defeat the swarm before its rally and interrupt recovery.",
+  "tactics": "Rally-Host pressures stressed targets; rend is eligible every 4 rounds. Below 50% health, dread and recover enter its repertoire.",
+  "health": 246,
+  "power": 10,
+  "armor": 3,
+  "speed": 7,
+  "phasePercent": 50,
+  "behaviors": [
+    {
+      "ability": "ability.rally-host",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.rend",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.dread",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.rally-host",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [
+    "character.slime"
+  ],
+  "variants": [
+    "variant.ironbound",
+    "variant.mournful",
+    "variant.ravenous"
+  ],
+  "reward": "reward.guardian-thorn"
+}

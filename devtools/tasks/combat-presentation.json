@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "combat-presentation",
+  "objective": "Improve the existing turn-based party combat with a readable battle stage, ordered attack and impact playback, clear intentions and useful agent diagnostics without changing gameplay rules or saved continuation.",
+  "requirements": [
+    {"id": "battle-stage", "description": "Present party and enemies as large facing sprites with readable initiative, health, statuses and icon-led abilities at the minimum window size.", "profiles": ["native"], "scenes": ["world-battle", "world-cooperation", "world-boss"], "manualReview": true},
+    {"id": "ordered-feedback", "description": "Play anticipation, travel, impact and recovery in order, retain defeated fighters until finishing-hit playback completes, and defer rewards/endings until that sequence finishes.", "profiles": ["core", "native"], "scenes": ["world-battle", "world-cooperation", "world-boss"], "manualReview": true},
+    {"id": "combat-integrity", "description": "Keep action legality, mana, helper commitments, combat randomness and round time independent of playback; prevent action overlap and retain exact save/load continuation.", "profiles": ["core", "world", "native"], "scenes": ["world-cooperation", "world-boss"]},
+    {"id": "intent-clarity", "description": "Show planned enemy actions, targets and honest damage ranges without consuming randomness or changing saved enemy plans.", "profiles": ["core", "native"], "scenes": ["world-battle", "world-boss"], "manualReview": true},
+    {"id": "presentation-controls", "description": "Provide mouse controls for playback speed, skipping, reduced motion and sound, pause presentation on focus loss, and reuse validated existing art with safe audio fallback.", "profiles": ["core", "assets", "native"], "scenes": ["world-cooperation"], "manualReview": true},
+    {"id": "developer-loop", "description": "Expose semantic presentation phases, extend repeatable native checks and capture their UI state, document authoring and validation, and close the milestone with fresh evidence.", "profiles": ["tools", "assets", "native"], "scenes": ["world-battle", "world-cooperation", "world-boss"]}
+  ]
+}

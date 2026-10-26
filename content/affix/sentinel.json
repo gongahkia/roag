@@ -1,0 +1,13 @@
+{
+  "kind": "affix",
+  "id": "affix.sentinel",
+  "name": "Sentinel",
+  "sprite": "shield",
+  "effect": "protect",
+  "power": 3,
+  "slots": [
+    "armor",
+    "charm"
+  ],
+  "description": "Blocks up to 3 damage for another ally at half health or lower, once per round."
+}

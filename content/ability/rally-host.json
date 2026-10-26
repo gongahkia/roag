@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.rally-host",
+  "name": "Rally the host",
+  "sprite": "banner",
+  "mana": 0,
+  "target": "AllAllies",
+  "power": 0,
+  "effect": "rally",
+  "duration": 3,
+  "description": "Rally the host."
+}

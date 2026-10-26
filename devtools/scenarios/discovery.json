@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "name": "Disarm a generated storeroom through normal delegated work",
+  "seed": 42,
+  "fixture": "situation",
+  "definition": "discovery.trapped-storeroom",
+  "steps": [
+    {"op": "command", "kind": "ApproachDiscovery", "item": "disarm"},
+    {"op": "advance", "ticks": 5},
+    {"op": "save-load"},
+    {"op": "advance", "ticks": 150},
+    {"op": "assert", "path": "/anchor/discovery/outcome", "expected": "disarm"},
+    {"op": "assert", "path": "/workCount", "expected": 0},
+    {"op": "save-load"}
+  ]
+}

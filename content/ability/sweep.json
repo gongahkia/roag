@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.sweep",
+  "name": "Sweep",
+  "sprite": "arc",
+  "mana": 0,
+  "target": "AllEnemies",
+  "power": 4,
+  "effect": "damage",
+  "duration": 3,
+  "description": "Sweep."
+}

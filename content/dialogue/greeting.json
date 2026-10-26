@@ -1,0 +1,37 @@
+{
+  "kind": "dialogue",
+  "id": "dialogue.greeting",
+  "name": "Greeting dialogue",
+  "variants": [
+    {
+      "when": "injured",
+      "replies": [
+        "Ah, a traveller. Forgive me if I stay still. These wounds are making today a long one."
+      ]
+    },
+    {
+      "when": "hungry",
+      "replies": [
+        "Hello there. I could use a meal before another day of work. Have you come far?"
+      ]
+    },
+    {
+      "when": "trusted",
+      "replies": [
+        "{player}! Good to see a familiar face in {town}. Come, tell me how the road has treated you."
+      ]
+    },
+    {
+      "when": "always",
+      "replies": [
+        "Welcome to {town}. I am {name}. What brings you this way?"
+      ]
+    },
+    {
+      "when": "always",
+      "replies": [
+        "A new face! I am {name}. If you need a moment off the road, I have time to talk."
+      ]
+    }
+  ]
+}

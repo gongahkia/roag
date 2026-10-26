@@ -1,0 +1,8 @@
+{
+  "kind": "item",
+  "id": "item.stone",
+  "name": "Stone",
+  "sprite": "stone",
+  "stack": "stone",
+  "value": 2
+}

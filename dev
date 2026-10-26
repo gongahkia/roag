@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")"
+if [ "${1:-}" = profile ]; then
+    shift
+    exec python3 tools/profile_game.py "$@"
+fi
+if [ "${1:-}" = benchmark-render ]; then
+    shift
+    exec python3 tools/benchmark_render.py "$@"
+fi
+if [ "${1:-}" = sessions ] || [ "${1:-}" = playtest ]; then
+    exec python3 tools/playtest_tools.py "$@"
+fi
+if [ "${1:-}" = agent ]; then
+    shift
+    exec python3 tools/agent_tools.py "$@"
+fi
+if [ "${1:-}" = test ]; then
+    shift
+    exec ./tools/dotnet.sh test Roag.sln --configuration Release "$@"
+fi
+if [ "${1:-}" = verify-native ]; then
+    shift
+    exec python3 tools/verify_world_input.py "$@"
+fi
+exec ./tools/dotnet.sh run --project src/Roag.Tools --configuration Release -- "$@"

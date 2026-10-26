@@ -1,0 +1,16 @@
+{
+  "kind": "dialogue",
+  "id": "dialogue.rumours",
+  "name": "Rumours dialogue",
+  "variants": [
+    {
+      "when": "always",
+      "player": "What should we look for nearby?",
+      "replies": [
+        "There is somewhere you should know about. Let me mark it for you.",
+        "{result}"
+      ]
+    }
+  ],
+  "interaction": "interaction.rumours"
+}

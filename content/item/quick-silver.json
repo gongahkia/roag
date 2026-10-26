@@ -1,0 +1,22 @@
+{
+  "kind": "item",
+  "id": "item.quick-silver",
+  "name": "Quicksilver token",
+  "sprite": "mark",
+  "stack": "item.quick-silver",
+  "slot": "charm",
+  "health": 0,
+  "power": 0,
+  "armor": 0,
+  "speed": 2,
+  "value": 40,
+  "affixPool": [
+    "affix.sentinel",
+    "affix.kindled",
+    "affix.mending",
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
+}

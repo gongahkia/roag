@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.warden-breaker",
+  "name": "Breaker",
+  "sprite": "spark",
+  "acquisition": "choice",
+  "class": "class.warden",
+  "level": 2,
+  "bonuses": {
+    "stunned-damage": 4
+  },
+  "description": "Direct attacks gain 4 power against a target that is already stunned. Coordinate an interruption before striking."
+}

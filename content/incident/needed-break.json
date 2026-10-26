@@ -1,0 +1,10 @@
+{
+  "kind": "incident",
+  "id": "incident.needed-break",
+  "name": "A needed break",
+  "description": "I stopped to recover rather than continue exhausted.",
+  "condition": "exhaustion",
+  "effect": "rest",
+  "mood": 4,
+  "cooldown": 1200
+}

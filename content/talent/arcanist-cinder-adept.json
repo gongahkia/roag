@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.arcanist-cinder-adept",
+  "name": "Cinder adept",
+  "sprite": "ember",
+  "acquisition": "choice",
+  "class": "class.arcanist",
+  "level": 2,
+  "bonuses": {
+    "burn-damage": 4
+  },
+  "description": "Burning attacks gain 4 direct power. Subsequent burning ticks keep their usual damage."
+}

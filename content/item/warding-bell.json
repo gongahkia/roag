@@ -1,0 +1,22 @@
+{
+  "kind": "item",
+  "id": "item.warding-bell",
+  "name": "Warding bell",
+  "sprite": "resolve",
+  "stack": "item.warding-bell",
+  "slot": "charm",
+  "health": 4,
+  "power": 0,
+  "armor": 1,
+  "speed": 0,
+  "value": 40,
+  "affixPool": [
+    "affix.sentinel",
+    "affix.kindled",
+    "affix.mending",
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
+}

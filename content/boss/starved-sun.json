@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.starved-sun",
+  "name": "Starved Sun",
+  "family": "fallen lights",
+  "sprite": "wisp",
+  "description": "A guardian of the fallen lights; its realm changes with every world.",
+  "weakness": "Cleanse burns and interrupt its last recovery.",
+  "tactics": "Scorch pressures stressed targets; drain is eligible every 4 rounds. Below 40% health, sweep and recover enter its repertoire.",
+  "health": 224,
+  "power": 8,
+  "armor": 1,
+  "speed": 8,
+  "phasePercent": 40,
+  "behaviors": [
+    {
+      "ability": "ability.scorch",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.drain",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.scorch",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.ironbound",
+    "variant.mournful",
+    "variant.ravenous"
+  ],
+  "reward": "reward.guardian-cinder"
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "reward",
+  "id": "reward.raiders",
+  "name": "Raider provisions",
+  "sprite": "chest",
+  "gold": 5,
+  "food": 1,
+  "experience": 7,
+  "supplies": {},
+  "equipmentPool": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.chainmail"
+  ],
+  "equipmentChancePercent": 40
+}

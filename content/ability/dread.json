@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.dread",
+  "name": "Dread",
+  "sprite": "wisp",
+  "mana": 0,
+  "target": "Enemy",
+  "power": 3,
+  "effect": "dread",
+  "duration": 3,
+  "description": "Dread."
+}

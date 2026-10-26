@@ -1,0 +1,13 @@
+{
+  "kind": "talent",
+  "id": "talent.arcanist-stormcaller",
+  "name": "Stormcaller",
+  "sprite": "arc",
+  "acquisition": "choice",
+  "class": "class.arcanist",
+  "level": 2,
+  "bonuses": {
+    "all-target-damage": 3
+  },
+  "description": "Attacks targeting every enemy gain 3 power per target. Concentrate on groups instead of single-target spells."
+}

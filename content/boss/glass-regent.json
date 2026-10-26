@@ -1,0 +1,56 @@
+{
+  "kind": "boss",
+  "id": "boss.glass-regent",
+  "name": "Glass Regent",
+  "family": "mirror court",
+  "sprite": "wisp",
+  "description": "A guardian of the mirror court; its realm changes with every world.",
+  "weakness": "Interrupt its marking sequence; guard on sweeping rounds.",
+  "tactics": "Hex pressures strongest targets; interrupt is eligible every 3 rounds. Below 45% health, sweep and guard enter its repertoire.",
+  "health": 202,
+  "power": 9,
+  "armor": 2,
+  "speed": 5,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.interrupt",
+      "every": 3,
+      "weight": 4,
+      "target": "strongest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "strongest"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp",
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.emberborne",
+    "variant.ironbound",
+    "variant.mournful"
+  ],
+  "reward": "reward.guardian-memory"
+}

@@ -1,0 +1,56 @@
+{
+  "kind": "boss",
+  "id": "boss.storm-cantor",
+  "name": "Storm Cantor",
+  "family": "sky covenants",
+  "sprite": "wisp",
+  "description": "A guardian of the sky covenants; its realm changes with every world.",
+  "weakness": "Guard the storm rounds and calm the shaken party.",
+  "tactics": "Interrupt pressures weakest targets; scorch is eligible every 2 rounds. Below 45% health, sweep and rally host enter its repertoire.",
+  "health": 224,
+  "power": 9,
+  "armor": 2,
+  "speed": 8,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.scorch",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.interrupt",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.rally-host",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [
+    "character.wisp",
+    "character.wisp"
+  ],
+  "variants": [
+    "variant.mournful",
+    "variant.ravenous",
+    "variant.swift"
+  ],
+  "reward": "reward.guardian-storm"
+}

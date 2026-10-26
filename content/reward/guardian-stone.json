@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-stone",
+  "name": "Deep stone spoils",
+  "sprite": "chest",
+  "gold": 46,
+  "food": 4,
+  "experience": 35,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.pickaxe",
+    "item.chainmail",
+    "item.heartstone"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.stone-lantern"
+}

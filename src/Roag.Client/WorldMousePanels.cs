@@ -1,0 +1,139 @@
+using Microsoft.Xna.Framework;
+using Roag.Core.Content;
+using Roag.Core.World;
+
+namespace Roag.Client;
+
+internal sealed partial class WorldGame
+{
+    private void DrawPanel(int w, int h)
+    {
+        var box = PanelBox(w, h); Fill(box, new(24, 31, 37));
+        int x = box.X + 20, y = box.Y + 64, width = box.Width - 40;
+        string title = _panel switch { "inventory" => "PARTY & EQUIPMENT", "camp-story" => "CAMPFIRE STORIES", "game" => "GAME MENU", "person" => "CONVERSATION", "actions" => "EXPEDITION ACTIONS", "loot" => "CHOOSE YOUR EQUIPMENT", "spoils" => "ENCOUNTER WON", "combat-log" => "COMBAT LOG", _ => _panel.ToUpperInvariant() };
+        Text(title, x, box.Y + 18, Gold, 2);
+        switch (_panel)
+        {
+            case "guide":
+                string[] paragraphs = [
+                    "Click observed ground to travel; the teal preview becomes a gold route. Click people, stairs, caches or storage to approach and interact. Drag to select tiles; right-click opens actions at the cursor. Right-click a panel to close it.",
+                    "Play/Pause controls world time. Conversations and reference panels pause. Party and Work keep time running until you press Pause. Use World map for the large-scale overview; the +/- and View buttons control the closer exploration camera. The mouse wheel also zooms.",
+                    "Party manages companions and equipment. Conversations offer recruitment, stories, trade and treatment. Everyone needs food and rest; wounds and exhaustion affect combat and work.",
+                    "Right-click terrain or a selection to build, dig or repair. Supplies are reserved and available companions take separate jobs within a 16-tile rally area. Work assigns workers or cancels orders. Right-click a camp to rest or craft. Actions offers gathering and waiting.",
+                    "In battle, click an ability, then its enemy or companion target. Self/group abilities execute when clicked. Choices cost no time; completed rounds advance one minute. Enemy intentions are visible, and Tactics describes bosses.",
+                    "All dungeons and the selected final threat are available from the start. Defeating that boss completes the run. A party wipe causes permanent death; the ending offers a new traveller or a fresh world. Save/Load and the window close button are available without keyboard input."
+                ];
+                foreach (string paragraph in paragraphs) { y += Wrap(paragraph, x, y, width); y += 10; }
+                break;
+            case "game":
+                Wrap("Mouse controls exploration, conversations, work, equipment and combat. Conversations pause world time; Party and Work keep it running. Save preserves your current expedition; Load restores the selected slot.", x + 390, y, width - 390, Muted);
+                break;
+            case "person": DrawConversation(box); break;
+            case "trade":
+                var town = _session.Plan.Towns.FirstOrDefault(t => _session.State.Position.Distance(t.Center) <= 28);
+                if (town == null) { Wrap("Approach a town to trade.", x, y, width); break; }
+                Text(town.Name + " / Gold " + _session.Count("gold"), x, y, Gold);
+                int row = 0;
+                foreach (string item in new[] { "food", "wood", "stone", "medicine" })
+                {
+                    var stocks = _session.State.Towns[town.Id]; int ry = y + 52 + row++ * 56;
+                    Text(item + "  stock " + stocks.Stocks[item] + "  carried " + _session.Count(item), x, ry);
+                    Text($"Buy {stocks.Price(item)} gold / sell {Math.Max(1, stocks.Price(item) / 2)} gold", x, ry + 19, Muted);
+                }
+                break;
+            case "inventory": DrawInventorySummary(box); break;
+            case "progression": DrawProgression(box); break;
+            case "tactics": DrawEncounterTactics(box); break;
+            case "camp":
+                Text("Choose a companion, a duty and an activity. Time runs; Pause to plan.", x, box.Bottom - 50, Muted); break;
+            case "camp-story": DrawConversation(box); break;
+            case "supplies": Text("Ingredients and supplies shared by the expedition.", x, y, Muted); break;
+            case "discovery":
+                if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
+                {
+                    _sprites.Fit(_batch, _session.DiscoverySprite(discovery), new(x, y, 54, 54), Gold);
+                    Text(Short(discovery.Name, (width - 76) / 8), x + 72, y, Gold);
+                    Text(_session.Plan.Towns[discovery.TownId].Name + " / " + _session.State.Factions[_session.Plan.Towns[discovery.TownId].FactionId].Name, x + 72, y + 24, Muted);
+                    Wrap(_session.DiscoveryText(discovery), x, y + 78, width);
+                    string guards = string.Join(", ", discovery.Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).Where(a => a.Life == LifeState.Alive).Select(a => a.Name));
+                    if (_session.Situation(discovery) != null) Wrap(_session.SituationDescription(discovery), x, y + 138, width, discovery.Outcome.Length == 0 ? Gold : Muted);
+                    else Wrap(guards.Length > 0 ? "Guarded by " + guards + ". Their strength is fixed; prepare your party before approaching."
+                        : "The linked site is recorded on World map. Its terrain remains unexplored until you reach it.", x, box.Bottom - 214, width, guards.Length > 0 ? new(225, 146, 125) : Muted);
+                }
+                break;
+            case "loot":
+                if (_session.State.Loot.FirstOrDefault(c => c.Position == _lootPosition && !c.Taken) is { } chest)
+                {
+                    Wrap("Supplies: " + string.Join(", ", chest.Contents.Select(p => p.Value + " " + p.Key)) + ". Choose one item; the other offerings remain behind.", x, y, width, Gold);
+                    Text("Compare against a companion's currently equipped slot:", x, y + 96, Muted);
+                    for (int i = 0; i < chest.Choices.Length; i++)
+                    {
+                        var item = _session.Item(chest.Choices[i]); var change = _session.CompareGear(SelectedMember(), item.Id); int ry = y + 126 + i * 72;
+                        Text($"{item.Slot}: HP+{item.Health} P+{item.Power} A+{item.Armor} S+{item.Speed}", x + 320, ry);
+                        Text(Short("Replaces " + change.Previous + ": " + GearDelta(change), (width - 320) / 8), x + 320, ry + 23, Muted);
+                        Text(Short(_session.EquipmentSummary(item), (width - 320) / 8), x + 320, ry + 43, Gold);
+                    }
+                }
+                break;
+            case "spoils": DrawCombatRewards(box); break;
+            case "combat-log":
+                Text("Damage and healing show actual HP changes; statuses show duration or removal.", x, y, Muted);
+                int ey = y + 34;
+                foreach (var entry in _session.State.CombatEvents.AsEnumerable().Reverse().Skip(_combatLogOffset).Take(6))
+                {
+                    Text($"Round {entry.Round} / {entry.Label}" + (entry.Amount > 0 ? " " + entry.Amount : ""), x, ey, EventColor(entry.Kind));
+                    Wrap(entry.Detail, x, ey + 20, width, Muted); ey += 52;
+                }
+                break;
+            case "work":
+                Text("PENDING ORDERS", x, y, Gold); Text("AVAILABLE PEOPLE", x + width / 2 + 8, y, Gold);
+                if (_session.State.Work.Count == 0) Wrap("No pending work. Right-click terrain for building or digging, a camp for crafting, or use Actions to gather food.", x, y + 40, width / 2 - 24, Muted);
+                if (SelectedWork() is { } work) Wrap(work.Status + ". " + (work.PinnedWorker ? "Named worker." : "Automatic party assignment.") + " Time runs here; Pause to inspect safely.", x, y + 286, width, Muted);
+                else if (_session.State.Work.Count > 0) Wrap("Select an order to inspect or change it. Time runs here; Pause to inspect safely.", x, y + 286, width, Muted);
+                break;
+            case "craft":
+                Text("Requires a serviceable camp. Click a recipe to reserve supplies and begin work.", x, y, Muted);
+                var recipes = CraftRecipes();
+                for (int i = 0; i < Math.Min(4, recipes.Length - _craftPage * 4); i++)
+                    Text(string.Join(", ", recipes[_craftPage * 4 + i].Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name)), x + 8, y + 86 + i * 74, Muted);
+                break;
+            case "actions":
+                Wrap(WeatherText(), x, y + 124, width, Muted);
+                Text("Weather may change in " + Math.Max(1, (_session.WeatherAt(_session.State.Position).Until - _session.State.Tick + 4) / 5) + " game minutes.", x, y + 174, Muted);
+                Text(_session.ShelteredAt(_session.State.Position) ? "Camp or underground cover protects travel and rest." : "Exposed rest recovers fatigue at " + _session.WeatherAt(_session.State.Position).ExposedRestPercent + "% of its normal rate.", x, y + 196, Gold);
+                Wrap("Waiting and resting advance shared time. Nearby danger interrupts them. Repair targets adjacent owned structures; storage keeps actual stacks.", x, y + 236, width, Muted);
+                break;
+            case "storage":
+                Text("Choose which supplies to move between the shared pack and this chest.", x, y, Muted);
+                var contents = StoredItems(); var stacks = StorageItems();
+                for (int i = 0; i < Math.Min(6, stacks.Length - _storagePage * 6); i++)
+                {
+                    string stack = stacks[_storagePage * 6 + i]; var item = _session.Content.All<ItemDefinition>().FirstOrDefault(d => d.Stack == stack) ?? (_session.TryItem(stack, out var generated) ? generated : null);
+                    Text($"{item?.Name ?? stack} / carried {_session.Count(stack)} / stored {contents.GetValueOrDefault(stack)}", x, y + 42 + i * 44);
+                }
+                break;
+            case "journal": DrawJournal(box); break;
+            case "map":
+                Text("Known places / 4096 x 4096 surface. Choose a destination to mark it.", x, y, Muted);
+                var region = new Rectangle(x, y + 36, width - 320, box.Bottom - y - 82); Fill(region, new(12, 22, 27));
+                foreach (var delta in _session.State.Chunks.Where(c => c.Key.Floor == 0 && c.Discovered.Count > 0))
+                    Fill(new(region.X + delta.Key.X * region.Width / 64, region.Y + delta.Key.Y * region.Height / 64, Math.Max(2, region.Width / 64), Math.Max(2, region.Height / 64)), new(70, 86, 74));
+                foreach (var known in _session.Plan.Towns.Where(t => _session.Chunks.Seen(t.Center)))
+                    Text(known.Name, Math.Min(region.Right - 160, region.X + known.Center.X * region.Width / WorldPlan.Size), region.Y + known.Center.Y * region.Height / WorldPlan.Size, Gold);
+                foreach (var site in _session.Plan.Sites.Where(s => _session.State.KnownSites.Contains(s.Id)))
+                {
+                    int sx = region.X + site.Center.X * region.Width / WorldPlan.Size, sy = region.Y + site.Center.Y * region.Height / WorldPlan.Size;
+                    Fill(new(sx - 2, sy - 2, 5, 5), new(220, 145, 120));
+                    Text(Short(site.Name, 23), Math.Clamp(sx + 7, region.Left, region.Right - 192), Math.Clamp(sy, region.Top, region.Bottom - 18), new(220, 145, 120));
+                }
+                foreach (var mark in _session.State.Discoveries.Where(d => d.Known))
+                    Fill(new(region.X + mark.Position.X * region.Width / WorldPlan.Size, region.Y + mark.Position.Y * region.Height / WorldPlan.Size, 3, 3), _session.DiscoveryComplete(mark) ? Muted : new(130, 198, 204));
+                var position = _session.State.Position;
+                Fill(new(region.X + position.X * region.Width / WorldPlan.Size, region.Y + position.Y * region.Height / WorldPlan.Size, 5, 5), Ink);
+                if (_waypoint is { } waypoint) Fill(new(region.X + waypoint.X * region.Width / WorldPlan.Size - 2, region.Y + waypoint.Y * region.Height / WorldPlan.Size - 2, 7, 7), Gold);
+                break;
+            case "inspector": DrawInspector(x, y, width); break;
+        }
+    }
+    private static string GearDelta(GearComparison c) => $"HP {c.Health:+0;-0;0} P {c.Power:+0;-0;0} A {c.Armor:+0;-0;0} S {c.Speed:+0;-0;0}";
+}

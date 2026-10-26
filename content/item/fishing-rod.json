@@ -1,0 +1,19 @@
+{
+  "kind": "item",
+  "id": "item.fishing-rod",
+  "name": "Fishing rod",
+  "sprite": "fishing-rod",
+  "stack": "fishing-rod",
+  "slot": "tool",
+  "value": 12,
+  "workBonuses": {
+    "fish": 75
+  },
+  "description": "Equip in the tool slot. fish: +75% work speed.",
+  "affixPool": [
+    "affix.steadfast",
+    "affix.delver",
+    "affix.prospector",
+    "affix.angler"
+  ]
+}

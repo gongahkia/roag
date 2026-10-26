@@ -1,0 +1,21 @@
+{
+  "kind": "character",
+  "id": "character.cinder-channeler",
+  "name": "Cinder channeler",
+  "sprite": "mage",
+  "actorKind": "Raider",
+  "health": 28,
+  "mana": 12,
+  "power": 6,
+  "speed": 4,
+  "armor": 0,
+  "interactions": [],
+  "behaviors": [
+    {
+      "ability": "ability.cinder-surge",
+      "weight": 1,
+      "noRepeat": true
+    }
+  ],
+  "reward": "reward.raiders"
+}

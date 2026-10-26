@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-iron",
+  "name": "Iron oath spoils",
+  "sprite": "chest",
+  "gold": 32,
+  "food": 3,
+  "experience": 32,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.chainmail",
+    "item.wardens-shield",
+    "item.iron-sword"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.pilgrims-aegis"
+}

@@ -1,0 +1,35 @@
+{
+  "kind": "encounter",
+  "id": "encounter.hollow-vigil",
+  "name": "Hollow vigil",
+  "sprite": "banner",
+  "members": [
+    "character.hollow-bleeder",
+    "character.ash-whisper",
+    "character.hollow"
+  ],
+  "roles": [
+    "attrition",
+    "attrition",
+    "attacker"
+  ],
+  "tier": "warband",
+  "weight": 40,
+  "purposes": [
+    "ruin",
+    "shrine"
+  ],
+  "biomes": [
+    "Grassland",
+    "Forest",
+    "Marsh",
+    "Highland",
+    "Badland",
+    "Snow"
+  ],
+  "minDepth": 1,
+  "maxDepth": 3,
+  "tactics": "The reaver alternates bleeding attacks while the whisper interleaves dread with ordinary strikes. Remove one source of attrition early; healing clears bleed, while calm controls stress. The oathless guard keeps pressure on the party.",
+  "reward": "reward.hollow-vigil",
+  "description": "The reaver alternates bleeding attacks while the whisper interleaves dread with ordinary strikes. Remove one source of attrition early; healing clears bleed, while calm controls stress. The oathless guard keeps pressure on the party."
+}

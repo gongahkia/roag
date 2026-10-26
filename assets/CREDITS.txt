@@ -1,0 +1,27 @@
+Regolith imported asset credits
+
+Godot node icons
+Author: pixel-boy
+Source and CC0 declaration: https://pixel-boy.itch.io/icon-godot-node
+
+Keyboard / Controller Keys (new and legacy)
+Author: Hyohnoo
+Source and CC0 declaration: https://hyohnoo.itch.io/keyboard-controller-keys
+
+Urizen 1Bit Tileset v2.0 and free 2-bit showcase
+Author: vurmux
+Source and CC0 declaration: https://vurmux.itch.io/urizen-onebit-tileset
+
+The ZIP files did not contain license documents. These source references record
+where each publisher states the license. Original artwork and filenames are
+preserved; contact sheets and enlarged inspection panels are generated previews.
+
+Sprite-reference metadata
+Historical Urizen author labels/properties were matched to the downloaded atlas
+by visible RGB artwork, with transparent and near-black background normalized.
+Source revision: 28b1e60cf8fa2f15622537f6df0290e2ac890d5f
+Source: https://github.com/vurmux/urizen/tree/28b1e60cf8fa2f15622537f6df0290e2ac890d5f/urizen/data/tilesets
+The individual tileset directories contain CC0 licenses. No dungeon-generation
+library code is imported. Match evidence is in reference/urizen-names.json.
+Regolith usage suggestions and uncertain visual labels are local documentation,
+not author-provided meanings or active runtime sprite bindings.

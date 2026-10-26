@@ -1,0 +1,19 @@
+{
+  "kind": "reward",
+  "id": "reward.guardian-cinder",
+  "name": "Cinder sanctum spoils",
+  "sprite": "chest",
+  "gold": 34,
+  "food": 4,
+  "experience": 33,
+  "supplies": {
+    "item.medicine": 2
+  },
+  "equipmentPool": [
+    "item.ember-staff",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "equipmentChancePercent": 100,
+  "signature": "item.cinder-sceptre"
+}

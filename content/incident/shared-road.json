@@ -1,0 +1,10 @@
+{
+  "kind": "incident",
+  "id": "incident.shared-road",
+  "name": "A shared road",
+  "description": "There are people here I trust.",
+  "condition": "trust",
+  "effect": "memory",
+  "mood": 4,
+  "cooldown": 3600
+}

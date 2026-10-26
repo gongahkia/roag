@@ -1,0 +1,55 @@
+{
+  "kind": "boss",
+  "id": "boss.reed-queen",
+  "name": "Reed Queen",
+  "family": "river bargains",
+  "sprite": "willow",
+  "description": "A guardian of the river bargains; its realm changes with every world.",
+  "weakness": "Cleanse marks and interrupt recovery; guard its draining phase.",
+  "tactics": "Hex pressures weakest targets; scorch is eligible every 2 rounds. Below 50% health, drain and recover enter its repertoire.",
+  "health": 180,
+  "power": 10,
+  "armor": 3,
+  "speed": 6,
+  "phasePercent": 50,
+  "behaviors": [
+    {
+      "ability": "ability.hex",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.scorch",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.drain",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.hex",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.recover",
+      "every": 2,
+      "weight": 3,
+      "belowHealthPercent": 35
+    }
+  ],
+  "minions": [
+    "character.slime"
+  ],
+  "variants": [
+    "variant.ancient",
+    "variant.emberborne",
+    "variant.ironbound"
+  ],
+  "reward": "reward.guardian-river"
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "discovery",
+  "id": "discovery.waycamp",
+  "name": "Abandoned waycamp",
+  "action": "camp",
+  "sprite": "campfire",
+  "text": "The fire circle bears the mark of the {faction}. {witness} of {town} left dry provisions here before scouting {site} to the {direction}.",
+  "layout": [
+    ".......",
+    ".#...#.",
+    ".......",
+    "...C...",
+    ".......",
+    ".#...#.",
+    "......."
+  ],
+  "supplies": {
+    "item.food": 4,
+    "item.wood": 2
+  },
+  "rewards": [],
+  "enemies": []
+}

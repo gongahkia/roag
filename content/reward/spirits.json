@@ -1,0 +1,16 @@
+{
+  "kind": "reward",
+  "id": "reward.spirits",
+  "name": "Restless keepsakes",
+  "sprite": "chest",
+  "gold": 3,
+  "food": 0,
+  "experience": 8,
+  "supplies": {},
+  "equipmentPool": [
+    "item.warding-bell",
+    "item.heartstone",
+    "item.ember-staff"
+  ],
+  "equipmentChancePercent": 50
+}

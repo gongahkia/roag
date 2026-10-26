@@ -1,0 +1,12 @@
+{
+  "kind": "talent",
+  "id": "talent.opportunist",
+  "name": "Opportunist",
+  "sprite": "spark",
+  "acquisition": "innate",
+  "level": 1,
+  "bonuses": {
+    "stunned-damage": 2
+  },
+  "description": "Direct attacks gain 2 power against a target that is already stunned."
+}

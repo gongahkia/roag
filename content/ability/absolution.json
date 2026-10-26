@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.absolution",
+  "name": "Absolution",
+  "sprite": "resolve",
+  "mana": 4,
+  "target": "AllAllies",
+  "power": 20,
+  "effect": "calm",
+  "duration": 3,
+  "description": "Absolution."
+}

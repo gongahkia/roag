@@ -1,0 +1,53 @@
+{
+  "kind": "boss",
+  "id": "boss.thunder-roc",
+  "name": "Thunder Roc",
+  "family": "sky covenants",
+  "sprite": "wolf",
+  "description": "A guardian of the sky covenants; its realm changes with every world.",
+  "weakness": "Guard whole-party attacks and exploit turns spent guarding.",
+  "tactics": "Sweep pressures stressed targets; interrupt is eligible every 4 rounds. Below 45% health, scorch and guard enter its repertoire.",
+  "health": 246,
+  "power": 9,
+  "armor": 2,
+  "speed": 6,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.sweep",
+      "weight": 2,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.interrupt",
+      "every": 4,
+      "weight": 4,
+      "target": "stressed"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.scorch",
+      "weight": 3,
+      "target": "stressed"
+    },
+    {
+      "ability": "ability.sweep",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.swift",
+    "variant.ancient",
+    "variant.emberborne"
+  ],
+  "reward": "reward.guardian-storm"
+}

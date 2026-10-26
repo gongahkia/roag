@@ -1,0 +1,64 @@
+{
+  "kind": "discovery",
+  "id": "discovery.poisoned-spring",
+  "name": "Poisoned spring",
+  "action": "encounter",
+  "sprite": "fountain",
+  "text": "Runoff from {site} has fouled this spring near {town}. {witness} recorded a treatment using herbs and medicine; clearing the growth or diverting the contaminated channel would restore it.",
+  "layout": [
+    ".........",
+    ".###~###.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".#.....#.",
+    ".###~###.",
+    "........."
+  ],
+  "supplies": {
+    "item.food": 4,
+    "item.medicine": 2
+  },
+  "rewards": [
+    "item.iron-sword",
+    "item.hunters-bow",
+    "item.ember-staff",
+    "item.wardens-shield",
+    "item.wanderers-cloak",
+    "item.heartstone",
+    "item.warding-bell",
+    "item.quick-silver"
+  ],
+  "enemies": [
+    "character.slime"
+  ],
+  "situation": {
+    "kind": "spring",
+    "resolvedSprite": "fountain",
+    "approaches": [
+      {
+        "action": "repair",
+        "name": "Purify the spring",
+        "sprite": "fountain",
+        "description": "Treat the source and dismantle the poisonous growth.",
+        "work": 45,
+        "cost": {
+          "item.herbs": 2,
+          "item.medicine": 1
+        }
+      }
+    ],
+    "tunnelWalls": [
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": 3,
+        "y": 0
+      }
+    ],
+    "bridgeCells": []
+  }
+}

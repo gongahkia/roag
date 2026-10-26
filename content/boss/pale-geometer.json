@@ -1,0 +1,53 @@
+{
+  "kind": "boss",
+  "id": "boss.pale-geometer",
+  "name": "Pale Geometer",
+  "family": "forbidden scholars",
+  "sprite": "wisp",
+  "description": "A guardian of the forbidden scholars; its realm changes with every world.",
+  "weakness": "Guard the strongest member and interrupt sweeping turns.",
+  "tactics": "Interrupt pressures weakest targets; hex is eligible every 2 rounds. Below 45% health, sweep and guard enter its repertoire.",
+  "health": 290,
+  "power": 9,
+  "armor": 2,
+  "speed": 7,
+  "phasePercent": 45,
+  "behaviors": [
+    {
+      "ability": "ability.interrupt",
+      "weight": 2,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.hex",
+      "every": 2,
+      "weight": 4,
+      "target": "weakest"
+    }
+  ],
+  "enraged": [
+    {
+      "ability": "ability.sweep",
+      "weight": 3,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.interrupt",
+      "weight": 1,
+      "target": "weakest"
+    },
+    {
+      "ability": "ability.guard",
+      "every": 3,
+      "weight": 3,
+      "belowHealthPercent": 100
+    }
+  ],
+  "minions": [],
+  "variants": [
+    "variant.mournful",
+    "variant.ravenous",
+    "variant.swift"
+  ],
+  "reward": "reward.guardian-memory"
+}

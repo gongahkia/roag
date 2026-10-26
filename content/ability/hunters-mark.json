@@ -1,0 +1,12 @@
+{
+  "kind": "ability",
+  "id": "ability.hunters-mark",
+  "name": "Hunter\u2019s mark",
+  "sprite": "mark",
+  "mana": 2,
+  "target": "Enemy",
+  "power": 4,
+  "effect": "mark",
+  "duration": 3,
+  "description": "Hunter\u2019s mark."
+}
