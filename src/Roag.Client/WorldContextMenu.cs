@@ -79,11 +79,9 @@ internal static class WorldContextActions
                 if (intent.Kind == "loot" && session.State.Loot.Any(c => c.Position == p && c.SourceActor > 0)) label = "Recover ingredients";
                 options.Add(new("interact", label, plan.Reachable ? "" : plan.Reason, actor != null ? session.WildlifeDescription(actor) : ""));
             }
-            else if (session.GroundOpen(p))
-            { var plan = WorldMouseNavigation.Plan(session, p); options.Add(new("travel", "Travel here", plan.Reachable ? "" : plan.Reason)); }
             if (session.Chunks.At(p) == Material.Camp)
             {
-                string reason = session.State.Position.Distance(p) <= 1 || session.RouteToAdjacent(p).Count > 0 ? "" : "No free observed approach reaches this camp.";
+                string reason = session.State.Position.Distance(p) <= 1 ? "" : "Move beside the camp with WASD or arrow keys.";
                 if (reason.Length == 0 && session.State.Structures.Any(s => s.Position == p && s.Condition <= 20)) reason = "Repair this worn camp first.";
                 string restReason = reason.Length > 0 ? reason : session.Count("food") < session.State.Party.Count ? $"Rest needs {session.State.Party.Count} food." : "";
                 options.Add(new("camp", "Assign camp duties", reason)); options.Add(new("rest", "Rest here / 1 hour", restReason)); options.Add(new("craft", "Craft here", reason));
@@ -204,12 +202,11 @@ internal sealed partial class WorldGame
         }
         switch (action)
         {
-            case "travel": case "interact": BeginApproach(WorldMouseNavigation.Plan(_session, p)); break;
+            case "interact": BeginApproach(WorldMouseNavigation.Plan(_session, p)); break;
             case "party": if (actor != null) { _packMember = _session.State.Party.IndexOf(actor.Id); _panel = "inventory"; } break;
             case "lead": if (actor != null) Execute(new(WorldCommandKind.LeadParty, ActorId: actor.Id)); break;
             case "rest": case "craft": case "camp":
-                var route = _session.RouteToAdjacent(p); bool reachable = route.Count > 0 || _session.State.Position.Distance(p) <= 1;
-                BeginApproach(new(route, new(action, p), reachable, "No free approach reaches this camp.")); break;
+                BeginApproach(new([], new(action, p), _session.State.Position.Distance(p) <= 1, "Move beside the camp with WASD or arrow keys.")); break;
             case "work":
                 _selectedWorkId = _session.State.Work.FirstOrDefault(w => cells.Contains(w.Target))?.Id ?? 0; _panel = "work"; break;
             case "suspend":
@@ -233,9 +230,7 @@ internal sealed partial class WorldGame
         StopTravel();
         if (!plan.Reachable) { _notice = plan.Reason; return; }
         _pendingInteraction = plan.Interaction;
-        foreach (var cell in plan.Path) _route.Enqueue(cell);
-        if (_route.Count > 0) { _session.Paused = false; _notice = "Travelling. Pause, Stop or right-click to stop."; }
-        else FinishApproach();
+        FinishApproach();
     }
     private void DrawSelection()
     {

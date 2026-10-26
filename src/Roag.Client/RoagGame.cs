@@ -30,9 +30,6 @@ public sealed partial class RoagGame : Game
     private string _dialogTitle = "", _dialogText = "", _toast = "", _hover = "";
     private double _toastUntil;
     private bool _intro;
-    private readonly List<Cell> _route = [];
-    private int _routeCursor;
-    private string? _routeObject;
     private Vector2[] _positions = new Vector2[4];
     private readonly List<string> _checks = [];
     private sealed record Popup(Cell Cell, string Text, Color Color, double Until);
@@ -139,7 +136,6 @@ public sealed partial class RoagGame : Game
         }
         if (_campaign.Battle is not null)
         {
-            _route.Clear();
         }
     }
     private void Layout()
@@ -194,20 +190,6 @@ public sealed partial class RoagGame : Game
                     _enemyAt = _time + .65;
                 }
             }
-            else if (_routeCursor < _route.Count && _time >= _moveAt)
-            {
-                Cell next = _route[_routeCursor++];
-                Move(next.X - _campaign.Position.X, next.Y - _campaign.Position.Y);
-                _moveAt = _time + .11;
-                if (_routeCursor >= _route.Count && _routeObject is { } id)
-                {
-                    _routeObject = null;
-                    if (_campaign.Battle is null)
-                    {
-                        Apply(_campaign.Interact(id));
-                    }
-                }
-            }
         }
         Recenter();
         foreach (var e in _campaign.CombatEvents.Where(e => e.Sequence > _eventWatermark))
@@ -257,7 +239,6 @@ public sealed partial class RoagGame : Game
             _atlas = !_atlas;
             _intro = false;
             _dialogTitle = "";
-            _route.Clear();
             return;
         }
         if (_atlas)
@@ -410,7 +391,6 @@ public sealed partial class RoagGame : Game
         }
         if (Pressed(Keys.OemPeriod) || Pressed(Keys.Space))
         {
-            _route.Clear();
             Apply(_campaign.Wait());
         }
 
@@ -432,27 +412,25 @@ public sealed partial class RoagGame : Game
         if (_time >= _moveAt)
         {
             int dx = 0, dy = 0;
-            if (_keys.IsKeyDown(Keys.Left) || _keys.IsKeyDown(Keys.A))
+            if (Pressed(Keys.Left) || Pressed(Keys.A))
             {
                 dx = -1;
             }
-            else if (_keys.IsKeyDown(Keys.Right) || _keys.IsKeyDown(Keys.D))
+            else if (Pressed(Keys.Right) || Pressed(Keys.D))
             {
                 dx = 1;
             }
-            else if (_keys.IsKeyDown(Keys.Up) || _keys.IsKeyDown(Keys.W))
+            else if (Pressed(Keys.Up) || Pressed(Keys.W))
             {
                 dy = -1;
             }
-            else if (_keys.IsKeyDown(Keys.Down) || _keys.IsKeyDown(Keys.S))
+            else if (Pressed(Keys.Down) || Pressed(Keys.S))
             {
                 dy = 1;
             }
 
             if (dx != 0 || dy != 0)
             {
-                _route.Clear();
-                _routeObject = null;
                 Move(dx, dy);
                 _moveAt = _time + .13;
             }
@@ -470,8 +448,6 @@ public sealed partial class RoagGame : Game
         if (_campaign.Battle is not null || _campaign.ZoneId != zone)
         {
             _follow = true;
-            _route.Clear();
-            _routeObject = null;
             _lastActive = -1;
             Recenter(true);
         }
@@ -501,14 +477,7 @@ public sealed partial class RoagGame : Game
             Apply(_campaign.Interact(o.Id));
             return;
         }
-        _route.Clear();
-        _route.AddRange(_campaign.Route(cell));
-        _routeCursor = 0;
-        _routeObject = o?.Kind is ObjectKind.Portal or ObjectKind.Encounter ? null : o?.Id;
-        if (_route.Count == 0)
-        {
-            Toast("No visible route. Use WASD or approach from another side.");
-        }
+        Toast("Move with WASD or arrow keys, one tile per press.");
     }
     private void ChooseSkill(int skill)
     {
@@ -562,8 +531,6 @@ public sealed partial class RoagGame : Game
         {
             _campaign = Campaign.LoadRpg(_options.Save);
             _autoSave = true;
-            _route.Clear();
-            _routeObject = null;
             _positions = new Vector2[4];
             _lastActive = -1;
             _eventWatermark = _campaign.CombatEvents.LastOrDefault()?.Sequence ?? 0;
@@ -704,7 +671,6 @@ public sealed partial class RoagGame : Game
         _campaign.TravelTo("wilds-hounds");
         _lastActive = -1;
         _dialogTitle = "";
-        _route.Clear();
         _positions = new Vector2[4];
         Recenter(true);
     }

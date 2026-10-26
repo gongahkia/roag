@@ -41,7 +41,7 @@ internal static class WorldInspection
         if (session.ResourceAt(cell) is { } resource)
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
-        string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Right-click to approach, rest or craft", _ => "Travel here" };
+        string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Walk beside the camp; right-click to rest or craft", _ => "Move with WASD or arrow keys" };
         return WithAccess(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + session.Plan.BiomeAt(cell.X, cell.Y) + ".", action, "terrain");
         WorldHoverInfo WithAccess(string title, string detail, string action, string kind)
         { return new(title, detail, action, WorldMouseNavigation.HoverBlockReason(session, cell), kind); }

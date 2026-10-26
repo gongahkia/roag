@@ -16,7 +16,7 @@ internal sealed partial class WorldGame
         {
             case "guide":
                 string[] paragraphs = [
-                    "Click observed ground to travel; the teal preview becomes a gold route. Click people, stairs, caches or storage to approach and interact. Drag to select tiles; right-click opens actions at the cursor. Right-click a panel to close it.",
+                    "Move with WASD or arrow keys, one tile per press. Click nearby people, stairs, caches or storage to interact. Drag to select tiles; right-click opens actions at the cursor. Right-click a panel to close it.",
                     "Play/Pause controls world time. Conversations and reference panels pause. Party and Work keep time running until you press Pause. Use World map for the large-scale overview; the +/- and View buttons control the closer exploration camera. The mouse wheel also zooms.",
                     "Party manages companions and equipment. Conversations offer recruitment, stories, trade and treatment. Everyone needs food and rest; wounds and exhaustion affect combat and work.",
                     "Right-click terrain or a selection to build, dig or repair. Supplies are reserved and available companions take separate jobs within a 16-tile rally area. Work assigns workers or cancels orders. Right-click a camp to rest or craft. Actions offers gathering and waiting.",
@@ -26,7 +26,7 @@ internal sealed partial class WorldGame
                 foreach (string paragraph in paragraphs) { y += Wrap(paragraph, x, y, width); y += 10; }
                 break;
             case "game":
-                Wrap("Mouse controls exploration, conversations, work, equipment and combat. Conversations pause world time; Party and Work keep it running. Save preserves your current expedition; Load restores the selected slot.", x + 390, y, width - 390, Muted);
+                Wrap("WASD or arrow keys move one tile per press. Use the mouse for inspection, conversations, work, equipment and targeting. Conversations pause world time; Party and Work keep it running. Save preserves your current expedition; Load restores the selected slot.", x + 390, y, width - 390, Muted);
                 break;
             case "person": DrawConversation(box); break;
             case "trade":

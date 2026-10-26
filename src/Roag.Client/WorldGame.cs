@@ -25,12 +25,11 @@ internal sealed partial class WorldGame : Game
     private readonly MapCamera _camera = new();
     private Rectangle _map, _side;
     private MouseState _mouse;
-    private string _panel = "", _notice = "Click the ground to travel. Click people or objects to approach and interact.";
+    private string _panel = "", _notice = "WASD / arrows move one tile per press. Click nearby people or objects to interact.";
     private long _person;
     private int _skill, _combatTarget = -1, _cooperativePartner = -1, _journalOffset;
     private int _inspectStage;
     private int _packMember, _packItem;
-    private readonly Queue<WorldPosition> _route = [];
     private WorldClickIntent? _pendingInteraction;
     private readonly WorldPointerPreview _pointer = new();
     private readonly GridMotion _partyMotion = new();
@@ -47,7 +46,7 @@ internal sealed partial class WorldGame : Game
     private readonly StreamingJourneyFixture? _streamingFixture;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
-    private double _moveTimer, _enemyTimer, _workVisualTime;
+    private double _enemyTimer, _workVisualTime;
     private int _draws;
     private readonly Stopwatch _runtime = new();
     private readonly List<double> _updates = [];
@@ -134,10 +133,8 @@ internal sealed partial class WorldGame : Game
         var left = _camera.ScreenToWorld(new(_map.Left, _map.Top));
         var right = _camera.ScreenToWorld(new(_map.Right, _map.Bottom));
         var position = _session.State.Position;
-        var destination = _route.TryPeek(out var next) ? next : position;
         var before = _streamPosition ?? position;
-        if (destination != position) { _streamDx = Math.Sign(destination.X - position.X); _streamDy = Math.Sign(destination.Y - position.Y); }
-        else if (before != position && before.Floor == position.Floor) { _streamDx = Math.Sign(position.X - before.X); _streamDy = Math.Sign(position.Y - before.Y); }
+        if (before != position && before.Floor == position.Floor) { _streamDx = Math.Sign(position.X - before.X); _streamDy = Math.Sign(position.Y - before.Y); }
         _session.Chunks.PrepareView(position, (int)Math.Floor(left.X), (int)Math.Floor(left.Y), (int)Math.Ceiling(right.X), (int)Math.Ceiling(right.Y),
             _streamDx, _streamDy);
         _streamPosition = position;
@@ -192,15 +189,8 @@ internal sealed partial class WorldGame : Game
         if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
-        if (_playtest == null || InputFocused) _moveTimer += gameTime.ElapsedGameTime.TotalSeconds;
-        if (!_session.Frozen && _moveTimer >= MoveDuration && _route.TryDequeue(out var next))
-        {
-            if (!Execute(new(WorldCommandKind.Move, next))) { StopTravel(); _notice += " Click again to route around the obstruction."; }
-            _moveTimer = 0;
-            if (!_session.IsInCombat) FinishApproach();
-        }
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
-        _session.PartyTravelling = _route.Count > 0 || _pendingInteraction != null;
+        _session.PartyTravelling = false;
         bool wasInCombat = _session.IsInCombat;
         // Long stalls discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
@@ -286,9 +276,9 @@ internal sealed partial class WorldGame : Game
             replacement.Paused = _options.Preview;
             _session.Dispose(); _streamPosition = null; _streamDx = _streamDy = 0;
             _session = replacement; ResetCombatPresentation(); _dialogue = null; _voice?.Stop(); _afterDialogue = ""; ClearWorldSelection(); _autoSave = true; StopTravel(); _panel = ""; _person = 0; _camera.Center = Vector2.Zero;
-            _skill = 0; _cooperativePartner = _combatTarget = -1; _moveTimer = _enemyTimer = 0;
+            _skill = 0; _cooperativePartner = _combatTarget = -1; _enemyTimer = 0;
             _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
-            _notice = _session.Paused ? "World restored and paused. Click a destination or Play to continue." : "World restored. Time is running.";
+            _notice = _session.Paused ? "World restored and paused. Use WASD / arrows to move." : "World restored. Time is running.";
             _recording?.Record("world-load", new { _session.Seed, save = _options.Save }); RecordSnapshot();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or ArgumentException)

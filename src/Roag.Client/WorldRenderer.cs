@@ -133,11 +133,6 @@ public sealed partial class RoagGame
             }
         }
 
-        for (int n = _routeCursor; n < _route.Count; n++)
-        {
-            var s = _camera.WorldToScreen(Point(_route[n]));
-            Fill(new((int)s.X - 2, (int)s.Y - 2, 4, 4), Gold * .45f);
-        }
         foreach (var o in zone.Objects)
         {
             if (!zone.Seen[zone.Index(o.Position)])

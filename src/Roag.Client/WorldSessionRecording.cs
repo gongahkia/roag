@@ -3,7 +3,7 @@ namespace Roag.Client;
 internal sealed partial class WorldGame
 {
     private object RecordingSnapshot() => new { world = _session.DiagnosticSnapshot(), ui = new { panel = _panel, nativeFocused = IsActive,
-        notice = _notice, routeCount = _route.Count, pendingInteraction = _pendingInteraction,
+        notice = _notice, routeCount = 0, pendingInteraction = _pendingInteraction,
         camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize },
         combatPresentation = new { Playback.Busy, Playback.Phase, Playback.Progress, _combatSpeed, _reducedMotion } } };
     private void RecordSnapshot() => _recording?.Snapshot(RecordingSnapshot(), _session.State.Tick);

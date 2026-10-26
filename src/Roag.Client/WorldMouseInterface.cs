@@ -50,7 +50,7 @@ internal sealed partial class WorldGame
     private Dictionary<string, int> StoredItems() => _session.State.Chunks.FirstOrDefault(c => c.Key == _storage.Chunk)?.Storage.GetValueOrDefault(_storage.LocalIndex) ?? [];
     private string[] StorageItems() => _session.State.Inventory.Keys.Concat(StoredItems().Keys).Distinct().Where(i => _session.Count(i) > 0 || StoredItems().GetValueOrDefault(i) > 0).Order(StringComparer.Ordinal).ToArray();
     private string[] JournalLines(int width) => JournalRows(width).Select(row => row.Text).ToArray();
-    private void StopTravel() { _route.Clear(); _pendingInteraction = null; _session.PartyTravelling = false; }
+    private void StopTravel() { _pendingInteraction = null; _session.PartyTravelling = false; }
     private void ClosePanel() { _dialogue = null; _afterDialogue = ""; _voice?.Stop(); _contextCells = null; _panel = ""; StopTravel(); }
     private void Zoom(int direction) { _camera.ZoomAt(_map.Center.ToVector2(), direction); UpdateView(); }
     private void NewWorld()
@@ -63,7 +63,7 @@ internal sealed partial class WorldGame
         ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
-        _notice = "A fresh world begins. Click the ground to travel.";
+        _notice = "A fresh world begins. Move with WASD or arrow keys, one tile per press.";
     }
     private void FinishApproach()
     {
@@ -76,12 +76,7 @@ internal sealed partial class WorldGame
         int range = intent.Kind is "person" or "actor" ? 2 : 1;
         if (cell.Distance(_session.State.Position) > range)
         {
-            if (_route.Count == 0)
-            {
-                var replanned = WorldMouseNavigation.Plan(_session, cell);
-                if (!replanned.Reachable || replanned.Path.Count == 0) { StopTravel(); _notice = "The target moved out of reach. Click to approach again."; return; }
-                foreach (var step in replanned.Path) _route.Enqueue(step);
-            }
+            StopTravel(); _notice = "Move closer with WASD or arrow keys to interact.";
             return;
         }
         StopTravel();
@@ -418,7 +413,7 @@ internal sealed partial class WorldGame
             case "mark-moment": ClosePanel(); MarkMoment("Player marked this moment"); break;
             case "pause":
                 _session.Paused = !_session.Paused;
-                if (_session.Paused) StopTravel(); _notice = _session.Paused ? "Paused. Click a destination to travel again." : "Time is running."; break;
+                if (_session.Paused) StopTravel(); _notice = _session.Paused ? "Paused. Use WASD or arrow keys to move." : "Time is running."; break;
             case "save": TrySave(); break;
             case "load": TryLoad(); break;
             case "stop": StopTravel(); _session.StopPartyWorkApproach(); ClearWorldSelection(); _notice = "Travel stopped and party work suspended. Resume or cancel orders in Work."; break;
@@ -433,8 +428,8 @@ internal sealed partial class WorldGame
                 { ClosePanel(); Selection.Single(wall); _notice = "Right-click the selected side wall and choose Dig. Companions can do the work."; } break;
             case "discovery-fight":
                 var foe = _session.State.Discoveries.Single(d => d.Id == _discoveryId).Enemies.Select(id => _session.State.Actors.Single(a => a.Id == id)).First(a => a.Life == LifeState.Alive);
-                ClosePanel(); var fightRoute = _session.RouteToAdjacent(foe.Position);
-                BeginApproach(new(fightRoute, new("enemy", foe.Position, foe.Id), _session.State.Position.Distance(foe.Position) <= 1 || fightRoute.Count > 0, "No observed approach reaches the defender.")); break;
+                ClosePanel();
+                BeginApproach(new([], new("enemy", foe.Position, foe.Id), _session.State.Position.Distance(foe.Position) <= 1, "Move beside the defender with WASD or arrow keys.")); break;
             case "claim": if (Execute(new(WorldCommandKind.Loot, _lootPosition, Item: argument))) { _panel = "inventory"; _packItem = Array.FindIndex(EquipmentChoices(), i => i.Id == argument); _gearPage = _packItem / 8; } break;
             case "combat-history": _combatLogOffset = Math.Clamp(_combatLogOffset + int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture), 0, Math.Max(0, _session.State.CombatEvents.Count - 1)); break;
             case "placespage": _placesPage += int.Parse(argument, System.Globalization.CultureInfo.InvariantCulture); break;
@@ -579,8 +574,8 @@ internal sealed partial class WorldGame
             textCache = new { entries = _sprites.TextLayouts.Count, characters = _sprites.TextLayouts.Characters,
                 hits = _sprites.TextLayouts.Hits, misses = _sprites.TextLayouts.Misses },
             controlCache = new { hits = ControlCache.Hits, misses = ControlCache.Misses, retained = ControlCache.Retained },
-            routeCount = _route.Count, notice = _notice,
-            route = _route.Take(16).ToArray(), inventory = _session.State.Inventory,
+            routeCount = 0, notice = _notice,
+            route = Array.Empty<WorldPosition>(), inventory = _session.State.Inventory,
             selectedSkill = _skill, cooperativePartner = _cooperativePartner,
             skills = skills.Select((skill, index) => new { index, skill.Id, skill.Name, skill.Mana,
                 target = skill.Target.ToString(), skill.Cooperative, skill.PartnerMana, reason = _session.SkillUnavailable(index, skills) }),

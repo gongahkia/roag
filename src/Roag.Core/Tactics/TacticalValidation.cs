@@ -23,6 +23,10 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        if (state.Rewards is null) throw new InvalidDataException("Missing tactical rewards.");
+        state.Rewards.Validate(actors);
+        if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
+        state.Loot.Validate(plan, actors);
         ValidateBoonWork(plan, state, actors, queue);
         ChunkGenerator? rooms = null;
         if (state.ControlledActor != 0 && (!world.Party.Contains(state.ControlledActor)
@@ -70,7 +74,9 @@ public static class TacticalValidation
                 }
             }
             int readiness = queue.Pending.Count(e => e.Kind == ScheduledKind.ActorReady && e.ActorId == id);
-            if (readiness != (actor.Life == LifeState.Dead || id == state.ActiveActor ? 0 : 1)
+            int windingUp = state.Attacks.Count(a => a != null && a.Source == id && a.RecoveryCost != null);
+            if (readiness != (actor.Life == LifeState.Dead || id == state.ActiveActor || windingUp > 0 ? 0 : 1)
+                || windingUp > 1 || windingUp > 0 && id == state.ActiveActor
                 || actor.Health < 0 || actor.Health > actor.MaxHealth
                 || (actor.Life == LifeState.Alive) != (actor.Health > 0)
                 || (actor.Life == LifeState.Downed) != (actor.Tactics!.BleedTurns > 0)
@@ -83,6 +89,12 @@ public static class TacticalValidation
             throw new InvalidDataException("Duplicate tactical attack identities.");
         foreach (var attack in state.Attacks)
         {
+            if (attack.RecoveryCost is <= 0
+                || attack.RecoveryCost != null && (attack.ClassGenerated || !actors.TryGetValue(attack.Source, out var recovering) || recovering.Tactics?.Enemy == null)
+                || actors.TryGetValue(attack.Source, out var enemy) && enemy.Tactics?.Enemy != null && !attack.ClassGenerated && attack.RecoveryCost == null)
+                throw new InvalidDataException("Invalid enemy windup recovery contract.");
+            if (attack.IntendedTarget < 0 || attack.IntendedTarget != 0 && !actors.ContainsKey(attack.IntendedTarget))
+                throw new InvalidDataException("Unknown intended enemy target.");
             if (attack.Causality is { } cause)
             {
                 if (cause.ChainId <= 0 || cause.ChainId >= state.NextAction || cause.RootActionId <= 0 || cause.RootActionId >= state.NextAction
@@ -122,6 +134,9 @@ public static class TacticalValidation
         long previous = 0;
         foreach (var entry in state.Events)
         {
+            if (entry?.Loot is { } loot && (loot.Drop <= 0 || loot.Drop >= state.Loot.NextDrop
+                || !Enum.IsDefined(loot.Kind) || loot.Amount <= 0 || loot.ActualGain < 0 || loot.ActualGain > loot.Amount || loot.Balance < 0))
+                throw new InvalidDataException("Invalid loot event.");
             if (entry is null || entry.Sequence <= previous || entry.Sequence >= state.NextEvent
                 || entry.Time < 0 || entry.Time > queue.Clock || entry.Action < 0 || entry.Action >= state.NextAction
                 || entry.Source != 0 && !actors.ContainsKey(entry.Source) || entry.Target != 0 && !actors.ContainsKey(entry.Target)

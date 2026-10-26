@@ -30,6 +30,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Kill XP is split among contributing members, weighted by contribution. Noncontributors do not automatically receive an equal party payout.
 - Damage, healing, shielding and enemy control all count. Support should have comparable XP weight so support-focused members can progress at a similar pace.
 - Downed contributors retain their earned XP entitlement.
+- If a contributor permanently dies before the enemy dies, redistribute their share among surviving contributors using the same contribution weights. Downed contributors remain eligible; noncontributors do not inherit the share.
 - Summons, sentries and traps credit their owner's contribution.
 - Exact contribution scoring and allocation values are delegated tuning; document them and verify comparable progression opportunities for support and damage roles.
 
@@ -38,6 +39,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Fully turn-based, FFX-style ordering using Roag speed/action recovery. No elapsed world time while thinking, inspecting or rendering.
 - Visible timeline shows character turns and scheduled enemy attack impacts. The player commands each member when their turn arrives.
 - Movement consumes an action; a turn does not grant a separate free movement allowance plus attack.
+- Player-directed ordinary movement uses keyboard presses, one tile per press. Remove click-to-move, click-to-pathfind and automatic click-to-approach routes in exploration and combat. Mouse selection, inspection and in-range interactions remain available. Existing movement abilities retain their rules and take keyboard direction input; assigned party workers may still walk automatically to their jobs (explicitly approved). Agreed leader-following and NPC navigation also remain.
 - All party members, enemies and world systems use one consistent simulation time. Dungeon actions advance the outside world too.
 - Combat actions and individual movement steps take seconds; sustained travel, work and rest accumulate minutes/hours. Exact conversion and pacing remain tuning decisions.
 - When together outside combat, members automatically follow the chosen leader. The player can change that leader anytime; leader selection does not determine combat turn order.

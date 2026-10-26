@@ -15,8 +15,8 @@ internal sealed partial class WorldGame
         string[] labels=["Move","Basic attack","Special","Movement skill","Wait","Rescue (medicine)"];
         var active=_session.RoagFighters().FirstOrDefault(a=>a.Ready);
         int width=(_map.Width-16)/3;
-        for(int i=0;i<kinds.Length;i++)ControlCache.Add("roag:"+kinds[i],labels[i],new(_map.X+i%3*(width+8),h-94+i/3*44,width,36),true,_roagAim==kinds[i],"Choose an action, then a direction on the map.","",null,"",-1,null,false);
-        if(active!=null)_notice=active.Name+" / "+_session.RoagClassName(active.Class)+" — "+(_roagAim=="move"?"click an adjacent tile":_roagAim.Replace('_',' '));
+        for(int i=0;i<kinds.Length;i++)ControlCache.Add("roag:"+kinds[i],labels[i],new(_map.X+i%3*(width+8),h-94+i/3*44,width,36),true,_roagAim==kinds[i],kinds[i] is "move" or "dash" ? "Choose a direction with the keyboard." : "Choose an action, then its target or direction.","",null,"",-1,null,false);
+        if(active!=null)_notice=active.Name+" / "+_session.RoagClassName(active.Class)+" — "+(_roagAim=="move"?"WASD / arrows: one tile per press":_roagAim.Replace('_',' '));
     }
     private bool ActivateRoagControl(string id)
     {
@@ -38,6 +38,7 @@ internal sealed partial class WorldGame
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
+        if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);
         var active=_session.RoagFighters().FirstOrDefault(a=>a.Ready);if(active==null)return;
@@ -54,10 +55,13 @@ internal sealed partial class WorldGame
     }
     private void UpdateRoagKeyboard()
     {
-        if(!_session.Plan.RoagNative)return;
         var keyboard=Keyboard.GetState();
+        HandleRoagKeyboard(keyboard, InputFocused);
+    }
+    private void HandleRoagKeyboard(KeyboardState keyboard, bool focused)
+    {
         bool Press(Keys key)=>keyboard.IsKeyDown(key)&&_roagKeyboard.IsKeyUp(key);
-        if(InputFocused&&_panel.Length==0)
+        if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.State.Endgame.Victory&&!_session.State.AwaitingContinuation)
         {
             if(_session.State.RoagCombat)
             {
@@ -70,10 +74,11 @@ internal sealed partial class WorldGame
                 if(Press(Keys.Z)){dx=-1;dy=1;}if(Press(Keys.C)){dx=1;dy=1;}
                 if(dx!=0||dy!=0)CommitRoag(new(_roagAim,dx,dy,Vow:_roagVow));
             }
-            else
+            else if(!_session.IsInCombat)
             {
                 int dx=Press(Keys.D)||Press(Keys.Right)?1:Press(Keys.A)||Press(Keys.Left)?-1:0;
                 int dy=Press(Keys.S)||Press(Keys.Down)?1:Press(Keys.W)||Press(Keys.Up)?-1:0;
+                if(dx!=0)dy=0;
                 if(dx!=0||dy!=0){_session.Paused=false;Execute(new(WorldCommandKind.Move,_session.State.Position.Offset(dx,dy)));}
                 if(Press(Keys.Space)||Press(Keys.OemPeriod))Execute(new(WorldCommandKind.Wait,Amount:5));
             }
@@ -101,7 +106,7 @@ internal sealed partial class WorldGame
         }
         Text("F attack / R special / X move",_side.X+12,y+10,Muted);
         Text("Space waits. P toggles Vow.",_side.X+12,y+30,Muted);
-        var active=_session.RoagFighters().FirstOrDefault(a=>a.Ready);if(active==null)return;
+        var active=_session.RoagFighters().FirstOrDefault(a=>a.Ready);if(active==null||_roagAim is "move" or "dash")return;
         var mouse=Mouse.GetState();if(!_map.Contains(mouse.Position))return;
         var point=_camera.ScreenToWorld(new(mouse.X,mouse.Y));int dx=Math.Sign((int)Math.Floor(point.X)-active.Position.X),dy=Math.Sign((int)Math.Floor(point.Y)-active.Position.Y);
         if(_roagAim is "move" or "dash"){if(Math.Abs(point.X-active.Position.X)>=Math.Abs(point.Y-active.Position.Y))dy=0;else dx=0;}

@@ -9,11 +9,13 @@ public static class TacticalReferences
     {
         if (world.Tactics is not { } state) return false;
         if (state.ActiveActor == id || state.ControlledActor == id || state.Queue.Snapshot().Pending.Any(w => w.ActorId == id)
-            || state.Attacks.Any(a => a.Source == id || a.Causality?.Ancestry.Any(k => k.Owner == id) == true)
+            || state.Attacks.Any(a => a.Source == id || a.IntendedTarget == id || a.Causality?.Ancestry.Any(k => k.Owner == id) == true)
             || state.Events.Any(e => e.Source == id || e.Target == id)) return true;
         bool Activation(BoonActivation a) => a.OwnerId == id || a.PairTargetId == id || a.Event.SourceId == id || a.Event.TargetId == id
             || a.Ancestry.Any(k => k.Owner == id);
         if (state.BoonEffects.Echoes.Values.Any(e => Activation(e.Activation))) return true;
+        if (state.Loot.Drops.Any(d => d.DefeatedActor == id || d.CarriedBy == id)) return true;
+        if (state.Rewards.Enemies.Any(p => p.Key == id || p.Value.Members.ContainsKey(id) || p.Value.UnhealedDamage.ContainsKey(id))) return true;
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics is not { } tactics) continue;

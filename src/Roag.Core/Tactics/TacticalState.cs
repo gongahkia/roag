@@ -21,6 +21,11 @@ public sealed class ActorTactics
     public bool RewardExempt { get; set; }
     public string DefinitionId { get; set; } = "";
     public int CurrencyDrop { get; set; }
+    public bool HealthDrop { get; set; }
+    public EnemyMemory? Enemy { get; set; }
+    public int ExperienceReward { get; set; }
+    public bool RewardsClaimed { get; set; }
+    public int ExperienceFraction { get; set; }
     public long StunnedUntil { get; set; }
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
@@ -30,10 +35,17 @@ public sealed class ActorTactics
     {
         if ((Build is null) == (InnateStats is null) || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
             || MoveCost <= 0 || SnaredBy < 0 || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
+            || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
+            || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
                 || burning.Due < 0 || burning.Schedule <= 0 || burning.Activation is null))
             throw new InvalidDataException("Invalid actor tactics.");
         Build?.Validate();
+        if (Enemy != null)
+        {
+            if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
+            Enemy.Validate();
+        }
         Resources.Validate(Build?.Class);
         Boons.Validate(Build?.Class);
         var s = Stats;
@@ -48,10 +60,12 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     string Ability, AttackDelivery Delivery, DamageElement Element, int Damage, long Due,
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
-    int? FateFace = null);
+    int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null);
+public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
+    bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
     long Action, WorldPosition Position, int Amount = 0, int Prevented = 0, string Ability = "",
-    bool Forced = false, WorldPosition? From = null);
+    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null);
 
 /// <summary>Persisted work queue and event identities shared across terrain/floors.</summary>
 public sealed class TacticalWorldState
@@ -75,6 +89,8 @@ public sealed class TacticalWorldState
     public List<LockedAttack> Attacks { get; set; } = [];
     public List<TacticalEvent> Events { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
+    public ContributionRewards Rewards { get; set; } = new();
+    public TacticalLootState Loot { get; set; } = new();
 }
 
 /// <summary>Delegated numerical tuning; one ordinary 100-cost action represents one second.</summary>

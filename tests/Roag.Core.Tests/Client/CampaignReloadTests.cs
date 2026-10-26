@@ -22,8 +22,6 @@ public sealed class CampaignReloadTests : IDisposable
         Field("_options").SetValue(client, Options.Parse(["--save", Save]));
         Field("_campaign").SetValue(client, campaign);
         Field("_autoSave").SetValue(client, autosave);
-        Field("_route").SetValue(client, new List<Cell> { campaign.Position + new Cell(1, 0) });
-        Field("_routeObject").SetValue(client, "wood-camp");
         Field("_lastActive").SetValue(client, 7);
         Field("_eventWatermark").SetValue(client, 123);
         Field("_camera").SetValue(client, new MapCamera());
@@ -54,16 +52,12 @@ public sealed class CampaignReloadTests : IDisposable
         campaign.TravelTo("wilds-hounds");
         string before = campaign.StateJson();
         var client = Client(campaign, autosave);
-        var route = (List<Cell>)Field("_route").GetValue(client)!;
-        var pending = route.ToArray();
 
         Reload(client);
 
         Assert.Same(campaign, Field("_campaign").GetValue(client));
         Assert.Equal(before, campaign.StateJson());
         Assert.Equal(autosave, (bool)Field("_autoSave").GetValue(client)!);
-        Assert.Equal(pending, route);
-        Assert.Equal("wood-camp", Field("_routeObject").GetValue(client));
         Assert.Equal(7, Field("_lastActive").GetValue(client));
         Assert.Equal(123, Field("_eventWatermark").GetValue(client));
         Assert.StartsWith("Load failed: ", (string)Field("_toast").GetValue(client)!);
@@ -86,8 +80,6 @@ public sealed class CampaignReloadTests : IDisposable
         var loaded = (Campaign)Field("_campaign").GetValue(client)!;
         Assert.Equal(saved.StateJson(), loaded.StateJson());
         Assert.True((bool)Field("_autoSave").GetValue(client)!);
-        Assert.Empty((List<Cell>)Field("_route").GetValue(client)!);
-        Assert.Null(Field("_routeObject").GetValue(client));
         Assert.Equal(-1, Field("_lastActive").GetValue(client));
         Assert.Equal("Expedition restored.", Field("_toast").GetValue(client));
         saved.AutoBattle();

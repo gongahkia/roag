@@ -26,7 +26,7 @@ Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a n
 
 The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
 
-The world client is mouse-only: hover to highlight a tile, click ground to travel, and click people, caches or stairs to approach and interact. Left-drag selects tiles; right-click opens relevant actions, including digging and building. Solid props and characters block movement. Play/Pause, Party, Work, Actions, Journal and World map are visible buttons; Menu opens the guide and procedural inspector. Click an ability and a fighter in combat. Right-click a panel to close it; Stop cancels travel. The world stays large, with a close RPG camera and bounded zoom. Existing legacy campaigns retain their original controls. See the [play guide](docs/RPG.md).
+Move with WASD or arrow keys, one tile per press. Holding a direction does not repeat movement. Hover to inspect a tile and click nearby people, caches or stairs to interact; clicks never plot or follow a walking route. Left-drag selects tiles; right-click opens relevant actions, including digging and building. Solid props and characters block movement. Play/Pause, Party, Work, Actions, Journal and World map are visible buttons; Menu opens the guide and procedural inspector. Click an ability and a fighter in combat. Right-click a panel to close it; Stop suspends party work. The world stays large, with a close RPG camera and bounded zoom. The compatibility client also uses keyboard movement. See the [play guide](docs/RPG.md).
 
 ## Content authoring
 

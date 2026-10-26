@@ -18,7 +18,7 @@ public sealed class WorldMouseTests
     {
         var client = (WorldGame)RuntimeHelpers.GetUninitializedObject(typeof(WorldGame)); GC.SuppressFinalize(client);
         Field("_options").SetValue(client, Options.Parse(["--scene", "world"])); Field("_session").SetValue(client, session);
-        Field("_controls").SetValue(client, new List<WorldMouseControl>()); Field("_route").SetValue(client, new Queue<WorldPosition>());
+        Field("_controls").SetValue(client, new List<WorldMouseControl>());
         Field("_camera").SetValue(client, new MapCamera { Viewport = new(16, 84, 674, 490) });
         Field("_map").SetValue(client, new Rectangle(16, 84, 674, 490)); Field("_side").SetValue(client, new Rectangle(706, 84, 302, 620));
         Field("_combatFloats").SetValue(client, Activator.CreateInstance(Field("_combatFloats").FieldType));
@@ -30,24 +30,89 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
-    public void ClickingAPersonPlansAnObservedApproachWithoutMovingOrSpendingTime()
+    public void KeyboardMovementRequiresANewPressForEachSingleTile()
+    {
+        using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        var origin = session.State.Position;
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(origin.Offset(1, 0), session.State.Position);
+        string held = JsonSerializer.Serialize(session.State);
+        for (int i = 0; i < 20; i++) Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(held, JsonSerializer.Serialize(session.State));
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Right), true);
+        Assert.Equal(origin.Offset(2, 0), session.State.Position);
+    }
+    [Fact]
+    public void SimultaneousDirectionsDoNotQueueMultipleMovementSteps()
+    {
+        using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        var origin = session.State.Position;
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D, Keys.S), true);
+        Assert.Equal(1, origin.Distance(session.State.Position));
+        string held = JsonSerializer.Serialize(session.State);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.S), true);
+        Assert.Equal(held, JsonSerializer.Serialize(session.State));
+    }
+    [Fact]
+    public void KeyboardMovementDoesNotLeakThroughPanelsOrFocusChanges()
+    {
+        using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        string before = JsonSerializer.Serialize(session.State);
+        Field("_panel").SetValue(client, "inventory");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Field("_panel").SetValue(client, "");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.A), false);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.A), true);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+    [Theory]
+    [InlineData("move")]
+    [InlineData("dash")]
+    public void MouseCannotCommitMovementDirectionsInCombat(string action)
+    {
+        using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        Field("_roagAim").SetValue(client, action);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "RoagClick", new Point(100, 100));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.Contains("keyboard", (string)Field("_notice").GetValue(client)!);
+    }
+    [Fact]
+    public void ClickingOpenGroundNeverCreatesARouteOrAdvancesTime()
+    {
+        using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);
+        var target = session.State.Position.Offset(4, 0);
+        string before = JsonSerializer.Serialize(session.State);
+        var plan = WorldMouseNavigation.Plan(session, target);
+        Invoke(client, "BeginApproach", plan);
+        Assert.Empty(plan.Path); Assert.False(plan.Reachable);
+        Assert.DoesNotContain(WorldContextActions.Options(session, [target]), c => c.Id == "travel");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.False(session.PartyTravelling);
+    }
+    [Fact]
+    public void ClickingADistantPersonRequiresKeyboardApproachWithoutMovingOrSpendingTime()
     {
         var session = WorldSession.Create(42); var person = session.NearbyPerson() ?? session.State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited).MinBy(a => a.Position.Distance(session.State.Position))!;
         string before = JsonSerializer.Serialize(session.State); uint rng = session.State.CombatRandom;
         var plan = WorldMouseNavigation.Plan(session, person.Position);
-        Assert.True(plan.Reachable); Assert.Equal("person", plan.Interaction!.Kind); Assert.Equal(person.Id, plan.Interaction.Actor);
-        Assert.NotEmpty(plan.Path); Assert.InRange(plan.Path[^1].Distance(person.Position), 0, 2);
-        Assert.All(plan.Path, p => Assert.True(session.Chunks.Seen(p)));
+        Assert.False(plan.Reachable); Assert.Equal("person", plan.Interaction!.Kind); Assert.Equal(person.Id, plan.Interaction.Actor);
+        Assert.Empty(plan.Path); Assert.Contains("WASD", plan.Reason);
         Assert.Equal(before, JsonSerializer.Serialize(session.State)); Assert.Equal(rng, session.State.CombatRandom);
     }
     [Fact]
-    public void StorageCanBeApproachedEvenThoughItsOwnCellBlocksMovement()
+    public void DistantStorageRequiresKeyboardApproachButAdjacentStorageCanBeOpened()
     {
         var session = WorldSession.Create(42); var origin = session.State.Position; var chest = origin.Offset(4, 0);
         for (int x = 0; x < 5; x++) session.Chunks.Edit(origin.Offset(x, 0), Material.Floor);
         session.Chunks.Edit(chest, Material.Storage); session.Reveal();
         var plan = WorldMouseNavigation.Plan(session, chest);
-        Assert.True(plan.Reachable); Assert.Equal("storage", plan.Interaction!.Kind); Assert.Equal(origin.Offset(3, 0), plan.Path[^1]);
+        Assert.False(plan.Reachable); Assert.Equal("storage", plan.Interaction!.Kind); Assert.Empty(plan.Path);
+        var near = origin.Offset(1, 0); session.Chunks.Edit(near, Material.Storage);
+        var adjacent = WorldMouseNavigation.Plan(session, near);
+        Assert.True(adjacent.Reachable); Assert.Empty(adjacent.Path); Assert.Equal("storage", adjacent.Interaction!.Kind);
         var camera = new MapCamera { Center = new(origin.X + .5f, origin.Y + .5f), Viewport = new(0, 0, 480, 480) };
         var pointer = new WorldPointerPreview(); pointer.Update(session, camera, camera.WorldToScreen(new(chest.X + .5f, chest.Y + .5f)).ToPoint());
         Assert.Equal(chest, pointer.Cell); Assert.Empty(pointer.BlockReason);
@@ -403,7 +468,7 @@ public sealed class WorldMouseTests
         Invoke(client, "UpdateSelection", new MouseState(start.X, start.Y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released));
         selection = (WorldTileSelection)Field("_selection").GetValue(client)!;
         Assert.Equal(6, selection.Cells.Count); Assert.Equal(before, JsonSerializer.Serialize(session.State));
-        Assert.Empty((Queue<WorldPosition>)Field("_route").GetValue(client)!);
+
         Invoke(client, "OpenContext", start); Assert.Equal(6, ((WorldPosition[])Field("_contextCells").GetValue(client)!).Length);
     }
     [Fact]

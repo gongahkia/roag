@@ -21,7 +21,7 @@ internal sealed record WorldClickPlan(IReadOnlyList<WorldPosition> Path, WorldCl
 
 internal static class WorldMouseNavigation
 {
-    // Hover checks only this cell. Connected routes and approach searches are deferred until a click.
+    // Inspection never searches for a route or moves the party.
     public static string HoverBlockReason(WorldSession session, WorldPosition cell)
     {
         if (!session.Plan.Contains(cell) || cell.Floor != session.State.Position.Floor) return "Choose ground on the current floor.";
@@ -54,26 +54,11 @@ internal static class WorldMouseNavigation
         if (intent?.Kind == "party") return new([], intent, true);
         if (intent == null)
         {
-            var path = session.Route(cell); bool reachable = path.Count > 0 || cell == session.State.Position;
             string blocked = session.MovementBlockReason(cell, session.State.Party[0], observedOnly: true);
-            if (blocked.Length == 0) blocked = "No connected route through observed free ground. Move a blocking character or open a passage.";
-            return new(path, null, reachable, reachable ? "" : blocked);
+            return new([], null, false, blocked.Length > 0 ? blocked : "Move with WASD or arrow keys, one tile per press.");
         }
         int range = intent.Kind is "person" or "actor" ? 2 : 1;
         if (session.State.Position.Distance(cell) <= range) return new([], intent, true);
-        var candidates = new List<(WorldPosition Cell, int Score)>();
-        for (int y = -range; y <= range; y++) for (int x = -range; x <= range; x++)
-        {
-            if (Math.Abs(x) + Math.Abs(y) > range) continue;
-            var p = cell.Offset(x, y);
-            if (session.Chunks.Seen(p) && session.CanEnter(p, session.State.Party[0], observedOnly: true)) candidates.Add((p, p.Distance(session.State.Position)));
-        }
-        // Try the nearest observed approach cells first; no hidden terrain enters route selection.
-        foreach (var candidate in candidates.OrderBy(c => c.Score).ThenBy(c => c.Cell.Y).ThenBy(c => c.Cell.X))
-        {
-            var path = session.Route(candidate.Cell);
-            if (path.Count > 0) return new(path, intent, true);
-        }
-        return new([], intent, false, "No observed approach reaches this object. Explore nearer ground or open a passage.");
+        return new([], intent, false, "Move closer with WASD or arrow keys to interact.");
     }
 }

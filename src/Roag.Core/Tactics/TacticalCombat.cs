@@ -48,7 +48,8 @@ public sealed partial class TacticalCombat
     private Actor Actor(long id) => _world.State.Actors.FirstOrDefault(a => a.Id == id)
         ?? throw new InvalidDataException("Tactical actor is missing from the world.");
     private bool Friendly(Actor actor) => _world.State.Party.Contains(actor.Id);
-    private int EffectiveSpeed(Actor actor) => checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0));
+    private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
+        : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
         && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true };
 
@@ -118,6 +119,7 @@ public sealed partial class TacticalCombat
                 long source = actor.Tactics.SnaredBy;
                 actor.Tactics.SnaredBy = 0;
                 Emit("SnareHeld", source, actor.Id, 0, actor.Position);
+                RecordCombatControl(source, actor, ActionTiming.Recovery(actor.Tactics.MoveCost, EffectiveSpeed(actor)));
                 ScheduleReady(actor, actor.Tactics.MoveCost);
                 continue;
             }
@@ -200,6 +202,7 @@ public sealed partial class TacticalCombat
                     _world.State.Inventory["medicine"]--;
                     target.Life = LifeState.Alive; target.Health = Math.Max(1, target.MaxHealth / 4);
                     target.Tactics!.BleedTurns = 0;
+                    RecordCombatHealing(actor.Id, target.Id, target.Health);
                     State.Queue.CancelActor(target.Id, ScheduledKind.ActorReady);
                     ScheduleReady(target, Tuning.WaitCost);
                     Emit("Revived", actor.Id, target.Id, action, target.Position, target.Health); break;
@@ -215,19 +218,23 @@ public sealed partial class TacticalCombat
 
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
-        DamageElement element, int damage, int windupCost, int recoveryCost)
+        DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
+        if (intendedTarget != 0) _ = Actor(intendedTarget);
         if (actor.Life != LifeState.Alive || damage < 0 || string.IsNullOrWhiteSpace(ability)
             || cells.Count == 0 || cells.Distinct().Count() != cells.Count
             || cells.Any(p => p.Floor != actor.Position.Floor || !_world.Plan.Contains(p))
             || !Enum.IsDefined(delivery) || !Enum.IsDefined(element)) throw new ArgumentException("Invalid locked attack.");
         long due = checked(Clock + ActionTiming.Recovery(windupCost, EffectiveSpeed(actor)));
-        long ready = checked(due + ActionTiming.Recovery(recoveryCost, EffectiveSpeed(actor)));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(recoveryCost);
+        bool deferredRecovery = actor.Tactics?.Enemy != null;
+        long? ready = deferredRecovery ? null : checked(due + ActionTiming.Recovery(recoveryCost, EffectiveSpeed(actor)));
         long action = State.NextAction++;
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
-        var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due, Causality: cause);
+        var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
+            Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null);
         ResolveAtomically(cause, () =>
         {
             foreach (var owner in _world.State.Actors)
@@ -238,7 +245,7 @@ public sealed partial class TacticalCombat
                 }
             State.Attacks.Add(attack);
             State.Queue.Schedule(ScheduledKind.Impact, due, actor.Id, referenceId: action);
-            State.Queue.Schedule(ScheduledKind.ActorReady, ready, actor.Id, Friendly(actor));
+            if (ready is { } committedReady) State.Queue.Schedule(ScheduledKind.ActorReady, committedReady, actor.Id, Friendly(actor));
             Emit("WindupStarted", actor.Id, 0, action, actor.Position, ability: ability,
                 snapshot: CaptureBoonEvent(BoonTrigger.WindupStarted, actor.Id, 0, action, actor.Position, ability)
                     with { TargetCells = cells.ToImmutableArray(), WindupId = action });
@@ -251,16 +258,32 @@ public sealed partial class TacticalCombat
         => State.Attacks.Concat(SentryAttacks()).Where(a => vision.Contains(a.ClassGenerated ? a.Origin : Actor(a.Source).Position))
             .Select(a => a with { Cells = a.Cells.Where(vision.Contains).ToArray() }).Where(a => a.Cells.Length > 0).ToArray();
 
-    public IReadOnlyList<ScheduledAction> VisibleTimeline()
-        => State.Queue.Snapshot().Pending.Where(e => _world.State.Party.Contains(e.ActorId)
-            || _world.Visible.Contains(Actor(e.ActorId).Position)).ToArray();
+    public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
+    {
+        bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
+        var actual = State.Queue.Snapshot().Pending.Where(e => Visible(e.ActorId))
+            .Select(e => new TacticalTimelineEntry(e.Kind, e.ActorId, e.Due, e.ReferenceId, false, e.Sequence));
+        var projected = State.Attacks.Where(a => a.RecoveryCost != null && Visible(a.Source))
+            .Select(a => new TacticalTimelineEntry(ScheduledKind.ActorReady, a.Source,
+                checked(a.Due + ActionTiming.Recovery(a.RecoveryCost!.Value, Actor(a.Source).Speed)), a.Id, true, null));
+        return actual.Concat(projected).OrderBy(e => e.Due).ThenBy(e => e.Kind == ScheduledKind.ActorReady ? 1 : 0)
+            .ThenBy(e => e.Kind == ScheduledKind.ActorReady && _world.State.Party.Contains(e.ActorId) ? 0 : 1)
+            .ThenBy(e => e.Sequence ?? long.MaxValue).ThenBy(e => e.ActorId).ToArray();
+    }
 
     internal void ResolveAttack(LockedAttack attack)
     {
         var cause = attack.Causality ?? _cause ?? RootCause(attack.Id);
         cause = cause with { ClassGenerated = attack.ClassGenerated,
             ProcCoefficient = attack.Cause == DamageCause.DirectAttack ? AbilityCoefficient(attack.Ability) : cause.ProcCoefficient };
-        ResolveAtomically(cause, () => ResolveDamageBatch(attack));
+        ResolveAtomically(cause, () =>
+        {
+            ResolveDamageBatch(attack);
+            // Original enemy recovery is committed at impact, before reactive boon work.
+            // Death/stun reactions can then cancel or extend the committed readiness.
+            if (attack.RecoveryCost is { } cost && Actor(attack.Source) is { Life: LifeState.Alive } actor)
+                ScheduleReady(actor, cost);
+        });
     }
 
     private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable);
@@ -317,6 +340,8 @@ public sealed partial class TacticalCombat
         }
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
         foreach (var hit in hits)
+            RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value);
+        foreach (var hit in hits)
         {
             var target = hit.Target;
             Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", source.Id, target.Id, attack.Id,
@@ -369,7 +394,7 @@ public sealed partial class TacticalCombat
         RemoveBurning(actor);
         actor.Life = LifeState.Dead; actor.Health = 0;
         if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; }
-        State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); CancelAttacks(actor.Id);
+        State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); CancelAttacks(actor.Id, source, action, "death");
         if (State.ActiveActor == actor.Id) State.ActiveActor = 0;
         Emit("Died", source, actor.Id, action, actor.Position);
         Emit("EntityKilled", source, actor.Id, action, actor.Position, snapshot: snapshot);
@@ -377,19 +402,22 @@ public sealed partial class TacticalCombat
             _world.State.AwaitingContinuation = true;
     }
 
-    private void CancelAttacks(long actor)
+    private void CancelAttacks(long actor, long source = 0, long action = 0, string? reason = null)
     {
         var cancelled = State.Attacks.Where(a => a.Source == actor && !a.ClassGenerated).Select(a => a.Id).ToHashSet();
         foreach (var work in State.Queue.Snapshot().Pending.Where(e => e.Kind == ScheduledKind.Impact && cancelled.Contains(e.ReferenceId)))
             State.Queue.Cancel(work.Sequence);
+        if (reason != null)
+            foreach (var attack in State.Attacks.Where(a => cancelled.Contains(a.Id)))
+                Emit("WindupCancelled", source, actor, action, Actor(actor).Position, ability: reason);
         State.Attacks.RemoveAll(a => cancelled.Contains(a.Id));
     }
     private void ScheduleReady(Actor actor, int cost)
         => State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + ActionTiming.Recovery(cost, EffectiveSpeed(actor))), actor.Id, Friendly(actor));
     private void Emit(string kind, long source, long target, long action, WorldPosition position, int amount = 0,
-        int prevented = 0, string ability = "", bool forced = false, WorldPosition? from = null, BoonEvent? snapshot = null)
+        int prevented = 0, string ability = "", bool forced = false, WorldPosition? from = null, BoonEvent? snapshot = null, LootChange? loot = null)
     {
-        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from);
+        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot);
         State.Events.Add(entry);
         if (State.Events.Count > 512) State.Events.RemoveRange(0, State.Events.Count - 512);
         QueueBoonEvent(entry, snapshot);

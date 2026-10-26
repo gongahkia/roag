@@ -98,7 +98,7 @@ public sealed partial class TacticalCombat
                     WithBoonCause(BoonCause.From(e), () =>
                     {
                         BeforeBoonEvent(e);
-                        if (e.ClassGenerated) return;
+                        if (e.ClassGenerated) { ResolveKillRewards(e); return; }
                         var random = new RoagRandom(State.RandomState);
                         BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
                         {
@@ -111,6 +111,7 @@ public sealed partial class TacticalCombat
                             });
                         }, (activation, effect) => _boonWork.Enqueue((activation, effect)));
                         State.RandomState = random.State;
+                        ResolveKillRewards(e);
                     });
                 }
                 else if (_boonWork.TryDequeue(out var work))

@@ -36,7 +36,7 @@ try
               --session-root PATH (local session recordings; default ~/.roag/sessions)
               --no-recording (disable ordinary session recording)
               --playtest-control PATH (isolated local mouse automation; explicit waits advance time)
-            Click ground to travel; click people, caches or stairs to approach and interact.
+            WASD / arrows move one tile per press; click nearby people, caches or stairs to interact.
             Use on-screen Play/Pause, action buttons and Menu. Right-click stops/closes.
             """);
         return 0;

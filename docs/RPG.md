@@ -14,17 +14,18 @@ Normal launch resumes the selected slot if present; a missing slot starts a new 
 
 Existing `lantern-rpg` saves open the original three-area game with its original rules. [Legacy campaign guide](LEGACY_RPG.md) documents those controls. `--import-legacy PATH` validates and copies an old RPG save without changing the source. Lunar field sessions are rejected by both clients.
 
-Ordinary new and loaded worlds begin **running**. Inhabitants act even while you stand still or switch away from the window. Use Pause to stop time, or click a reachable destination to travel. New ordinary runs use a fresh seed unless you specify one. One real second represents one game minute. Conversations, reference/game menus and combat choices pause simulation; Party and Work panels run until you press Pause; completed combat rounds advance one minute. Closing a menu resumes the previous pause state. There is no offline progression.
+Ordinary new and loaded worlds begin **running**. Inhabitants act even while you stand still or switch away from the window. Use Pause to stop time, or press WASD / arrow keys to move one tile. New ordinary runs use a fresh seed unless you specify one. One real second represents one game minute. Conversations, reference/game menus and combat choices pause simulation; Party and Work panels run until you press Pause; completed combat rounds advance one minute. Closing a menu resumes the previous pause state. There is no offline progression.
 
 ## Controls
 
-The world client uses mouse input throughout; gameplay keyboard bindings are disabled. The compatibility client retains its [legacy controls](LEGACY_RPG.md).
+Movement uses WASD or arrow keys, one tile per press, without held-key repeats or click-to-walk routes. Mouse controls remain for inspection, targeting, menus and nearby interactions. The compatibility client also uses keyboard movement; see its [other controls](LEGACY_RPG.md).
 
-| Mouse / button | Action |
+| Input | Action |
 | --- | --- |
 | Hover ground | Highlight the cell and inspect its contents |
-| Click ground | Calculate a route and start travelling; only the hovered tile is highlighted |
-| Click a person, cache, chest or stairs | Approach along observed ground, then interact automatically |
+| WASD / arrows | Move one tile per press |
+| Click ground | Inspect / select; does not move the party |
+| Click a person, cache, chest or stairs | Interact when in range; walk closer with the keyboard otherwise |
 | Play / Pause | Resume / pause time; pausing stops travel |
 | Left-drag | Select a rectangle of observed tiles (up to 256) |
 | Right-click terrain / selection | Stop travel and open relevant actions at the cursor |
@@ -50,9 +51,9 @@ The world client uses mouse input throughout; gameplay keyboard bindings are dis
 | Ending buttons | New traveller in the same world after a wipe, or begin a fresh world |
 | Window close | Save and quit normal play |
 
-Clicking a reachable destination starts travel even while paused. Opening a panel stops the selected travel route. Party and Work keep the world running; other panels freeze time. Play/Pause remains available without closing the panel. Conversations always pause. Disabled buttons consume clicks. In combat, selecting a targeted ability alone spends no turn or random state; click its intended fighter to act.
+A keyboard movement press moves one tile even while exploration is paused. Opening a panel prevents movement input. Party and Work keep the world running; other panels freeze time. Play/Pause remains available without closing the panel. Conversations always pause. Disabled buttons consume clicks. In combat, selecting a targeted ability alone spends no turn or random state; click its intended fighter to act.
 
-Selected tiles remain highlighted until you act, dismiss the menu, or begin another selection. Clicking an unavailable destination opens its context menu. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid. The world remains **4096×4096**. Normal exploration starts at 36–64 pixels per tile (larger on very large displays), with a minimum of 24 pixels and at most 48 columns / 32 rows visible; use World map for an overview.
+Selected tiles remain highlighted until you act, dismiss the menu, or begin another selection. Clicking ground opens its context menu without moving. Movement and the following camera interpolate between cells; horizontal movement flips the sprite, while vertical movement retains its last facing. Collision and interaction still use the tile grid. The world remains **4096×4096**. Normal exploration starts at 36–64 pixels per tile (larger on very large displays), with a minimum of 24 pixels and at most 48 columns / 32 rows visible; use World map for an overview.
 
 Outdoors, the entire local view is clear, including terrain and inhabitants behind walls. The world map records observed places without revealing distant towns. Underground keeps exploration fog, line of sight and dim remembered terrain. Zooming out observes more outdoor ground, within the local view limit.
 

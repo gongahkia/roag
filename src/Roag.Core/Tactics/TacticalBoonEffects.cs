@@ -25,6 +25,12 @@ public sealed partial class TacticalCombat
         bool livingOwner = owner.Life == LifeState.Alive && owner.Health > 0;
         switch (effect.Kind)
         {
+            case BoonEffectKind.EnrichDrop:
+                EnrichLoot(owner, activation, power);
+                return;
+            case BoonEffectKind.GatherPickups:
+                GatherLoot(owner, activation, power);
+                return;
             case BoonEffectKind.Echo:
                 var locked = effect.Pattern is { } pattern ? activation with { Event = activation.Event with
                 {
@@ -103,17 +109,27 @@ public sealed partial class TacticalCombat
                     if (effect.CollisionDamage == true) ApplyBoonDamage(activation, effect, [target.Position], power);
                     return;
                 }
+                int? interruptedRecovery = State.Attacks.FirstOrDefault(a => a.Source == target.Id && a.RecoveryCost != null)?.RecoveryCost;
+                if (interruptedRecovery != null) CancelAttacks(target.Id, owner.Id, activation.RootActionId ?? 0, "displacement");
                 var from = target.Position; _world.MoveTacticalActor(target, next);
+                RecordCombatControl(owner.Id, target, ActionTiming.Recovery(target.Tactics!.MoveCost, EffectiveSpeed(target)));
                 Emit("Displaced", owner.Id, target.Id, activation.RootActionId ?? 0, next, forced: true, from: from);
                 Emit("TileEntered", target.Id, target.Id, activation.RootActionId ?? 0, next, forced: true, from: from);
+                CollectLootAt(target, next, activation.RootActionId ?? 0);
+                if (interruptedRecovery is { } cost) ScheduleReady(target, cost);
                 if (_resolutionDepth == 0 && !_drainingBoons) TriggerSnares(target, activation.RootActionId ?? 0);
                 return;
             case BoonEffectKind.StunTarget:
                 if (target is null || !RegularBoonTarget(target) || target.Life != LifeState.Alive) return;
                 long until = Math.Max(target.Tactics!.StunnedUntil, checked(Clock + Math.Min(effect.Cap!.Value, power)));
+                long previousReady = State.Queue.Snapshot().Pending.Where(w => w.ActorId == target.Id && w.Kind == ScheduledKind.ActorReady)
+                    .Select(w => w.Due).DefaultIfEmpty(Clock).Max();
+                bool interrupted = State.Attacks.Any(a => a.Source == target.Id && !a.ClassGenerated);
                 long ready = State.Queue.Snapshot().Pending.Where(w => w.ActorId == target.Id && w.Kind == ScheduledKind.ActorReady)
                     .Select(w => w.Due).Append(until).Max();
-                CancelAttacks(target.Id); State.Queue.CancelActor(target.Id, ScheduledKind.ActorReady);
+                RecordCombatControl(owner.Id, target, Math.Max(ready - previousReady,
+                    interrupted ? ActionTiming.Recovery(target.Tactics.MoveCost, EffectiveSpeed(target)) : 0));
+                CancelAttacks(target.Id, owner.Id, activation.RootActionId ?? 0, "stun"); State.Queue.CancelActor(target.Id, ScheduledKind.ActorReady);
                 if (State.ActiveActor == target.Id) State.ActiveActor = 0;
                 target.Tactics.StunnedUntil = until;
                 State.Queue.Schedule(ScheduledKind.ActorReady, ready, target.Id, Friendly(target));
@@ -140,7 +156,7 @@ public sealed partial class TacticalCombat
                 if (effect.Scale == BoonScale.AdjacentHostiles) power = checked(power * (activation.Event.AdjacentHostileCount ?? 0));
                 ApplyBoonDamage(activation, effect, selected, power);
                 return;
-            default: throw new NotSupportedException("The native pickup/drop effect is not integrated yet: " + effect.Kind);
+            default: throw new ArgumentOutOfRangeException(nameof(effect), "Unknown boon effect kind.");
         }
     }
 
@@ -155,6 +171,7 @@ public sealed partial class TacticalCombat
     {
         int gain = Math.Min(requested, owner.MaxHealth - owner.Health);
         owner.Health += gain;
+        RecordCombatHealing(owner.Id, owner.Id, gain);
         Emit("Healed", owner.Id, owner.Id, activation.RootActionId ?? 0, owner.Position, gain, ability: activation.BoonId);
         return gain;
     }

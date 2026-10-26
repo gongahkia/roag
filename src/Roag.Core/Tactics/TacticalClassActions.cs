@@ -119,6 +119,7 @@ public sealed partial class TacticalCombat
                 Emit("Displaced", actor.Id, actor.Id, action, cell, forced: true, from: from);
             Emit("TileEntered", actor.Id, actor.Id, action, cell, forced: preview.ReturnDistance != null, from: from,
                 snapshot: CaptureBoonEvent(BoonTrigger.TileEntered, actor.Id, 0, action, cell, from: from) with { SourcePosition = cell });
+            CollectLootAt(actor, cell, action);
             from = cell;
         }
         if (preview.Swap)
@@ -208,8 +209,10 @@ public sealed partial class TacticalCombat
                 if (!_world.CanEnter(next, hooked.Id)) break;
                 var from = hooked.Position;
                 _world.MoveTacticalActor(hooked, next);
+                RecordCombatControl(actor.Id, hooked, ActionTiming.Recovery(hooked.Tactics!.MoveCost, EffectiveSpeed(hooked)));
                 Emit("Displaced", actor.Id, hooked.Id, action, next, forced: true, from: from);
                 Emit("TileEntered", hooked.Id, hooked.Id, action, next, forced: true, from: from);
+                CollectLootAt(hooked, next, action);
                 if (hooked.Life != LifeState.Alive) break;
             }
         }
