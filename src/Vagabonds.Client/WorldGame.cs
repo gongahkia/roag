@@ -43,6 +43,7 @@ internal sealed partial class WorldGame : Game
     private readonly MigrationFixture? _migrationFixture;
     private readonly RecoveryFixture? _recoveryFixture;
     private readonly ConsequenceFixture? _consequenceFixture;
+    private readonly WeatherFixture? _weatherFixture;
     private int _streamDx, _streamDy;
     private const double MoveDuration = .14;
     private double _moveTimer, _enemyTimer, _workVisualTime;
@@ -71,6 +72,7 @@ internal sealed partial class WorldGame : Game
         if (!options.Load && options.Scene == "world-migration") _migrationFixture = MigrationPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-recovery") _recoveryFixture = RecoveryPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-memories") _consequenceFixture = ConsequencePreview.Prepare(_session);
+        if (!options.Load && options.Scene == "world-weather") _weatherFixture = WeatherPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-supplies") WorkSupplyPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-output") WorkOutputPreview.Prepare(_session);
         if (!options.Load && options.Scene == "world-wildlife") WildlifePreview.Prepare(_session, "character.bee");
@@ -471,6 +473,7 @@ internal sealed partial class WorldGame : Game
         long tick = _session.State.Tick;
         Text($"Day {tick / 7200 + 1}  {tick / 300 % 24:00}:{tick / 5 % 60:00}    {(_session.Frozen ? "PAUSED" : "LIVING WORLD")}", 300, 22);
         Text($"{_session.State.Position.X}, {_session.State.Position.Y}  / floor {_session.State.Position.Floor}    seed {_session.Seed}", 20, 57, Muted);
+        Text(WeatherCaption(), 500, 57, Gold);
         if (CombatStageVisible) return;
         Fill(_side, Panel); int x = _side.X + 14, y = _side.Y + 14;
         Text("THE EXPEDITION", x, y, Gold); y += 30;

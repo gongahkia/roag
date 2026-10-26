@@ -3,13 +3,13 @@ using Vagabonds.Core.Expeditions;
 
 namespace Vagabonds.Core.World;
 
-public sealed record ResourceView(WorldPosition Position, ResourceDefinition Definition, int Available, long RecoverIn)
+public sealed record ResourceView(WorldPosition Position, ResourceDefinition Definition, int Available, long RecoverIn, long RecoveryTicks = 0)
 {
     public string Sprite => Available > 0 ? Definition.Sprite! : Definition.DepletedSprite;
     public string RecoveryDescription => Definition.RegrowTicks == 0 ? "Exhausted; this mineral deposit does not regrow."
         : $"Depleted; recovers in {Math.Max(1, (RecoverIn + 4) / 5)} game minutes.";
     public string Description => Available > 0 ? $"{Available}/{Definition.Capacity} gathers remain. " +
-        (Definition.RegrowTicks == 0 ? "Finite deposit; no regrowth." : $"Regrows {Definition.RegrowTicks / WorldSession.TicksPerHour} game hours after the last gather.") : RecoveryDescription;
+        (Definition.RegrowTicks == 0 ? "Finite deposit; no regrowth." : $"Current regrowth time: {Math.Max(1, ((RecoveryTicks > 0 ? RecoveryTicks : Definition.RegrowTicks) + WorldSession.TicksPerHour - 1) / WorldSession.TicksPerHour)} game hours after the last gather.") : RecoveryDescription;
 }
 
 public sealed partial class WorldSession
@@ -53,7 +53,7 @@ public sealed partial class WorldSession
             var stock = Chunks.ResourceStockAt(p);
             bool recovered = stock == null || stock.RecoverAt > 0 && State.Tick >= stock.RecoverAt;
             return new(p, definition, recovered ? definition.Capacity : stock!.Remaining,
-                stock == null || recovered ? 0 : Math.Max(0, stock.RecoverAt - State.Tick));
+                stock == null || recovered ? 0 : Math.Max(0, stock.RecoverAt - State.Tick), RecoveryDelay(definition.RegrowTicks, WeatherAt(p).RecoveryPercent));
         }
         return null;
     }
@@ -72,14 +72,16 @@ public sealed partial class WorldSession
         var node = ResourceAt(p)!;
         int remaining = node.Available - 1;
         // Recovery begins only on exhaustion. Partial stock never duplicates through repeated inspections.
-        long recoverAt = remaining == 0 && node.Definition.RegrowTicks > 0 ? State.Tick + node.Definition.RegrowTicks : 0;
-        Chunks.Delta(p.Chunk).Resources[p.LocalIndex] = new(node.Definition.Id, remaining, recoverAt);
+        bool recovering = remaining == 0 && node.Definition.RegrowTicks > 0;
+        int percent = recovering ? WeatherAt(p).RecoveryPercent : 0;
+        long recoverAt = recovering ? State.Tick + RecoveryDelay(node.Definition.RegrowTicks, percent) : 0;
+        Chunks.Delta(p.Chunk).Resources[p.LocalIndex] = new(node.Definition.Id, remaining, recoverAt, recovering ? State.Tick : 0, percent);
         PressureHabitat(p, 8);
     }
     public double WorkMultiplier(Actor actor, WorkOrder order)
     {
         string activity = order.Kind == WorkKind.Discovery ? order.Method : order.Kind == WorkKind.Harvest ? Content.Get<ResourceDefinition>(order.Definition).Activity : order.Kind.ToString().ToLowerInvariant();
-        return WorkActivityMultiplier(actor, activity);
+        return WorkActivityMultiplier(actor, activity) * (order.Kind is WorkKind.Forage or WorkKind.Harvest or WorkKind.Dig ? ClimateGathering(order.Target) : 1);
     }
     private double WorkActivityMultiplier(Actor actor, string activity)
     {

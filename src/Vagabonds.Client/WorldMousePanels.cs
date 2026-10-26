@@ -98,6 +98,9 @@ internal sealed partial class WorldGame
                     Text(string.Join(", ", recipes[_craftPage * 4 + i].Cost.Select(c => c.Value + " " + _session.Content.Get<ItemDefinition>(c.Key).Name)), x + 8, y + 86 + i * 74, Muted);
                 break;
             case "actions":
+                Wrap(WeatherText(), x, y + 124, width, Muted);
+                Text("Weather may change in " + Math.Max(1, (_session.WeatherAt(_session.State.Position).Until - _session.State.Tick + 4) / 5) + " game minutes.", x, y + 174, Muted);
+                Text(_session.ShelteredAt(_session.State.Position) ? "Camp or underground cover protects travel and rest." : "Exposed rest recovers fatigue at " + _session.WeatherAt(_session.State.Position).ExposedRestPercent + "% of its normal rate.", x, y + 196, Gold);
                 Wrap("Waiting and resting advance shared time. Nearby danger interrupts them. Repair targets adjacent owned structures; storage keeps actual stacks.", x, y + 236, width, Muted);
                 break;
             case "storage":

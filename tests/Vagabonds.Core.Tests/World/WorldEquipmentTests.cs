@@ -111,13 +111,14 @@ public sealed class WorldEquipmentTests : IDisposable
     public void GeneratedToolEffectsAugmentTheAuthoredToolWithoutRequiringIt()
     {
         var s = WorldSession.Create(42); var p = ResourcePreview.Prepare(s, "resource.iron-deposit"); var hero = s.Party.First();
+        double weather = s.WorkMultiplier(hero, new() { Kind = WorkKind.Dig, Target = p });
         var entry = s.State.GeneratedEquipment.First(g => g.Value.Base == "item.pickaxe" && g.Value.Affixes.Contains("affix.delver"));
         s.State.Inventory[entry.Key] = 1; Assert.True(s.Submit(new(WorldCommandKind.Equip, ActorId: hero.Id, Item: entry.Key)).Success);
-        Assert.Equal(1.85, s.WorkMultiplier(hero, new() { Kind = WorkKind.Dig }));
+        Assert.Equal(1.85 * weather, s.WorkMultiplier(hero, new() { Kind = WorkKind.Dig, Target = p }), 10);
         Assert.True(s.DesignateWork(WorldCommandKind.Dig, [p]).Queued > 0); s.AdvanceTicks(1); var order = s.State.Work.Single();
-        Assert.Equal(s.WorkRate(hero) * 1.85, order.Progress, 6);
+        Assert.Equal(s.WorkRate(hero) * 1.85 * weather, order.Progress, 6);
         Assert.True(s.Submit(new(WorldCommandKind.Unequip, ActorId: hero.Id, Item: "tool")).Success);
-        Assert.Equal(1, s.WorkMultiplier(hero, order));
+        Assert.Equal(weather, s.WorkMultiplier(hero, order));
     }
     [Theory]
     [InlineData("affix.mending", "heal", 3)] [InlineData("affix.steadfast", "dread", 4)]
@@ -149,10 +150,11 @@ public sealed class WorldEquipmentTests : IDisposable
     public void ResourceWorkEffectsApplyToActualProgress(string basis, string affix, string resource, double multiplier)
     {
         var s = WorldSession.Create(42); var p = ResourcePreview.Prepare(s, resource); var hero = s.Party.First();
+        double weather = s.WorkMultiplier(hero, new() { Kind = WorkKind.Harvest, Definition = resource, Target = p });
         const string id = "gear.999.0.0"; s.State.GeneratedEquipment.Add(id, new(basis, [affix])); s.State.Inventory[id] = 1;
         Assert.True(s.Submit(new(WorldCommandKind.Equip, ActorId: hero.Id, Item: id)).Success);
         Assert.Equal(1, s.DesignateWork(WorldCommandKind.Harvest, [p]).Queued); s.AdvanceTicks(1);
-        Assert.Equal(s.WorkRate(hero) * multiplier, s.State.Work.Single().Progress, 6);
+        Assert.Equal(s.WorkRate(hero) * multiplier * weather, s.State.Work.Single().Progress, 6);
     }
     [Fact]
     public void InvalidAffixesAndForgedEffectsAreRejected()

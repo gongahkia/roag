@@ -149,6 +149,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 string collision = MovementBlockReason(command.Target, State.Party[0]);
                 if (collision.Length > 0) return new(false, collision);
                 if (!TryPartyStep(command.Target, out var step)) return new(false, "The party needs room to follow. Open a passage or choose another step.");
+                foreach (var actor in Party) if (step.TryGetValue(actor.Id, out var climateStep)) CommitClimateMove(actor, climateStep);
                 ApplyPartyPlacement(command.Target, step);
                 if (State.WorkRally != null) State.WorkRally = command.Target;
                 foreach (var a in Party) a.Body.RestUntil = 0;
@@ -358,7 +359,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             destination = a.Position.Distance(State.Position) < 7 ? State.Position : a.Position.Offset(rng.Next(3) - 1, rng.Next(3) - 1);
             var next = rng.Next(2) == 0 ? a.Position.Offset(Math.Sign(destination.X - a.Position.X), 0) : a.Position.Offset(0, Math.Sign(destination.Y - a.Position.Y));
             if (next == a.Position || !CanEnter(next, a.Id)) next = LocalStep(a.Position, destination, a.Id);
-            if (CanEnter(next, a.Id)) a.Position = next;
+            if (CanEnter(next, a.Id)) CommitClimateMove(a, next);
         }
         Contact();
     }

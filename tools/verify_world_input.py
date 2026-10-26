@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dll', type=Path, default=ROOT / 'src/Vagabonds.Client/bin/Release/net10.0/Vagabonds.Client.dll')
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/native-mouse')
-    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
+    parser.add_argument('--scenes', nargs='+', choices=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], default=['world', 'world-output', 'world-supplies', 'world-occupations', 'world-habitat', 'world-migration', 'world-recovery', 'world-memories', 'world-weather', 'world-routines', 'world-resources', 'world-wildlife', 'world-situation', 'world-camp', 'world-discovery', 'world-battle', 'world-cooperation', 'world-boss', 'world-progression', 'world-encounters'], help='Run selected isolated native scenarios.')
     args = parser.parse_args()
     for tool in ('xdotool', 'ffmpeg'):
         if not shutil.which(tool): raise SystemExit(f'{tool} is required.')
@@ -603,6 +603,39 @@ def main():
                 check('foodReliefReopensRecruitment', next(c for c in client.ui()['controls'] if c['id'] == 'conversation:interaction.recruit')['enabled']
                     and resident(client.ui())['relationship']['grievance'] == '')
                 client.capture('memory-restored-recruitment')
+            finally: client.close()
+        if 'world-weather' in args.scenes:
+            client = Client('world-weather', slot)
+            try:
+                fixture = client.ui()['weatherFixture']; initial = client.save(); actor_id = fixture['resident']; origin = dict(client.ui()['position'])
+                initial_description = client.ui()['weatherDescription']
+                resident = next(a for a in initial['state']['actors'] if a['id'] == actor_id)
+                check('severeWeatherUsesRealCampAndWalkedHomeCover', client.ui()['climate']['severe'] and client.ui()['sheltered']
+                    and resident['routine']['kind'] == 7 and abs(resident['position']['x'] - resident['routine']['target']['x'])
+                    + abs(resident['position']['y'] - resident['routine']['target']['y']) <= 1
+                    and any(b['position'] == fixture['camp'] for b in initial['state']['structures']))
+                client.click('panel:actions'); client.capture('weather-covered-severe')
+                client.load(); check('climateAndShelterSurviveExactMouseReload', client.save()['state'] == initial['state'])
+                if client.ui()['panel']: client.click('close')
+                old_weather = client.ui()['climate']; fatigue = client.ui()['party'][0]['fatigue']
+                client.tile(origin['x'] + 1, origin['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position']['x'] == origin['x'] + 1); client.pause()
+                check('actualExposedTravelAddsWeatherEffort', not client.ui()['sheltered']
+                    and client.ui()['party'][0]['fatigue'] >= fatigue + old_weather['travelFatigue'] - 1e-9)
+                client.capture('weather-exposed-severe')
+                client.tile(origin['x'], origin['y']); client.wait(lambda u: u['routeCount'] == 0 and u['position']['x'] == origin['x']); client.pause()
+                client.click('panel:actions')
+                for _ in range(4):
+                    if client.ui()['panel'] != 'actions': client.click('panel:actions')
+                    client.click('wait:5')
+                check('weatherChangesAtItsSavedLogicalDeadline', client.ui()['tick'] >= fixture['changeAt'] and not client.ui()['climate']['severe']
+                    and client.ui()['climate']['until'] > fixture['changeAt'] and client.ui()['weatherDescription'] != initial_description)
+                client.click('panel:actions'); client.capture('weather-after-change'); settled = client.save(); climate = client.ui()['climate']
+                client.load(); check('changedWeatherReloadKeepsTheSameWorldAndForecast', client.save()['state'] == settled['state'] and client.ui()['climate'] == climate)
+                if client.ui()['panel'] != 'actions': client.click('panel:actions')
+                food = client.ui()['inventory']['food']; client.click('forage'); client.pause()
+                if client.ui()['panel']: client.click('close')
+                client.click('pause'); client.wait(lambda u: not u['work']); client.pause()
+                check('coveredGatheringStillProducesAndDeliversRealFood', client.ui()['inventory']['food'] == food + 2 and client.ui()['sheltered'])
             finally: client.close()
         if 'world-routines' in args.scenes:
             client = Client('world-routines', slot)

@@ -206,6 +206,17 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     }
     public bool Seen(WorldPosition p) => plan.Contains(p) && _deltas.TryGetValue(p.Chunk, out var delta) && delta.Discovered.Contains(p.LocalIndex);
     public bool IsEdited(WorldPosition p) => _deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.ContainsKey(p.LocalIndex);
+    // Camps are placed edits or landmark overlays; generated ground contains no camps.
+    // This check must not generate distant terrain merely to decide weather exposure.
+    internal bool KnownCampAt(WorldPosition p)
+    {
+        if (!plan.Contains(p)) return false;
+        if (_deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.TryGetValue(p.LocalIndex, out var edit)) return edit == Material.Camp;
+        if (_landmarkCount != state.Discoveries.Count) { _landmarks = DiscoveryPlacement.Terrain(state.Discoveries, content ?? ContentCatalog.Default); _landmarkCount = state.Discoveries.Count; }
+        if (_landmarks.GetValueOrDefault(p) != Material.Camp) return false;
+        foreach (var site in plan.Sites) if (p == site.Center.Offset(2, 0)) return false;
+        return true;
+    }
     public ResourceStock? ResourceStockAt(WorldPosition p) => _deltas.GetValueOrDefault(p.Chunk)?.Resources.GetValueOrDefault(p.LocalIndex);
     internal ChunkDelta? ExistingDelta(ChunkKey key) => _deltas.GetValueOrDefault(key);
     public ChunkDelta Delta(ChunkKey key)

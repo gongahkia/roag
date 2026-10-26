@@ -49,7 +49,7 @@ public sealed partial class WorldSession
         // Wild forage shares the finite habitat stock with other actors and the party.
         if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
         {
-            double forage = HabitatAt(actor.Position).Food >= 2 ? WorkRate(actor) : 0; body.ForageProgress += forage; body.WorkDone += forage;
+            double forage = HabitatAt(actor.Position).Food >= 2 ? WorkRate(actor) * ClimateGathering(actor.Position) : 0; body.ForageProgress += forage; body.WorkDone += forage;
             if (forage == 0) body.ForageProgress = 0;
             if (body.ForageProgress >= settings.ForageWork && TakeWildFood(actor.Position, 2))
             {
@@ -94,10 +94,15 @@ public sealed partial class WorldSession
     }
     private bool NearbyCamp(WorldPosition position)
     {
-        if (State.Structures.Any(s => s.Material == Material.Camp && s.Condition > 20 && s.Position.Distance(position) <= 1)) return true;
-        if (position.Distance(State.Position) > 100) return false;
-        return new[] { position }.Concat(Directions.Select(d => position.Offset(d.X, d.Y))).Any(p => Chunks.At(p) == Material.Camp
-            && (State.Structures.FirstOrDefault(s => s.Position == p)?.Condition ?? 100) > 20);
+        bool Serviceable(WorldPosition p)
+        {
+            if (!Chunks.KnownCampAt(p)) return false;
+            foreach (var structure in State.Structures) if (structure.Position == p) return structure.Condition > 20;
+            return true;
+        }
+        if (Serviceable(position)) return true;
+        foreach (var (x, y) in Directions) if (Serviceable(position.Offset(x, y))) return true;
+        return false;
     }
     private void AdvanceCommunity()
     {

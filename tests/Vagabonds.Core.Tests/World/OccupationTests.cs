@@ -150,6 +150,7 @@ public sealed class OccupationTests : IDisposable
         world.State.Tick = 2099; actor.Occupation = null; actor.OccupationAfter = 2399;
         var local = world.State.Towns[actor.HomeTown]; var distant = world.State.Towns[remote.HomeTown];
         int localFood = local.Stocks["food"], distantFood = distant.Stocks["food"], expected = (int)(12 * world.WorkRate(remote));
+        expected = expected * world.WeatherAt(world.Plan.Towns[remote.HomeTown].Center).FoodYieldPercent / 100;
         long regional = world.State.RegionalResourcesProduced, named = world.State.NamedResourcesProduced;
         world.AdvanceTicks(1);
         Assert.Equal(1, actor.OccupationVersion); Assert.Equal(0, remote.OccupationVersion);

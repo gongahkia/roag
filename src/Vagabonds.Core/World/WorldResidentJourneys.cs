@@ -56,7 +56,7 @@ public sealed partial class WorldSession
     private void CommitResidentStep(Actor actor, WorldPosition next)
     {
         var journey = actor.Journey;
-        actor.Position = next;
+        CommitClimateMove(actor, next);
         if (journey != null) { journey.Next++; actor.Journey = journey; }
         _residentSteps++;
     }

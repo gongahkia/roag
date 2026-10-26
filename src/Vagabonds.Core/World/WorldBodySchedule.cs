@@ -23,6 +23,8 @@ public sealed partial class WorldSession
     private bool _bodyRosterDirty = true;
     private Func<long>? _bodyClock;
     private long _bodyClockTick, _bodyProcessed, _bodyScheduled;
+    private long _bodyClimateRevision = -1;
+    private int _bodyClimateLandmarks = -1;
     // Reference mode for deterministic audit comparisons; never saved or enabled by gameplay.
     internal bool DetailedBodiesEverywhere { get; set; }
     public BodySimulationStatus BodySimulation => new(_bodyProcessed, _bodyScheduled, _bodySlots.Count, _bodyActive.Count, _bodyDeadlines.Count);
@@ -88,6 +90,11 @@ public sealed partial class WorldSession
         _bodyNear.Clear();
         ActorIndex.AddNearTo(State.Position, 100, _bodyNear);
         _bodyCandidates.Clear();
+        if (_bodyClimateRevision != State.NavigationRevision || _bodyClimateLandmarks != State.Discoveries.Count)
+        {
+            _bodyClimateRevision = State.NavigationRevision; _bodyClimateLandmarks = State.Discoveries.Count;
+            foreach (var actor in State.Actors) if (actor.Body.RestUntil > State.Tick) _bodyCandidates.Add(actor);
+        }
         foreach (var actor in _bodyNear) _bodyCandidates.Add(actor);
         foreach (var actor in _bodyNearLast) _bodyCandidates.Add(actor);
         foreach (var actor in _bodyActive) _bodyCandidates.Add(actor);
@@ -121,7 +128,7 @@ public sealed partial class WorldSession
         bool automaticRest = !actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
         bool resting = !fighting && (body.RestUntil > next || automaticRest);
         double fatigue = Simulation.FatiguePerTick * (Disposition(actor)?.FatiguePercent ?? 100) / 100.0 / Math.Min(2, 1 + (actor.Level - 1) * .02);
-        body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 && CanResidentForage(actor) ? 2 : 1));
+        body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick * ClimateRest(actor, next) : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 && CanResidentForage(actor) ? 2 : 1));
     }
     private void ScheduleBody(BodySlot slot)
     {

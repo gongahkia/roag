@@ -2,6 +2,7 @@ namespace Vagabonds.Core.World;
 
 public sealed partial class WorldSession
 {
+    private WorldPosition ResidentHomeAnchor(Actor actor) => (Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18);
     private readonly List<Actor> _routineActors = [], _routineThreats = [];
     // Activation is local; activated people keep the same decisions and journeys
     // when the player leaves. No second regional copy of the actor is created.
@@ -55,6 +56,8 @@ public sealed partial class WorldSession
             if (actor.Position.Distance(actor.Routine!.Target) <= 1 && actor.Body.RestUntil <= State.Tick) actor.Body.RestUntil = State.Tick + 300;
             return;
         }
+        if (WeatherAt(actor.Position).Severe)
+        { SetResidentRoutine(actor, RoutineKind.Shelter, ResidentHomeAnchor(actor), "Sheltering at home from severe weather"); return; }
         var work = State.Work.FirstOrDefault(w => w.Worker == actor.Id && !w.Suspended);
         if (work != null) { SetResidentRoutine(actor, RoutineKind.AssignedWork, WorkStop(work, actor.Id), work.Output != null ? "Delivering gathered materials" : "Completing assigned " + work.Kind.ToString().ToLowerInvariant(), ground: false); return; }
         if (actor.Occupation?.Phase is OccupationPhase.Delivering or OccupationPhase.Returning && SelectOccupationRoutine(actor)) return;
@@ -106,7 +109,7 @@ public sealed partial class WorldSession
     }
     private bool CanBeginResidentRest(Actor actor) => actor.Routine == null || actor.Recruited
         || actor.Routine.Kind == RoutineKind.Rest && actor.Position.Distance(actor.Routine.Target) <= 1;
-    private bool RoutineInterruptsWork(Actor actor) => !actor.Recruited && actor.Routine?.Kind is RoutineKind.Danger or RoutineKind.Food or RoutineKind.Rest;
+    private bool RoutineInterruptsWork(Actor actor) => !actor.Recruited && actor.Routine?.Kind is RoutineKind.Danger or RoutineKind.Food or RoutineKind.Rest or RoutineKind.Shelter;
     private bool CanResidentForage(Actor actor) => actor.Kind != ActorKind.Person || actor.Routine == null
         || actor.Routine is { Kind: RoutineKind.Food, Reason: "Foraging for food" };
     private void MoveResident(Actor actor)

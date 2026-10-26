@@ -161,7 +161,8 @@ public sealed partial class WorldSession
             if (!OccupationSourceValid(actor, job)) { ReturnOccupationInputs(actor, job); continue; }
             if (job.Kind == OccupationKind.BuildWorkplace && OccupantAt(job.Target) != null) continue;
             double amount = WorkRate(actor) * WorkActivityMultiplier(actor, job.Kind == OccupationKind.Gather
-                ? Content.Get<ResourceDefinition>(job.Definition).Activity : job.Kind is OccupationKind.Fell or OccupationKind.Quarry ? "dig" : "craft");
+                ? Content.Get<ResourceDefinition>(job.Definition).Activity : job.Kind is OccupationKind.Fell or OccupationKind.Quarry ? "dig" : "craft")
+                * (job.Kind is OccupationKind.Gather or OccupationKind.Fell or OccupationKind.Quarry ? ClimateGathering(job.Target) : 1);
             job.Progress += amount; actor.Body.WorkDone += amount; job.LastProgressTick = State.Tick;
             if (job.Progress < job.Required) continue;
             foreach (var (stack, count) in job.Inputs) { actor.Cargo[stack] -= count; State.ResourcesConsumed += count; }

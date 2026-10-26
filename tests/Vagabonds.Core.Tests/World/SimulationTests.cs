@@ -19,7 +19,8 @@ public sealed class SimulationTests : IDisposable
         var npc = s.State.Actors.First(a => a.Kind == ActorKind.Person && !a.Recruited);
         npc.Position = s.State.Position; npc.TraitId = hero.TraitId; npc.Level = hero.Level;
         foreach (var a in new[] { hero, npc }) { a.Body.Hunger = 40; a.Body.Fatigue = 20; a.Body.Wounds = 2; }
-        int food = s.Count("food"); Wait(s, 5);
+        // Compare idle rates before the first autonomous step adds weather effort.
+        int food = s.Count("food"); Wait(s, 4);
         Assert.Equal(hero.Body.Hunger, npc.Body.Hunger); Assert.Equal(hero.Body.Fatigue, npc.Body.Fatigue);
         Assert.Equal(food - 1, s.Count("food")); Assert.Equal(2, npc.Body.Wounds);
         npc.Position = s.State.Position;

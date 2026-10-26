@@ -63,8 +63,8 @@ public sealed class WorldResourceTests : IDisposable
     {
         var s = WorldSession.Create(42); var p = ResourcePreview.Prepare(s, "resource.iron-deposit"); var actor = s.Party.First();
         Assert.True(s.Submit(new(WorldCommandKind.Equip, ActorId: actor.Id, Item: "item.pickaxe")).Success);
-        var harvest = new WorkOrder { Kind = WorkKind.Harvest, Definition = "resource.iron-deposit" };
-        Assert.Equal(1.6, s.WorkMultiplier(actor, harvest)); Assert.Equal(1, s.WorkMultiplier(actor, new() { Kind = WorkKind.Build }));
+        var harvest = new WorkOrder { Kind = WorkKind.Harvest, Definition = "resource.iron-deposit", Target = p };
+        Assert.Equal(1.6 * s.WeatherAt(p).GatheringPercent / 100, s.WorkMultiplier(actor, harvest), 10); Assert.Equal(1, s.WorkMultiplier(actor, new() { Kind = WorkKind.Build }));
         int count = s.ResourceAt(p)!.Available;
         for (int n = 0; n < count; n++)
         { Assert.Equal(1, s.DesignateWork(WorldCommandKind.Harvest, [p]).Queued); for (int t = 0; t < 100 && s.State.Work.Count > 0; t++) s.AdvanceTicks(1); }

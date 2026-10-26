@@ -110,7 +110,7 @@ public sealed partial class WorldSession
     private void MoveWorker(Actor actor, WorldPosition next)
     {
         if (!CanEnter(next, actor.Id)) return;
-        actor.Position = next;
+        CommitClimateMove(actor, next);
         if (actor.Id == State.Party[0]) { State.Position = next; EnsureLocalEncounterPopulation(); }
         Reveal();
     }

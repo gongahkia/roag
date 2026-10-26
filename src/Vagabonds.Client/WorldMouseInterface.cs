@@ -293,7 +293,7 @@ internal sealed partial class WorldGame
                     string[] actionIds = ["wait:5", "wait:300", "forage"];
                     string[] actionLabels = ["Wait / 1 minute", "Wait / 1 hour", "Gather food"];
                     for (int i = 0; i < actionIds.Length; i++) Add(actionIds[i], actionLabels[i], x + i % 2 * (width / 2 + 4), y + i / 2 * 54, width / 2 - 8, 42, DisabledControlReason(actionIds[i]).Length == 0,
-                        tip: actionIds[i] == "forage" ? _session.HabitatDescription(_session.State.Position) : "");
+                        tip: actionIds[i] == "forage" ? _session.HabitatDescription(_session.State.Position) + " " + WeatherText() : "");
                     break;
                 case "discovery":
                     if (_session.State.Discoveries.FirstOrDefault(d => d.Id == _discoveryId) is { } discovery)
@@ -559,11 +559,13 @@ internal sealed partial class WorldGame
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             habitat = _session.HabitatAt(_session.State.Position),
+            climate = _session.WeatherAt(_session.State.Position), weatherDescription = WeatherText(), sheltered = _session.ShelteredAt(_session.State.Position),
             journeyFixture = playerView ? null : _routineFarField,
             occupationFixture = playerView ? null : _occupationFixture,
             migrationFixture = playerView ? null : _migrationFixture,
             recoveryFixture = playerView ? null : _recoveryFixture,
             consequenceFixture = playerView ? null : _consequenceFixture,
+            weatherFixture = playerView ? null : _weatherFixture,
             wildlifeRecovery = playerView || _recoveryFixture == null ? null : _session.State.WildlifePopulations.GetValueOrDefault(_recoveryFixture.Population),
             residentJourneys = playerView ? null : _session.ResidentJourneys,
             camera = new { x = _camera.Center.X, y = _camera.Center.Y, cellSize = _camera.CellSize }, map = Rect(_map),

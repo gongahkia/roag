@@ -111,7 +111,7 @@ public sealed partial class WorldSession
                     {
                         var next = worker.Position.Offset(dx, dy);
                         if (!CanEnter(next, worker.Id) || worker.Recruited && (!InWorkRally(next) || !Chunks.Seen(next))) continue;
-                        if (worker.Recruited) { MoveWorker(worker, next); Contact(); } else worker.Position = next;
+                        if (worker.Recruited) { MoveWorker(worker, next); Contact(); } else CommitClimateMove(worker, next);
                         break;
                     }
                 continue;

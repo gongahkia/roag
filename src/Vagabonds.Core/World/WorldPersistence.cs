@@ -74,7 +74,11 @@ public sealed partial class WorldSession
                 || !catalog.Entries.TryGetValue(r.Value.Definition, out var entry) || entry is not ResourceDefinition resource
                 || r.Value.Remaining < 0 || r.Value.Remaining >= resource.Capacity || r.Value.RecoverAt < 0
                 || r.Value.Remaining > 0 && r.Value.RecoverAt != 0 || resource.RegrowTicks == 0 && r.Value.RecoverAt != 0
-                || r.Value.Remaining == 0 && resource.RegrowTicks > 0 && (r.Value.RecoverAt == 0 || r.Value.RecoverAt > state.Tick + resource.RegrowTicks)))
+                || r.Value.RecoveryPercent != 0 && (r.Value.Remaining != 0 || resource.RegrowTicks == 0 || r.Value.RecoveryStarted < 0 || r.Value.RecoveryStarted > state.Tick
+                    || r.Value.RecoveryPercent != ClimateAt(plan, new(reference.Key.X * 64 + r.Key % 64, reference.Key.Y * 64 + r.Key / 64, reference.Key.Floor), r.Value.RecoveryStarted).RecoveryPercent
+                    || r.Value.RecoverAt != r.Value.RecoveryStarted + RecoveryDelay(resource.RegrowTicks, r.Value.RecoveryPercent))
+                || r.Value.RecoveryPercent == 0 && r.Value.RecoveryStarted != 0
+                || r.Value.Remaining == 0 && resource.RegrowTicks > 0 && (r.Value.RecoverAt == 0 || r.Value.RecoveryPercent == 0 && r.Value.RecoverAt > state.Tick + resource.RegrowTicks)))
                 throw new InvalidDataException("Invalid resource stock.");
             state.Chunks.Add(delta);
         }
@@ -122,6 +126,7 @@ public sealed partial class WorldSession
         var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
         foreach (var actor in s.Actors)
             if (actor.Routine is { } routine && (actor.Kind != ActorKind.Person || !Enum.IsDefined(routine.Kind) || !plan.Contains(routine.Target)
+                || routine.Kind == RoutineKind.Shelter && routine.Target.Distance((plan.Towns[actor.HomeTown].Center with { Floor = routine.Target.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18)) > 6
                 || routine.Since < 0 || routine.Since > s.Tick || string.IsNullOrWhiteSpace(routine.Reason) || routine.Reason.Length > 256
                 || routine.Other != 0 && !actorIds.Contains(routine.Other))) throw new InvalidDataException("Invalid resident routine.");
         if (s.EcologyChunks == null || s.EcologyChunks.Count > 16384 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor is < 0 or >= WorldPlan.Floors)) throw new InvalidDataException("Invalid observed ecology chunks.");

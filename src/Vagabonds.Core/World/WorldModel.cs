@@ -166,7 +166,7 @@ public sealed class WorldPlan
 
 public sealed record Preparation(string Definition, string Effect, int Power, long Until);
 public sealed record CampStory(long Speaker, string Text, long Tick, WorldPosition Camp);
-public enum RoutineKind { Danger, Food, Rest, AssignedWork, Occupation, Social, Home }
+public enum RoutineKind { Danger, Food, Rest, AssignedWork, Occupation, Social, Home, Shelter }
 public sealed record ResidentRoutine(RoutineKind Kind, WorldPosition Target, long Since, string Reason, long Other = 0, bool Blocked = false);
 public sealed class ResidentJourney
 {
@@ -288,7 +288,9 @@ public sealed class Actor
             if (IndexChanged != null && before.Distance(value) > 1 && _migration != null) { Migration = null; WildlifeAfter = 0; }
             if (IndexChanged != null) Journey = null;
             IndexChanged?.Invoke(this, before);
-            if (_routine?.Kind is RoutineKind.Food or RoutineKind.Rest || _migration != null) NotifyNeedsChanged();
+            // A travelling caravan can retain a rest period while crossing
+            // regional weather or camp cover. Recompute its rates next tick.
+            if (_routine?.Kind is RoutineKind.Food or RoutineKind.Rest || _migration != null || _body.IsResting) NotifyNeedsChanged();
         }
     }
     [JsonRequired]
@@ -353,6 +355,7 @@ public sealed class BodyState
     private double _forageProgress;
     internal event Action? Changed;
     private long Now => _clock?.Invoke() ?? 0;
+    internal bool IsResting => _restUntil > Now;
     [JsonRequired] public double Hunger { get => _hunger.At(Now); set { _hunger.Set(Now, value); Changed?.Invoke(); } }
     [JsonRequired] public double Fatigue { get => _fatigue.At(Now); set { _fatigue.Set(Now, value); Changed?.Invoke(); } }
     [JsonRequired] public int Wounds { get; set; }
@@ -539,7 +542,9 @@ public sealed class RegionalTask
     [JsonRequired]
     public bool Complete { get; set; }
 }
-public sealed record ResourceStock(string Definition, int Remaining, long RecoverAt);
+public sealed record ResourceStock(string Definition, int Remaining, long RecoverAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long RecoveryStarted = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int RecoveryPercent = 0);
 public sealed class ChunkDelta
 {
     [JsonRequired]

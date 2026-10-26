@@ -132,6 +132,7 @@ public sealed partial class WorldSession
             void Produce(string item, string job, int rate)
             {
                 int amount = (int)workers.Where(w => w.OccupationVersion == 0 && w.Job == job).Sum(w => rate * WorkRate(w));
+                if (item == "food") amount = amount * WeatherAt(Plan.Towns[town.Id].Center).FoodYieldPercent / 100;
                 int accepted = Math.Min(amount, Math.Max(0, 9999 - town.Stocks[item])); town.Stocks[item] += accepted; State.ResourcesProduced += accepted; State.RegionalResourcesProduced += accepted;
             }
         }
