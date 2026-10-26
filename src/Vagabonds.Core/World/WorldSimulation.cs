@@ -88,7 +88,7 @@ public sealed partial class WorldSession
         { actor.Cargo["food"]--; State.ResourcesConsumed++; return true; }
         var town = State.Towns[actor.HomeTown];
         if (actor.Kind == ActorKind.Person && actor.Routine is { } routine
-            && (routine.Kind != RoutineKind.Food || actor.Position.Distance(routine.Target) > 1)) return false;
+            && (routine.Kind != RoutineKind.Food || routine.Reason != HomeFoodReason || actor.Position.Distance(Plan.Towns[actor.HomeTown].Center) > 1)) return false;
         if (actor.Position.Distance(Plan.Towns[actor.HomeTown].Center) > 28 || town.Stocks["food"] < 1) return false;
         town.Stocks["food"]--; State.ResourcesConsumed++; return true;
     }

@@ -9,6 +9,7 @@ public sealed partial class WorldSession
     private void AdvanceRoutines()
     {
         if (IsInCombat) return;
+        _residentForagePlanTick = -1; _residentForageClaims.Clear(); _residentForageRequests.Clear(); _residentForageTurnCount = 0;
         _routineActors.Clear(); ActorIndex.AddNearTo(State.Position, 100, _routineActors);
         if (State.Tick % 5 == 0)
             foreach (var actor in State.Actors)
@@ -43,9 +44,11 @@ public sealed partial class WorldSession
         var home = Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor };
         if (actor.Body.Hunger >= Simulation.MealAt)
         {
-            bool supplies = actor.Position.Floor == 0 && actor.Position.Distance(home) <= 100 && State.Towns[actor.HomeTown].Stocks["food"] > 0;
-            SetResidentRoutine(actor, RoutineKind.Food, supplies ? home : actor.Position,
-                supplies ? "Seeking food from home supplies" : "Foraging for food", ground: false);
+            bool supplies = ResidentTownFood(actor);
+            var target = supplies ? home : ResidentForageTarget(actor);
+            if (supplies || actor.Position.Chunk != target.Chunk || actor.Position.Distance(target) > 1) actor.Body.ForageProgress = 0;
+            SetResidentRoutine(actor, RoutineKind.Food, target,
+                supplies ? HomeFoodReason : ForageReason, ground: false);
             return;
         }
         if (actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick || actor.Health < actor.MaxHealth / 4)
@@ -95,7 +98,9 @@ public sealed partial class WorldSession
         else if (ground) target = ResidentGround(target, actor.Position);
         var old = actor.Routine;
         if (old != null && old.Kind == kind && old.Target == target && old.Reason == reason && old.Other == other) return;
+        ChangeForageClaim(actor, old, -1);
         actor.Routine = new(kind, target, State.Tick, reason, other);
+        ChangeForageClaim(actor, actor.Routine, 1);
     }
     private WorldPosition ResidentGround(WorldPosition anchor, WorldPosition fallback)
     {
@@ -111,7 +116,7 @@ public sealed partial class WorldSession
         || actor.Routine.Kind == RoutineKind.Rest && actor.Position.Distance(actor.Routine.Target) <= 1;
     private bool RoutineInterruptsWork(Actor actor) => !actor.Recruited && actor.Routine?.Kind is RoutineKind.Danger or RoutineKind.Food or RoutineKind.Rest or RoutineKind.Shelter;
     private bool CanResidentForage(Actor actor) => actor.Kind != ActorKind.Person || actor.Routine == null
-        || actor.Routine is { Kind: RoutineKind.Food, Reason: "Foraging for food" };
+        || ForagingRoutine(actor.Routine) && actor.Position.Chunk == actor.Routine.Target.Chunk && actor.Position.Distance(actor.Routine.Target) <= 1;
     private void MoveResident(Actor actor)
     {
         if (actor.Routine is not { } routine || actor.EncounterLeader > 0 || State.Battle?.ActorIds.Contains(actor.Id) == true

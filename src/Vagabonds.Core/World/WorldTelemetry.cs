@@ -60,6 +60,7 @@ public sealed partial class WorldSession
         modifiedChunks = State.Chunks.Count, cachedFootprints = Chunks.Generator.CachedFootprints,
         bodySimulation = BodySimulation,
         residentJourneys = ResidentJourneys,
+        residentForaging = ResidentForaging,
         chunkPreparation = Chunks.PreparationStatus,
         journal = State.Journal.TakeLast(12).ToArray(),
         battle = State.Battle is not { } b ? null : new { b.Round, active = b.Active.Id, b.Active.Friendly,
