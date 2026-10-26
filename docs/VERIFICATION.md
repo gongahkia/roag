@@ -1,5 +1,11 @@
 # Vagabonds verification
 
+## Actual streaming/floor journey milestone — 2026-10-26
+
+All three focused `StreamingJourneyAuditTests` and actual `audit-travel` commands pass for **42/1337/-42**: **346** cardinal steps, four separate party members, **six** stair transfers, every floor, surface/deep chunk crossings, **25** resident chunks, exact demanded terrain/biome/culture arrays, cache demand order, regional accounting and interrupted walking/floor saves against full cadence. Reports are `artifacts/performance-review/streaming-journey-{seed}.json`; focused log is `artifacts/streaming-journey-corners.log`. Actual ready adoptions are **10/5/5** of **59/55/55** misses without awaiting preparation. This tests synchronous fallback as well as successful speculation.
+
+Private `artifacts/performance-review/streaming-native-settled/` passes **nine** real mouse checks and clean exit, including exact walking and floor reloads, every floor and return, separate drawn formation, bounded preparation and actual ready adoption. Deepest and deep-chunk-crossing PNG/UI pairs were inspected. The earlier native failure came from clicking before camera interpolation settled; the harness now waits for drawn formation before resolving the next click. Clear corridors, parked threats, preobserved ecology and ample pack food are explicit fixtures. No player saves or host desktop input are used. Fresh full-suite and terminal sustained-ecology evidence remain pending.
+
 ## Large-roster spatial query acceptance — 2026-10-26
 
 `artifacts/performance-review/spatial-scaling-final.json` passes synthetic **1,000/10,000 content-backed actor** rosters against the same pinned Core assembly as the final ecology matrix. Ordered tile/region/identity results match brute references before and after floor moves and collection removal/reinsertion; queries preserve complete state. Ten thousand warmed tile lookups allocate **zero bytes** at each roster size. A real temporary **10,000-actor save/load** preserves complete state and rebuilt identity lookups exactly. The local probe source/project are retained under `spatial-scaling-probe/`; its log is `artifacts/spatial-scaling-final.log`. The first synthetic placement attempted invalid occupied terrain near the observer; the accepted fixture keeps synthetic grid actors on other floors, leaving the real local placement intact.

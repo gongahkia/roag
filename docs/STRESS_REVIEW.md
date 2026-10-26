@@ -40,4 +40,12 @@ The three-seed `audit-crowded-work` now passes the maximum four-person party, tw
 
 The measured food-search defect now has a bounded neighboring-habitat planner and actual arrival-before-gathering checks. All 990 Core tests pass, including 74 focused forage/routine/journey/habitat cases. The corrected-rule results above verify improved outcomes in the reproduced trap without weakening conservation or inventing food. The standard world profile also passes.
 
-Still required: exercise active ecology over elapsed time; actual moving-observer chunk/floor journeys with bounded preparation and native review; then fresh full verification and the original requirement-by-requirement completion audit.
+## Actual chunk and floor journeys
+
+`audit-travel` passes seeds **42/1337/-42** with **346 actual cardinal party steps** each, four separate travellers, **six stair transfers**, all four floors and return to the starting position. Surface chunk crossings are **4/4/4**; deep crossings **8/2/2**. Both prepared and synchronous worlds reach the **25-chunk** cache cap and compare every demanded terrain/biome/culture array, demand ordering, resources and complete state, including walking/floor reloads against full body cadence. Preparation is never awaited. It supplies **10/5/5** of **59/55/55** measured demand misses; ordinary synchronous fallback remains necessary and correct.
+
+Reports are `artifacts/performance-review/streaming-journey-{seed}.json`; focused tests pass all three cases in `artifacts/streaming-journey-corners.log`. The private `streaming-native-settled` scene passes **nine actual mouse checks**, including surface walking reload, deep/surface floor reloads, all floors, separate drawn formation, bounded preparation and a complete round trip. Reviewed the deepest-floor and deep-chunk-crossing captures. The first native attempt clicked before camera interpolation settled; the accepted harness waits for actual drawn formation before resolving click pixels.
+
+Cleared corridors, parked route threats, preobserved ecology and ample pack food isolate streaming. Headless tick timings exclude movement command costs and native mouse checks do not establish FPS or untouched-map accessibility. All clients, captures and inputs use private Xvfb/software rendering and temporary slots.
+
+Still required: finish the active ecology hundred-day matrix, then fresh full verification and the original requirement-by-requirement completion audit. The ecology runs have reached actual saved day 60 on all three seeds, with generation eighteen, history four and stable actor counts; their terminal reports remain required.
