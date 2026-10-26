@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Roag.Core.Content;
 using Roag.Core.World;
+using Roag.Core.Tactics;
 using Xunit;
 
 namespace Roag.Core.Tests.World;
@@ -153,6 +154,29 @@ public sealed class WildlifeRecoveryTests : IDisposable
         Hunt(world, next); Hunt(loaded, loaded.ActorById(next.Id));
         Assert.True(world.State.RewardedEncounterIds.SetEquals(loaded.State.RewardedEncounterIds));
         Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+    }
+    [Fact]
+    public void TacticalReferencesRetainOldBodiesUntilTheyCanBeReclaimedWithoutOrphanedParticipants()
+    {
+        using var world = Prepare(out var population);
+        for (int i = 0; i < 4; i++) { var animal = Birth(world, population); Hunt(world, animal); }
+        long id = population.History[0]; var cache = world.State.Loot.Single(c => c.SourceActor == id);
+        var side = WorldSession.Directions.Select(d => cache.Position.Offset(d.X, d.Y)).First(p => p != population.Home);
+        world.Chunks.Edit(side, Material.Floor); world.State.Position = world.Party.Single().Position = side;
+        Assert.True(world.Submit(new(WorldCommandKind.Loot, cache.Position)).Success);
+        var body = world.ActorById(id);
+        body.Tactics = new() { InnateStats = new(20, 1, 1, 0, 100, 0, 150) };
+        world.State.Tactics = new() { Participants = [id], NextEvent = 2,
+            Events = [new(1, 0, "Died", world.Party.Single().Id, id, 0, body.Position)] };
+        Assert.False(world.ReclaimWildlifeHistory(population));
+        Assert.Contains(body, world.State.Actors);
+        world.State.Tactics.Events.Clear();
+        Assert.True(world.ReclaimWildlifeHistory(population));
+        Assert.DoesNotContain(body, world.State.Actors);
+        Assert.DoesNotContain(id, world.State.Tactics.Participants);
+        string path = Path.Combine(_root, "native-history.json"); world.Save(path);
+        using var restored = WorldSession.Load(path);
+        Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(restored.State));
     }
     [Fact]
     public void LegacyUnsortedRewardReceiptsLoadWithoutRewritingAndSaveInStableOrder()

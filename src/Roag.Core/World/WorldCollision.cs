@@ -13,7 +13,22 @@ public sealed partial class WorldSession
     private static readonly WorldObject Shrub = new("Shrub", "shrub", "decoration", false),
         Bones = new("Scattered bones", "bones", "decoration", false), Barrel = new("Barrel", "barrel", "decoration", true, true);
 
-    public WorldObject? ObjectAt(WorldPosition p) => ObjectAt(p, null);
+    private static readonly WorldObject Bulwark = new("Geomancer bulwark", "boulder", "geomancer-bulwark", true);
+    public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
+    internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
+    {
+        // Collision is a hot path, including worlds without native actors. Avoid a
+        // capturing predicate allocation on every expanded pathfinding tile.
+        if (State.Tactics == null) return false;
+        // ActorCollection exposes an interface enumerator, so index iteration also
+        // avoids boxing that enumerator in native worlds.
+        for (int i = 0; i < State.Actors.Count; i++)
+        {
+            var actor = State.Actors[i];
+            if (actor.Id != exceptOwner && actor.Tactics?.Resources.Bulwark?.Position == p) return true;
+        }
+        return false;
+    }
     private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {
         if (!Plan.Contains(p)) return null;
@@ -44,9 +59,10 @@ public sealed partial class WorldSession
     public Actor? OccupantAt(WorldPosition p, long except = 0, bool observedOnly = false) =>
         observedOnly && !Visible.Contains(p) ? null : ActorIndex.Occupant(p, except);
 
-    public bool GroundOpen(WorldPosition p)
+    public bool GroundOpen(WorldPosition p) => GroundOpen(p, 0);
+    internal bool GroundOpen(WorldPosition p, long ignoredBulwarkOwner)
     {
-        if (!Plan.Contains(p)) return false;
+        if (!Plan.Contains(p) || TacticalBlockAt(p, ignoredBulwarkOwner)) return false;
         var terrain = Chunks.At(p);
         return Materials.Walkable(terrain) && terrain != Material.Camp && ObjectAt(p, terrain) is not { Solid: true };
     }
@@ -71,6 +87,12 @@ public sealed partial class WorldSession
         foreach (var actor in State.Actors.Where(a => a.Life != LifeState.Dead && Visible.Contains(a.Position)))
         { hash = unchecked((hash ^ (ulong)actor.Id) * 1099511628211); hash = unchecked((hash ^ (ulong)(actor.Position.X * 4096L + actor.Position.Y)) * 1099511628211); }
         foreach (var cache in State.Loot.Where(c => c.Taken)) hash = unchecked((hash ^ (ulong)(cache.Position.X * 4096L + cache.Position.Y)) * 1099511628211);
+        foreach (var actor in State.Actors.Where(a => a.Tactics?.Resources.Bulwark is { } block && Visible.Contains(block.Position)))
+        {
+            var p = actor.Tactics!.Resources.Bulwark!.Position;
+            hash = unchecked((hash ^ (ulong)actor.Id) * 1099511628211);
+            hash = unchecked((hash ^ (ulong)(p.X * 4096L + p.Y)) * 1099511628211);
+        }
         return hash;
     }
 

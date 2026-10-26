@@ -14,7 +14,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public WorldState State { get; }
     public ChunkCache Chunks { get; }
     public int Seed => Plan.Seed;
-    public bool IsInCombat => State.RoagCombat || State.Battle != null;
+    public bool IsInCombat => State.RoagCombat || State.Battle != null || State.Tactics is { Participants.Count: > 0 };
     public bool Paused { get; set; } = true;
     public bool ModalOpen { get; set; }
     public bool Focused { get; set; } = true;
@@ -94,7 +94,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     public int AdvanceFrame(TimeSpan elapsed)
     {
-        if (Plan.RoagNative || Frozen) { _frameRemainder = 0; return 0; }
+        if (Plan.RoagNative || State.Tactics != null || Frozen) { _frameRemainder = 0; return 0; }
         if (elapsed < TimeSpan.Zero || elapsed > TimeSpan.FromSeconds(5)) throw new ArgumentException("Frame interval must be 0..5 seconds.");
         _frameRemainder += elapsed.Ticks;
         int ticks = (int)(_frameRemainder / (TimeSpan.TicksPerSecond / TicksPerSecond));
@@ -128,7 +128,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     public ActionResult Submit(WorldCommand command) => ObserveAction("command", command, () =>
     {
-        if (Plan.RoagNative && command.Kind == WorldCommandKind.Continue)
+        if ((Plan.RoagNative || State.Tactics != null) && command.Kind == WorldCommandKind.Continue)
             return new(false, "This world ended with the party. Begin a fresh world.");
         long before = State.Tick;
         var result = SubmitCommand(command);
@@ -283,7 +283,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     private void RefreshVisibility(bool remember)
     {
         Visible.Clear(); var origin = State.Position;
-        if (origin.Floor == 0 && _surfaceView is { } view)
+        if (!Plan.RoagNative && State.Tactics == null && origin.Floor == 0 && _surfaceView is { } view)
         {
             for (int y = view.Top; y < view.Bottom; y++) for (int x = view.Left; x < view.Right; x++)
             {
@@ -294,6 +294,18 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             if (remember) { ObserveDiscoveries(); ObserveWildlife(); } return;
         }
         _surfaceView = null;
+        foreach (var p in VisionFrom(origin))
+        {
+            if (remember || Chunks.Seen(p)) Visible.Add(p);
+            if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
+        }
+        if (remember) { ObserveDiscoveries(); ObserveWildlife(); }
+    }
+
+    /// <summary>Private actor sight query; does not reveal terrain or change the controlled viewpoint.</summary>
+    internal HashSet<WorldPosition> VisionFrom(WorldPosition origin)
+    {
+        var vision = new HashSet<WorldPosition>();
         const int radius = 11;
         for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
         {
@@ -303,12 +315,11 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             {
                 var p = origin.Offset(length == 0 ? 0 : (int)Math.Round(dx * step / (double)length), length == 0 ? 0 : (int)Math.Round(dy * step / (double)length));
                 if (!Plan.Contains(p)) break;
-                if (remember || Chunks.Seen(p)) Visible.Add(p);
-                if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
-                if (p != origin && Materials.Opaque(Chunks.At(p))) break;
+                vision.Add(p);
+                if (p != origin && (Materials.Opaque(Chunks.At(p)) || TacticalBlockAt(p))) break;
             }
         }
-        if (remember) { ObserveDiscoveries(); ObserveWildlife(); }
+        return vision;
     }
     /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
     public void RevealSurface(int left, int top, int right, int bottom)
@@ -360,12 +371,12 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     {
         AdvanceWildlifeMigrations();
         foreach (var resident in State.Actors)
-            if (resident.Kind == ActorKind.Person && !resident.Recruited && resident.Life == LifeState.Alive && resident.Routine != null) MoveResident(resident);
+            if (resident.Kind == ActorKind.Person && !resident.Recruited && resident.Life == LifeState.Alive && resident.Routine != null && !UsesTacticalTurns(resident.Id)) MoveResident(resident);
         foreach (var a in ActorsNear(State.Position, 100))
         {
             if (a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive)
                 continue;
-            if (HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && (State.Battle?.ActorIds.Contains(a.Id) == true || State.RoagCombat && RoagCombatActor(a.Id)) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
+            if (UsesTacticalTurns(a.Id) || HasWork(a) || a.Body.RestUntil > State.Tick || a.Body.ForageProgress > 0 || a.EncounterLeader > 0 || IsInCombat && (State.Battle?.ActorIds.Contains(a.Id) == true || State.RoagCombat && RoagCombatActor(a.Id)) || a.Recruited || a.Life != LifeState.Alive || a.Kind == ActorKind.Caravan || a.Position.Floor != State.Position.Floor || a.Position.Distance(State.Position) > 100) continue;
             if (Ecology(a) is { } ecology)
             { if (!_wildlifeMigrationHandled.Contains(a.Id) || WildlifeThreatened(a, ecology)) MoveWildlife(a, ecology); continue; }
             var rng = WorldRandom.Stream(Seed, (int)a.Id, unchecked((int)(State.Tick / 5)), 330);

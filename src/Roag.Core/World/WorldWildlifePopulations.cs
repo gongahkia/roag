@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Roag.Core.Content;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -49,6 +50,7 @@ public sealed partial class WorldSession
     }
     private bool WildlifeHistoryReferenced(long id)
     {
+        if (TacticalReferences.RetainsActor(State, id)) return true;
         if (State.Party.Contains(id) || State.Battle?.ActorIds.Contains(id) == true || State.LastEncounterReward?.Sources.Contains(id) == true
             || State.CombatEvents.Any(e => e.Source == id || e.Target == id) || State.LastCampStory?.Speaker == id || State.Endgame.ActorId == id
             || State.Discoveries.Any(d => d.WitnessId == id || d.Enemies.Contains(id))
@@ -56,7 +58,7 @@ public sealed partial class WorldSession
         return State.Actors.Any(a => a.Id != id && (a.FriendId == id || a.EncounterLeader == id || a.Routine?.Other == id
             || a.Trust.ContainsKey(id) || a.Memories.Any(m => m.Other == id) || a.Consequences.Values.Any(c => c.Other == id)));
     }
-    private bool ReclaimWildlifeHistory(WildlifePopulation population)
+    internal bool ReclaimWildlifeHistory(WildlifePopulation population)
     {
         while (population.History.Count >= WildlifeHistoryLimit)
         {
@@ -68,6 +70,7 @@ public sealed partial class WorldSession
                 // Already collected drops remain in their actual inventories.
                 // Any residual personal cargo decays with the old body and is accounted.
                 State.ResourcesLost += actor.Cargo.Values.Sum(v => (long)v);
+                State.Tactics?.Participants.Remove(id);
                 State.Loot.Remove(cache); State.RewardedEncounterIds.Remove(id); State.Actors.Remove(actor); population.History.Remove(id);
                 reclaimed = true; break;
             }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Roag.Core.Expeditions;
 using Roag.Core.Content;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -146,6 +147,7 @@ public sealed partial class WorldSession
                 || string.IsNullOrWhiteSpace(actor.SpriteId) || actor.TraitId == null || actor.TraitId.Length > 0 && !catalog.Entries.ContainsKey(actor.TraitId))
                 throw new InvalidDataException("Invalid content-backed actor state.");
         var actorIds = s.Actors.Select(a => a.Id).ToHashSet();
+        TacticalValidation.Validate(plan, s, catalog);
         foreach (var actor in s.Actors)
             if (actor.Routine is { } routine && (actor.Kind != ActorKind.Person || !Enum.IsDefined(routine.Kind) || !plan.Contains(routine.Target)
                 || routine.Kind == RoutineKind.Shelter && routine.Target.Distance((plan.Towns[actor.HomeTown].Center with { Floor = routine.Target.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18)) > 6
@@ -260,7 +262,9 @@ public sealed partial class WorldSession
         if (s.Party.Any(id => !s.Actors.Any(a => a.Id == id && a.Recruited && a.Kind == ActorKind.Person)) || s.Towns.Count != 24 || s.Towns.Where((t, i) => t == null || t.Id != i || t.Stocks == null || new[] { "food", "wood", "stone", "medicine" }.Any(k => !t.Stocks.ContainsKey(k)) || t.Stocks.Any(e => e.Value < 0)).Any() || s.Factions.Count != 6 || s.Factions.Any(f => f == null || f.Relations == null || f.Relations.Length != 6) || s.Inventory.Any(e => e.Value < 0) || s.Arc.TownId is < 0 or >= 24 || s.Arc.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Arc.PatronId) || !Enum.IsDefined(s.Arc.Kind) || !Enum.IsDefined(s.Arc.Status) || s.Tasks.Any(t => t == null || t.TownId is < 0 or >= 24 || t.RoadId < 0 || t.RoadId >= plan.Roads.Count)) throw new InvalidDataException("Invalid party, economy or arc.");
         if (s.Towns.Any(t => t.Stocks.Count != 4) || s.Factions.Where((f, i) => f.Id != i || f.Relations.Any(r => r is < -100 or > 100)).Any() || s.Journal.Any(j => j == null) || s.VisitedSites.Any(id => id is < 0 or >= 48)) throw new InvalidDataException("Invalid economy/history.");
         var party = s.Party.Select(id => s.Actors.Single(a => a.Id == id));
-        if (s.AwaitingContinuation ? party.Any(a => a.Life != LifeState.Dead) : !party.Any(a => a.Life == LifeState.Alive)) throw new InvalidDataException("Invalid party life state.");
+        if (s.AwaitingContinuation ? party.Any(a => a.Life != LifeState.Dead)
+            : !party.Any(a => a.Life == LifeState.Alive || s.Tactics != null && a.Life == LifeState.Downed))
+            throw new InvalidDataException("Invalid party life state.");
         if (s.Battle is { } b)
         {
             if (s.AwaitingContinuation || b.Plans == null || b.Units == null || b.ActorIds == null || b.Order == null || b.Units.Count is < 2 or > 8 || b.Units.Any(u => u == null) || b.Units.Count != b.ActorIds.Count || b.ActorIds.Distinct().Count() != b.ActorIds.Count || b.ActorIds.Any(id => !s.Actors.Any(a => a.Id == id)) || b.Units.Where((u, i) => u.Id != i || u.Health < 0 || u.Health > u.MaxHealth || u.Mana < 0 || u.Mana > u.MaxMana || u.Friendly != s.Party.Contains(b.ActorIds[i])).Any() || b.Order.Count == 0 || b.Order.Distinct().Count() != b.Order.Count || b.Order.Any(i => i < 0 || i >= b.Units.Count) || b.TurnIndex < 0 || b.TurnIndex >= b.Order.Count || !b.Active.Alive || !b.Units.Any(u => u.Friendly && u.Alive) || !b.Units.Any(u => !u.Friendly && u.Alive)) throw new InvalidDataException("Invalid battle.");

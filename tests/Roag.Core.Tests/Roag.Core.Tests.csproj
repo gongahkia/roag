@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject></PropertyGroup>
   <ItemGroup>
+    <None Update="Tactics/Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/migration/original-boon-inventory.json" Link="Tactics/Fixtures/original-boon-catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Roag.Core/Roag.Core.csproj" />
     <ProjectReference Include="../../src/Roag.Client/Roag.Client.csproj" />
     <ProjectReference Include="../../src/Roag.Tools/Roag.Tools.csproj" />

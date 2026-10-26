@@ -14,13 +14,24 @@ internal static class StructuralLayouts
         "shrine" when floor % 2 == 1 => "ring-sanctuary",
         _ => "overlapping-wfc"
     };
-    public static Material[] Generate(string family, int seed)
+    public static Material[] Generate(string family, int seed) => Generate(family, seed, out _);
+    public static Material[] Generate(string family, int seed, out int[] roomCells)
     {
         var random = new RandomStream(unchecked((uint)seed));
         int Range(int min, int max) => min + random.Next(max - min);
         var cells = Enumerable.Repeat(Material.Wall, 4096).ToArray();
+        var roomsByCell = new int[4096];
+        int nextRoom = 1;
         void Floor(int x, int y) { if (x is > 1 and < 62 && y is > 1 and < 62) cells[y * 64 + x] = Material.Floor; }
         void Rect(int x, int y, int w, int h) { for (int yy = y; yy < y + h; yy++) for (int xx = x; xx < x + w; xx++) Floor(xx, yy); }
+        void RoomRect(int x, int y, int w, int h)
+        {
+            Rect(x, y, w, h);
+            int id = nextRoom++;
+            for (int yy = Math.Max(2, y); yy < Math.Min(62, y + h); yy++)
+                for (int xx = Math.Max(2, x); xx < Math.Min(62, x + w); xx++)
+                    if (roomsByCell[yy * 64 + xx] == 0) roomsByCell[yy * 64 + xx] = id;
+        }
         void Corridor((int X, int Y) a, (int X, int Y) b, bool wide = false)
         {
             int x = a.X, y = a.Y;
@@ -33,9 +44,9 @@ internal static class StructuralLayouts
             int radius = Range(18, 26), width = Range(2, 5);
             for (int y = 3; y < 61; y++) for (int x = 3; x < 61; x++)
                 if (Math.Abs(Math.Sqrt((x - 32) * (x - 32) + (y - 32) * (y - 32)) - radius) < width) Floor(x, y);
-            Rect(28, 28, 9, 9);
+            RoomRect(28, 28, 9, 9);
             var points = new[] { (32, 32 - radius), (32 + radius, 32), (32, 32 + radius), (32 - radius, 32) };
-            foreach (var point in points) { Rect(point.Item1 - 3, point.Item2 - 3, Range(6, 9), Range(6, 9)); Corridor((32, 32), point); }
+            foreach (var point in points) { RoomRect(point.Item1 - 3, point.Item2 - 3, Range(6, 9), Range(6, 9)); Corridor((32, 32), point); }
         }
         else
         {
@@ -53,7 +64,7 @@ internal static class StructuralLayouts
                 }
                 int w = Range(5, Math.Max(6, region.Width - 2)), h = Range(5, Math.Max(6, region.Height - 2));
                 var room = new Room(region.X + Range(1, region.Width - w), region.Y + Range(1, region.Height - h), w, h);
-                rooms.Add(room); Rect(room.X, room.Y, room.Width, room.Height);
+                rooms.Add(room); RoomRect(room.X, room.Y, room.Width, room.Height);
             }
             Partition(new(3, 3, 58, 58), 0);
             var connected = new List<Room> { rooms[0] }; var remaining = rooms.Skip(1).ToList();
@@ -83,6 +94,6 @@ internal static class StructuralLayouts
                 }
             }
         }
-        Rect(28, 30, 9, 5); return cells;
+        RoomRect(28, 30, 9, 5); roomCells = roomsByCell; return cells;
     }
 }

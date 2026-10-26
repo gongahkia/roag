@@ -1,6 +1,7 @@
 using Roag.Core.Content;
 using Roag.Core.Expeditions;
 using Roag.Core.Rules;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -14,8 +15,8 @@ public sealed partial class WorldSession
     private V _roagState;
     private const int RoagMapSize = 65;
     private NativeRuntime Rules => _roagRuntime ??= new();
-    public IReadOnlyList<string> RoagClasses => NativeRuntime.Entries(Rules.Require("src.classes")["order"]).Select(v=>v.Text).ToArray();
-    public string RoagClassName(string id) => Rules.Call("src.classes","get",id).First["name"].Text;
+    public IReadOnlyList<string> RoagClasses => ClassCatalog.Ids;
+    public string RoagClassName(string id) => ClassCatalog.Get(id).Name;
     public long RoagActiveActor => State.RoagCombat ? (long)RoagState["player_id"].Number : State.Party.FirstOrDefault();
     private V RoagState
     {

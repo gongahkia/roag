@@ -65,7 +65,7 @@ public sealed class RoagIntegrationTests
         var runtime=new NativeRuntime();var classes=NativeRuntime.Entries(runtime.Require("src.classes")["order"]).ToArray();Assert.Equal(15,classes.Length);
         foreach(var id in classes)
         {
-            var state=runtime.Call("src.game","new",42,V.Nil,R.Table(new("class_id",id))).First;
+            var state=runtime.Call("src.game","new",42,V.Nil,R.Table(new Entry("class_id",id))).First;
             var result=runtime.Call("src.game","submit",state,R.Table(new("kind","basic_attack"),new("dx",1),new("dy",0)));
             Assert.True(R.Truth(result.First),id.Text+": "+result[1].Text);
         }

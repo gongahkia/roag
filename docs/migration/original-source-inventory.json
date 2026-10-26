@@ -1,0 +1,5905 @@
+{
+  "revision": "d498fe0889050d2a23f2ff86d80db6084ed6467a",
+  "scope": "All original src/*.lua modules plus main.lua and conf.lua. Literal IDs include references, not just definitions; computed IDs require runtime catalog inventory and source review.",
+  "sources": [
+    {
+      "path": "conf.lua",
+      "sha256": "77995df36c6bbaceb914b4f8b19005fe5e902d5877493c063ea6a4e4414385cb",
+      "namedFunctions": [
+        "love.conf"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "main.lua",
+      "sha256": "25b40403dcf6694d658cb64115012ad759fbc1ae67a1997e9d60e36856ca46d2",
+      "namedFunctions": [
+        "set_visual_style",
+        "apply_audio_settings",
+        "apply_presentation_settings",
+        "save_presentation_settings",
+        "finish_volume_drag",
+        "update_volume_drag",
+        "local_room_audio",
+        "audio_scene",
+        "audio_ambience",
+        "sync_audio_scene",
+        "apply_showcase",
+        "visible_at",
+        "explored_at",
+        "visible_event",
+        "visible_events",
+        "upgrade_notice",
+        "owned_boon_ids",
+        "reset_camera",
+        "visual_fingerprint",
+        "load_native_visuals",
+        "make_visual_image",
+        "build_selected_visuals",
+        "love.load",
+        "refresh_visuals",
+        "love.update",
+        "begin_new",
+        "continue_run",
+        "resumable",
+        "request_new_run",
+        "settings_reset_focus",
+        "activate_title_selection",
+        "settings_change",
+        "settings_keypressed",
+        "checkpoint",
+        "submit",
+        "interaction_ui.open",
+        "interaction_ui.utility",
+        "interaction_ui.nearby",
+        "interaction_ui.response",
+        "spectator_restart",
+        "title_keypressed",
+        "love.keypressed",
+        "love.gamepadpressed",
+        "draw_cell",
+        "draw_cells",
+        "draw_visual",
+        "bound_visual",
+        "actor_visual",
+        "menu_frame",
+        "draw_enemies",
+        "draw_squad_cues",
+        "badge",
+        "begin_tile_token",
+        "draw_rewards",
+        "review_sprite",
+        "part",
+        "draw_reward_feedback",
+        "draw_world_accents",
+        "ink",
+        "draw_history_event",
+        "draw_combat_numbers",
+        "draw_preview",
+        "draw_minimap",
+        "draw_minimap_cell",
+        "draw_world",
+        "hud_meter",
+        "draw_panel",
+        "draw_interaction_menu",
+        "draw_inventory",
+        "draw_help",
+        "draw_boon_detail",
+        "settings_tab_at",
+        "settings_row_at",
+        "settings_click",
+        "draw_settings",
+        "draw_title_page",
+        "love.draw",
+        "love.update",
+        "love.draw",
+        "love.roagDiagnostics",
+        "love.roagPlaybackPending",
+        "love.roagMenuState",
+        "love.roagUIState",
+        "love.roagAssetStatus",
+        "love.roagVisualRefreshStatus",
+        "love.roagAudioStatus",
+        "love.roagAudioScene",
+        "love.roagAudioDiagnostics",
+        "love.roagWorldPackStatus",
+        "love.roagAtlasStatus",
+        "love.roagAssetBacking",
+        "love.roagVisualPackMode",
+        "love.roagAssetResolved",
+        "love.roagAssetIdResolved",
+        "love.mousepressed",
+        "love.mousemoved",
+        "love.mousereleased",
+        "love.focus",
+        "love.wheelmoved"
+      ],
+      "literalContentReferences": [
+        "core:chest/standard",
+        "core:cue/ambient/",
+        "core:cue/class/",
+        "core:cue/music/",
+        "core:cue/music/defeat",
+        "core:cue/music/final_boss",
+        "core:cue/music/title",
+        "core:cue/music/victory",
+        "core:cue/ui/cancel",
+        "core:cue/ui/confirm",
+        "core:cue/ui/hover",
+        "core:drop/currency/detail",
+        "core:enemy/alarm_keeper",
+        "core:enemy/ash_marshal",
+        "core:enemy/bastion_bulwark",
+        "core:enemy/canal_lockmaster",
+        "core:enemy/cinder_mender",
+        "core:enemy/crystal_bombardier",
+        "core:enemy/ember_crucible",
+        "core:enemy/forge_conjurer",
+        "core:enemy/glass_charger",
+        "core:enemy/gloom_strider",
+        "core:enemy/grave_cantor",
+        "core:enemy/haunted_cache",
+        "core:enemy/heavy_rammer",
+        "core:enemy/hollow_wraith",
+        "core:enemy/index_keeper",
+        "core:enemy/mire_binder",
+        "core:enemy/mossbreaker",
+        "core:enemy/mycelial_matriarch",
+        "core:enemy/pack_chorister",
+        "core:enemy/prism_curator",
+        "core:enemy/vault_lurker",
+        "core:object/chest_open",
+        "core:object/door_closed",
+        "core:object/door_open",
+        "core:object/env_column_",
+        "core:object/exit",
+        "core:object/idea_cache_dormant",
+        "core:object/idea_silt_trail",
+        "core:object/review_",
+        "core:object/review_plate_up",
+        "core:object/review_rail_",
+        "core:object/review_rail_top_left",
+        "core:object/review_secret_clue",
+        "core:object/stairs_down",
+        "core:object/stairs_up",
+        "core:ui/attack_center_effect",
+        "core:ui/burning_effect",
+        "core:ui/currency_icon",
+        "core:ui/hp_icon",
+        "core:ui/idea_alarm_effect",
+        "core:ui/idea_corpse_effect",
+        "core:ui/idea_mirror_effect",
+        "core:ui/idea_oath_effect",
+        "core:ui/idea_reflect_effect",
+        "core:ui/squad_",
+        "core:ui/squad_snare_effect",
+        "core:ui/status_charge_",
+        "core:ui/storm_charge_effect",
+        "core:ui/weapon_bow_icon",
+        "core:ui/xp_icon"
+      ]
+    },
+    {
+      "path": "src/achievement_content.lua",
+      "sha256": "9efa72a89b6d14e0bb0a42fd560b43244fc5d1d0759aab7f79ac8e519b9f6c2b",
+      "namedFunctions": [
+        "A.get",
+        "A.validate"
+      ],
+      "literalContentReferences": [
+        "core:achievement/boon_bearer",
+        "core:achievement/chain_reaction",
+        "core:achievement/coin_purse",
+        "core:achievement/deeper_road",
+        "core:achievement/first_blood",
+        "core:achievement/first_guardian",
+        "core:achievement/first_level",
+        "core:achievement/gate_opener",
+        "core:achievement/key_bearer",
+        "core:achievement/long_heal",
+        "core:achievement/ore_seeker",
+        "core:achievement/pathfinder",
+        "core:achievement/pressure_survivor",
+        "core:achievement/regent_awakened",
+        "core:achievement/regents_fall",
+        "core:achievement/sanctum_reached",
+        "core:achievement/stonebreaker",
+        "core:achievement/torchbearer",
+        "core:achievement/treasure_hunter",
+        "core:achievement/uncovered_truth",
+        "core:achievement/veteran",
+        "core:achievement/warded",
+        "core:boon/circuit_chorus",
+        "core:boon/crownfire",
+        "core:boon/guardians_vow",
+        "core:boon/prospectors_heart"
+      ]
+    },
+    {
+      "path": "src/achievements.lua",
+      "sha256": "63c8d4ff16d143a35417c9d6c872a5b0d8234b95bf4dda45925e8b0312a03071",
+      "namedFunctions": [
+        "A.pool",
+        "A.validate_pool",
+        "A.new_run",
+        "A.validate",
+        "award",
+        "A.observe",
+        "A.prune"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/ai.lua",
+      "sha256": "5c6aaad8df11856d1e21df9c3cccd7950f1900ff37372bebab73b4f19da35e2f",
+      "namedFunctions": [
+        "occupied",
+        "free",
+        "lane",
+        "clear_line",
+        "goal_key",
+        "next_step",
+        "adjacent_goals",
+        "lane_goals",
+        "AI.choose"
+      ],
+      "literalContentReferences": [
+        "core:ability/bell_cross",
+        "core:ability/canal_thrust",
+        "core:ability/guard_strike",
+        "core:ability/pursuer_strike",
+        "core:ability/regent_crown",
+        "core:ability/regent_line",
+        "core:ability/regent_sigil",
+        "core:ability/skitter_stab",
+        "core:ability/spore_burst",
+        "core:ability/thorn_lane",
+        "core:ability/warden_roots",
+        "core:ability/warden_sweep"
+      ]
+    },
+    {
+      "path": "src/attack_outline.lua",
+      "sha256": "49cb0d954357968898e0c466f15701085663c6422e28de169c576eaefb397ba0",
+      "namedFunctions": [
+        "Outline.rectangles"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/audio_cues.lua",
+      "sha256": "20b22316b282b06fc7cfaeb26e32dad560612450ba617b4b183d8b60604d9a3f",
+      "namedFunctions": [
+        "tail",
+        "C.room_cue",
+        "C.list",
+        "add",
+        "C.get",
+        "C.by_category"
+      ],
+      "literalContentReferences": [
+        "core:cue/ability/",
+        "core:cue/ambient/",
+        "core:cue/boon/",
+        "core:cue/class/",
+        "core:cue/elite/",
+        "core:cue/enemy/",
+        "core:cue/music/elite/",
+        "core:cue/music/explore/",
+        "core:cue/terrain/",
+        "core:enemy/extraction_pursuer",
+        "core:enemy/hollow_regent"
+      ]
+    },
+    {
+      "path": "src/biomes.lua",
+      "sha256": "ee8e8ff3b2d0772748034044e955606d2f8075a3ea7638782efd1294b895d3b1",
+      "namedFunctions": [
+        "Biomes.get",
+        "Biomes.for_map",
+        "Biomes.routes_for",
+        "Biomes.validate"
+      ],
+      "literalContentReferences": [
+        "core:biome/ashen_bastion",
+        "core:biome/fractured_archive",
+        "core:biome/fungal_hollows",
+        "core:biome/glacial_observatory",
+        "core:biome/overgrown_ruins",
+        "core:biome/sundered_forge",
+        "core:biome/sunken_aqueduct",
+        "core:enemy/ash_marshal",
+        "core:enemy/bastion_bulwark",
+        "core:enemy/canal_lancer",
+        "core:enemy/canal_lockmaster",
+        "core:enemy/cinder_bellkeeper",
+        "core:enemy/cinder_mender",
+        "core:enemy/crystal_bombardier",
+        "core:enemy/ember_crucible",
+        "core:enemy/forge_conjurer",
+        "core:enemy/glass_charger",
+        "core:enemy/gloom_strider",
+        "core:enemy/index_keeper",
+        "core:enemy/mire_binder",
+        "core:enemy/mossbound_guard",
+        "core:enemy/mossbreaker",
+        "core:enemy/mycelial_matriarch",
+        "core:enemy/pack_chorister",
+        "core:enemy/prism_curator",
+        "core:enemy/ruin_skitter",
+        "core:enemy/spore_herald",
+        "core:enemy/thorn_warden",
+        "core:enemy/thornspitter",
+        "core:enemy/vault_lurker",
+        "core:floor/ashen_bastion",
+        "core:floor/fractured_archive",
+        "core:floor/fungal_hollows",
+        "core:floor/glacial_observatory",
+        "core:floor/overgrown_ruins",
+        "core:floor/sundered_forge",
+        "core:floor/sunken_aqueduct",
+        "core:map/ashen_bastion",
+        "core:map/fractured_archive",
+        "core:map/fungal_hollows",
+        "core:map/glacial_observatory",
+        "core:map/overgrown_ruins",
+        "core:map/sundered_forge",
+        "core:map/sunken_aqueduct",
+        "core:room/aqueduct_",
+        "core:room/archive_",
+        "core:room/bastion_",
+        "core:room/bastion_gallery",
+        "core:room/forge_",
+        "core:room/fungal_",
+        "core:room/observatory_",
+        "core:route/fungal_hollows",
+        "core:route/gateway",
+        "core:route/sunken_aqueduct"
+      ]
+    },
+    {
+      "path": "src/boon_content.lua",
+      "sha256": "05d944a819ed0551dff5c3fe6d98becbd59140fe50af20edd6af016328e5aa09",
+      "namedFunctions": [
+        "Catalog.starter_order",
+        "Catalog.normal_order",
+        "strengths",
+        "validate_predicate",
+        "Catalog.validate",
+        "Catalog.get",
+        "Catalog.offer_text"
+      ],
+      "literalContentReferences": [
+        "core:ability/arcanist_bolt",
+        "core:ability/arcanist_sigil",
+        "core:ability/basic_attack",
+        "core:ability/berserker_crush",
+        "core:ability/dash",
+        "core:ability/ranger_shot",
+        "core:ability/ranger_volley",
+        "core:ability/sweeping_slash",
+        "core:actor/adventurer",
+        "core:actor/alchemist",
+        "core:actor/sentinel",
+        "core:boon/aftershock",
+        "core:boon/circuit_chorus",
+        "core:boon/crescent_reach",
+        "core:boon/crowdbreaker",
+        "core:boon/crownfire",
+        "core:boon/detonation_bloom",
+        "core:boon/emberbrand",
+        "core:boon/final_spark",
+        "core:boon/flashpoint",
+        "core:boon/grave_dividend",
+        "core:boon/guardians_vow",
+        "core:boon/harriers_response",
+        "core:boon/longblade_geometry",
+        "core:boon/opening_cut",
+        "core:boon/packed_powder",
+        "core:boon/perfect_guard",
+        "core:boon/phantom_lunge",
+        "core:boon/prospectors_heart",
+        "core:boon/pulse_step",
+        "core:boon/reprisal_nova",
+        "core:boon/resonant_wounds",
+        "core:boon/ring_of_reversal",
+        "core:boon/static_footsteps",
+        "core:boon/storm_conductor",
+        "core:boon/temporal_echo",
+        "core:boon/thorn_mirror",
+        "core:boon/turncoat_spark"
+      ]
+    },
+    {
+      "path": "src/boon_expansion_content.lua",
+      "sha256": "919c20cbb6f4092597ff7f55e63e1174e86300a03a8cea37b023808ee01f525f",
+      "namedFunctions": [
+        "parameters",
+        "entry"
+      ],
+      "literalContentReferences": [
+        "core:ability/arcanist_bolt",
+        "core:ability/arcanist_sigil",
+        "core:ability/berserker_crush",
+        "core:ability/dash",
+        "core:ability/ranger_shot",
+        "core:ability/ranger_volley",
+        "core:actor/arcanist",
+        "core:actor/berserker",
+        "core:actor/ranger",
+        "core:boon/alchemical_flip",
+        "core:boon/battle_march",
+        "core:boon/betrayal_ward",
+        "core:boon/bloodrush",
+        "core:boon/bramble_compact",
+        "core:boon/cluster_rupture",
+        "core:boon/counterweight",
+        "core:boon/crossfire_omen",
+        "core:boon/crystal_harmony",
+        "core:boon/earthshaker",
+        "core:boon/executioners_thread",
+        "core:boon/expanding_sigil",
+        "core:boon/far_witness",
+        "core:boon/fracture_dividend",
+        "core:boon/froststep_catalyst",
+        "core:boon/mist_veil",
+        "core:boon/ordered_ranks",
+        "core:boon/pain_dividend",
+        "core:boon/pursuit_spark",
+        "core:boon/recurve",
+        "core:boon/rhythm_of_steel",
+        "core:boon/shared_agony",
+        "core:boon/splitflight",
+        "core:boon/stonewake",
+        "core:boon/sunderers_mark",
+        "core:boon/windup_hunter",
+        "core:terrain/bramble_bed"
+      ]
+    },
+    {
+      "path": "src/boon_patterns.lua",
+      "sha256": "739cb13ea1d871450edd5f61f54d420fda519960b4e35364e2c6fb0c5ef043cb",
+      "namedFunctions": [
+        "sign",
+        "P.clear_segment",
+        "pass",
+        "P.axis",
+        "P.cells",
+        "pass",
+        "append",
+        "step_clear",
+        "segment_clear",
+        "ray",
+        "route",
+        "P.weapon_cells",
+        "pass",
+        "append",
+        "copy_current",
+        "clear"
+      ],
+      "literalContentReferences": [
+        "core:ability/alchemist_vial",
+        "core:ability/arcanist_sigil",
+        "core:ability/basic_attack",
+        "core:ability/berserker_cleave",
+        "core:ability/duelist_thrust",
+        "core:ability/ranger_shot",
+        "core:ability/sentinel_pulse",
+        "core:actor/adventurer",
+        "core:actor/alchemist",
+        "core:actor/arcanist",
+        "core:actor/berserker",
+        "core:actor/duelist",
+        "core:actor/ranger",
+        "core:actor/sentinel"
+      ]
+    },
+    {
+      "path": "src/boons.lua",
+      "sha256": "b4b5970123b5498fcf857452a8ea395c4e2ef4417b2be10ea412e1e442d47bcb",
+      "namedFunctions": [
+        "entity",
+        "distance",
+        "event_position",
+        "observes",
+        "hostile",
+        "Boons.backstop",
+        "pair_key",
+        "pair_candidates",
+        "predicate",
+        "magnitude",
+        "Boons.aggregate",
+        "Boons.has_pattern",
+        "Boons.preview_patterns",
+        "Boons.proc_count",
+        "owns_any",
+        "Boons.active",
+        "Boons.set_stacks",
+        "Boons.validate_inventory",
+        "Boons.attack_vow",
+        "Boons.dice_power",
+        "Boons.roll_dice",
+        "Boons.rebase_stage_memory",
+        "Boons.skull_target",
+        "Boons.speed_bonus",
+        "Boons.consume_ward",
+        "Boons.ward_total",
+        "Boons.route_before_form",
+        "Boons.ability",
+        "living_at",
+        "append_unique",
+        "chain_record",
+        "contains",
+        "copied_ancestry",
+        "pair_neighborhood",
+        "Boons.on_event",
+        "Boons.prune_histories"
+      ],
+      "literalContentReferences": [
+        "core:ability/dash",
+        "core:boon/fateful_dice",
+        "core:boon/pilgrims_vow"
+      ]
+    },
+    {
+      "path": "src/camera.lua",
+      "sha256": "cc6f5fb9c76bf5098d859c3ef83a3b51632c8aa77f66e67b68a5d3745839ac3b",
+      "namedFunctions": [
+        "target",
+        "Camera.new",
+        "Camera.set_presentation_offset",
+        "Camera.set_tile",
+        "Camera.update",
+        "Camera.tile_top_left"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/classes.lua",
+      "sha256": "2d8ca355c26516ec20452b288e10a3936c669bd4345a2526571a0ff99a0b9b8f",
+      "namedFunctions": [
+        "Classes.get",
+        "Classes.for_player",
+        "Classes.cost",
+        "Classes.is_attack",
+        "Classes.immediate_attack",
+        "line",
+        "Classes.attack",
+        "action_hint",
+        "Classes.preview_hint",
+        "Classes.status",
+        "Classes.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/alchemist_flask",
+        "core:ability/alchemist_vial",
+        "core:ability/arcanist_bolt",
+        "core:ability/arcanist_sigil",
+        "core:ability/basic_attack",
+        "core:ability/berserker_cleave",
+        "core:ability/berserker_crush",
+        "core:ability/hookrunner_hook",
+        "core:ability/hookrunner_knife",
+        "core:ability/ranger_shot",
+        "core:ability/ranger_volley",
+        "core:ability/sentinel_pulse",
+        "core:ability/sentinel_strike",
+        "core:ability/shade_blade",
+        "core:ability/shade_decoy",
+        "core:ability/sweeping_slash",
+        "core:ability/trapper_knife",
+        "core:ability/trapper_snare",
+        "core:actor/adventurer",
+        "core:actor/alchemist",
+        "core:actor/arcanist",
+        "core:actor/berserker",
+        "core:actor/hookrunner",
+        "core:actor/ranger",
+        "core:actor/sentinel",
+        "core:actor/shade",
+        "core:actor/trapper"
+      ]
+    },
+    {
+      "path": "src/combat_numbers.lua",
+      "sha256": "8907e382c1ef3623fadee7a7dbe9c82ca3cd071aa3d58158c5fcb1fade8b052c",
+      "namedFunctions": [
+        "Numbers.new",
+        "add_item",
+        "activate",
+        "Numbers.update"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/content.lua",
+      "sha256": "d8e71d549cb9031094b462f8b7e1e6fa3fe41cab7184fd60b59a1969f65a0505",
+      "namedFunctions": [
+        "Content.get_map",
+        "Content.map_for",
+        "Content.get_enemy",
+        "Content.get_adventurer",
+        "Content.get_class",
+        "Content.get_progression",
+        "Content.get_stage_rules",
+        "Content.get_chest",
+        "Content.demo_chests",
+        "Content.ability_proc_coefficient",
+        "Content.has_ability",
+        "Content.ability_name",
+        "Content.demo_spawns",
+        "tile_at",
+        "Content.validate_map",
+        "Content.walkable",
+        "blocking_entity",
+        "Content.projectile_passable",
+        "Content.mist_blocks",
+        "Content.blocks_vision",
+        "Content.validate_all",
+        "positive_integer"
+      ],
+      "literalContentReferences": [
+        "core:ability/basic_attack",
+        "core:ability/bell_cross",
+        "core:ability/canal_thrust",
+        "core:ability/elite_",
+        "core:ability/guard_strike",
+        "core:ability/pursuer_strike",
+        "core:ability/regent_crown",
+        "core:ability/regent_line",
+        "core:ability/regent_sigil",
+        "core:ability/skitter_stab",
+        "core:ability/spore_burst",
+        "core:ability/sweeping_slash",
+        "core:ability/thorn_lane",
+        "core:ability/tinkerer_sentry",
+        "core:ability/warden_roots",
+        "core:ability/warden_sweep",
+        "core:actor/adventurer",
+        "core:chest/free_elite",
+        "core:chest/standard",
+        "core:enemy/canal_lancer",
+        "core:enemy/cinder_bellkeeper",
+        "core:enemy/extraction_pursuer",
+        "core:enemy/hollow_regent",
+        "core:enemy/mossbound_guard",
+        "core:enemy/ruin_skitter",
+        "core:enemy/spore_herald",
+        "core:enemy/thorn_warden",
+        "core:enemy/thornspitter",
+        "core:floor/test",
+        "core:map/scrolling_room",
+        "core:map/test_room",
+        "core:route/fungal_hollows"
+      ]
+    },
+    {
+      "path": "src/corridor_branches.lua",
+      "sha256": "d73c895ffd823bd1f917074e4a1b04a85f7a5357157b6f31db20cda1fdf52e61",
+      "namedFunctions": [
+        "key",
+        "design",
+        "carve",
+        "node",
+        "Branches.attach",
+        "at"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/diagnostics.lua",
+      "sha256": "91f9d535e32da7cdb21cd2ce921d29d531bc55bd756bf20f401d2bdd52b2cb74",
+      "namedFunctions": [
+        "percentile",
+        "Diagnostics.new",
+        "Diagnostics.sample",
+        "Diagnostics.summary"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/elite_ai.lua",
+      "sha256": "17722434009968eb1adcc1ec3fb2db8380255590c98bd0d481cee425b0d12085",
+      "namedFunctions": [
+        "sign",
+        "cells_for",
+        "add",
+        "EliteAI.choose",
+        "EliteAI.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/elite_",
+        "core:enemy/ash_marshal",
+        "core:enemy/canal_lockmaster",
+        "core:enemy/ember_crucible",
+        "core:enemy/index_keeper",
+        "core:enemy/mycelial_matriarch",
+        "core:enemy/prism_curator"
+      ]
+    },
+    {
+      "path": "src/enemy_squads.lua",
+      "sha256": "35bbef282047e79221c19303f12a861df6636fb32eee6707ce7550149a447be1",
+      "namedFunctions": [
+        "key",
+        "S.flank_reachable",
+        "S.distance",
+        "S.entity",
+        "S.leader",
+        "S.clear",
+        "open",
+        "S.ward_source",
+        "S.rally_source",
+        "S.block",
+        "S.plan",
+        "S.populate",
+        "S.validate"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/finale.lua",
+      "sha256": "6e10b13465b87d1255977e49f5ee6b9cc27db67100ec06b9a9b0db67e23dcbd2",
+      "namedFunctions": [
+        "Finale.validate_map",
+        "entity",
+        "Finale.init",
+        "Finale.on_event",
+        "Finale.finish",
+        "Finale.validate"
+      ],
+      "literalContentReferences": [
+        "core:enemy/hollow_regent",
+        "core:floor/final_sanctum",
+        "core:map/final_sanctum",
+        "core:route/gateway"
+      ]
+    },
+    {
+      "path": "src/floors.lua",
+      "sha256": "1e24a6c696b971a8cdc56aa43d5e5ea6ba638ed5818914d5f3aee3df2ba45e0d",
+      "namedFunctions": [
+        "Floors.map",
+        "Floors.portal",
+        "occupied",
+        "Floors.landing",
+        "Floors.park",
+        "Floors.resume",
+        "pursuer_destination",
+        "Floors.change"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/game.lua",
+      "sha256": "8b8ad0f6689d0dcb71a53a1a2a4ad357efa0524e88f3fe6a1cedde5aaa52e91e",
+      "namedFunctions": [
+        "copy",
+        "emit",
+        "Game.effective_cost",
+        "Game.entity",
+        "Game.player",
+        "occupant",
+        "Game.spawn_enemy",
+        "Game.spawn_chest",
+        "Game.spawn_door",
+        "Game.new",
+        "populate_active",
+        "Game.new_generated",
+        "Game.new_stage",
+        "Game.new_finale",
+        "preview_action",
+        "Game.preview",
+        "Game.set_boon_stacks",
+        "Game.chest_options",
+        "Game.interaction_options",
+        "Game.nearby_interactions",
+        "Game.utility_options",
+        "Game.route_options",
+        "Game.next_level_xp",
+        "Game.effective_ability",
+        "cancel_windup",
+        "Game.shove_landing",
+        "shove_actor",
+        "remove_dead",
+        "damage_batch",
+        "terrain_damage",
+        "effect_cause",
+        "effect_cells",
+        "execute_effect",
+        "drain_effects",
+        "attack",
+        "enemy_turn",
+        "resolve_impact",
+        "advance_to_player",
+        "Game.submit",
+        "interaction_emit",
+        "Game.stun",
+        "Game.displace",
+        "Game.pending_strikes",
+        "Game.pending_boon_effects",
+        "Game.is_visible",
+        "Game.was_explored",
+        "Game.snapshot",
+        "Game.restore"
+      ],
+      "literalContentReferences": [
+        "core:ability/basic_attack",
+        "core:ability/dash",
+        "core:ability/duelist_parry",
+        "core:ability/duelist_thrust",
+        "core:ability/falling_fixture",
+        "core:ability/heat_vent",
+        "core:ability/hookrunner_hook",
+        "core:ability/moth_ember",
+        "core:ability/shade_decoy",
+        "core:ability/stormcaller_discharge",
+        "core:ability/tinkerer_sentry",
+        "core:ability/trapper_snare",
+        "core:actor/shade",
+        "core:actor/trapper",
+        "core:boon/fateful_dice",
+        "core:boon/ring_of_reversal",
+        "core:boon/stone_backstop",
+        "core:chest/free_elite",
+        "core:door/ruin",
+        "core:enemy/alarm_keeper",
+        "core:enemy/grave_cantor",
+        "core:enemy/gulp_toad",
+        "core:enemy/hollow_wraith",
+        "core:enemy/mirror_hexer",
+        "core:enemy/mossbound_guard",
+        "core:enemy/ruin_skitter",
+        "core:enemy/snare_scribe",
+        "core:enemy/ward_weaver",
+        "core:enemy/web_weaver",
+        "core:map/test_room",
+        "core:route/gateway",
+        "core:ui/fate_"
+      ]
+    },
+    {
+      "path": "src/generation.lua",
+      "sha256": "84789ae646349c23b232757989d744b05539c8a79c7621e7f82448a9c450441d",
+      "namedFunctions": [
+        "Generation.biome_for_map",
+        "pack_fingerprint",
+        "Generation.install_studio_pack",
+        "Generation.studio_pack_fingerprint",
+        "key",
+        "edge_key",
+        "add_edge",
+        "Generation.plan",
+        "slot",
+        "col",
+        "row",
+        "neighbors",
+        "blank_grid",
+        "serialize_grid",
+        "set_tile",
+        "world_points",
+        "socket_for",
+        "stamp_room",
+        "corridor_path",
+        "line",
+        "append",
+        "assign_placements",
+        "place_exploration",
+        "place_terrain",
+        "reserve",
+        "build",
+        "push",
+        "walkable",
+        "reachable",
+        "Generation.validate",
+        "issue",
+        "matches_socket",
+        "Generation.repair",
+        "inject_fault",
+        "Generation.generate",
+        "Generation.generate_pair",
+        "Generation.validate_pair"
+      ],
+      "literalContentReferences": [
+        "core:chest/standard",
+        "core:door/ruin",
+        "core:map/overgrown_ruins",
+        "core:secret/cracked_cache",
+        "core:secret/moss_sigil"
+      ]
+    },
+    {
+      "path": "src/hit_feedback.lua",
+      "sha256": "3739ba4b396f9ae5a96d515f34ad8599f33ff320e60b1b74dd983690e1fa6f70",
+      "namedFunctions": [
+        "HitFeedback.new",
+        "HitFeedback.update",
+        "HitFeedback.offset",
+        "HitFeedback.flash_alpha"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/idea_boon_content.lua",
+      "sha256": "7d8822372e6f3a689b6b011b00f535ecff2a486de0a2e5471bf83a9dcca8940a",
+      "namedFunctions": [
+        "add",
+        "face",
+        "pattern",
+        "weapon"
+      ],
+      "literalContentReferences": [
+        "core:actor/spiritbinder",
+        "core:actor/stormcaller",
+        "core:actor/tinkerer",
+        "core:actor/wayfinder",
+        "core:boon/beacon_afterglow",
+        "core:boon/grounding_rod",
+        "core:boon/pilgrims_vow",
+        "core:boon/sentry_quartermaster",
+        "core:boon/spirit_shelter",
+        "core:ui/fate_"
+      ]
+    },
+    {
+      "path": "src/idea_companions.lua",
+      "sha256": "22b481d8086555d41e2d383fac6f9230f9932f2455cdf5f0b822a01294ca26f7",
+      "namedFunctions": [
+        "C.owned",
+        "body",
+        "C.cells",
+        "C.preview",
+        "C.place",
+        "schedule",
+        "C.deploy",
+        "C.resolve",
+        "C.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/spiritbinder_bolt",
+        "core:ability/spiritbinder_command",
+        "core:ability/tinkerer_bolt",
+        "core:ability/tinkerer_deploy",
+        "core:actor/spiritbinder",
+        "core:actor/tinkerer",
+        "core:object/bolt_sentry",
+        "core:object/bound_spirit",
+        "core:ui/storm_charge_effect"
+      ]
+    },
+    {
+      "path": "src/idea_duelist.lua",
+      "sha256": "098d80352cf215963d8cf79db00cad01d06b66e34c3c9fd38d24b4c7cdfb2581",
+      "namedFunctions": [
+        "D.bonus_for",
+        "D.raise",
+        "D.parry",
+        "D.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/duelist_parry",
+        "core:ability/duelist_thrust",
+        "core:actor/duelist"
+      ]
+    },
+    {
+      "path": "src/idea_embers.lua",
+      "sha256": "f41240a4df77bbcf48cd6823a516944a58277f641034d14b428c237e7af44a13",
+      "namedFunctions": [
+        "actor",
+        "schedule",
+        "E.choose",
+        "E.fits",
+        "E.create",
+        "erase",
+        "E.prune",
+        "E.resolve",
+        "E.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/moth_dive",
+        "core:ability/moth_touch",
+        "core:enemy/ember_moth"
+      ]
+    },
+    {
+      "path": "src/idea_enemies.lua",
+      "sha256": "e5f91b0e14225a63a806b59d6e16f15d713fdcbd6c534fc09c8cf1ac85eb236d",
+      "namedFunctions": [
+        "I.revivable",
+        "I.drop",
+        "I.release_drop",
+        "I.split",
+        "I.prune_corpses",
+        "I.remember_corpse",
+        "I.corpse",
+        "I.commit",
+        "I.alarm_landing",
+        "I.phase_geometry",
+        "I.phase_landing",
+        "I.choose",
+        "I.revival_company",
+        "I.companion_cell",
+        "reserve",
+        "I.selection",
+        "I.populate",
+        "I.validate_pending",
+        "I.validate",
+        "actor"
+      ],
+      "literalContentReferences": [
+        "core:ability/cache_bite",
+        "core:ability/cantor_revive",
+        "core:ability/cantor_touch",
+        "core:ability/keeper_alarm",
+        "core:ability/keeper_touch",
+        "core:ability/moth_dive",
+        "core:ability/oath_blade",
+        "core:ability/oath_pike",
+        "core:ability/rammer_shove",
+        "core:ability/toad_bite",
+        "core:ability/toad_gulp",
+        "core:ability/worm_charge",
+        "core:ability/wraith_phase",
+        "core:ability/wraith_touch",
+        "core:enemy/alarm_keeper",
+        "core:enemy/bone_fragment",
+        "core:enemy/bone_splitter",
+        "core:enemy/grave_cantor",
+        "core:enemy/gulp_toad",
+        "core:enemy/haunted_cache",
+        "core:enemy/heavy_rammer",
+        "core:enemy/hollow_wraith",
+        "core:enemy/oath_twin_a",
+        "core:enemy/oath_twin_b",
+        "core:enemy/ruin_skitter",
+        "core:enemy/web_weaver",
+        "core:object/idea_cache_dormant",
+        "core:object/idea_silt_trail",
+        "core:ui/idea_alarm_effect",
+        "core:ui/idea_corpse_effect",
+        "core:ui/idea_mirror_effect",
+        "core:ui/idea_oath_effect",
+        "core:ui/idea_reflect_effect"
+      ]
+    },
+    {
+      "path": "src/idea_environment.lua",
+      "sha256": "5d56090f16a78e7cf6682f77b497c6ccc022fbec148bf05691c3af96628698a1",
+      "namedFunctions": [
+        "has",
+        "keys",
+        "inside",
+        "hash",
+        "E.material",
+        "E.surfaces",
+        "E.surface_sheet",
+        "sample",
+        "E.family",
+        "E.plan",
+        "entry_at",
+        "material_at",
+        "E.new",
+        "bytes",
+        "texture",
+        "native",
+        "E:set_world",
+        "E:resolve",
+        "E:prop"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/idea_environment_content.lua",
+      "sha256": "307ee9789dc04c10a1a5869e8c08201faca64b74331639af45d5a9b6618d8c4f",
+      "namedFunctions": [
+        "C.material_id",
+        "C.prop_id",
+        "C.symbol_id"
+      ],
+      "literalContentReferences": [
+        "core:object/env_",
+        "core:terrain/env_"
+      ]
+    },
+    {
+      "path": "src/idea_geomancer.lua",
+      "sha256": "80ee2ca78e3fa816906b1b1d6bb288dd46326f5fd3001b1829902b95a972f7e9",
+      "namedFunctions": [
+        "G.preview",
+        "key",
+        "reachable",
+        "remove_timer",
+        "remove_owned",
+        "G.place",
+        "G.expire",
+        "G.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/geomancer_bolt",
+        "core:ability/geomancer_raise",
+        "core:actor/geomancer",
+        "core:object/geomancer_bulwark"
+      ]
+    },
+    {
+      "path": "src/idea_interaction_content.lua",
+      "sha256": "96fff2b336baaa33d34196a121e424e527aea8e8e372087e09862a2053b54ddd",
+      "namedFunctions": [
+        "C.binding"
+      ],
+      "literalContentReferences": [
+        "core:object/interaction_"
+      ]
+    },
+    {
+      "path": "src/idea_interactions.lua",
+      "sha256": "f4fe0d960da6f32e9e31162f85a050c6ad9b6635503079de01d1040c6c2c01eb",
+      "namedFunctions": [
+        "copy",
+        "actor",
+        "player",
+        "store",
+        "key",
+        "dist",
+        "I.room_at",
+        "inside",
+        "blocked",
+        "I.node",
+        "eligible",
+        "I.place",
+        "ordinary_targets",
+        "I.populate",
+        "reserve",
+        "choose",
+        "valid_access",
+        "grant_probe",
+        "utility_entry",
+        "I.options",
+        "add",
+        "I.preview",
+        "cleanse",
+        "heal",
+        "I.apply",
+        "I.nearby",
+        "I.utility_options",
+        "I.utility_preview",
+        "I.use_utility",
+        "fail",
+        "I.before_action",
+        "I.on_event",
+        "I.after_action",
+        "I.resolve",
+        "I.focus",
+        "I.focus_bonus",
+        "I.status",
+        "I.marked",
+        "integer",
+        "I.validate",
+        "check_offer"
+      ],
+      "literalContentReferences": [
+        "core:chest/standard",
+        "core:enemy/rotating_sentinel"
+      ]
+    },
+    {
+      "path": "src/idea_mirrors.lua",
+      "sha256": "23de06d35902ad69e282e5d6511edb6762a32c49a1de09977de698a3c88f36e7",
+      "namedFunctions": [
+        "actor",
+        "occupant",
+        "protected",
+        "M.fits",
+        "M.choose",
+        "M.create",
+        "M.route",
+        "M.consume",
+        "M.prune",
+        "direction",
+        "M.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/hexer_bolt",
+        "core:ability/hexer_mirror",
+        "core:enemy/mirror_hexer"
+      ]
+    },
+    {
+      "path": "src/idea_oaths.lua",
+      "sha256": "3f1f10c546ed1a02a80202a68e4278318b8f8ea609b1d635ecb30e7464c97326",
+      "namedFunctions": [
+        "O.is_twin",
+        "actor",
+        "O.partner",
+        "O.prune",
+        "copy",
+        "O.redistribute",
+        "O.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/oath_share",
+        "core:enemy/oath_twin_a",
+        "core:enemy/oath_twin_b"
+      ]
+    },
+    {
+      "path": "src/idea_presentation.lua",
+      "sha256": "8e51bbaee37b006c3ae7d4ca689acc5d34c333e49d11a011d413b6fb57323a09",
+      "namedFunctions": [
+        "P.weapon",
+        "P.effect",
+        "P.statuses",
+        "P.last_roll",
+        "P.signal",
+        "P.mural"
+      ],
+      "literalContentReferences": [
+        "core:actor/stormcaller",
+        "core:boon/fateful_dice",
+        "core:object/bolt_sentry",
+        "core:object/bound_spirit",
+        "core:object/geomancer_bulwark",
+        "core:object/return_beacon",
+        "core:ui/ability_",
+        "core:ui/ability_move_icon",
+        "core:ui/burning_effect",
+        "core:ui/cue_",
+        "core:ui/cue_block_effect",
+        "core:ui/cue_boon_effect",
+        "core:ui/cue_spark_effect",
+        "core:ui/fate_",
+        "core:ui/signal_armed_effect",
+        "core:ui/signal_safe_effect",
+        "core:ui/signal_spent_effect",
+        "core:ui/status_charge_",
+        "core:ui/status_focus_icon",
+        "core:ui/status_heal_icon",
+        "core:ui/status_ward_icon"
+      ]
+    },
+    {
+      "path": "src/idea_sentinel.lua",
+      "sha256": "078d3c56da4cd02be38f9981d22fe20fbaf3f7a72a558ce2c7ad26021e5308c7",
+      "namedFunctions": [
+        "S.cells",
+        "S.choose",
+        "S.commit",
+        "S.interrupt",
+        "S.optional_room",
+        "S.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/sentinel_quarter",
+        "core:ability/sentinel_touch",
+        "core:enemy/rotating_sentinel"
+      ]
+    },
+    {
+      "path": "src/idea_silt.lua",
+      "sha256": "1854f69b35ba5d05d6be60b3839698b15b0f9f6cf670f58182e935a202ff8c18",
+      "namedFunctions": [
+        "actor",
+        "T.protected",
+        "T.choose",
+        "T.at",
+        "T.move_extra",
+        "T.prune",
+        "T.leave",
+        "T.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/worm_charge",
+        "core:ability/worm_touch",
+        "core:enemy/silt_worm"
+      ]
+    },
+    {
+      "path": "src/idea_stormcaller.lua",
+      "sha256": "510c5dcae1c78800338d683105030ecd5c806c43b8d1e8fb39aeb3262997a56c",
+      "namedFunctions": [
+        "S.on_event",
+        "S.ground",
+        "S.absorb",
+        "S.lock",
+        "S.resolve",
+        "S.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/stormcaller_bolt",
+        "core:ability/stormcaller_discharge",
+        "core:actor/stormcaller"
+      ]
+    },
+    {
+      "path": "src/idea_terrain.lua",
+      "sha256": "4b60997168d24dce00d4416f5e231155def738aa2c08502e285b1570458d5501",
+      "namedFunctions": [
+        "T.binding",
+        "key",
+        "distance",
+        "protected",
+        "inside",
+        "T.optional_cell",
+        "player",
+        "map_for",
+        "T.find",
+        "T.at",
+        "T.closed",
+        "T.place",
+        "T.alternate_route",
+        "flood",
+        "T.populate",
+        "reserve",
+        "choose",
+        "T.on_event",
+        "T.after_action",
+        "holds",
+        "T.resolve",
+        "T.rebase",
+        "T.visual",
+        "T.options",
+        "T.nearby",
+        "integer",
+        "T.validate"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/idea_wayfinder.lua",
+      "sha256": "b169e70e25a0e7ec50dec5e0b787491fbc30c6ae15bd63fa9e7fc2f5dea1f7db",
+      "namedFunctions": [
+        "W.room",
+        "W.plant_preview",
+        "W.plant",
+        "W.return_preview",
+        "W.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/wayfinder_knife",
+        "core:ability/wayfinder_plant",
+        "core:actor/wayfinder",
+        "core:object/return_beacon"
+      ]
+    },
+    {
+      "path": "src/idea_webs.lua",
+      "sha256": "25c784a953188464fd7b035d1a7b5ca09c81f8811d4e9a28266db032d7b3ad3f",
+      "namedFunctions": [
+        "actor",
+        "inside",
+        "W.cells",
+        "protected",
+        "W.fits",
+        "W.choose",
+        "W.create",
+        "W.prune",
+        "W.on_event",
+        "W.validate_pending",
+        "W.validate"
+      ],
+      "literalContentReferences": [
+        "core:ability/weaver_bite",
+        "core:ability/weaver_web",
+        "core:enemy/web_weaver"
+      ]
+    },
+    {
+      "path": "src/interaction_menu.lua",
+      "sha256": "3756ffd804c6a3fbfd1f6651595bfa7827de141107e7be62a75d04ce174c28a4",
+      "namedFunctions": [
+        "M.new",
+        "M.page",
+        "M.rows",
+        "M.key",
+        "M.mouse"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/kenney_symbols.lua",
+      "sha256": "13c2a9a9de9dd642ab4cfa9fe74b82b5f4816a56b5a5e877b9a56be1eafaa495",
+      "namedFunctions": [
+        "S.region",
+        "S.new",
+        "handle"
+      ],
+      "literalContentReferences": [
+        "core:terrain/barricade",
+        "core:terrain/bramble_bed",
+        "core:terrain/glazed_ice",
+        "core:terrain/obscuring_mist",
+        "core:terrain/resonant_crystal",
+        "core:terrain/sticky_bog"
+      ]
+    },
+    {
+      "path": "src/kenney_terrain.lua",
+      "sha256": "43fa7c6fd2417ac9e854f58b40f503143264718c00e2015b66841d24dcf6ba16",
+      "namedFunctions": [
+        "has",
+        "T.canonical",
+        "T.region",
+        "T.surface_sheet",
+        "sample",
+        "T.new",
+        "T:resolve",
+        "same"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/love_storage.lua",
+      "sha256": "5efbc7dcf9cdec07f3446d1f1302e34b85fdd6025d22f77da748ae3e69072b77",
+      "namedFunctions": [
+        "Storage:read",
+        "Storage:write"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/onebit_shader.lua",
+      "sha256": "0ce1e1841b64928f98db98d9a8616eeed2236e6661602b59390bb96eb1566d7a",
+      "namedFunctions": [
+        "M.new",
+        "M:begin",
+        "M:set_ink",
+        "M:finish"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/onebit_visuals.lua",
+      "sha256": "d1eebdb2a3a0f24a06c044de78e7c8abed24e4f79789c7195d3407e9223aeeef",
+      "namedFunctions": [
+        "O.surface_sheet",
+        "sample",
+        "composite",
+        "has",
+        "O.new",
+        "handle",
+        "surface_handle",
+        "O:resolve",
+        "O:terrain",
+        "O:set_world"
+      ],
+      "literalContentReferences": [
+        "core:actor/adventurer",
+        "core:actor/alchemist",
+        "core:actor/arcanist",
+        "core:actor/berserker",
+        "core:actor/hookrunner",
+        "core:actor/ranger",
+        "core:actor/sentinel",
+        "core:actor/shade",
+        "core:actor/trapper",
+        "core:chest/free_elite",
+        "core:chest/standard",
+        "core:drop/currency",
+        "core:drop/food",
+        "core:drop/health",
+        "core:enemy/ash_marshal",
+        "core:enemy/bastion_bulwark",
+        "core:enemy/canal_lancer",
+        "core:enemy/canal_lockmaster",
+        "core:enemy/cinder_bellkeeper",
+        "core:enemy/cinder_mender",
+        "core:enemy/crystal_bombardier",
+        "core:enemy/ember_crucible",
+        "core:enemy/extraction_pursuer",
+        "core:enemy/forge_conjurer",
+        "core:enemy/glass_charger",
+        "core:enemy/gloom_strider",
+        "core:enemy/hollow_regent",
+        "core:enemy/index_keeper",
+        "core:enemy/mire_binder",
+        "core:enemy/mossbound_guard",
+        "core:enemy/mossbreaker",
+        "core:enemy/mycelial_matriarch",
+        "core:enemy/pack_chorister",
+        "core:enemy/prism_curator",
+        "core:enemy/ruin_skitter",
+        "core:enemy/spore_herald",
+        "core:enemy/thorn_warden",
+        "core:enemy/thornspitter",
+        "core:enemy/vault_lurker",
+        "core:object/chest_open",
+        "core:object/door_closed",
+        "core:object/door_open",
+        "core:object/exit",
+        "core:object/review_brazier_lit",
+        "core:object/review_brazier_unlit",
+        "core:object/review_gate_bottom",
+        "core:object/review_gate_tiny",
+        "core:object/review_gate_top",
+        "core:object/review_key",
+        "core:object/review_mushroom_1",
+        "core:object/review_mushroom_2",
+        "core:object/review_ore",
+        "core:object/review_ore_depleted",
+        "core:object/review_overgrowth_1",
+        "core:object/review_overgrowth_2",
+        "core:object/review_pillar_bottom",
+        "core:object/review_pillar_middle",
+        "core:object/review_pillar_top",
+        "core:object/review_plate_down",
+        "core:object/review_plate_tiny_down",
+        "core:object/review_plate_tiny_up",
+        "core:object/review_plate_up",
+        "core:object/review_rail_bottom_left",
+        "core:object/review_rail_bottom_right",
+        "core:object/review_rail_middle_left",
+        "core:object/review_rail_middle_right",
+        "core:object/review_rail_top_left",
+        "core:object/review_rail_top_right",
+        "core:object/review_secret_clue",
+        "core:object/review_vault_bottom",
+        "core:object/review_vault_top",
+        "core:object/review_ward",
+        "core:object/stairs_down",
+        "core:object/stairs_up",
+        "core:ui/attack_center_effect",
+        "core:ui/attack_impact_effect",
+        "core:ui/block_effect",
+        "core:ui/boon_effect",
+        "core:ui/burning_effect",
+        "core:ui/currency_icon",
+        "core:ui/hit_effect",
+        "core:ui/hp_icon",
+        "core:ui/storm_charge_effect",
+        "core:ui/weapon_bow_icon",
+        "core:ui/weapon_dagger_icon",
+        "core:ui/weapon_hook_icon",
+        "core:ui/weapon_spell_icon",
+        "core:ui/weapon_sword_icon",
+        "core:ui/xp_icon"
+      ]
+    },
+    {
+      "path": "src/persistence.lua",
+      "sha256": "bd686b11e95f3b3412c586105a4a035a6d2a88ab8ee8ffee4fd95d75de597600",
+      "namedFunctions": [
+        "sorted_keys",
+        "encode_value",
+        "P.encode",
+        "P.decode",
+        "count",
+        "checksum",
+        "envelope",
+        "parse_record",
+        "validated",
+        "P.new",
+        "P.inspect",
+        "P.load",
+        "write_record",
+        "P.save",
+        "P.pending_terminal",
+        "P.tombstone",
+        "P.replace",
+        "verified_write"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/pixel_ui.lua",
+      "sha256": "ffab28f34d04743bb265ae3aadc6f39ec6ae0380be8868aca35c6a50543b3c8a",
+      "namedFunctions": [
+        "U.update",
+        "U.begin_frame",
+        "U.press",
+        "U.option_feedback",
+        "U.offer_pose",
+        "U.set_style",
+        "U.contains",
+        "U.row",
+        "U.row_at",
+        "U.center",
+        "U.dim",
+        "U.frame",
+        "U.option",
+        "U.settings_row",
+        "U.settings_at",
+        "U.home_at",
+        "U.class_page",
+        "U.class_nav_at",
+        "U.class_page_target",
+        "U.class_at",
+        "U.pause_at",
+        "U.chest_at",
+        "U.route_at"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/playback.lua",
+      "sha256": "dc09c7b7c3d28ffd7bdee1c2aa1cac3bd4a1456ba2e10cad158a14baeb131668",
+      "namedFunctions": [
+        "Playback.new",
+        "horizontal",
+        "attack_facing",
+        "item_facing",
+        "motion",
+        "Playback.add",
+        "flush",
+        "Playback.current",
+        "Playback.current_group",
+        "Playback.current_pose_events",
+        "Playback.busy",
+        "finish_item",
+        "Playback.facing",
+        "Playback.update",
+        "Playback.position",
+        "Playback.visible_position"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/presentation_settings.lua",
+      "sha256": "8e7a477f641f57471b8cf86f60e310449d58c05e3381acf62131516af66f9eb0",
+      "namedFunctions": [
+        "S.defaults",
+        "S.validate",
+        "S.load",
+        "S.save"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/profile.lua",
+      "sha256": "91f08a3238ab3cb9a92413021534ba280c3c5647bb7f103aa6ed1c33f8c11faa",
+      "namedFunctions": [
+        "checksum",
+        "Profile.fresh",
+        "Profile.validate",
+        "pack",
+        "unpack",
+        "Profile.new",
+        "Profile.inspect",
+        "Profile.save",
+        "Profile.allocate_run",
+        "Profile.commit_awards"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/regular_ai.lua",
+      "sha256": "ec1c0c28655219ab0472c6a23e23486f5e5c229ffcb74b661743ff8799bd96a3",
+      "namedFunctions": [
+        "cell",
+        "windup",
+        "at",
+        "allies",
+        "area",
+        "RegularAI.choose",
+        "close",
+        "RegularAI.validate"
+      ],
+      "literalContentReferences": [
+        "core:enemy/bastion_bulwark",
+        "core:enemy/cinder_mender",
+        "core:enemy/crystal_bombardier",
+        "core:enemy/forge_conjurer",
+        "core:enemy/glass_charger",
+        "core:enemy/gloom_strider",
+        "core:enemy/mire_binder",
+        "core:enemy/mossbreaker",
+        "core:enemy/pack_chorister",
+        "core:enemy/ruin_skitter",
+        "core:enemy/vault_lurker"
+      ]
+    },
+    {
+      "path": "src/review_features.lua",
+      "sha256": "4f53f63d8b4297a97274587de12911a6ebde14e385edbe5f83a5fc611ced7bfa",
+      "namedFunctions": [
+        "key",
+        "distance",
+        "occupied",
+        "room_at",
+        "safe",
+        "ordered",
+        "open_neighbors",
+        "route_clear",
+        "add_entity",
+        "add_feature",
+        "advance_quest",
+        "F.populate",
+        "choose",
+        "F.on_event",
+        "F.after_time",
+        "F.mist_cleared",
+        "F.validate",
+        "position"
+      ],
+      "literalContentReferences": [
+        "core:biome/ashen_bastion",
+        "core:biome/fungal_hollows",
+        "core:biome/overgrown_ruins",
+        "core:biome/sundered_forge",
+        "core:biome/sunken_aqueduct",
+        "core:object/review_"
+      ]
+    },
+    {
+      "path": "src/rewards.lua",
+      "sha256": "7c7ffe3bb3400eb447f01f7d00324d46c7d06b661f88af71f5ebfc20bb55fc3d",
+      "namedFunctions": [
+        "copy",
+        "player",
+        "Rewards.next_threshold",
+        "pick_stat",
+        "increase_stat",
+        "Rewards.gain_xp",
+        "Rewards.on_event",
+        "Rewards.spawn_supply",
+        "Rewards.spawn_currency",
+        "Rewards.pickup_at",
+        "roll_rarity",
+        "Rewards.make_offers",
+        "Rewards.validate_chest",
+        "Rewards.chest_options",
+        "Rewards.can_claim",
+        "Rewards.claim"
+      ],
+      "literalContentReferences": [
+        "core:actor/adventurer"
+      ]
+    },
+    {
+      "path": "src/rng.lua",
+      "sha256": "cbe25c57dbd781388284e07f28d30d2f8d1cefc1af711254209a09b049640bf9",
+      "namedFunctions": [
+        "RNG.new",
+        "RNG.next_raw",
+        "RNG.next_int",
+        "RNG.derive"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/room_expansion.lua",
+      "sha256": "f63d6f8dd374734514be31db76c2cbde6a2f933e8d8fbb021889fbba215fbbd8",
+      "namedFunctions": [],
+      "literalContentReferences": [
+        "core:room/aqueduct_broken_cloister",
+        "core:room/aqueduct_causeway",
+        "core:room/aqueduct_courtyard",
+        "core:room/aqueduct_crossroads",
+        "core:room/aqueduct_fan_arena",
+        "core:room/aqueduct_forked_gallery",
+        "core:room/aqueduct_long_gallery",
+        "core:room/aqueduct_mosaic",
+        "core:room/aqueduct_side_annex",
+        "core:room/aqueduct_spiral",
+        "core:room/aqueduct_staggered_archive",
+        "core:room/aqueduct_switchback",
+        "core:room/aqueduct_three_bays",
+        "core:room/aqueduct_twin_vault",
+        "core:room/aqueduct_watchtower",
+        "core:room/archive_broken_cloister",
+        "core:room/archive_causeway",
+        "core:room/archive_courtyard",
+        "core:room/archive_crossroads",
+        "core:room/archive_fan_arena",
+        "core:room/archive_forked_gallery",
+        "core:room/archive_long_gallery",
+        "core:room/archive_mosaic",
+        "core:room/archive_side_annex",
+        "core:room/archive_spiral",
+        "core:room/archive_staggered_archive",
+        "core:room/archive_switchback",
+        "core:room/archive_three_bays",
+        "core:room/archive_twin_vault",
+        "core:room/archive_watchtower",
+        "core:room/bastion_broken_cloister",
+        "core:room/bastion_causeway",
+        "core:room/bastion_courtyard",
+        "core:room/bastion_crossroads",
+        "core:room/bastion_fan_arena",
+        "core:room/bastion_forked_gallery",
+        "core:room/bastion_long_gallery",
+        "core:room/bastion_mosaic",
+        "core:room/bastion_side_annex",
+        "core:room/bastion_spiral",
+        "core:room/bastion_staggered_archive",
+        "core:room/bastion_switchback",
+        "core:room/bastion_three_bays",
+        "core:room/bastion_twin_vault",
+        "core:room/bastion_watchtower",
+        "core:room/broken_cloister",
+        "core:room/causeway",
+        "core:room/courtyard",
+        "core:room/crossroads",
+        "core:room/fan_arena",
+        "core:room/forge_broken_cloister",
+        "core:room/forge_causeway",
+        "core:room/forge_courtyard",
+        "core:room/forge_crossroads",
+        "core:room/forge_fan_arena",
+        "core:room/forge_forked_gallery",
+        "core:room/forge_long_gallery",
+        "core:room/forge_mosaic",
+        "core:room/forge_side_annex",
+        "core:room/forge_spiral",
+        "core:room/forge_staggered_archive",
+        "core:room/forge_switchback",
+        "core:room/forge_three_bays",
+        "core:room/forge_twin_vault",
+        "core:room/forge_watchtower",
+        "core:room/forked_gallery",
+        "core:room/fungal_broken_cloister",
+        "core:room/fungal_causeway",
+        "core:room/fungal_courtyard",
+        "core:room/fungal_crossroads",
+        "core:room/fungal_fan_arena",
+        "core:room/fungal_forked_gallery",
+        "core:room/fungal_long_gallery",
+        "core:room/fungal_mosaic",
+        "core:room/fungal_side_annex",
+        "core:room/fungal_spiral",
+        "core:room/fungal_staggered_archive",
+        "core:room/fungal_switchback",
+        "core:room/fungal_three_bays",
+        "core:room/fungal_twin_vault",
+        "core:room/fungal_watchtower",
+        "core:room/long_gallery",
+        "core:room/mosaic",
+        "core:room/observatory_broken_cloister",
+        "core:room/observatory_causeway",
+        "core:room/observatory_courtyard",
+        "core:room/observatory_crossroads",
+        "core:room/observatory_fan_arena",
+        "core:room/observatory_forked_gallery",
+        "core:room/observatory_long_gallery",
+        "core:room/observatory_mosaic",
+        "core:room/observatory_side_annex",
+        "core:room/observatory_spiral",
+        "core:room/observatory_staggered_archive",
+        "core:room/observatory_switchback",
+        "core:room/observatory_three_bays",
+        "core:room/observatory_twin_vault",
+        "core:room/observatory_watchtower",
+        "core:room/side_annex",
+        "core:room/spiral",
+        "core:room/staggered_archive",
+        "core:room/switchback",
+        "core:room/three_bays",
+        "core:room/twin_vault",
+        "core:room/watchtower"
+      ]
+    },
+    {
+      "path": "src/rooms.lua",
+      "sha256": "93753e8eccfa234d961b40f7306ae019eb047fbbcced02f7b246beb5bb60db75",
+      "namedFunctions": [
+        "sockets",
+        "variant",
+        "clone",
+        "wall",
+        "feature",
+        "point_key",
+        "has_role",
+        "Rooms.validate",
+        "Rooms.transform",
+        "transform_point",
+        "Rooms.for_role"
+      ],
+      "literalContentReferences": [
+        "core:biome/overgrown_ruins",
+        "core:enemy/mossbound_guard",
+        "core:enemy/ruin_skitter",
+        "core:enemy/thornspitter",
+        "core:floor/overgrown_ruins",
+        "core:room/arena",
+        "core:room/cache",
+        "core:room/entry",
+        "core:room/gallery",
+        "core:room/shrine",
+        "core:room/watch"
+      ]
+    },
+    {
+      "path": "src/run_seed.lua",
+      "sha256": "17784fed00de3b64cef93c4daf942095194b2e211c0f308ae1b00868e17fdffc",
+      "namedFunctions": [
+        "RunSeed.for_serial"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/scheduler.lua",
+      "sha256": "f75f10f1376ab4f9ccdc3eb1eab7cf4f6f2a1d74278c194c76b8d712bd5142cf",
+      "namedFunctions": [
+        "priority",
+        "before",
+        "Scheduler.enqueue",
+        "Scheduler.remove_for_actor",
+        "Scheduler.peek",
+        "Scheduler.pop",
+        "Scheduler.sort"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/spectator.lua",
+      "sha256": "099de49c2d9f7fae0947bd8ba5d078f12541d1f4198f2bb0416c57ad60efc2de",
+      "namedFunctions": [
+        "S.new",
+        "S.next_index",
+        "S.camera_step",
+        "S.switch_floor"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/sprite_audit.lua",
+      "sha256": "a73edc38fcafe49e4a284a3de007d27a5fcd3a1356ee1a25f9e740d441aa37a3",
+      "namedFunctions": [
+        "array",
+        "keys",
+        "read",
+        "image",
+        "dimension",
+        "quad",
+        "A.collect",
+        "use",
+        "A.json"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/squad_ai.lua",
+      "sha256": "bf2bf736ad6f506b53eb8bdf86cd07c7ac630c409c9e4451522de4c73256aa00",
+      "namedFunctions": [
+        "wind",
+        "cell",
+        "A.choose",
+        "close",
+        "retreat",
+        "tap"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/stage.lua",
+      "sha256": "0f70619078c34871ad1ca59caeb1693b2ec2c62ce06429b8b20407fbfd790878",
+      "namedFunctions": [
+        "copy",
+        "occupant",
+        "distance",
+        "reachable",
+        "legal",
+        "anchor_candidates",
+        "free_near",
+        "Stage.init",
+        "Stage.after_player_action",
+        "Stage.on_event",
+        "pressure_due",
+        "pursuer_due",
+        "Stage.resolve_due",
+        "Stage.route_options",
+        "Stage.validate"
+      ],
+      "literalContentReferences": [
+        "core:chest/free_elite",
+        "core:enemy/extraction_pursuer",
+        "core:enemy/thorn_warden",
+        "core:exit/arena"
+      ]
+    },
+    {
+      "path": "src/studio_atlas.lua",
+      "sha256": "41995c9d6b2e50493189f217a4c561aac4c7460be5ae300f3e1bea6608da49a4",
+      "namedFunctions": [
+        "A.checksum",
+        "hash",
+        "integer",
+        "power2",
+        "exact_power2",
+        "A.inputs",
+        "A.plan",
+        "A.validate",
+        "A.matches_inputs",
+        "A.encode",
+        "A.decode"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_atlas_runtime.lua",
+      "sha256": "8beaa8ac166ce29ab2d0f3e09a796eb333a15c689d3099af9ec7c377c8af9b59",
+      "namedFunctions": [
+        "R.new",
+        "verify",
+        "R:resolve"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_atlas_store.lua",
+      "sha256": "4cddd4c5ba988e5eb123680d1d88bcdca873d5f0af85af1d85f0126f656a2129",
+      "namedFunctions": [
+        "line_header",
+        "S.record",
+        "records",
+        "S.inspect",
+        "S.plan"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_audio.lua",
+      "sha256": "c6a6a045cde588dc11754a5a3eec40116411b5daa735a114e220b9c2cd80bee2",
+      "namedFunctions": [
+        "check",
+        "integer",
+        "number",
+        "A.checksum",
+        "A.format",
+        "u16",
+        "u32",
+        "A.source_path",
+        "A.published_path",
+        "A.validate_publish_permissions",
+        "A.make_sound",
+        "A.new",
+        "A.binding",
+        "A.validate",
+        "A.encode",
+        "A.decode"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_audio_runtime.lua",
+      "sha256": "c500f6890b6a25f6002e33f2f9cd4e72dc9a0d37832a153eec71dd718f57bbe4",
+      "namedFunctions": [
+        "tail",
+        "add",
+        "source_enemy",
+        "target_enemy",
+        "R.cues_for_event",
+        "binding_map",
+        "category_for",
+        "candidate",
+        "R.new",
+        "R:set_user_mix",
+        "R:refresh",
+        "R:stop_all",
+        "R:select_variant",
+        "clone",
+        "R:emit",
+        "R:event",
+        "R:set_scene",
+        "R:set_ambience",
+        "R:update",
+        "R:set_paused",
+        "act"
+      ],
+      "literalContentReferences": [
+        "core:cue/ability/",
+        "core:cue/boon/",
+        "core:cue/boon/activate",
+        "core:cue/boss/arrival",
+        "core:cue/boss/defeat",
+        "core:cue/boss/phase",
+        "core:cue/elite/",
+        "core:cue/elite/hollow_regent/arrival",
+        "core:cue/enemy/",
+        "core:cue/enemy/attack",
+        "core:cue/enemy/death",
+        "core:cue/enemy/hit",
+        "core:cue/enemy/move",
+        "core:cue/enemy/telegraph",
+        "core:cue/player/",
+        "core:cue/player/attack",
+        "core:cue/player/damage",
+        "core:cue/player/death",
+        "core:cue/status/burning",
+        "core:cue/terrain/",
+        "core:cue/terrain/hazard",
+        "core:cue/terrain/stairs",
+        "core:cue/terrain/step",
+        "core:cue/ui/achievement",
+        "core:cue/ui/defeat",
+        "core:cue/ui/level_up",
+        "core:cue/ui/victory",
+        "core:cue/world/chest",
+        "core:cue/world/currency",
+        "core:cue/world/door",
+        "core:cue/world/secret",
+        "core:enemy/hollow_regent"
+      ]
+    },
+    {
+      "path": "src/studio_audio_samples.lua",
+      "sha256": "58ee8c40522399ac69f21685e6982e0dda29c5d24b0e8e29bea64b4a3581e2d8",
+      "namedFunctions": [
+        "le16",
+        "le32",
+        "S.wav",
+        "S.showcase"
+      ],
+      "literalContentReferences": [
+        "core:cue/ambient/",
+        "core:cue/boon/activate",
+        "core:cue/enemy/telegraph",
+        "core:cue/music/",
+        "core:cue/music/elite/",
+        "core:cue/music/explore/",
+        "core:cue/music/title",
+        "core:cue/player/damage",
+        "core:cue/player/move",
+        "core:cue/terrain/step",
+        "core:cue/ui/confirm"
+      ]
+    },
+    {
+      "path": "src/studio_audio_store.lua",
+      "sha256": "70ef03f780d70057159ad1ff4a0d54ce7dac9f271d221dc9af8efb1978bfef81",
+      "namedFunctions": [
+        "source_path",
+        "record",
+        "header",
+        "inspect",
+        "S.new",
+        "S:open",
+        "S:import",
+        "S:save",
+        "S.inspect_published",
+        "S.plan_published"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_document.lua",
+      "sha256": "b4c9af5a6d798f1c1a3a00e2b69e042bc93fc7e41272e51cce7a7543c4dfcbc2",
+      "namedFunctions": [
+        "valid_id",
+        "check",
+        "u32",
+        "number",
+        "rgba",
+        "blank",
+        "valid_size",
+        "D.new",
+        "layer",
+        "D.active",
+        "D.validate",
+        "D.from_rgba",
+        "pixel",
+        "D.get",
+        "over",
+        "D.composite_pixel",
+        "D.flatten",
+        "D.set",
+        "D.line",
+        "D.fill",
+        "matches",
+        "D.add_layer",
+        "D.delete_layer",
+        "D.move_layer",
+        "D.encode",
+        "D.decode",
+        "str"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_project.lua",
+      "sha256": "8707959728d5f993a9425dbbf7f57813ee644c2d195670f893dcdf3ab725ff02",
+      "namedFunctions": [
+        "check",
+        "string_field",
+        "M.valid_id",
+        "M.valid_project_id",
+        "M.valid_path",
+        "M.new",
+        "M.validate",
+        "M.output_dimensions",
+        "M.png_dimensions",
+        "u32",
+        "escape",
+        "unescape",
+        "fields",
+        "M.encode",
+        "M.decode",
+        "M.asset"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_theme.lua",
+      "sha256": "890cdd014979127a814ffdf7835ed1de35bccb84f54238e4dcbd352673591922",
+      "namedFunctions": [
+        "check",
+        "int",
+        "T.new",
+        "T.validate",
+        "T.encode",
+        "T.decode",
+        "T.nine_slice",
+        "T.background_rect",
+        "T.glyphs",
+        "T.effect_for"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_theme_store.lua",
+      "sha256": "25bddef2f813e34a02e67a23dfc330d6e5ae835bc9d24c4ef96a45d19f9e0ea5",
+      "namedFunctions": [
+        "hash",
+        "path",
+        "record",
+        "header",
+        "inspect",
+        "S.new",
+        "S:open",
+        "S:save",
+        "S.inspect_published",
+        "S.plan_published"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_world.lua",
+      "sha256": "4902556d9637937448655ae095bced03c8994be27e04575816ac50de037eb614",
+      "namedFunctions": [
+        "check",
+        "integer",
+        "clone",
+        "key",
+        "sorted",
+        "W.new",
+        "W.add_terrain_tiles",
+        "W.new_room",
+        "W.tile",
+        "W.set_cell",
+        "W.set_mask",
+        "W.set_visual",
+        "W.paint_tile",
+        "W.add_marker",
+        "walkable",
+        "W.validate",
+        "W.runtime_room",
+        "esc",
+        "unesc",
+        "fields",
+        "add",
+        "points",
+        "read_points",
+        "W.encode",
+        "W.decode",
+        "csv"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/studio_world_runtime.lua",
+      "sha256": "1a90f6ec6356bca8c90dfdd163204aabdf18f85c8e53212af8fc8f183a5e7587",
+      "namedFunctions": [
+        "sum",
+        "R.record",
+        "R.header",
+        "R.inspect",
+        "R.plan"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/targeting.lua",
+      "sha256": "aeacae896aab10050dc8b6ade29575a8b446a7187f1c6b23b49e10898d3c4225",
+      "namedFunctions": [
+        "Targeting.direction_index",
+        "Targeting.is_cardinal",
+        "Targeting.cells"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/terrain.lua",
+      "sha256": "5edf053b9b87e55325dbb2d10ab62bf5b85a50bfa288c1b1cbb840dc24ab926f",
+      "namedFunctions": [
+        "Terrain.get",
+        "Terrain.symbol",
+        "Terrain.at",
+        "Terrain.is_valid",
+        "Terrain.validate",
+        "Terrain.move_extra",
+        "Terrain.can_extend_dash",
+        "Terrain.on_event"
+      ],
+      "literalContentReferences": [
+        "core:terrain/barricade",
+        "core:terrain/bramble_bed",
+        "core:terrain/floor",
+        "core:terrain/glazed_ice",
+        "core:terrain/obscuring_mist",
+        "core:terrain/resonant_crystal",
+        "core:terrain/sticky_bog",
+        "core:terrain/wall",
+        "core:terrain/water"
+      ]
+    },
+    {
+      "path": "src/title_menu.lua",
+      "sha256": "043e3f3928816a38454ff6d515730dfa0f1b7c2ba2e2d98d8604b8cfa738021f",
+      "namedFunctions": [
+        "T.resumable",
+        "T.default_selection",
+        "T.save_summary"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/ui_fonts.lua",
+      "sha256": "bc9d772b1aa7a8674d0b776dab82fcb9254eb9613fb17ccd7255f47f3c9fdd5b",
+      "namedFunctions": [
+        "Fonts.load",
+        "font"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/visibility.lua",
+      "sha256": "c04d846d8d140db79a42d288a524fc86e47d09af183f41a3cd0fce8b2d2e42a4",
+      "namedFunctions": [
+        "index",
+        "line_clear",
+        "Visibility.can_see",
+        "Visibility.recompute",
+        "Visibility.is_visible",
+        "Visibility.was_explored"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/visual_assets.lua",
+      "sha256": "418db29c9a4792b81779cfab04a50939796073d0e4814f7dbdc44b99ae8b013c",
+      "namedFunctions": [
+        "V.new",
+        "V:check_atlas",
+        "V:resolve_id",
+        "V:resolve",
+        "V:get",
+        "V:get_id"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/visual_juice.lua",
+      "sha256": "6c86d2c79d923ce1ab87f8d0267d1619e981d3cb69ba6160e5abc883c664620a",
+      "namedFunctions": [
+        "round",
+        "floor_of",
+        "J.attack_offset",
+        "append",
+        "celebration",
+        "activate",
+        "J.new",
+        "J.update",
+        "J.add",
+        "J.impact_pose",
+        "J.ring_pose",
+        "J.celebration_pose",
+        "J.crumble_piece",
+        "J.chest_offset",
+        "J.reward_pose"
+      ],
+      "literalContentReferences": [
+        "core:drop/currency",
+        "core:object/interaction_",
+        "core:object/review_"
+      ]
+    },
+    {
+      "path": "src/visual_monochrome.lua",
+      "sha256": "86937e6504365328699ec5d751100ba357c77e4671aa607b339ac7307093c058",
+      "namedFunctions": [
+        "M.pixel"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/visual_packs.lua",
+      "sha256": "74e81aa5bdc1ac7ced34c29afd77d4b9e42023c396fcc1f2d6616423693f2fc8",
+      "namedFunctions": [
+        "P.build"
+      ],
+      "literalContentReferences": []
+    },
+    {
+      "path": "src/visual_palette.lua",
+      "sha256": "7eb550a33f914706cdafe4d64cc2ca75175bc8a5300c10eddba98331a161cbc4",
+      "namedFunctions": [
+        "P.binding",
+        "P.resolve",
+        "P.attack",
+        "P.preview",
+        "P.damage"
+      ],
+      "literalContentReferences": [
+        "core:drop/food",
+        "core:object/chest_open",
+        "core:object/idea_cache_dormant",
+        "core:ui/boon_effect",
+        "core:ui/cue_boon_effect",
+        "core:ui/currency_icon",
+        "core:ui/status_heal_icon",
+        "core:ui/xp_icon"
+      ]
+    },
+    {
+      "path": "src/visual_slots.lua",
+      "sha256": "1c76df030aeba67f690bc03bd7d2c6d64eca1697e9456df6bf5b6cf2641a136b",
+      "namedFunctions": [
+        "add",
+        "slug",
+        "V.glyph_binding",
+        "V.pose",
+        "V.facing",
+        "V.enemy_size",
+        "V.horizontal_draw",
+        "V.terrain_shape",
+        "same",
+        "V.terrain_bindings",
+        "V.terrain_alpha",
+        "V.terrain_draws_at",
+        "V.background_alpha",
+        "V.wall_edges"
+      ],
+      "literalContentReferences": [
+        "core:chest/free_elite",
+        "core:chest/standard",
+        "core:drop/currency",
+        "core:drop/currency/detail",
+        "core:drop/food",
+        "core:drop/health",
+        "core:enemy/bone_fragment",
+        "core:enemy/extraction_pursuer",
+        "core:enemy/hollow_regent",
+        "core:enemy/thorn_warden",
+        "core:object/bolt_sentry",
+        "core:object/bound_spirit",
+        "core:object/geomancer_bulwark",
+        "core:object/return_beacon",
+        "core:ui/block_effect",
+        "core:ui/burning_effect",
+        "core:ui/storm_charge_effect"
+      ]
+    },
+    {
+      "path": "src/world.lua",
+      "sha256": "7a7b5e4a8b6fbf6c2d177ec2a55fb8ce0d7b8f2719f95e2b4e3c6ee43c10c977",
+      "namedFunctions": [
+        "World.validate",
+        "replace_tile",
+        "World.populate",
+        "World.on_event"
+      ],
+      "literalContentReferences": [
+        "core:ability/basic_attack",
+        "core:chest/free_elite",
+        "core:secret/cracked_cache",
+        "core:secret/moss_sigil"
+      ]
+    }
+  ],
+  "contentReferences": [
+    {
+      "id": "core:ability/alchemist_flask",
+      "sources": [
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/alchemist_vial",
+      "sources": [
+        "src/boon_patterns.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/arcanist_bolt",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/arcanist_sigil",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/basic_attack",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/content.lua",
+        "src/game.lua",
+        "src/world.lua"
+      ]
+    },
+    {
+      "id": "core:ability/bell_cross",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/berserker_cleave",
+      "sources": [
+        "src/boon_patterns.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/berserker_crush",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/cache_bite",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/canal_thrust",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/cantor_revive",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/cantor_touch",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/dash",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/boons.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/duelist_parry",
+      "sources": [
+        "src/game.lua",
+        "src/idea_duelist.lua"
+      ]
+    },
+    {
+      "id": "core:ability/duelist_thrust",
+      "sources": [
+        "src/boon_patterns.lua",
+        "src/game.lua",
+        "src/idea_duelist.lua"
+      ]
+    },
+    {
+      "id": "core:ability/elite_",
+      "sources": [
+        "src/content.lua",
+        "src/elite_ai.lua"
+      ]
+    },
+    {
+      "id": "core:ability/falling_fixture",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/geomancer_bolt",
+      "sources": [
+        "src/idea_geomancer.lua"
+      ]
+    },
+    {
+      "id": "core:ability/geomancer_raise",
+      "sources": [
+        "src/idea_geomancer.lua"
+      ]
+    },
+    {
+      "id": "core:ability/guard_strike",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/heat_vent",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/hexer_bolt",
+      "sources": [
+        "src/idea_mirrors.lua"
+      ]
+    },
+    {
+      "id": "core:ability/hexer_mirror",
+      "sources": [
+        "src/idea_mirrors.lua"
+      ]
+    },
+    {
+      "id": "core:ability/hookrunner_hook",
+      "sources": [
+        "src/classes.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/hookrunner_knife",
+      "sources": [
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/keeper_alarm",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/keeper_touch",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/moth_dive",
+      "sources": [
+        "src/idea_embers.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/moth_ember",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/moth_touch",
+      "sources": [
+        "src/idea_embers.lua"
+      ]
+    },
+    {
+      "id": "core:ability/oath_blade",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/oath_pike",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/oath_share",
+      "sources": [
+        "src/idea_oaths.lua"
+      ]
+    },
+    {
+      "id": "core:ability/pursuer_strike",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/rammer_shove",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/ranger_shot",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/ranger_volley",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_expansion_content.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/regent_crown",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/regent_line",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/regent_sigil",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/sentinel_pulse",
+      "sources": [
+        "src/boon_patterns.lua",
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/sentinel_quarter",
+      "sources": [
+        "src/idea_sentinel.lua"
+      ]
+    },
+    {
+      "id": "core:ability/sentinel_strike",
+      "sources": [
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/sentinel_touch",
+      "sources": [
+        "src/idea_sentinel.lua"
+      ]
+    },
+    {
+      "id": "core:ability/shade_blade",
+      "sources": [
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/shade_decoy",
+      "sources": [
+        "src/classes.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/skitter_stab",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/spiritbinder_bolt",
+      "sources": [
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:ability/spiritbinder_command",
+      "sources": [
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:ability/spore_burst",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/stormcaller_bolt",
+      "sources": [
+        "src/idea_stormcaller.lua"
+      ]
+    },
+    {
+      "id": "core:ability/stormcaller_discharge",
+      "sources": [
+        "src/game.lua",
+        "src/idea_stormcaller.lua"
+      ]
+    },
+    {
+      "id": "core:ability/sweeping_slash",
+      "sources": [
+        "src/boon_content.lua",
+        "src/classes.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/thorn_lane",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/tinkerer_bolt",
+      "sources": [
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:ability/tinkerer_deploy",
+      "sources": [
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:ability/tinkerer_sentry",
+      "sources": [
+        "src/content.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/toad_bite",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/toad_gulp",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/trapper_knife",
+      "sources": [
+        "src/classes.lua"
+      ]
+    },
+    {
+      "id": "core:ability/trapper_snare",
+      "sources": [
+        "src/classes.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:ability/warden_roots",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/warden_sweep",
+      "sources": [
+        "src/ai.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:ability/wayfinder_knife",
+      "sources": [
+        "src/idea_wayfinder.lua"
+      ]
+    },
+    {
+      "id": "core:ability/wayfinder_plant",
+      "sources": [
+        "src/idea_wayfinder.lua"
+      ]
+    },
+    {
+      "id": "core:ability/weaver_bite",
+      "sources": [
+        "src/idea_webs.lua"
+      ]
+    },
+    {
+      "id": "core:ability/weaver_web",
+      "sources": [
+        "src/idea_webs.lua"
+      ]
+    },
+    {
+      "id": "core:ability/worm_charge",
+      "sources": [
+        "src/idea_enemies.lua",
+        "src/idea_silt.lua"
+      ]
+    },
+    {
+      "id": "core:ability/worm_touch",
+      "sources": [
+        "src/idea_silt.lua"
+      ]
+    },
+    {
+      "id": "core:ability/wraith_phase",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ability/wraith_touch",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/boon_bearer",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/chain_reaction",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/coin_purse",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/deeper_road",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/first_blood",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/first_guardian",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/first_level",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/gate_opener",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/key_bearer",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/long_heal",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/ore_seeker",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/pathfinder",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/pressure_survivor",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/regent_awakened",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/regents_fall",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/sanctum_reached",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/stonebreaker",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/torchbearer",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/treasure_hunter",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/uncovered_truth",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/veteran",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:achievement/warded",
+      "sources": [
+        "src/achievement_content.lua"
+      ]
+    },
+    {
+      "id": "core:actor/adventurer",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua",
+        "src/rewards.lua"
+      ]
+    },
+    {
+      "id": "core:actor/alchemist",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/arcanist",
+      "sources": [
+        "src/boon_expansion_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/berserker",
+      "sources": [
+        "src/boon_expansion_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/duelist",
+      "sources": [
+        "src/boon_patterns.lua",
+        "src/idea_duelist.lua"
+      ]
+    },
+    {
+      "id": "core:actor/geomancer",
+      "sources": [
+        "src/idea_geomancer.lua"
+      ]
+    },
+    {
+      "id": "core:actor/hookrunner",
+      "sources": [
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/ranger",
+      "sources": [
+        "src/boon_expansion_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/sentinel",
+      "sources": [
+        "src/boon_content.lua",
+        "src/boon_patterns.lua",
+        "src/classes.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/shade",
+      "sources": [
+        "src/classes.lua",
+        "src/game.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/spiritbinder",
+      "sources": [
+        "src/idea_boon_content.lua",
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:actor/stormcaller",
+      "sources": [
+        "src/idea_boon_content.lua",
+        "src/idea_presentation.lua",
+        "src/idea_stormcaller.lua"
+      ]
+    },
+    {
+      "id": "core:actor/tinkerer",
+      "sources": [
+        "src/idea_boon_content.lua",
+        "src/idea_companions.lua"
+      ]
+    },
+    {
+      "id": "core:actor/trapper",
+      "sources": [
+        "src/classes.lua",
+        "src/game.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:actor/wayfinder",
+      "sources": [
+        "src/idea_boon_content.lua",
+        "src/idea_wayfinder.lua"
+      ]
+    },
+    {
+      "id": "core:biome/ashen_bastion",
+      "sources": [
+        "src/biomes.lua",
+        "src/review_features.lua"
+      ]
+    },
+    {
+      "id": "core:biome/fractured_archive",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:biome/fungal_hollows",
+      "sources": [
+        "src/biomes.lua",
+        "src/review_features.lua"
+      ]
+    },
+    {
+      "id": "core:biome/glacial_observatory",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:biome/overgrown_ruins",
+      "sources": [
+        "src/biomes.lua",
+        "src/review_features.lua",
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:biome/sundered_forge",
+      "sources": [
+        "src/biomes.lua",
+        "src/review_features.lua"
+      ]
+    },
+    {
+      "id": "core:biome/sunken_aqueduct",
+      "sources": [
+        "src/biomes.lua",
+        "src/review_features.lua"
+      ]
+    },
+    {
+      "id": "core:boon/aftershock",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/alchemical_flip",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/battle_march",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/beacon_afterglow",
+      "sources": [
+        "src/idea_boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/betrayal_ward",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/bloodrush",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/bramble_compact",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/circuit_chorus",
+      "sources": [
+        "src/achievement_content.lua",
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/cluster_rupture",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/counterweight",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/crescent_reach",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/crossfire_omen",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/crowdbreaker",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/crownfire",
+      "sources": [
+        "src/achievement_content.lua",
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/crystal_harmony",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/detonation_bloom",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/earthshaker",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/emberbrand",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/executioners_thread",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/expanding_sigil",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/far_witness",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/fateful_dice",
+      "sources": [
+        "src/boons.lua",
+        "src/game.lua",
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:boon/final_spark",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/flashpoint",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/fracture_dividend",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/froststep_catalyst",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/grave_dividend",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/grounding_rod",
+      "sources": [
+        "src/idea_boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/guardians_vow",
+      "sources": [
+        "src/achievement_content.lua",
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/harriers_response",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/longblade_geometry",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/mist_veil",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/opening_cut",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/ordered_ranks",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/packed_powder",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/pain_dividend",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/perfect_guard",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/phantom_lunge",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/pilgrims_vow",
+      "sources": [
+        "src/boons.lua",
+        "src/idea_boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/prospectors_heart",
+      "sources": [
+        "src/achievement_content.lua",
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/pulse_step",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/pursuit_spark",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/recurve",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/reprisal_nova",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/resonant_wounds",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/rhythm_of_steel",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/ring_of_reversal",
+      "sources": [
+        "src/boon_content.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:boon/sentry_quartermaster",
+      "sources": [
+        "src/idea_boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/shared_agony",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/spirit_shelter",
+      "sources": [
+        "src/idea_boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/splitflight",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/static_footsteps",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/stone_backstop",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:boon/stonewake",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/storm_conductor",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/sunderers_mark",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/temporal_echo",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/thorn_mirror",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/turncoat_spark",
+      "sources": [
+        "src/boon_content.lua"
+      ]
+    },
+    {
+      "id": "core:boon/windup_hunter",
+      "sources": [
+        "src/boon_expansion_content.lua"
+      ]
+    },
+    {
+      "id": "core:chest/free_elite",
+      "sources": [
+        "src/content.lua",
+        "src/game.lua",
+        "src/onebit_visuals.lua",
+        "src/stage.lua",
+        "src/visual_slots.lua",
+        "src/world.lua"
+      ]
+    },
+    {
+      "id": "core:chest/standard",
+      "sources": [
+        "main.lua",
+        "src/content.lua",
+        "src/generation.lua",
+        "src/idea_interactions.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ability/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ambient/",
+      "sources": [
+        "main.lua",
+        "src/audio_cues.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/boon/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/boon/activate",
+      "sources": [
+        "src/studio_audio_runtime.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/boss/arrival",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/boss/defeat",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/boss/phase",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/class/",
+      "sources": [
+        "main.lua",
+        "src/audio_cues.lua"
+      ]
+    },
+    {
+      "id": "core:cue/elite/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/elite/hollow_regent/arrival",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/attack",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/death",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/hit",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/move",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/enemy/telegraph",
+      "sources": [
+        "src/studio_audio_runtime.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/",
+      "sources": [
+        "main.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/defeat",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/elite/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/explore/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/final_boss",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/title",
+      "sources": [
+        "main.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/music/victory",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:cue/player/",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/player/attack",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/player/damage",
+      "sources": [
+        "src/studio_audio_runtime.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/player/death",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/player/move",
+      "sources": [
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/status/burning",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/terrain/",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/terrain/hazard",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/terrain/stairs",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/terrain/step",
+      "sources": [
+        "src/studio_audio_runtime.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/achievement",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/cancel",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/confirm",
+      "sources": [
+        "main.lua",
+        "src/studio_audio_samples.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/defeat",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/hover",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/level_up",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/ui/victory",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/world/chest",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/world/currency",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/world/door",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:cue/world/secret",
+      "sources": [
+        "src/studio_audio_runtime.lua"
+      ]
+    },
+    {
+      "id": "core:door/ruin",
+      "sources": [
+        "src/game.lua",
+        "src/generation.lua"
+      ]
+    },
+    {
+      "id": "core:drop/currency",
+      "sources": [
+        "src/onebit_visuals.lua",
+        "src/visual_juice.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:drop/currency/detail",
+      "sources": [
+        "main.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:drop/food",
+      "sources": [
+        "src/onebit_visuals.lua",
+        "src/visual_palette.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:drop/health",
+      "sources": [
+        "src/onebit_visuals.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/alarm_keeper",
+      "sources": [
+        "main.lua",
+        "src/game.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/ash_marshal",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/bastion_bulwark",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/bone_fragment",
+      "sources": [
+        "src/idea_enemies.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/bone_splitter",
+      "sources": [
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/canal_lancer",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/canal_lockmaster",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/cinder_bellkeeper",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/cinder_mender",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/crystal_bombardier",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/ember_crucible",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/ember_moth",
+      "sources": [
+        "src/idea_embers.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/extraction_pursuer",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua",
+        "src/stage.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/forge_conjurer",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/glass_charger",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/gloom_strider",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/grave_cantor",
+      "sources": [
+        "main.lua",
+        "src/game.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/gulp_toad",
+      "sources": [
+        "src/game.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/haunted_cache",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/heavy_rammer",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/hollow_regent",
+      "sources": [
+        "src/audio_cues.lua",
+        "src/content.lua",
+        "src/finale.lua",
+        "src/onebit_visuals.lua",
+        "src/studio_audio_runtime.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/hollow_wraith",
+      "sources": [
+        "main.lua",
+        "src/game.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/index_keeper",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/mire_binder",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/mirror_hexer",
+      "sources": [
+        "src/game.lua",
+        "src/idea_mirrors.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/mossbound_guard",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/game.lua",
+        "src/onebit_visuals.lua",
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/mossbreaker",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/mycelial_matriarch",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/oath_twin_a",
+      "sources": [
+        "src/idea_enemies.lua",
+        "src/idea_oaths.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/oath_twin_b",
+      "sources": [
+        "src/idea_enemies.lua",
+        "src/idea_oaths.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/pack_chorister",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/prism_curator",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/elite_ai.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/rotating_sentinel",
+      "sources": [
+        "src/idea_interactions.lua",
+        "src/idea_sentinel.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/ruin_skitter",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/game.lua",
+        "src/idea_enemies.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua",
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/silt_worm",
+      "sources": [
+        "src/idea_silt.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/snare_scribe",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/spore_herald",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/thorn_warden",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua",
+        "src/stage.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/thornspitter",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua",
+        "src/onebit_visuals.lua",
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/vault_lurker",
+      "sources": [
+        "main.lua",
+        "src/biomes.lua",
+        "src/onebit_visuals.lua",
+        "src/regular_ai.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/ward_weaver",
+      "sources": [
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:enemy/web_weaver",
+      "sources": [
+        "src/game.lua",
+        "src/idea_enemies.lua",
+        "src/idea_webs.lua"
+      ]
+    },
+    {
+      "id": "core:exit/arena",
+      "sources": [
+        "src/stage.lua"
+      ]
+    },
+    {
+      "id": "core:floor/ashen_bastion",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/final_sanctum",
+      "sources": [
+        "src/finale.lua"
+      ]
+    },
+    {
+      "id": "core:floor/fractured_archive",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/fungal_hollows",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/glacial_observatory",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/overgrown_ruins",
+      "sources": [
+        "src/biomes.lua",
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:floor/sundered_forge",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/sunken_aqueduct",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:floor/test",
+      "sources": [
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:map/ashen_bastion",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/final_sanctum",
+      "sources": [
+        "src/finale.lua"
+      ]
+    },
+    {
+      "id": "core:map/fractured_archive",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/fungal_hollows",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/glacial_observatory",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/overgrown_ruins",
+      "sources": [
+        "src/biomes.lua",
+        "src/generation.lua"
+      ]
+    },
+    {
+      "id": "core:map/scrolling_room",
+      "sources": [
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:map/sundered_forge",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/sunken_aqueduct",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:map/test_room",
+      "sources": [
+        "src/content.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:object/bolt_sentry",
+      "sources": [
+        "src/idea_companions.lua",
+        "src/idea_presentation.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:object/bound_spirit",
+      "sources": [
+        "src/idea_companions.lua",
+        "src/idea_presentation.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:object/chest_open",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:object/door_closed",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/door_open",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/env_",
+      "sources": [
+        "src/idea_environment_content.lua"
+      ]
+    },
+    {
+      "id": "core:object/env_column_",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:object/exit",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/geomancer_bulwark",
+      "sources": [
+        "src/idea_geomancer.lua",
+        "src/idea_presentation.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:object/idea_cache_dormant",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:object/idea_silt_trail",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:object/interaction_",
+      "sources": [
+        "src/idea_interaction_content.lua",
+        "src/visual_juice.lua"
+      ]
+    },
+    {
+      "id": "core:object/return_beacon",
+      "sources": [
+        "src/idea_presentation.lua",
+        "src/idea_wayfinder.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_",
+      "sources": [
+        "main.lua",
+        "src/review_features.lua",
+        "src/visual_juice.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_brazier_lit",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_brazier_unlit",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_gate_bottom",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_gate_tiny",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_gate_top",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_key",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_mushroom_1",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_mushroom_2",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_ore",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_ore_depleted",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_overgrowth_1",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_overgrowth_2",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_pillar_bottom",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_pillar_middle",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_pillar_top",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_plate_down",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_plate_tiny_down",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_plate_tiny_up",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_plate_up",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_bottom_left",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_bottom_right",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_middle_left",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_middle_right",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_top_left",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_rail_top_right",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_secret_clue",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_vault_bottom",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_vault_top",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/review_ward",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/stairs_down",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:object/stairs_up",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/aqueduct_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/archive_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/arena",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_gallery",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/bastion_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/cache",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/entry",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forge_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/fungal_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/gallery",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_broken_cloister",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_causeway",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_courtyard",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_crossroads",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_fan_arena",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_forked_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_long_gallery",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_mosaic",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/observatory_watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/shrine",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/side_annex",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/spiral",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/staggered_archive",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/switchback",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/three_bays",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/twin_vault",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:room/watch",
+      "sources": [
+        "src/rooms.lua"
+      ]
+    },
+    {
+      "id": "core:room/watchtower",
+      "sources": [
+        "src/room_expansion.lua"
+      ]
+    },
+    {
+      "id": "core:route/fungal_hollows",
+      "sources": [
+        "src/biomes.lua",
+        "src/content.lua"
+      ]
+    },
+    {
+      "id": "core:route/gateway",
+      "sources": [
+        "src/biomes.lua",
+        "src/finale.lua",
+        "src/game.lua"
+      ]
+    },
+    {
+      "id": "core:route/sunken_aqueduct",
+      "sources": [
+        "src/biomes.lua"
+      ]
+    },
+    {
+      "id": "core:secret/cracked_cache",
+      "sources": [
+        "src/generation.lua",
+        "src/world.lua"
+      ]
+    },
+    {
+      "id": "core:secret/moss_sigil",
+      "sources": [
+        "src/generation.lua",
+        "src/world.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/barricade",
+      "sources": [
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/bramble_bed",
+      "sources": [
+        "src/boon_expansion_content.lua",
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/env_",
+      "sources": [
+        "src/idea_environment_content.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/floor",
+      "sources": [
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/glazed_ice",
+      "sources": [
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/obscuring_mist",
+      "sources": [
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/resonant_crystal",
+      "sources": [
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/sticky_bog",
+      "sources": [
+        "src/kenney_symbols.lua",
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/wall",
+      "sources": [
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:terrain/water",
+      "sources": [
+        "src/terrain.lua"
+      ]
+    },
+    {
+      "id": "core:ui/ability_",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/ability_move_icon",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/attack_center_effect",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/attack_impact_effect",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/block_effect",
+      "sources": [
+        "src/onebit_visuals.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:ui/boon_effect",
+      "sources": [
+        "src/onebit_visuals.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:ui/burning_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_presentation.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:ui/cue_",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/cue_block_effect",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/cue_boon_effect",
+      "sources": [
+        "src/idea_presentation.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:ui/cue_spark_effect",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/currency_icon",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:ui/fate_",
+      "sources": [
+        "src/game.lua",
+        "src/idea_boon_content.lua",
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/hit_effect",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/hp_icon",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/idea_alarm_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ui/idea_corpse_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ui/idea_mirror_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ui/idea_oath_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ui/idea_reflect_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_enemies.lua"
+      ]
+    },
+    {
+      "id": "core:ui/signal_armed_effect",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/signal_safe_effect",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/signal_spent_effect",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/squad_",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:ui/squad_snare_effect",
+      "sources": [
+        "main.lua"
+      ]
+    },
+    {
+      "id": "core:ui/status_charge_",
+      "sources": [
+        "main.lua",
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/status_focus_icon",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/status_heal_icon",
+      "sources": [
+        "src/idea_presentation.lua",
+        "src/visual_palette.lua"
+      ]
+    },
+    {
+      "id": "core:ui/status_ward_icon",
+      "sources": [
+        "src/idea_presentation.lua"
+      ]
+    },
+    {
+      "id": "core:ui/storm_charge_effect",
+      "sources": [
+        "main.lua",
+        "src/idea_companions.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_slots.lua"
+      ]
+    },
+    {
+      "id": "core:ui/weapon_bow_icon",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/weapon_dagger_icon",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/weapon_hook_icon",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/weapon_spell_icon",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/weapon_sword_icon",
+      "sources": [
+        "src/onebit_visuals.lua"
+      ]
+    },
+    {
+      "id": "core:ui/xp_icon",
+      "sources": [
+        "main.lua",
+        "src/onebit_visuals.lua",
+        "src/visual_palette.lua"
+      ]
+    }
+  ],
+  "originalTests": [
+    "tests/acceptance_tests.lua",
+    "tests/acceptance_trace.lua",
+    "tests/attempt_full_run.lua",
+    "tests/biome_acceptance_trace.lua",
+    "tests/biome_tests.lua",
+    "tests/boon_expansion_tests.lua",
+    "tests/corridor_branch_tests.lua",
+    "tests/enemy_squad_tests.lua",
+    "tests/expansion_audio_tests.lua",
+    "tests/expansion_biome_tests.lua",
+    "tests/expansion_boon_acceptance.lua",
+    "tests/expansion_boon_tests.lua",
+    "tests/expansion_boon_trace.lua",
+    "tests/expansion_class_tests.lua",
+    "tests/expansion_encounter_tests.lua",
+    "tests/expansion_floor_tests.lua",
+    "tests/expansion_full_run_tests.lua",
+    "tests/expansion_full_victory_trace.lua",
+    "tests/expansion_generation_profile.lua",
+    "tests/expansion_legal_playthrough.lua",
+    "tests/expansion_profile.lua",
+    "tests/expansion_terrain_tests.lua",
+    "tests/exploration_tests.lua",
+    "tests/finale_corpus.lua",
+    "tests/finale_playthrough.lua",
+    "tests/finale_tests.lua",
+    "tests/fixed_visuals_tests.lua",
+    "tests/generation_tests.lua",
+    "tests/idea_acceptance_gui.lua",
+    "tests/idea_alarm_tests.lua",
+    "tests/idea_bone_tests.lua",
+    "tests/idea_boon_disk_fixture.lua",
+    "tests/idea_boon_handoff_fixture.lua",
+    "tests/idea_boon_handoff_tests.lua",
+    "tests/idea_boon_tests.lua",
+    "tests/idea_build_corpus.lua",
+    "tests/idea_cache_tests.lua",
+    "tests/idea_cadence_boon_tests.lua",
+    "tests/idea_cadence_fixture.lua",
+    "tests/idea_class_disk_fixture.lua",
+    "tests/idea_class_integration_tests.lua",
+    "tests/idea_control_boon_tests.lua",
+    "tests/idea_dice_tests.lua",
+    "tests/idea_driver_tests.lua",
+    "tests/idea_duelist_disk_fixture.lua",
+    "tests/idea_duelist_tests.lua",
+    "tests/idea_ember_tests.lua",
+    "tests/idea_enemy_disk_fixture.lua",
+    "tests/idea_enemy_tests.lua",
+    "tests/idea_environment_disk_fixture.lua",
+    "tests/idea_environment_tests.lua",
+    "tests/idea_geomancer_tests.lua",
+    "tests/idea_interaction_acceptance.lua",
+    "tests/idea_interaction_disk_fixture.lua",
+    "tests/idea_interaction_tests.lua",
+    "tests/idea_mirror_tests.lua",
+    "tests/idea_oath_tests.lua",
+    "tests/idea_pattern_tests.lua",
+    "tests/idea_playback_tests.lua",
+    "tests/idea_profile.lua",
+    "tests/idea_revival_tests.lua",
+    "tests/idea_seeds.lua",
+    "tests/idea_sentinel_tests.lua",
+    "tests/idea_silt_tests.lua",
+    "tests/idea_spiritbinder_tests.lua",
+    "tests/idea_stormcaller_tests.lua",
+    "tests/idea_support_boon_tests.lua",
+    "tests/idea_support_fixture.lua",
+    "tests/idea_terrain_acceptance.lua",
+    "tests/idea_terrain_disk_fixture.lua",
+    "tests/idea_terrain_tests.lua",
+    "tests/idea_tinkerer_tests.lua",
+    "tests/idea_toad_tests.lua",
+    "tests/idea_vow_tests.lua",
+    "tests/idea_wayfinder_tests.lua",
+    "tests/idea_weapon_form_tests.lua",
+    "tests/idea_web_tests.lua",
+    "tests/idea_wraith_tests.lua",
+    "tests/kenney_terrain_tests.lua",
+    "tests/kenney_visuals_tests.lua",
+    "tests/legacy_kenney_visuals.lua",
+    "tests/legal_playthrough.lua",
+    "tests/meta_acceptance_trace.lua",
+    "tests/meta_tests.lua",
+    "tests/motion_tests.lua",
+    "tests/onebit_visuals_tests.lua",
+    "tests/persistence_tests.lua",
+    "tests/pickup_aoe_tests.lua",
+    "tests/pixel_ui_tests.lua",
+    "tests/presentation_settings_tests.lua",
+    "tests/profile_biomes.lua",
+    "tests/profile_finale.lua",
+    "tests/profile_headless.lua",
+    "tests/review_feature_tests.lua",
+    "tests/run.lua",
+    "tests/run_seed_tests.lua",
+    "tests/settings_controls_tests.lua",
+    "tests/spectator_tests.lua",
+    "tests/sprite_audit_tests.lua",
+    "tests/stage_tests.lua",
+    "tests/title_menu_tests.lua",
+    "tests/tranche15_probe.lua",
+    "tests/visual_assets_tests.lua",
+    "tests/visual_juice_gui.lua",
+    "tests/visual_juice_tests.lua",
+    "tests/visual_packs_tests.lua",
+    "tests/visual_palette_tests.lua"
+  ]
+}

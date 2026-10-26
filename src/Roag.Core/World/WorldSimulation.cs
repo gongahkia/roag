@@ -42,7 +42,7 @@ public sealed partial class WorldSession
     private void AdvanceBody(Actor actor)
     {
         var settings = Simulation;
-        var body = actor.Body; bool fighting = State.Battle?.ActorIds.Contains(actor.Id) == true;
+        var body = actor.Body; bool fighting = UsesTacticalTurns(actor.Id) || State.Battle?.ActorIds.Contains(actor.Id) == true;
         if (!actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
         bool resting = !fighting && body.RestUntil > State.Tick;
         if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);

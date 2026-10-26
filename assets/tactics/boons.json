@@ -1,0 +1,6056 @@
+{
+  "schema_version": 1,
+  "source_version": "roag-boons/3",
+  "starter_pool": [
+    "core:boon/storm_conductor",
+    "core:boon/detonation_bloom",
+    "core:boon/thorn_mirror",
+    "core:boon/static_footsteps",
+    "core:boon/resonant_wounds",
+    "core:boon/temporal_echo",
+    "core:boon/crescent_reach",
+    "core:boon/turncoat_spark",
+    "core:boon/emberbrand",
+    "core:boon/flashpoint",
+    "core:boon/grave_dividend",
+    "core:boon/opening_cut",
+    "core:boon/crowdbreaker",
+    "core:boon/harriers_response",
+    "core:boon/perfect_guard",
+    "core:boon/final_spark",
+    "core:boon/pulse_step",
+    "core:boon/packed_powder",
+    "core:boon/longblade_geometry",
+    "core:boon/phantom_lunge"
+  ],
+  "normal_pool": [
+    "core:boon/storm_conductor",
+    "core:boon/detonation_bloom",
+    "core:boon/thorn_mirror",
+    "core:boon/static_footsteps",
+    "core:boon/resonant_wounds",
+    "core:boon/temporal_echo",
+    "core:boon/crescent_reach",
+    "core:boon/turncoat_spark",
+    "core:boon/emberbrand",
+    "core:boon/flashpoint",
+    "core:boon/grave_dividend",
+    "core:boon/opening_cut",
+    "core:boon/crowdbreaker",
+    "core:boon/harriers_response",
+    "core:boon/perfect_guard",
+    "core:boon/final_spark",
+    "core:boon/pulse_step",
+    "core:boon/packed_powder",
+    "core:boon/longblade_geometry",
+    "core:boon/phantom_lunge",
+    "core:boon/stonewake",
+    "core:boon/bramble_compact",
+    "core:boon/froststep_catalyst",
+    "core:boon/fracture_dividend",
+    "core:boon/mist_veil",
+    "core:boon/crystal_harmony",
+    "core:boon/sunderers_mark",
+    "core:boon/counterweight",
+    "core:boon/bloodrush",
+    "core:boon/pain_dividend",
+    "core:boon/executioners_thread",
+    "core:boon/shared_agony",
+    "core:boon/windup_hunter",
+    "core:boon/crossfire_omen",
+    "core:boon/pursuit_spark",
+    "core:boon/ordered_ranks",
+    "core:boon/far_witness",
+    "core:boon/betrayal_ward",
+    "core:boon/rhythm_of_steel",
+    "core:boon/cluster_rupture",
+    "core:boon/splitflight",
+    "core:boon/recurve",
+    "core:boon/expanding_sigil",
+    "core:boon/alchemical_flip",
+    "core:boon/earthshaker",
+    "core:boon/battle_march",
+    "core:boon/aftershock",
+    "core:boon/reprisal_nova",
+    "core:boon/ring_of_reversal",
+    "core:boon/beggars_cap",
+    "core:boon/overflow_chalice",
+    "core:boon/road_flask",
+    "core:boon/field_dressing",
+    "core:boon/ration_reserve",
+    "core:boon/brokers_seal",
+    "core:boon/funeral_coin",
+    "core:boon/pilgrims_vow",
+    "core:boon/fateful_dice",
+    "core:boon/linebreaker_pawn",
+    "core:boon/rooks_wake",
+    "core:boon/bishops_wake",
+    "core:boon/knights_gambit",
+    "core:boon/hollow_crown",
+    "core:boon/crosswind",
+    "core:boon/fan_of_blades",
+    "core:boon/backtrail_mantle",
+    "core:boon/grasping_hand",
+    "core:boon/anchor_maul",
+    "core:boon/hourglass_clasp",
+    "core:boon/ward_ledger",
+    "core:boon/cinder_stopper",
+    "core:boon/scavengers_hook",
+    "core:boon/pommel_return",
+    "core:boon/needle_flight",
+    "core:boon/hollow_sigil",
+    "core:boon/backswing",
+    "core:boon/distant_bastion",
+    "core:boon/volatile_vial",
+    "core:boon/split_thrust",
+    "core:boon/threefold_remedy",
+    "core:boon/twin_seals",
+    "core:boon/fourfold_ledger",
+    "core:boon/stone_backstop",
+    "core:boon/borrowed_guard",
+    "core:boon/long_wick",
+    "core:boon/passing_ember",
+    "core:boon/purging_seal",
+    "core:boon/doorward_lamp",
+    "core:boon/secret_apple",
+    "core:boon/spoils_aegis",
+    "core:boon/mist_lullaby",
+    "core:boon/rime_disk",
+    "core:boon/vent_mantle",
+    "core:boon/patient_rebuke",
+    "core:boon/beacon_afterglow",
+    "core:boon/sentry_quartermaster",
+    "core:boon/spirit_shelter",
+    "core:boon/grounding_rod",
+    "core:boon/mirror_dividend"
+  ],
+  "definitions": [
+    {
+      "description": "Hits may arc to another hostile creature.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_nearest",
+          "proc_coefficient": 1,
+          "radius": 6
+        }
+      ],
+      "id": "core:boon/storm_conductor",
+      "name": "Storm Conductor",
+      "parameters": {
+        "common": {
+          "chance": 20000,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 500000,
+          "power": 4
+        },
+        "rare": {
+          "chance": 180000,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 60000,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "chance_overflow",
+      "tags": [
+        "offense",
+        "lightning"
+      ],
+      "triggers": [
+        "HitConfirmed"
+      ]
+    },
+    {
+      "description": "Credited kills burst around the victim.",
+      "effects": [
+        {
+          "damage_type": "explosion",
+          "kind": "area",
+          "proc_coefficient": 1,
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/detonation_bloom",
+      "name": "Detonation Bloom",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "explosion"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ]
+    },
+    {
+      "description": "Positive damage retaliates against its source.",
+      "effects": [
+        {
+          "damage_type": "thorns",
+          "kind": "damage_source",
+          "proc_coefficient": 1
+        }
+      ],
+      "id": "core:boon/thorn_mirror",
+      "name": "Thorn Mirror",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "positive"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "defense",
+        "retaliation"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Movement may shock a nearby hostile creature.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_nearest",
+          "proc_coefficient": 1,
+          "radius": 2
+        }
+      ],
+      "id": "core:boon/static_footsteps",
+      "name": "Static Footsteps",
+      "parameters": {
+        "common": {
+          "chance": 50000,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 700000,
+          "power": 4
+        },
+        "rare": {
+          "chance": 350000,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 150000,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "chance_overflow",
+      "tags": [
+        "movement",
+        "lightning"
+      ],
+      "triggers": [
+        "TileEntered"
+      ]
+    },
+    {
+      "description": "Adjacent hostiles hurt in one chain release a burst.",
+      "effects": [
+        {
+          "damage_type": "resonance",
+          "kind": "area",
+          "proc_coefficient": 1,
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/resonant_wounds",
+      "name": "Resonant Wounds",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "neighborhood": "eight",
+            "op": "pair_adjacent_damage"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 8
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "resonance"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Repeat an attack's locked cells after 200 world time.",
+      "effects": [
+        {
+          "damage_type": "echo",
+          "delay": 200,
+          "kind": "echo",
+          "proc_coefficient": 1
+        }
+      ],
+      "id": "core:boon/temporal_echo",
+      "name": "Temporal Echo",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "time"
+      ],
+      "triggers": [
+        "AttackPerformed"
+      ]
+    },
+    {
+      "description": "Slash gains one forward cell and extra damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/adventurer"
+      ],
+      "id": "core:boon/crescent_reach",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/sweeping_slash",
+          "kind": "forward_cell"
+        },
+        {
+          "ability_id": "core:ability/sweeping_slash",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Crescent Reach",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "transformation",
+        "offense"
+      ],
+      "triggers": []
+    },
+    {
+      "description": "Observed enemy friendly fire shocks the aggressor.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_source",
+          "proc_coefficient": 1
+        }
+      ],
+      "id": "core:boon/turncoat_spark",
+      "name": "Turncoat Spark",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "source_target_same_faction"
+          },
+          {
+            "op": "source_not_owner"
+          },
+          {
+            "op": "target_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 8
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "lightning"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Direct hits ignite foes for three 100-time ticks.",
+      "effects": [
+        {
+          "interval": 100,
+          "kind": "apply_status",
+          "status": "burning",
+          "ticks": 3
+        }
+      ],
+      "id": "core:boon/emberbrand",
+      "name": "Emberbrand",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "burning"
+      ],
+      "triggers": [
+        "HitConfirmed"
+      ]
+    },
+    {
+      "description": "Damage to a Burning foe beside another Burning foe bursts.",
+      "effects": [
+        {
+          "damage_type": "fire",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/flashpoint",
+      "name": "Flashpoint",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "burning_pair"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 8
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "burning"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Credited hostile kills restore health.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/grave_dividend",
+      "name": "Grave Dividend",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "sustain"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ]
+    },
+    {
+      "description": "Directly damaging an unhurt foe deals bonus damage.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/opening_cut",
+      "name": "Opening Cut",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "target_was_full"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Direct hits gain bonus damage per nearby living hostile.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_target",
+          "scale": "adjacent_hostiles"
+        }
+      ],
+      "id": "core:boon/crowdbreaker",
+      "name": "Crowdbreaker",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "min": 1,
+            "op": "adjacent_hostiles"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Nearby hostile windups may draw a retaliatory spark.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_source"
+        }
+      ],
+      "id": "core:boon/harriers_response",
+      "name": "Harrier's Response",
+      "parameters": {
+        "common": {
+          "chance": 80000,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 650000,
+          "power": 4
+        },
+        "rare": {
+          "chance": 350000,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 180000,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "unique_windup"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 7
+      },
+      "stack_policy": "chance_overflow",
+      "tags": [
+        "defense",
+        "lightning"
+      ],
+      "triggers": [
+        "WindupStarted"
+      ]
+    },
+    {
+      "description": "Fully blocked hostile damage retaliates nearby.",
+      "effects": [
+        {
+          "damage_type": "thorns",
+          "kind": "damage_source"
+        }
+      ],
+      "id": "core:boon/perfect_guard",
+      "name": "Perfect Guard",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "source_in_radius",
+            "radius": 5
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "defense"
+      ],
+      "triggers": [
+        "DamageBlocked"
+      ]
+    },
+    {
+      "description": "Direct hits while at 40% health or less spark again.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/final_spark",
+      "name": "Final Spark",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "max": 40,
+            "op": "owner_hp_percent"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "lightning"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Enter a tile beside two foes to pulse into both.",
+      "effects": [
+        {
+          "damage_type": "pulse",
+          "kind": "adjacent_hostiles"
+        }
+      ],
+      "id": "core:boon/pulse_step",
+      "name": "Pulse Step",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "min": 2,
+            "op": "adjacent_hostiles"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "movement",
+        "spatial"
+      ],
+      "triggers": [
+        "TileEntered"
+      ]
+    },
+    {
+      "description": "Each disjoint three credited or observed hostile deaths blast.",
+      "effects": [
+        {
+          "damage_type": "explosion",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/packed_powder",
+      "name": "Packed Powder",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "distinct_chain_group",
+            "size": 3
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "explosion"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ]
+    },
+    {
+      "description": "Explicit Sword Strike reaches two cells in its line.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/adventurer"
+      ],
+      "id": "core:boon/longblade_geometry",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/basic_attack",
+          "kind": "line_second_cell"
+        },
+        {
+          "ability_id": "core:ability/basic_attack",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Longblade Geometry",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "transformation",
+        "offense"
+      ],
+      "triggers": []
+    },
+    {
+      "description": "Dash strikes each hostile beside its traversed path once.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "path_adjacent_hostiles"
+        }
+      ],
+      "id": "core:boon/phantom_lunge",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/dash",
+          "kind": "path_strike"
+        }
+      ],
+      "name": "Phantom Lunge",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "ability_id",
+            "value": "core:ability/dash"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "transformation",
+        "movement"
+      ],
+      "triggers": [
+        "Moved"
+      ]
+    },
+    {
+      "description": "A fully blocked hostile hit bursts around you.",
+      "effects": [
+        {
+          "damage_type": "explosion",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/guardians_vow",
+      "name": "Guardian's Vow",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "source_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "defense",
+        "explosion"
+      ],
+      "triggers": [
+        "DamageBlocked"
+      ]
+    },
+    {
+      "description": "Collecting currency restores health.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/prospectors_heart",
+      "name": "Prospector's Heart",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "sustain",
+        "currency"
+      ],
+      "triggers": [
+        "CurrencyCollected"
+      ]
+    },
+    {
+      "description": "Other boon activations spark a nearby foe.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_nearest",
+          "radius": 4
+        }
+      ],
+      "id": "core:boon/circuit_chorus",
+      "name": "Circuit Chorus",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "other_boon"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "lightning"
+      ],
+      "triggers": [
+        "BoonActivated"
+      ]
+    },
+    {
+      "description": "Direct first strikes ignite unhurt foes for three ticks.",
+      "effects": [
+        {
+          "interval": 100,
+          "kind": "apply_status",
+          "status": "burning",
+          "ticks": 3
+        }
+      ],
+      "id": "core:boon/crownfire",
+      "name": "Crownfire",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "target_was_full"
+          },
+          {
+            "op": "positive"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "burning"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ]
+    },
+    {
+      "description": "Leaving sticky bog primes your next direct strike with stone damage.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "TileEntered"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "stone",
+          "kind": "damage_target",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageTaken"
+          }
+        }
+      ],
+      "id": "core:boon/stonewake",
+      "name": "Stonewake",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "TileEntered"
+              },
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "from_terrain",
+                "value": "g"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageTaken"
+              },
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "positive"
+              },
+              {
+                "op": "direct_attack"
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "TileEntered",
+        "DamageTaken"
+      ],
+      "unit": "stone damage on primed strike"
+    },
+    {
+      "description": "A bramble contact lashes a nearby hostile for bonus thorn damage.",
+      "effects": [
+        {
+          "damage_type": "thorns",
+          "kind": "damage_nearest",
+          "radius": 3
+        }
+      ],
+      "id": "core:boon/bramble_compact",
+      "name": "Bramble Compact",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "terrain_id",
+            "value": "core:terrain/bramble_bed"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "TerrainTriggered"
+      ],
+      "unit": "thorn damage per bramble contact"
+    },
+    {
+      "description": "Dashing across ice cuts hostiles beside the traversed path.",
+      "effects": [
+        {
+          "damage_type": "ice",
+          "kind": "path_adjacent_hostiles"
+        }
+      ],
+      "id": "core:boon/froststep_catalyst",
+      "name": "Froststep Catalyst",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "ability_id",
+            "value": "core:ability/dash"
+          },
+          {
+            "op": "path_terrain",
+            "value": "i"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "Moved"
+      ],
+      "unit": "ice damage per path-adjacent foe"
+    },
+    {
+      "description": "Breaking a barricade scatters a one-cell shard burst.",
+      "effects": [
+        {
+          "damage_type": "shard",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/fracture_dividend",
+      "name": "Fracture Dividend",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "TerrainBroken"
+      ],
+      "unit": "shard damage in burst"
+    },
+    {
+      "description": "Direct hits from obscuring mist gain surprise damage.",
+      "effects": [
+        {
+          "damage_type": "mist",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/mist_veil",
+      "name": "Mist Veil",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "positive"
+              },
+              {
+                "op": "direct_attack"
+              }
+            ]
+          },
+          {
+            "op": "source_on_terrain",
+            "value": "m"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus mist damage from obscuring tile"
+    },
+    {
+      "description": "Lightning hits beside a resonant crystal arc to another nearby foe.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_nearest",
+          "radius": 3
+        }
+      ],
+      "id": "core:boon/crystal_harmony",
+      "name": "Crystal Harmony",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "damage_type",
+            "value": "lightning"
+          },
+          {
+            "op": "target_near_terrain",
+            "value": "c"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus lightning arc damage"
+    },
+    {
+      "description": "Repeated direct hits on one foe build a short capped fracture mark.",
+      "effects": [
+        {
+          "cap": 3,
+          "damage_type": "physical",
+          "duration": 400,
+          "kind": "mark_damage",
+          "threshold": 2
+        }
+      ],
+      "id": "core:boon/sunderers_mark",
+      "name": "Sunderer's Mark",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "direct_attack"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "damage at mark count 2–3"
+    },
+    {
+      "description": "A fully blocked hostile hit primes bonus damage on your next special hit.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageBlocked"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "physical",
+          "kind": "damage_target",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageTaken"
+          }
+        }
+      ],
+      "id": "core:boon/counterweight",
+      "name": "Counterweight",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageBlocked"
+              },
+              {
+                "op": "target_owner"
+              },
+              {
+                "op": "source_hostile"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageTaken"
+              },
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "positive"
+                  },
+                  {
+                    "op": "direct_attack"
+                  }
+                ]
+              },
+              {
+                "op": "special_attack"
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageBlocked",
+        "DamageTaken"
+      ],
+      "unit": "bonus special-hit damage after block"
+    },
+    {
+      "description": "Credited kills grant a brief scheduled-action speed surge.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "speed_boost"
+        }
+      ],
+      "id": "core:boon/bloodrush",
+      "name": "Bloodrush",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 10
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 25
+        },
+        "rare": {
+          "chance": 0,
+          "power": 20
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 15
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ],
+      "unit": "temporary speed for 300 world time"
+    },
+    {
+      "description": "Taking real damage primes bonus damage on your next direct hit.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "prime",
+          "when": {
+            "op": "target_owner"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "physical",
+          "kind": "damage_target",
+          "when": {
+            "op": "source_owner"
+          }
+        }
+      ],
+      "id": "core:boon/pain_dividend",
+      "name": "Pain Dividend",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "target_owner"
+              },
+              {
+                "op": "source_hostile"
+              },
+              {
+                "op": "positive"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "positive"
+                  },
+                  {
+                    "op": "direct_attack"
+                  }
+                ]
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus next-hit damage after harm"
+    },
+    {
+      "description": "Direct hits against foes at or below half health cut deeper.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/executioners_thread",
+      "name": "Executioner's Thread",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "positive"
+              },
+              {
+                "op": "direct_attack"
+              }
+            ]
+          },
+          {
+            "max": 50,
+            "op": "target_hp_percent_before"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus wounded-target damage"
+    },
+    {
+      "description": "Damaging a Burning foe shares pain with adjacent Burning foes.",
+      "effects": [
+        {
+          "damage_type": "fire",
+          "kind": "status_neighbors",
+          "status": "burning"
+        }
+      ],
+      "id": "core:boon/shared_agony",
+      "name": "Shared Agony",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "burning_pair"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "damage to each adjacent Burning foe"
+    },
+    {
+      "description": "A hostile locking a strike on your cell takes a retaliatory hit.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_source"
+        }
+      ],
+      "id": "core:boon/windup_hunter",
+      "name": "Windup Hunter",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "visible_source"
+          },
+          {
+            "op": "owner_in_locked_cells"
+          },
+          {
+            "op": "unique_windup"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 9
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "WindupStarted"
+      ],
+      "unit": "attacker retaliation damage"
+    },
+    {
+      "description": "Overlapping hostile windups burst around the newest attacker.",
+      "effects": [
+        {
+          "damage_type": "arcane",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/crossfire_omen",
+      "name": "Crossfire Omen",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "visible_source"
+          },
+          {
+            "op": "overlapping_windups"
+          },
+          {
+            "op": "unique_windup"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 9
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "WindupStarted"
+      ],
+      "unit": "overlap burst damage"
+    },
+    {
+      "description": "A hostile moving closer within six tiles draws a spark.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_source"
+        }
+      ],
+      "id": "core:boon/pursuit_spark",
+      "name": "Pursuit Spark",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "visible_source"
+          },
+          {
+            "op": "approaching_owner"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "radius",
+        "radius": 6
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "Moved"
+      ],
+      "unit": "approaching-enemy spark damage"
+    },
+    {
+      "description": "Direct hits in a line of three living hostiles gain formation damage.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/ordered_ranks",
+      "name": "Ordered Ranks",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "positive"
+              },
+              {
+                "op": "direct_attack"
+              }
+            ]
+          },
+          {
+            "min": 3,
+            "op": "aligned_hostiles"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "formation bonus damage"
+    },
+    {
+      "description": "Hostile damage observed four to nine tiles away sends a distant spark.",
+      "effects": [
+        {
+          "damage_type": "lightning",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/far_witness",
+      "name": "Far Witness",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "source_not_owner"
+          },
+          {
+            "op": "visible_source"
+          },
+          {
+            "op": "visible_event"
+          },
+          {
+            "max": 9,
+            "min": 4,
+            "op": "event_distance"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "distant witnessed damage"
+    },
+    {
+      "description": "Enemy friendly fire grants a short one-hit damage ward.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/betrayal_ward",
+      "name": "Betrayal Ward",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "source_target_same_faction"
+          },
+          {
+            "op": "source_not_owner"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "damage absorbed on next positive hit"
+    },
+    {
+      "description": "Moving primes one bonus direct strike; attacks consume the rhythm.",
+      "effects": [
+        {
+          "duration": 250,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "Moved"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "physical",
+          "kind": "damage_target",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageTaken"
+          }
+        }
+      ],
+      "id": "core:boon/rhythm_of_steel",
+      "name": "Rhythm of Steel",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "Moved"
+              },
+              {
+                "op": "source_owner"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageTaken"
+              },
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "positive"
+                  },
+                  {
+                    "op": "direct_attack"
+                  }
+                ]
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "Moved",
+        "DamageTaken"
+      ],
+      "unit": "bonus next-hit damage after movement"
+    },
+    {
+      "description": "Each three distinct hostiles damaged in one chain release a blast.",
+      "effects": [
+        {
+          "damage_type": "explosion",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/cluster_rupture",
+      "name": "Cluster Rupture",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "positive"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "distinct_chain_group",
+            "size": 3
+          }
+        ]
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "three-target chain burst damage"
+    },
+    {
+      "description": "Ranger Bow Shot branches into two nearby clear hostile cells.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/ranger"
+      ],
+      "id": "core:boon/splitflight",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/ranger_shot",
+          "kind": "branch_near"
+        },
+        {
+          "ability_id": "core:ability/ranger_shot",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Splitflight",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [],
+      "unit": "bow damage bonus; branches stay at two"
+    },
+    {
+      "description": "Ranger Piercing Volley extends one more clear cell.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/ranger"
+      ],
+      "id": "core:boon/recurve",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/ranger_volley",
+          "kind": "line_extend"
+        },
+        {
+          "ability_id": "core:ability/ranger_volley",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Recurve",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [],
+      "unit": "volley damage bonus; adds one clear cell"
+    },
+    {
+      "description": "Arcanist Fire Sigil gains an outer two-cell ring.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/arcanist"
+      ],
+      "id": "core:boon/expanding_sigil",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/arcanist_sigil",
+          "kind": "area_expand"
+        },
+        {
+          "ability_id": "core:ability/arcanist_sigil",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Expanding Sigil",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [],
+      "unit": "sigil damage bonus; two-cell ring"
+    },
+    {
+      "description": "Arc Bolt striking Burning links to nearby Burning foes.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/arcanist"
+      ],
+      "id": "core:boon/alchemical_flip",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/arcanist_bolt",
+          "kind": "status_chain"
+        },
+        {
+          "ability_id": "core:ability/arcanist_bolt",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Alchemical Flip",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [],
+      "unit": "bolt damage bonus; Burning link"
+    },
+    {
+      "description": "Berserker Crushing Blow shocks adjacent cells beyond its first impact.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/berserker"
+      ],
+      "id": "core:boon/earthshaker",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/berserker_crush",
+          "kind": "shockwave"
+        },
+        {
+          "ability_id": "core:ability/berserker_crush",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Earthshaker",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "floor"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [],
+      "unit": "crush damage bonus; adjacent shockwave"
+    },
+    {
+      "description": "Berserker Heavy Lunge primes a stronger next Crushing Blow.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "Moved"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "physical",
+          "kind": "damage_target",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageTaken"
+          }
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/berserker"
+      ],
+      "id": "core:boon/battle_march",
+      "incompatible": [],
+      "modifiers": [
+        {
+          "ability_id": "core:ability/dash",
+          "kind": "dash_prime"
+        }
+      ],
+      "name": "Battle March",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "Moved"
+              },
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "ability_id",
+                "value": "core:ability/dash"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageTaken"
+              },
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "positive"
+                  },
+                  {
+                    "op": "direct_attack"
+                  }
+                ]
+              },
+              {
+                "op": "ability_id",
+                "value": "core:ability/berserker_crush"
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "expansion"
+      ],
+      "triggers": [
+        "Moved",
+        "DamageTaken"
+      ],
+      "unit": "bonus Crush damage after Heavy Lunge"
+    },
+    {
+      "description": "A direct hit bursts across the target's adjacent cells.",
+      "effects": [
+        {
+          "damage_type": "shock",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/sentinel",
+        "core:actor/alchemist"
+      ],
+      "id": "core:boon/aftershock",
+      "name": "Aftershock",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "direct_attack"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "offense",
+        "area"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "adjacent burst damage before defense"
+    },
+    {
+      "description": "Taking real hostile damage bursts around you.",
+      "effects": [
+        {
+          "damage_type": "pulse",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/sentinel",
+        "core:actor/alchemist"
+      ],
+      "id": "core:boon/reprisal_nova",
+      "name": "Reprisal Nova",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "source_hostile"
+          },
+          {
+            "op": "positive"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "defense",
+        "area"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "nearby retaliation damage before defense"
+    },
+    {
+      "description": "Escape a locked enemy attack; your next direct hit on that foe gains damage.",
+      "effects": [],
+      "id": "core:boon/ring_of_reversal",
+      "name": "Ring of Reversal",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "movement",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus damage on the next direct hit against that attacker"
+    },
+    {
+      "description": "Collecting gold at half health or lower grants a one-hit ward for 300 world time.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/beggars_cap",
+      "name": "Beggar's Cap",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "max": 50,
+            "op": "owner_hp_percent"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "CurrencyCollected"
+      ],
+      "unit": "damage absorbed on one hit"
+    },
+    {
+      "description": "Wasted food or health healing becomes a one-hit ward for 400 world time, capped by your power. Replaces a smaller ward.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "ward",
+          "scale": "supply_excess"
+        }
+      ],
+      "id": "core:boon/overflow_chalice",
+      "name": "Overflow Chalice",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "supply_excess"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SupplyCollected"
+      ],
+      "unit": "maximum captured healing"
+    },
+    {
+      "description": "Eating food grants action speed for 300 world time. More food refreshes the duration.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "speed_boost"
+        }
+      ],
+      "id": "core:boon/road_flask",
+      "name": "Road Flask",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 10
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 25
+        },
+        "rare": {
+          "chance": 0,
+          "power": 20
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 15
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "supply_kind",
+            "value": "food"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SupplyCollected"
+      ],
+      "unit": "temporary speed"
+    },
+    {
+      "description": "A health pickup removes Burning and restores additional health. Food does not trigger it.",
+      "effects": [
+        {
+          "kind": "cleanse_owner",
+          "status": "burning"
+        },
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/field_dressing",
+      "name": "Field Dressing",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "supply_kind",
+            "value": "health"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SupplyCollected"
+      ],
+      "unit": "additional health"
+    },
+    {
+      "description": "Eating food stores one recovery charge for 600 world time. Your next Wait spends it to heal; charges do not accumulate.",
+      "effects": [
+        {
+          "duration": 600,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "SupplyCollected"
+          }
+        },
+        {
+          "consume_prime": true,
+          "kind": "heal_owner",
+          "when": {
+            "op": "event_kind",
+            "value": "Waited"
+          }
+        }
+      ],
+      "id": "core:boon/ration_reserve",
+      "name": "Ration Reserve",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "supply_kind",
+                    "value": "food"
+                  }
+                ]
+              },
+              {
+                "op": "event_kind",
+                "value": "SupplyCollected"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "event_kind",
+                "value": "Waited"
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SupplyCollected",
+        "Waited"
+      ],
+      "unit": "health from the next charged Wait"
+    },
+    {
+      "description": "A paid chest refunds some gold after purchase, capped by its price. You must afford the full price first.",
+      "effects": [
+        {
+          "kind": "refund_purchase"
+        }
+      ],
+      "id": "core:boon/brokers_seal",
+      "name": "Broker's Seal",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "field": "price",
+            "min": 1,
+            "op": "event_amount"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "ChestClaimed"
+      ],
+      "unit": "maximum gold refunded"
+    },
+    {
+      "description": "Your credited kills add gold to their normal currency drop. Summoned or revived reward-exempt foes give no bonus.",
+      "effects": [
+        {
+          "kind": "enrich_drop"
+        }
+      ],
+      "id": "core:boon/funeral_coin",
+      "name": "Funeral Coin",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "rewarded_drop"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ],
+      "unit": "extra dropped gold"
+    },
+    {
+      "attack_payment": {
+        "hp": 2
+      },
+      "description": "While aiming an immediate attack, P / LB toggles a vow: pay 2 HP on commit for bonus primary damage before criticals. Must leave at least 1 HP. Cancel is free; movement and utility cannot pay.",
+      "effects": [],
+      "id": "core:boon/pilgrims_vow",
+      "name": "Pilgrim's Vow",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 3
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 8
+        },
+        "rare": {
+          "chance": 0,
+          "power": 6
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 4
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage for the 2 HP vow"
+    },
+    {
+      "description": "Each attack rolls one of 8 equal faces: 1 heal, 2 heavy, 3 Burning, 4 ward, 5 arc, 6 burst, skull executes regular foes, cross misses. Bonuses need a hit. Utility never rolls; bosses/specials resist skull.",
+      "effects": [
+        {
+          "kind": "heal_owner",
+          "when": {
+            "op": "roll_face",
+            "value": 1
+          }
+        },
+        {
+          "interval": 100,
+          "kind": "apply_status",
+          "status": "burning",
+          "ticks": 3,
+          "when": {
+            "op": "roll_face",
+            "value": 3
+          }
+        },
+        {
+          "duration": 200,
+          "kind": "ward",
+          "when": {
+            "op": "roll_face",
+            "value": 4
+          }
+        },
+        {
+          "damage_type": "lightning",
+          "kind": "damage_nearest",
+          "radius": 3,
+          "when": {
+            "op": "roll_face",
+            "value": 5
+          }
+        },
+        {
+          "damage_type": "explosion",
+          "kind": "area",
+          "radius": 1,
+          "when": {
+            "op": "roll_face",
+            "value": 6
+          }
+        }
+      ],
+      "id": "core:boon/fateful_dice",
+      "name": "Fateful Dice",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "direct_attack"
+              },
+              {
+                "op": "positive"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "op": "roll_face",
+                "value": 3
+              },
+              {
+                "all": [
+                  {
+                    "any": [
+                      {
+                        "op": "roll_face",
+                        "value": 1
+                      },
+                      {
+                        "op": "roll_face",
+                        "value": 4
+                      },
+                      {
+                        "op": "roll_face",
+                        "value": 5
+                      },
+                      {
+                        "op": "roll_face",
+                        "value": 6
+                      }
+                    ]
+                  },
+                  {
+                    "op": "unique_action"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "rolled bonus/heal/ward/tick/burst power"
+    },
+    {
+      "description": "Positive primary hits send a two-cell lance beyond the victim, away from the strike origin. Walls and closed doors stop it.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "lance"
+        }
+      ],
+      "id": "core:boon/linebreaker_pawn",
+      "name": "Linebreaker's Pawn",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "trigger": "hit"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "positive"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Cardinal primary hits send two cells in both perpendicular directions from the victim. It rewards lining up a row of foes.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "rook"
+        }
+      ],
+      "id": "core:boon/rooks_wake",
+      "name": "Rook's Wake",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "axis": "cardinal",
+        "trigger": "hit"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "pattern_axis",
+            "value": "cardinal"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Diagonal primary hits release four diagonal two-cell rays from the victim. Stone corners block each ray.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "bishop"
+        }
+      ],
+      "id": "core:boon/bishops_wake",
+      "name": "Bishop's Wake",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "axis": "diagonal",
+        "trigger": "hit"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "pattern_axis",
+            "value": "diagonal"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Positive special-attack hits strike the eight L-shaped endpoints around the victim. At least one clear two-leg route is required; adjacent cells are spared.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "knight"
+        }
+      ],
+      "id": "core:boon/knights_gambit",
+      "name": "Knight's Gambit",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "special": true,
+        "trigger": "hit"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "special_attack"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Credited hostile kills strike a hollow ring two tiles from the victim. The inner ring is spared, and walls block the outer ring.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "crown"
+        }
+      ],
+      "id": "core:boon/hollow_crown",
+      "name": "Hollow Crown",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "trigger": "kill"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Wait sends four cardinal rays two cells from your current tile. It spends ordinary Wait time, hits no diagonals and stops at walls.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "crosswind"
+        }
+      ],
+      "id": "core:boon/crosswind",
+      "name": "Crosswind",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "trigger": "wait"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "Waited"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Positive special-attack hits strike a three-cell forward fan beyond the victim. Walls and stone corners block it.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "pattern",
+          "pattern": "fan"
+        }
+      ],
+      "id": "core:boon/fan_of_blades",
+      "name": "Fan of Blades",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "special": true,
+        "trigger": "hit"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "positive"
+          },
+          {
+            "op": "special_attack"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "A committed Dash locks a five-cell cross at its starting tile, striking after 150 world time. Utility movement and beacon returns do not trigger it.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "delay": 150,
+          "kind": "echo",
+          "pattern": "backtrail"
+        }
+      ],
+      "id": "core:boon/backtrail_mantle",
+      "name": "Backtrail Mantle",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "trigger": "dash"
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "actual_dash"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "spatial"
+      ],
+      "triggers": [
+        "Moved"
+      ],
+      "unit": "pattern damage per cell before defense"
+    },
+    {
+      "description": "Positive special hits on regular foes in your row or column deal bonus damage, then pull surviving victims one cardinal cell toward you. Occupied cells, exits and walls stop the pull.",
+      "effects": [
+        {
+          "damage_type": "physical",
+          "kind": "damage_target"
+        },
+        {
+          "kind": "displace_target",
+          "mode": "pull"
+        }
+      ],
+      "id": "core:boon/grasping_hand",
+      "name": "Grasping Hand",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "direct_attack"
+                  },
+                  {
+                    "op": "positive"
+                  }
+                ]
+              },
+              {
+                "op": "regular_target"
+              }
+            ]
+          },
+          {
+            "op": "special_attack"
+          },
+          {
+            "op": "owner_axis",
+            "value": "cardinal"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus damage before one-cell pull"
+    },
+    {
+      "description": "Basic hits against cardinal-adjacent regular foes push them one cell. If the push is blocked, deal collision damage instead. A successful push interrupts a windup; bosses are exempt.",
+      "effects": [
+        {
+          "collision_damage": true,
+          "damage_type": "physical",
+          "kind": "displace_target",
+          "mode": "push"
+        }
+      ],
+      "id": "core:boon/anchor_maul",
+      "name": "Anchor Maul",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "direct_attack"
+                  },
+                  {
+                    "op": "positive"
+                  }
+                ]
+              },
+              {
+                "op": "regular_target"
+              }
+            ]
+          },
+          {
+            "op": "basic_attack"
+          },
+          {
+            "op": "owner_axis",
+            "value": "cardinal"
+          },
+          {
+            "max": 1,
+            "min": 1,
+            "op": "event_distance"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "collision damage when the one-cell push is blocked"
+    },
+    {
+      "description": "A positive primary hit briefly stuns the first surviving regular foe. One trigger per attack, then a 400-time cooldown. Stun caps at 100 time; it never gives a guaranteed player reaction action.",
+      "effects": [
+        {
+          "cap": 100,
+          "cooldown": 400,
+          "kind": "stun_target"
+        }
+      ],
+      "id": "core:boon/hourglass_clasp",
+      "name": "Hourglass Clasp",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 10
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 40
+        },
+        "rare": {
+          "chance": 0,
+          "power": 30
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 20
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "all": [
+                  {
+                    "op": "source_owner"
+                  },
+                  {
+                    "op": "target_hostile"
+                  },
+                  {
+                    "op": "direct_attack"
+                  },
+                  {
+                    "op": "positive"
+                  }
+                ]
+              },
+              {
+                "op": "regular_target"
+              }
+            ]
+          },
+          {
+            "op": "cooldown_ready"
+          },
+          {
+            "op": "unique_action"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "stun time, capped at 100; cooldown 400"
+    },
+    {
+      "description": "Wait while hurt spends active one-hit wards to restore health, up to your power. Consumed wards lose unused capacity. Empty wards and full health cannot trigger it.",
+      "effects": [
+        {
+          "kind": "ward_to_heal"
+        }
+      ],
+      "id": "core:boon/ward_ledger",
+      "name": "Ward Ledger",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "owner_missing_hp"
+          },
+          {
+            "op": "active_ward"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "Waited"
+      ],
+      "unit": "maximum health recovered by spending wards"
+    },
+    {
+      "description": "A primary hit on an already Burning foe consumes its remaining Burning for one immediate fire hit, capped by your power. The queued ticks are removed; normal defenses still apply.",
+      "effects": [
+        {
+          "damage_type": "fire",
+          "kind": "consume_burning"
+        }
+      ],
+      "id": "core:boon/cinder_stopper",
+      "name": "Cinder Stopper",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 3
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 10
+        },
+        "rare": {
+          "chance": 0,
+          "power": 7
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 5
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "direct_attack"
+              },
+              {
+                "op": "positive"
+              }
+            ]
+          },
+          {
+            "op": "burning_target"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "maximum captured remaining Burning damage"
+    },
+    {
+      "description": "Wait gathers pickups from up to four adjacent cardinal tiles, limited by power, in north/east/south/west order. Requires clear visible ground; full-health food and carried drops stay put. Normal pickup effects apply.",
+      "effects": [
+        {
+          "kind": "gather_pickups"
+        }
+      ],
+      "id": "core:boon/scavengers_hook",
+      "name": "Scavenger's Hook",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "Waited"
+      ],
+      "unit": "adjacent pickup tiles gathered per Wait, capped at four"
+    },
+    {
+      "description": "Adventurer: aimed F also strikes the clear cell directly behind you. Both sides share one primary batch. Bump remains forward-only; F gains bonus damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/adventurer"
+      ],
+      "id": "core:boon/pommel_return",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/basic_attack",
+          "form": "pommel_return",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/basic_attack",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Pommel Return",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Ranger: aimed F pierces creatures along its four-cell clear line. Existing Splitflight branches still work. Bump keeps first-contact behavior; F gains bonus damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/ranger"
+      ],
+      "id": "core:boon/needle_flight",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/ranger_shot",
+          "form": "needle_flight",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/ranger_shot",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Needle Flight",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Arcanist: a fully placed R fire sigil spares its center and strengthens the surrounding cells. Expanding Sigil keeps its outer ring. Short blocked casts retain their normal travel cells.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/arcanist"
+      ],
+      "id": "core:boon/hollow_sigil",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/arcanist_sigil",
+          "form": "hollow_sigil",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/arcanist_sigil",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Hollow Sigil",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Berserker: R cleave also strikes its three clear rear neighbors, completing the surrounding arc on open ground. Normal deliberate recovery remains; R gains bonus damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/berserker"
+      ],
+      "id": "core:boon/backswing",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/berserker_cleave",
+          "form": "backswing",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/berserker_cleave",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Backswing",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Sentinel: R instead strikes the four two-step cardinal tiles and four diagonal neighbors. Cardinal-adjacent tiles are spared. Walls and corners block the stronger pulse.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/sentinel"
+      ],
+      "id": "core:boon/distant_bastion",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/sentinel_pulse",
+          "form": "distant_bastion",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/sentinel_pulse",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Distant Bastion",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Alchemist: F splashes a one-cell cardinal cross at its first creature contact. Empty shots keep the normal line. Clear travel cells and normal recovery remain; F gains bonus damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/alchemist"
+      ],
+      "id": "core:boon/volatile_vial",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/alchemist_vial",
+          "form": "volatile_vial",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/alchemist_vial",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Volatile Vial",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Duelist: aimed F keeps its first step, then forks into two clear side endpoints instead of the straight second cell. Walls and corners stop each branch. Bump stays narrow; F gains bonus damage.",
+      "effects": [],
+      "eligible_classes": [
+        "core:actor/duelist"
+      ],
+      "id": "core:boon/split_thrust",
+      "modifiers": [
+        {
+          "ability_id": "core:ability/duelist_thrust",
+          "form": "split_thrust",
+          "kind": "weapon_form"
+        },
+        {
+          "ability_id": "core:ability/duelist_thrust",
+          "kind": "add_damage"
+        }
+      ],
+      "name": "Split Thrust",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas",
+        "transformation",
+        "offense"
+      ],
+      "triggers": [],
+      "unit": "bonus primary damage before criticals and defense"
+    },
+    {
+      "description": "Each disjoint group of three different foes damaged by one primary attack restores health. Repeated damage to one victim cannot count again in that attack chain.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/threefold_remedy",
+      "name": "Threefold Remedy",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "direct_attack"
+              },
+              {
+                "op": "positive"
+              }
+            ]
+          },
+          {
+            "op": "distinct_chain_group",
+            "size": 3
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "health per three distinct primary victims"
+    },
+    {
+      "description": "Two different credited, reward-eligible kills in one causal chain grant a one-hit ward for 300 world time. Summoned and revived reward-exempt foes cannot count.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/twin_seals",
+      "name": "Twin Seals",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "rewarded_drop"
+          },
+          {
+            "op": "distinct_chain_group",
+            "size": 2
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ],
+      "unit": "damage absorbed by the one-hit ward"
+    },
+    {
+      "description": "Each group of four different other triggered boons in one causal chain restores health. Repeated activations of one boon do not count again; passive weapon forms are not triggered activations.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/fourfold_ledger",
+      "name": "Fourfold Ledger",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "other_boon"
+          },
+          {
+            "field": "boon_id",
+            "op": "distinct_chain_group",
+            "size": 4
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "BoonActivated"
+      ],
+      "unit": "health per four different triggered boons"
+    },
+    {
+      "description": "Positive primary hits gain bonus damage when the victim is in your row or column and a wall, closed door or blocking object is immediately behind it, away from you.",
+      "effects": [
+        {
+          "damage_type": "stone",
+          "kind": "damage_target"
+        }
+      ],
+      "id": "core:boon/stone_backstop",
+      "name": "Stone Backstop",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "target_hostile"
+              },
+              {
+                "op": "direct_attack"
+              },
+              {
+                "op": "positive"
+              }
+            ]
+          },
+          {
+            "op": "back_to_wall"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageTaken"
+      ],
+      "unit": "bonus pinned-victim damage before defense"
+    },
+    {
+      "description": "A fully blocked primary attack against a surviving regular foe grants a one-hit ward. One trigger per attack, with a 300-world-time cooldown; bosses and exempt foes do not qualify.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/borrowed_guard",
+      "name": "Borrowed Guard",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "direct_attack"
+          },
+          {
+            "op": "regular_target"
+          },
+          {
+            "op": "cooldown_ready"
+          },
+          {
+            "op": "unique_action"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageBlocked"
+      ],
+      "unit": "damage absorbed by the one-hit ward"
+    },
+    {
+      "description": "Your Burning applications add remaining ticks, capped at eight total. Tick power, interval and the already queued next tick do not change. More copies add ticks up to that cap.",
+      "effects": [
+        {
+          "cap": 8,
+          "kind": "extend_burning"
+        }
+      ],
+      "id": "core:boon/long_wick",
+      "name": "Long Wick",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "event_status",
+            "value": "burning"
+          },
+          {
+            "op": "target_entity_hostile"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "StatusApplied"
+      ],
+      "unit": "additional Burning ticks; eight total maximum"
+    },
+    {
+      "description": "Credited reward-eligible kills of Burning foes ignite the nearest other foe within three clear tiles for two ticks. Ordinary ancestry guards prevent an endless automatic fire chain.",
+      "effects": [
+        {
+          "clear_path": true,
+          "interval": 100,
+          "kind": "apply_status",
+          "radius": 3,
+          "status": "burning",
+          "target": "nearest",
+          "ticks": 2
+        }
+      ],
+      "id": "core:boon/passing_ember",
+      "name": "Passing Ember",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "target_hostile"
+          },
+          {
+            "op": "burning_target"
+          },
+          {
+            "op": "rewarded_drop"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "EntityKilled"
+      ],
+      "unit": "passed Burning damage per tick before defense"
+    },
+    {
+      "description": "Actually cleansing Burning from you releases a one-cell fire burst around you. Empty cleansing attempts and consuming a foe's Burning cannot trigger it.",
+      "effects": [
+        {
+          "damage_type": "fire",
+          "kind": "area",
+          "radius": 1
+        }
+      ],
+      "id": "core:boon/purging_seal",
+      "name": "Purging Seal",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "target_owner"
+          },
+          {
+            "op": "event_status",
+            "value": "burning"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "StatusCleansed"
+      ],
+      "unit": "cleansing burst damage per cell before defense"
+    },
+    {
+      "description": "Opening a closed door grants a one-hit ward for 400 world time. Walking through an already open door cannot renew it.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/doorward_lamp",
+      "name": "Doorward Lamp",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DoorOpened"
+      ],
+      "unit": "damage absorbed by the door-opening ward"
+    },
+    {
+      "description": "Your actual discovery of a secret restores health once. Revealed secrets cannot be harvested again; inspecting the map is free and gives no healing.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/secret_apple",
+      "name": "Secret Apple",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 3
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 10
+        },
+        "rare": {
+          "chance": 0,
+          "power": 7
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 5
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SecretDiscovered"
+      ],
+      "unit": "health per newly discovered secret"
+    },
+    {
+      "description": "Claiming a paid chest grants a one-hit ward for 600 world time. The full price is still required; free secret and elite rewards do not count.",
+      "effects": [
+        {
+          "duration": 600,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/spoils_aegis",
+      "name": "Spoils Aegis",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "field": "price",
+            "min": 1,
+            "op": "event_amount"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "ChestClaimed"
+      ],
+      "unit": "damage absorbed by the purchased ward"
+    },
+    {
+      "description": "Wait while hurt on obscuring mist to recover health, at most once per 400 world time. Wait still advances enemies and committed attacks normally.",
+      "effects": [
+        {
+          "cooldown": 400,
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/mist_lullaby",
+      "name": "Mist Lullaby",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "owner_missing_hp"
+          },
+          {
+            "op": "source_on_terrain",
+            "value": "m"
+          },
+          {
+            "op": "cooldown_ready"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "Waited"
+      ],
+      "unit": "health from a mist rest; cooldown 400"
+    },
+    {
+      "description": "Leaving glazed ice grants a one-hit ward for 200 world time. Staying on ice or moving between ordinary floor tiles cannot renew it.",
+      "effects": [
+        {
+          "duration": 200,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/rime_disk",
+      "name": "Rime Disk",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "from_terrain",
+            "value": "i"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "TileEntered"
+      ],
+      "unit": "damage absorbed after leaving ice"
+    },
+    {
+      "description": "Entering a heat vent grants a one-hit ward for 200 world time, at most once per 200 time. The vent keeps its locked timing and normal damage; standing still cannot renew the ward.",
+      "effects": [
+        {
+          "duration": 200,
+          "kind": "ward"
+        }
+      ],
+      "id": "core:boon/vent_mantle",
+      "name": "Vent Mantle",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "on_special_terrain",
+            "value": "heat_vent"
+          },
+          {
+            "op": "cooldown_ready"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "TileEntered"
+      ],
+      "unit": "damage absorbed by the vent-entry ward"
+    },
+    {
+      "description": "Fully blocking a hostile direct attack stores one charge for 400 world time. Your next paid Wait spends it on a one-cell burst; empty waiting cannot create another charge.",
+      "effects": [
+        {
+          "duration": 400,
+          "kind": "prime",
+          "when": {
+            "op": "event_kind",
+            "value": "DamageBlocked"
+          }
+        },
+        {
+          "consume_prime": true,
+          "damage_type": "physical",
+          "kind": "area",
+          "radius": 1,
+          "when": {
+            "op": "event_kind",
+            "value": "Waited"
+          }
+        }
+      ],
+      "id": "core:boon/patient_rebuke",
+      "name": "Patient Rebuke",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "any": [
+          {
+            "all": [
+              {
+                "op": "event_kind",
+                "value": "DamageBlocked"
+              },
+              {
+                "op": "target_owner"
+              },
+              {
+                "op": "source_hostile"
+              },
+              {
+                "op": "direct_attack"
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "op": "source_owner"
+              },
+              {
+                "op": "event_kind",
+                "value": "Waited"
+              },
+              {
+                "op": "primed"
+              }
+            ]
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "DamageBlocked",
+        "Waited"
+      ],
+      "unit": "damage from the charged Wait burst before defense"
+    },
+    {
+      "description": "Wayfinder: returning to your beacon sends two-cell cardinal rays from the actual landing. Walls stop the rays, diagonals are spared, and ordinary Dashes cannot trigger them.",
+      "effects": [
+        {
+          "damage_type": "arcane",
+          "kind": "pattern",
+          "pattern": "crosswind"
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/wayfinder"
+      ],
+      "id": "core:boon/beacon_afterglow",
+      "name": "Beacon Afterglow",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "pattern_preview": {
+        "trigger": "return"
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "BeaconReturned"
+      ],
+      "unit": "beacon-landing ray damage before defense"
+    },
+    {
+      "description": "Tinkerer: deploying or replacing your sentry grants action speed for 200 world time. It does not add sentry shots or make autonomous bolts trigger other boons.",
+      "effects": [
+        {
+          "duration": 200,
+          "kind": "speed_boost"
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/tinkerer"
+      ],
+      "id": "core:boon/sentry_quartermaster",
+      "name": "Sentry Quartermaster",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 10
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 25
+        },
+        "rare": {
+          "chance": 0,
+          "power": 20
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 15
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SentryDeployed"
+      ],
+      "unit": "temporary deployment speed"
+    },
+    {
+      "description": "Spiritbinder: placing or repositioning your spirit grants a one-hit ward for 150 world time. Commanded strikes do not renew it; the spirit never becomes a shield entity.",
+      "effects": [
+        {
+          "duration": 150,
+          "kind": "ward"
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/spiritbinder"
+      ],
+      "id": "core:boon/spirit_shelter",
+      "name": "Spirit Shelter",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "SpiritPositioned"
+      ],
+      "unit": "damage absorbed by the positioning ward"
+    },
+    {
+      "description": "Stormcaller: actually grounding stored charge with Dash adds a one-hit damage ward for 300 world time behind your normal grounding shield. An uncharged Dash gives no ward.",
+      "effects": [
+        {
+          "duration": 300,
+          "kind": "ward"
+        }
+      ],
+      "eligible_classes": [
+        "core:actor/stormcaller"
+      ],
+      "id": "core:boon/grounding_rod",
+      "name": "Grounding Rod",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 1
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 4
+        },
+        "rare": {
+          "chance": 0,
+          "power": 3
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 2
+        }
+      },
+      "predicate": {
+        "op": "source_owner"
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "StormGrounded"
+      ],
+      "unit": "damage absorbed after the grounding shield"
+    },
+    {
+      "description": "Reflecting your own attack from an enemy mirror restores health once per attack. Failed reflection, enemy fire and automatic class shots cannot heal you.",
+      "effects": [
+        {
+          "kind": "heal_owner"
+        }
+      ],
+      "id": "core:boon/mirror_dividend",
+      "name": "Mirror Dividend",
+      "parameters": {
+        "common": {
+          "chance": 0,
+          "power": 2
+        },
+        "legendary": {
+          "chance": 0,
+          "power": 6
+        },
+        "rare": {
+          "chance": 0,
+          "power": 4
+        },
+        "uncommon": {
+          "chance": 0,
+          "power": 3
+        }
+      },
+      "predicate": {
+        "all": [
+          {
+            "op": "source_owner"
+          },
+          {
+            "op": "unique_action"
+          }
+        ]
+      },
+      "scope": {
+        "kind": "owner"
+      },
+      "stack_policy": "add_power",
+      "tags": [
+        "ideas"
+      ],
+      "triggers": [
+        "MirrorReflected"
+      ],
+      "unit": "health per real reflected manual attack"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Roag.Core.Expeditions;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -201,6 +202,7 @@ public sealed class OccupationJob
 }
 public sealed class Actor
 {
+    public ActorTactics? Tactics { get; set; }
     public string RoagClass { get; set; } = "";
     public string RoagCharacter { get; set; } = "";
     public int RoagMaxHealth { get; set; }
@@ -317,7 +319,7 @@ public sealed class Actor
     [JsonRequired]
     public int Role { get; set; }
     [JsonRequired]
-    public int Level { get => _level; set { if (_level == value) return; _level = value; NotifyNeedsChanged(); } }
+    public int Level { get => Tactics?.Build?.Level ?? _level; set { if (_level == value) return; _level = value; NotifyNeedsChanged(); } }
     public string CombatTrait { get; set; } = "";
     public List<string> Talents { get; set; } = [];
     public string EncounterId { get; set; } = "";
@@ -345,12 +347,13 @@ public sealed class Actor
     public bool Traveling { get; set; }
     [JsonRequired]
     public List<int> Route { get; set; } = [];
-    public int MaxHealth => RoagMaxHealth > 0 ? RoagMaxHealth : (BaseHealth > 0 ? BaseHealth + (Level - 1) * 6 : Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30) + Equipment.Values.Sum(e => e.Health);
+    public int MaxHealth => Tactics is { } tactics ? checked(tactics.Stats.MaxHealth + Equipment.Values.Sum(e => e.Health))
+        : RoagMaxHealth > 0 ? RoagMaxHealth : (BaseHealth > 0 ? BaseHealth + (Level - 1) * 6 : Kind == ActorKind.Person ? new Hero { Role = Role, Level = Level }.MaxHealth : Kind == ActorKind.Beast ? 18 : 30) + Equipment.Values.Sum(e => e.Health);
     public int MaxMana => BaseHealth > 0 ? BaseMana + (Level - 1) * 3 : new Hero { Role = Role, Level = Level }.MaxMana;
     public string Sprite => SpriteId.Length > 0 ? SpriteId : Kind switch { ActorKind.Beast => "wolf", ActorKind.Raider => "bandit", ActorKind.Caravan => "merchant", _ => new Hero { Role = Role }.Sprite };
-    public int Armor => BaseArmor + Equipment.Values.Sum(e => e.Armor);
-    public int Power => Math.Max(1, BasePower + Equipment.Values.Sum(e => e.Power) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
-    public int Speed => Math.Max(1, BaseSpeed + Equipment.Values.Sum(e => e.Speed) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
+    public int Armor => (Tactics?.Stats.Defense ?? BaseArmor) + Equipment.Values.Sum(e => e.Armor);
+    public int Power => Math.Max(1, (Tactics?.Stats.Damage ?? BasePower) + Equipment.Values.Sum(e => e.Power) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
+    public int Speed => Math.Max(1, (Tactics?.Stats.Speed ?? BaseSpeed) + Equipment.Values.Sum(e => e.Speed) - Body.Wounds / 2 - (Body.Fatigue >= 80 ? 2 : 0));
 }
 public sealed class BodyState
 {
@@ -564,6 +567,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public TacticalWorldState? Tactics { get; set; }
     public bool RoagCombat { get; set; }
     public string RoagCombatState { get; set; } = "";
     public int RoagOriginX { get; set; }

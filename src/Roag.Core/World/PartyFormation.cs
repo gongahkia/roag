@@ -42,6 +42,15 @@ public sealed partial class WorldSession
     {
         var members = Party.Where(a => a.Life != LifeState.Dead).ToArray();
         if (members.Length == 0) return; // A saved wipe awaits the continuation choice.
+        if (State.Tactics != null)
+        {
+            // Native party members may deliberately occupy different rooms/floors.
+            // Their saved positions are authoritative; loading must never regroup them.
+            if (members.Any(a => !Plan.Contains(a.Position) || !Materials.Walkable(Chunks.At(a.Position)))
+                || members.Select(a => a.Position).Distinct().Count() != members.Length)
+                throw new InvalidDataException("Invalid saved tactical party positions.");
+            return;
+        }
         bool stacked = members.Length > 1 && members.All(a => a.Position == State.Position);
         if (stacked)
         {

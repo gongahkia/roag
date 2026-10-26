@@ -21,10 +21,10 @@ public static class Materials
 }
 
 public sealed record GenerationTrace(string Purpose, string Sample, int PatternCount, int Attempts, int Observations, long Propagations, int FallbackRegions, int RepairedCells, string RawHash, string FinalHash, string Layout = "overlapping-wfc");
-public sealed record Footprint(Material[] Cells, Material[] RawCells, int Width, int Height, GenerationTrace Trace);
+public sealed record Footprint(Material[] Cells, Material[] RawCells, int Width, int Height, GenerationTrace Trace, int[] RoomCells);
 public sealed record GeneratedChunk(ChunkKey Key, Material[] Tiles, Biome[] Biomes, int[] Cultures, string BaseHash);
 
-public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = null)
+public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? content = null)
 {
     private readonly GenerationDefinition _profile = (content ?? ContentCatalog.Default).Get<GenerationDefinition>((content ?? ContentCatalog.Default).Game.Generation);
     private readonly Dictionary<(bool Town, int Id, int Floor), Footprint> _footprints = [];
@@ -71,8 +71,10 @@ public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = nul
             else { cells = result.Cells; attempts += result.Attempts; observations += result.Observations; propagations += result.Propagations; }
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) tiles[(oy + y) * size + ox + x] = cells[y * w + x] switch { '#' => Material.Wall, '+' => Material.Door, _ => Material.Floor };
         }
+        int[] roomCells;
         if (!forceFallback && !layout.StartsWith("overlapping-wfc", StringComparison.Ordinal))
-            tiles = StructuralLayouts.Generate(layout, unchecked((int)WorldRandom.Hash(plan.Seed, id, floor, 2020)));
+            tiles = StructuralLayouts.Generate(layout, unchecked((int)WorldRandom.Hash(plan.Seed, id, floor, 2020)), out roomCells);
+        else roomCells = EnclosedRooms(tiles, size, size);
         var rawCells = (Material[])tiles.Clone();
         string rawHash = Hash(tiles); int repairs = 0;
         if (!town && purpose == "ruin") for (int i = 0; i < tiles.Length; i++)
@@ -93,7 +95,7 @@ public sealed class ChunkGenerator(WorldPlan plan, ContentCatalog? content = nul
             if (floor < WorldPlan.Floors - 1) tiles[32 * size + 34] = Material.StairsDown;
         }
         var trace = new GenerationTrace(purpose, layout.StartsWith("overlapping-wfc", StringComparison.Ordinal) || forceFallback ? SampleLibrary.Default.Cultures[culture].Sample : layout, attempts > 0 ? model.PatternCount : 0, attempts, observations, propagations, fallbacks, repairs, rawHash, Hash(tiles), forceFallback ? "constructive-fallback" : layout);
-        var footprint = new Footprint(tiles, rawCells, size, size, trace);
+        var footprint = new Footprint(tiles, rawCells, size, size, trace, roomCells);
         if (!forceFallback)
         {
             if (_footprints.Count >= 8) _footprints.Remove(_order.Dequeue());
