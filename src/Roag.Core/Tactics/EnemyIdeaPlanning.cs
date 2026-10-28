@@ -7,6 +7,21 @@ public static partial class EnemyPlanning
     private static EnemyIntent Idea(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {
         if (definition.Id == "core:enemy/gulp_toad") return Toad(world);
+        if (definition.Id == "core:enemy/alarm_keeper")
+        {
+            var reserved = world.ProtectedLanding ?? throw new ArgumentException("Alarm decisions need protected landing facts.");
+            if (!memory.AlarmSpent)
+            {
+                var cells = Cardinals.Select(d => world.Source.Offset(d.X, d.Y))
+                    .Where(p => world.Free(p) && !reserved(p)).Take(2).ToArray();
+                if (cells.Length > 0) return new(EnemyIntentKind.Windup, Ability: "core:ability/keeper_alarm",
+                    Cells: [.. cells], Support: new(EnemySupportKind.Alarm));
+            }
+            if (world.Source.Distance(world.Target) == 1)
+                return new(EnemyIntentKind.Windup, Ability: "core:ability/keeper_touch", Cells: [world.Target]);
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
         if (definition.Id == "core:enemy/grave_cantor")
         {
             var corpses = world.Corpses ?? throw new ArgumentException("Cantor decisions need eligible corpse facts.");

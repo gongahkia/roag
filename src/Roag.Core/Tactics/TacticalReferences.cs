@@ -23,6 +23,7 @@ public static class TacticalReferences
             if (actor.Tactics is not { } tactics) continue;
             if (tactics.Enemy?.SummonedBy == id) return true;
             if (tactics.Enemy?.FragmentOf == id) return true;
+            if (tactics.Enemy?.CalledBy == id) return true;
             if (tactics.Enemy?.RevivalOf == id || tactics.Enemy?.RevivedBy == id) return true;
             if (actor.Id != id && tactics.Enemy?.Squad?.Leader == id) return true;
             if (tactics.SnaredBy == id || tactics.Burning is { } burn && Activation(burn.Activation)) return true;

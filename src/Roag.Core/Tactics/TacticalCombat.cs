@@ -245,6 +245,8 @@ public sealed partial class TacticalCombat
         if (support is { Drop: > 0 } && support.Drop >= State.Loot.NextDrop)
             throw new ArgumentException("Gulp references unallocated physical loot.");
         if (support?.Kind == EnemySupportKind.Revive) ValidateRevivalCommit(actor, support.Corpse, cells[0]);
+        if (support?.Kind == EnemySupportKind.Alarm && actor.Tactics?.Enemy is not { AlarmSpent: false })
+            throw new ArgumentException("Alarm attempt is already spent.");
         if (support?.Kind == EnemySupportKind.Ward && actor.Tactics?.DefinitionId != "core:enemy/ward_weaver"
             || support?.Kind == EnemySupportKind.Snare && actor.Tactics?.DefinitionId != "core:enemy/snare_scribe"
             || support?.Kind == EnemySupportKind.Phase && (actor.Tactics?.DefinitionId != "core:enemy/hollow_wraith" || !EnemyAttackRules.PhaseGeometry(actor.Position, cells)))
@@ -261,6 +263,7 @@ public sealed partial class TacticalCombat
         ResolveAtomically(cause, () =>
         {
             if (support?.Kind == EnemySupportKind.Revive) ClaimRevival(actor, support.Corpse);
+            if (support?.Kind == EnemySupportKind.Alarm) actor.Tactics!.Enemy!.AlarmSpent = true;
             foreach (var owner in _world.State.Actors)
                 if (owner.Tactics?.Resources.Decoy is { } decoy && cells.Contains(decoy) && HostileTo(owner, actor))
                 {
@@ -268,6 +271,7 @@ public sealed partial class TacticalCombat
                     Emit("DecoyTriggered", actor.Id, owner.Id, action, decoy);
                 }
             State.Attacks.Add(attack);
+            if (support?.Kind == EnemySupportKind.Revive) PruneRevivalCorpses();
             State.Queue.Schedule(ScheduledKind.Impact, due, actor.Id, referenceId: action);
             if (ready is { } committedReady) State.Queue.Schedule(ScheduledKind.ActorReady, committedReady, actor.Id, Friendly(actor));
             Emit("WindupStarted", actor.Id, 0, action, actor.Position, ability: ability,

@@ -48,6 +48,8 @@ public sealed class EnemyMemory
     public bool RevivalSpent { get; set; }
     public long RevivalOf { get; set; }
     public long RevivedBy { get; set; }
+    public bool AlarmSpent { get; set; }
+    public long CalledBy { get; set; }
     public EnemySquad? Squad { get; set; }
     public bool WardReady { get; set; }
     public Facing ShieldFacing { get; set; } = Facing.South;
@@ -56,7 +58,7 @@ public sealed class EnemyMemory
     internal void Validate()
     {
         Squad?.Validate();
-        if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0 || FragmentOf < 0 || RevivalOf < 0 || RevivedBy < 0
+        if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0 || FragmentOf < 0 || RevivalOf < 0 || RevivedBy < 0 || CalledBy < 0
             || (RevivalOf == 0) != (RevivedBy == 0)
             || !Enum.IsDefined(ShieldFacing) || !AttackGeometry.Cardinal(ShieldFacing)
             || LastMovement is { } facing && (!Enum.IsDefined(facing) || !AttackGeometry.Cardinal(facing)))

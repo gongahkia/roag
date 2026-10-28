@@ -16,7 +16,7 @@ internal static class EnemyAttackRules
             {
                 EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0 || support.Target < 0,
                 EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3 || support.Target != 0,
-                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive
+                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive or EnemySupportKind.Alarm
                     => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
                 _ => true
             })
@@ -47,6 +47,10 @@ internal static class EnemyAttackRules
         if (support?.Kind == EnemySupportKind.Revive || ability == "core:ability/cantor_revive")
             return definition == "core:enemy/grave_cantor" && ability == "core:ability/cantor_revive"
                 && support?.Kind == EnemySupportKind.Revive && cells?.Count == 1 && cells[0].Floor == origin.Floor;
+        if (support?.Kind == EnemySupportKind.Alarm || ability == "core:ability/keeper_alarm")
+            return definition == "core:enemy/alarm_keeper" && ability == "core:ability/keeper_alarm"
+                && support?.Kind == EnemySupportKind.Alarm && cells?.Count is >= 1 and <= 2
+                && cells.Distinct().Count() == cells.Count && cells.All(p => p.Floor == origin.Floor && p.Distance(origin) == 1);
         return true;
     }
 }
@@ -61,6 +65,8 @@ public sealed partial class TacticalCombat
             SwallowLoot(owner, support.Drop, attack.Cells[0], attack.Id);
         else if (support.Kind == EnemySupportKind.Revive)
             ResolveRevival(owner, support.Corpse, attack.Cells[0], attack.Id);
+        else if (support.Kind == EnemySupportKind.Alarm)
+            ResolveAlarm(owner, attack);
         else if (support.Kind == EnemySupportKind.Heal)
         {
             foreach (var cell in attack.Cells)

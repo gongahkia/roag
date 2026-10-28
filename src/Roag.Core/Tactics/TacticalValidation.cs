@@ -24,6 +24,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
         EnemyRevivalRules.Validate(state, actors);
+        EnemyAlarmRules.Validate(state, actors);
         var fragments = new Dictionary<long, int>();
         foreach (var actor in world.Actors)
             if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)

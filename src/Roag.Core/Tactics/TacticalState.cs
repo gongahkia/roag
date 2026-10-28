@@ -46,6 +46,10 @@ public sealed class ActorTactics
         {
             if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
+            if (Enemy.AlarmSpent && DefinitionId != "core:enemy/alarm_keeper"
+                || Enemy.CalledBy > 0 && (DefinitionId != "core:enemy/ruin_skitter" || !RewardExempt
+                    || Enemy.SummonedBy != 0 || Enemy.FragmentOf != 0 || Enemy.RevivalOf != 0))
+                throw new InvalidDataException("Invalid alarm role or rewards.");
             if (Enemy.FragmentOf > 0 && (DefinitionId != "core:enemy/bone_fragment" || !RewardExempt || Enemy.SummonedBy != 0))
                 throw new InvalidDataException("Invalid fragment role or rewards.");
             if (Enemy.RevivalSpent && DefinitionId != "core:enemy/grave_cantor"

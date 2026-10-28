@@ -9,7 +9,7 @@ public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.So
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,
     EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null, EnemyShove? Shove = null);
 
-public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive }
+public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive, Alarm }
 public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0,
     long Target = 0, long Drop = 0, long Corpse = 0);
 public sealed record EnemyAdvance(Facing Facing, int Steps);
@@ -49,7 +49,7 @@ public static partial class EnemyPlanning
     public static bool Supported(EnemyDefinition definition) => Supported(definition.Ai)
         || definition.Ai == EnemyBrainKind.IdeaRegular && definition.Id is "core:enemy/heavy_rammer" or "core:enemy/hollow_wraith"
             or "core:enemy/gulp_toad" or "core:enemy/bone_splitter" or "core:enemy/bone_fragment" or "core:enemy/haunted_cache"
-            or "core:enemy/grave_cantor";
+            or "core:enemy/grave_cantor" or "core:enemy/alarm_keeper";
 
     public static EnemyIntent Choose(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {

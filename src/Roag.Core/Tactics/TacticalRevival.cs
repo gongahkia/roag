@@ -27,6 +27,7 @@ internal static class EnemyRevivalRules
 
     public static void Validate(TacticalWorldState state, IReadOnlyDictionary<long, Actor> actors)
     {
+        if (state.Attacks.Any(a => a == null)) throw new InvalidDataException("Missing pending attack.");
         if (state.Corpses == null || state.Corpses.Count > TotalCap || state.Corpses.Any(c => c == null)
             || state.Corpses.Select(c => c.Actor).Distinct().Count() != state.Corpses.Count)
             throw new InvalidDataException("Invalid revival corpse registry.");
@@ -123,5 +124,6 @@ public sealed partial class TacticalCombat
             Emit("EnemyRevived", owner.Id, revived.Id, action, cell, ability: tactics.DefinitionId);
         }
         State.Corpses.RemoveAll(c => c.Actor == corpseId);
+        PruneRevivalCorpses();
     }
 }
