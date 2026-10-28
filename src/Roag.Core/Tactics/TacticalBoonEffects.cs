@@ -103,21 +103,9 @@ public sealed partial class TacticalCombat
                     || !BoonGeometry.Axis(target.Position, owner.Position, BoonAxis.Cardinal)) return;
                 int dx = Math.Sign(target.Position.X - owner.Position.X), dy = Math.Sign(target.Position.Y - owner.Position.Y);
                 if (effect.Mode == BoonDisplacement.Pull) { dx = -dx; dy = -dy; }
-                var next = target.Position.Offset(dx, dy);
-                if (!_world.CanEnter(next, target.Id))
-                {
-                    if (effect.CollisionDamage == true) ApplyBoonDamage(activation, effect, [target.Position], power);
-                    return;
-                }
-                int? interruptedRecovery = State.Attacks.FirstOrDefault(a => a.Source == target.Id && a.RecoveryCost != null)?.RecoveryCost;
-                if (interruptedRecovery != null) CancelAttacks(target.Id, owner.Id, activation.RootActionId ?? 0, "displacement");
-                var from = target.Position; _world.MoveTacticalActor(target, next);
-                RecordCombatControl(owner.Id, target, ActionTiming.Recovery(target.Tactics!.MoveCost, EffectiveSpeed(target)));
-                Emit("Displaced", owner.Id, target.Id, activation.RootActionId ?? 0, next, forced: true, from: from);
-                Emit("TileEntered", target.Id, target.Id, activation.RootActionId ?? 0, next, forced: true, from: from);
-                CollectLootAt(target, next, activation.RootActionId ?? 0);
-                if (interruptedRecovery is { } cost) ScheduleReady(target, cost);
-                if (_resolutionDepth == 0 && !_drainingBoons) TriggerSnares(target, activation.RootActionId ?? 0);
+                AttackGeometry.TryFacing(dx, dy, out var shoveDirection);
+                if (!TryShove(target, shoveDirection, owner.Id, activation.RootActionId ?? 0) && effect.CollisionDamage == true)
+                    ApplyBoonDamage(activation, effect, [target.Position], power);
                 return;
             case BoonEffectKind.StunTarget:
                 if (target is null || !RegularBoonTarget(target) || target.Life != LifeState.Alive) return;

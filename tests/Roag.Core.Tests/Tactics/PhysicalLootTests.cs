@@ -43,7 +43,10 @@ public sealed partial class ClassActionTests
                     currency ? drop.GetProperty("amount").GetInt32() : 10,
                     origin.Offset(drop.GetProperty("dx").GetInt32(), drop.GetProperty("dy").GetInt32()));
                 if (drop.TryGetProperty("carried", out var carried) && carried.GetBoolean())
-                    a.Combat.State.Loot.Drops[^1] = spawned with { CarriedBy = a.Hero.Id };
+                {
+                    EnemyProfile(a, "gulp_toad");
+                    a.Combat.State.Loot.Drops[^1] = spawned with { CarriedBy = a.Enemy.Id };
+                }
             }
             a.Combat.State.RandomState = input.GetProperty("seed").GetInt32(); a.World.Reveal();
             int index = 0;
@@ -249,6 +252,7 @@ public sealed partial class ClassActionTests
         a.Combat.State.Loot.Drops.Add(drop);
         Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
         a.Combat.State.Loot.Drops.RemoveAt(1);
+        EnemyProfile(a, "gulp_toad");
         a.Combat.State.Loot.Drops[0] = drop with { CarriedBy = a.Enemy.Id };
         a.Combat.State.Events.Clear();
         Assert.True(TacticalReferences.RetainsActor(a.World.State, a.Enemy.Id));

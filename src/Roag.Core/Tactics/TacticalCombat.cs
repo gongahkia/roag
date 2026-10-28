@@ -226,7 +226,7 @@ public sealed partial class TacticalCombat
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
         DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0,
-        EnemySupport? support = null, EnemyAdvance? advance = null)
+        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
@@ -237,12 +237,19 @@ public sealed partial class TacticalCombat
             || !Enum.IsDefined(delivery) || !Enum.IsDefined(element)) throw new ArgumentException("Invalid locked attack.");
         long due = checked(Clock + ActionTiming.Recovery(windupCost, EffectiveSpeed(actor)));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(recoveryCost);
-        EnemyAttackRules.Validate(support, advance);
+        EnemyAttackRules.Validate(support, advance, shove);
+        if (!EnemyAttackRules.SpecialIdentityValid(actor.Tactics!.DefinitionId, ability, actor.Position, cells, support, shove))
+            throw new ArgumentException("Special enemy attack identity or geometry is inconsistent.");
+        if (shove != null && !cells.Contains(shove.Cell)) throw new ArgumentException("Shove must reference a locked attack cell.");
         if (support is { Target: > 0 }) _ = Actor(support.Target);
+        if (support is { Drop: > 0 } && support.Drop >= State.Loot.NextDrop)
+            throw new ArgumentException("Gulp references unallocated physical loot.");
+        if (support?.Kind == EnemySupportKind.Revive) ValidateRevivalCommit(actor, support.Corpse, cells[0]);
         if (support?.Kind == EnemySupportKind.Ward && actor.Tactics?.DefinitionId != "core:enemy/ward_weaver"
-            || support?.Kind == EnemySupportKind.Snare && actor.Tactics?.DefinitionId != "core:enemy/snare_scribe")
+            || support?.Kind == EnemySupportKind.Snare && actor.Tactics?.DefinitionId != "core:enemy/snare_scribe"
+            || support?.Kind == EnemySupportKind.Phase && (actor.Tactics?.DefinitionId != "core:enemy/hollow_wraith" || !EnemyAttackRules.PhaseGeometry(actor.Position, cells)))
             throw new ArgumentException("Support effect does not match the enemy role.");
-        if ((support != null || advance != null) && actor.Tactics?.Enemy == null)
+        if ((support != null || advance != null || shove != null) && actor.Tactics?.Enemy == null)
             throw new ArgumentException("Enemy attack effects require a native enemy.");
         bool deferredRecovery = actor.Tactics?.Enemy != null;
         long? ready = deferredRecovery ? null : checked(due + ActionTiming.Recovery(recoveryCost, EffectiveSpeed(actor)));
@@ -250,9 +257,10 @@ public sealed partial class TacticalCombat
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
         var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
             Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null,
-            Support: support, Advance: advance);
+            Support: support, Advance: advance, Shove: shove);
         ResolveAtomically(cause, () =>
         {
+            if (support?.Kind == EnemySupportKind.Revive) ClaimRevival(actor, support.Corpse);
             foreach (var owner in _world.State.Actors)
                 if (owner.Tactics?.Resources.Decoy is { } decoy && cells.Contains(decoy) && HostileTo(owner, actor))
                 {
@@ -305,6 +313,9 @@ public sealed partial class TacticalCombat
                 ResolveDamageBatch(attack);
             }
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
+            if (attack.Shove is { } shove && !_world.State.AwaitingContinuation
+                && _world.OccupantAt(shove.Cell, attack.Source) is { Life: LifeState.Alive, Health: > 0, Tactics: not null } victim)
+                TryShove(victim, shove.Facing, attack.Source, attack.Id);
             // Original enemy recovery is committed at impact, before reactive boon work.
             // Death/stun reactions can then cancel or extend the committed readiness.
             if (attack.RecoveryCost is { } cost && Actor(attack.Source) is { Life: LifeState.Alive } actor)
@@ -426,6 +437,8 @@ public sealed partial class TacticalCombat
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
         actor.Life = LifeState.Dead; actor.Health = 0;
+        ReleaseCarriedLoot(actor, action);
+        RememberRevivalCorpse(actor);
         // Owned traps disappear on death, including traps on an offscreen floor.
         State.EnemySnares.RemoveAll(s => s.Source == actor.Id);
         if (actor.Tactics != null) actor.Tactics.EnemySnareDelay = 0;
@@ -447,6 +460,7 @@ public sealed partial class TacticalCombat
             foreach (var attack in State.Attacks.Where(a => cancelled.Contains(a.Id)))
                 Emit("WindupCancelled", source, actor, action, Actor(actor).Position, ability: reason);
         State.Attacks.RemoveAll(a => cancelled.Contains(a.Id));
+        PruneRevivalCorpses();
     }
     private void ScheduleReady(Actor actor, int cost)
         => State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + ActionTiming.Recovery(cost, EffectiveSpeed(actor))), actor.Id, Friendly(actor));
@@ -457,7 +471,7 @@ public sealed partial class TacticalCombat
         var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection);
         State.Events.Add(entry);
         if (State.Events.Count > 512) State.Events.RemoveRange(0, State.Events.Count - 512);
-        QueueBoonEvent(entry, snapshot);
+        QueueCombatEvent(entry, snapshot);
     }
     private static TacticalPreview Invalid(string reason) => new(false, reason, 0, []);
 }

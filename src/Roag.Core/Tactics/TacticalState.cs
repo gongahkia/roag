@@ -46,6 +46,12 @@ public sealed class ActorTactics
         {
             if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
+            if (Enemy.FragmentOf > 0 && (DefinitionId != "core:enemy/bone_fragment" || !RewardExempt || Enemy.SummonedBy != 0))
+                throw new InvalidDataException("Invalid fragment role or rewards.");
+            if (Enemy.RevivalSpent && DefinitionId != "core:enemy/grave_cantor"
+                || Enemy.RevivalOf > 0 && (!RewardExempt || Enemy.FragmentOf != 0 || Enemy.SummonedBy != 0
+                    || !EnemyRevivalRules.Revivable(DefinitionId)))
+                throw new InvalidDataException("Invalid revival role or rewards.");
             if (Enemy.WardReady && DefinitionId != "core:enemy/ward_weaver"
                 || Enemy.ShieldLowered && DefinitionId != "core:enemy/shield_bearer"
                 || Enemy.Squad is { } squad && DefinitionId != EnemySquads.Roster(squad.Kind).Leader && DefinitionId != EnemySquads.Roster(squad.Kind).Follower)
@@ -66,7 +72,7 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
     int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
@@ -95,6 +101,7 @@ public sealed class TacticalWorldState
     public List<LockedAttack> Attacks { get; set; } = [];
     public List<TacticalEvent> Events { get; set; } = [];
     public List<EnemySnare> EnemySnares { get; set; } = [];
+    public List<RevivalCorpse> Corpses { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();

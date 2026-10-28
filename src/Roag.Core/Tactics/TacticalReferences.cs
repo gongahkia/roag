@@ -16,11 +16,14 @@ public static class TacticalReferences
             || a.Ancestry.Any(k => k.Owner == id);
         if (state.BoonEffects.Echoes.Values.Any(e => Activation(e.Activation))) return true;
         if (state.Loot.Drops.Any(d => d.DefeatedActor == id || d.CarriedBy == id)) return true;
+        if (state.Corpses.Any(c => c.Actor == id || c.ClaimedBy == id)) return true;
         if (state.Rewards.Enemies.Any(p => p.Key == id || p.Value.Members.ContainsKey(id) || p.Value.UnhealedDamage.ContainsKey(id))) return true;
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics is not { } tactics) continue;
             if (tactics.Enemy?.SummonedBy == id) return true;
+            if (tactics.Enemy?.FragmentOf == id) return true;
+            if (tactics.Enemy?.RevivalOf == id || tactics.Enemy?.RevivedBy == id) return true;
             if (actor.Id != id && tactics.Enemy?.Squad?.Leader == id) return true;
             if (tactics.SnaredBy == id || tactics.Burning is { } burn && Activation(burn.Activation)) return true;
             var resources = tactics.Resources;

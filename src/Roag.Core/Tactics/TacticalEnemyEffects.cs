@@ -6,18 +6,48 @@ namespace Roag.Core.Tactics;
 
 internal static class EnemyAttackRules
 {
-    public static void Validate(EnemySupport? support, EnemyAdvance? advance)
+    public static void Validate(EnemySupport? support, EnemyAdvance? advance, EnemyShove? shove = null)
     {
-        if (support != null && advance != null
+        if ((support != null ? 1 : 0) + (advance != null ? 1 : 0) + (shove != null ? 1 : 0) > 1
+            || support != null && (support.Kind == EnemySupportKind.Gulp ? support.Drop <= 0 : support.Drop != 0)
+            || support != null && (support.Kind == EnemySupportKind.Revive ? support.Corpse <= 0 : support.Corpse != 0)
+            || shove != null && (!Enum.IsDefined(shove.Facing) || !AttackGeometry.Cardinal(shove.Facing))
             || support != null && (support.Kind switch
             {
                 EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0 || support.Target < 0,
                 EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3 || support.Target != 0,
-                EnemySupportKind.Ward or EnemySupportKind.Snare => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
+                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive
+                    => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
                 _ => true
             })
             || advance != null && (!Enum.IsDefined(advance.Facing) || !AttackGeometry.Cardinal(advance.Facing) || advance.Steps is < 1 or > 3))
             throw new InvalidDataException("Invalid enemy support or advance.");
+    }
+
+    public static bool PhaseGeometry(WorldPosition from, IReadOnlyList<WorldPosition> cells) => cells.Count == 1
+        && cells[0].Floor == from.Floor && cells[0].Distance(from) == 2 && (cells[0].X == from.X || cells[0].Y == from.Y);
+
+    public static bool SpecialIdentityValid(string definition, string ability, WorldPosition origin,
+        IReadOnlyList<WorldPosition>? cells, EnemySupport? support, EnemyShove? shove)
+    {
+        if (shove != null || ability == "core:ability/rammer_shove")
+        {
+            if (definition != "core:enemy/heavy_rammer" || ability != "core:ability/rammer_shove" || shove == null
+                || cells?.Count != 1 || cells[0] != shove.Cell) return false;
+            var (dx, dy) = AttackGeometry.Offset(shove.Facing);
+            return shove.Cell == origin.Offset(dx, dy);
+        }
+        if (support?.Kind == EnemySupportKind.Phase || ability == "core:ability/wraith_phase")
+            return definition == "core:enemy/hollow_wraith" && ability == "core:ability/wraith_phase"
+                && support?.Kind == EnemySupportKind.Phase && cells != null && PhaseGeometry(origin, cells);
+        if (support?.Kind == EnemySupportKind.Gulp || ability == "core:ability/toad_gulp")
+            return definition == "core:enemy/gulp_toad" && ability == "core:ability/toad_gulp"
+                && support?.Kind == EnemySupportKind.Gulp && cells?.Count == 1
+                && cells[0].Floor == origin.Floor && cells[0].Distance(origin) <= 1;
+        if (support?.Kind == EnemySupportKind.Revive || ability == "core:ability/cantor_revive")
+            return definition == "core:enemy/grave_cantor" && ability == "core:ability/cantor_revive"
+                && support?.Kind == EnemySupportKind.Revive && cells?.Count == 1 && cells[0].Floor == origin.Floor;
+        return true;
     }
 }
 
@@ -27,7 +57,11 @@ public sealed partial class TacticalCombat
     {
         var owner = Actor(attack.Source); var support = attack.Support!;
         Emit("SupportResolved", owner.Id, 0, attack.Id, owner.Position, ability: attack.Ability);
-        if (support.Kind == EnemySupportKind.Heal)
+        if (support.Kind == EnemySupportKind.Gulp)
+            SwallowLoot(owner, support.Drop, attack.Cells[0], attack.Id);
+        else if (support.Kind == EnemySupportKind.Revive)
+            ResolveRevival(owner, support.Corpse, attack.Cells[0], attack.Id);
+        else if (support.Kind == EnemySupportKind.Heal)
         {
             foreach (var cell in attack.Cells)
             {
@@ -44,6 +78,18 @@ public sealed partial class TacticalCombat
         {
             owner.Tactics!.Enemy!.WardReady = true;
             Emit("SquadWardRaised", owner.Id, 0, attack.Id, owner.Position);
+        }
+        else if (support.Kind == EnemySupportKind.Phase)
+        {
+            var landing = attack.Cells[0];
+            if (!EnemyAttackRules.PhaseGeometry(owner.Position, attack.Cells) || !_world.CanEnter(landing, owner.Id) || ProtectedForcedLanding(landing))
+                Emit("PhaseBlocked", owner.Id, 0, attack.Id, landing);
+            else
+            {
+                var from = owner.Position; _world.MoveTacticalActor(owner, landing);
+                Emit("Displaced", owner.Id, owner.Id, attack.Id, landing, ability: "phase", forced: true, from: from);
+                Emit("TileEntered", owner.Id, owner.Id, attack.Id, landing, forced: true, from: from);
+            }
         }
         else if (support.Kind == EnemySupportKind.Snare)
         {

@@ -1,0 +1,12 @@
+{
+  "kind": "character",
+  "id": "character.roag-bone-fragment",
+  "name": "Bone Fragment",
+  "sprite": "bones",
+  "actorKind": "Raider",
+  "health": 2,
+  "mana": 0,
+  "power": 1,
+  "armor": 0,
+  "speed": 16
+}

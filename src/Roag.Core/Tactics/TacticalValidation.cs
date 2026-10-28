@@ -23,6 +23,19 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        EnemyRevivalRules.Validate(state, actors);
+        var fragments = new Dictionary<long, int>();
+        foreach (var actor in world.Actors)
+            if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)
+            {
+                long parentId = fragment.Enemy?.FragmentOf ?? 0;
+                if (parentId <= 0 || parentId >= actor.Id || !fragment.RewardExempt
+                    || !actors.TryGetValue(parentId, out var parent)
+                    || parent is not { Life: LifeState.Dead, Tactics: { DefinitionId: "core:enemy/bone_splitter", RewardExempt: false } }
+                    || fragments.GetValueOrDefault(parentId) >= 2)
+                    throw new InvalidDataException("Invalid fragment ancestry or population.");
+                fragments[parentId] = fragments.GetValueOrDefault(parentId) + 1;
+            }
         foreach (var actor in world.Actors)
             if (actor.Tactics?.Enemy is { SummonedBy: > 0 } summoned
                 && (summoned.SummonedBy == actor.Id || !actors.TryGetValue(summoned.SummonedBy, out var summoner) || summoner.Tactics?.Enemy == null))
@@ -107,12 +120,20 @@ public static class TacticalValidation
             throw new InvalidDataException("Duplicate tactical attack identities.");
         foreach (var attack in state.Attacks)
         {
-            EnemyAttackRules.Validate(attack.Support, attack.Advance);
+            EnemyAttackRules.Validate(attack.Support, attack.Advance, attack.Shove);
+            if (!EnemyAttackRules.SpecialIdentityValid(actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId ?? "",
+                attack.Ability, attack.Origin, attack.Cells, attack.Support, attack.Shove))
+                throw new InvalidDataException("Special enemy attack identity or geometry is inconsistent.");
+            if (attack.Shove is { } shove && (attack.Cells is null || !attack.Cells.Contains(shove.Cell)))
+                throw new InvalidDataException("Shove lacks a locked cell.");
             if (attack.Support is { Target: > 0 } support && !actors.ContainsKey(support.Target)
+                || attack.Support is { Drop: > 0 } cargo && cargo.Drop >= state.Loot.NextDrop
                 || attack.Support?.Kind == EnemySupportKind.Ward && actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/ward_weaver"
-                || attack.Support?.Kind == EnemySupportKind.Snare && actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/snare_scribe")
+                || attack.Support?.Kind == EnemySupportKind.Snare && actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/snare_scribe"
+                || attack.Support?.Kind == EnemySupportKind.Phase && (actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId != "core:enemy/hollow_wraith"
+                    || attack.Cells == null || !EnemyAttackRules.PhaseGeometry(attack.Origin, attack.Cells)))
                 throw new InvalidDataException("Invalid support ownership or healing target.");
-            if ((attack.Support != null || attack.Advance != null) && attack.RecoveryCost == null)
+            if ((attack.Support != null || attack.Advance != null || attack.Shove != null) && attack.RecoveryCost == null)
                 throw new InvalidDataException("Enemy effects lack their windup recovery.");
             if (attack.RecoveryCost is <= 0
                 || attack.RecoveryCost != null && (attack.ClassGenerated || !actors.TryGetValue(attack.Source, out var recovering) || recovering.Tactics?.Enemy == null)

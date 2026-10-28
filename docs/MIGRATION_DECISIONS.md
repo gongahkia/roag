@@ -56,6 +56,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Explored terrain is retained on a shared party map. Live enemies/activity require the controlled member's sight.
 - Species and motives drive enemy targeting. Scavenger/vulture-like creatures may prioritize downed or weakened characters; do not impose a universal preference for standing targets.
 - Species targeting tendencies are visible in inspection from the start, rather than requiring discovery.
+- Special enemy abilities (including summoning, reviving allies and phasing through walls) may operate offscreen under the same physical conditions and use limits. Original player-visibility/active-floor prerequisites must become world-validity checks; choosing the viewed party member must not enable or disable these abilities. Private vision still controls what the player can inspect or see telegraphed.
 - Ordinary enemies can pursue through connected rooms, floors and outdoors where physically possible, according to species and motives. The special-dungeon pursuer restriction is a separate exception.
 - Combat clearly communicates an enemy's intended next target. Attacks lock onto telegraphed tiles, allowing movement to evade them.
 - Friendly fire applies between party members under Roag's attack rules.

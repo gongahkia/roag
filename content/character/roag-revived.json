@@ -1,0 +1,12 @@
+{
+  "kind": "character",
+  "id": "character.roag-revived",
+  "name": "Revived creature",
+  "sprite": "bones",
+  "actorKind": "Raider",
+  "health": 1,
+  "mana": 0,
+  "power": 1,
+  "armor": 0,
+  "speed": 16
+}

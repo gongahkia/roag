@@ -7,11 +7,13 @@ public enum EnemyIntentKind { Wait, Move, Windup }
 public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.South, string Ability = "",
     AttackDelivery Delivery = AttackDelivery.Melee, ImmutableArray<WorldPosition> Cells = default,
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null, EnemyShove? Shove = null);
 
-public enum EnemySupportKind { Heal, Summon, Ward, Snare }
-public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0, long Target = 0);
+public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive }
+public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0,
+    long Target = 0, long Drop = 0, long Corpse = 0);
 public sealed record EnemyAdvance(Facing Facing, int Steps);
+public sealed record EnemyShove(WorldPosition Cell, Facing Facing);
 public sealed record EnemyNeighbor(long Id, WorldPosition Position, int Health, int MaximumHealth, bool Ally,
     string Definition = "", EnemySquad? Squad = null);
 
@@ -20,7 +22,9 @@ public sealed record EnemyPlanningContext(WorldPosition Source, WorldPosition Ta
     Func<WorldPosition, bool> Free, Func<WorldPosition, bool> ProjectileOpen, Func<WorldPosition, bool> MistBlocks,
     Func<IReadOnlySet<WorldPosition>, Facing?> NextStep,
     Func<WorldPosition, bool>? Barricade = null, IReadOnlyList<EnemyNeighbor>? Neighbors = null,
-    EnemyNeighbor? Self = null, IReadOnlyList<EnemySnare>? Snares = null, Func<WorldPosition, bool>? TargetFree = null);
+    EnemyNeighbor? Self = null, IReadOnlyList<EnemySnare>? Snares = null, Func<WorldPosition, bool>? TargetFree = null,
+    Func<WorldPosition, bool>? SolidWall = null, Func<WorldPosition, bool>? ProtectedLanding = null,
+    IReadOnlyList<GroundLoot>? Loot = null, IReadOnlyList<RevivalCandidate>? Corpses = null);
 
 public static partial class EnemyPlanning
 {
@@ -42,13 +46,19 @@ public static partial class EnemyPlanning
         or EnemyBrainKind.CanalLancer or EnemyBrainKind.CinderBellkeeper or EnemyBrainKind.HollowRegent or EnemyBrainKind.BiomeElite
         or EnemyBrainKind.ExpansionRegular or EnemyBrainKind.Squad;
 
+    public static bool Supported(EnemyDefinition definition) => Supported(definition.Ai)
+        || definition.Ai == EnemyBrainKind.IdeaRegular && definition.Id is "core:enemy/heavy_rammer" or "core:enemy/hollow_wraith"
+            or "core:enemy/gulp_toad" or "core:enemy/bone_splitter" or "core:enemy/bone_fragment" or "core:enemy/haunted_cache"
+            or "core:enemy/grave_cantor";
+
     public static EnemyIntent Choose(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {
         definition.Validate(); memory.Validate();
         if (world.Source.Floor != world.Target.Floor) throw new ArgumentException("Route between floors before selecting a local attack.");
-        if (!Supported(definition.Ai)) throw new NotSupportedException("This enemy controller still requires its native support/effect port: " + definition.Ai);
+        if (!Supported(definition)) throw new NotSupportedException("This enemy controller still requires its native support/effect port: " + definition.Id);
         if (definition.Ai == EnemyBrainKind.ExpansionRegular) return Expansion(definition, memory, world);
         if (definition.Ai == EnemyBrainKind.Squad) return Squad(definition, memory, world);
+        if (definition.Ai == EnemyBrainKind.IdeaRegular) return Idea(definition, memory, world);
         var source = world.Source; var target = world.Target;
         int dx = target.X - source.X, dy = target.Y - source.Y, distance = source.Distance(target);
         EnemyIntent Windup(string ability, IEnumerable<WorldPosition> cells, AttackDelivery delivery = AttackDelivery.Melee)

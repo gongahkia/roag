@@ -5,7 +5,8 @@ namespace Roag.Core.Tactics;
 
 public sealed partial class TacticalCombat
 {
-    private readonly Queue<BoonEvent> _boonEvents = new();
+    private readonly record struct QueuedCombatEvent(TacticalEvent Display, BoonCause Cause, BoonEvent? Boon);
+    private readonly Queue<QueuedCombatEvent> _combatEvents = new();
     private readonly Queue<(BoonActivation Activation, BoonEffect Effect)> _boonWork = new();
     private BoonCause? _cause;
     private int _resolutionDepth;
@@ -57,17 +58,22 @@ public sealed partial class TacticalCombat
         };
     }
 
-    private void QueueBoonEvent(TacticalEvent display, BoonEvent? snapshot)
+    private void QueueCombatEvent(TacticalEvent display, BoonEvent? snapshot)
     {
         // Internal effect-unit execution has no event transaction; public commands and scheduled work do.
-        if (_resolutionDepth == 0 && !_drainingBoons || !Enum.TryParse<BoonTrigger>(display.Kind, out var kind)) return;
+        if (_resolutionDepth == 0 && !_drainingBoons) return;
+        var cause = _cause ?? RootCause(display.Action);
+        if (!Enum.TryParse<BoonTrigger>(display.Kind, out var kind))
+        {
+            if (display.Kind == "Died") _combatEvents.Enqueue(new(display, cause, null));
+            return;
+        }
         var e = snapshot ?? CaptureBoonEvent(kind, display.Source, display.Target, display.Action,
             display.Position, display.Ability, display.From) with
         { Amount = display.Amount };
-        var cause = _cause ?? RootCause(display.Action);
         e = e with { Id = display.Sequence, Kind = kind, ChainId = cause.ChainId, RootActionId = cause.RootActionId,
             Ancestry = cause.Ancestry, ProcCoefficient = cause.ProcCoefficient, ClassGenerated = cause.ClassGenerated };
-        _boonEvents.Enqueue(e);
+        _combatEvents.Enqueue(new(display, cause, e));
     }
 
     private BoonEvaluationContext BoonWorld()
@@ -91,11 +97,16 @@ public sealed partial class TacticalCombat
         try
         {
             int steps = 0;
-            while (_boonEvents.Count > 0 || _boonWork.Count > 0)
+            while (_combatEvents.Count > 0 || _boonWork.Count > 0)
             {
                 if (++steps > 1_000_000) throw new InvalidOperationException("Boon resolution exceeded the original diagnostic limit.");
-                if (_boonEvents.TryDequeue(out var e))
+                if (_combatEvents.TryDequeue(out var queued))
                 {
+                    if (queued.Boon is not { } e)
+                    {
+                        WithBoonCause(queued.Cause, () => ResolveEnemyDeath(queued.Display));
+                        continue;
+                    }
                     WithBoonCause(BoonCause.From(e), () =>
                     {
                         BeforeBoonEvent(e);
