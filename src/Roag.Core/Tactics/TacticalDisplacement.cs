@@ -20,7 +20,7 @@ public sealed partial class TacticalCombat
             return false;
         }
         int? interruptedRecovery = State.Attacks.FirstOrDefault(a => a.Source == target.Id && a.RecoveryCost != null)?.RecoveryCost;
-        if (interruptedRecovery != null) CancelAttacks(target.Id, source, action, "displacement");
+        CancelAttacks(target.Id, source, action, "displacement");
         var from = target.Position; _world.MoveTacticalActor(target, next);
         RecordCombatControl(source, target, ActionTiming.Recovery(target.Tactics!.MoveCost, EffectiveSpeed(target)));
         Emit("Displaced", source, target.Id, action, next, forced: true, from: from);

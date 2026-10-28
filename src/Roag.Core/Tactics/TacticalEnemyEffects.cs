@@ -11,12 +11,13 @@ internal static class EnemyAttackRules
         if ((support != null ? 1 : 0) + (advance != null ? 1 : 0) + (shove != null ? 1 : 0) > 1
             || support != null && (support.Kind == EnemySupportKind.Gulp ? support.Drop <= 0 : support.Drop != 0)
             || support != null && (support.Kind == EnemySupportKind.Revive ? support.Corpse <= 0 : support.Corpse != 0)
+            || support != null && (support.Kind == EnemySupportKind.Web ? support.Web is not { Valid: true } : support.Web != null)
             || shove != null && (!Enum.IsDefined(shove.Facing) || !AttackGeometry.Cardinal(shove.Facing))
             || support != null && (support.Kind switch
             {
                 EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0 || support.Target < 0,
                 EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3 || support.Target != 0,
-                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive or EnemySupportKind.Alarm
+                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive or EnemySupportKind.Alarm or EnemySupportKind.Web
                     => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
                 _ => true
             })
@@ -51,6 +52,10 @@ internal static class EnemyAttackRules
             return definition == "core:enemy/alarm_keeper" && ability == "core:ability/keeper_alarm"
                 && support?.Kind == EnemySupportKind.Alarm && cells?.Count is >= 1 and <= 2
                 && cells.Distinct().Count() == cells.Count && cells.All(p => p.Floor == origin.Floor && p.Distance(origin) == 1);
+        if (support?.Kind == EnemySupportKind.Web || ability == "core:ability/weaver_web")
+            return definition == "core:enemy/web_weaver" && ability == "core:ability/weaver_web"
+                && support is { Kind: EnemySupportKind.Web, Web: { Valid: true } span }
+                && span.A.Floor == origin.Floor && cells != null && span.Cells().SequenceEqual(cells);
         return true;
     }
 }
@@ -67,6 +72,8 @@ public sealed partial class TacticalCombat
             ResolveRevival(owner, support.Corpse, attack.Cells[0], attack.Id);
         else if (support.Kind == EnemySupportKind.Alarm)
             ResolveAlarm(owner, attack);
+        else if (support.Kind == EnemySupportKind.Web)
+            ResolveWeb(owner, attack);
         else if (support.Kind == EnemySupportKind.Heal)
         {
             foreach (var cell in attack.Cells)

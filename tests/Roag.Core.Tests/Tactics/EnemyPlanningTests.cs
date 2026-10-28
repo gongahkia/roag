@@ -97,7 +97,7 @@ public sealed class EnemyPlanningTests
     [Fact]
     public void UnsupportedControllersAndMalformedContentCannotSilentlyBecomeGenericAttackers()
     {
-        var definition = EnemyCatalog.Default.Get("core:enemy/web_weaver");
+        var definition = EnemyCatalog.Default.Get("core:enemy/mirror_hexer");
         Assert.Throws<NotSupportedException>(() => EnemyPlanning.Choose(definition, new(),
             new(new(100, 100), new(101, 100), _ => true, _ => true, _ => false, _ => null)));
         Assert.Throws<InvalidDataException>(() => new EnemyCatalog([definition, definition]));

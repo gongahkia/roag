@@ -58,7 +58,7 @@ public sealed partial class TacticalCombat
             preview = preview with { Vow = vow, Damage = checked((int)(preview.Damage!.Value + vow.DamageBonus)) };
         }
         return preview with { BoonCells = PreviewBoonPatterns(actor, intent, preview, immediate, delivery),
-            Recovery = checked(preview.Recovery + (Friendly(actor) ? actor.Tactics!.EnemySnareDelay : 0)) };
+            Recovery = checked(preview.Recovery + (Friendly(actor) ? (long)actor.Tactics!.EnemySnareDelay + actor.Tactics.WebRecoveryDelay : 0)) };
     }
 
     private IReadOnlyList<BoonPreviewCell> PreviewBoonPatterns(Actor actor, TacticalIntent intent, TacticalPreview preview,

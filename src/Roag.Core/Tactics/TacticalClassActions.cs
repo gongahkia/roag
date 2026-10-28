@@ -240,7 +240,8 @@ public sealed partial class TacticalCombat
         Emit("AttackPerformed", actor.Id, 0, action, origin, ability: footprint.AbilityId,
             snapshot: CaptureBoonEvent(BoonTrigger.AttackPerformed, actor.Id, 0, action, origin, footprint.AbilityId)
                 with { TargetCells = footprint.Cells.ToImmutableArray(), DamageType = footprint.Element, DirectAttack = true,
-                    FateFace = fate?.Face, FateMiss = miss });
+                    FateFace = fate?.Face, FateMiss = miss },
+            webCuts: CaptureWebCuts(actor.Id, footprint.Cells, footprint.Delivery, damage));
         ResolveAttack(new(action, actor.Id, origin, footprint.Cells.ToArray(), footprint.AbilityId,
             footprint.Delivery, footprint.Element, damage, Clock, Critical: critical, FateFace: fate?.Face));
         return !miss;

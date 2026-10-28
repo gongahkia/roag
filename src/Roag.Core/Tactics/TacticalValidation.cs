@@ -25,6 +25,8 @@ public static class TacticalValidation
         var actors = world.Actors.ToDictionary(a => a.Id);
         EnemyRevivalRules.Validate(state, actors);
         EnemyAlarmRules.Validate(state, actors);
+        EnemyWebRules.Validate(plan, world, actors, content);
+        EnemyOaths.Validate(plan, world, actors, content);
         var fragments = new Dictionary<long, int>();
         foreach (var actor in world.Actors)
             if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)
@@ -122,6 +124,10 @@ public static class TacticalValidation
         foreach (var attack in state.Attacks)
         {
             EnemyAttackRules.Validate(attack.Support, attack.Advance, attack.Shove);
+            if (!EnemySentinel.ValidAttack(actors.GetValueOrDefault(attack.Source)?.Tactics,
+                attack.Ability, attack.Origin, attack.Cells, attack.SentinelFacing, attack.Delivery,
+                attack.Support, attack.Advance, attack.Shove, committing: false))
+                throw new InvalidDataException("Invalid saved sentinel commitment.");
             if (!EnemyAttackRules.SpecialIdentityValid(actors.GetValueOrDefault(attack.Source)?.Tactics?.DefinitionId ?? "",
                 attack.Ability, attack.Origin, attack.Cells, attack.Support, attack.Shove))
                 throw new InvalidDataException("Special enemy attack identity or geometry is inconsistent.");
@@ -182,6 +188,9 @@ public static class TacticalValidation
         long previous = 0;
         foreach (var entry in state.Events)
         {
+            if (entry?.Oath is { } oath && (oath.Given < 0 || oath.Received < 0 || oath.Given == 0 && oath.Received == 0
+                || oath.SharedOnly && (oath.Given != 0 || oath.Received == 0)))
+                throw new InvalidDataException("Invalid oath damage event.");
             if (entry?.Protection is { } protection && (!actors.ContainsKey(protection.Source)
                 || protection.Reason is not ("forcefield" or "directional shield")))
                 throw new InvalidDataException("Invalid squad protection event.");

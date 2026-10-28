@@ -37,7 +37,9 @@ public sealed partial class TacticalCombat
                 State.EnemySnares, p => _world.CanEnter(p, target.Id),
                 p => _world.Plan.Contains(p) && _world.Chunks.At(p) is Material.Rock or Material.Wall,
                 ProtectedForcedLanding, State.Loot.Drops,
-                State.Corpses.Select(c => new RevivalCandidate(c.Actor, Actor(c.Actor).Position, c.ClaimedBy)).ToArray()));
+                State.Corpses.Select(c => new RevivalCandidate(c.Actor, Actor(c.Actor).Position, c.ClaimedBy)).ToArray(),
+                _world.GroundOpen, State.Webs,
+                p => _world.Plan.Contains(p) && _world.Chunks.At(p) is not (Material.Rock or Material.Wall)));
     }
 
     public EnemyIntent CommitEnemyTurn(long targetId,
@@ -61,7 +63,7 @@ public sealed partial class TacticalCombat
                 memory.Attacks = checked(memory.Attacks + 1);
             if (intent.ClearRetaliation) memory.Retaliate = false;
             CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
-                checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove);
+                checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove, intent.SentinelFacing);
         }
         else if (intent.Kind == EnemyIntentKind.Move)
         {

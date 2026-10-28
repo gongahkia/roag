@@ -11,7 +11,7 @@ public static class TacticalReferences
         if (state.ActiveActor == id || state.ControlledActor == id || state.Queue.Snapshot().Pending.Any(w => w.ActorId == id)
             || state.Attacks.Any(a => a.Source == id || a.IntendedTarget == id || a.Support?.Target == id || a.Causality?.Ancestry.Any(k => k.Owner == id) == true)
             || state.Events.Any(e => e.Source == id || e.Target == id || e.Protection?.Source == id)
-            || state.EnemySnares.Any(s => s.Source == id)) return true;
+            || state.EnemySnares.Any(s => s.Source == id) || state.Webs.Any(w => w.Source == id)) return true;
         bool Activation(BoonActivation a) => a.OwnerId == id || a.PairTargetId == id || a.Event.SourceId == id || a.Event.TargetId == id
             || a.Ancestry.Any(k => k.Owner == id);
         if (state.BoonEffects.Echoes.Values.Any(e => Activation(e.Activation))) return true;
@@ -24,6 +24,7 @@ public static class TacticalReferences
             if (tactics.Enemy?.SummonedBy == id) return true;
             if (tactics.Enemy?.FragmentOf == id) return true;
             if (tactics.Enemy?.CalledBy == id) return true;
+            if (tactics.Enemy is { OathBroken: false } oath && oath.OathPartner == id) return true;
             if (tactics.Enemy?.RevivalOf == id || tactics.Enemy?.RevivedBy == id) return true;
             if (actor.Id != id && tactics.Enemy?.Squad?.Leader == id) return true;
             if (tactics.SnaredBy == id || tactics.Burning is { } burn && Activation(burn.Activation)) return true;

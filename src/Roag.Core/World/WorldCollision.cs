@@ -33,10 +33,29 @@ public sealed partial class WorldSession
     {
         if (!Plan.Contains(p)) return null;
         if (TryExplicitObject(p, out var placed)) return placed;
-        if (Chunks.IsEdited(p) || (terrain ?? Chunks.At(p)) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
-        int culture = Chunks.Get(p.Chunk).Cultures[p.LocalIndex];
-        if (WorldRandom.Hash(Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;
+        return GeneratedObjectAt(Plan, Chunks, p, terrain);
+    }
+    private static WorldObject? GeneratedObjectAt(WorldPlan plan, ChunkCache chunks, WorldPosition p, Material? terrain)
+    {
+        if (chunks.IsEdited(p) || (terrain ?? chunks.At(p)) is not (Material.Grass or Material.Earth or Material.Floor)) return null;
+        int culture = chunks.Get(p.Chunk).Cultures[p.LocalIndex];
+        if (WorldRandom.Hash(plan.Seed, p.X, p.Y, 999) % (culture < 0 ? 33 : 61) != 0) return null;
         return culture < 0 ? Shrub : p.Floor > 0 ? Bones : Barrel;
+    }
+    private static bool DiscoverySolid(ContentCatalog content, WorldDiscovery discovery)
+        => content.Get<DiscoveryDefinition>(discovery.Definition).Sprite is not ("animal-bones" or "grave-slab");
+    private static bool LootSolid(LootCache cache) => !cache.Taken && cache.SourceActor == 0 && !IsWorkSupplyCache(cache);
+
+    /// <summary>Read-only saved-world collision, using the same prop rules as the live session.</summary>
+    internal static bool SnapshotProjectileOpen(WorldPlan plan, WorldState state, ContentCatalog content, ChunkCache chunks, WorldPosition p)
+    {
+        if (!plan.Contains(p) || Materials.Opaque(chunks.At(p))
+            || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)) return false;
+        var discovery = state.Discoveries.FirstOrDefault(d => d.Position == p);
+        if (discovery != null) return !DiscoverySolid(content, discovery);
+        var cache = state.Loot.FirstOrDefault(c => c.Position == p);
+        if (cache != null) return !LootSolid(cache);
+        return GeneratedObjectAt(plan, chunks, p, null) is not { Solid: true };
     }
     private bool TryExplicitObject(WorldPosition p, out WorldObject? placed)
     {
@@ -48,11 +67,10 @@ public sealed partial class WorldSession
         }
         if (_discoveryObjects.TryGetValue(p, out var discovery))
         {
-            var definition = Content.Get<DiscoveryDefinition>(discovery.Definition);
-            placed = new(discovery.Name, DiscoverySprite(discovery), "discovery", definition.Sprite is not ("animal-bones" or "grave-slab")); return true;
+            placed = new(discovery.Name, DiscoverySprite(discovery), "discovery", DiscoverySolid(Content, discovery)); return true;
         }
         if (_cacheObjects.TryGetValue(p, out var cache))
-        { placed = cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", cache.SourceActor == 0 && !IsWorkSupplyCache(cache)); return true; }
+        { placed = cache.Taken ? null : new(LootName(cache), LootSprite(cache), "loot", LootSolid(cache)); return true; }
         placed = null; return false;
     }
 

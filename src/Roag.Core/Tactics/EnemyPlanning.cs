@@ -7,11 +7,11 @@ public enum EnemyIntentKind { Wait, Move, Windup }
 public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.South, string Ability = "",
     AttackDelivery Delivery = AttackDelivery.Melee, ImmutableArray<WorldPosition> Cells = default,
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null, EnemyShove? Shove = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null, EnemyShove? Shove = null, Facing? SentinelFacing = null);
 
-public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive, Alarm }
+public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive, Alarm, Web }
 public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0,
-    long Target = 0, long Drop = 0, long Corpse = 0);
+    long Target = 0, long Drop = 0, long Corpse = 0, WebSpan? Web = null);
 public sealed record EnemyAdvance(Facing Facing, int Steps);
 public sealed record EnemyShove(WorldPosition Cell, Facing Facing);
 public sealed record EnemyNeighbor(long Id, WorldPosition Position, int Health, int MaximumHealth, bool Ally,
@@ -24,7 +24,9 @@ public sealed record EnemyPlanningContext(WorldPosition Source, WorldPosition Ta
     Func<WorldPosition, bool>? Barricade = null, IReadOnlyList<EnemyNeighbor>? Neighbors = null,
     EnemyNeighbor? Self = null, IReadOnlyList<EnemySnare>? Snares = null, Func<WorldPosition, bool>? TargetFree = null,
     Func<WorldPosition, bool>? SolidWall = null, Func<WorldPosition, bool>? ProtectedLanding = null,
-    IReadOnlyList<GroundLoot>? Loot = null, IReadOnlyList<RevivalCandidate>? Corpses = null);
+    IReadOnlyList<GroundLoot>? Loot = null, IReadOnlyList<RevivalCandidate>? Corpses = null,
+    Func<WorldPosition, bool>? GroundOpen = null, IReadOnlyList<EnemyWeb>? Webs = null,
+    Func<WorldPosition, bool>? SentinelArcOpen = null);
 
 public static partial class EnemyPlanning
 {
@@ -49,7 +51,8 @@ public static partial class EnemyPlanning
     public static bool Supported(EnemyDefinition definition) => Supported(definition.Ai)
         || definition.Ai == EnemyBrainKind.IdeaRegular && definition.Id is "core:enemy/heavy_rammer" or "core:enemy/hollow_wraith"
             or "core:enemy/gulp_toad" or "core:enemy/bone_splitter" or "core:enemy/bone_fragment" or "core:enemy/haunted_cache"
-            or "core:enemy/grave_cantor" or "core:enemy/alarm_keeper";
+            or "core:enemy/grave_cantor" or "core:enemy/alarm_keeper" or "core:enemy/web_weaver"
+            or "core:enemy/oath_twin_a" or "core:enemy/oath_twin_b" or EnemySentinel.Definition;
 
     public static EnemyIntent Choose(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {

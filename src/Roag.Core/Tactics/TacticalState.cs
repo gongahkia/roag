@@ -16,6 +16,7 @@ public sealed class ActorTactics
     public int MoveCost { get; set; } = 100;
     public long SnaredBy { get; set; }
     public int EnemySnareDelay { get; set; }
+    public int WebRecoveryDelay { get; set; }
     public bool ImmuneToPull { get; set; }
     public bool Invulnerable { get; set; }
     public bool RegularEnemy { get; set; }
@@ -35,7 +36,9 @@ public sealed class ActorTactics
     public void Validate()
     {
         if ((Build is null) == (InnateStats is null) || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
-            || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay) || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
+            || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
+            || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
+            || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
@@ -46,6 +49,12 @@ public sealed class ActorTactics
         {
             if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
+            if (Enemy.SentinelStrikes > 0 && DefinitionId != EnemySentinel.Definition)
+                throw new InvalidDataException("Invalid sentinel owner role.");
+            if ((Enemy.OathPartner != 0 || Enemy.OathBroken) && !EnemyOaths.IsTwin(DefinitionId))
+                throw new InvalidDataException("Invalid oath owner role.");
+            if (Enemy.WebCasts > 0 && DefinitionId != "core:enemy/web_weaver")
+                throw new InvalidDataException("Invalid web caster role.");
             if (Enemy.AlarmSpent && DefinitionId != "core:enemy/alarm_keeper"
                 || Enemy.CalledBy > 0 && (DefinitionId != "core:enemy/ruin_skitter" || !RewardExempt
                     || Enemy.SummonedBy != 0 || Enemy.FragmentOf != 0 || Enemy.RevivalOf != 0))
@@ -76,12 +85,12 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
     int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
     long Action, WorldPosition Position, int Amount = 0, int Prevented = 0, string Ability = "",
-    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null, EnemyProtection? Protection = null);
+    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null, EnemyProtection? Protection = null, OathDamage? Oath = null);
 
 /// <summary>Persisted work queue and event identities shared across terrain/floors.</summary>
 public sealed class TacticalWorldState
@@ -106,6 +115,7 @@ public sealed class TacticalWorldState
     public List<TacticalEvent> Events { get; set; } = [];
     public List<EnemySnare> EnemySnares { get; set; } = [];
     public List<RevivalCorpse> Corpses { get; set; } = [];
+    public List<EnemyWeb> Webs { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();

@@ -11,6 +11,7 @@ public static class BoonEventValidation
             || e.DamageType != null && !Enum.IsDefined(e.DamageType.Value) || e.Status != null && !Enum.IsDefined(e.Status.Value)
             || e.HpBefore < 0 || e.TargetMaxHp < 0 || e.SourceHpAtAttack < 0 || e.SourceMaxHpAtAttack < 0
             || e.ActualLoss < 0 || e.Amount < 0 || e.ActualGain < 0 || e.Price < 0 || e.AdjacentHostileCount < 0 || e.AdjacentBurningCount < 0
+            || e.OathGiven < 0 || e.OathReceived < 0
             || e.FateFace is < 1 or > 8 || e.Path.IsDefault || e.TargetCells.IsDefault
             || e.SourceTags.IsDefault || e.TargetTags.IsDefault || e.SourceTags.Any(string.IsNullOrWhiteSpace) || e.TargetTags.Any(string.IsNullOrWhiteSpace)
             || e.Ancestry.IsDefault || e.Ancestry.Any(k => k is null || k.Owner <= 0 || !catalog.Contains(k.Boon))

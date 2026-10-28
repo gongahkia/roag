@@ -5,7 +5,8 @@ namespace Roag.Core.Tactics;
 
 public sealed partial class TacticalCombat
 {
-    private readonly record struct QueuedCombatEvent(TacticalEvent Display, BoonCause Cause, BoonEvent? Boon);
+    private readonly record struct QueuedCombatEvent(TacticalEvent Display, BoonCause Cause, BoonEvent? Boon,
+        ImmutableArray<WorldPosition> WebCuts = default);
     private readonly Queue<QueuedCombatEvent> _combatEvents = new();
     private readonly Queue<(BoonActivation Activation, BoonEffect Effect)> _boonWork = new();
     private BoonCause? _cause;
@@ -58,7 +59,7 @@ public sealed partial class TacticalCombat
         };
     }
 
-    private void QueueCombatEvent(TacticalEvent display, BoonEvent? snapshot)
+    private void QueueCombatEvent(TacticalEvent display, BoonEvent? snapshot, ImmutableArray<WorldPosition> webCuts)
     {
         // Internal effect-unit execution has no event transaction; public commands and scheduled work do.
         if (_resolutionDepth == 0 && !_drainingBoons) return;
@@ -72,8 +73,8 @@ public sealed partial class TacticalCombat
             display.Position, display.Ability, display.From) with
         { Amount = display.Amount };
         e = e with { Id = display.Sequence, Kind = kind, ChainId = cause.ChainId, RootActionId = cause.RootActionId,
-            Ancestry = cause.Ancestry, ProcCoefficient = cause.ProcCoefficient, ClassGenerated = cause.ClassGenerated };
-        _combatEvents.Enqueue(new(display, cause, e));
+            Ancestry = cause.Ancestry, ProcCoefficient = e.OathSharedOnly ? 0 : cause.ProcCoefficient, ClassGenerated = cause.ClassGenerated };
+        _combatEvents.Enqueue(new(display, cause, e, webCuts));
     }
 
     private BoonEvaluationContext BoonWorld()
@@ -93,6 +94,8 @@ public sealed partial class TacticalCombat
 
     private void DrainBoons()
     {
+        PruneWebs();
+        PruneOaths();
         _drainingBoons = true;
         try
         {
@@ -110,7 +113,7 @@ public sealed partial class TacticalCombat
                     WithBoonCause(BoonCause.From(e), () =>
                     {
                         BeforeBoonEvent(e);
-                        if (e.ClassGenerated) { ResolveKillRewards(e); return; }
+                        if (e.ClassGenerated) { ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); return; }
                         var random = new RoagRandom(State.RandomState);
                         BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
                         {
@@ -123,6 +126,7 @@ public sealed partial class TacticalCombat
                             });
                         }, (activation, effect) => _boonWork.Enqueue((activation, effect)));
                         State.RandomState = random.State;
+                        ResolveWebEvent(e, queued.WebCuts);
                         ResolveKillRewards(e);
                     });
                 }
@@ -131,6 +135,8 @@ public sealed partial class TacticalCombat
             }
         }
         finally { _drainingBoons = false; }
+        PruneWebs();
+        PruneOaths();
         var retained = State.BoonEffects.Echoes.Values.Select(e => e.Activation.ChainId)
             .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning != null).Select(a => a.Tactics!.Burning!.Activation.ChainId))
             .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));

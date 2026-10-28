@@ -4,7 +4,7 @@ namespace Roag.Core.Tactics;
 
 public enum Facing { North, NorthEast, East, SouthEast, South, SouthWest, West, NorthWest }
 public enum AttackDelivery { Melee, Projectile, PiercingLine, Area, Placement, Parry, CompanionCommand, Delayed }
-public enum DamageElement { Physical, Lightning, Fire, Acid, Explosion, Pulse, Spirit, Arcane, Echo, Ice, Mist, Resonance, Shard, Shock, Stone, Thorns }
+public enum DamageElement { Physical, Lightning, Fire, Acid, Explosion, Pulse, Spirit, Arcane, Echo, Ice, Mist, Resonance, Shard, Shock, Stone, Thorns, Oath }
 public sealed record AttackFootprint(string AbilityId, AttackDelivery Delivery, DamageElement Element,
     IReadOnlyList<WorldPosition> Cells);
 

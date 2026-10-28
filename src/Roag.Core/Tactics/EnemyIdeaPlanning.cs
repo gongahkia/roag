@@ -6,7 +6,33 @@ public static partial class EnemyPlanning
 {
     private static EnemyIntent Idea(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {
+        if (definition.Id == EnemySentinel.Definition)
+        {
+            if (!memory.SentinelFinished && (memory.SentinelStrikes > 0
+                || world.Source.Distance(world.Target) <= 4 && ClearLine(world)))
+            {
+                var open = world.SentinelArcOpen ?? throw new ArgumentException("Sentinel decisions need bounded terrain facts.");
+                var (dx, dy) = Axis(world.Target.X - world.Source.X, world.Target.Y - world.Source.Y);
+                AttackGeometry.TryFacing(dx, dy, out var facing);
+                if (memory.SentinelStrikes > 0) facing = EnemySentinel.Clockwise(memory.SentinelFacing!.Value);
+                return new(EnemyIntentKind.Windup, Ability: EnemySentinel.Quarter, Delivery: AttackDelivery.Area,
+                    Cells: [.. EnemySentinel.Arc(world.Source, facing).Where(open)], SentinelFacing: facing);
+            }
+            if (world.Source.Distance(world.Target) == 1)
+                return new(EnemyIntentKind.Windup, Ability: "core:ability/sentinel_touch", Cells: [world.Target]);
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
         if (definition.Id == "core:enemy/gulp_toad") return Toad(world);
+        if (definition.Id == "core:enemy/web_weaver") return Weaver(memory, world);
+        if (EnemyOaths.IsTwin(definition.Id))
+        {
+            if (memory.OathPartner == 0) throw new InvalidOperationException("Oath Twins require an assigned partner.");
+            if (world.Source.Distance(world.Target) == 1)
+                return new(EnemyIntentKind.Windup, Ability: definition.Id == EnemyOaths.A ? "core:ability/oath_pike" : "core:ability/oath_blade", Cells: [world.Target]);
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
         if (definition.Id == "core:enemy/alarm_keeper")
         {
             var reserved = world.ProtectedLanding ?? throw new ArgumentException("Alarm decisions need protected landing facts.");

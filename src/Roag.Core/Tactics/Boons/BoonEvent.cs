@@ -52,6 +52,8 @@ public sealed record BoonEvent
     public bool RewardExempt { get; init; }
     public bool FateMiss { get; init; }
     public bool OathSharedOnly { get; init; }
+    public int OathGiven { get; init; }
+    public int OathReceived { get; init; }
     public bool ClassGenerated { get; init; }
     [JsonIgnore] public WorldPosition? ObservedPosition => Position ?? From ?? SourcePosition;
 }

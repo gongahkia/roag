@@ -143,7 +143,7 @@ public sealed partial class ClassActionTests
     public void UnportedEnemyBehaviorFailsBeforeMutatingTheWorld()
     {
         using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
-        EnemyProfile(a, "web_weaver");
+        EnemyProfile(a, "mirror_hexer");
         a.Act(TacticalAction.Wait); Assert.Same(a.Enemy, a.Combat.AdvanceToDecision());
         string before = JsonSerializer.Serialize(a.Combat.State);
         Assert.Throws<NotSupportedException>(() => a.Combat.CommitEnemyTurn(a.Hero.Id, (_, _) => null));
