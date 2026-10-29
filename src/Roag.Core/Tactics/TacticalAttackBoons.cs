@@ -6,22 +6,43 @@ public sealed record BoonPreviewCell(WorldPosition Position, string BoonId, Boon
 
 public sealed partial class TacticalCombat
 {
-    private sealed record EffectiveAttack(AttackFootprint Footprint, int Damage, BoonWeaponForm? Form);
+    private sealed record EffectiveAttack(AttackFootprint Footprint, int Damage, BoonWeaponForm? Form, MirrorReflection? Reflection);
 
     private EffectiveAttack ClassAttack(Actor actor, TacticalIntent intent, bool explicitAim, bool knownOnly)
     {
         var footprint = ClassFootprint(actor, intent, explicitAim);
         int damage = intent.Action == TacticalAction.BasicAttack ? actor.Power : SpecialPower(actor);
         if (intent.Action == TacticalAction.BasicAttack && actor.Tactics!.Resources.Riposte) damage = checked(damage + 2);
-        if (!actor.Tactics!.Boons.Inventory.Stacks.Keys.Any(id => BoonCatalog.Default.Get(id).Modifiers.Any(m => m.AbilityId == footprint.AbilityId)))
-            return new(footprint, damage, null);
-        var vision = knownOnly ? _world.VisionFrom(actor.Position) : null;
-        var bodies = _world.State.Actors.Where(a => a.Life == LifeState.Alive && a.Health > 0
-                && a.Position.Floor == actor.Position.Floor && (vision == null || vision.Contains(a.Position)))
-            .Select(a => new BoonBody(a.Id, a.Position, BoonFaction(a) != BoonFaction(actor), a.Tactics?.Burning != null)).ToArray();
-        var modified = BoonAbilityGeometry.Apply(actor.Tactics!.Boons.Inventory, actor.Id, actor.Position,
-            footprint, damage, intent.Facing, bodies, ProjectileOpen, p => _world.Plan.Contains(p) && _world.GroundOpen(p), explicitAim, knownOnly);
-        return new(footprint with { Cells = modified.Cells, Delivery = modified.Delivery }, modified.Damage, modified.Form);
+        var inventory = actor.Tactics!.Boons.Inventory;
+        var modifiers = BoonCatalog.Default.Definitions.Where(d => inventory.Stacks.ContainsKey(d.Id))
+            .SelectMany(d => d.Modifiers).Where(m => m.AbilityId == footprint.AbilityId).ToArray();
+        AttackDelivery? routeFirst = modifiers.Any(m => m.Kind == BoonModifierKind.WeaponForm && m.Form == BoonWeaponForm.NeedleFlight && explicitAim)
+            ? AttackDelivery.PiercingLine : modifiers.Any(m => m.Kind == BoonModifierKind.WeaponForm && m.Form == BoonWeaponForm.VolatileVial)
+                ? AttackDelivery.Projectile : null;
+        MirrorReflection? reflection = null;
+        if (routeFirst is { } first)
+        {
+            var route = RouteMirrors(actor, actor.Position, footprint.Cells, first, knownOnly);
+            footprint = footprint with { Cells = route.Cells }; reflection = route.Reflection;
+        }
+        BoonWeaponForm? form = null;
+        if (modifiers.Length > 0)
+        {
+            var vision = knownOnly ? _world.VisionFrom(actor.Position) : null;
+            var bodies = _world.State.Actors.Where(a => a.Life == LifeState.Alive && a.Health > 0
+                    && a.Position.Floor == actor.Position.Floor && (vision == null || vision.Contains(a.Position)))
+                .Select(a => new BoonBody(a.Id, a.Position, BoonFaction(a) != BoonFaction(actor), a.Tactics?.Burning != null)).ToArray();
+            var modified = BoonAbilityGeometry.Apply(inventory, actor.Id, actor.Position,
+                footprint, damage, intent.Facing, bodies, ProjectileOpen, p => _world.Plan.Contains(p) && _world.GroundOpen(p), explicitAim, knownOnly);
+            footprint = footprint with { Cells = modified.Cells, Delivery = modified.Delivery };
+            damage = modified.Damage; form = modified.Form;
+        }
+        if (routeFirst == null && footprint.AbilityId is not ("core:ability/hookrunner_hook" or "core:ability/duelist_thrust"))
+        {
+            var route = RouteMirrors(actor, actor.Position, footprint.Cells, footprint.Delivery, knownOnly);
+            footprint = footprint with { Cells = route.Cells }; reflection = route.Reflection;
+        }
+        return new(footprint, damage, form, reflection);
     }
 
     private bool ImmediateAttack(Actor actor, TacticalAction action, TacticalPreview preview) => action == TacticalAction.BasicAttack
@@ -45,7 +66,7 @@ public sealed partial class TacticalCombat
         {
             var attack = ClassAttack(actor, executed, !preview.Bump, knownOnly: true);
             delivery = attack.Footprint.Delivery;
-            preview = preview with { Cells = attack.Footprint.Cells, Damage = attack.Damage, WeaponForm = attack.Form,
+            preview = preview with { Cells = attack.Footprint.Cells, Damage = attack.Damage, WeaponForm = attack.Form, Reflection = attack.Reflection,
                 FatePower = actor.Tactics!.Boons.Inventory.Stacks.ContainsKey("core:boon/fateful_dice")
                     ? actor.Tactics.Boons.Inventory.Magnitude("core:boon/fateful_dice").Power : null };
         }

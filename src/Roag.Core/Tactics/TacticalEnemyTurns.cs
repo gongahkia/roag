@@ -26,20 +26,29 @@ public sealed partial class TacticalCombat
         var target = Actor(targetId);
         if (!Friendly(target) || target.Life == LifeState.Dead || target.Position.Floor != actor.Position.Floor)
             throw new ArgumentException("Select a surviving party member on this floor; world navigation handles other floors.", nameof(targetId));
-        var aim = target.Tactics?.Resources.Decoy is { } decoy && decoy.Floor == actor.Position.Floor ? decoy : target.Position;
-        return EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics.DefinitionId), actor.Tactics.Enemy,
+        return PlanEnemyTurn(actor, target, nextStep, mistBlocks);
+    }
+
+    private static WorldPosition EnemyAim(Actor target, int floor)
+        => target.Tactics?.Resources.Decoy is { } decoy && decoy.Floor == floor ? decoy : target.Position;
+
+    private EnemyIntent PlanEnemyTurn(Actor actor, Actor target,
+        Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
+    {
+        var aim = EnemyAim(target, actor.Position.Floor);
+        return EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (_ => false),
                 goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
                 _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))
                     .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a),
                         a.Tactics!.DefinitionId, a.Tactics.Enemy?.Squad)).ToArray(),
-                new(actor.Id, actor.Position, actor.Health, actor.MaxHealth, true, actor.Tactics.DefinitionId, actor.Tactics.Enemy.Squad),
+                new(actor.Id, actor.Position, actor.Health, actor.MaxHealth, true, actor.Tactics.DefinitionId, actor.Tactics.Enemy!.Squad),
                 State.EnemySnares, p => _world.CanEnter(p, target.Id),
                 p => _world.Plan.Contains(p) && _world.Chunks.At(p) is Material.Rock or Material.Wall,
                 ProtectedForcedLanding, State.Loot.Drops,
                 State.Corpses.Select(c => new RevivalCandidate(c.Actor, Actor(c.Actor).Position, c.ClaimedBy)).ToArray(),
                 _world.GroundOpen, State.Webs,
-                p => _world.Plan.Contains(p) && _world.Chunks.At(p) is not (Material.Rock or Material.Wall)));
+                p => _world.Plan.Contains(p) && _world.Chunks.At(p) is not (Material.Rock or Material.Wall), SiltGround, State.Mirrors));
     }
 
     public EnemyIntent CommitEnemyTurn(long targetId,
@@ -63,7 +72,7 @@ public sealed partial class TacticalCombat
                 memory.Attacks = checked(memory.Attacks + 1);
             if (intent.ClearRetaliation) memory.Retaliate = false;
             CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
-                checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove, intent.SentinelFacing);
+                checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove, intent.SentinelFacing, intent.EmberLanding);
         }
         else if (intent.Kind == EnemyIntentKind.Move)
         {

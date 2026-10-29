@@ -14,6 +14,7 @@
       "range": 1,
       "recovery": 150,
       "speed": 75,
+      "target_priority": "nearest_threat",
       "windup": 220,
       "xp_reward": 4
     },
@@ -29,6 +30,7 @@
       "range": 5,
       "recovery": 140,
       "speed": 70,
+      "target_priority": "clear_shot",
       "windup": 110,
       "xp_reward": 12
     },
@@ -44,6 +46,7 @@
       "range": 1,
       "recovery": 140,
       "speed": 75,
+      "target_priority": "nearest_threat",
       "windup": 110,
       "xp_reward": 2
     },
@@ -59,6 +62,7 @@
       "range": 1,
       "recovery": 125,
       "speed": 95,
+      "target_priority": "nearest_threat",
       "windup": 90,
       "xp_reward": 2
     },
@@ -74,6 +78,7 @@
       "range": 2,
       "recovery": 135,
       "speed": 55,
+      "target_priority": "nearest_threat",
       "windup": 105,
       "xp_reward": 4
     },
@@ -89,6 +94,7 @@
       "range": 1,
       "recovery": 130,
       "speed": 70,
+      "target_priority": "nearest_threat",
       "windup": 100,
       "xp_reward": 2
     },
@@ -104,6 +110,7 @@
       "range": 1,
       "recovery": 110,
       "speed": 95,
+      "target_priority": "vulnerable_prey",
       "windup": 100,
       "xp_reward": 4
     },
@@ -119,6 +126,7 @@
       "range": 1,
       "recovery": 130,
       "speed": 80,
+      "target_priority": "vulnerable_prey",
       "windup": 100,
       "xp_reward": 4
     },
@@ -134,6 +142,7 @@
       "range": 2,
       "recovery": 120,
       "speed": 90,
+      "target_priority": "clear_shot",
       "windup": 75,
       "xp_reward": 5
     },
@@ -149,6 +158,7 @@
       "range": 5,
       "recovery": 130,
       "speed": 80,
+      "target_priority": "clear_shot",
       "windup": 95,
       "xp_reward": 12
     },
@@ -164,6 +174,7 @@
       "range": 4,
       "recovery": 145,
       "speed": 65,
+      "target_priority": "clear_shot",
       "windup": 115,
       "xp_reward": 6
     },
@@ -179,6 +190,7 @@
       "range": 3,
       "recovery": 125,
       "speed": 75,
+      "target_priority": "nearest_threat",
       "windup": 105,
       "xp_reward": 4
     },
@@ -194,6 +206,7 @@
       "range": 5,
       "recovery": 150,
       "speed": 70,
+      "target_priority": "clear_shot",
       "windup": 125,
       "xp_reward": 4
     },
@@ -209,6 +222,7 @@
       "range": 5,
       "recovery": 145,
       "speed": 65,
+      "target_priority": "clear_shot",
       "windup": 115,
       "xp_reward": 12
     },
@@ -224,6 +238,7 @@
       "range": 3,
       "recovery": 150,
       "speed": 100,
+      "target_priority": "vulnerable_prey",
       "windup": 180,
       "xp_reward": 4
     },
@@ -240,6 +255,7 @@
       "range": 1,
       "recovery": 55,
       "speed": 190,
+      "target_priority": "nearest_threat",
       "windup": 45,
       "xp_reward": 0
     },
@@ -255,6 +271,7 @@
       "range": 5,
       "recovery": 145,
       "speed": 70,
+      "target_priority": "nearest_threat",
       "windup": 120,
       "xp_reward": 4
     },
@@ -270,6 +287,7 @@
       "range": 4,
       "recovery": 120,
       "speed": 110,
+      "target_priority": "nearest_threat",
       "windup": 100,
       "xp_reward": 4
     },
@@ -285,6 +303,7 @@
       "range": 5,
       "recovery": 115,
       "speed": 120,
+      "target_priority": "vulnerable_prey",
       "windup": 85,
       "xp_reward": 4
     },
@@ -300,6 +319,7 @@
       "range": 4,
       "recovery": 160,
       "speed": 80,
+      "target_priority": "nearest_threat",
       "windup": 150,
       "xp_reward": 4
     },
@@ -315,6 +335,7 @@
       "range": 1,
       "recovery": 140,
       "speed": 80,
+      "target_priority": "vulnerable_prey",
       "windup": 100,
       "xp_reward": 4
     },
@@ -330,6 +351,7 @@
       "range": 1,
       "recovery": 140,
       "speed": 75,
+      "target_priority": "nearest_threat",
       "windup": 140,
       "xp_reward": 4
     },
@@ -345,6 +367,7 @@
       "range": 1,
       "recovery": 140,
       "speed": 70,
+      "target_priority": "nearest_threat",
       "windup": 110,
       "xp_reward": 4
     },
@@ -360,6 +383,7 @@
       "range": 6,
       "recovery": 145,
       "speed": 75,
+      "target_priority": "nearest_threat",
       "windup": 110,
       "xp_reward": 0
     },
@@ -375,6 +399,7 @@
       "range": 1,
       "recovery": 120,
       "speed": 90,
+      "target_priority": "vulnerable_prey",
       "windup": 100,
       "xp_reward": 4
     },
@@ -390,6 +415,7 @@
       "range": 6,
       "recovery": 135,
       "speed": 80,
+      "target_priority": "clear_shot",
       "windup": 105,
       "xp_reward": 12
     },
@@ -405,6 +431,7 @@
       "range": 4,
       "recovery": 150,
       "speed": 85,
+      "target_priority": "nearest_threat",
       "windup": 120,
       "xp_reward": 2
     },
@@ -420,6 +447,7 @@
       "range": 4,
       "recovery": 145,
       "speed": 75,
+      "target_priority": "clear_shot",
       "windup": 120,
       "xp_reward": 4
     },
@@ -435,6 +463,7 @@
       "range": 4,
       "recovery": 140,
       "speed": 85,
+      "target_priority": "clear_shot",
       "windup": 150,
       "xp_reward": 4
     },
@@ -450,6 +479,7 @@
       "range": 1,
       "recovery": 120,
       "speed": 70,
+      "target_priority": "nearest_threat",
       "windup": 80,
       "xp_reward": 5
     },
@@ -465,6 +495,7 @@
       "range": 1,
       "recovery": 130,
       "speed": 65,
+      "target_priority": "nearest_threat",
       "windup": 100,
       "xp_reward": 4
     },
@@ -480,6 +511,7 @@
       "range": 5,
       "recovery": 135,
       "speed": 75,
+      "target_priority": "clear_shot",
       "windup": 105,
       "xp_reward": 12
     },
@@ -495,6 +527,7 @@
       "range": 1,
       "recovery": 130,
       "speed": 90,
+      "target_priority": "nearest_threat",
       "windup": 100,
       "xp_reward": 4
     },
@@ -510,6 +543,7 @@
       "range": 1,
       "recovery": 130,
       "speed": 100,
+      "target_priority": "nearest_threat",
       "windup": 110,
       "xp_reward": 4
     },
@@ -525,6 +559,7 @@
       "range": 1,
       "recovery": 115,
       "speed": 85,
+      "target_priority": "vulnerable_prey",
       "windup": 85,
       "xp_reward": 4
     },
@@ -540,6 +575,7 @@
       "range": 6,
       "recovery": 135,
       "speed": 90,
+      "target_priority": "clear_shot",
       "windup": 110,
       "xp_reward": 2
     },
@@ -555,6 +591,7 @@
       "range": 6,
       "recovery": 130,
       "speed": 85,
+      "target_priority": "clear_shot",
       "windup": 100,
       "xp_reward": 12
     },
@@ -571,6 +608,7 @@
       "recovery": 80,
       "special_encounter": true,
       "speed": 80,
+      "target_priority": "nearest_threat",
       "windup": 160,
       "xp_reward": 4
     },
@@ -586,6 +624,7 @@
       "range": 1,
       "recovery": 70,
       "speed": 160,
+      "target_priority": "vulnerable_prey",
       "windup": 35,
       "xp_reward": 3
     },
@@ -601,6 +640,7 @@
       "range": 1,
       "recovery": 100,
       "speed": 130,
+      "target_priority": "vulnerable_prey",
       "windup": 60,
       "xp_reward": 2
     },
@@ -616,6 +656,7 @@
       "range": 1,
       "recovery": 135,
       "speed": 70,
+      "target_priority": "nearest_threat",
       "windup": 100,
       "xp_reward": 2
     },
@@ -631,6 +672,7 @@
       "range": 5,
       "recovery": 150,
       "speed": 65,
+      "target_priority": "clear_shot",
       "windup": 155,
       "xp_reward": 2
     },
@@ -646,6 +688,7 @@
       "range": 3,
       "recovery": 140,
       "speed": 85,
+      "target_priority": "vulnerable_prey",
       "windup": 140,
       "xp_reward": 4
     },
@@ -661,6 +704,7 @@
       "range": 4,
       "recovery": 140,
       "speed": 80,
+      "target_priority": "nearest_threat",
       "windup": 125,
       "xp_reward": 2
     },
@@ -676,6 +720,7 @@
       "range": 5,
       "recovery": 135,
       "speed": 85,
+      "target_priority": "clear_shot",
       "windup": 100,
       "xp_reward": 5
     },
@@ -691,6 +736,7 @@
       "range": 4,
       "recovery": 120,
       "speed": 85,
+      "target_priority": "nearest_threat",
       "windup": 85,
       "xp_reward": 12
     },
@@ -707,6 +753,7 @@
       "range": 7,
       "recovery": 130,
       "speed": 90,
+      "target_priority": "clear_shot",
       "windup": 90,
       "xp_reward": 4
     },
@@ -722,6 +769,7 @@
       "range": 4,
       "recovery": 135,
       "speed": 100,
+      "target_priority": "vulnerable_prey",
       "windup": 120,
       "xp_reward": 4
     },
@@ -737,6 +785,7 @@
       "range": 4,
       "recovery": 140,
       "speed": 80,
+      "target_priority": "nearest_threat",
       "windup": 140,
       "xp_reward": 2
     },
@@ -752,6 +801,7 @@
       "range": 4,
       "recovery": 140,
       "speed": 90,
+      "target_priority": "vulnerable_prey",
       "windup": 140,
       "xp_reward": 4
     }

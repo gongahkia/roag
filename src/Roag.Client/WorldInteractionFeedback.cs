@@ -17,8 +17,15 @@ internal static class WorldInspection
         var actor = session.State.Actors.LastOrDefault(a => a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null)
         {
+            string targeting = "";
+            if (session.InspectTacticalEnemy(actor.Id) is { } intent)
+            {
+                string activity = intent.Committed ? intent.Support ? "Preparing support" : "Attack locked on marked tiles"
+                    : intent.TargetName == null ? "No visible preferred target" : "Preferred target";
+                targeting = " " + intent.Tendency + " " + activity + (intent.TargetName is { } name ? ": " + name + "." : ".");
+            }
             if (session.SituationForActor(actor) is { } situation)
-                return WithAccess(actor.Name, session.SituationDescription(situation) + " " + session.EncounterDescription(actor.Id), "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
+                return WithAccess(actor.Name, session.SituationDescription(situation) + " " + session.EncounterDescription(actor.Id) + targeting, "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
@@ -26,6 +33,7 @@ internal static class WorldInspection
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
+            detail += targeting;
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);

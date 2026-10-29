@@ -6,6 +6,62 @@ public static partial class EnemyPlanning
 {
     private static EnemyIntent Idea(EnemyDefinition definition, EnemyMemory memory, EnemyPlanningContext world)
     {
+        if (definition.Id == EnemyMirrors.Definition)
+        {
+            int distance = world.Source.Distance(world.Target);
+            if (distance is >= 1 and <= 4 && (world.Source.X == world.Target.X || world.Source.Y == world.Target.Y) && ClearLine(world))
+            {
+                var mirrors = world.Mirrors ?? throw new ArgumentException("Hexer decisions need active mirror facts.");
+                var self = world.Self ?? throw new ArgumentException("Hexer decisions need their own identity.");
+                int dx = Math.Sign(world.Target.X - world.Source.X), dy = Math.Sign(world.Target.Y - world.Source.Y);
+                var cell = world.Source.Offset(dx, dy);
+                if (distance >= 2 && memory.MirrorCasts < 2 && mirrors.Count < EnemyMirrors.Cap
+                    && !mirrors.Any(m => m.Source == self.Id) && world.Free(cell)
+                    && (world.PlainGround ?? throw new ArgumentException("Hexer decisions need plain-ground facts."))(cell))
+                {
+                    AttackGeometry.TryFacing(-dx, -dy, out var incoming);
+                    return new(EnemyIntentKind.Windup, Ability: EnemyMirrors.Cast, Cells: [cell],
+                        Support: new(EnemySupportKind.Mirror, MirrorIncoming: incoming));
+                }
+                return new(EnemyIntentKind.Windup, Ability: "core:ability/hexer_bolt", Delivery: AttackDelivery.Projectile,
+                    Cells: [.. Enumerable.Range(1, distance).Select(i => world.Source.Offset(dx * i, dy * i))]);
+            }
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
+        if (definition.Id == EnemyEmbers.Definition)
+        {
+            int distance = world.Source.Distance(world.Target);
+            if (memory.EmberDives < 2 && distance is >= 2 and <= 3 && ClearLine(world))
+            {
+                var plain = world.PlainGround ?? throw new ArgumentException("Moth decisions need physical plain-ground facts.");
+                if (plain(world.Target))
+                    return new(EnemyIntentKind.Windup, Ability: EnemyEmbers.Dive, Delivery: AttackDelivery.Area,
+                        Cells: [world.Target], EmberLanding: world.Target);
+            }
+            if (distance == 1) return new(EnemyIntentKind.Windup, Ability: "core:ability/moth_touch", Cells: [world.Target]);
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
+        if (definition.Id == EnemySilt.Definition)
+        {
+            int distance = world.Source.Distance(world.Target);
+            if (memory.SiltCharges < 2 && distance is 2 or 3
+                && (world.Source.X == world.Target.X || world.Source.Y == world.Target.Y) && ClearLine(world))
+            {
+                var ground = world.GroundOpen ?? throw new ArgumentException("Silt decisions need physical ground facts.");
+                var reserved = world.ProtectedLanding ?? throw new ArgumentException("Silt decisions need protected landing facts.");
+                int dx = Math.Sign(world.Target.X - world.Source.X), dy = Math.Sign(world.Target.Y - world.Source.Y);
+                AttackGeometry.TryFacing(dx, dy, out var facing);
+                var cells = Enumerable.Range(1, distance).Select(i => world.Source.Offset(dx * i, dy * i)).ToArray();
+                if (cells.All(p => ground(p) && !reserved(p)))
+                    return new(EnemyIntentKind.Windup, Ability: EnemySilt.Charge, Delivery: AttackDelivery.Projectile,
+                        Cells: [.. cells], Advance: new(facing, 2));
+            }
+            if (distance == 1) return new(EnemyIntentKind.Windup, Ability: "core:ability/worm_touch", Cells: [world.Target]);
+            var adjacent = Cardinals.Select(d => world.Target.Offset(d.X, d.Y)).Where(world.Free).ToHashSet();
+            return world.NextStep(adjacent) is { } move ? new(EnemyIntentKind.Move, move) : new(EnemyIntentKind.Wait);
+        }
         if (definition.Id == EnemySentinel.Definition)
         {
             if (!memory.SentinelFinished && (memory.SentinelStrikes > 0

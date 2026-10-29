@@ -95,6 +95,9 @@ public sealed partial class TacticalCombat
     private void DrainBoons()
     {
         PruneWebs();
+        PruneSilt();
+        PruneEmbers();
+        PruneMirrors();
         PruneOaths();
         _drainingBoons = true;
         try
@@ -113,7 +116,10 @@ public sealed partial class TacticalCombat
                     WithBoonCause(BoonCause.From(e), () =>
                     {
                         BeforeBoonEvent(e);
-                        if (e.ClassGenerated) { ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); return; }
+                        if (e.ClassGenerated)
+                        {
+                            ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); return;
+                        }
                         var random = new RoagRandom(State.RandomState);
                         BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
                         {
@@ -128,6 +134,7 @@ public sealed partial class TacticalCombat
                         State.RandomState = random.State;
                         ResolveWebEvent(e, queued.WebCuts);
                         ResolveKillRewards(e);
+                        ResolveEnemyPhase(e);
                     });
                 }
                 else if (_boonWork.TryDequeue(out var work))
@@ -136,6 +143,9 @@ public sealed partial class TacticalCombat
         }
         finally { _drainingBoons = false; }
         PruneWebs();
+        PruneSilt();
+        PruneEmbers();
+        PruneMirrors();
         PruneOaths();
         var retained = State.BoonEffects.Echoes.Values.Select(e => e.Activation.ChainId)
             .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning != null).Select(a => a.Tactics!.Burning!.Activation.ChainId))

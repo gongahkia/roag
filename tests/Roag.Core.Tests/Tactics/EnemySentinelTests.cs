@@ -138,4 +138,66 @@ public sealed partial class ClassActionTests
         }
         Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
     }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    [InlineData(3, true)]
+    public void SentinelShovesEndStartedSequencesIncludingRecoveryButBlockedShovesAndUnstartedSequencesStayIntact(int waits, bool blocked)
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 50); PrepareSentinel(a); SentinelWait(a, waits);
+        var rammer = RevivalTestEnemy(a, "heavy_rammer", new(101, 99));
+        var position = a.Enemy.Position; var landing = position.Offset(0, 1);
+        if (blocked) a.World.Chunks.Edit(landing, Material.Wall);
+        var pending = a.Combat.State.Attacks.SingleOrDefault(x => x.Source == a.Enemy.Id);
+        long? ready = a.Combat.State.Queue.Snapshot().Pending.SingleOrDefault(w => w.ActorId == a.Enemy.Id && w.Kind == ScheduledKind.ActorReady)?.Due;
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, rammer.Id, rammer.Position, [position], "core:ability/rammer_shove",
+            AttackDelivery.Melee, DamageElement.Physical, 2, a.Combat.Clock, Shove: new(position, Facing.South)));
+        Assert.Equal(blocked ? position : landing, a.Enemy.Position);
+        Assert.Equal(!blocked && waits > 0, a.Enemy.Tactics!.Enemy!.SentinelFinished);
+        if (blocked) Assert.Equal(pending, a.Combat.State.Attacks.SingleOrDefault(x => x.Source == a.Enemy.Id));
+        else Assert.DoesNotContain(a.Combat.State.Attacks, x => x.Source == a.Enemy.Id);
+        Assert.Equal(!blocked && pending != null ? a.Combat.Clock + 100 : ready,
+            a.Combat.State.Queue.Snapshot().Pending.SingleOrDefault(w => w.ActorId == a.Enemy.Id && w.Kind == ScheduledKind.ActorReady)?.Due);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+        long nextEvent = a.Combat.State.NextEvent;
+        SentinelWait(a, 4);
+        if (!blocked && waits > 0) Assert.DoesNotContain(a.Combat.State.Events,
+            e => e.Sequence >= nextEvent && e.Source == a.Enemy.Id && e.Kind == "WindupStarted" && e.Ability == EnemySentinel.Quarter);
+    }
+
+    [Fact]
+    public void SentinelRetainsChampionBoonImmunityAndHookrunnerPreservesAnAlreadyLockedQuarter()
+    {
+        using var a = new Arena(ClassKind.Hookrunner, enemyDue: 50);
+        EnemyProfile(a, "rotating_sentinel"); a.Enemy.Position = new(103, 100); a.Friend.Position = new(110, 110);
+        SentinelWait(a, 1); var pending = Assert.Single(a.Combat.State.Attacks);
+        Apply(a, Activation(a, a.Hero, "core:boon/hourglass_clasp", 100, a.Enemy), BoonEffectKind.StunTarget);
+        Apply(a, Activation(a, a.Hero, "core:boon/anchor_maul", 100, a.Enemy), BoonEffectKind.DisplaceTarget);
+        Assert.Equal(pending, Assert.Single(a.Combat.State.Attacks)); Assert.Equal(0, a.Enemy.Tactics!.StunnedUntil);
+        Assert.Equal(new WorldPosition(103, 100), a.Enemy.Position);
+        a.Act(TacticalAction.Special);
+        Assert.Equal(new WorldPosition(101, 100), a.Enemy.Position);
+        Assert.Equal(pending, Assert.Single(a.Combat.State.Attacks)); Assert.False(a.Enemy.Tactics.Enemy!.SentinelFinished);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("diagonal")]
+    [InlineData("wrong_turn")]
+    [InlineData("spent")]
+    public void SentinelInvalidCommitmentsFailBeforeSpendingTimeOrTheNextQuarter(string invalid)
+    {
+        using var a = new Arena(ClassKind.Adventurer, enemyDue: 50); PrepareSentinel(a);
+        if (invalid is "wrong_turn" or "spent") SentinelWait(a, invalid == "spent" ? 12 : 3);
+        a.Act(TacticalAction.Wait); Assert.Same(a.Enemy, a.Combat.AdvanceToDecision());
+        string before = JsonSerializer.Serialize(a.World.State);
+        Facing? facing = invalid switch { "missing" => null, "diagonal" => Facing.NorthEast, _ => Facing.West };
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup(EnemySentinel.Quarter, [a.Hero.Position], AttackDelivery.Area,
+            DamageElement.Physical, 2, 160, 80, sentinelFacing: facing));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+    }
 }

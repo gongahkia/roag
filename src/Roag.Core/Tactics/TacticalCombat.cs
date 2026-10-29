@@ -12,6 +12,8 @@ public sealed record TacticalPreview(bool Valid, string Reason, long Recovery, I
     public long? FatePower { get; init; }
     public BoonVowPayment? Vow { get; init; }
     public BoonWeaponForm? WeaponForm { get; init; }
+    public MirrorReflection? Reflection { get; init; }
+    public WorldPosition? StairLanding { get; init; }
     public IReadOnlyList<BoonPreviewCell> BoonCells { get; init; } = [];
 }
 
@@ -80,6 +82,9 @@ public sealed partial class TacticalCombat
         {
             _advanceWorld(Clock);
             PruneWebs();
+            PruneSilt();
+            PruneEmbers();
+            PruneMirrors();
             PruneOaths();
             if (work.Kind == ScheduledKind.Impact)
             {
@@ -87,6 +92,12 @@ public sealed partial class TacticalCombat
                 State.Attacks.Remove(attack);
                 // A killed source's explicitly committed attack is cancelled on death.
                 ResolveAttack(attack);
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
+            if (work.Kind == ScheduledKind.EmberPulse)
+            {
+                ResolveEmberPulse(work);
                 if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
@@ -158,6 +169,8 @@ public sealed partial class TacticalCombat
             case TacticalAction.Move:
             case TacticalAction.Dash:
                 return PreviewMovement(actor, definition, intent);
+            case TacticalAction.UseStairs:
+                return PreviewStairs(actor, definition);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -205,6 +218,8 @@ public sealed partial class TacticalCombat
                 case TacticalAction.Move:
                 case TacticalAction.Dash:
                     CommitMovement(actor, executed, preview, action); break;
+                case TacticalAction.UseStairs:
+                    CommitStairs(actor, preview.StairLanding!.Value, action); break;
                 case TacticalAction.Guard:
                     actor.Tactics.Guarding = true;
                     Emit("GuardRaised", actor.Id, actor.Id, action, actor.Position); break;
@@ -230,7 +245,7 @@ public sealed partial class TacticalCombat
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
         DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0,
-        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null)
+        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null, WorldPosition? emberLanding = null)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
@@ -244,6 +259,11 @@ public sealed partial class TacticalCombat
         EnemyAttackRules.Validate(support, advance, shove);
         if (!EnemyAttackRules.SpecialIdentityValid(actor.Tactics!.DefinitionId, ability, actor.Position, cells, support, shove))
             throw new ArgumentException("Special enemy attack identity or geometry is inconsistent.");
+        if (!EnemyEmbers.ValidAttack(actor.Tactics, ability, actor.Position, cells, delivery, emberLanding,
+            support, advance, shove, sentinelFacing, committing: true))
+            throw new ArgumentException("Invalid moth commitment.");
+        if (!EnemySilt.ValidAttack(actor.Tactics, ability, actor.Position, cells, delivery, advance, committing: true))
+            throw new ArgumentException("Invalid silt commitment.");
         if (!EnemySentinel.ValidAttack(actor.Tactics, ability, actor.Position, cells, sentinelFacing, delivery,
             support, advance, shove, committing: true))
             throw new ArgumentException("Invalid sentinel commitment.");
@@ -254,6 +274,8 @@ public sealed partial class TacticalCombat
         if (support?.Kind == EnemySupportKind.Revive) ValidateRevivalCommit(actor, support.Corpse, cells[0]);
         if (support?.Kind == EnemySupportKind.Alarm && actor.Tactics?.Enemy is not { AlarmSpent: false })
             throw new ArgumentException("Alarm attempt is already spent.");
+        if (support?.Kind == EnemySupportKind.Mirror && actor.Tactics?.Enemy is not { MirrorCasts: < 2 })
+            throw new ArgumentException("Mirror attempts are already spent.");
         if (support?.Kind == EnemySupportKind.Web && actor.Tactics?.Enemy is not { WebCasts: < 2 })
             throw new ArgumentException("Web attempts are already spent.");
         if (support?.Kind == EnemySupportKind.Ward && actor.Tactics?.DefinitionId != "core:enemy/ward_weaver"
@@ -262,15 +284,22 @@ public sealed partial class TacticalCombat
             throw new ArgumentException("Support effect does not match the enemy role.");
         if ((support != null || advance != null || shove != null) && actor.Tactics?.Enemy == null)
             throw new ArgumentException("Enemy attack effects require a native enemy.");
+        var routed = support == null && advance == null
+            ? RouteMirrors(actor, actor.Position, cells, delivery) : new ReflectedPath(cells);
+        cells = routed.Cells;
         bool deferredRecovery = actor.Tactics?.Enemy != null;
         long? ready = deferredRecovery ? null : checked(due + ActionTiming.Recovery(recoveryCost, EffectiveSpeed(actor)));
         long action = State.NextAction++;
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
         var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
             Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null,
-            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing);
+            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing, EmberLanding: emberLanding, Reflection: routed.Reflection);
         ResolveAtomically(cause, () =>
         {
+            ConsumeMirror(actor, action, routed.Reflection, cells);
+            if (support?.Kind == EnemySupportKind.Mirror) actor.Tactics!.Enemy!.MirrorCasts++;
+            if (emberLanding != null) actor.Tactics!.Enemy!.EmberDives++;
+            if (ability == EnemySilt.Charge) actor.Tactics!.Enemy!.SiltCharges++;
             if (sentinelFacing is { } facing) EnemySentinel.Commit(actor.Tactics!.Enemy!, facing);
             if (support?.Kind == EnemySupportKind.Revive) ClaimRevival(actor, support.Corpse);
             if (support?.Kind == EnemySupportKind.Alarm) actor.Tactics!.Enemy!.AlarmSpent = true;
@@ -294,13 +323,14 @@ public sealed partial class TacticalCombat
     }
 
     public IReadOnlyList<LockedAttack> VisibleAttacks(IReadOnlySet<WorldPosition> vision)
-        => State.Attacks.Concat(SentryAttacks()).Where(a => vision.Contains(a.ClassGenerated ? a.Origin : Actor(a.Source).Position))
+        => State.Attacks.Concat(SentryAttacks()).Concat(EmberWarnings()).Where(a => vision.Contains(a.ClassGenerated || a.Ability == EnemyEmbers.Pulse ? a.Origin : Actor(a.Source).Position))
             .Select(a => a with { Cells = a.Cells.Where(vision.Contains).ToArray() }).Where(a => a.Cells.Length > 0).ToArray();
 
     public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
-        var actual = State.Queue.Snapshot().Pending.Where(e => Visible(e.ActorId))
+        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind == ScheduledKind.EmberPulse
+            ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : Visible(e.ActorId))
             .Select(e => new TacticalTimelineEntry(e.Kind, e.ActorId, e.Due, e.ReferenceId, false, e.Sequence));
         var projected = State.Attacks.Where(a => a.RecoveryCost != null && Visible(a.Source))
             .Select(a => new TacticalTimelineEntry(ScheduledKind.ActorReady, a.Source,
@@ -328,6 +358,7 @@ public sealed partial class TacticalCombat
                         webCuts: CaptureWebCuts(attack.Source, attack.Cells, attack.Delivery, attack.Damage));
                 ResolveDamageBatch(attack);
             }
+            if (attack.EmberLanding != null && !_world.State.AwaitingContinuation) ResolveMothLanding(Actor(attack.Source), attack);
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
             if (attack.Shove is { } shove && !_world.State.AwaitingContinuation
                 && _world.OccupantAt(shove.Cell, attack.Source) is { Life: LifeState.Alive, Health: > 0, Tactics: not null } victim)
@@ -486,11 +517,11 @@ public sealed partial class TacticalCombat
         => State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + ActionTiming.Recovery(cost, EffectiveSpeed(actor))), actor.Id, Friendly(actor));
     private void Emit(string kind, long source, long target, long action, WorldPosition position, int amount = 0,
         int prevented = 0, string ability = "", bool forced = false, WorldPosition? from = null, BoonEvent? snapshot = null, LootChange? loot = null,
-        EnemyProtection? protection = null, ImmutableArray<WorldPosition> webCuts = default)
+        EnemyProtection? protection = null, ImmutableArray<WorldPosition> webCuts = default, MirrorReflection? reflection = null)
     {
         var oath = snapshot is { OathGiven: > 0 } or { OathReceived: > 0 }
             ? new OathDamage(snapshot.OathGiven, snapshot.OathReceived, snapshot.OathSharedOnly) : null;
-        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection, oath);
+        var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection, oath, reflection);
         State.Events.Add(entry);
         if (State.Events.Count > 512) State.Events.RemoveRange(0, State.Events.Count - 512);
         QueueCombatEvent(entry, snapshot, webCuts);

@@ -27,6 +27,9 @@ public static class TacticalValidation
         EnemyAlarmRules.Validate(state, actors);
         EnemyWebRules.Validate(plan, world, actors, content);
         EnemyOaths.Validate(plan, world, actors, content);
+        EnemySilt.Validate(plan, world, actors, content);
+        EnemyEmbers.Validate(plan, world, actors, content);
+        EnemyMirrors.Validate(plan, world, actors, content);
         var fragments = new Dictionary<long, int>();
         foreach (var actor in world.Actors)
             if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)
@@ -99,7 +102,10 @@ public static class TacticalValidation
                     || queue.Pending.Count(e => e.Kind == ScheduledKind.Effect && e.ActorId == id
                         && e.ReferenceId == sentry.Action && e.Sequence == sentry.Schedule && e.Due == sentry.Due) != 1))
                     throw new InvalidDataException("Missing sentry work.");
-                for (int i = 0; i < sentry.Cells.Length; i++)
+                if (!EnemyMirrors.ReflectionValid(plan, sentry.Position, sentry.Cells, AttackDelivery.Projectile,
+                    sentry.Reflection, state.NextAction, world.NextActorId))
+                    throw new InvalidDataException("Invalid reflected sentry lane.");
+                for (int i = 0; sentry.Reflection == null && i < sentry.Cells.Length; i++)
                 {
                     var first = sentry.Cells[0];
                     int dx = first.X - sentry.Position.X, dy = first.Y - sentry.Position.Y;
@@ -124,6 +130,17 @@ public static class TacticalValidation
         foreach (var attack in state.Attacks)
         {
             EnemyAttackRules.Validate(attack.Support, attack.Advance, attack.Shove);
+            if (attack.Cells == null || !EnemyMirrors.ReflectionValid(plan, attack.Origin, attack.Cells, attack.Delivery,
+                attack.Reflection, state.NextAction, world.NextActorId)
+                || attack.Reflection != null && (attack.Support != null || attack.Advance != null))
+                throw new InvalidDataException("Invalid locked enemy reflection.");
+            if (!EnemyEmbers.ValidAttack(actors.GetValueOrDefault(attack.Source)?.Tactics, attack.Ability,
+                attack.Origin, attack.Cells, attack.Delivery, attack.EmberLanding, attack.Support, attack.Advance,
+                attack.Shove, attack.SentinelFacing, committing: false))
+                throw new InvalidDataException("Invalid saved moth commitment.");
+            if (!EnemySilt.ValidAttack(actors.GetValueOrDefault(attack.Source)?.Tactics, attack.Ability,
+                attack.Origin, attack.Cells, attack.Delivery, attack.Advance, committing: false))
+                throw new InvalidDataException("Invalid saved silt commitment.");
             if (!EnemySentinel.ValidAttack(actors.GetValueOrDefault(attack.Source)?.Tactics,
                 attack.Ability, attack.Origin, attack.Cells, attack.SentinelFacing, attack.Delivery,
                 attack.Support, attack.Advance, attack.Shove, committing: false))
@@ -182,12 +199,18 @@ public static class TacticalValidation
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)
                 || work.Kind == ScheduledKind.Effect && !MatchesOwnedEffect(work, actors[work.ActorId].Tactics!.Resources)
                     && !MatchesBoonWork(work, state, actors)
-                || work.Kind is not (ScheduledKind.ActorReady or ScheduledKind.Impact or ScheduledKind.Effect))
+                || work.Kind == ScheduledKind.EmberPulse && !state.Embers.Any(e => EnemyEmbers.Matches(work, e))
+                || work.Kind is not (ScheduledKind.ActorReady or ScheduledKind.Impact or ScheduledKind.Effect or ScheduledKind.EmberPulse))
                 throw new InvalidDataException("Orphaned tactical work.");
         }
         long previous = 0;
         foreach (var entry in state.Events)
         {
+            if (entry?.Reflection is { } reflection && (entry.Kind != "MirrorReflected" || reflection.Mirror <= 0
+                || reflection.Mirror >= state.NextAction || reflection.Owner <= 0 || reflection.Owner >= world.NextActorId
+                || !Enum.IsDefined(reflection.Incoming) || !AttackGeometry.Cardinal(reflection.Incoming)
+                || reflection.Step <= 0 || reflection.Step >= reflection.Range || reflection.Position != entry.Position))
+                throw new InvalidDataException("Invalid mirror reflection event.");
             if (entry?.Oath is { } oath && (oath.Given < 0 || oath.Received < 0 || oath.Given == 0 && oath.Received == 0
                 || oath.SharedOnly && (oath.Given != 0 || oath.Received == 0)))
                 throw new InvalidDataException("Invalid oath damage event.");
@@ -200,7 +223,9 @@ public static class TacticalValidation
             if (entry is null || entry.Sequence <= previous || entry.Sequence >= state.NextEvent
                 || entry.Time < 0 || entry.Time > queue.Clock || entry.Action < 0 || entry.Action >= state.NextAction
                 || entry.Source != 0 && !actors.ContainsKey(entry.Source) || entry.Target != 0 && !actors.ContainsKey(entry.Target)
-                || !plan.Contains(entry.Position) || entry.From is { } from && (!plan.Contains(from) || from.Floor != entry.Position.Floor)
+                || !plan.Contains(entry.Position) || entry.From is { } from && (!plan.Contains(from)
+                    || (entry.Kind == "FloorChanged" ? !WorldStairs.Connects(from, entry.Position) : from.Floor != entry.Position.Floor))
+                || entry.Kind == "FloorChanged" && (entry.From == null || entry.Source == 0 || entry.Target != entry.Source || entry.Forced)
                 || entry.Forced && entry.From == null || entry.Amount < 0 || entry.Prevented < 0 || string.IsNullOrWhiteSpace(entry.Kind))
                 throw new InvalidDataException("Invalid tactical event.");
             previous = entry.Sequence;

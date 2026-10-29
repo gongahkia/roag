@@ -11,6 +11,8 @@ public static class TacticalReferences
         if (state.ActiveActor == id || state.ControlledActor == id || state.Queue.Snapshot().Pending.Any(w => w.ActorId == id)
             || state.Attacks.Any(a => a.Source == id || a.IntendedTarget == id || a.Support?.Target == id || a.Causality?.Ancestry.Any(k => k.Owner == id) == true)
             || state.Events.Any(e => e.Source == id || e.Target == id || e.Protection?.Source == id)
+            || state.Mirrors.Any(m => m.Source == id)
+            || state.Embers.Any(e => e.Source == id)
             || state.EnemySnares.Any(s => s.Source == id) || state.Webs.Any(w => w.Source == id)) return true;
         bool Activation(BoonActivation a) => a.OwnerId == id || a.PairTargetId == id || a.Event.SourceId == id || a.Event.TargetId == id
             || a.Ancestry.Any(k => k.Owner == id);

@@ -8,8 +8,9 @@ public sealed class ActorTactics
 {
     public CharacterBuild? Build { get; set; }
     public BuildStats? InnateStats { get; set; }
-    [JsonIgnore] public BuildStats Stats => Build?.Stats ?? InnateStats
-        ?? throw new InvalidDataException("Missing tactical stats.");
+    [JsonIgnore] public BuildStats Stats => Build?.Stats ?? (InnateStats is { } innate
+        ? Enemy is { PhaseTwo: true } ? innate with { Speed = checked(innate.Speed + EnemyPhases.SpeedBonus) } : innate
+        : throw new InvalidDataException("Missing tactical stats."));
     public Facing Facing { get; set; } = Facing.South;
     public bool Guarding { get; set; }
     public int BleedTurns { get; set; }
@@ -35,7 +36,7 @@ public sealed class ActorTactics
 
     public void Validate()
     {
-        if ((Build is null) == (InnateStats is null) || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
+        if ((Build is null) == (InnateStats is null) || InnateStats?.Speed is <= 0 || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
             || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
             || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
             || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
@@ -49,6 +50,14 @@ public sealed class ActorTactics
         {
             if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
+            if (Enemy.PhaseTwo && (!EnemyPhases.Supported(DefinitionId) || InnateStats!.Speed > int.MaxValue - EnemyPhases.SpeedBonus))
+                throw new InvalidDataException("Invalid enemy phase role or speed.");
+            if (Enemy.MirrorCasts > 0 && DefinitionId != EnemyMirrors.Definition)
+                throw new InvalidDataException("Invalid mirror owner role.");
+            if (Enemy.EmberDives > 0 && DefinitionId != EnemyEmbers.Definition)
+                throw new InvalidDataException("Invalid ember owner role.");
+            if (Enemy.SiltCharges > 0 && DefinitionId != EnemySilt.Definition)
+                throw new InvalidDataException("Invalid silt owner role.");
             if (Enemy.SentinelStrikes > 0 && DefinitionId != EnemySentinel.Definition)
                 throw new InvalidDataException("Invalid sentinel owner role.");
             if ((Enemy.OathPartner != 0 || Enemy.OathBroken) && !EnemyOaths.IsTwin(DefinitionId))
@@ -85,12 +94,12 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
     int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null, WorldPosition? EmberLanding = null, MirrorReflection? Reflection = null);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
     long Action, WorldPosition Position, int Amount = 0, int Prevented = 0, string Ability = "",
-    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null, EnemyProtection? Protection = null, OathDamage? Oath = null);
+    bool Forced = false, WorldPosition? From = null, LootChange? Loot = null, EnemyProtection? Protection = null, OathDamage? Oath = null, MirrorReflection? Reflection = null);
 
 /// <summary>Persisted work queue and event identities shared across terrain/floors.</summary>
 public sealed class TacticalWorldState
@@ -116,6 +125,9 @@ public sealed class TacticalWorldState
     public List<EnemySnare> EnemySnares { get; set; } = [];
     public List<RevivalCorpse> Corpses { get; set; } = [];
     public List<EnemyWeb> Webs { get; set; } = [];
+    public List<SiltTrail> Silt { get; set; } = [];
+    public List<EnemyEmber> Embers { get; set; } = [];
+    public List<EnemyMirror> Mirrors { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();

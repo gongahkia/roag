@@ -46,6 +46,14 @@ public sealed partial class TacticalCombat
             }
             cells.Add(cell);
         }
+        recovery = ActionTiming.Recovery(checked(cost + SiltMovementExtra(cells, intent.Action)), EffectiveSpeed(actor));
+        if (intent.Action == TacticalAction.Move && cells.Count == 1
+            && _world.Chunks.At(cells[0]) is Material.StairsDown or Material.StairsUp)
+        {
+            var landing = _world.StairLanding(cells[0]);
+            if (landing == null || !_world.CanEnter(landing.Value, actor.Id)) return Invalid("The stair is obstructed.");
+            return new(true, "", recovery, cells) { StairLanding = landing };
+        }
         return cells.Count == 0 ? Invalid("That tile is occupied or blocked.") : new(true, "", recovery, cells);
     }
 
@@ -139,6 +147,7 @@ public sealed partial class TacticalCombat
             actor.Tactics.Resources.StormWard = true;
             Emit("StormGrounded", actor.Id, actor.Id, action, actor.Position);
         }
+        if (preview.StairLanding is { } landing) CommitStairs(actor, landing, action);
     }
 
     private void CommitClassAttack(Actor actor, TacticalIntent intent, TacticalPreview preview, long action)
@@ -199,6 +208,7 @@ public sealed partial class TacticalCombat
         }
         Actor? hooked = intent.Action == TacticalAction.Special && actor.Tactics.Build!.Class == ClassKind.Hookrunner
             ? footprint.Cells.Select(p => BodyAt(p, actor.Id)).FirstOrDefault(a => a != null) : null;
+        ConsumeMirror(actor, action, effective.Reflection, footprint.Cells);
         bool performed = Strike(actor, action, footprint, damage, actor.Position, preview.Vow);
         if (performed && hooked is { Life: LifeState.Alive } && hooked.Tactics is not { ImmuneToPull: true } and not { Invulnerable: true })
         {
@@ -315,7 +325,7 @@ public sealed partial class TacticalCombat
         if (sentry.Phase == SentryPhase.Impact)
         {
             ResolveAttack(SentryAttack(owner));
-            sentry.Cells = [];
+            sentry.Cells = []; sentry.Reflection = null;
             if (sentry.Charges > 0) ScheduleSentry(owner, SentryPhase.Waiting, 120);
             else sentry.Phase = SentryPhase.Spent;
             return;
@@ -329,7 +339,10 @@ public sealed partial class TacticalCombat
             .FirstOrDefault(a => SentryLine(sentry.Position, a.Position).All(ProjectileOpen));
         if (target != null)
         {
-            sentry.Cells = SentryLine(sentry.Position, target.Position);
+            var route = RouteMirrors(owner, sentry.Position, SentryLine(sentry.Position, target.Position),
+                AttackDelivery.Projectile, ignoredBody: 0);
+            sentry.Cells = route.Cells.ToArray(); sentry.Reflection = route.Reflection;
+            ConsumeMirror(owner, sentry.Action, route.Reflection, route.Cells);
             ScheduleSentry(owner, SentryPhase.Impact, 80);
             Emit("SentryCommitted", owner.Id, target.Id, sentry.Action, sentry.Position, sentry.Charges);
         }
@@ -351,7 +364,7 @@ public sealed partial class TacticalCombat
         var sentry = owner.Tactics!.Resources.Sentry!;
         return new(sentry.Action, owner.Id, sentry.Position, sentry.Cells.ToArray(), "core:ability/tinkerer_sentry",
             AttackDelivery.Projectile, DamageElement.Physical, 3, Clock, ClassGenerated: true,
-            HitsOwner: true, PersistsWithoutOwner: true);
+            HitsOwner: true, PersistsWithoutOwner: true, Reflection: sentry.Reflection);
     }
     private IEnumerable<LockedAttack> SentryAttacks() => _world.State.Actors
         .Where(a => a.Tactics?.Resources.Sentry?.Phase == SentryPhase.Impact)

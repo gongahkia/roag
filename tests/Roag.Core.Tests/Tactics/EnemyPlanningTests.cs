@@ -95,11 +95,10 @@ public sealed class EnemyPlanningTests
     }
 
     [Fact]
-    public void UnsupportedControllersAndMalformedContentCannotSilentlyBecomeGenericAttackers()
+    public void EveryOriginalControllerIsSupportedAndMalformedContentStillFails()
     {
         var definition = EnemyCatalog.Default.Get("core:enemy/mirror_hexer");
-        Assert.Throws<NotSupportedException>(() => EnemyPlanning.Choose(definition, new(),
-            new(new(100, 100), new(101, 100), _ => true, _ => true, _ => false, _ => null)));
+        Assert.All(EnemyCatalog.Default.Definitions, d => Assert.True(EnemyPlanning.Supported(d), d.Id));
         Assert.Throws<InvalidDataException>(() => new EnemyCatalog([definition, definition]));
         Assert.Throws<InvalidDataException>(() => new EnemyCatalog([definition with { Windup = 0 }]));
         Assert.Throws<InvalidDataException>(() => EnemyCatalog.Load("{\"schema_version\":1,\"source_version\":\"x\",\"definitions\":[{}]}"));

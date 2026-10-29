@@ -140,13 +140,13 @@ public sealed partial class ClassActionTests
     }
 
     [Fact]
-    public void UnportedEnemyBehaviorFailsBeforeMutatingTheWorld()
+    public void InvalidEnemyTargetFailsBeforeMutatingTheWorld()
     {
         using var a = new Arena(ClassKind.Adventurer, enemyDue: 0);
-        EnemyProfile(a, "mirror_hexer");
+        EnemyProfile(a, "mirror_hexer"); a.Hero.Position = a.Hero.Position with { Floor = 1 };
         a.Act(TacticalAction.Wait); Assert.Same(a.Enemy, a.Combat.AdvanceToDecision());
         string before = JsonSerializer.Serialize(a.Combat.State);
-        Assert.Throws<NotSupportedException>(() => a.Combat.CommitEnemyTurn(a.Hero.Id, (_, _) => null));
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitEnemyTurn(a.Hero.Id, (_, _) => null));
         Assert.Equal(before, JsonSerializer.Serialize(a.Combat.State));
         Assert.Same(a.Enemy, a.Combat.Active);
         Assert.Equal(0, a.Enemy.Tactics!.Enemy!.Attacks);

@@ -9,7 +9,7 @@ public enum EnemyBrainKind { Guard, Spitter, Skitter, Warden, Pursuer, SporeHera
     CinderBellkeeper, HollowRegent, BiomeElite, ExpansionRegular, Squad, IdeaRegular }
 
 public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, int Hp, int Damage, int Defense,
-    int Speed, int Windup, int Recovery, int MoveCost, int Range, int XpReward, int CurrencyDrop,
+    int Speed, int Windup, int Recovery, int MoveCost, int Range, int XpReward, int CurrencyDrop, EnemyTargetPriority TargetPriority,
     int MinRange = 1, bool Invulnerable = false, bool SpecialEncounter = false)
 {
     [JsonIgnore] public bool Regular => !Invulnerable && !SpecialEncounter
@@ -27,7 +27,7 @@ public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, 
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Id) || !Id.StartsWith("core:enemy/", StringComparison.Ordinal)
-            || string.IsNullOrWhiteSpace(Name) || !Enum.IsDefined(Ai) || Hp <= 0 || Damage < 0 || Defense < 0 || Speed <= 0
+            || string.IsNullOrWhiteSpace(Name) || !Enum.IsDefined(Ai) || !Enum.IsDefined(TargetPriority) || Hp <= 0 || Damage < 0 || Defense < 0 || Speed <= 0
             || Windup <= 0 || Recovery <= 0 || MoveCost <= 0 || Range <= 0 || MinRange < 1 || MinRange > Range
             || XpReward < 0 || CurrencyDrop < 0)
             throw new InvalidDataException("Invalid authored enemy definition.");
@@ -53,6 +53,9 @@ public sealed class EnemyMemory
     public int WebCasts { get; set; }
     public long OathPartner { get; set; }
     public bool OathBroken { get; set; }
+    public int MirrorCasts { get; set; }
+    public int EmberDives { get; set; }
+    public int SiltCharges { get; set; }
     public int SentinelStrikes { get; set; }
     public Facing? SentinelFacing { get; set; }
     public bool SentinelFinished { get; set; }
@@ -66,7 +69,7 @@ public sealed class EnemyMemory
         Squad?.Validate();
         EnemySentinel.ValidateMemory(this);
         if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0 || FragmentOf < 0 || RevivalOf < 0 || RevivedBy < 0 || CalledBy < 0
-            || WebCasts is < 0 or > 2 || OathPartner < 0 || (RevivalOf == 0) != (RevivedBy == 0)
+            || MirrorCasts is < 0 or > 2 || EmberDives is < 0 or > 2 || SiltCharges is < 0 or > 2 || WebCasts is < 0 or > 2 || OathPartner < 0 || (RevivalOf == 0) != (RevivedBy == 0)
             || !Enum.IsDefined(ShieldFacing) || !AttackGeometry.Cardinal(ShieldFacing)
             || LastMovement is { } facing && (!Enum.IsDefined(facing) || !AttackGeometry.Cardinal(facing)))
             throw new InvalidDataException("Invalid enemy decision memory.");
@@ -103,6 +106,7 @@ public sealed class EnemyCatalog
             RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true
         };
         options.Converters.Add(new JsonStringEnumConverter<EnemyBrainKind>(JsonNamingPolicy.SnakeCaseLower, allowIntegerValues: false));
+        options.Converters.Add(new JsonStringEnumConverter<EnemyTargetPriority>(JsonNamingPolicy.SnakeCaseLower, allowIntegerValues: false));
         try
         {
             var document = JsonSerializer.Deserialize<Document>(json, options) ?? throw new InvalidDataException("Missing enemy catalog.");

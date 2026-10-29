@@ -34,6 +34,8 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Summons, sentries and traps credit their owner's contribution.
 - Exact contribution scoring and allocation values are delegated tuning; document them and verify comparable progression opportunities for support and damage roles.
 
+Mirror Dividend preserves the original executed behavior: a reflected sentry shot can heal its owning party member, as can a reflected manual attack. The user explicitly chose this over the original manual-only descriptive wording. Preserve the existing unique-action rule and keep sentry damage classified as class-generated.
+
 ### Shared time, control and movement
 
 - Fully turn-based, FFX-style ordering using Roag speed/action recovery. No elapsed world time while thinking, inspecting or rendering.
@@ -55,6 +57,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Separate live vision: the player sees through the currently controlled member. Another member's surroundings become visible when control switches to them.
 - Explored terrain is retained on a shared party map. Live enemies/activity require the controlled member's sight.
 - Species and motives drive enemy targeting. Scavenger/vulture-like creatures may prioritize downed or weakened characters; do not impose a universal preference for standing targets.
+- The user explicitly delegated original Roag enemies' new party-targeting assignments: choose fitting species/role priorities, document the assignments, and expose every tendency in inspection. Examples approved in that delegation are guards favoring nearby threats, scavengers favoring downed/weakened members, and ranged enemies favoring clear shots.
 - Species targeting tendencies are visible in inspection from the start, rather than requiring discovery.
 - Special enemy abilities (including summoning, reviving allies and phasing through walls) may operate offscreen under the same physical conditions and use limits. Original player-visibility/active-floor prerequisites must become world-validity checks; choosing the viewed party member must not enable or disable these abilities. Private vision still controls what the player can inspect or see telegraphed.
 - Ordinary enemies can pursue through connected rooms, floors and outdoors where physically possible, according to species and motives. The special-dungeon pursuer restriction is a separate exception.

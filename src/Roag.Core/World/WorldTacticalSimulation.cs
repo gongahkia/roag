@@ -25,4 +25,7 @@ public sealed partial class WorldSession
 
     private bool UsesTacticalTurns(long actorId) => State.Tactics?.Participants.Contains(actorId) == true;
     internal void MoveTacticalActor(Actor actor, WorldPosition destination) => CommitClimateMove(actor, destination);
+
+    public EnemyInspection? InspectTacticalEnemy(long enemyId) => State.Tactics is { ControlledActor: > 0 } tactics
+        ? new TacticalCombat(this, AdvanceTacticalWorld).InspectEnemy(tactics.ControlledActor, enemyId) : null;
 }

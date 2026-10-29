@@ -8,7 +8,7 @@ public enum ClassKind
     Trapper, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder
 }
 
-public enum TacticalAction { Move, BasicAttack, Special, Dash, Wait, Guard, Revive, Equip, Eat, Interact, Cooperate }
+public enum TacticalAction { Move, BasicAttack, Special, Dash, Wait, Guard, Revive, Equip, Eat, Interact, Cooperate, UseStairs }
 public readonly record struct ClassCosts(int Move, int BasicAttack, int Special, int Dash)
 {
     public int For(TacticalAction action) => action switch

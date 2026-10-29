@@ -15,6 +15,7 @@ public sealed class SentryState
     public long Schedule { get; set; }
     public long Due { get; set; }
     public WorldPosition[] Cells { get; set; } = [];
+    public MirrorReflection? Reflection { get; set; }
 }
 
 /// <summary>Only the owning actor holds these resources. No selected-member globals.</summary>
@@ -46,6 +47,7 @@ public sealed class ClassResources
         if (Bulwark is { } block && (block.Action < 1 || block.Schedule < 1 || block.Expires < 0))
             throw new InvalidDataException("Invalid bulwark state.");
         if (Sentry is { } sentry && (!Enum.IsDefined(sentry.Phase) || sentry.Charges is < 0 or > 3
+            || sentry.Phase != SentryPhase.Impact && sentry.Reflection != null
             || sentry.Cells is null || sentry.Action < 1
             || sentry.Phase == SentryPhase.Spent && (sentry.Charges != 0 || sentry.Schedule != 0 || sentry.Due != 0 || sentry.Cells.Length != 0)
             || sentry.Phase != SentryPhase.Spent && (sentry.Schedule < 1 || sentry.Due < 0)

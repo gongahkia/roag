@@ -12,12 +12,15 @@ internal static class EnemyAttackRules
             || support != null && (support.Kind == EnemySupportKind.Gulp ? support.Drop <= 0 : support.Drop != 0)
             || support != null && (support.Kind == EnemySupportKind.Revive ? support.Corpse <= 0 : support.Corpse != 0)
             || support != null && (support.Kind == EnemySupportKind.Web ? support.Web is not { Valid: true } : support.Web != null)
+            || support != null && (support.Kind == EnemySupportKind.Mirror
+                ? support.MirrorIncoming is not { } incoming || !Enum.IsDefined(incoming) || !AttackGeometry.Cardinal(incoming)
+                : support.MirrorIncoming != null)
             || shove != null && (!Enum.IsDefined(shove.Facing) || !AttackGeometry.Cardinal(shove.Facing))
             || support != null && (support.Kind switch
             {
                 EnemySupportKind.Heal => support.Power is < 1 or > 20 || support.Definition != "" || support.MaximumActive != 0 || support.Target < 0,
                 EnemySupportKind.Summon => support.Power != 0 || support.Definition != "core:enemy/ruin_skitter" || support.MaximumActive is < 1 or > 3 || support.Target != 0,
-                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive or EnemySupportKind.Alarm or EnemySupportKind.Web
+                EnemySupportKind.Ward or EnemySupportKind.Snare or EnemySupportKind.Phase or EnemySupportKind.Gulp or EnemySupportKind.Revive or EnemySupportKind.Alarm or EnemySupportKind.Web or EnemySupportKind.Mirror
                     => support.Power != 0 || support.Definition != "" || support.MaximumActive != 0 || support.Target != 0,
                 _ => true
             })
@@ -52,6 +55,9 @@ internal static class EnemyAttackRules
             return definition == "core:enemy/alarm_keeper" && ability == "core:ability/keeper_alarm"
                 && support?.Kind == EnemySupportKind.Alarm && cells?.Count is >= 1 and <= 2
                 && cells.Distinct().Count() == cells.Count && cells.All(p => p.Floor == origin.Floor && p.Distance(origin) == 1);
+        if (support?.Kind == EnemySupportKind.Mirror || ability == EnemyMirrors.Cast)
+            return definition == EnemyMirrors.Definition && ability == EnemyMirrors.Cast
+                && support?.Kind == EnemySupportKind.Mirror && EnemyMirrors.PlacementGeometry(origin, cells, support.MirrorIncoming);
         if (support?.Kind == EnemySupportKind.Web || ability == "core:ability/weaver_web")
             return definition == "core:enemy/web_weaver" && ability == "core:ability/weaver_web"
                 && support is { Kind: EnemySupportKind.Web, Web: { Valid: true } span }
@@ -72,6 +78,8 @@ public sealed partial class TacticalCombat
             ResolveRevival(owner, support.Corpse, attack.Cells[0], attack.Id);
         else if (support.Kind == EnemySupportKind.Alarm)
             ResolveAlarm(owner, attack);
+        else if (support.Kind == EnemySupportKind.Mirror)
+            ResolveMirror(owner, attack);
         else if (support.Kind == EnemySupportKind.Web)
             ResolveWeb(owner, attack);
         else if (support.Kind == EnemySupportKind.Heal)
@@ -145,6 +153,7 @@ public sealed partial class TacticalCombat
             actor.Position = next; path.Add(next);
         }
         if (path.Count == 0) return;
+        LeaveSilt(attack, from, path);
         Emit("Moved", actor.Id, actor.Id, attack.Id, actor.Position, from: from,
             snapshot: CaptureBoonEvent(BoonTrigger.Moved, actor.Id, actor.Id, attack.Id, actor.Position, from: from)
                 with { Path = path.ToImmutableArray() });
