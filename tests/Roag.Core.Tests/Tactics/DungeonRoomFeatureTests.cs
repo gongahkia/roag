@@ -154,4 +154,22 @@ public sealed partial class DungeonTerrainTests
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
+
+    [Fact]
+    public void ForcedWardPickupRetainsFocusAndGrantsThreeActionsWithoutAnExtraOwningCommand()
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat; var origin = hero.Position;
+        hero.Tactics!.Supplies.FocusActions = 3;
+        var ward = combat.SpawnRoomFeature(DungeonRoomFeatureKind.Ward, "test:forced-ward", origin.Offset(1, 0));
+        var rammer = ReplaceRegular(world, "core:enemy/heavy_rammer"); rammer.Position = origin.Offset(-1, 0);
+        combat.State.Queue.CancelActor(rammer.Id, ScheduledKind.ActorReady); combat.State.Queue.Schedule(ScheduledKind.ActorReady, 100000, rammer.Id);
+        combat.ResolveAttack(new(combat.State.NextAction++, rammer.Id, rammer.Position, [origin], "core:ability/rammer_shove",
+            AttackDelivery.Melee, DamageElement.Physical, 2, combat.Clock, Shove: new(origin, Facing.East)));
+        Assert.Equal(ward.Position, hero.Position); Assert.Equal(3, hero.Tactics.Supplies.FocusActions); Assert.Equal(3, hero.Tactics.Supplies.WardActions);
+        Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
+        Assert.Equal(2, hero.Tactics.Supplies.WardActions); Assert.Equal(2, hero.Tactics.Supplies.FocusActions);
+        Assert.Equal(0, hero.Tactics.Supplies.WardRefreshAction); TacticalValidation.Validate(world.Plan, world.State);
+        hero.Tactics.Supplies.WardRefreshAction = combat.State.NextAction;
+        Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+    }
 }
