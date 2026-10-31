@@ -44,13 +44,29 @@ internal static class WorldInspection
             var (name, detail) = glyph switch
             {
                 'b' => ("Bramble bed", "One physical contact hit per actor/action, base 1 damage. Waiting here is safe; armor and wards apply."),
-                'g' => ("Sticky bog", "Crossing adds 40 walking recovery or 20 Dash recovery per tile, before speed scaling."),
+                'g' => ("Sticky bog", "Crossing adds 0.4 seconds of walking recovery or 0.2 seconds of Dash recovery per tile, before speed scaling."),
                 'i' => ("Glazed ice", "Entering ice within the first two Dash tiles extends legal traversal to at least three tiles."),
                 'm' => ("Obscuring mist", "Blocks sight beyond the mist. Movement and projectiles pass through."),
                 _ => ("Resonant crystal", "Nearby lightning damage arcs 1 damage to the nearest other living actor opposing its source. Arcs do not chain.")
             };
             return new(name, detail, "Move with WASD or arrow keys", "", "terrain");
         }
+        if (session.State.Tactics?.OptionalTerrain.Nodes.FirstOrDefault(n => n.Position == cell) is { } node)
+        {
+            string title = node.Kind switch { OptionalTerrainKind.HeatVent => "Heat vent", OptionalTerrainKind.PushFloor => "Push floor", _ => "Fragile shortcut" };
+            if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this fixture to inspect its current phase.", "Move with the keyboard", "", "terrain");
+            string detail = node.Kind switch
+            {
+                OptionalTerrainKind.HeatVent => (node.Phase == OptionalTerrainPhase.Warning ? $"Bursts in {Math.Max(0, node.Due - session.State.Tactics!.Queue.Clock) / 100.0:0.00} seconds. " : "Cooling. ")
+                    + "Base 2 fire damage; one-second warning and three-second cooldown. Continues while you explore elsewhere.",
+                OptionalTerrainKind.PushFloor => $"Pushes one legal tile {node.Facing}. Walls, bodies and stairs block it. Up to four pushes per actor/action; displacement interrupts windups.",
+                _ => $"{node.Phase}. One-use shortcut. Crossing arms it; it closes after bodies, loot and placed objects leave. An alternate route remains. No collapse damage."
+            };
+            return new(title, detail, "Inspect freely; step onto it with the keyboard", "", "terrain");
+        }
+        if (session.ObjectAt(cell) is { Kind: "boon-chest" } chest)
+            return new(chest.Name, "Choose one of three class-eligible boons. Opening the offers is free; claiming spends gold and recovery.",
+                "Click while adjacent, or press Enter beside the chest", session.State.Position.Distance(cell) <= 1 && session.Visible.Contains(cell) ? "" : "Stand beside a visible chest", "object");
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
         if (discovery != null && session.Situation(discovery) != null) return WithAccess(discovery.Name, session.SituationDescription(discovery), "Right-click for approaches; click to investigate", "discovery");
         if (discovery != null) return WithAccess(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."

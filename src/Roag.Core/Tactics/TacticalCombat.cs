@@ -110,6 +110,12 @@ public sealed partial class TacticalCombat
                 if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
+            if (work.Kind == ScheduledKind.TerrainCycle)
+            {
+                ResolveTerrainCycle(work);
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
             if (work.Kind == ScheduledKind.Effect)
             {
                 if (!ResolveBoonWork(work))
@@ -158,6 +164,7 @@ public sealed partial class TacticalCombat
                 State.ControlledActor = actor.Id;
                 _world.State.Position = actor.Position;
                 _world.Reveal();
+                if (Clock > 0) StartOptionalTerrain(0);
             }
             ObserveEnemyAwareness();
             return actor;
@@ -353,14 +360,15 @@ public sealed partial class TacticalCombat
     }
 
     public IReadOnlyList<LockedAttack> VisibleAttacks(IReadOnlySet<WorldPosition> vision)
-        => State.Attacks.Concat(SentryAttacks()).Concat(EmberWarnings()).Where(a => vision.Contains(a.ClassGenerated || a.Ability == EnemyEmbers.Pulse ? a.Origin : Actor(a.Source).Position))
+        => State.Attacks.Concat(SentryAttacks()).Concat(EmberWarnings()).Concat(TerrainWarnings()).Where(a => vision.Contains(a.Source == 0 || a.ClassGenerated || a.Ability == EnemyEmbers.Pulse ? a.Origin : Actor(a.Source).Position))
             .Select(a => a with { Cells = a.Cells.Where(vision.Contains).ToArray() }).Where(a => a.Cells.Length > 0).ToArray();
 
     public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
         var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.EmberPulse
-            ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : Visible(e.ActorId))
+            ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : e.Kind == ScheduledKind.TerrainCycle
+                ? State.OptionalTerrain.Nodes.Any(n => n.Schedule == e.Sequence && n.Phase == OptionalTerrainPhase.Warning && _world.Visible.Contains(n.Position)) : Visible(e.ActorId))
             .Select(e => new TacticalTimelineEntry(e.Kind, e.ActorId, e.Due, e.ReferenceId, false, e.Sequence));
         var projected = State.Attacks.Where(a => a.RecoveryCost != null && Visible(a.Source))
             .Select(a => new TacticalTimelineEntry(ScheduledKind.ActorReady, a.Source,

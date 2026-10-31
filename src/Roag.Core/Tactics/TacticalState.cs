@@ -134,6 +134,7 @@ public sealed class TacticalWorldState
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();
+    public OptionalTerrainState OptionalTerrain { get; set; } = new();
 }
 
 /// <summary>Delegated numerical tuning; one ordinary 100-cost action represents one second.</summary>

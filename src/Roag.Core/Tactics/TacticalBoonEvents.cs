@@ -142,7 +142,8 @@ public sealed partial class TacticalCombat
                     WithBoonCause(BoonCause.From(work.Activation, work.Effect.ProcCoefficient ?? 1), () => ExecuteBoonEffect(work.Activation, work.Effect));
             }
         }
-        finally { _drainingBoons = false; _terrainContacts.Clear(); }
+        finally { _drainingBoons = false; _terrainContacts.Clear(); _pushFloorCounts.Clear(); }
+        SettleFragileTerrain();
         SettleDungeonVictory();
         PruneWebs();
         PruneSilt();

@@ -27,6 +27,8 @@ public static class TacticalValidation
         world.Dungeon?.Validate(plan, world, actors);
         if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
         state.Chests.Validate(plan, actors);
+        if (state.OptionalTerrain == null) throw new InvalidDataException("Missing optional terrain state.");
+        state.OptionalTerrain.Validate(plan, world, content);
         if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))
             throw new InvalidDataException("Chest recipient is not a campaign member.");
         foreach (var actor in world.Actors)
@@ -225,7 +227,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
-            if (work.Kind == ScheduledKind.Survival) continue;
+            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)

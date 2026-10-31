@@ -15,7 +15,7 @@ public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Sh
 
 /// <summary>Construction result, consumed into actual world chunks; never another live terrain authority.</summary>
 public sealed record DungeonLayout(string Biome, int Width, int Height, string[] Rows,
-    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms);
+    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms, RoomPoint[] OptionalShortcuts);
 
 public static class DungeonLayoutGenerator
 {
@@ -30,6 +30,7 @@ public static class DungeonLayoutGenerator
         var grid = Enumerable.Range(0, rules.Height).Select(_ => Enumerable.Repeat('#', rules.Width).ToArray()).ToArray();
         var rooms = new List<DungeonRoomPlacement>();
         var edges = new List<(int From, int To)>();
+        var shortcuts = new List<RoomPoint>();
         for (int i = 0; i < count; i++)
         {
             string role = i == 0 ? "start" : i == count - 1 ? "elite"
@@ -65,7 +66,7 @@ public static class DungeonLayoutGenerator
         var critical = new List<int>();
         for (int index = rooms.Count - 1; index >= 0; index = previous[index]) critical.Add(index);
         return new(biomeId, rules.Width, rules.Height, grid.Select(row => new string(row)).ToArray(), rooms.ToArray(),
-            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray());
+            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray(), shortcuts.ToArray());
 
         void Connect(DungeonRoomPlacement first, DungeonRoomPlacement second, bool horizontal)
         {
@@ -75,6 +76,19 @@ public static class DungeonLayoutGenerator
             {
                 int middle = (first.X + first.Shape.Width - 1 + second.X) / 2;
                 Segment(start, new(middle, start.Y)); Segment(new(middle, start.Y), new(middle, end.Y)); Segment(new(middle, end.Y), end);
+                // A finite parallel bank adds an optional shortcut beside the
+                // protected corridor. Closing its center cannot remove the spine.
+                int bx = start.X + 2;
+                if (bx + 2 <= middle)
+                    foreach (int by in new[] { start.Y - 1, start.Y + 1 })
+                    {
+                        bool free = by > 0 && by < rules.Height - 1;
+                        for (int x = bx; free && x <= bx + 2; x++)
+                            if (grid[by][x] != '#' || rooms.Any(r => x >= r.X && x < r.X + r.Shape.Width && by >= r.Y && by < r.Y + r.Shape.Height)) free = false;
+                        if (!free) continue;
+                        Segment(new(bx, start.Y), new(bx, by)); Segment(new(bx, by), new(bx + 2, by)); Segment(new(bx + 2, by), new(bx + 2, start.Y));
+                        shortcuts.Add(new(bx + 1, by)); break;
+                    }
             }
             else
             {

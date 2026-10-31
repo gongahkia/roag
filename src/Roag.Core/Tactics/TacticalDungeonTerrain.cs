@@ -13,6 +13,7 @@ public sealed partial class TacticalCombat
 
     private void ResolveTerrainEvent(BoonEvent e)
     {
+        ResolveOptionalTerrainEntry(e);
         if (e.Position is not { } position) return;
         long action = e.RootActionId ?? 0;
         if (e.Kind == BoonTrigger.TileEntered && _world.DungeonTerrainAt(position) == 'b' && e.SourceId is > 0

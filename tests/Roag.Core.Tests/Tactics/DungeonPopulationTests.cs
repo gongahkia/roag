@@ -9,6 +9,35 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class DungeonPopulationTests
 {
     [Fact]
+    public void NaturallyPlacedOptionalTerrainHasFiniteBudgetsAndNeverConsumesTheStartingClassChoice()
+    {
+        var seen = new HashSet<OptionalTerrainKind>();
+        for (int seed = 1; seed <= 8; seed++)
+        {
+            using var world = WorldSession.CreateDungeonRun(seed); var state = world.DungeonCombat.State;
+            Assert.Equal(1, state.NextAction); Assert.True(world.ChooseDungeonClass(ClassKind.Ranger).Success);
+            Assert.All(state.OptionalTerrain.Nodes, node =>
+            {
+                seen.Add(node.Kind); Assert.Equal(0, node.Schedule);
+                var floor = world.State.Dungeon!.Floors.Single(f => f.Contains(node.Position));
+                var room = floor.Rooms.SingleOrDefault(r => r.Contains(node.Position));
+                if (node.Kind == OptionalTerrainKind.FragileCrossing) Assert.Null(room);
+                else { Assert.NotNull(room); Assert.DoesNotContain(room.Role, new[] { "start", "elite" }); }
+                Assert.True(node.Position.Distance(floor.Entry) >= 6); Assert.True(node.Position.Distance(floor.Exit) >= 3);
+                Assert.Null(world.DungeonTerrainAt(node.Position));
+            });
+            foreach (var floor in world.State.Dungeon!.Floors)
+                Assert.All(state.OptionalTerrain.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor).GroupBy(n => n.Kind), group => Assert.Single(group));
+            Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
+            Assert.All(state.OptionalTerrain.Nodes.Where(n => n.Kind == OptionalTerrainKind.HeatVent),
+                node => { Assert.Equal(OptionalTerrainPhase.Warning, node.Phase); Assert.Equal(world.DungeonCombat.Clock + 100, node.Due); });
+            TacticalValidation.Validate(world.Plan, world.State);
+        }
+        Assert.Contains(OptionalTerrainKind.HeatVent, seen); Assert.Contains(OptionalTerrainKind.PushFloor, seen);
+        Assert.Contains(OptionalTerrainKind.FragileCrossing, seen);
+    }
+
+    [Fact]
     public void SeededIdeaSelectionAndBiomeSquadRostersMatchOriginalActualPlans()
     {
         using var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Tactics/Fixtures/original-population.json")));

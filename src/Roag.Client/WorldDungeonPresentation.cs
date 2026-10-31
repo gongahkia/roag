@@ -268,6 +268,20 @@ internal sealed partial class WorldGame
         foreach (var drop in state.Loot.Drops.Where(d => d.CarriedBy == 0))
             Icon(drop.Position, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", Gold);
         var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);
+        foreach (var node in state.OptionalTerrain.Nodes)
+        {
+            if (!_session.Visible.Contains(node.Position)) continue;
+            if (node.Kind == OptionalTerrainKind.HeatVent) Icon(node.Position,
+                node.Phase == OptionalTerrainPhase.Warning ? "hazard-fire" : "brazier", node.Phase == OptionalTerrainPhase.Warning ? hostile : Muted);
+            else if (node.Kind == OptionalTerrainKind.FragileCrossing) Icon(node.Position,
+                node.Phase == OptionalTerrainPhase.Closed ? "water" : "bridge", node.Phase == OptionalTerrainPhase.Armed ? hostile : Gold);
+            else
+            {
+                var tile = TileRect(node.Position);
+                string arrow = node.Facing switch { Facing.North => "^", Facing.East => ">", Facing.South => "v", _ => "<" };
+                Text(arrow, tile.Center.X - 8, tile.Center.Y - 8, Gold, 2);
+            }
+        }
         foreach (var web in state.Webs) foreach (var p in web.Span.Cells()) Icon(p, "web", hostile);
         foreach (var trail in state.Silt) Icon(trail.Position, "water", new(122, 162, 96));
         foreach (var ember in state.Embers) Icon(ember.Position, "hazard-fire", hostile);

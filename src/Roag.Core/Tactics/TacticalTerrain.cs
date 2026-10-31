@@ -41,9 +41,11 @@ public sealed partial class TacticalCombat
     /// Mobile actors do not decide terrain connectivity. Only this owner's old block is
     /// ignored because replacement removes it; another Geomancer's block stays solid.
     /// </summary>
-    private bool BulwarkPreservesRoutes(Actor owner, WorldPosition candidate)
+    private bool BulwarkPreservesRoutes(Actor owner, WorldPosition candidate) => TerrainRemovalPreservesRoutes(candidate, owner.Id);
+
+    private bool TerrainRemovalPreservesRoutes(WorldPosition candidate, long ignoredOwner = 0)
     {
-        bool Open(WorldPosition p) => p != candidate && _world.GroundOpen(p, owner.Id);
+        bool Open(WorldPosition p) => p != candidate && _world.GroundOpen(p, ignoredOwner);
         var starts = Neighbors(candidate).Where(Open).ToArray();
         if (starts.Length <= 1) return true;
         var parents = Enumerable.Range(0, starts.Length).ToArray();
