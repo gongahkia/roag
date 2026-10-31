@@ -3,7 +3,8 @@ using Roag.Core.Tactics;
 
 namespace Roag.Core.Dungeons;
 
-public sealed record DungeonRoomSite(int Index, string Definition, WorldPosition Origin, int Width, int Height, int Turns, bool Mirror)
+public sealed record DungeonRoomSite(int Index, string Definition, WorldPosition Origin, int Width, int Height, int Turns, bool Mirror,
+    string Role = "", bool Critical = false)
 {
     public bool Contains(WorldPosition p) => p.Floor == Origin.Floor && p.X >= Origin.X && p.X < Origin.X + Width
         && p.Y >= Origin.Y && p.Y < Origin.Y + Height;
@@ -77,6 +78,7 @@ public sealed class DungeonRunState
             {
                 if (room == null || room.Index < 0 || !DungeonCatalog.Default.Rooms.TryGetValue(room.Definition, out var definition)
                     || !definition.Rotations.Contains(room.Turns) || room.Mirror && !definition.Mirror
+                    || !definition.Roles.Contains(room.Role)
                     || !floor.Contains(room.Origin) || !floor.Contains(room.Origin.Offset(room.Width - 1, room.Height - 1)))
                     throw new InvalidDataException("Invalid authored dungeon room identity.");
                 var shape = definition.Transform(room.Turns, room.Mirror);

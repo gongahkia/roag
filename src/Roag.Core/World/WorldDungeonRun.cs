@@ -100,26 +100,26 @@ public sealed partial class WorldSession
         }
         var biome = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome);
         var rooms = layout.Rooms.Select(r => new DungeonRoomSite(r.Index, r.Shape.Id, new(origin.X + r.X, origin.Y + r.Y, origin.Floor),
-            r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror)).ToArray();
+            r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror, r.Role, layout.CriticalRooms.Contains(r.Index))).ToArray();
         var floor = new DungeonFloorState(State.Dungeon!.Stage, layout.Biome, origin, layout.Width, layout.Height, rooms, At(layout.Start), At(layout.Elite));
         State.Dungeon!.Floors.Add(floor);
         int serial = 0;
+        var chestSites = layout.Rooms.Where(r => r.Role is not ("start" or "elite") && r.Shape.Markers.GetValueOrDefault("chest") is { Length: > 0 })
+            .Select(r => (Room: r, Position: At(r.At(r.Shape.Markers["chest"][0])))).Where(p => CanEnter(p.Position)).ToArray();
+        int chestCount = origin.Floor % 2 == 1 ? 2 : 3;
+        if (chestSites.Length < chestCount) throw new InvalidDataException("Authored dungeon rooms lack the original chest budget.");
+        for (int i = 0; i < chestCount; i++)
+        {
+            var site = chestSites[i * (chestSites.Length - 1) / (chestCount - 1)];
+            combat.SpawnBoonChest("core:chest/standard", $"floor:{origin.Floor}/room:{site.Room.Index}/chest:0", site.Position);
+        }
         foreach (var room in layout.Rooms)
         {
-            if (room.Shape.Markers.TryGetValue("enemy", out var enemies))
-                foreach (var point in enemies)
-                {
-                    var position = At(room.At(point));
-                    string definition = biome.EnemyIds[(int)(WorldRandom.Hash(Seed, room.Index, serial++, 9402 + origin.Floor) % (uint)biome.EnemyIds.Length)];
-                    if (CanEnter(position)) SpawnDungeonEnemy(combat, definition, position);
-                }
-            if (room.Shape.Markers.TryGetValue("chest", out var chests))
-                foreach (var point in chests)
-                {
-                    var position = At(room.At(point));
-                    if (CanEnter(position)) combat.SpawnBoonChest("core:chest/standard", $"floor:{origin.Floor}/room:{room.Index}/chest:{serial++}", position);
-                }
+            if (room.Role is "start" or "elite" || !room.Shape.Markers.TryGetValue("enemy", out var enemies) || enemies.Length == 0) continue;
+            var position = At(room.At(enemies[room.Index % enemies.Length]));
+            if (CanEnter(position)) SpawnDungeonEnemy(combat, biome.EnemyIds[serial++ % biome.EnemyIds.Length], position);
         }
+        PopulateDungeonEncounters(layout, origin, combat);
         if (boss)
         {
             var actor = SpawnDungeonEnemy(combat, biome.EliteId, floor.Exit);

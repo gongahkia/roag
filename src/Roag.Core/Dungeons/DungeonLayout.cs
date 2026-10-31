@@ -3,7 +3,7 @@ using Roag.Core.World;
 
 namespace Roag.Core.Dungeons;
 
-public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Shape)
+public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Shape, string Role)
 {
     public RoomPoint At(RoomPoint local) => new(X + local.X - 1, Y + local.Y - 1);
     public RoomPoint Socket(string facing)
@@ -15,7 +15,7 @@ public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Sh
 
 /// <summary>Construction result, consumed into actual world chunks; never another live terrain authority.</summary>
 public sealed record DungeonLayout(string Biome, int Width, int Height, string[] Rows,
-    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite);
+    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms);
 
 public static class DungeonLayoutGenerator
 {
@@ -29,6 +29,7 @@ public static class DungeonLayoutGenerator
         const int columns = 4, slotWidth = 32, slotHeight = 26, margin = 6;
         var grid = Enumerable.Range(0, rules.Height).Select(_ => Enumerable.Repeat('#', rules.Width).ToArray()).ToArray();
         var rooms = new List<DungeonRoomPlacement>();
+        var edges = new List<(int From, int To)>();
         for (int i = 0; i < count; i++)
         {
             string role = i == 0 ? "start" : i == count - 1 ? "elite"
@@ -38,7 +39,7 @@ public static class DungeonLayoutGenerator
             var shape = room.Transform(room.Rotations[random.NextOneBased(room.Rotations.Length) - 1], room.Mirror && random.NextOneBased(2) == 1);
             int x = margin + i % columns * slotWidth + (slotWidth - shape.Width) / 2;
             int y = margin + i / columns * slotHeight + (slotHeight - shape.Height) / 2;
-            var placement = new DungeonRoomPlacement(i, x, y, shape); rooms.Add(placement);
+            var placement = new DungeonRoomPlacement(i, x, y, shape, role); rooms.Add(placement);
             for (int yy = 0; yy < shape.Height; yy++) for (int xx = 0; xx < shape.Width; xx++)
                 grid[y + yy][x + xx] = shape.Rows[yy][xx];
         }
@@ -57,11 +58,18 @@ public static class DungeonLayoutGenerator
                 throw new InvalidDataException("Required room anchor is missing: " + kind);
             return room.At(markers[0]);
         }
+        var previous = new Dictionary<int, int> { [0] = -1 }; var queue = new Queue<int>(); queue.Enqueue(0);
+        while (queue.TryDequeue(out int index))
+            foreach (int next in edges.Where(e => e.From == index || e.To == index).Select(e => e.From == index ? e.To : e.From).Order())
+                if (previous.TryAdd(next, index)) queue.Enqueue(next);
+        var critical = new List<int>();
+        for (int index = rooms.Count - 1; index >= 0; index = previous[index]) critical.Add(index);
         return new(biomeId, rules.Width, rules.Height, grid.Select(row => new string(row)).ToArray(), rooms.ToArray(),
-            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"));
+            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray());
 
         void Connect(DungeonRoomPlacement first, DungeonRoomPlacement second, bool horizontal)
         {
+            edges.Add((first.Index, second.Index));
             var start = first.Socket(horizontal ? "E" : "S"); var end = second.Socket(horizontal ? "W" : "N");
             if (horizontal)
             {

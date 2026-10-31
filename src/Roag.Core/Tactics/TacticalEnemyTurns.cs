@@ -8,12 +8,7 @@ public sealed partial class TacticalCombat
         bool guaranteedHealthDrop = false, bool rewardExempt = false, EnemyPursuitBoundary? pursuitBoundary = null)
     {
         if (Friendly(actor)) throw new ArgumentException("A party member cannot use an enemy controller.", nameof(actor));
-        var definition = EnemyCatalog.Default.Get(definitionId);
-        if (_world.State.Dungeon != null && !rewardExempt)
-            guaranteedHealthDrop |= definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
-                || definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer)
-                    && RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
-        var tactics = definition.CreateTactics(guaranteedHealthDrop, rewardExempt);
+        var tactics = CreateEnemyTactics(actor, definitionId, guaranteedHealthDrop, rewardExempt);
         if (pursuitBoundary != null)
         {
             pursuitBoundary.Validate(_world.Plan);
@@ -23,6 +18,29 @@ public sealed partial class TacticalCombat
         }
         Register(actor, tactics, readyAt);
         if (_world.State.Dungeon != null) actor.SpriteId = NativeAppearance.ForEnemy(definitionId);
+    }
+
+    private ActorTactics CreateEnemyTactics(Actor actor, string id, bool health, bool exempt)
+    {
+        var definition = EnemyCatalog.Default.Get(id);
+        if (_world.State.Dungeon != null && !exempt)
+            health |= definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
+                || definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer)
+                    && RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
+        return definition.CreateTactics(health, exempt);
+    }
+
+    internal void ReplaceUnactedEnemy(Actor actor, string definition)
+    {
+        if (_world.State.Dungeon == null || actor is not { Life: LifeState.Alive, Tactics.Enemy: not null }
+            || actor.Health != actor.MaxHealth || actor.Tactics.Enemy.Attacks != 0 || actor.Tactics.Enemy.Squad != null
+            || actor.Tactics.Enemy.Awareness != null || actor.Tactics.RewardsClaimed
+            || State.Queue.Snapshot().Pending.Count(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == actor.Id) != 1
+            || State.Attacks.Any(a => a.Source == actor.Id) || State.Rewards.Enemies.ContainsKey(actor.Id))
+            throw new InvalidOperationException("Only an untouched newly constructed dungeon encounter can be replaced.");
+        actor.Tactics = CreateEnemyTactics(actor, definition, false, false);
+        actor.Health = actor.MaxHealth; actor.Name = EnemyCatalog.Default.Get(definition).Name;
+        actor.SpriteId = NativeAppearance.ForEnemy(definition);
     }
 
     /// <summary>
