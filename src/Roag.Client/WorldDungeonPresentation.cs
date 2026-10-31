@@ -147,6 +147,16 @@ internal sealed partial class WorldGame
             FillClipped(new(r.X, r.Y, r.Width, 2), color); FillClipped(new(r.X, r.Bottom - 2, r.Width, 2), color);
             FillClipped(new(r.X, r.Y, 2, r.Height), color); FillClipped(new(r.Right - 2, r.Y, 2, r.Height), color);
         }
+        foreach (var actor in _session.State.Actors.Where(a => a.Life != LifeState.Dead && a.Tactics != null && _session.Visible.Contains(a.Position)))
+        {
+            if (actor.Tactics is { DefinitionId: "core:enemy/haunted_cache", Enemy.Alerted: false } && actor.Health == actor.MaxHealth) continue;
+            var tile = TileRect(actor.Position); var bar = new Rectangle(tile.X + 4, tile.Bottom - 5, tile.Width - 8, 3);
+            FillClipped(bar, new Color(16, 22, 27));
+            FillClipped(bar with { Width = Math.Max(0, bar.Width * actor.Health / actor.MaxHealth) }, actor.Recruited ? Gold : new Color(240, 112, 78));
+            if (actor.Tactics!.Guarding)
+                foreach (var cell in AttackGeometry.Arc(actor.Position, actor.Tactics.Facing))
+                    if (_session.Visible.Contains(cell)) FillClipped(TileRect(cell), Gold * .08f);
+        }
         int x = _side.X + 14, y = _side.Y + 14;
         Text(ClassCatalog.Get(build.Class).Name.ToUpperInvariant(), x, y, Gold); y += 26;
         Text($"HP {hero.Health}/{hero.MaxHealth} / level {build.Level}", x, y); y += 24;
@@ -185,13 +195,23 @@ internal sealed partial class WorldGame
         var mouse = Mouse.GetState(); if (!_map.Contains(mouse.Position)) return;
         var point = _camera.ScreenToWorld(new(mouse.X, mouse.Y));
         int dx = Math.Sign((int)Math.Floor(point.X) - hero.Position.X), dy = Math.Sign((int)Math.Floor(point.Y) - hero.Position.Y);
-        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Vow: _roagVow));
+        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Vow: _roagVow && _roagAim is "basic_attack" or "sweeping_slash"));
         var previewCells = _roagAim == "guard" && AttackGeometry.TryFacing(dx, dy, out var guardFacing)
             ? AttackGeometry.Arc(hero.Position, guardFacing) : preview.Cells;
         foreach (var cell in previewCells)
             if (_session.Visible.Contains(cell)) FillClipped(TileRect(cell), new Color(113, 187, 195) * .25f);
+        foreach (var condition in preview.BoonCells)
+        {
+            if (!_session.Visible.Contains(condition.Position)) continue;
+            var tile = TileRect(condition.Position); var tint = new Color(197, 153, 225);
+            FillClipped(new(tile.X + 3, tile.Y + 3, 5, 2), tint);
+            FillClipped(new(tile.Right - 8, tile.Bottom - 5, 5, 2), tint);
+        }
         Text(preview.Valid ? $"Recovery {preview.Recovery / 100.0:0.00}s" + (preview.Damage is { } damage ? $" / base damage {damage}" : "") : Short(preview.Reason, Math.Max(30, _map.Width / 8)),
             _map.X + 4, _map.Bottom - 24, preview.Valid ? Gold : new Color(240, 112, 78));
+        if (preview.BoonCells.Count > 0)
+            Text("Purple corners: conditional boon tiles / " + string.Join(", ", preview.BoonCells.Select(c => c.Condition).Distinct()),
+                _map.X + 4, _map.Bottom - 46, new Color(197, 153, 225));
     }
 
     private void DrawDungeonPanel(int w, int h)

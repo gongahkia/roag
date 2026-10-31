@@ -1,0 +1,787 @@
+{
+  "schema_version": 1,
+  "source": "Vagabonds universal atlas; original IDs and crops unchanged",
+  "casting_note": "Gameplay casting; publisher species/profession identity remains the evidence in catalog.json.gz.",
+  "actors": [
+    {
+      "content_id": "core:actor/adventurer",
+      "binding": "roag-class-adventurer",
+      "sprite": "urizen-onebit-r00-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        1,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/ranger",
+      "binding": "roag-class-ranger",
+      "sprite": "urizen-onebit-r01-c119",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1548,
+        14,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/arcanist",
+      "binding": "roag-class-arcanist",
+      "sprite": "urizen-onebit-r00-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        1,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/berserker",
+      "binding": "roag-class-berserker",
+      "sprite": "urizen-onebit-r03-c180",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2341,
+        40,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/sentinel",
+      "binding": "roag-class-sentinel",
+      "sprite": "urizen-onebit-r00-c113",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1470,
+        1,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/alchemist",
+      "binding": "roag-class-alchemist",
+      "sprite": "urizen-onebit-r09-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        118,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/shade",
+      "binding": "roag-class-shade",
+      "sprite": "urizen-onebit-r13-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        170,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/hookrunner",
+      "binding": "roag-class-hookrunner",
+      "sprite": "urizen-onebit-r02-c196",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2549,
+        27,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/trapper",
+      "binding": "roag-class-trapper",
+      "sprite": "urizen-onebit-r15-c119",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1548,
+        196,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/duelist",
+      "binding": "roag-class-duelist",
+      "sprite": "urizen-onebit-r12-c192",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2497,
+        157,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/geomancer",
+      "binding": "roag-class-geomancer",
+      "sprite": "urizen-onebit-r19-c174",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2263,
+        248,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/spiritbinder",
+      "binding": "roag-class-spiritbinder",
+      "sprite": "urizen-onebit-r17-c169",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2198,
+        222,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/tinkerer",
+      "binding": "roag-class-tinkerer",
+      "sprite": "urizen-onebit-r02-c105",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1366,
+        27,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/stormcaller",
+      "binding": "roag-class-stormcaller",
+      "sprite": "urizen-onebit-r07-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        92,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:actor/wayfinder",
+      "binding": "roag-class-wayfinder",
+      "sprite": "urizen-onebit-r21-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        274,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/alarm_keeper",
+      "binding": "roag-enemy-alarm-keeper",
+      "sprite": "urizen-onebit-r23-c175",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2276,
+        300,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/ash_marshal",
+      "binding": "roag-enemy-ash-marshal",
+      "sprite": "urizen-onebit-r16-c192",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2497,
+        209,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/banner_captain",
+      "binding": "roag-enemy-banner-captain",
+      "sprite": "urizen-onebit-r06-c173",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2250,
+        79,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/banner_follower",
+      "binding": "roag-enemy-banner-follower",
+      "sprite": "urizen-onebit-r04-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        53,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/bastion_bulwark",
+      "binding": "roag-enemy-bastion-bulwark",
+      "sprite": "urizen-onebit-r19-c113",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1470,
+        248,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/bodyguard_brute",
+      "binding": "roag-enemy-bodyguard-brute",
+      "sprite": "urizen-onebit-r30-c174",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2263,
+        391,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/bone_fragment",
+      "binding": "roag-enemy-bone-fragment",
+      "sprite": "urizen-onebit-r38-c002",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        27,
+        495,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/bone_splitter",
+      "binding": "roag-enemy-bone-splitter",
+      "sprite": "urizen-onebit-r10-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        131,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/canal_lancer",
+      "binding": "roag-enemy-canal-lancer",
+      "sprite": "urizen-onebit-r11-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        144,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/canal_lockmaster",
+      "binding": "roag-enemy-canal-lockmaster",
+      "sprite": "urizen-onebit-r29-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        378,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/cinder_bellkeeper",
+      "binding": "roag-enemy-cinder-bellkeeper",
+      "sprite": "urizen-onebit-r21-c175",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2276,
+        274,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/cinder_mender",
+      "binding": "roag-enemy-cinder-mender",
+      "sprite": "urizen-onebit-r17-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        222,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/crystal_bombardier",
+      "binding": "roag-enemy-crystal-bombardier",
+      "sprite": "urizen-onebit-r23-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        300,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/ember_crucible",
+      "binding": "roag-enemy-ember-crucible",
+      "sprite": "urizen-onebit-r25-c174",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2263,
+        326,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/ember_moth",
+      "binding": "roag-enemy-ember-moth",
+      "sprite": "urizen-onebit-r15-c003",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        196,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/extraction_pursuer",
+      "binding": "roag-enemy-extraction-pursuer",
+      "sprite": "urizen-onebit-r35-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        456,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/forge_conjurer",
+      "binding": "roag-enemy-forge-conjurer",
+      "sprite": "urizen-onebit-r16-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        209,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/glass_charger",
+      "binding": "roag-enemy-glass-charger",
+      "sprite": "urizen-onebit-r22-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        287,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/gloom_strider",
+      "binding": "roag-enemy-gloom-strider",
+      "sprite": "urizen-onebit-r07-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        92,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/grave_cantor",
+      "binding": "roag-enemy-grave-cantor",
+      "sprite": "urizen-onebit-r10-c169",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2198,
+        131,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/gulp_toad",
+      "binding": "roag-enemy-gulp-toad",
+      "sprite": "urizen-onebit-r31-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        404,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/haunted_cache",
+      "binding": "roag-enemy-haunted-cache",
+      "sprite": "urizen-onebit-r19-c026",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        339,
+        248,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/heavy_rammer",
+      "binding": "roag-enemy-heavy-rammer",
+      "sprite": "urizen-onebit-r30-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        391,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/hollow_regent",
+      "binding": "roag-enemy-hollow-regent",
+      "sprite": "urizen-onebit-r28-c169",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2198,
+        365,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/hollow_wraith",
+      "binding": "roag-enemy-hollow-wraith",
+      "sprite": "urizen-onebit-r26-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        339,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/index_keeper",
+      "binding": "roag-enemy-index-keeper",
+      "sprite": "urizen-onebit-r27-c177",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2302,
+        352,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mend_acolyte",
+      "binding": "roag-enemy-mend-acolyte",
+      "sprite": "urizen-onebit-r21-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        274,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mire_binder",
+      "binding": "roag-enemy-mire-binder",
+      "sprite": "urizen-onebit-r33-c177",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2302,
+        430,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mirror_hexer",
+      "binding": "roag-enemy-mirror-hexer",
+      "sprite": "urizen-onebit-r17-c177",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2302,
+        222,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mossbound_guard",
+      "binding": "roag-enemy-mossbound-guard",
+      "sprite": "urizen-onebit-r06-c113",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1470,
+        79,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mossbreaker",
+      "binding": "roag-enemy-mossbreaker",
+      "sprite": "urizen-onebit-r29-c174",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2263,
+        378,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/mycelial_matriarch",
+      "binding": "roag-enemy-mycelial-matriarch",
+      "sprite": "urizen-onebit-r18-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        235,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/oath_twin_a",
+      "binding": "roag-enemy-oath-twin-a",
+      "sprite": "urizen-onebit-r20-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        261,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/oath_twin_b",
+      "binding": "roag-enemy-oath-twin-b",
+      "sprite": "urizen-onebit-r20-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        261,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/pack_chorister",
+      "binding": "roag-enemy-pack-chorister",
+      "sprite": "urizen-onebit-r08-c175",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2276,
+        105,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/pin_archer",
+      "binding": "roag-enemy-pin-archer",
+      "sprite": "urizen-onebit-r04-c119",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1548,
+        53,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/prism_curator",
+      "binding": "roag-enemy-prism-curator",
+      "sprite": "urizen-onebit-r24-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        313,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/rotating_sentinel",
+      "binding": "roag-enemy-rotating-sentinel",
+      "sprite": "urizen-onebit-r19-c192",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2497,
+        248,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/ruin_skitter",
+      "binding": "roag-enemy-ruin-skitter",
+      "sprite": "urizen-onebit-r15-c002",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        27,
+        196,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/rushwing",
+      "binding": "roag-enemy-rushwing",
+      "sprite": "urizen-onebit-r14-c008",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        105,
+        183,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/shield_bearer",
+      "binding": "roag-enemy-shield-bearer",
+      "sprite": "urizen-onebit-r05-c113",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1470,
+        66,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/siege_wisp",
+      "binding": "roag-enemy-siege-wisp",
+      "sprite": "urizen-onebit-r26-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        339,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/silt_worm",
+      "binding": "roag-enemy-silt-worm",
+      "sprite": "urizen-onebit-r34-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        443,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/snare_scribe",
+      "binding": "roag-enemy-snare-scribe",
+      "sprite": "urizen-onebit-r27-c112",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1457,
+        352,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/spore_herald",
+      "binding": "roag-enemy-spore-herald",
+      "sprite": "urizen-onebit-r18-c108",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1405,
+        235,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/thorn_warden",
+      "binding": "roag-enemy-thorn-warden",
+      "sprite": "urizen-onebit-r25-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        326,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/thornspitter",
+      "binding": "roag-enemy-thornspitter",
+      "sprite": "urizen-onebit-r32-c104",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        417,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/vault_lurker",
+      "binding": "roag-enemy-vault-lurker",
+      "sprite": "urizen-onebit-r14-c107",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1392,
+        183,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/ward_weaver",
+      "binding": "roag-enemy-ward-weaver",
+      "sprite": "urizen-onebit-r17-c187",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        222,
+        12,
+        12
+      ]
+    },
+    {
+      "content_id": "core:enemy/web_weaver",
+      "binding": "roag-enemy-web-weaver",
+      "sprite": "urizen-onebit-r11-c169",
+      "source": "urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2198,
+        144,
+        12,
+        12
+      ]
+    }
+  ]
+}

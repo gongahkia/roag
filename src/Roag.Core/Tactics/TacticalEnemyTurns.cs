@@ -22,6 +22,7 @@ public sealed partial class TacticalCombat
             tactics.Enemy!.PursuitBoundary = pursuitBoundary;
         }
         Register(actor, tactics, readyAt);
+        if (_world.State.Dungeon != null) actor.SpriteId = NativeAppearance.ForEnemy(definitionId);
     }
 
     /// <summary>

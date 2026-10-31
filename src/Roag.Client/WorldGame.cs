@@ -413,7 +413,10 @@ internal sealed partial class WorldGame : Game
             var motion = _actorMotions[actor.Id];
             if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
             var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)); if (!_map.Intersects(rect)) continue;
-            _sprites.Draw(_batch, actor.Sprite, rect, _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+            bool cache = _session.State.Dungeon != null && actor.Tactics?.DefinitionId == "core:enemy/haunted_cache";
+            bool concealedCache = cache && actor.Tactics!.Enemy is { Alerted: false } && actor.Health == actor.MaxHealth;
+            _sprites.Draw(_batch, cache && !concealedCache ? "chest-open" : actor.Sprite, rect,
+                concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {

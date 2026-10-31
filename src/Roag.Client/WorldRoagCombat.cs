@@ -32,6 +32,7 @@ internal sealed partial class WorldGame
     }
     private void CommitRoag(RoagAim aim)
     {
+        if (_session.State.Dungeon != null && aim.Kind is not ("basic_attack" or "sweeping_slash")) aim = aim with { Vow = false };
         var result=_session.SubmitRoag(aim);_notice=result.Message;
         if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;if(_session.State.Dungeon != null)CollectDungeonFeedback();}
     }
@@ -71,10 +72,16 @@ internal sealed partial class WorldGame
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";
                 if(Press(Keys.G))_roagAim="guard";
                 if(Press(Keys.Enter) && _session.State.Dungeon != null)
-                { DungeonInteract(); if (_panel.Length > 0) { _roagKeyboard = keyboard; return; } }
+                { DungeonInteract(); _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F5) && _session.State.Dungeon != null) TrySave();
-                if(Press(Keys.P))_roagVow=!_roagVow;if(Press(Keys.Escape))_roagAim="move";
-                if(Press(Keys.Space)||Press(Keys.OemPeriod))CommitRoag(new("wait"));
+                if(Press(Keys.P))
+                {
+                    if (_session.State.Dungeon != null && _session.DungeonCombat.Active?.Tactics?.Boons.Vow() == null)
+                        _notice = "Acquire Pilgrim's Vow before enabling its HP payment.";
+                    else _roagVow=!_roagVow;
+                }
+                if(Press(Keys.Escape))_roagAim="move";
+                if(Press(Keys.Space)||Press(Keys.OemPeriod)) { CommitRoag(new("wait")); _roagKeyboard = keyboard; return; }
                 int dx=Press(Keys.D)||Press(Keys.Right)?1:Press(Keys.A)||Press(Keys.Left)?-1:0;
                 int dy=Press(Keys.S)||Press(Keys.Down)?1:Press(Keys.W)||Press(Keys.Up)?-1:0;
                 if(Press(Keys.Q)){dx=-1;dy=-1;}if(Press(Keys.E)){dx=1;dy=-1;}

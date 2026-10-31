@@ -4,6 +4,7 @@
     <None Update="Tactics/Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../docs/migration/original-boon-inventory.json" Link="Tactics/Fixtures/original-boon-catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../docs/migration/original-enemy-inventory.json" Link="Tactics/Fixtures/original-enemy-catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/migration/native-actor-bindings.json" Link="Tactics/Fixtures/native-actor-bindings.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Roag.Core/Roag.Core.csproj" />
     <ProjectReference Include="../../src/Roag.Client/Roag.Client.csproj" />
     <ProjectReference Include="../../src/Roag.Tools/Roag.Tools.csproj" />
