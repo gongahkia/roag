@@ -2,6 +2,27 @@
 
 Consolidated from the migration discussion on 2026-10-26. The subsequent active implementation goal explicitly authorizes resuming gameplay work and supersedes the earlier pause. This document records approved direction and acceptance requirements; implementation evidence belongs in [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md).
 
+## Current delivery scope — 2026-10-31 tranche decision
+
+The user approved delivering items **1–6** from the remaining-work review as the current tranche, then **stopping implementation and reporting a playable game for their hands-on playtest**. Do not start the next tranche automatically. Items **7–20 remain important, approved backlog**, deferred until that playtest and a further instruction to continue. Items **21 (full authoring tools)** and **22 (Windows delivery)** are removed from the todo for now. This sequencing supersedes older instructions to continue autonomously through the complete migration without stopping.
+
+The current release is **solo, bounded dungeon runs** on the handwritten native engine, retaining the original classes, boons and enemies. It does not require the later living-world, party or open-campaign additions. Existing implementations and preservation references for later tranches must be retained; deferral does not authorize deleting those systems.
+
+| Item | Current tranche deliverable |
+| --- | --- |
+| 1 | Production native client cutover: remove the generated adapter/fixed 65×65 combat window from gameplay; actual world tiles and persistent native actor state drive inputs, combat and rendering. |
+| 2 | Complete original combat interactions: terrain/contact hazards, doors/services, utilities/focus and boon/event interactions needed for complete class behavior. |
+| 3 | Playable bounded dungeons with natural placement of original rooms, biomes, enemies, squads, encounters and bosses. |
+| 4 | Complete rewards/build loop: recipient-first boon chest offers (solo recipient for this tranche), utility acquisition, random supplies and one-time reward accounting. |
+| 5 | Playable native presentation: timeline, aiming/previews, inspection, feedback, universal-atlas sprite bindings, input/help/settings/audio/accessibility. Party UI is deferred with party play. |
+| 6 | Continuing-run saves, defeat/fresh-run lifecycle, passing appropriate regression, actual interactive rendered verification and reproducible playable Linux delivery. Retire prototype/Lua production dependencies only after verified replacement; source history remains available. |
+
+Deferred items retain their previously approved mechanics: 7 four-person party; 8 split parties; 9 equipment/cooperation; 10 advanced rescue; 11 survival; 12 camping/sustained activities; 13 digging/building/crafting; 14 society/economy; 15 ecology/calendar; 16 expansive physical world/complexes; 17 special timed dungeons; 18 four additional bosses; 19 open campaign/endgame; 20 permanent profile progression. Basic run saves and original dungeon bosses remain current-tranche work. Full original authoring-tool parity and Windows-specific work are outside the current todo; retain existing generic asset provenance/catalog tooling required for the Linux game.
+
+The user explicitly authorizes **regular atomic Git commits** as work proceeds. This supersedes the earlier instruction not to stage or commit. Review and preserve all existing changes; commit coherent changes with validation evidence, without resetting or discarding work.
+
+Current-tranche completion is not completion of the original eight full-game gates. At handoff, identify the actual playable build, controls, verification evidence and remaining later-tranche work, then stop and wait for the user's playtest.
+
 ## Authority and working agreement
 
 - Product: Roag, built in handwritten, idiomatic C# on the imported Vagabonds/MonoGame foundation.
@@ -11,7 +32,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - The final build must use only Vagabonds' sprites, selecting them through its generic universal mapping atlas/catalog and preserving stored mappings, stable identifiers and provenance. Add Roag's targeting overlays, previews and combat polish; do not reuse original Roag sprites in the final presentation.
 - Clarify uncertainties with the user and stop before dependent engineering. Use concise multiple-choice batches of up to five questions as needed. Recommendations are not decisions until accepted.
 - Numerical tuning is delegated: choose documented, configurable initial values and test/adjust them within agreed mechanics (Guard reduction, XP weights, durations and detection distances). This does not authorize changing gameplay rules or expanding scope.
-- Linux desktop is required. Add Windows if feasible; Linux-first delivery is acceptable if Windows is not feasible, with actual verification limitations reported.
+- Linux desktop is required. Windows delivery is removed from the current todo by the 2026-10-31 tranche decision.
 - Preserve Lua/LÖVE source as reference until native replacements are verified, then retire that runtime/base as requested. Do not equate compilation or generated tests with complete parity.
 
 ## Approved gameplay decisions
@@ -21,7 +42,7 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 - Active party maximum: four members. The player can directly control and customize every member.
 - Start with one character and recruit others in the world. Recruits already have fixed classes before recruitment.
 - Each member has their own Roag build, class, level and boons. Class is fixed and cannot be changed.
-- The player chooses a boon's recipient. Assigned boons stay with that member and cannot be transferred.
+- The player chooses a boon's recipient. Assigned boons stay with that member and cannot be transferred. For boon chests, choose the recipient before generating three offers eligible for that member (confirmed 2026-10-31).
 - Gold, supplies and unequipped items are shared; equipped gear is assigned individually. All party supplies are globally accessible even across separated groups; no physical-carrier restriction for party supplies.
 - Equipment can add stats and effects while preserving the class's Roag attack patterns/core moves.
 - Changing equipped gear during combat is allowed and consumes an action; browsing inventory is free.
@@ -93,7 +114,7 @@ Mirror Dividend preserves the original executed behavior: a reflected sentry sho
 ### Survival, camping and sustained activities
 
 - Retain Vagabonds' hunger, fatigue and injuries; provisions and resting matter during exploration.
-- Ordinary food uses a simplified Minecraft-inspired hunger-only model: it replenishes hunger and enables gradual health regeneration while well fed, replacing its original instant healing. No additional saturation/fullness reserve. Dedicated healing items remain distinct.
+- Ordinary food uses a simplified Minecraft-inspired hunger-only model: it replenishes hunger and enables gradual health regeneration while well fed, replacing its original instant healing. No additional saturation/fullness reserve. Dedicated healing items remain distinct. Overflow Chalice converts excess hunger restoration from food into its capped temporary ward and retains excess-healing wards (confirmed 2026-10-31).
 - Starvation can down and ultimately kill members.
 - Eating consumes food and action time. Automatic eating is configurable, including during combat; each character still has individual hunger/health despite globally shared provisions.
 - Nearby threats can interrupt rest and return control to the player.
