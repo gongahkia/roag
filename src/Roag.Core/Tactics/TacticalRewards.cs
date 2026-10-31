@@ -83,6 +83,7 @@ public sealed partial class TacticalCombat
         if (!eligibleEnemy) return;
         if (ledger != null && tactics.ExperienceReward > 0) AwardKillExperience(e, tactics, ledger, id);
         SpawnKillLoot(e, enemy);
+        ResolveDungeonBossDeath(e);
     }
 
     private void AwardKillExperience(BoonEvent e, ActorTactics tactics, EnemyContributions ledger, long id)

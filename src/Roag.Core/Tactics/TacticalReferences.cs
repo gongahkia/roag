@@ -8,6 +8,7 @@ public static class TacticalReferences
     public static bool RetainsActor(WorldState world, long id)
     {
         if (world.Tactics is not { } state) return false;
+        if (world.Dungeon?.Floors.Any(f => f.Boss == id) == true) return true;
         if (state.ActiveActor == id || state.ControlledActor == id || state.Queue.Snapshot().Pending.Any(w => w.ActorId == id)
             || state.Attacks.Any(a => a.Source == id || a.IntendedTarget == id || a.Support?.Target == id || a.Causality?.Ancestry.Any(k => k.Owner == id) == true)
             || state.Events.Any(e => e.Source == id || e.Target == id || e.Protection?.Source == id)

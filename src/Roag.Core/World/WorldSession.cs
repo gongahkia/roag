@@ -33,11 +33,11 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         Diagnose("world-identity", new { seed = plan.Seed, contentHash = Content.Hash, generationVersion = WorldPlan.GenerationVersion, sampleHash = plan.SampleHash });
         Chunks.Prefetch(state.Position); RefreshVisibility(observe);
     }
-    public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null, bool roagNative = false)
+    public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null, bool roagNative = false, int floorCount = WorldPlan.Floors)
     {
         content ??= ContentCatalog.Default;
         if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
-        var plan = WorldPlan.Generate(seed, roagNative);
+        var plan = WorldPlan.Generate(seed, roagNative, floorCount);
         var s = new WorldState { IncidentRandom = WorldRandom.Stream(seed, 0, salt: 610).State, CombatRandom = WorldRandom.Stream(seed, 0, salt: 600).State, Position = plan.Towns[0].Center,
             Inventory = content.Game.Inventory.ToDictionary(p => content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) };
         for (int f = 0; f < 6; f++)

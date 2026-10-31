@@ -143,6 +143,7 @@ public sealed partial class TacticalCombat
             }
         }
         finally { _drainingBoons = false; _terrainContacts.Clear(); }
+        SettleDungeonVictory();
         PruneWebs();
         PruneSilt();
         PruneEmbers();

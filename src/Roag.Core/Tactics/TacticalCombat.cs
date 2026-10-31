@@ -184,6 +184,8 @@ public sealed partial class TacticalCombat
                 return PreviewEating(actor);
             case TacticalAction.ClaimChest:
                 return PreviewChest(actor, intent);
+            case TacticalAction.DungeonRoute:
+                return PreviewDungeonRoute(actor, intent);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -238,6 +240,9 @@ public sealed partial class TacticalCombat
                     Eat(actor, action); break;
                 case TacticalAction.ClaimChest:
                     ClaimChest(actor, intent, action); break;
+                case TacticalAction.DungeonRoute:
+                    _world.ConnectDungeonRoute(this, intent.Choice);
+                    Emit("RouteOpened", actor.Id, actor.Id, action, actor.Position); break;
                 case TacticalAction.Guard:
                     actor.Tactics.Guarding = true;
                     Emit("GuardRaised", actor.Id, actor.Id, action, actor.Position); break;

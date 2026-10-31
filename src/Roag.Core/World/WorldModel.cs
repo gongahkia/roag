@@ -65,6 +65,7 @@ public sealed class WorldPlan
     public const int ChunksAcross = 64;
     public const int Size = ChunkSize * ChunksAcross;
     public const int Floors = 4;
+    public int FloorCount { get; init; } = Floors;
     [JsonRequired]
     public int Seed { get; init; }
     [JsonRequired]
@@ -83,7 +84,7 @@ public sealed class WorldPlan
     public List<BiomeRegion> BiomeRegions { get; init; } = [];
     [JsonRequired]
     public List<string> History { get; init; } = [];
-    public bool Contains(WorldPosition p) => p.X >= 0 && p.Y >= 0 && p.X < Size && p.Y < Size && p.Floor is >= 0 and < Floors;
+    public bool Contains(WorldPosition p) => p.X >= 0 && p.Y >= 0 && p.X < Size && p.Y < Size && p.Floor >= 0 && p.Floor < FloorCount;
     public Biome BiomeAt(int x, int y)
     {
         double wx = x + (WorldRandom.Noise(Seed, x, y, 512, 21) - .5) * 360;
@@ -97,12 +98,12 @@ public sealed class WorldPlan
         return selected;
     }
     public static WorldPlan Generate(int seed) => Generate(seed, false);
-    public static WorldPlan Generate(int seed, bool roagNative)
+    public static WorldPlan Generate(int seed, bool roagNative, int floorCount = Floors)
     {
         var r = WorldRandom.Stream(seed, 0, salt: 700);
         string[] starts = ["Amber", "Briar", "Cairn", "Dawn", "Ember", "Fern", "Grey", "Hollow"];
         string[] ends = ["ford", "wick", "mere", "haven", "watch", "bridge"];
-        var plan = new WorldPlan { RoagNative = roagNative, Seed = seed, Id = $"world-{unchecked((uint)seed):x8}" };
+        var plan = new WorldPlan { RoagNative = roagNative, FloorCount = floorCount, Seed = seed, Id = $"world-{unchecked((uint)seed):x8}" };
         var biomes = Enum.GetValues<Biome>();
         for (int i = biomes.Length - 1; i > 0; i--) { int j = r.Next(i + 1); (biomes[i], biomes[j]) = (biomes[j], biomes[i]); }
         for (int i = 0; i < 6; i++) plan.BiomeRegions.Add(new(biomes[i], 500 + i % 3 * 1400 + r.Next(250), 800 + i / 3 * 2100 + r.Next(350)));
@@ -150,6 +151,7 @@ public sealed class WorldPlan
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
+        if (FloorCount is not (Floors or 8)) errors.Add("Invalid physical floor count.");
         if (Towns == null || Sites == null || Roads == null || History == null || BiomeRegions == null || Towns.Any(t => t == null) || Sites.Any(t => t == null) || Roads.Any(r => r == null) || BiomeRegions.Any(r => r == null)) return ["Missing world plan data."];
         if (BiomeRegions.Count != 6 || BiomeRegions.Select(b => b.Biome).Distinct().Count() != 6 || BiomeRegions.Any(b => !Enum.IsDefined(b.Biome) || !Contains(new(b.X, b.Y)))) errors.Add("Invalid biome geography.");
         if (Towns.Count != 24 || Sites.Count != 48) errors.Add("World requires 24 towns and 48 sites.");

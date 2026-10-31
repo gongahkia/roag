@@ -13,7 +13,7 @@ public sealed partial class WorldSession
     /// <summary>Create the bounded solo run on persistent world chunks and actors.</summary>
     public static WorldSession CreateDungeonRun(int seed, ClassKind kind = ClassKind.Adventurer)
     {
-        var world = Create(seed);
+        var world = Create(seed, floorCount: 8);
         try
         {
             world.State.Dungeon = new();
@@ -76,7 +76,7 @@ public sealed partial class WorldSession
             "move" => TacticalAction.Move, "basic_attack" => TacticalAction.BasicAttack,
             "sweeping_slash" => TacticalAction.Special, "dash" => TacticalAction.Dash,
             "wait" => TacticalAction.Wait, "guard" => TacticalAction.Guard, "revive" => TacticalAction.Revive,
-            "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest,
+            "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest, "dungeon_route" => TacticalAction.DungeonRoute,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice);
@@ -96,7 +96,7 @@ public sealed partial class WorldSession
         var biome = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome);
         var rooms = layout.Rooms.Select(r => new DungeonRoomSite(r.Index, r.Shape.Id, new(origin.X + r.X, origin.Y + r.Y, origin.Floor),
             r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror)).ToArray();
-        var floor = new DungeonFloorState(1, layout.Biome, origin, layout.Width, layout.Height, rooms, At(layout.Start), At(layout.Elite));
+        var floor = new DungeonFloorState(State.Dungeon!.Stage, layout.Biome, origin, layout.Width, layout.Height, rooms, At(layout.Start), At(layout.Elite));
         State.Dungeon!.Floors.Add(floor);
         int serial = 0;
         foreach (var room in layout.Rooms)

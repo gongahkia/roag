@@ -127,7 +127,7 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
             tiles[i] = NaturalAt(p, biome);
         }
         if (key.Floor == 0) foreach (var town in plan.Towns) Paint(true, town.Id, town.Center);
-        foreach (var site in plan.Sites) Paint(false, site.Id, site.Center);
+        if (key.Floor < WorldPlan.Floors) foreach (var site in plan.Sites) Paint(false, site.Id, site.Center);
         // Public roads override surface terrain and become bridges over rivers.
         if (key.Floor == 0) foreach (var road in plan.Roads)
         {
