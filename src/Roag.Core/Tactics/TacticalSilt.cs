@@ -9,7 +9,7 @@ internal static class EnemySilt
 {
     public const string Definition = "core:enemy/silt_worm", Charge = "core:ability/worm_charge";
     public const int Duration = 300, Cap = 12, WalkExtra = 40, DashExtra = 20;
-    public static bool Plain(Material material) => material is Material.Floor or Material.Earth or Material.Grass or Material.Bridge;
+    public static bool Plain(Material material) => material is Material.Floor or Material.Earth or Material.Grass or Material.Bridge or Material.Door;
 
     public static bool ValidAttack(ActorTactics? tactics, string ability, WorldPosition origin,
         IReadOnlyList<WorldPosition>? cells, AttackDelivery delivery, EnemyAdvance? advance, bool committing)

@@ -139,6 +139,7 @@ public sealed class TacticalWorldState
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();
     public DungeonServiceState Services { get; set; } = new();
+    public TacticalDoorState Doors { get; set; } = new();
     public OptionalTerrainState OptionalTerrain { get; set; } = new();
 }
 

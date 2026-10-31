@@ -57,8 +57,9 @@ public sealed partial class WorldSession
             foreach (var (dx, dy) in Directions)
             {
                 var next = cell.Offset(dx, dy);
-                if (floor.Contains(next) && !blocked.Contains(next) && Materials.Walkable(Chunks.At(next))
-                    && (ObjectAt(next) is not { Solid: true } prop || prop.Kind == "boon-chest") && seen.Add(next)) queue.Enqueue(next);
+                if (floor.Contains(next) && !blocked.Contains(next) && (Materials.Walkable(Chunks.At(next)) || Chunks.At(next) == Material.ClosedDoor)
+                    && (ObjectAt(next)?.Kind == "dungeon-door" || ObjectAt(next) is not { Solid: true } prop || prop.Kind == "boon-chest")
+                    && seen.Add(next)) queue.Enqueue(next);
             }
         }
         return false;

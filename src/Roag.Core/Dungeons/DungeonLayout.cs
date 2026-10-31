@@ -14,8 +14,9 @@ public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Sh
 }
 
 /// <summary>Construction result, consumed into actual world chunks; never another live terrain authority.</summary>
+public sealed record DungeonDoorSite(int Room, RoomPoint Position);
 public sealed record DungeonLayout(string Biome, int Width, int Height, string[] Rows,
-    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms, RoomPoint[] OptionalShortcuts);
+    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms, RoomPoint[] OptionalShortcuts, DungeonDoorSite[] Doors);
 
 public static class DungeonLayoutGenerator
 {
@@ -65,8 +66,19 @@ public static class DungeonLayoutGenerator
                 if (previous.TryAdd(next, index)) queue.Enqueue(next);
         var critical = new List<int>();
         for (int index = rooms.Count - 1; index >= 0; index = previous[index]) critical.Add(index);
+        var optional = rooms.Where(r => r.Index != 0 && !critical.Contains(r.Index)).ToArray();
+        var doorRoom = optional.FirstOrDefault(r => edges.Count(e => e.From == r.Index || e.To == r.Index) == 1) ?? optional.FirstOrDefault();
+        var doors = new List<DungeonDoorSite>();
+        if (doorRoom != null)
+        {
+            var edge = edges.First(e => e.From == doorRoom.Index || e.To == doorRoom.Index);
+            int neighbor = edge.From == doorRoom.Index ? edge.To : edge.From;
+            string facing = neighbor / columns == doorRoom.Index / columns ? neighbor < doorRoom.Index ? "W" : "E"
+                : neighbor < doorRoom.Index ? "N" : "S";
+            doors.Add(new(doorRoom.Index, doorRoom.Socket(facing)));
+        }
         return new(biomeId, rules.Width, rules.Height, grid.Select(row => new string(row)).ToArray(), rooms.ToArray(),
-            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray(), shortcuts.ToArray());
+            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray(), shortcuts.ToArray(), doors.ToArray());
 
         void Connect(DungeonRoomPlacement first, DungeonRoomPlacement second, bool horizontal)
         {

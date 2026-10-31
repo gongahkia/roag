@@ -16,6 +16,9 @@ public sealed class DungeonLayoutTests
             Assert.InRange(layout.Rooms.Length, 8, 12);
             Assert.Contains("start", layout.Rooms[0].Shape.Roles);
             Assert.Contains("elite", layout.Rooms[^1].Shape.Roles);
+            var door = Assert.Single(layout.Doors);
+            Assert.DoesNotContain(door.Room, layout.CriticalRooms);
+            Assert.Contains(door.Position, layout.Rooms[door.Room].Shape.Sockets.Select(s => layout.Rooms[door.Room].At(new(s.X, s.Y))));
             foreach (var room in layout.Rooms)
             {
                 Assert.True(room.X > 0 && room.Y > 0 && room.X + room.Shape.Width < layout.Width && room.Y + room.Shape.Height < layout.Height);

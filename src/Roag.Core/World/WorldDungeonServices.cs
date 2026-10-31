@@ -72,7 +72,7 @@ public sealed partial class WorldSession
                 foreach (var (dx, dy) in EncounterDirections)
                 {
                     var next = point.Cell.Offset(dx, dy);
-                    if (!floor.Contains(next) || !Materials.Walkable(Chunks.At(next)) || !seen.Add(next)) continue;
+                    if (!floor.Contains(next) || !(Materials.Walkable(Chunks.At(next)) || Chunks.At(next) == Material.ClosedDoor) || !seen.Add(next)) continue;
                     AttackGeometry.TryFacing(dx, dy, out var facing); queue.Enqueue((next, point.First ?? facing));
                 }
             }

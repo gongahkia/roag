@@ -190,6 +190,9 @@ internal sealed partial class WorldGame
         var service = _session.State.Tactics!.Services.Nodes.Where(n => n.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(n.Position))
             .OrderBy(n => n.UsedBy != 0 || n.Contract?.Status is DungeonContractStatus.Failed or DungeonContractStatus.Completed).ThenBy(n => n.Id).FirstOrDefault();
         if (service != null) { _nativeService = service.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return; }
+        var door = _session.State.Tactics.Doors.Nodes.FirstOrDefault(d => d.Position.Distance(actor.Position) == 1
+            && _session.Chunks.At(d.Position) == Material.ClosedDoor && _session.Visible.Contains(d.Position));
+        if (door != null) { CommitRoag(new("open_door", Target: door.Id)); return; }
         CommitRoag(new("use_stairs"));
     }
 
@@ -251,7 +254,7 @@ internal sealed partial class WorldGame
         }
         y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised").TakeLast(4))
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened").TakeLast(4))
         {
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }

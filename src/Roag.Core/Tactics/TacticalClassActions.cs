@@ -40,6 +40,8 @@ public sealed partial class TacticalCombat
             var cell = actor.Position.Offset(dx * step, dy * step);
             if (!_world.CanEnter(cell, actor.Id))
             {
+                if (intent.Action == TacticalAction.Move && _world.DungeonDoorAt(cell) is { } door)
+                    return PreviewDoor(actor, door.Id);
                 if (intent.Action == TacticalAction.Move && definition != null && BodyAt(cell) is { Life: LifeState.Alive } target
                     && HostileTo(actor, target))
                     return new(true, "", ActionTiming.Recovery(definition.Costs.BasicAttack, EffectiveSpeed(actor)),
@@ -109,7 +111,7 @@ public sealed partial class TacticalCombat
 
     private bool PlainPlacement(WorldPosition p, long ignoredBulwarkOwner = 0) => _world.Plan.Contains(p)
         && _world.DungeonTerrainAt(p) == null
-        && _world.Chunks.At(p) is Material.Floor or Material.Earth or Material.Grass or Material.Bridge
+        && _world.Chunks.At(p) is Material.Floor or Material.Earth or Material.Grass or Material.Bridge or Material.Door
         && _world.GroundOpen(p, ignoredBulwarkOwner) && BodyAt(p) == null;
 
     private void CommitMovement(Actor actor, TacticalIntent intent, TacticalPreview preview, long action)

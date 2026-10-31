@@ -84,6 +84,7 @@ public sealed partial class WorldSession
             "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest, "dungeon_route" => TacticalAction.DungeonRoute,
             "use_utility" => TacticalAction.UseUtility,
             "interact" => TacticalAction.Interact,
+            "open_door" => TacticalAction.OpenDoor,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice, aim.ReplaceUtility);
@@ -105,6 +106,7 @@ public sealed partial class WorldSession
             r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror, r.Role, layout.CriticalRooms.Contains(r.Index))).ToArray();
         var floor = new DungeonFloorState(State.Dungeon!.Stage, layout.Biome, origin, layout.Width, layout.Height, rooms, At(layout.Start), At(layout.Elite));
         State.Dungeon!.Floors.Add(floor);
+        foreach (var door in layout.Doors) combat.SpawnDoor($"floor:{origin.Floor}/door:room:{door.Room}", At(door.Position));
         int serial = 0;
         var chestSites = layout.Rooms.Where(r => r.Role is not ("start" or "elite") && r.Shape.Markers.GetValueOrDefault("chest") is { Length: > 0 })
             .Select(r => (Room: r, Position: At(r.At(r.Shape.Markers["chest"][0])))).Where(p => CanEnter(p.Position)).ToArray();

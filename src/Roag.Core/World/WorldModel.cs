@@ -18,7 +18,7 @@ public readonly record struct ChunkKey(int X, int Y, int Floor = 0)
 }
 
 public enum Biome { Grassland, Forest, Marsh, Highland, Badland, Snow }
-public enum Material { Grass, Tree, Water, Rock, Earth, Floor, Wall, Door, Bridge, StairsDown, StairsUp, Storage, Camp, Barricade }
+public enum Material { Grass, Tree, Water, Rock, Earth, Floor, Wall, Door, Bridge, StairsDown, StairsUp, Storage, Camp, Barricade, ClosedDoor }
 public enum ActorKind { Person, Beast, Raider, Patrol, Caravan }
 public enum LifeState { Alive, Downed, Dead }
 public enum ArcKind { TradeConflict, SpreadingBlight, ContestedSuccession }

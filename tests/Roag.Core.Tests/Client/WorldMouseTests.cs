@@ -31,6 +31,20 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void KeyboardDoorOpeningPaysOnceWithoutEnteringAndNeedsANewPressToWalkThrough()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session); var hero = session.Party.Single(); var origin = hero.Position;
+        var cell = origin.Offset(1, 0); session.Chunks.Edit(cell, Material.Floor);
+        session.DungeonCombat.SpawnDoor("test:keyboard-door", cell); session.Reveal(); Field("_roagAim").SetValue(client, "move");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(origin, hero.Position); Assert.Equal(100, session.DungeonCombat.Clock); Assert.Equal(Material.Door, session.Chunks.At(cell));
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true); Assert.Equal(100, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(cell, hero.Position); Assert.Equal(200, session.DungeonCombat.Clock);
+    }
+
+    [Fact]
     public void FallingFixturePreviewCanBeCancelledAndOnlyExplicitConfirmationSpendsItsAction()
     {
         using var session = WorldSession.CreateDungeonRun(42); var hero = session.Party.Single(); var client = Client(session);

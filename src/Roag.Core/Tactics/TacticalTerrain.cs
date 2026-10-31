@@ -45,7 +45,8 @@ public sealed partial class TacticalCombat
 
     private bool TerrainRemovalPreservesRoutes(WorldPosition candidate, long ignoredOwner = 0)
     {
-        bool Open(WorldPosition p) => p != candidate && _world.GroundOpen(p, ignoredOwner);
+        bool Open(WorldPosition p) => p != candidate && (_world.GroundOpen(p, ignoredOwner)
+            || _world.Plan.Contains(p) && _world.Chunks.At(p) == Material.ClosedDoor && _world.DungeonDoorAt(p) != null);
         var starts = Neighbors(candidate).Where(Open).ToArray();
         if (starts.Length <= 1) return true;
         var parents = Enumerable.Range(0, starts.Length).ToArray();

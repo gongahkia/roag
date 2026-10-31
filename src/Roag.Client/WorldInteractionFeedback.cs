@@ -47,6 +47,14 @@ internal static class WorldInspection
             string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Party[0]);
             return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
+        if (session.DungeonDoorAt(cell) != null)
+        {
+            bool closed = material == Material.ClosedDoor;
+            return new(closed ? "Closed door" : "Open door", closed
+                ? "Blocks movement, sight and projectiles. Walking towards it opens it for one movement-cost action; you remain in place."
+                : "A permanently opened passage. Movement and projectiles pass through.",
+                closed ? "Walk towards it, or press Enter while adjacent" : "Move with the keyboard", "", "object");
+        }
         if (session.DungeonTerrainAt(cell) is { } glyph)
         {
             var (name, detail) = glyph switch

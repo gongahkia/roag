@@ -19,6 +19,9 @@ public sealed class DungeonPopulationTests
             kinds.UnionWith(state.Services.Nodes.Select(n => n.Kind));
             foreach (var floor in world.State.Dungeon!.Floors)
             {
+                var door = Assert.Single(state.Doors.Nodes, d => d.Position.Floor == floor.Origin.Floor);
+                Assert.Equal(Material.ClosedDoor, world.Chunks.At(door.Position));
+                Assert.False(world.CanEnter(door.Position));
                 var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor && n.Kind <= DungeonServiceKind.ArchiveContract).ToArray();
                 Assert.InRange(services.Length, 1, 2);
                 Assert.Equal(services.Length, services.Select(n => world.RoomAt(n.Position)).Distinct().Count());

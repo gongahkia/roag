@@ -17,6 +17,8 @@ public sealed partial class WorldSession
     private static readonly WorldObject Bulwark = new("Geomancer bulwark", "boulder", "geomancer-bulwark", true);
     private static readonly WorldObject StandardBoonChest = new("Boon Chest", "chest", "boon-chest", true),
         EliteBoonChest = new("Elite Boon Chest", "chest", "boon-chest", true);
+    private static readonly WorldObject ClosedDungeonDoor = new("Closed door", "gate", "dungeon-door", true),
+        OpenDungeonDoor = new("Open door", "gate-open", "dungeon-door", false);
     private static readonly WorldObject[] DungeonServiceObjects = Enum.GetValues<DungeonServiceKind>()
         .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
@@ -47,6 +49,8 @@ public sealed partial class WorldSession
             }
             for (int i = 0; i < tactics.Services.Nodes.Count; i++)
                 if (tactics.Services.Nodes[i].Position == p) return DungeonServiceObjects[(int)tactics.Services.Nodes[i].Kind];
+            for (int i = 0; i < tactics.Doors.Nodes.Count; i++)
+                if (tactics.Doors.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
         }
         if (TryExplicitObject(p, out var placed)) return placed;
         return GeneratedObjectAt(Plan, Chunks, p, terrain);

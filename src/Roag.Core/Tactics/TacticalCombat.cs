@@ -14,6 +14,7 @@ public sealed record TacticalPreview(bool Valid, string Reason, long Recovery, I
     public BoonWeaponForm? WeaponForm { get; init; }
     public MirrorReflection? Reflection { get; init; }
     public WorldPosition? StairLanding { get; init; }
+    public long? Door { get; init; }
     public IReadOnlyList<BoonPreviewCell> BoonCells { get; init; } = [];
 }
 
@@ -204,6 +205,8 @@ public sealed partial class TacticalCombat
                 return PreviewUtility(actor, intent);
             case TacticalAction.Interact:
                 return PreviewService(actor, intent);
+            case TacticalAction.OpenDoor:
+                return PreviewDoor(actor, intent.Target);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -233,7 +236,8 @@ public sealed partial class TacticalCombat
         ObserveEnemyAwareness();
         long action = State.NextAction++;
         actor.Tactics!.Facing = intent.Facing;
-        var executed = preview.Bump ? intent with { Action = TacticalAction.BasicAttack } : intent;
+        var executed = preview.Door is { } door ? intent with { Action = TacticalAction.OpenDoor, Target = door }
+            : preview.Bump ? intent with { Action = TacticalAction.BasicAttack } : intent;
         _lastWasDash = executed.Action == TacticalAction.Dash;
         ResolveAtomically(RootCause(action), () =>
         {
@@ -263,6 +267,8 @@ public sealed partial class TacticalCombat
                     CommitUtility(actor, preview, action); break;
                 case TacticalAction.Interact:
                     CommitService(actor, intent, action); break;
+                case TacticalAction.OpenDoor:
+                    OpenDoor(actor, executed.Target, action); break;
                 case TacticalAction.DungeonRoute:
                     _world.ConnectDungeonRoute(this, intent.Choice);
                     Emit("RouteOpened", actor.Id, actor.Id, action, actor.Position); break;
