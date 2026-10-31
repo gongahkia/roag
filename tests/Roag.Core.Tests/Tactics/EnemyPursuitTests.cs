@@ -7,6 +7,40 @@ namespace Roag.Core.Tests.Tactics;
 
 public sealed partial class ClassActionTests
 {
+    [Theory]
+    [InlineData("cinder_mender", EnemySupportKind.Heal)]
+    [InlineData("mend_acolyte", EnemySupportKind.Heal)]
+    [InlineData("ward_weaver", EnemySupportKind.Ward)]
+    [InlineData("grave_cantor", EnemySupportKind.Revive)]
+    public void WorldSupportActsOnPhysicalAlliesWithoutAnyPartyTargetOnItsFloor(string definition, EnemySupportKind kind)
+    {
+        using var a = new Arena(ClassKind.Adventurer, ClassKind.Adventurer, enemyDue: 0);
+        EnemyProfile(a, definition); a.Enemy.Position = new(103, 100);
+        var ally = RevivalTestEnemy(a, "mossbound_guard", new(102, 100));
+        ally.Health = 1;
+        if (definition == "mend_acolyte")
+        {
+            a.Enemy.Tactics!.Enemy!.Squad = new("support", EnemySquadKind.HealerRushwings, a.Enemy.Id, a.Enemy.Position);
+            ally.Tactics!.Enemy!.Squad = a.Enemy.Tactics.Enemy.Squad;
+            ally.Tactics.DefinitionId = "core:enemy/rushwing";
+        }
+        if (kind == EnemySupportKind.Revive) a.Hit(ally, 1000);
+        a.Hero.Position = new(100, 100, 1); a.Friend.Position = new(110, 110, 1);
+        a.Act(TacticalAction.Wait); a.Next(a.Enemy.Id);
+        var before = JsonSerializer.Serialize(a.World.State);
+        Assert.Equal(kind, a.Combat.PreviewWorldEnemyTurn().Support!.Kind);
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        Assert.Equal(kind, a.Combat.CommitWorldEnemyTurn().Support!.Kind);
+        var attack = Assert.Single(a.Combat.State.Attacks);
+        Assert.Equal(0, attack.IntendedTarget);
+        a.Combat.AdvanceToPartyDecision();
+        for (int i = 0; i < 3; i++) { a.Act(TacticalAction.Wait); a.Combat.AdvanceToPartyDecision(); }
+        if (kind == EnemySupportKind.Heal) Assert.True(ally.Health > 1);
+        else if (kind == EnemySupportKind.Ward) Assert.True(a.Enemy.Tactics!.Enemy!.WardReady);
+        else Assert.Contains(a.World.State.Actors, actor => actor.Tactics?.Enemy?.RevivalOf == ally.Id);
+        Assert.DoesNotContain(a.Combat.State.Events, e => e.Kind == "DamageTaken" && (e.Target == a.Hero.Id || e.Target == a.Friend.Id));
+    }
+
     [Fact]
     public void WorldEnemyPreviewIsFreeAndLocalCommitUsesTheOriginalLockedAttack()
     {

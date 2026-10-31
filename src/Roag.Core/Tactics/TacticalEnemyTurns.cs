@@ -8,7 +8,12 @@ public sealed partial class TacticalCombat
         bool guaranteedHealthDrop = false, bool rewardExempt = false, EnemyPursuitBoundary? pursuitBoundary = null)
     {
         if (Friendly(actor)) throw new ArgumentException("A party member cannot use an enemy controller.", nameof(actor));
-        var tactics = EnemyCatalog.Default.Get(definitionId).CreateTactics(guaranteedHealthDrop, rewardExempt);
+        var definition = EnemyCatalog.Default.Get(definitionId);
+        if (_world.State.Dungeon != null && !rewardExempt)
+            guaranteedHealthDrop |= definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
+                || definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer)
+                    && RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
+        var tactics = definition.CreateTactics(guaranteedHealthDrop, rewardExempt);
         if (pursuitBoundary != null)
         {
             pursuitBoundary.Validate(_world.Plan);
@@ -40,23 +45,27 @@ public sealed partial class TacticalCombat
     private static WorldPosition EnemyAim(Actor target, int floor)
         => target.Tactics?.Resources.Decoy is { } decoy && decoy.Floor == floor ? decoy : target.Position;
 
-    private EnemyIntent PlanEnemyTurn(Actor actor, Actor target,
+    private EnemyIntent PlanEnemyTurn(Actor actor, Actor? target,
         Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
     {
-        var aim = EnemyAim(target, actor.Position.Floor);
-        return EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
+        var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
+        var intent = EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (_ => false),
                 goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
                 _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))
                     .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a),
                         a.Tactics!.DefinitionId, a.Tactics.Enemy?.Squad)).ToArray(),
                 new(actor.Id, actor.Position, actor.Health, actor.MaxHealth, true, actor.Tactics.DefinitionId, actor.Tactics.Enemy!.Squad),
-                State.EnemySnares, p => _world.CanEnter(p, target.Id),
+                State.EnemySnares, p => _world.CanEnter(p, target?.Id ?? actor.Id),
                 p => _world.Plan.Contains(p) && _world.Chunks.At(p) is Material.Rock or Material.Wall,
                 ProtectedForcedLanding, State.Loot.Drops,
                 State.Corpses.Select(c => new RevivalCandidate(c.Actor, Actor(c.Actor).Position, c.ClaimedBy)).ToArray(),
                 _world.GroundOpen, State.Webs,
                 p => _world.Plan.Contains(p) && _world.Chunks.At(p) is not (Material.Rock or Material.Wall), SiltGround, State.Mirrors));
+        // Local ally support has physical recipients even when no party member is
+        // detected. Other recipes still require their actual hostile target.
+        return target != null || intent.Support?.Kind is EnemySupportKind.Heal or EnemySupportKind.Ward or EnemySupportKind.Revive
+            ? intent : new(EnemyIntentKind.Wait);
     }
 
     public EnemyIntent CommitEnemyTurn(long targetId,

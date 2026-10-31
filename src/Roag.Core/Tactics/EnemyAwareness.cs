@@ -77,7 +77,7 @@ public sealed partial class TacticalCombat
             throw new InvalidOperationException("A living native enemy must be ready.");
         var observed = ObservedEnemyTarget(enemy);
         var awareness = observed ?? RememberedEnemyTarget(enemy);
-        if (awareness == null) return new(EnemyIntentKind.Wait);
+        if (awareness == null) return PlanEnemyTurn(enemy, null, (_, _) => null, null);
         WorldNavigationStep? planned = null;
         Facing? Step(WorldPosition _, IReadOnlySet<WorldPosition> goals)
         {

@@ -14,6 +14,10 @@ Use `./tools/dotnet.sh` for the repository SDK. For a fresh full regression, run
 
 ## Current tranche checkpoints
 
+The ordinary launcher now opens/resumes the persistent handwritten dungeon engine, with native commands, chests, class selection, private aiming/telegraphs, timeline and native HUD. It no longer creates a prototype encounter for ordinary dungeon play. The client builds without warnings/errors; **23 focused client/dungeon/chest tests pass** under `artifacts/migration/verification/native-client/client-focused.{trx,log}`. A first actual Xvfb render is recorded in `native-client/native-first.png`. This is an initial rendered checkpoint, not interactive end-to-end acceptance; semantic terrain, full stage progression, placements, services, utilities and presentation remain unfinished. Retained prototype/reference scenes are not retired yet.
+
+World-controller orchestration now permits local healing, warding and revival with physical ally recipients while no party member is detected/on that floor. Other recipes still require an actual detected target. **11 pursuit/support checks pass** under `native-support/focused.{trx,log}`, including targetless offscreen support impact and free previews. Native dungeon enemy registration restores the original independently derived 5% health-supply roll and guaranteed Warden/biome-elite health drops; food drops and the two hunger boons are deferred by explicit user choice. Initial reward verification caught a test using the wrong Warden content ID; the fixture uses the catalog's Thorn Warden.
+
 - `f04c1717`: authoritative solo Linux tranche and stop-for-playtest scope.
 - `5a04dd85`: persistent enemy awareness, physical navigation/stairs and local engagement; imported free-action bypasses disabled for native actors.
 - `3af4e016`: paid provisions, configurable eating, fractional hunger overflow wards and saved survival cadence. This later-tranche foundation is preserved; survival will be inactive in the current solo dungeon release.
