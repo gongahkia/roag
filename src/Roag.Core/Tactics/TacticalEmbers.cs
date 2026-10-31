@@ -41,7 +41,7 @@ internal static class EnemyEmbers
                 || owner.Tactics is not { DefinitionId: Definition, Enemy: { } memory }
                 || ember.Remaining is < 1 or > Ticks || ember.NextDue < queue.Clock || ember.NextDue - queue.Clock > Interval
                 || ember.Expires - ember.NextDue != (ember.Remaining - 1) * Interval
-                || !plan.Contains(ember.Position) || !EnemySilt.Plain(terrain!.At(ember.Position))
+                || !plan.Contains(ember.Position) || !EnemySilt.Plain(terrain!.At(ember.Position)) || WorldSession.SnapshotDungeonTerrainAt(world, terrain, ember.Position) != null
                 || !WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, ember.Position)
                 || counts.GetValueOrDefault(ember.Source) >= memory.EmberDives
                 || queue.Pending.Count(w => Matches(w, ember)) != 1)

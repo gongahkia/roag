@@ -39,7 +39,8 @@ internal static class EnemySilt
             var owner = actors.GetValueOrDefault(trail.Source);
             if (trail.Action <= 0 || trail.Action >= state.NextAction || trail.Source <= 0 || trail.Source >= world.NextActorId
                 || trail.Expires <= clock || trail.Expires - clock > Duration || !plan.Contains(trail.Position)
-                || !Plain(terrain.At(trail.Position)) || !WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, trail.Position)
+                || !Plain(terrain.At(trail.Position)) || WorldSession.SnapshotDungeonTerrainAt(world, terrain, trail.Position) != null
+                || !WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, trail.Position)
                 || owner != null && owner.Tactics is not { DefinitionId: Definition, Enemy: not null })
                 throw new InvalidDataException("Invalid silt trail identity, terrain or expiry.");
             int count = counts.GetValueOrDefault(trail.Source) + 1;
@@ -56,7 +57,7 @@ internal static class EnemySilt
 public sealed partial class TacticalCombat
 {
     private bool SiltGround(WorldPosition position) => _world.Plan.Contains(position)
-        && EnemySilt.Plain(_world.Chunks.At(position)) && _world.GroundOpen(position);
+        && EnemySilt.Plain(_world.Chunks.At(position)) && _world.DungeonTerrainAt(position) == null && _world.GroundOpen(position);
 
     private void PruneSilt()
     {

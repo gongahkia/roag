@@ -33,7 +33,7 @@ public static class EnemyOaths
                 || partner.Tactics.Enemy.OathBroken != memory.OathBroken))
                 throw new InvalidDataException("Invalid mutual oath pair.");
             if (!memory.OathBroken && (partner == null || !Reaches(twin, partner,
-                p => WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, p))))
+                p => WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, p) && WorldSession.SnapshotDungeonTerrainAt(world, terrain, p) != 'm')))
                 throw new InvalidDataException("Invalid intact oath.");
         }
     }
@@ -49,7 +49,7 @@ public sealed partial class TacticalCombat
             || b.Tactics?.Enemy is not { OathPartner: 0, OathBroken: false } bm
             || !EnemyOaths.IsTwin(a.Tactics.DefinitionId) || !EnemyOaths.IsTwin(b.Tactics.DefinitionId)
             || a.Tactics.DefinitionId == b.Tactics.DefinitionId || !State.Participants.Contains(a.Id) || !State.Participants.Contains(b.Id)
-            || !EnemyOaths.Reaches(a, b, ProjectileOpen))
+            || !EnemyOaths.Reaches(a, b, SupportOpen))
             throw new ArgumentException("Link two unpaired opposite Oath Twins within a clear four-cell bond.");
         am.OathPartner = b.Id; bm.OathPartner = a.Id;
     }
@@ -60,7 +60,7 @@ public sealed partial class TacticalCombat
         var partner = _world.State.Actors.FirstOrDefault(a => a.Id == memory.OathPartner);
         return partner?.Tactics?.Enemy is { OathBroken: false } other && other.OathPartner == actor.Id
             && EnemyOaths.IsTwin(partner.Tactics.DefinitionId) && partner.Tactics.DefinitionId != actor.Tactics.DefinitionId
-            && EnemyOaths.Reaches(actor, partner, ProjectileOpen) ? partner : null;
+            && EnemyOaths.Reaches(actor, partner, SupportOpen) ? partner : null;
     }
 
     private void PruneOaths()

@@ -49,7 +49,8 @@ internal static class EnemyMirrors
                 || owner is not { Life: LifeState.Alive, Health: > 0, Tactics: { DefinitionId: Definition, Enemy.MirrorCasts: > 0 } }
                 || owner.Position.Floor != mirror.Position.Floor || !plan.Contains(mirror.Origin) || !plan.Contains(mirror.Position)
                 || !PlacementGeometry(mirror.Origin, [mirror.Position], mirror.Incoming)
-                || !EnemySilt.Plain(terrain!.At(mirror.Position)) || !WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, mirror.Position))
+                || !EnemySilt.Plain(terrain!.At(mirror.Position)) || WorldSession.SnapshotDungeonTerrainAt(world, terrain, mirror.Position) != null
+                || !WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, mirror.Position))
                 throw new InvalidDataException("Invalid active mirror ownership, geometry, terrain or lifetime.");
         foreach (var attack in state.Attacks)
             if (attack.Support?.Kind == EnemySupportKind.Mirror

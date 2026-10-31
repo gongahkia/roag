@@ -14,7 +14,9 @@ public sealed partial class TacticalCombat
 
     private bool SupportReaches(Actor source, Actor target, int radius) => source.Tactics!.StunnedUntil <= Clock
         && source.Position.Distance(target.Position) <= radius
-        && EnemySquads.Clear(source.Position, target.Position, ProjectileOpen);
+        && EnemySquads.Clear(source.Position, target.Position, SupportOpen);
+
+    private bool SupportOpen(WorldPosition p) => ProjectileOpen(p) && _world.DungeonTerrainAt(p) != 'm';
 
     private Actor? SquadRallySource(Actor member) => member.Tactics?.DefinitionId == "core:enemy/banner_follower"
         && SquadLeader(member) is { } leader && SupportReaches(leader, member, EnemySquads.RallyRadius) ? leader : null;

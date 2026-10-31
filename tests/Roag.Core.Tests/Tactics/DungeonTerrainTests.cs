@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Roag.Core.Tests.Tactics;
 
-public sealed class DungeonTerrainTests
+public sealed partial class DungeonTerrainTests
 {
     [Fact]
     public void DungeonTerrainCommandsMatchPinnedOriginalMovementCostsContactAndBarricades()
@@ -59,6 +59,105 @@ public sealed class DungeonTerrainTests
     }
     private static void Overlay(WorldSession world, WorldPosition p, char glyph)
         => world.State.Dungeon!.Terrain[DungeonRunState.CellKey(p)] = glyph;
+
+    private static Actor ReplaceRegular(WorldSession world, string definition)
+    {
+        var actor = world.State.Actors.First(a => a.Tactics?.Enemy is { Squad: null, OathPartner: 0 }
+            && EnemyCatalog.Default.Get(a.Tactics.DefinitionId).Ai is EnemyBrainKind.Guard or EnemyBrainKind.Skitter or EnemyBrainKind.ExpansionRegular);
+        world.DungeonCombat.ReplaceUnactedEnemy(actor, definition);
+        return actor;
+    }
+
+    [Fact]
+    public void MistStopsAnActiveWardWithoutStoppingTheAttackProjectile()
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat;
+        var leader = ReplaceRegular(world, "core:enemy/ward_weaver");
+        var bodyguard = ReplaceRegular(world, "core:enemy/bodyguard_brute");
+        leader.Position = hero.Position.Offset(3, 0); bodyguard.Position = hero.Position.Offset(1, 0);
+        var squad = new EnemySquad("test:mist-ward", EnemySquadKind.WardedBodyguards, leader.Id, leader.Position);
+        leader.Tactics!.Enemy!.Squad = bodyguard.Tactics!.Enemy!.Squad = squad;
+        leader.Tactics.Enemy.WardReady = true;
+        void Shoot() => combat.ResolveAttack(new(combat.State.NextAction++, hero.Id, hero.Position, [bodyguard.Position],
+            "test:projectile", AttackDelivery.Projectile, DamageElement.Physical, 1, combat.Clock));
+        int hp = bodyguard.Health;
+        Shoot(); Assert.Equal(hp, bodyguard.Health);
+        Overlay(world, hero.Position.Offset(2, 0), 'm');
+        Shoot(); Assert.Equal(hp - 1, bodyguard.Health);
+        world.State.Dungeon!.Terrain.Remove(DungeonRunState.CellKey(hero.Position.Offset(2, 0)));
+        Shoot(); Assert.Equal(hp - 1, bodyguard.Health);
+        TacticalValidation.Validate(world.Plan, world.State);
+    }
+
+    [Fact]
+    public void MistRejectsOathCreationAndPermanentlyBreaksAnExistingBond()
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat;
+        var a = ReplaceRegular(world, EnemyOaths.A); var b = ReplaceRegular(world, EnemyOaths.B);
+        a.Position = hero.Position.Offset(1, 2); b.Position = hero.Position.Offset(3, 2);
+        var mist = hero.Position.Offset(2, 2); Overlay(world, mist, 'm');
+        Assert.Throws<ArgumentException>(() => combat.LinkOathTwins(a.Id, b.Id));
+        world.State.Dungeon!.Terrain.Remove(DungeonRunState.CellKey(mist));
+        combat.LinkOathTwins(a.Id, b.Id);
+        TacticalValidation.Validate(world.Plan, world.State);
+        Overlay(world, mist, 'm');
+        Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+        int hp = b.Health;
+        combat.ResolveAttack(new(combat.State.NextAction++, hero.Id, hero.Position, [a.Position], "test:mist-oath",
+            AttackDelivery.Area, DamageElement.Physical, 4, combat.Clock));
+        Assert.Equal(hp, b.Health); Assert.Equal(a.MaxHealth - 4, a.Health);
+        Assert.True(a.Tactics!.Enemy!.OathBroken); Assert.True(b.Tactics!.Enemy!.OathBroken);
+        world.State.Dungeon.Terrain.Remove(DungeonRunState.CellKey(mist));
+        Assert.Throws<ArgumentException>(() => combat.LinkOathTwins(a.Id, b.Id));
+        TacticalValidation.Validate(world.Plan, world.State);
+    }
+
+    [Theory]
+    [InlineData('b')]
+    [InlineData('g')]
+    [InlineData('i')]
+    [InlineData('m')]
+    [InlineData('c')]
+    public void MothDiveDamagesButCannotLeavePlainGroundEmbersOnSemanticTerrain(char glyph)
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat;
+        var moth = ReplaceRegular(world, EnemyEmbers.Definition); moth.Position = hero.Position.Offset(3, 0);
+        moth.Tactics!.Enemy!.EmberDives = 1;
+        Overlay(world, hero.Position, glyph); int hp = hero.Health;
+        combat.ResolveAttack(new(combat.State.NextAction++, moth.Id, moth.Position, [hero.Position], EnemyEmbers.Dive,
+            AttackDelivery.Area, DamageElement.Fire, 1, combat.Clock, EmberLanding: hero.Position));
+        Assert.Equal(hp - 1, hero.Health); Assert.Empty(combat.State.Embers);
+        Assert.Equal(hero.Position.Offset(3, 0), moth.Position);
+        TacticalValidation.Validate(world.Plan, world.State);
+    }
+
+    [Theory]
+    [InlineData("silt")]
+    [InlineData("ember")]
+    [InlineData("mirror")]
+    public void SavedPlainGroundEffectsRejectSemanticTerrain(string kind)
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat;
+        var owner = ReplaceRegular(world, kind switch { "silt" => EnemySilt.Definition, "ember" => EnemyEmbers.Definition, _ => EnemyMirrors.Definition });
+        var cell = hero.Position.Offset(1, 0); owner.Position = cell.Offset(1, 0);
+        var memory = owner.Tactics!.Enemy!; long action = combat.State.NextAction++;
+        if (kind == "silt") { memory.SiltCharges = 1; combat.State.Silt.Add(new(action, owner.Id, cell, combat.Clock + 300)); }
+        else if (kind == "ember")
+        {
+            memory.EmberDives = 1;
+            var work = combat.State.Queue.Schedule(ScheduledKind.EmberPulse, combat.Clock + 100, owner.Id, referenceId: action);
+            combat.State.Embers.Add(new(action, owner.Id, cell, 2, combat.Clock + 100, combat.Clock + 200, work.Sequence));
+        }
+        else { memory.MirrorCasts = 1; combat.State.Mirrors.Add(new(action, owner.Id, cell, owner.Position, Facing.East, combat.Clock + 400)); }
+        TacticalValidation.Validate(world.Plan, world.State);
+        foreach (char glyph in "bgimc")
+        {
+            Overlay(world, cell, glyph);
+            Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+        }
+        world.State.Dungeon!.Terrain.Remove(DungeonRunState.CellKey(cell));
+        TacticalValidation.Validate(world.Plan, world.State);
+    }
 
     [Fact]
     public void SemanticTerrainAndBrokenBarricadesSurviveAnActualContinuingSave()

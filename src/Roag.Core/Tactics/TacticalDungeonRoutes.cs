@@ -31,20 +31,21 @@ public sealed partial class TacticalCombat
         if (e.Kind != BoonTrigger.EntityKilled || e.TargetId is not { } victim || _world.State.Dungeon is not { } run) return;
         var floor = run.Floors.FirstOrDefault(f => f.Boss == victim);
         if (floor == null || !run.BossExitReceipts.Add(victim)) return;
+        var corpse = Actor(victim).Position;
         if (floor.Stage == 4)
         {
-            Emit("RegentDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, floor.Exit);
+            Emit("RegentDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, corpse);
             return;
         }
         // Rewards stay near the corpse, leaving its physical route/stair anchor open.
         for (int radius = 1; radius <= 5; radius++)
             for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
             {
-                var cell = floor.Exit.Offset(dx, dy);
+                var cell = corpse.Offset(dx, dy);
                 if (Math.Abs(dx) + Math.Abs(dy) != radius || !_world.CanEnter(cell) || ProtectedForcedLanding(cell)
                     || State.Chests.Chests.Any(c => c.Position == cell)) continue;
                 SpawnBoonChest("core:chest/free_elite", "elite:stage:" + floor.Stage, cell);
-                Emit("EliteDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, floor.Exit);
+                Emit("EliteDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, corpse);
                 return;
             }
         throw new InvalidOperationException("Elite arena has no free physical reward cell.");
