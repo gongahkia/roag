@@ -37,6 +37,13 @@ internal sealed partial class WorldGame
             var background = material switch { Material.Grass => new Color(29, 42, 33), Material.Floor => new Color(51, 45, 36), Material.Earth => new Color(49, 43, 33), Material.Water => new Color(19, 38, 47), _ => new Color(32, 36, 34) };
             string? sprite = material != Material.Grass || WorldRandom.Hash(_session.Seed, x, y) % 3 == 0
                 ? Materials.Sprite(material, biome, culture < 0 ? null : SampleLibrary.Default.Cultures[culture]) : null;
+            if (_session.DungeonTerrainAt(p) is { } semantic)
+            {
+                sprite = semantic switch { 'b' => "shrub", 'g' => "reed", 'i' => "water", 'm' => "wisp", 'c' => "crystal", _ => sprite };
+                tint = semantic switch { 'b' => new(171, 192, 104), 'g' => new(111, 150, 124), 'i' => new(145, 214, 237),
+                    'm' => new(163, 160, 195), 'c' => new(151, 224, 227), _ => tint };
+                ground = false;
+            }
             var resource = _session.ResourceAt(p);
             if (resource != null)
             {

@@ -50,7 +50,7 @@ public sealed partial class TacticalCombat
     {
         var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
         var intent = EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
-            new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (_ => false),
+            new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (p => _world.DungeonTerrainAt(p) == 'm'),
                 goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
                 _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))
                     .Select(a => new EnemyNeighbor(a.Id, a.Position, a.Health, a.MaxHealth, !HostileTo(actor, a),

@@ -398,12 +398,12 @@ public sealed partial class TacticalCombat
 
     private void ResolveDamageBatch(LockedAttack attack)
     {
-        var source = Actor(attack.Source);
-        if (!attack.PersistsWithoutOwner && source.Life != LifeState.Alive) return;
+        var source = attack.Source == 0 ? null : Actor(attack.Source);
+        if (source != null && !attack.PersistsWithoutOwner && source.Life != LifeState.Alive) return;
         var hits = new List<DamageOutcome>();
         var hitIds = new HashSet<long>();
         bool direct = attack.Cause == DamageCause.DirectAttack && !attack.ClassGenerated;
-        bool pattern = direct && source.Tactics?.Boons.Inventory.Stacks.Keys.Any(id => BoonCatalog.Default.Get(id).PatternPreview != null) == true;
+        bool pattern = direct && source?.Tactics?.Boons.Inventory.Stacks.Keys.Any(id => BoonCatalog.Default.Get(id).PatternPreview != null) == true;
         // Capture every victim before committing any health change or draining a reactive event.
         foreach (var cell in attack.Cells)
         {
@@ -412,11 +412,11 @@ public sealed partial class TacticalCombat
                 if (attack.Delivery is AttackDelivery.Projectile or AttackDelivery.PiercingLine) break;
                 continue;
             }
-            var target = _world.State.Actors.FirstOrDefault(a => (a.Id != source.Id || attack.HitsOwner) && a.Position == cell && a.Life != LifeState.Dead);
+            var target = _world.State.Actors.FirstOrDefault(a => (a.Id != attack.Source || attack.HitsOwner) && a.Position == cell && a.Life != LifeState.Dead);
             if (target is null || !hitIds.Add(target.Id)) continue;
             bool skull = attack.FateFace == 7 && RegularBoonTarget(target);
             int attempted = skull ? Math.Max(attack.Damage, checked(target.Health + target.Armor)) : attack.Damage;
-            if (direct && source.Tactics?.Boons is { ReversalTarget: { } reversed } boons && reversed == target.Id)
+            if (direct && source?.Tactics?.Boons is { ReversalTarget: { } reversed } boons && reversed == target.Id)
             {
                 int bonus = checked((int)boons.Inventory.Magnitude("core:boon/ring_of_reversal").Power);
                 attempted = checked(attempted + bonus); boons.ReversalTarget = null;
@@ -432,16 +432,16 @@ public sealed partial class TacticalCombat
             int damage = afterDefense - prevented;
             var neighbors = _world.State.Actors.Where(a => a.Id != target.Id && a.Health > 0 && a.Position.Floor == cell.Floor
                 && Math.Max(Math.Abs(a.Position.X - cell.X), Math.Abs(a.Position.Y - cell.Y)) == 1).ToArray();
-            bool backed = direct && source.Tactics?.Boons.Inventory.Stacks.ContainsKey("core:boon/stone_backstop") == true
+            bool backed = direct && source?.Tactics?.Boons.Inventory.Stacks.ContainsKey("core:boon/stone_backstop") == true
                 && BoonGeometry.Axis(cell, source.Position, BoonAxis.Cardinal)
                 && !ProjectileOpen(cell.Offset(Math.Sign(cell.X - source.Position.X), Math.Sign(cell.Y - source.Position.Y)));
-            var snapshot = CaptureBoonEvent(BoonTrigger.HitConfirmed, source.Id, target.Id, attack.Id, cell, attack.Ability) with
+            var snapshot = CaptureBoonEvent(BoonTrigger.HitConfirmed, attack.Source, target.Id, attack.Id, cell, attack.Ability) with
             {
                 DirectAttack = direct, DamageType = attack.Element, TargetCells = attack.Cells.ToImmutableArray(),
                 FateFace = attack.FateFace,
                 ActualLoss = Math.Min(target.Health, damage), Amount = attempted, TargetBurning = target.Tactics?.Burning != null,
                 PatternOrigin = pattern ? attack.Origin : null, WallBacked = backed,
-                AdjacentHostileCount = neighbors.Count(a => BoonFaction(a) != BoonFaction(source)),
+                AdjacentHostileCount = neighbors.Count(a => source == null || BoonFaction(a) != BoonFaction(source)),
                 AdjacentBurningCount = neighbors.Count(a => BoonFaction(a) == BoonFaction(target) && a.Tactics?.Burning != null)
             };
             hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection));
@@ -449,37 +449,38 @@ public sealed partial class TacticalCombat
         }
         RedistributeOathDamage(hits, attack);
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
-        foreach (var hit in hits)
-            RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value);
+        if (source != null)
+            foreach (var hit in hits)
+                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value);
         foreach (var hit in hits)
         {
             var target = hit.Target;
-            Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", source.Id, target.Id, attack.Id,
+            Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", attack.Source, target.Id, attack.Id,
                 target.Position, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.AbilityId ?? attack.Ability, snapshot: hit.Snapshot, protection: hit.Protection);
-            if (hit.Snapshot.ActualLoss > 0 && target.Health > 0 && HostileTo(source, target)
+            if (hit.Snapshot.ActualLoss > 0 && target.Health > 0 && source != null && HostileTo(source, target)
                 && target.Tactics is { DefinitionId: "core:enemy/bastion_bulwark", Enemy: { } memory })
             {
                 memory.Retaliate = true;
                 Emit("RetaliationReadied", target.Id, target.Id, attack.Id, target.Position);
             }
             if (attack.FateFace == 7 && (!RegularBoonTarget(target) || hit.Snapshot.ActualLoss < hit.Snapshot.HpBefore))
-                Emit("FateSkullResisted", source.Id, target.Id, attack.Id, target.Position);
+                Emit("FateSkullResisted", attack.Source, target.Id, attack.Id, target.Position);
             if (hit.Damage <= 0) continue;
             if (target.Life == LifeState.Downed)
             {
                 target.Tactics!.BleedTurns--;
-                if (target.Tactics.BleedTurns == 0) Die(target, source.Id, attack.Id, hit.Snapshot);
-                else Emit("BleedShortened", source.Id, target.Id, attack.Id, target.Position, target.Tactics.BleedTurns);
+                if (target.Tactics.BleedTurns == 0) Die(target, attack.Source, attack.Id, hit.Snapshot);
+                else Emit("BleedShortened", attack.Source, target.Id, attack.Id, target.Position, target.Tactics.BleedTurns);
             }
             else if (target.Health == 0)
             {
-                if (Friendly(target)) Down(target, source.Id, attack.Id);
-                else Die(target, source.Id, attack.Id, hit.Snapshot);
+                if (Friendly(target)) Down(target, attack.Source, attack.Id);
+                else Die(target, attack.Source, attack.Id, hit.Snapshot);
             }
         }
         foreach (var hit in hits)
             if (!hit.Invulnerable && !hit.Snapshot.OathSharedOnly)
-                Emit("HitConfirmed", source.Id, hit.Target.Id, attack.Id, hit.Target.Position,
+                Emit("HitConfirmed", attack.Source, hit.Target.Id, attack.Id, hit.Target.Position,
                     hit.Snapshot.ActualLoss!.Value, hit.Prevented, attack.Ability, snapshot: hit.Snapshot);
     }
 

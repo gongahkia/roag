@@ -32,9 +32,11 @@ public sealed partial class TacticalCombat
         if (!AttackGeometry.Cardinal(intent.Facing)) return Invalid("Movement follows cardinal tiles.");
         var (dx, dy) = AttackGeometry.Offset(intent.Facing);
         int distance = intent.Action == TacticalAction.Dash ? definition?.DashDistance ?? 1 : 1;
+        int maximum = intent.Action == TacticalAction.Dash ? Math.Max(3, distance) : distance;
         var cells = new List<WorldPosition>();
-        for (int step = 1; step <= distance; step++)
+        for (int step = 1; step <= maximum; step++)
         {
+            if (step > distance && !cells.Take(2).Any(p => _world.DungeonTerrainAt(p) == 'i')) break;
             var cell = actor.Position.Offset(dx * step, dy * step);
             if (!_world.CanEnter(cell, actor.Id))
             {
@@ -46,7 +48,7 @@ public sealed partial class TacticalCombat
             }
             cells.Add(cell);
         }
-        recovery = ActionTiming.Recovery(checked(cost + SiltMovementExtra(cells, intent.Action)), EffectiveSpeed(actor));
+        recovery = ActionTiming.Recovery(checked(cost + SiltMovementExtra(cells, intent.Action) + TerrainMovementExtra(cells, intent.Action)), EffectiveSpeed(actor));
         if (intent.Action == TacticalAction.Move && cells.Count == 1
             && _world.Chunks.At(cells[0]) is Material.StairsDown or Material.StairsUp)
         {
@@ -106,6 +108,7 @@ public sealed partial class TacticalCombat
     }
 
     private bool PlainPlacement(WorldPosition p, long ignoredBulwarkOwner = 0) => _world.Plan.Contains(p)
+        && _world.DungeonTerrainAt(p) == null
         && _world.Chunks.At(p) is Material.Floor or Material.Earth or Material.Grass or Material.Bridge
         && _world.GroundOpen(p, ignoredBulwarkOwner) && BodyAt(p) == null;
 
@@ -257,13 +260,13 @@ public sealed partial class TacticalCombat
         return !miss;
     }
 
-    private int ClassProtection(Actor target, Actor source, LockedAttack attack, int damage)
+    private int ClassProtection(Actor target, Actor? source, LockedAttack attack, int damage)
     {
         if (damage <= 0 || target.Tactics is not { } tactics) return 0;
         var resources = tactics.Resources;
         if (resources.Parry is { } parry && parry.Expires >= Clock && target.Position == parry.Origin
             && attack.Cause == DamageCause.DirectAttack && !attack.ClassGenerated && attack.Delivery == AttackDelivery.Melee
-            && HostileTo(target, source) && AttackGeometry.Arc(parry.Origin, parry.Facing).Contains(attack.Origin))
+            && source != null && HostileTo(target, source) && AttackGeometry.Arc(parry.Origin, parry.Facing).Contains(attack.Origin))
         {
             resources.Parry = null; resources.Riposte = true;
             Emit("DuelistParried", target.Id, source.Id, attack.Id, target.Position, damage); return damage;

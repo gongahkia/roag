@@ -46,7 +46,7 @@ public sealed partial class TacticalCombat
         {
             Id = State.NextEvent, ChainId = cause.ChainId, RootActionId = cause.RootActionId, Kind = kind,
             Ancestry = cause.Ancestry, ProcCoefficient = cause.ProcCoefficient, ClassGenerated = cause.ClassGenerated,
-            SourceId = source, TargetId = target == 0 ? null : target, SourceFaction = actor is null ? null : BoonFaction(actor),
+            SourceId = source, TargetId = target == 0 ? null : target, SourceFaction = actor is null ? source == 0 ? "environment" : null : BoonFaction(actor),
             TargetFaction = victim is null ? null : BoonFaction(victim), SourcePosition = actor?.Position,
             Position = position, From = from, AbilityId = ability.Length == 0 ? null : ability,
             SourceTags = actor is null ? [] : [TacticalDefinition(actor), BoonFaction(actor)],
@@ -85,7 +85,7 @@ public sealed partial class TacticalCombat
             if (!visions.TryGetValue(owner, out var vision)) visions.Add(owner, vision = _world.VisionFrom(Actor(owner).Position));
             return vision.Contains(p);
         }
-        string? Terrain(WorldPosition p) => !_world.Plan.Contains(p) ? null : _world.Chunks.At(p) switch
+        string? Terrain(WorldPosition p) => !_world.Plan.Contains(p) ? null : _world.DungeonTerrainAt(p) is { } glyph ? glyph.ToString() : _world.Chunks.At(p) switch
         { Material.Barricade => "B", Material.Water => "~", _ => _world.GroundOpen(p) ? "." : "#" };
         return new(Clock, BoonBodies(), Terrain, p => _world.Plan.Contains(p) ? _world.ObjectAt(p)?.Kind : null, Visible,
             definition => _world.State.Actors.FirstOrDefault(a => TacticalDefinition(a) == definition)?.Tactics?.CurrencyDrop,
@@ -118,7 +118,7 @@ public sealed partial class TacticalCombat
                         BeforeBoonEvent(e);
                         if (e.ClassGenerated)
                         {
-                            ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); return;
+                            ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); ResolveTerrainEvent(e); return;
                         }
                         var random = new RoagRandom(State.RandomState);
                         BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
@@ -135,13 +135,14 @@ public sealed partial class TacticalCombat
                         ResolveWebEvent(e, queued.WebCuts);
                         ResolveKillRewards(e);
                         ResolveEnemyPhase(e);
+                        ResolveTerrainEvent(e);
                     });
                 }
                 else if (_boonWork.TryDequeue(out var work))
                     WithBoonCause(BoonCause.From(work.Activation, work.Effect.ProcCoefficient ?? 1), () => ExecuteBoonEffect(work.Activation, work.Effect));
             }
         }
-        finally { _drainingBoons = false; }
+        finally { _drainingBoons = false; _terrainContacts.Clear(); }
         PruneWebs();
         PruneSilt();
         PruneEmbers();

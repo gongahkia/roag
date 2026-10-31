@@ -19,12 +19,12 @@ public sealed partial class TacticalCombat
     private Actor? SquadRallySource(Actor member) => member.Tactics?.DefinitionId == "core:enemy/banner_follower"
         && SquadLeader(member) is { } leader && SupportReaches(leader, member, EnemySquads.RallyRadius) ? leader : null;
 
-    private EnemyProtection? SquadProtection(Actor target, Actor source, bool direct)
+    private EnemyProtection? SquadProtection(Actor target, Actor? source, bool direct)
     {
         if (target.Tactics?.DefinitionId == "core:enemy/bodyguard_brute" && SquadLeader(target) is { } leader
             && leader.Tactics!.Enemy!.WardReady && SupportReaches(leader, target, EnemySquads.WardRadius))
             return new("forcefield", leader.Id);
-        if (!direct || target.Tactics is not { DefinitionId: "core:enemy/shield_bearer", Enemy: { ShieldLowered: false } memory }
+        if (!direct || source == null || target.Tactics is not { DefinitionId: "core:enemy/shield_bearer", Enemy: { ShieldLowered: false } memory }
             || target.Tactics.StunnedUntil > Clock || source.Position.Floor != target.Position.Floor) return null;
         var (fx, fy) = AttackGeometry.Offset(memory.ShieldFacing);
         long dx = source.Position.X - target.Position.X, dy = source.Position.Y - target.Position.Y;

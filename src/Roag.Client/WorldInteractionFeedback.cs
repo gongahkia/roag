@@ -36,6 +36,18 @@ internal static class WorldInspection
             detail += targeting;
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
+        if (session.DungeonTerrainAt(cell) is { } glyph)
+        {
+            var (name, detail) = glyph switch
+            {
+                'b' => ("Bramble bed", "One physical contact hit per actor/action, base 1 damage. Waiting here is safe; armor and wards apply."),
+                'g' => ("Sticky bog", "Crossing adds 40 walking recovery or 20 Dash recovery per tile, before speed scaling."),
+                'i' => ("Glazed ice", "Entering ice within the first two Dash tiles extends legal traversal to at least three tiles."),
+                'm' => ("Obscuring mist", "Blocks sight beyond the mist. Movement and projectiles pass through."),
+                _ => ("Resonant crystal", "Nearby lightning damage arcs 1 damage to the nearest other living actor opposing its source. Arcs do not chain.")
+            };
+            return new(name, detail, "Move with WASD or arrow keys", "", "terrain");
+        }
         var discovery = session.State.Discoveries.FirstOrDefault(d => d.Position == cell);
         if (discovery != null && session.Situation(discovery) != null) return WithAccess(discovery.Name, session.SituationDescription(discovery), "Right-click for approaches; click to investigate", "discovery");
         if (discovery != null) return WithAccess(discovery.Name, session.DiscoveryComplete(discovery) ? "Explored; its history remains in your journal."
