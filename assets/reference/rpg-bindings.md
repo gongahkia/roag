@@ -6,7 +6,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
-**179 semantic aliases, 94 font glyphs, 263 distinct runtime-bound IDs.**
+**181 semantic aliases, 94 font glyphs, 264 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -154,6 +154,8 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-enemy-vault-lurker | urizen-onebit-r14-c107 | Figure row 14, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag enemy vault lurker; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-ward-weaver | urizen-onebit-r17-c187 | Figure row 17, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag enemy ward weaver; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-web-weaver | urizen-onebit-r11-c169 | Figure row 11, profession column 65: unidentified held prop / stance | visual_region_and_silhouette / low | Render as roag enemy web weaver; preserve the source identity and keep mechanics in game data. |
+| roag-room-mine-rail | urizen-onebit-r02-c052 | railway; orientation=H | author_metadata_visible_rgb_match / high | Render as roag room mine rail; preserve the source identity and keep mechanics in game data. |
+| roag-room-pillar | urizen-onebit-r03-c026 | column / antique | author_metadata_visible_rgb_match / high | Render as roag room pillar; preserve the source identity and keep mechanics in game data. |
 | roag-service-bell | urizen-onebit-r25-c036 | bell | author_metadata_visible_rgb_match / high | Render as roag service bell; preserve the source identity and keep mechanics in game data. |
 | rock-floor | urizen-onebit-r05-c009 | floor / rocks | author_metadata_visible_rgb_match / high | Render as rock floor; preserve the source identity and keep mechanics in game data. |
 | ruin-wall | urizen-onebit-r02-c000 | wall / stone | author_metadata_visible_rgb_match / high | Author-confirmed stone wall used as masonry for generated room boundaries; sockets belong to the 7x7 room. |

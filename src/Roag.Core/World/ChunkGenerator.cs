@@ -16,7 +16,7 @@ public static class Materials
         Material.Water => "water", Material.Rock => "boulder", Material.Earth => "path",
         Material.Barricade => "wood",
         Material.ClosedDoor => "gate",
-        Material.Pillar => "boulder",
+        Material.Pillar => "roag-room-pillar",
         Material.Wall => culture?.Wall ?? "ruin-wall", Material.Floor => culture?.Floor ?? "stone",
         Material.Door => "wood", Material.Bridge => "bridge", Material.StairsDown => "stairs-down", Material.StairsUp => "stairs-up",
         Material.Storage => "chest", Material.Camp => "campfire", _ => biome is Biome.Highland or Biome.Badland ? "rock-floor" : "grass"

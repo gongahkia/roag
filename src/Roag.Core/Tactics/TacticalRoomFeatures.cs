@@ -35,6 +35,7 @@ public sealed class DungeonRoomFeatureState
                 || !plan.Contains(node.Position) || world.Dungeon != null && !world.Dungeon.Contains(node.Position)
                 || node.Variant is < 1 or > 2 || node.LitUntil < 0
                 || node.Kind != DungeonRoomFeatureKind.Brazier && node.LitUntil != 0
+                || node.LitUntil > world.Tactics!.Queue.Clock && node.LitUntil - world.Tactics.Queue.Clock > 300
                 || node.Used && node.Kind is not (DungeonRoomFeatureKind.Ore or DungeonRoomFeatureKind.Ward)
                 || chunks!.At(node.Position) != (node.Kind == DungeonRoomFeatureKind.Pillar ? Material.Pillar : Material.Floor))
                 throw new InvalidDataException("Invalid room feature identity, physical tile or finite state.");
@@ -83,7 +84,9 @@ public sealed partial class TacticalCombat
                 {
                     State.RoomFeatures.Nodes[i] = node with { Used = true };
                     // Unlike charm-well choices, a found ward does not erase an existing focus.
-                    Actor(e.SourceId!.Value).Tactics!.Supplies.WardActions = 4;
+                    var supplies = Actor(e.SourceId!.Value).Tactics!.Supplies;
+                    supplies.WardActions = 3; supplies.WardThroughRecovery = false;
+                    supplies.WardRefreshAction = action;
                     Emit("WardFlaskCollected", e.SourceId.Value, 0, action, node.Position);
                 }
                 else if (node.Kind == DungeonRoomFeatureKind.Brazier)

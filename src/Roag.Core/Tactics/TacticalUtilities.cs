@@ -14,10 +14,13 @@ public sealed class TacticalSupplies
     public CarriedUtility? Utility { get; set; }
     public int FocusActions { get; set; }
     public int WardActions { get; set; }
+    public bool WardThroughRecovery { get; set; }
+    public long WardRefreshAction { get; set; }
 
     internal void Validate()
     {
-        if (FocusActions is < 0 or > 3 || WardActions is < 0 or > 3
+        if (FocusActions is < 0 or > 3 || WardActions is < 0 or > 3 || WardRefreshAction < 0
+            || WardThroughRecovery && WardActions != 0
             || Utility is { } utility && (!Enum.IsDefined(utility.Kind)
                 || utility.Marker != null && utility.Kind != UtilityKind.ReturnToken))
             throw new InvalidDataException("Invalid carried utility or prepared supply condition.");

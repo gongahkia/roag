@@ -5,10 +5,10 @@ public static class NativeAppearance
 {
     public static string ForRoomFeature(DungeonRoomFeatureKind kind) => kind switch
     {
-        DungeonRoomFeatureKind.Ore or DungeonRoomFeatureKind.Pillar => "boulder",
+        DungeonRoomFeatureKind.Ore => "boulder", DungeonRoomFeatureKind.Pillar => "roag-room-pillar",
         DungeonRoomFeatureKind.Brazier => "brazier", DungeonRoomFeatureKind.Ward => "shield",
         DungeonRoomFeatureKind.Overgrowth => "shrub", DungeonRoomFeatureKind.Mushroom => "mushroom",
-        DungeonRoomFeatureKind.MineRail => "bridge", DungeonRoomFeatureKind.Crystal => "mark",
+        DungeonRoomFeatureKind.MineRail => "roag-room-mine-rail", DungeonRoomFeatureKind.Crystal => "crystal",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 

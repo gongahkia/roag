@@ -24,6 +24,9 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        if (world.Actors.Any(a => a.Tactics?.Supplies is { } s && (s.WardRefreshAction >= state.NextAction
+            || s.WardThroughRecovery && (a.Life == LifeState.Dead || a.Id == state.ActiveActor || !world.Party.Contains(a.Id)))))
+            throw new InvalidDataException("Invalid member ward recovery or refresh action.");
         if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
         state.Chests.Validate(plan, actors);
         world.Dungeon?.Validate(plan, world, actors);

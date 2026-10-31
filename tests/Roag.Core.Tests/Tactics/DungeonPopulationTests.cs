@@ -21,6 +21,18 @@ public sealed class DungeonPopulationTests
             {
                 var secret = Assert.Single(state.Secrets.Nodes, n => n.Position.Floor == floor.Origin.Floor);
                 Assert.False(secret.Revealed); Assert.Equal(0, secret.Reward);
+                var features = state.RoomFeatures.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor).ToArray();
+                foreach (var required in new[] { DungeonRoomFeatureKind.Ore, DungeonRoomFeatureKind.Brazier, DungeonRoomFeatureKind.Ward, DungeonRoomFeatureKind.Pillar })
+                    Assert.Contains(features, f => f.Kind == required);
+                Assert.Equal(features.Length, features.Select(f => f.Position).Distinct().Count());
+                foreach (var feature in features)
+                {
+                    Assert.True(feature.Position.Distance(floor.Entry) >= 4); Assert.True(feature.Position.Distance(floor.Exit) >= 3);
+                    Assert.Null(world.DungeonTerrainAt(feature.Position));
+                    Assert.Equal(feature.Kind == DungeonRoomFeatureKind.Pillar ? Material.Pillar : Material.Floor, world.Chunks.At(feature.Position));
+                    Assert.Equal("dungeon-room-feature", world.ObjectAt(feature.Position)!.Kind);
+                    Assert.DoesNotContain(state.Services.Nodes, n => n.Position == feature.Position);
+                }
                 Assert.Equal(floor.Origin.Floor % 2 == 1 ? DungeonSecretKind.CrackedCache : DungeonSecretKind.MossSigil, secret.Kind);
                 Assert.False(Assert.Single(floor.Rooms, r => r.Contains(secret.Position)).Critical);
                 Assert.DoesNotContain(state.Services.Nodes, n => n.Position == secret.Clue);

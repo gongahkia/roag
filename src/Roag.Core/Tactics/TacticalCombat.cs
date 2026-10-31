@@ -134,6 +134,7 @@ public sealed partial class TacticalCombat
                 throw new InvalidDataException("No handler for this scheduled tactical work.");
             var actor = Actor(work.ActorId);
             if (actor.Life == LifeState.Dead) continue;
+            if (Friendly(actor)) actor.Tactics!.Supplies.WardThroughRecovery = false;
             if (!Friendly(actor) && (actor.Tactics!.EnemySnareDelay > 0 || actor.Tactics.WebRecoveryDelay > 0))
             {
                 int delay = checked(actor.Tactics.EnemySnareDelay + actor.Tactics.WebRecoveryDelay);
@@ -296,7 +297,12 @@ public sealed partial class TacticalCombat
         {
             var supplies = actor.Tactics.Supplies;
             supplies.FocusActions = Math.Max(0, supplies.FocusActions - 1);
-            supplies.WardActions = Math.Max(0, supplies.WardActions - 1);
+            if (supplies.WardRefreshAction != action)
+            {
+                supplies.WardThroughRecovery = actor.Life != LifeState.Dead && supplies.WardActions == 1;
+                supplies.WardActions = Math.Max(0, supplies.WardActions - 1);
+            }
+            supplies.WardRefreshAction = 0;
         }
         if (State.ControlledActor == actor.Id && _world.State.Position != actor.Position)
         {
@@ -470,9 +476,9 @@ public sealed partial class TacticalCombat
             int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - target.Armor);
             int prevented = ClassProtection(target, source, attack, afterDefense);
             if (Guards(target, attack)) prevented += (int)((long)(afterDefense - prevented) * Tuning.GuardReductionPercent / 100);
-            if (target.Tactics?.Supplies is { WardActions: > 0 } supply && afterDefense > prevented)
+            if (target.Tactics?.Supplies is { } supply && (supply.WardActions > 0 || supply.WardThroughRecovery) && afterDefense > prevented)
             {
-                supply.WardActions = 0;
+                supply.WardActions = 0; supply.WardThroughRecovery = false;
                 Emit("SupplyWardAbsorbed", target.Id, target.Id, attack.Id, target.Position, afterDefense - prevented);
                 prevented = afterDefense;
             }
@@ -559,6 +565,7 @@ public sealed partial class TacticalCombat
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
         actor.Life = LifeState.Dead; actor.Health = 0;
+        if (actor.Tactics != null) { actor.Tactics.Supplies.WardThroughRecovery = false; actor.Tactics.Supplies.WardRefreshAction = 0; }
         PruneOaths();
         ReleaseCarriedLoot(actor, action);
         RememberRevivalCorpse(actor);

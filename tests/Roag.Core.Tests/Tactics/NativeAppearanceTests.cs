@@ -8,6 +8,17 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class NativeAppearanceTests
 {
     [Fact]
+    public void EveryRoomFeatureUsesAnExistingStoredUniversalBinding()
+    {
+        using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
+        foreach (var kind in Enum.GetValues<DungeonRoomFeatureKind>())
+        {
+            string sprite = manifest.RootElement.GetProperty("bindings").GetProperty(NativeAppearance.ForRoomFeature(kind)).GetString()!;
+            Assert.True(manifest.RootElement.GetProperty("sprites").TryGetProperty(sprite, out _));
+        }
+    }
+
+    [Fact]
     public void EveryServiceUsesAnExistingStoredVagabondsBinding()
     {
         using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);

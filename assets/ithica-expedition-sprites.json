@@ -181,7 +181,9 @@
     "roag-enemy-vault-lurker": "urizen-onebit-r14-c107",
     "roag-enemy-ward-weaver": "urizen-onebit-r17-c187",
     "roag-enemy-web-weaver": "urizen-onebit-r11-c169",
-    "roag-service-bell": "urizen-onebit-r25-c036"
+    "roag-service-bell": "urizen-onebit-r25-c036",
+    "roag-room-mine-rail": "urizen-onebit-r02-c052",
+    "roag-room-pillar": "urizen-onebit-r03-c026"
   },
   "font": {
     "A": "urizen-onebit-r44-c078",
