@@ -30,6 +30,29 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void SimultaneousWaitAndDirectionCannotSpendTwoNativePartyTurns()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var origin = session.State.Position;
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Space, Keys.D), true);
+        Assert.Equal(origin, session.State.Position); Assert.Equal(100, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(origin, session.State.Position); Assert.Equal(100, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.S), true);
+        Assert.Equal(origin.Offset(0, 1), session.State.Position); Assert.Equal(200, session.DungeonCombat.Clock);
+    }
+    [Fact]
+    public void AnUnownedVowToggleDoesNotLockNativeMovementOrConsumeTime()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var origin = session.State.Position;
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.P), true);
+        Assert.False((bool)Field("_roagVow").GetValue(client)!); Assert.Equal(0, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.S), true);
+        Assert.Equal(origin.Offset(0, 1), session.State.Position); Assert.Equal(100, session.DungeonCombat.Clock);
+    }
+    [Fact]
     public void KeyboardMovementRequiresANewPressForEachSingleTile()
     {
         using var session = Roag.Core.Tests.World.WorldCollisionTests.Arena(); var client = Client(session);

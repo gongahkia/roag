@@ -84,6 +84,7 @@ internal sealed partial class WorldGame
                 if(Press(Keys.Space)||Press(Keys.OemPeriod)) { CommitRoag(new("wait")); _roagKeyboard = keyboard; return; }
                 int dx=Press(Keys.D)||Press(Keys.Right)?1:Press(Keys.A)||Press(Keys.Left)?-1:0;
                 int dy=Press(Keys.S)||Press(Keys.Down)?1:Press(Keys.W)||Press(Keys.Up)?-1:0;
+                if (_roagAim is "move" or "dash" && dx != 0 && dy != 0) dy = 0;
                 if(Press(Keys.Q)){dx=-1;dy=-1;}if(Press(Keys.E)){dx=1;dy=-1;}
                 if(Press(Keys.Z)){dx=-1;dy=1;}if(Press(Keys.C)){dx=1;dy=1;}
                 if(dx!=0||dy!=0)CommitRoag(new(_roagAim,dx,dy,Vow:_roagVow));
