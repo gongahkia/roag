@@ -5,10 +5,18 @@ namespace Roag.Core.Tactics;
 public sealed partial class TacticalCombat
 {
     public void RegisterEnemy(Actor actor, string definitionId, long? readyAt = null,
-        bool guaranteedHealthDrop = false, bool rewardExempt = false)
+        bool guaranteedHealthDrop = false, bool rewardExempt = false, EnemyPursuitBoundary? pursuitBoundary = null)
     {
         if (Friendly(actor)) throw new ArgumentException("A party member cannot use an enemy controller.", nameof(actor));
-        Register(actor, EnemyCatalog.Default.Get(definitionId).CreateTactics(guaranteedHealthDrop, rewardExempt), readyAt);
+        var tactics = EnemyCatalog.Default.Get(definitionId).CreateTactics(guaranteedHealthDrop, rewardExempt);
+        if (pursuitBoundary != null)
+        {
+            pursuitBoundary.Validate(_world.Plan);
+            if (EnemyCatalog.Default.Get(definitionId).Ai != EnemyBrainKind.Pursuer || !pursuitBoundary.Contains(actor.Position))
+                throw new ArgumentException("Only an owning dungeon can confine its pursuer.", nameof(pursuitBoundary));
+            tactics.Enemy!.PursuitBoundary = pursuitBoundary;
+        }
+        Register(actor, tactics, readyAt);
     }
 
     /// <summary>
@@ -56,7 +64,12 @@ public sealed partial class TacticalCombat
         Func<WorldPosition, bool>? mistBlocks = null)
     {
         var intent = PreviewEnemyTurn(targetId, nextStep, mistBlocks);
-        var actor = Active!; var definition = EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId);
+        return CommitEnemyIntent(Active!, intent, targetId);
+    }
+
+    private EnemyIntent CommitEnemyIntent(Actor actor, EnemyIntent intent, long targetId)
+    {
+        var definition = EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId);
         var memory = actor.Tactics.Enemy!;
         if (intent.ShieldFacing is { } shield)
         {
@@ -74,9 +87,9 @@ public sealed partial class TacticalCombat
             CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
                 checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove, intent.SentinelFacing, intent.EmberLanding);
         }
-        else if (intent.Kind == EnemyIntentKind.Move)
+        else if (intent.Kind is EnemyIntentKind.Move or EnemyIntentKind.UseStairs)
         {
-            var move = new TacticalIntent(TacticalAction.Move, intent.Facing);
+            var move = new TacticalIntent(intent.Kind == EnemyIntentKind.UseStairs ? TacticalAction.UseStairs : TacticalAction.Move, intent.Facing);
             var preview = Preview(move);
             if (!preview.Valid) throw new InvalidOperationException("Navigation selected a blocked enemy step: " + preview.Reason);
             memory.LastMovement = intent.Facing;

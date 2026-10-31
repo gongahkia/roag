@@ -80,7 +80,10 @@ public sealed partial class WorldSession
     }
     private void AdvanceWildlifePopulations()
     {
-        if (State.Tick % 50 != 0 || IsInCombat) return;
+        // Native ecology must use migration/reproduction, never the imported
+        // timer that replaces each dead population slot. Keep it disabled until
+        // that conversion is connected; local combat no longer gates the world.
+        if (State.Tick % 50 != 0 || State.Tactics != null || IsInCombat) return;
         int registered = 0;
         foreach (var actor in State.Actors)
             if (actor.Habitat != null && actor.WildlifePopulation == 0 && registered < 8 && RegisterWildlifePopulation(actor) != null) registered++;

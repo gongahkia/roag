@@ -24,6 +24,7 @@ public static class TacticalReferences
         {
             if (actor.Tactics is not { } tactics) continue;
             if (tactics.Enemy?.SummonedBy == id) return true;
+            if (tactics.Enemy?.Awareness?.Target == id) return true;
             if (tactics.Enemy?.FragmentOf == id) return true;
             if (tactics.Enemy?.CalledBy == id) return true;
             if (tactics.Enemy is { OathBroken: false } oath && oath.OathPartner == id) return true;

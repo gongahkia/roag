@@ -3,7 +3,7 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum EnemyIntentKind { Wait, Move, Windup }
+public enum EnemyIntentKind { Wait, Move, Windup, UseStairs }
 public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.South, string Ability = "",
     AttackDelivery Delivery = AttackDelivery.Melee, ImmutableArray<WorldPosition> Cells = default,
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,

@@ -48,12 +48,16 @@ public sealed partial class TacticalCombat
             throw new InvalidOperationException("Target selection requires a living native enemy.");
         if (!_world.IsHostile(enemy)) return null;
         var priority = EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority;
-        var sight = _world.VisionFrom(enemy.Position);
         var ecology = _world.Ecology(enemy);
         bool InTerritory(Actor p) => ecology == null || enemy.Habitat is not { } home
             || p.Position.Distance(home) <= (enemy.ProvokedUntil > _world.State.Tick ? ecology.Leash : ecology.Notice);
-        var candidates = _world.Party.Where(p => p.Life != LifeState.Dead && State.Participants.Contains(p.Id)
-                && p.Position.Floor == enemy.Position.Floor && sight.Contains(p.Position) && InTerritory(p))
+        var nearby = _world.Party.Where(p => p.Life != LifeState.Dead && State.Participants.Contains(p.Id)
+                && p.Position.Floor == enemy.Position.Floor && InTerritory(p)
+                && (enemy.Tactics.Enemy!.PursuitBoundary is not { } boundary || boundary.Contains(p.Position))
+                && Math.Abs(p.Position.X - enemy.Position.X) <= 11 && Math.Abs(p.Position.Y - enemy.Position.Y) <= 11).ToArray();
+        if (nearby.Length == 0) return null;
+        var sight = _world.VisionFrom(enemy.Position);
+        var candidates = nearby.Where(p => sight.Contains(p.Position))
             .Select(p => new EnemyTargetCandidate(p.Id, p.Position, p.Health, p.MaxHealth, p.Life,
                 priority == EnemyTargetPriority.ClearShot && HasUsableShot(enemy, p, mistBlocks)));
         return EnemyTargeting.Choose(priority, enemy.Position, candidates)?.Id;

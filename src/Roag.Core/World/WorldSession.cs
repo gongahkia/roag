@@ -14,7 +14,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public WorldState State { get; }
     public ChunkCache Chunks { get; }
     public int Seed => Plan.Seed;
-    public bool IsInCombat => State.RoagCombat || State.Battle != null || State.Tactics is { Participants.Count: > 0 };
+    public bool IsInCombat => State.RoagCombat || State.Battle != null || NativePartyInCombat;
     public bool Paused { get; set; } = true;
     public bool ModalOpen { get; set; }
     public bool Focused { get; set; } = true;
@@ -104,6 +104,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public int AdvanceTicks(int count)
     {
         if (count is < 0 or > 1000000) throw new ArgumentOutOfRangeException(nameof(count));
+        if (State.Tactics != null) return 0; // Native time advances only through paid timeline work.
         int advanced = 0;
         while (advanced < count && !Frozen)
         {
@@ -142,6 +143,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     });
     private ActionResult SubmitCommand(WorldCommand command)
     {
+        if (State.Tactics != null) return new(false, "Use the native timeline to commit this action.");
         if (State.Endgame.Victory) return new(false, "This expedition is complete. Start a new world to play again.");
         if (DeathPending) return new(false, "Save the recorded deaths before continuing.");
         if (State.AwaitingContinuation && command.Kind != WorldCommandKind.Continue) return new(false, "The expedition has ended. Continue with a new traveller or begin a fresh world.");
@@ -358,7 +360,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public Actor? NearbyPerson() => State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && !a.Recruited && State.Position.Distance(a.Position) <= 2).OrderBy(a => a.Position.Distance(State.Position)).ThenBy(a => a.Id).FirstOrDefault();
     private void Contact()
     {
-        if (IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
+        if (State.Tactics != null || IsInCombat || State.AwaitingContinuation || State.Endgame.Victory) return;
         var positions = Party.Where(a => a.Life != LifeState.Dead).Select(a => a.Position).ToArray();
         foreach (var actor in ActorIndex.Near(positions, 1))
         {

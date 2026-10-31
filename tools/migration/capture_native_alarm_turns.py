@@ -20,6 +20,7 @@ function capture_alarm(input)
    elseif input.name=='stairs'then s.generated_map.placements.stairs={{x=18,y=15,to_floor_id='other',to_x=2,to_y=2}}
    elseif input.name=='occupied'then G.spawn_enemy(s,'core:enemy/mossbound_guard',18,15,10000)end
   end
+  if i==5 and input.name=='stairs'then s.generated_map.placements.stairs={}end
   local ok,why,ev=G.submit(s,{kind=command,dx=1,dy=0});assert(ok,why)
   local trace={};for _,v in ipairs(ev)do
    if v.kind=='WindupStarted'or v.kind=='SupportResolved'or v.kind=='AttackPerformed'then trace[#trace+1]=v.kind..':'..v.time..':'..v.ability_id

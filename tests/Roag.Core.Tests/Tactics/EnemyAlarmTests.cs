@@ -34,6 +34,10 @@ public sealed partial class ClassActionTests
                     if (name is "wall" or "stairs") a.World.Chunks.Edit(new(103, 99), name == "wall" ? Material.Wall : Material.StairsDown);
                     if (name == "occupied") RevivalTestEnemy(a, "mossbound_guard", new(103, 99));
                 }
+                // This transient marker tests the locked reinforcement landing.
+                // Remove it after impact: native ordinary movement now actually
+                // traverses stairs, unlike the original single-floor enemy AI.
+                if (index == 4 && name == "stairs") a.World.Chunks.Edit(new(103, 99), Material.Floor);
                 long first = a.Combat.State.NextEvent; AlarmWait(a); index++;
                 var trace = a.Combat.State.Events.Where(e => e.Sequence >= first).Select(e => e.Kind switch
                 {

@@ -8,7 +8,7 @@ public sealed partial class WorldSession
     // when the player leaves. No second regional copy of the actor is created.
     private void AdvanceRoutines()
     {
-        if (IsInCombat) return;
+        if (State.Tactics == null && IsInCombat) return;
         _residentForagePlanTick = -1; _residentForageClaims.Clear(); _residentForageRequests.Clear(); _residentForageTurnCount = 0;
         _routineActors.Clear(); ActorIndex.AddNearTo(State.Position, 100, _routineActors);
         if (State.Tick % 5 == 0)
@@ -18,7 +18,7 @@ public sealed partial class WorldSession
         _routineActors.Sort(static (a, b) => a.Id.CompareTo(b.Id));
         foreach (var actor in _routineActors)
         {
-            if (actor.Kind != ActorKind.Person || actor.Recruited || actor.Life != LifeState.Alive || actor.EncounterLeader > 0) continue;
+            if (actor.Kind != ActorKind.Person || actor.Recruited || actor.Life != LifeState.Alive || actor.EncounterLeader > 0 || UsesTacticalTurns(actor.Id)) continue;
             if (actor.Routine != null && State.Tick % 5 != 0) continue;
             SelectResidentRoutine(actor);
         }

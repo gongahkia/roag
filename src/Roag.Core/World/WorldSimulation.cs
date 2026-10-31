@@ -37,7 +37,7 @@ public sealed partial class WorldSession
             ScheduleBody(slot);
         }
         FinishBodyPass();
-        if (State.Tick % TicksPerHour == 0 && !IsInCombat) AdvanceCommunity();
+        if (State.Tick % TicksPerHour == 0 && (State.Tactics != null || !IsInCombat)) AdvanceCommunity();
     }
     private void AdvanceBody(Actor actor)
     {
@@ -45,7 +45,7 @@ public sealed partial class WorldSession
         var body = actor.Body; bool fighting = UsesTacticalTurns(actor.Id) || State.Battle?.ActorIds.Contains(actor.Id) == true;
         if (!actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
         bool resting = !fighting && body.RestUntil > State.Tick;
-        if (body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
+        if (!UsesTacticalTurns(actor.Id) && body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
         // Wild forage shares the finite habitat stock with other actors and the party.
         if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
         {
@@ -106,7 +106,7 @@ public sealed partial class WorldSession
     }
     private void AdvanceCommunity()
     {
-        var people = State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && !HasWork(a) && a.Body.RestUntil <= State.Tick).ToArray();
+        var people = State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && !UsesTacticalTurns(a.Id) && !HasWork(a) && a.Body.RestUntil <= State.Tick).ToArray();
         foreach (var actor in people)
         {
             var other = people.FirstOrDefault(b => b.Id > actor.Id && b.Recruited == actor.Recruited && b.Position.Distance(actor.Position) <= 4);
@@ -117,9 +117,9 @@ public sealed partial class WorldSession
     }
     private void AdvanceIncidents()
     {
-        if (State.Tick % TicksPerHour != 0 || IsInCombat) return;
+        if (State.Tick % TicksPerHour != 0 || State.Tactics == null && IsInCombat) return;
         var candidates = Content.Game.Incidents.Select(Content.Get<IncidentDefinition>).Where(i => State.IncidentAfter.GetValueOrDefault(i.Id) <= State.Tick)
-            .SelectMany(i => State.Actors.Where(a => a.Life == LifeState.Alive && a.Kind == ActorKind.Person && a.Position.Distance(State.Position) <= 100 && IncidentEligible(i, a)).Select(a => (Definition: i, Actor: a))).ToArray();
+            .SelectMany(i => State.Actors.Where(a => a.Life == LifeState.Alive && a.Kind == ActorKind.Person && !UsesTacticalTurns(a.Id) && a.Position.Distance(State.Position) <= 100 && IncidentEligible(i, a)).Select(a => (Definition: i, Actor: a))).ToArray();
         if (candidates.Length == 0) return;
         var rng = new RandomStream(State.IncidentRandom); var choice = candidates[rng.Next(candidates.Length)]; State.IncidentRandom = rng.State;
         var d = choice.Definition; var actor = choice.Actor;

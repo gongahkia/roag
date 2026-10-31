@@ -150,6 +150,7 @@ public sealed partial class TacticalCombat
                 _world.State.Position = actor.Position;
                 _world.Reveal();
             }
+            ObserveEnemyAwareness();
             return actor;
         }
         return null;
@@ -197,6 +198,7 @@ public sealed partial class TacticalCombat
         var preview = Preview(intent);
         if (!preview.Valid) return new(false, preview.Reason);
         var actor = Active!;
+        ObserveEnemyAwareness();
         long action = State.NextAction++;
         actor.Tactics!.Facing = intent.Facing;
         var executed = preview.Bump ? intent with { Action = TacticalAction.BasicAttack } : intent;
@@ -239,6 +241,12 @@ public sealed partial class TacticalCombat
                 case TacticalAction.Wait: Emit("Waited", actor.Id, actor.Id, action, actor.Position); break;
             }
         });
+        if (State.ControlledActor == actor.Id && _world.State.Position != actor.Position)
+        {
+            _world.State.Position = actor.Position;
+            _world.Reveal();
+        }
+        ObserveEnemyAwareness();
         return new(true, "Action committed.");
     }
 

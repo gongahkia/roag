@@ -16,6 +16,7 @@ public sealed partial class TacticalCombat
     private void CommitStairs(Actor actor, WorldPosition landing, long action)
     {
         var from = actor.Position;
+        ObserveStairDeparture(actor, from, landing);
         _world.MoveTacticalActor(actor, landing);
         Emit("FloorChanged", actor.Id, actor.Id, action, landing, from: from);
         // Arrival is a real occupied tile, not a traversed line between different floors.

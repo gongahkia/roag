@@ -13,6 +13,7 @@ public sealed partial class TacticalCombat
             : target.Tactics.Invulnerable ? "immune"
             : !_world.Plan.Contains(next) || !_world.GroundOpen(next) ? "wall"
             : ProtectedForcedLanding(next) ? "stairs"
+            : target.Tactics.Enemy?.PursuitBoundary is { } boundary && !boundary.Contains(next) ? "dungeon boundary"
             : _world.OccupantAt(next, target.Id) != null ? "occupied" : null;
         if (blocked != null)
         {

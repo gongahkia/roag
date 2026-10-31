@@ -37,6 +37,8 @@ public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, 
 /// <summary>Persistent tactical decision memory; no duplicate health, location or scheduled work.</summary>
 public sealed class EnemyMemory
 {
+    public EnemyAwareness? Awareness { get; set; }
+    public EnemyPursuitBoundary? PursuitBoundary { get; set; }
     public long Attacks { get; set; }
     public bool PhaseTwo { get; set; }
     public Facing? LastMovement { get; set; }

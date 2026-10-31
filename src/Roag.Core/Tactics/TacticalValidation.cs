@@ -23,6 +23,22 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        foreach (var actor in world.Actors)
+        {
+            if (actor.Tactics?.Enemy is not { } memory) continue;
+            if (memory.PursuitBoundary is { } boundary)
+            {
+                boundary.Validate(plan);
+                if (EnemyCatalog.Default.Get(actor.Tactics.DefinitionId).Ai != EnemyBrainKind.Pursuer
+                    || !boundary.Contains(actor.Position))
+                    throw new InvalidDataException("Pursuer is outside its owning dungeon or has an invalid role.");
+            }
+            if (memory.Awareness is { } awareness && (awareness.Target <= 0 || !actors.ContainsKey(awareness.Target)
+                || !world.Party.Contains(awareness.Target) || !state.Participants.Contains(awareness.Target)
+                || !plan.Contains(awareness.LastKnown) || awareness.ObservedAt < 0 || awareness.ObservedAt > queue.Clock
+                || memory.PursuitBoundary is { } limits && !limits.Contains(awareness.LastKnown)))
+                throw new InvalidDataException("Invalid enemy observation or target identity.");
+        }
         EnemyRevivalRules.Validate(state, actors);
         EnemyAlarmRules.Validate(state, actors);
         EnemyWebRules.Validate(plan, world, actors, content);

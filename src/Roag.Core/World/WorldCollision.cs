@@ -84,7 +84,9 @@ public sealed partial class WorldSession
         var terrain = Chunks.At(p);
         return Materials.Walkable(terrain) && terrain != Material.Camp && ObjectAt(p, terrain) is not { Solid: true };
     }
-    public bool CanEnter(WorldPosition p, long actorId = 0, bool observedOnly = false) => GroundOpen(p) && OccupantAt(p, actorId, observedOnly) == null;
+    public bool CanEnter(WorldPosition p, long actorId = 0, bool observedOnly = false) => GroundOpen(p)
+        && (actorId == 0 || ActorById(actorId).Tactics?.Enemy?.PursuitBoundary is not { } boundary || boundary.Contains(p))
+        && OccupantAt(p, actorId, observedOnly) == null;
     public string MovementBlockReason(WorldPosition p, long actorId = 0, bool observedOnly = false)
     {
         if (!Plan.Contains(p)) return "The world ends here.";

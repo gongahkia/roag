@@ -39,13 +39,13 @@ public sealed partial class WorldSession
 
     private void DispatchPartyWork()
     {
-        if (State.Work.Count == 0 || IsInCombat || PartyTravelling) return;
+        if (State.Work.Count == 0 || State.Tactics == null && IsInCombat || PartyTravelling) return;
         if (State.Work.Count > 0) State.WorkRally ??= State.Position;
         // Reconsider unladen automatic claims every tick. A ready carrier keeps
         // the trip until delivery; an unavailable carrier can hand off the cargo.
         foreach (var order in State.Work.Where(o => !o.PinnedWorker && o.PartyApproach && !o.Suspended))
             if (!HoldsWorkSupplies(order, order.Worker) || !ReadyForWork(ActorById(order.Worker))) order.Worker = 0;
-        var available = Party.Where(a => ReadyForWork(a) && !State.Work.Any(o => o.Worker == a.Id))
+        var available = Party.Where(a => !UsesTacticalTurns(a.Id) && ReadyForWork(a) && !State.Work.Any(o => o.Worker == a.Id))
             .OrderBy(a => a.Id).ToList();
         var routes = new Dictionary<long, WorkRoutes>();
         WorkRoutes Routes(Actor actor) => routes.TryGetValue(actor.Id, out var cached) ? cached : routes[actor.Id] = BuildWorkRoutes(actor);
@@ -117,8 +117,8 @@ public sealed partial class WorldSession
 
     private void ReturnIdleParty()
     {
-        if (IsInCombat || PartyTravelling || State.WorkRally is not { } rally) return;
-        foreach (var actor in Party.Where(a => a.Life == LifeState.Alive && a.Body.RestUntil <= State.Tick
+        if (State.Tactics == null && IsInCombat || PartyTravelling || State.WorkRally is not { } rally) return;
+        foreach (var actor in Party.Where(a => !UsesTacticalTurns(a.Id) && a.Life == LifeState.Alive && a.Body.RestUntil <= State.Tick
             && !State.Work.Any(o => o.Worker == a.Id && !o.Suspended && o.PartyApproach)))
         {
             var path = WorkPath(actor, rally, range: 2);

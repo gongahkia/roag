@@ -93,6 +93,7 @@ public sealed partial class WorldSession
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
             if (worker == null) { order.Worker = 0; continue; }
+            if (UsesTacticalTurns(worker.Id)) { order.Status = "Awaiting the worker's paid timeline action"; continue; }
             if (worker.Recruited && (PartyTravelling || order.Output == null && (!order.PartyApproach && worker.Position.Distance(order.Target) > 1 || !InWorkRally(order.Target)))) { order.Status = PartyTravelling ? "Travelling with the party" : "Outside rally area or work stopped"; continue; }
             if (State.Battle?.ActorIds.Contains(worker.Id) == true) { order.Status = "Worker in combat"; continue; }
             if (RoutineInterruptsWork(worker)) { order.Status = "Interrupted: " + RoutineDescription(worker); continue; }
