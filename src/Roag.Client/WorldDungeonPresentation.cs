@@ -12,8 +12,8 @@ internal sealed partial class WorldGame
 
     private void BuildDungeonControls(int w, int h)
     {
-        void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false, string reason = "")
-            => ControlCache.Add(id, label, bounds, enabled, selected, "", reason, null, "", -1, null, false);
+        void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false, string reason = "", string tip = "")
+            => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, null, "", -1, null, false);
         Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
         Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
         Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
@@ -26,10 +26,12 @@ internal sealed partial class WorldGame
                 foreach (var kind in Enum.GetValues<ClassKind>())
                 {
                     int i = (int)kind, width = (box.Width - 64) / 3;
-                    Add("dungeon:class:" + i, ClassCatalog.Get(kind).Name,
+                    var definition = ClassCatalog.Get(kind);
+                    Add("dungeon:class:" + i, definition.Name,
                         new(box.X + 20 + i % 3 * (width + 12), box.Y + 92 + i / 3 * 56, width, 44),
                         _session.State.Tactics!.NextAction == 1, _session.Party.Single().Tactics!.Build!.Class == kind,
-                        "The class is fixed after the first paid action.");
+                        "The class is fixed after the first paid action.",
+                        $"HP {definition.Health}, damage {definition.Damage}, defense {definition.Defense}, speed {definition.Speed}. {definition.BasicName}; {definition.SpecialName}; {definition.DashName}.");
                 }
             }
             else if (_panel == "dungeon-chest")
@@ -70,8 +72,8 @@ internal sealed partial class WorldGame
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
         string[] kinds = ["move", "basic_attack", "sweeping_slash", "dash", "guard", "wait"];
-        var definition = ClassCatalog.Get(_session.Party.Single().Tactics!.Build!.Class);
-        string[] names = ["Move", definition.BasicName + " / F", definition.SpecialName + " / R", definition.DashName + " / X", "Guard / G", "Wait / Space"];
+        var activeClass = ClassCatalog.Get(_session.Party.Single().Tactics!.Build!.Class);
+        string[] names = ["Move", activeClass.BasicName + " / F", activeClass.SpecialName + " / R", activeClass.DashName + " / X", "Guard / G", "Wait / Space"];
         int buttonWidth = (_map.Width - 16) / 3;
         for (int i = 0; i < kinds.Length; i++)
             Add("roag:" + kinds[i], names[i], new(_map.X + i % 3 * (buttonWidth + 8), h - 94 + i / 3 * 44, buttonWidth, 36), selected: _roagAim == kinds[i]);
@@ -183,10 +185,13 @@ internal sealed partial class WorldGame
         var mouse = Mouse.GetState(); if (!_map.Contains(mouse.Position)) return;
         var point = _camera.ScreenToWorld(new(mouse.X, mouse.Y));
         int dx = Math.Sign((int)Math.Floor(point.X) - hero.Position.X), dy = Math.Sign((int)Math.Floor(point.Y) - hero.Position.Y);
+        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Vow: _roagVow));
         var previewCells = _roagAim == "guard" && AttackGeometry.TryFacing(dx, dy, out var guardFacing)
-            ? AttackGeometry.Arc(hero.Position, guardFacing) : _session.RoagPreview(new(_roagAim, dx, dy));
+            ? AttackGeometry.Arc(hero.Position, guardFacing) : preview.Cells;
         foreach (var cell in previewCells)
             if (_session.Visible.Contains(cell)) FillClipped(TileRect(cell), new Color(113, 187, 195) * .25f);
+        Text(preview.Valid ? $"Recovery {preview.Recovery / 100.0:0.00}s" + (preview.Damage is { } damage ? $" / base damage {damage}" : "") : Short(preview.Reason, Math.Max(30, _map.Width / 8)),
+            _map.X + 4, _map.Bottom - 24, preview.Valid ? Gold : new Color(240, 112, 78));
     }
 
     private void DrawDungeonPanel(int w, int h)
@@ -223,6 +228,7 @@ internal sealed partial class WorldGame
             {
                 var boon = BoonCatalog.Default.Get(pair.Key);
                 Text(boon.Name + " / " + BoonCatalog.Rarities.Sum(r => pair.Value[r]) + " stacks", x, y, Gold); y += 24;
+                Text(string.Join(" / ", BoonCatalog.Rarities.Where(r => pair.Value[r] > 0).Select(r => r + " " + pair.Value[r])), x, y, Muted); y += 22;
                 y += Wrap(boon.Description, x, y, box.Width - 48, Muted) + 10;
             }
             Text($"Page {_nativeBoonPage + 1}/{Math.Max(1, (owned.Count + 2) / 3)}", box.Center.X - 50, box.Bottom - 42, Muted);

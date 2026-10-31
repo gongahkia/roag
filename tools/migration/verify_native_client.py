@@ -21,7 +21,7 @@ control = output / 'control'
 if control.exists():
     raise SystemExit('Use a fresh evidence directory; existing evidence is preserved.')
 control.mkdir()
-slot = output / 'campaign.json'
+slot = control / 'campaign.json'
 dll = ROOT / 'src/Roag.Client/bin/Debug/net10.0/Roag.Client.dll'
 log = (output / 'client.log').open('wb')
 process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(dll), '--new', '--seed', '42',
@@ -94,10 +94,25 @@ try:
     saved = request('control', control='dungeon:save'); assert slot.exists(), saved['notice']
     evidence('03-paid-keyboard-save')
     request('stop'); process.wait(timeout=10)
+    log.close()
+    for name in ['observation.json', 'response.json', 'frame.png']:
+        path = control / name
+        if path.exists(): path.rename(control / ('before-resume-' + name))
+    log = (output / 'resume-client.log').open('wb')
+    process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(dll), '--load', '--save', str(slot),
+        '--playtest-control', str(control), '--window-size', '1024x720', '--no-recording'],
+        cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    resumed = until(lambda: read('observation.json'))['ui']
+    assert resumed['nativeDungeon']['clock'] == clock
+    assert resumed['position'] == moved['position']
+    assert resumed['nativeDungeon']['player'] == saved['nativeDungeon']['player']
+    assert resumed['panel'] == ''
+    evidence('04-resumed-native-run')
+    request('stop'); process.wait(timeout=10)
     (output / 'result.json').write_text(json.dumps(dict(passed=True, seed=42, classId='Tinkerer',
         clock=clock, checks=['native class selection', 'mouse-aimed sentry', 'paid physical keyboard movement',
-        'free inspection/rendering', 'continuing save'], display=os.environ.get('DISPLAY')), indent=2) + '\n')
-    print('Native rendered class, construct, keyboard, inspection and save checkpoint passed.')
+        'free inspection/rendering', 'continuing save', 'rendered resume with exact class/resources/clock'], display=os.environ.get('DISPLAY')), indent=2) + '\n')
+    print('Native rendered class, construct, keyboard, inspection, save and exact resume checkpoint passed.')
 finally:
     if process.poll() is None:
         process.terminate()

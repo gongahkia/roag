@@ -66,6 +66,9 @@ public sealed partial class WorldSession
         return result.Success && State.AwaitingContinuation ? new(true, "You have fallen. Begin a fresh run.") : result;
     }
 
+    public TacticalPreview PreviewDungeonAim(RoagAim aim) => TryDungeonAim(aim, out var intent)
+        ? DungeonCombat.Preview(intent) : new(false, "Choose an available native action.", 0, []);
+
     private bool TryDungeonAim(RoagAim aim, out TacticalIntent intent)
     {
         Facing facing = DungeonCombat.Active?.Tactics?.Facing ?? Facing.South;

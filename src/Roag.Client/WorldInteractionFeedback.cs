@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Input;
 using Roag.Core.Content;
 using Roag.Core.Expeditions;
 using Roag.Core.World;
+using Roag.Core.Tactics;
+using Roag.Core.Dungeons;
 
 namespace Roag.Client;
 
@@ -28,7 +30,8 @@ internal static class WorldInspection
                 return WithAccess(actor.Name, session.SituationDescription(situation) + " " + session.EncounterDescription(actor.Id) + targeting, "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
             string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
-            string detail = wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
+            string detail = actor.Tactics?.Build is { } build ? ClassCatalog.Get(build.Class).Name + " L" + build.Level + ". " + stats
+                : wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
@@ -62,7 +65,11 @@ internal static class WorldInspection
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Walk beside the camp; right-click to rest or craft", _ => "Move with WASD or arrow keys" };
-        return WithAccess(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + session.Plan.BiomeAt(cell.X, cell.Y) + ".", action, "terrain");
+        string placeName = session.State.Dungeon is { } run && run.Floors.FirstOrDefault(f => f.Contains(cell)) is { } floor
+            ? floor.Stage == 4 ? "Final Sanctum" : DungeonCatalog.Default.Biomes.Single(b => b.Id == floor.Biome).Name
+            : session.Plan.BiomeAt(cell.X, cell.Y).ToString();
+        if (session.State.Dungeon != null && material is Material.StairsDown or Material.StairsUp) action = "Step onto the stair, or press Enter while standing on it";
+        return WithAccess(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + placeName + ".", action, "terrain");
         WorldHoverInfo WithAccess(string title, string detail, string action, string kind)
         { return new(title, detail, action, WorldMouseNavigation.HoverBlockReason(session, cell), kind); }
     }
