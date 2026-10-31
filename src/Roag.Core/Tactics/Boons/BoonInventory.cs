@@ -29,7 +29,7 @@ public sealed record BoonStacks(int Common = 0, int Uncommon = 0, int Rare = 0, 
 
 public sealed record BoonMagnitude(long Chance, long Power);
 
-/// <summary>Permanent member-owned stacks. Acquisition adds copies; no transfer/removal command exists.</summary>
+/// <summary>Member-owned stacks. Only an explicit service can retire a copy; no transfers.</summary>
 public sealed record BoonInventory
 {
     public ImmutableDictionary<string, BoonStacks> Stacks { get; init; } = ImmutableDictionary<string, BoonStacks>.Empty;
@@ -49,6 +49,14 @@ public sealed record BoonInventory
 
     public BoonMagnitude Magnitude(string id, BoonCatalog? catalog = null) =>
         Aggregate((catalog ?? BoonCatalog.Default).Get(id), Stacks.GetValueOrDefault(id, new()));
+
+    public BoonInventory Retire(string id, BoonRarity rarity)
+    {
+        if (!Enum.IsDefined(rarity) || !Stacks.TryGetValue(id, out var owned) || owned[rarity] == 0)
+            throw new InvalidOperationException("Choose an owned rarity stack to retire.");
+        var remaining = owned.Add(rarity, -1);
+        return this with { Stacks = remaining.Any ? Stacks.SetItem(id, remaining) : Stacks.Remove(id) };
+    }
 
     public static BoonMagnitude Aggregate(BoonDefinition definition, BoonStacks stacks)
     {

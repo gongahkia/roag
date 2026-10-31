@@ -8,6 +8,24 @@ namespace Roag.Core.Tests.Tactics;
 public sealed partial class ClassActionTests
 {
     [Fact]
+    public void ExplicitMemorialRetirementDoesNotCancelAnAlreadyCommittedEcho()
+    {
+        using var a = new Arena(ClassKind.Adventurer);
+        var activation = Activation(a, a.Hero, "core:boon/temporal_echo", 2, a.Enemy, cells: [a.Enemy.Position]);
+        Apply(a, activation, BoonEffectKind.Echo); Assert.Single(a.Combat.State.BoonEffects.Echoes);
+        var node = a.Combat.SpawnDungeonService(DungeonServiceKind.Memorial, "test:retired-echo", a.Hero.Position.Offset(0, -1));
+        a.Hero.Health--; int hp = a.Enemy.Health;
+        a.World.Reveal();
+        Assert.True(a.Combat.Commit(new(TacticalAction.Interact, Target: node.Id, Choice: 1)).Success);
+        Assert.False(a.Hero.Tactics!.Boons.Inventory.Stacks.ContainsKey("core:boon/temporal_echo"));
+        Assert.Single(a.Combat.State.BoonEffects.Echoes);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+        a.Next(); a.Act(TacticalAction.Wait); a.Next();
+        Assert.Equal(hp - 2, a.Enemy.Health); Assert.Empty(a.Combat.State.BoonEffects.Echoes);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
     public void CleanseFlaskRejectsFreelyWithoutBurningAndCancelsTheActualPendingStatus()
     {
         using var a = new Arena(ClassKind.Adventurer);

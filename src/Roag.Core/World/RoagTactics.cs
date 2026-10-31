@@ -5,7 +5,7 @@ using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
-public sealed record RoagAim(string Kind, int Dx = 0, int Dy = 0, long Target = 0, int Choice = 0, bool Vow = false);
+public sealed record RoagAim(string Kind, int Dx = 0, int Dy = 0, long Target = 0, int Choice = 0, bool Vow = false, bool ReplaceUtility = false);
 public sealed record RoagTelegraph(long Source, long Due, IReadOnlyList<WorldPosition> Cells);
 public sealed record RoagFighter(long Id, string Name, string Class, WorldPosition Position, int Health, int MaxHealth, bool Friendly, bool Ready);
 

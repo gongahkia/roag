@@ -138,6 +138,7 @@ public sealed class TacticalWorldState
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();
+    public DungeonServiceState Services { get; set; } = new();
     public OptionalTerrainState OptionalTerrain { get; set; } = new();
 }
 

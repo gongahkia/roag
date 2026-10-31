@@ -28,6 +28,8 @@ public static class TacticalValidation
         TacticalSupplies.ValidateMarkers(plan, world, content);
         if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
         state.Chests.Validate(plan, actors);
+        if (state.Services == null) throw new InvalidDataException("Missing finite service registry.");
+        state.Services.Validate(plan, world, content);
         if (state.OptionalTerrain == null) throw new InvalidDataException("Missing optional terrain state.");
         state.OptionalTerrain.Validate(plan, world, content);
         if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))

@@ -23,11 +23,14 @@ public sealed class TacticalChestState
     public List<BoonChest> Chests { get; set; } = [];
 
     internal IReadOnlyList<BoonOffer> Offers(BoonChest chest, ClassKind recipient)
+        => Offers(chest.Seed, chest.Definition, recipient);
+
+    internal IReadOnlyList<BoonOffer> Offers(int seed, string definitionId, ClassKind recipient)
     {
         var pool = AvailableBoons.Where(id => BoonCatalog.Default.Get(id).Allows(recipient)).ToList();
         if (pool.Count < 3) throw new InvalidDataException("Chest pool needs three class-eligible boons.");
-        var random = new RoagRandom(chest.Seed);
-        var definition = BoonChestDefinition.Get(chest.Definition);
+        var random = new RoagRandom(seed);
+        var definition = BoonChestDefinition.Get(definitionId);
         var offers = new List<BoonOffer>();
         for (int i = 0; i < 3; i++)
         {
