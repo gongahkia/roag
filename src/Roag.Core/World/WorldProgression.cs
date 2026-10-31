@@ -80,6 +80,12 @@ public sealed partial class WorldSession
         {
             if (actor.CombatTrait == null || actor.Talents == null || actor.Talents.Count > 2 || actor.Talents.Distinct().Count() != actor.Talents.Count)
                 throw new InvalidDataException("Invalid companion developments.");
+            if (state.Dungeon != null && actor.Tactics != null)
+            {
+                if (actor.CombatTrait.Length > 0 || actor.Talents.Count > 0)
+                    throw new InvalidDataException("Native dungeon builds use owned boons, not a separate innate talent layer.");
+                continue;
+            }
             if (actor.Kind != ActorKind.Person)
             {
                 if (actor.CombatTrait.Length > 0 || actor.Talents.Count > 0) throw new InvalidDataException("Only people have generated combat talents.");

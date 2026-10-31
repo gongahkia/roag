@@ -27,6 +27,8 @@ public sealed partial class WorldSession
             var hero = world.Party.Single();
             hero.Position = world.State.Position = new(origin.X + first.Start.X, origin.Y + first.Start.Y, 1);
             hero.Body.Hunger = 0; hero.Body.Fatigue = 0; hero.Body.Wounds = 0;
+            hero.CombatTrait = "";
+            hero.Talents.Clear();
             combat.Register(hero, new() { Build = CharacterBuild.Create(kind, world.DungeonSeed), AutoEat = false });
             world.PaintDungeonFloor(first, origin, combat, boss: false);
             world.PaintDungeonFloor(second, nextOrigin, combat, boss: true);
@@ -106,6 +108,7 @@ public sealed partial class WorldSession
     {
         var actor = ActorFactory.Create(Content, Content.Game.Raider, Seed, State.NextActorId++, position, 0);
         actor.Name = EnemyCatalog.Default.Get(definition).Name;
+        actor.CombatTrait = "";
         actor.SpriteId = "bandit"; // Stored Vagabonds mapping; final per-species bindings remain presentation work.
         State.Actors.Add(actor);
         combat.RegisterEnemy(actor, definition, checked(combat.Clock + 100));

@@ -43,7 +43,7 @@ public sealed class DungeonRunTests
         Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
         Assert.False(world.ChooseDungeonClass(ClassKind.Tinkerer).Success);
         Assert.Equal(ClassKind.Duelist, world.Party.Single().Tactics!.Build!.Class);
-        Assert.Equal(100, world.DungeonCombat.Clock);
+        Assert.Equal(ActionTiming.Recovery(world.DungeonCombat.Tuning.WaitCost, world.Party.Single().Speed), world.DungeonCombat.Clock);
     }
 
     [Fact]
@@ -104,5 +104,27 @@ public sealed class DungeonRunTests
         run.Floors.RemoveAt(2);
         var room = floor.Rooms[0]; floor.Rooms[0] = room with { Width = room.Width + 1 };
         Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+        floor.Rooms[0] = room; world.State.Tactics = null;
+        Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+    }
+
+    [Fact]
+    public void NativeRoomIdentitySupportsWayfinderPlacementSaveAndPaidReturn()
+    {
+        using var world = WorldSession.CreateDungeonRun(42, ClassKind.Wayfinder);
+        var hero = world.Party.Single(); var destination = hero.Position.Offset(1, 0);
+        Assert.True(world.SubmitDungeon(new(TacticalAction.Special, Facing.East)).Success);
+        Assert.Equal(RoomArea.Dungeon, hero.Tactics!.Resources.Beacon!.Room.Area);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-native-beacon-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            world.Save(directory);
+            using var loaded = WorldSession.Load(directory);
+            Assert.True(loaded.SubmitDungeon(new(TacticalAction.Dash)).Success);
+            Assert.Equal(destination, loaded.Party.Single().Position);
+            Assert.Null(loaded.Party.Single().Tactics!.Resources.Beacon);
+            TacticalValidation.Validate(loaded.Plan, loaded.State);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 }
