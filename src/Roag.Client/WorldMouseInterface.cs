@@ -570,6 +570,8 @@ internal sealed partial class WorldGame
                 fighters = _session.RoagFighters(),
                 telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
+                secrets = _session.State.Tactics.Secrets.Nodes.Where(s => _session.Visible.Contains(s.Clue))
+                    .Select(s => new { s.Id, kind = s.Kind.ToString(), position = s.Clue, s.Revealed }),
                 doors = _session.State.Tactics.Doors.Nodes.Where(d => _session.Visible.Contains(d.Position))
                     .Select(d => new { d.Id, d.Position, open = _session.Chunks.At(d.Position) == Material.Door }),
                 services = _session.State.Tactics.Services.Nodes.Where(n => _session.Visible.Contains(n.Position)).Select(n => new

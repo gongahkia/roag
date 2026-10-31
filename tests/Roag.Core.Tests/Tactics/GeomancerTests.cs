@@ -55,7 +55,7 @@ public sealed partial class ClassActionTests
     [Theory]
     [InlineData(Material.StairsUp)]
     [InlineData(Material.StairsDown)]
-    [InlineData(Material.Door)]
+    [InlineData(Material.ClosedDoor)]
     [InlineData(Material.Water)]
     [InlineData(Material.Camp)]
     public void BulwarkCannotReplaceStairsOrNonPlainGround(Material material)
@@ -71,6 +71,7 @@ public sealed partial class ClassActionTests
     [InlineData(Material.Grass)]
     [InlineData(Material.Earth)]
     [InlineData(Material.Bridge)]
+    [InlineData(Material.Door)]
     public void PlainWorldGroundSupportsTheSameConstructPlacementAsDungeonFloor(Material material)
     {
         using var a = new Arena(ClassKind.Geomancer);

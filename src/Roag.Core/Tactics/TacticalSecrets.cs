@@ -28,7 +28,8 @@ public sealed class TacticalSecretState
             if (node.Id <= previous || node.Id >= NextSecret || string.IsNullOrWhiteSpace(node.Marker) || !Enum.IsDefined(node.Kind)
                 || !plan.Contains(node.Position) || world.Dungeon != null && !world.Dungeon.Contains(node.Position)
                 || node.Revealed != (node.Reward > 0) || node.Reward < 0
-                || node.Kind == DungeonSecretKind.MossSigil && (node.Wall != null || node.Cache != null || node.Reward >= world.Tactics!.Loot.NextDrop))
+                || node.Kind == DungeonSecretKind.MossSigil && (node.Wall != null || node.Cache != null || node.Reward >= world.Tactics!.Loot.NextDrop
+                    || !node.Revealed && chunks!.At(node.Position) != Material.Floor))
                 throw new InvalidDataException("Invalid native secret identity or reward receipt.");
             if (node.Kind == DungeonSecretKind.CrackedCache)
             {
@@ -97,6 +98,7 @@ public sealed partial class TacticalCombat
             { reward = SpawnLoot(GroundLootKind.Currency, 4, secret.Position, owner.Id, action).Id; CollectLootAt(owner, secret.Position, action); }
             State.Secrets.Nodes[i] = State.Secrets.Nodes[i] with { Reward = reward };
             _world.Reveal();
+            break; // The original listener discovers at most one secret per event.
         }
     }
 }

@@ -18,11 +18,11 @@ function capture_door(input)
  V.recompute(s);local result={}
  for _,command in ipairs(input.commands)do
   local preview=G.preview(s,command,1,0);local ok,why,events=G.submit(s,{kind=command,dx=1,dy=0})
-  local opened,moved,entered=0,0,0
+  local opened,moved,entered,raised=0,0,0,0
   for _,e in ipairs(events or {})do if e.kind=='DoorOpened'then opened=opened+1 elseif e.kind=='Moved'then moved=moved+1
-   elseif e.kind=='TileEntered'then entered=entered+1 end end
+   elseif e.kind=='TileEntered'then entered=entered+1 elseif e.kind=='GeomancerBlockRaised'then raised=raised+1 end end
   result[#result+1]={valid=ok,clock=s.clock,hp=p.hp,x=p.position.x-15,open=door.open,opened=opened,moved=moved,entered=entered,
-   ward=B.ward_total(s,p),recovery=preview.valid and preview.cost or 0}
+   ward=B.ward_total(s,p),raised=raised,recovery=preview.valid and preview.cost or 0}
  end
  return result
 end
@@ -30,8 +30,9 @@ end
 specs=[dict(name='walk',**{'class':'adventurer'},commands=['move','move','dash']),
        dict(name='refusal',**{'class':'adventurer'},commands=['dash','basic_attack','move']),
        dict(name='ward',**{'class':'adventurer'},ward=True,commands=['move','move']),
-       dict(name='fast',**{'class':'ranger'},commands=['move','move'])]
-fields=['valid','clock','hp','x','open','opened','moved','entered','ward','recovery']
+       dict(name='fast',**{'class':'ranger'},commands=['move','move']),
+       dict(name='open-door-bulwark',**{'class':'geomancer'},commands=['move','sweeping_slash'])]
+fields=['valid','clock','hp','x','open','opened','moved','entered','ward','raised','recovery']
 cases=[dict(input=s,expected=array(lua.globals().capture_door(table(s)),lambda r:{k:r[k] for k in fields}))for s in specs]
 path=ROOT/'tests/Roag.Core.Tests/Tactics/Fixtures/original-doors.json'
 path.write_text(json.dumps(dict(revision=REVISION,sources=dict(sorted(SOURCES.items())),cases=cases),separators=(',',':'))+'\n')

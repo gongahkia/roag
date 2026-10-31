@@ -22,7 +22,8 @@ public sealed partial class DungeonTerrainTests
             combat.State.RandomState = 37; world.Reveal(); int index = 0;
             foreach (var command in input.GetProperty("commands").EnumerateArray())
             {
-                var action = command.GetString() switch { "move" => TacticalAction.Move, "dash" => TacticalAction.Dash, _ => TacticalAction.BasicAttack };
+                var action = command.GetString() switch { "move" => TacticalAction.Move, "dash" => TacticalAction.Dash,
+                    "sweeping_slash" => TacticalAction.Special, _ => TacticalAction.BasicAttack };
                 var intent = new TacticalIntent(action, Facing.East); var expected = sample.GetProperty("expected")[index++]; long first = combat.State.NextEvent;
                 string before = JsonSerializer.Serialize(world.State); var preview = combat.Preview(intent);
                 Assert.Equal(before, JsonSerializer.Serialize(world.State));
@@ -33,12 +34,12 @@ public sealed partial class DungeonTerrainTests
                 Assert.Equal(origin.Offset(expected.GetProperty("x").GetInt32(), 0), hero.Position);
                 Assert.Equal(expected.GetProperty("open").GetBoolean(), world.Chunks.At(door.Position) == Material.Door);
                 Assert.Equal(expected.GetProperty("ward").GetInt32(), hero.Tactics!.Boons.WardTotal(combat.Clock));
-                foreach (var (key, kind) in new[] { ("opened", "DoorOpened"), ("moved", "Moved"), ("entered", "TileEntered") })
+                foreach (var (key, kind) in new[] { ("opened", "DoorOpened"), ("moved", "Moved"), ("entered", "TileEntered"), ("raised", "GeomancerBlockRaised") })
                     Assert.Equal(expected.GetProperty(key).GetInt32(), combat.State.Events.Count(e => e.Sequence >= first && e.Kind == kind));
                 TacticalValidation.Validate(world.Plan, world.State); commands++;
             }
         }
-        Assert.Equal(10, commands);
+        Assert.Equal(12, commands);
     }
 
     [Fact]

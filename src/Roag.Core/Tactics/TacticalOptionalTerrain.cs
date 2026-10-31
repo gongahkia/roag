@@ -61,6 +61,7 @@ public sealed partial class TacticalCombat
             && _world.GroundOpen(position) && _world.DungeonTerrainAt(position) == null && !ProtectedForcedLanding(position)
             && !State.OptionalTerrain.Nodes.Any(n => n.Position == position || n.Marker == marker)
             && !State.Services.Nodes.Any(n => n.Position == position)
+            && !State.Secrets.Nodes.Any(n => !n.Revealed && n.Clue == position)
             && (kind != OptionalTerrainKind.FragileCrossing || _world.State.Dungeon?.Floors.Any(f => f.Entry == position || f.Exit == position) != true
                 && TerrainRemovalPreservesRoutes(position));
 

@@ -19,6 +19,17 @@ public sealed class DungeonPopulationTests
             kinds.UnionWith(state.Services.Nodes.Select(n => n.Kind));
             foreach (var floor in world.State.Dungeon!.Floors)
             {
+                var secret = Assert.Single(state.Secrets.Nodes, n => n.Position.Floor == floor.Origin.Floor);
+                Assert.False(secret.Revealed); Assert.Equal(0, secret.Reward);
+                Assert.Equal(floor.Origin.Floor % 2 == 1 ? DungeonSecretKind.CrackedCache : DungeonSecretKind.MossSigil, secret.Kind);
+                Assert.False(Assert.Single(floor.Rooms, r => r.Contains(secret.Position)).Critical);
+                Assert.DoesNotContain(state.Services.Nodes, n => n.Position == secret.Clue);
+                Assert.DoesNotContain(state.OptionalTerrain.Nodes, n => n.Position == secret.Clue);
+                if (secret.Cache is { } hidden)
+                {
+                    Assert.Equal(Material.Wall, world.Chunks.At(secret.Clue)); Assert.Equal(Material.Wall, world.Chunks.At(hidden));
+                    Assert.DoesNotContain(floor.Rooms, r => r.Contains(hidden));
+                }
                 var door = Assert.Single(state.Doors.Nodes, d => d.Position.Floor == floor.Origin.Floor);
                 Assert.Equal(Material.ClosedDoor, world.Chunks.At(door.Position));
                 Assert.False(world.CanEnter(door.Position));

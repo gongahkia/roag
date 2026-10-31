@@ -132,6 +132,7 @@ public sealed partial class WorldSession
             int index = State.Dungeon.Floors.IndexOf(floor);
             State.Dungeon.Floors[index] = floor with { Boss = actor.Id };
         }
+        PopulateDungeonSecrets(layout, origin, combat);
         PopulateDungeonOptionalTerrain(layout, origin, combat);
         PopulateDungeonServices(layout, origin, combat);
     }

@@ -47,6 +47,13 @@ internal static class WorldInspection
             string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Party[0]);
             return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
+        if (session.State.Tactics?.Secrets.Nodes.FirstOrDefault(n => n.Clue == cell) is { } secret)
+        {
+            if (!session.Visible.Contains(cell)) return new("Secret clue (remembered)", "Observe this clue again to inspect its current state.", "Move with the keyboard", "", "object");
+            if (!secret.Revealed) return secret.Kind == DungeonSecretKind.CrackedCache
+                ? new("Cracked moss wall", "A recurring cracked-wall clue. An explicit Adventurer basic attack opens it; bump attacks do not.", "Aim a basic attack with F", "", "object")
+                : new("Moss sigil", "Cross this recurring movement clue to discover its reward. Walking and Dash both work.", "Move with the keyboard", "", "object");
+        }
         if (session.DungeonDoorAt(cell) != null)
         {
             bool closed = material == Material.ClosedDoor;

@@ -86,7 +86,8 @@ public sealed partial class TacticalCombat
     public bool CanPlaceBellPuzzle(string marker, WorldPosition plaque) => !string.IsNullOrWhiteSpace(marker)
         && _world.RoomAt(plaque) is { Area: RoomArea.Dungeon } room
         && FixtureCross(plaque).All(p => _world.RoomAt(p) == room && _world.CanEnter(p) && !ProtectedForcedLanding(p)
-            && !State.Services.Nodes.Any(n => n.Position == p) && !State.OptionalTerrain.Nodes.Any(n => n.Position == p))
+            && !State.Services.Nodes.Any(n => n.Position == p) && !State.OptionalTerrain.Nodes.Any(n => n.Position == p)
+            && !State.Secrets.Nodes.Any(n => !n.Revealed && n.Clue == p))
         && !State.Services.Nodes.Any(n => n.Marker.StartsWith(marker + "/", StringComparison.Ordinal));
 
     private void RingBell(DungeonService node, Actor owner, long action)

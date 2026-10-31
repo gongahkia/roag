@@ -19,6 +19,8 @@ public sealed partial class WorldSession
         EliteBoonChest = new("Elite Boon Chest", "chest", "boon-chest", true);
     private static readonly WorldObject ClosedDungeonDoor = new("Closed door", "gate", "dungeon-door", true),
         OpenDungeonDoor = new("Open door", "gate-open", "dungeon-door", false);
+    private static readonly WorldObject CrackedSecretWall = new("Cracked moss wall", "cracked-wall", "dungeon-secret", true),
+        MossSecretSigil = new("Moss sigil", "mark", "dungeon-secret", false);
     private static readonly WorldObject[] DungeonServiceObjects = Enum.GetValues<DungeonServiceKind>()
         .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
@@ -51,6 +53,12 @@ public sealed partial class WorldSession
                 if (tactics.Services.Nodes[i].Position == p) return DungeonServiceObjects[(int)tactics.Services.Nodes[i].Kind];
             for (int i = 0; i < tactics.Doors.Nodes.Count; i++)
                 if (tactics.Doors.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
+            for (int i = 0; i < tactics.Secrets.Nodes.Count; i++)
+            {
+                var secret = tactics.Secrets.Nodes[i];
+                if (!secret.Revealed && secret.Clue == p)
+                    return secret.Kind == DungeonSecretKind.CrackedCache ? CrackedSecretWall : MossSecretSigil;
+            }
         }
         if (TryExplicitObject(p, out var placed)) return placed;
         return GeneratedObjectAt(Plan, Chunks, p, terrain);

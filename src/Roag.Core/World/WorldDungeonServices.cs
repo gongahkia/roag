@@ -18,6 +18,7 @@ public sealed partial class WorldSession
             + "/stage/" + floor.Stage + "/depth/" + (origin.Floor % 2 == 1 ? 1 : 2);
         int seed = RoagRandom.Derive(DungeonSeed, sourceFloor + ":interactions");
         bool Available(WorldPosition p) => CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
+            && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 4 && p.Distance(floor.Exit) >= 4
             && !combat.State.Services.Nodes.Any(n => n.Position == p)
             && !combat.State.OptionalTerrain.Nodes.Any(n => n.Position == p);

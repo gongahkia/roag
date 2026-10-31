@@ -254,7 +254,7 @@ internal sealed partial class WorldGame
         }
         y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened").TakeLast(4))
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered").TakeLast(4))
         {
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }
@@ -388,6 +388,11 @@ internal sealed partial class WorldGame
             }
         foreach (var drop in state.Loot.Drops.Where(d => d.CarriedBy == 0))
             Icon(drop.Position, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", Gold);
+        foreach (var secret in state.Secrets.Nodes)
+            if (!secret.Revealed && secret.Clue.Floor == _session.State.Position.Floor && _session.Chunks.Seen(secret.Clue)
+                && _map.Intersects(TileRect(secret.Clue)))
+                _sprites.Fit(_batch, secret.Kind == DungeonSecretKind.CrackedCache ? "cracked-wall" : "mark", TileRect(secret.Clue),
+                    new Color(136, 202, 145) * (_session.Visible.Contains(secret.Clue) ? 1 : .35f));
         var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);
         foreach (var node in state.OptionalTerrain.Nodes)
         {
