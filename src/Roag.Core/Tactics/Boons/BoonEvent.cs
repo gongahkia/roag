@@ -48,6 +48,7 @@ public sealed record BoonEvent
     public double ProcCoefficient { get; init; } = 1;
     public bool? TargetBurning { get; init; }
     public bool DirectAttack { get; init; }
+    public bool Bump { get; init; }
     public bool WallBacked { get; init; }
     public bool RewardExempt { get; init; }
     public bool FateMiss { get; init; }

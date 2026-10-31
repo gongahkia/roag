@@ -214,7 +214,7 @@ public sealed partial class TacticalCombat
         Actor? hooked = intent.Action == TacticalAction.Special && actor.Tactics.Build!.Class == ClassKind.Hookrunner
             ? footprint.Cells.Select(p => BodyAt(p, actor.Id)).FirstOrDefault(a => a != null) : null;
         ConsumeMirror(actor, action, effective.Reflection, footprint.Cells);
-        bool performed = Strike(actor, action, footprint, damage, actor.Position, preview.Vow);
+        bool performed = Strike(actor, action, footprint, damage, actor.Position, preview.Vow, preview.Bump);
         if (performed && hooked is { Life: LifeState.Alive } && hooked.Tactics is not { ImmuneToPull: true } and not { Invulnerable: true })
         {
             var (dx, dy) = AttackGeometry.Offset(intent.Facing);
@@ -233,7 +233,7 @@ public sealed partial class TacticalCombat
         }
     }
 
-    private bool Strike(Actor actor, long action, AttackFootprint footprint, int damage, WorldPosition origin, BoonVowPayment? vow)
+    private bool Strike(Actor actor, long action, AttackFootprint footprint, int damage, WorldPosition origin, BoonVowPayment? vow, bool bump = false)
     {
         var random = new RoagRandom(State.RandomState);
         var fate = actor.Tactics!.Boons.RollDice(random, action);
@@ -261,7 +261,7 @@ public sealed partial class TacticalCombat
         Emit("AttackPerformed", actor.Id, 0, action, origin, ability: footprint.AbilityId,
             snapshot: CaptureBoonEvent(BoonTrigger.AttackPerformed, actor.Id, 0, action, origin, footprint.AbilityId)
                 with { TargetCells = footprint.Cells.ToImmutableArray(), DamageType = footprint.Element, DirectAttack = true,
-                    FateFace = fate?.Face, FateMiss = miss },
+                    FateFace = fate?.Face, FateMiss = miss, Bump = bump },
             webCuts: CaptureWebCuts(actor.Id, footprint.Cells, footprint.Delivery, damage));
         ResolveAttack(new(action, actor.Id, origin, footprint.Cells.ToArray(), footprint.AbilityId,
             footprint.Delivery, footprint.Element, damage, Clock, Critical: critical, FateFace: fate?.Face));
