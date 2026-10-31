@@ -393,6 +393,12 @@ internal sealed partial class WorldGame
                 && _map.Intersects(TileRect(secret.Clue)))
                 _sprites.Fit(_batch, secret.Kind == DungeonSecretKind.CrackedCache ? "cracked-wall" : "mark", TileRect(secret.Clue),
                     new Color(136, 202, 145) * (_session.Visible.Contains(secret.Clue) ? 1 : .35f));
+        foreach (var feature in state.RoomFeatures.Nodes)
+            if (!feature.Used && feature.Position.Floor == _session.State.Position.Floor && _session.Chunks.Seen(feature.Position)
+                && _map.Intersects(TileRect(feature.Position)))
+                _sprites.Fit(_batch, NativeAppearance.ForRoomFeature(feature.Kind), TileRect(feature.Position),
+                    (feature.Kind == DungeonRoomFeatureKind.Brazier && _session.Visible.Contains(feature.Position) && feature.LitUntil > state.Queue.Clock ? Gold : Muted)
+                    * (_session.Visible.Contains(feature.Position) ? 1 : .35f));
         var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);
         foreach (var node in state.OptionalTerrain.Nodes)
         {

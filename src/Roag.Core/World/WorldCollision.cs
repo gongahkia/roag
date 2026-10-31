@@ -23,6 +23,8 @@ public sealed partial class WorldSession
         MossSecretSigil = new("Moss sigil", "mark", "dungeon-secret", false);
     private static readonly WorldObject[] DungeonServiceObjects = Enum.GetValues<DungeonServiceKind>()
         .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
+    private static readonly WorldObject[] DungeonRoomObjects = Enum.GetValues<DungeonRoomFeatureKind>()
+        .Select(k => new WorldObject(TacticalCombat.RoomFeatureName(k), NativeAppearance.ForRoomFeature(k), "dungeon-room-feature", k == DungeonRoomFeatureKind.Pillar)).ToArray();
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
     internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
     {
@@ -58,6 +60,11 @@ public sealed partial class WorldSession
                 var secret = tactics.Secrets.Nodes[i];
                 if (!secret.Revealed && secret.Clue == p)
                     return secret.Kind == DungeonSecretKind.CrackedCache ? CrackedSecretWall : MossSecretSigil;
+            }
+            for (int i = 0; i < tactics.RoomFeatures.Nodes.Count; i++)
+            {
+                var feature = tactics.RoomFeatures.Nodes[i];
+                if (!feature.Used && feature.Position == p) return DungeonRoomObjects[(int)feature.Kind];
             }
         }
         if (TryExplicitObject(p, out var placed)) return placed;

@@ -17,7 +17,7 @@ public sealed class TacticalSupplies
 
     internal void Validate()
     {
-        if (FocusActions is < 0 or > 3 || WardActions is < 0 or > 3 || FocusActions > 0 && WardActions > 0
+        if (FocusActions is < 0 or > 3 || WardActions is < 0 or > 3
             || Utility is { } utility && (!Enum.IsDefined(utility.Kind)
                 || utility.Marker != null && utility.Kind != UtilityKind.ReturnToken))
             throw new InvalidDataException("Invalid carried utility or prepared supply condition.");

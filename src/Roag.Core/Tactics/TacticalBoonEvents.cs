@@ -118,7 +118,7 @@ public sealed partial class TacticalCombat
                         BeforeBoonEvent(e);
                         if (e.ClassGenerated)
                         {
-                            ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); ResolveSecretEvent(e); ResolveTerrainEvent(e); return;
+                            ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); ResolveRoomFeatureEvent(e); ResolveSecretEvent(e); ResolveTerrainEvent(e); return;
                         }
                         var random = new RoagRandom(State.RandomState);
                         BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
@@ -135,6 +135,7 @@ public sealed partial class TacticalCombat
                         ResolveWebEvent(e, queued.WebCuts);
                         ResolveKillRewards(e);
                         ResolveEnemyPhase(e);
+                        ResolveRoomFeatureEvent(e);
                         ResolveSecretEvent(e);
                         ResolveTerrainEvent(e);
                     });

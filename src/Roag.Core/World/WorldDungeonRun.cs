@@ -135,6 +135,7 @@ public sealed partial class WorldSession
         PopulateDungeonSecrets(layout, origin, combat);
         PopulateDungeonOptionalTerrain(layout, origin, combat);
         PopulateDungeonServices(layout, origin, combat);
+        PopulateDungeonRoomFeatures(layout, origin, combat);
     }
 
     private Actor SpawnDungeonEnemy(TacticalCombat combat, string definition, WorldPosition position)

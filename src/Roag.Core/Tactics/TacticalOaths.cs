@@ -33,7 +33,7 @@ public static class EnemyOaths
                 || partner.Tactics.Enemy.OathBroken != memory.OathBroken))
                 throw new InvalidDataException("Invalid mutual oath pair.");
             if (!memory.OathBroken && (partner == null || !Reaches(twin, partner,
-                p => WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, p) && WorldSession.SnapshotDungeonTerrainAt(world, terrain, p) != 'm')))
+                p => WorldSession.SnapshotProjectileOpen(plan, world, content, terrain, p) && !WorldSession.SnapshotDungeonMistBlocks(world, terrain, p))))
                 throw new InvalidDataException("Invalid intact oath.");
         }
     }

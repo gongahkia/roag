@@ -319,7 +319,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 var p = origin.Offset(length == 0 ? 0 : (int)Math.Round(dx * step / (double)length), length == 0 ? 0 : (int)Math.Round(dy * step / (double)length));
                 if (!Plan.Contains(p)) break;
                 vision.Add(p);
-                if (p != origin && (Materials.Opaque(Chunks.At(p)) || DungeonTerrainAt(p) == 'm' || TacticalBlockAt(p))) break;
+                if (p != origin && (Materials.Opaque(Chunks.At(p)) || DungeonMistBlocks(p) || TacticalBlockAt(p))) break;
             }
         }
         return vision;

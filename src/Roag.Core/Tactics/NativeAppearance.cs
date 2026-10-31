@@ -3,6 +3,15 @@ namespace Roag.Core.Tactics;
 /// <summary>Semantic bindings authored in the retained universal-atlas mapping, never source-art indices.</summary>
 public static class NativeAppearance
 {
+    public static string ForRoomFeature(DungeonRoomFeatureKind kind) => kind switch
+    {
+        DungeonRoomFeatureKind.Ore or DungeonRoomFeatureKind.Pillar => "boulder",
+        DungeonRoomFeatureKind.Brazier => "brazier", DungeonRoomFeatureKind.Ward => "shield",
+        DungeonRoomFeatureKind.Overgrowth => "shrub", DungeonRoomFeatureKind.Mushroom => "mushroom",
+        DungeonRoomFeatureKind.MineRail => "bridge", DungeonRoomFeatureKind.Crystal => "mark",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
+
     public static string ForClass(ClassKind kind) => "roag-class-" + ClassCatalog.Get(kind).Key.Replace('_', '-');
     public static string ForEnemy(string definition)
     {

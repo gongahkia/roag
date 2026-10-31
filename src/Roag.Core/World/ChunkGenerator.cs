@@ -6,8 +6,8 @@ namespace Roag.Core.World;
 
 public static class Materials
 {
-    public static bool Walkable(Material m) => m is not (Material.Tree or Material.Water or Material.Rock or Material.Wall or Material.Storage or Material.Barricade or Material.ClosedDoor);
-    public static bool Opaque(Material m) => m is Material.Tree or Material.Rock or Material.Wall or Material.Barricade or Material.ClosedDoor;
+    public static bool Walkable(Material m) => m is not (Material.Tree or Material.Water or Material.Rock or Material.Wall or Material.Storage or Material.Barricade or Material.ClosedDoor or Material.Pillar);
+    public static bool Opaque(Material m) => m is Material.Tree or Material.Rock or Material.Wall or Material.Barricade or Material.ClosedDoor or Material.Pillar;
     public static int Hardness(Material m) => m switch { Material.Rock or Material.Wall => 4, Material.Tree => 2, _ => 1 };
     public static string Yield(Material m) => m is Material.Tree or Material.Door or Material.ClosedDoor or Material.Storage or Material.Camp or Material.Barricade ? "wood" : "stone";
     public static string Sprite(Material m, Biome biome, CultureSample? culture = null) => m switch
@@ -16,6 +16,7 @@ public static class Materials
         Material.Water => "water", Material.Rock => "boulder", Material.Earth => "path",
         Material.Barricade => "wood",
         Material.ClosedDoor => "gate",
+        Material.Pillar => "boulder",
         Material.Wall => culture?.Wall ?? "ruin-wall", Material.Floor => culture?.Floor ?? "stone",
         Material.Door => "wood", Material.Bridge => "bridge", Material.StairsDown => "stairs-down", Material.StairsUp => "stairs-up",
         Material.Storage => "chest", Material.Camp => "campfire", _ => biome is Biome.Highland or Biome.Badland ? "rock-floor" : "grass"

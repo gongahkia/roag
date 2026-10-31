@@ -54,6 +54,21 @@ internal static class WorldInspection
                 ? new("Cracked moss wall", "A recurring cracked-wall clue. An explicit Adventurer basic attack opens it; bump attacks do not.", "Aim a basic attack with F", "", "object")
                 : new("Moss sigil", "Cross this recurring movement clue to discover its reward. Walking and Dash both work.", "Move with the keyboard", "", "object");
         }
+        if (session.State.Tactics?.RoomFeatures.Nodes.FirstOrDefault(n => n.Position == cell) is { } feature)
+        {
+            string title = TacticalCombat.RoomFeatureName(feature.Kind);
+            if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe it again to inspect its current state.", "Move with the keyboard", "", "object");
+            string detail = feature.Used ? "Already collected or broken. Its reward cannot be repeated." : feature.Kind switch
+            {
+                DungeonRoomFeatureKind.Ore => "Any performed attack footprint breaks it once, leaving three gold on this tile.",
+                DungeonRoomFeatureKind.Ward => "Cross to gain a ward that blocks one positive hit and lasts three own actions. Existing focus is retained.",
+                DungeonRoomFeatureKind.Brazier => "Cross to clear sight-blocking mist within two tiles for three seconds. "
+                    + (feature.LitUntil > session.DungeonCombat.Clock ? $"Lit for {(feature.LitUntil - session.DungeonCombat.Clock) / 100.0:0.00}s." : "Currently unlit."),
+                DungeonRoomFeatureKind.Pillar => "A permanent pillar blocking movement, vision and projectiles. It has no health and cannot be attacked apart.",
+                _ => "Room scenery. It does not block movement or projectiles."
+            };
+            return new(title, detail, feature.Kind == DungeonRoomFeatureKind.Ore ? "Aim an attack with F or R" : "Move with the keyboard", "", "object");
+        }
         if (session.DungeonDoorAt(cell) != null)
         {
             bool closed = material == Material.ClosedDoor;
@@ -69,7 +84,8 @@ internal static class WorldInspection
                 'b' => ("Bramble bed", "One physical contact hit per actor/action, base 1 damage. Waiting here is safe; armor and wards apply."),
                 'g' => ("Sticky bog", "Crossing adds 0.4 seconds of walking recovery or 0.2 seconds of Dash recovery per tile, before speed scaling."),
                 'i' => ("Glazed ice", "Entering ice within the first two Dash tiles extends legal traversal to at least three tiles."),
-                'm' => ("Obscuring mist", "Blocks sight beyond the mist. Movement and projectiles pass through."),
+                'm' => ("Obscuring mist", session.DungeonMistBlocks(cell) ? "Blocks sight beyond the mist. Movement and projectiles pass through."
+                    : "A nearby lit brazier temporarily clears its sight obstruction. The underlying mist remains."),
                 _ => ("Resonant crystal", "Nearby lightning damage arcs 1 damage to the nearest other living actor opposing its source. Arcs do not chain.")
             };
             return new(name, detail, "Move with WASD or arrow keys", "", "terrain");

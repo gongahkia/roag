@@ -76,7 +76,7 @@ public sealed partial class WorldSession
             .OrderBy(a => a.Id).ToArray();
         if (choices.Length == 0) return;
         bool Beam(WorldPosition a, WorldPosition b) => EnemySquads.Clear(a, b,
-            p => !Materials.Opaque(Chunks.At(p)) && DungeonTerrainAt(p) != 'm' && ObjectAt(p) is not { Solid: true });
+            p => !Materials.Opaque(Chunks.At(p)) && !DungeonMistBlocks(p) && ObjectAt(p) is not { Solid: true });
         bool Companion(WorldPosition p) => CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
             && p.Distance(floor.Entry) >= 8 && p.Distance(floor.Exit) > 2 && !combat.State.Chests.Chests.Any(c => c.Position == p);
         int offset = seed / 4 % choices.Length;
