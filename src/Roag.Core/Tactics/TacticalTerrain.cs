@@ -8,8 +8,8 @@ public sealed partial class TacticalCombat
     {
         var target = beacon.Position;
         if (target.Floor != actor.Position.Floor || target == actor.Position
-            || _world.Chunks.Generator.RoomAt(actor.Position) != beacon.Room
-            || _world.Chunks.Generator.RoomAt(target) != beacon.Room)
+            || _world.RoomAt(actor.Position) != beacon.Room
+            || _world.RoomAt(target) != beacon.Room)
             return Invalid("Return is limited to a different tile in the beacon's room on this floor.");
         if (!_world.CanEnter(target, actor.Id) || !_world.Visible.Contains(target)
             || _world.Chunks.At(target) is Material.StairsDown or Material.StairsUp)
@@ -22,7 +22,7 @@ public sealed partial class TacticalCombat
             if (cell.Distance == 6) continue;
             foreach (var next in Neighbors(cell.Position))
                 if (!seen.Contains(next) && _world.GroundOpen(next) && _world.Chunks.Seen(next)
-                    && _world.Chunks.Generator.RoomAt(next) == beacon.Room)
+                    && _world.RoomAt(next) == beacon.Room)
                 { seen.Add(next); queue.Enqueue((next, cell.Distance + 1)); }
         }
         return Invalid("The beacon needs an explored route of at most six tiles within its room.");

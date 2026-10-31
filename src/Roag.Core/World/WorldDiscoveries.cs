@@ -210,6 +210,7 @@ public sealed partial class WorldSession
     }
     private void ObserveDiscoveries()
     {
+        if (State.Dungeon != null) return;
         foreach (var d in State.Discoveries.Where(d => !d.Known && Visible.Contains(d.Position))) d.Known = true;
         foreach (var s in Plan.Sites.Where(s => Visible.Contains(s.Center))) State.KnownSites.Add(s.Id);
     }

@@ -114,6 +114,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     private void AdvanceWorldTick()
     {
+        if (State.Dungeon != null) { State.Tick++; return; } // Later living-world systems are outside this tranche.
         PrepareBodyClock();
         State.Tick++;
         Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceOccupations(); AdvanceIncidents();

@@ -139,7 +139,7 @@ public sealed class TacticalWorldState
 /// <summary>Delegated numerical tuning; one ordinary 100-cost action represents one second.</summary>
 public sealed record TacticalTuning(int GuardReductionPercent = 50, int GuardCost = 100,
     int WaitCost = 100, int ReviveCost = 100, int UnitsPerSecond = 100, int EatCost = 100,
-    int SurvivalIntervalSeconds = 10, int WellFedHungerMaximum = 20)
+    int SurvivalIntervalSeconds = 10, int WellFedHungerMaximum = 20, bool EnableSurvival = true)
 {
     // The imported calendar has 300 world ticks/hour. One world tick represents
     // twelve seconds; tactical timestamps retain sub-tick recovery exactly.

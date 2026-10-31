@@ -47,6 +47,7 @@ public sealed partial class WorldSession
 
     private void ObserveWildlife()
     {
+        if (State.Dungeon != null) return;
         if (State.Party.Count == 0 || State.Endgame == null || State.Discoveries.Count == 0 || State.Tactics == null && IsInCombat) return;
         foreach (var key in Visible.Select(p => p.Chunk).Distinct().OrderBy(k => k.Floor).ThenBy(k => k.Y).ThenBy(k => k.X))
         {

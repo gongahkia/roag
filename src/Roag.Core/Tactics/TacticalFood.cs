@@ -35,7 +35,7 @@ public sealed partial class TacticalCombat
 
     private void EnsureSurvivalScheduled()
     {
-        if (State.DrivesWorldClock && !State.Queue.Snapshot().Pending.Any(w => w.Kind == ScheduledKind.Survival))
+        if (State.DrivesWorldClock && Tuning.EnableSurvival && !State.Queue.Snapshot().Pending.Any(w => w.Kind == ScheduledKind.Survival))
             State.Queue.Schedule(ScheduledKind.Survival, checked(Clock + SurvivalInterval));
     }
 

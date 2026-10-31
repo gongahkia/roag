@@ -1,6 +1,6 @@
 namespace Roag.Core.World;
 
-public enum RoomArea { OpenSurface, Town, Site }
+public enum RoomArea { OpenSurface, Town, Site, Dungeon }
 public readonly record struct WorldRoomId(RoomArea Area, int Place, int Floor, int Room);
 
 public sealed partial class ChunkGenerator

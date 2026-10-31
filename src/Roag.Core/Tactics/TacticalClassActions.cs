@@ -98,8 +98,8 @@ public sealed partial class TacticalCombat
             case ClassKind.Wayfinder:
                 return footprint.Cells.Count == 1 && actor.Position.Distance(footprint.Cells[0]) == 1
                     && PlainPlacement(footprint.Cells[0]) && _world.Visible.Contains(footprint.Cells[0])
-                    && _world.Chunks.Seen(footprint.Cells[0]) && _world.Chunks.Generator.RoomAt(actor.Position) is { } room
-                    && _world.Chunks.Generator.RoomAt(footprint.Cells[0]) == room
+                    && _world.Chunks.Seen(footprint.Cells[0]) && _world.RoomAt(actor.Position) is { } room
+                    && _world.RoomAt(footprint.Cells[0]) == room
                     ? Valid() : Invalid("Plant on visible explored plain ground in your current room, away from stairs.");
             default: return null;
         }
@@ -196,7 +196,7 @@ public sealed partial class TacticalCombat
                     Emit("GeomancerBlockRaised", actor.Id, actor.Id, action, footprint.Cells[0]);
                     _world.Reveal(); return;
                 case ClassKind.Wayfinder:
-                    resources.Beacon = new(footprint.Cells[0], _world.Chunks.Generator.RoomAt(footprint.Cells[0])!.Value);
+                    resources.Beacon = new(footprint.Cells[0], _world.RoomAt(footprint.Cells[0])!.Value);
                     Emit("BeaconPlanted", actor.Id, actor.Id, action, footprint.Cells[0]); return;
             }
         }

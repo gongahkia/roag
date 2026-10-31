@@ -51,6 +51,7 @@ public sealed partial class WorldSession
     /// <summary>Read-only saved-world collision, using the same prop rules as the live session.</summary>
     internal static bool SnapshotProjectileOpen(WorldPlan plan, WorldState state, ContentCatalog content, ChunkCache chunks, WorldPosition p)
     {
+        if (state.Dungeon is { } run && !run.Contains(p)) return false;
         if (!plan.Contains(p) || Materials.Opaque(chunks.At(p))
             || state.Tactics?.Chests.Chests.Any(c => !c.Claimed && c.Position == p) == true
             || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)) return false;
@@ -83,7 +84,7 @@ public sealed partial class WorldSession
     public bool GroundOpen(WorldPosition p) => GroundOpen(p, 0);
     internal bool GroundOpen(WorldPosition p, long ignoredBulwarkOwner)
     {
-        if (!Plan.Contains(p) || TacticalBlockAt(p, ignoredBulwarkOwner)) return false;
+        if (!Plan.Contains(p) || State.Dungeon is { } run && !run.Contains(p) || TacticalBlockAt(p, ignoredBulwarkOwner)) return false;
         var terrain = Chunks.At(p);
         return Materials.Walkable(terrain) && terrain != Material.Camp && ObjectAt(p, terrain) is not { Solid: true };
     }

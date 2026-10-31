@@ -38,7 +38,7 @@ public sealed partial class WorldSession
             refs.Add(new(delta.Key, hash));
         }
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
-        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest(Plan.RoagNative ? "roag-world" : "vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
+        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest(Plan.RoagNative || State.Dungeon != null ? "roag-world" : "vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
         PruneSaveSnapshots(directory, refs);
         SavePath = path; DeathPending = false;
         Diagnose("save", new { path, chunks = refs.Count });

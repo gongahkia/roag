@@ -53,6 +53,7 @@ public sealed partial class TacticalCombat
     private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
         : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
+        && (_world.State.Dungeon == null || _world.State.Dungeon.Contains(p))
         && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true };
 
     public void Register(Actor actor, ActorTactics tactics, long? readyAt = null)

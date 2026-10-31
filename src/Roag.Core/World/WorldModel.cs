@@ -567,6 +567,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public Roag.Core.Dungeons.DungeonRunState? Dungeon { get; set; }
     public TacticalWorldState? Tactics { get; set; }
     public bool RoagCombat { get; set; }
     public string RoagCombatState { get; set; } = "";

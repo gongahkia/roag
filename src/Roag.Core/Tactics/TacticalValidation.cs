@@ -10,6 +10,7 @@ public static class TacticalValidation
         foreach (var actor in world.Actors) actor.Tactics?.Validate();
         if (world.Tactics is not { } state)
         {
+            if (world.Dungeon != null) throw new InvalidDataException("A native dungeon requires its saved action timeline.");
             if (world.Actors.Any(a => a.Tactics != null)) throw new InvalidDataException("Tactical actors lack a world timeline.");
             return;
         }
@@ -23,6 +24,7 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        world.Dungeon?.Validate(plan, world, actors);
         if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
         state.Chests.Validate(plan, actors);
         if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))
@@ -108,7 +110,7 @@ public static class TacticalValidation
                     resources.Parry?.Origin, resources.Bulwark?.Position, resources.Beacon?.Position }
                     .Any(p => p is { } cell && !plan.Contains(cell)))
                 throw new InvalidDataException("Invalid owned class resource.");
-            if (resources.Beacon is { } beacon && ((rooms ??= new(plan, content)).RoomAt(beacon.Position) != beacon.Room
+            if (resources.Beacon is { } beacon && ((world.Dungeon is { } run ? run.RoomAt(beacon.Position) : (rooms ??= new(plan, content)).RoomAt(beacon.Position)) != beacon.Room
                 || !world.Chunks.Any(c => c.Key == beacon.Position.Chunk && c.Discovered.Contains(beacon.Position.LocalIndex))))
                 throw new InvalidDataException("Invalid or unexplored return beacon room.");
             if (resources.Bulwark is { } block && (block.Action >= state.NextAction || block.Expires < queue.Clock
@@ -213,7 +215,7 @@ public static class TacticalValidation
                 throw new InvalidDataException("Invalid pending class discharge.");
         }
         var survival = queue.Pending.Where(w => w.Kind == ScheduledKind.Survival).ToArray();
-        bool needsSurvival = state.DrivesWorldClock && world.Party.Any(id => state.Participants.Contains(id) && actors[id].Life != LifeState.Dead);
+        bool needsSurvival = state.DrivesWorldClock && state.Tuning.EnableSurvival && world.Party.Any(id => state.Participants.Contains(id) && actors[id].Life != LifeState.Dead);
         if (survival.Length != (needsSurvival ? 1 : 0)
             || survival.Any(w => w.ActorId != 0 || w.ReferenceId != 0 || w.Due - queue.Clock > (long)state.Tuning.SurvivalIntervalSeconds * state.Tuning.UnitsPerSecond))
             throw new InvalidDataException("Invalid native survival cadence.");
