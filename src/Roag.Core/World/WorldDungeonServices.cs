@@ -43,5 +43,44 @@ public sealed partial class WorldSession
                 used.Add(candidate.Room); break;
             }
         }
+        foreach (var candidate in candidates)
+        {
+            if (used.Contains(candidate.Room) || !Available(candidate.Cell)) continue;
+            string marker = $"floor:{origin.Floor}/assembly:{candidate.Room}/{candidate.Cell.X},{candidate.Cell.Y}";
+            if (seed % 2 == 0)
+            {
+                if (!combat.CanPlaceBellPuzzle(marker, candidate.Cell)) continue;
+                combat.SpawnBellPuzzle(marker, candidate.Cell, RoagRandom.Derive(seed, "bells"));
+            }
+            else
+            {
+                var room = RoomAt(candidate.Cell);
+                if (TacticalCombat.FixtureCross(candidate.Cell.Offset(1, 0)).Any(p => RoomAt(p) != room || !Materials.Walkable(Chunks.At(p)))) continue;
+                combat.SpawnDungeonService(DungeonServiceKind.FallingFixture, marker, candidate.Cell);
+            }
+            used.Add(candidate.Room); break;
+        }
+        foreach (var candidate in candidates)
+        {
+            if (used.Contains(candidate.Room) || !Available(candidate.Cell)) continue;
+            var target = floor.Rooms.Where(r => r.Index != candidate.Room).OrderBy(r => candidate.Cell.Distance(r.Origin)).ThenBy(r => r.Index).First();
+            var seen = new HashSet<WorldPosition> { candidate.Cell };
+            var queue = new Queue<(WorldPosition Cell, Facing? First)>(); queue.Enqueue((candidate.Cell, null)); Facing? direction = null;
+            while (queue.TryDequeue(out var point))
+            {
+                if (target.Contains(point.Cell)) { direction = point.First; break; }
+                foreach (var (dx, dy) in EncounterDirections)
+                {
+                    var next = point.Cell.Offset(dx, dy);
+                    if (!floor.Contains(next) || !Materials.Walkable(Chunks.At(next)) || !seen.Add(next)) continue;
+                    AttackGeometry.TryFacing(dx, dy, out var facing); queue.Enqueue((next, point.First ?? facing));
+                }
+            }
+            if (direction == null) break;
+            string hint = target.Role switch { "treasure" => "Treasure", "supply" => "Supplies", _ => "Rooms / danger" };
+            combat.SpawnDungeonService(DungeonServiceKind.RouteSign, $"floor:{origin.Floor}/sign:{candidate.Room}", candidate.Cell,
+                sign: new(direction.Value, hint, new(RoomArea.Dungeon, 0, origin.Floor, target.Index + 1)));
+            break;
+        }
     }
 }

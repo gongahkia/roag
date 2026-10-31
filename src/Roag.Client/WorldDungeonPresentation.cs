@@ -72,7 +72,8 @@ internal sealed partial class WorldGame
                 var options = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]);
                 _nativeServicePage = Math.Clamp(_nativeServicePage, 0, Math.Max(0, (options.Count - 1) / 2));
                 foreach (var option in options.Skip(_nativeServicePage * 2).Take(2))
-                    Add("dungeon:service-choice:" + option.Choice, option.Replacement ? "Review exchange" : "Confirm choice",
+                    Add("dungeon:service-choice:" + option.Choice, option.Replacement ? "Review exchange"
+                        : _session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService).Fixture != null ? "Preview cross" : "Confirm choice",
                         new(box.Right - 194, box.Y + 100 + (option.Choice - 1) % 2 * 160, 166, 42), option.Enabled, reason: option.Reason);
                 Add("dungeon:service-prev", "Previous", new(box.X + 24, box.Bottom - 54, 130, 34), _nativeServicePage > 0);
                 Add("dungeon:service-next", "Next", new(box.Right - 154, box.Bottom - 54, 130, 34), (_nativeServicePage + 1) * 2 < options.Count);
@@ -136,6 +137,8 @@ internal sealed partial class WorldGame
                 int selected = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
                 var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]).Single(o => o.Choice == selected);
                 if (option.Replacement) { _nativeReplacementChoice = selected; _panel = "dungeon-service-replace"; }
+                else if (_session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService).Fixture != null)
+                { ClosePanel(); _roagAim = "fixture"; _notice = "Fixture preview: four physical damage in +1.00s. Enter/click confirms; Escape cancels. No guaranteed reaction turn."; }
                 else { CommitRoag(new("interact", Target: _nativeService, Choice: selected)); ClosePanel(); }
                 break;
             case "service-confirm":
@@ -259,11 +262,11 @@ internal sealed partial class WorldGame
             return;
         }
         if (_panel.Length > 0 || _roagAim == "move") return;
-        var mouse = Mouse.GetState(); if (!_map.Contains(mouse.Position)) return;
+        var mouse = Mouse.GetState(); if (!_map.Contains(mouse.Position) && _roagAim != "fixture") return;
         var point = _camera.ScreenToWorld(new(mouse.X, mouse.Y));
         int dx = Math.Sign((int)Math.Floor(point.X) - hero.Position.X), dy = Math.Sign((int)Math.Floor(point.Y) - hero.Position.Y);
         if (_roagAim == "use_utility") { if (Math.Abs(point.X - hero.Position.X) >= Math.Abs(point.Y - hero.Position.Y)) dy = 0; else dx = 0; }
-        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Choice: _nativeUtilitySteps, Vow: _roagVow && _roagAim is "basic_attack" or "sweeping_slash"));
+        var preview = _session.PreviewDungeonAim(SelectedRoagAim(dx, dy));
         var previewCells = _roagAim == "guard" && AttackGeometry.TryFacing(dx, dy, out var guardFacing)
             ? AttackGeometry.Arc(hero.Position, guardFacing) : preview.Cells;
         foreach (var cell in previewCells)
@@ -280,6 +283,7 @@ internal sealed partial class WorldGame
         if (preview.BoonCells.Count > 0)
             Text("Purple corners: conditional boon tiles / " + string.Join(", ", preview.BoonCells.Select(c => c.Condition).Distinct()),
                 _map.X + 4, _map.Bottom - 46, new Color(197, 153, 225));
+        if (_roagAim == "fixture") Text("PREVIEW / impact +1.00s / Enter or click confirms / Escape cancels", _map.X + 4, _map.Bottom - 46, Gold);
     }
 
     private void DrawDungeonPanel(int w, int h)
@@ -325,17 +329,19 @@ internal sealed partial class WorldGame
         else if (_panel == "dungeon-service")
         {
             var node = _session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService);
-            Text(TacticalCombat.ServiceName(node.Kind) + $" / purse {_session.Count("gold")}", x, y, Gold);
+            Text(TacticalCombat.ServiceName(node.Kind) + (node.Bell is { Number: > 0 } bell ? " " + bell.Number : "") + $" / purse {_session.Count("gold")}", x, y, Gold);
             var choices = _session.DungeonCombat.DungeonServiceChoices(node.Id, _session.State.Party[0]);
-            if (choices.Count == 0) Wrap(node.UsedBy != 0 ? "Already used. This service does not refill on returning or Continue."
-                : node.Contract is { } c ? $"Contract {c.Status}: {c.Failure}" : "No eligible owned stack or replacement. Nothing is spent.", x, y + 40, box.Width - 48, Muted);
+            if (choices.Count == 0) Wrap(node.UsedBy == 0 && node.Kind is DungeonServiceKind.AttunementForge or DungeonServiceKind.Memorial
+                ? "No eligible owned stack or replacement. Nothing is spent."
+                : _session.DungeonCombat.DungeonServiceDescription(node.Id, _session.State.Party[0]), x, y + 40, box.Width - 48, Muted);
             foreach (var option in choices.Skip(_nativeServicePage * 2).Take(2))
             {
                 int rowY = box.Y + 96 + (option.Choice - 1) % 2 * 160;
                 int height = Wrap(option.Label + (option.Price > 0 ? $" / {option.Price} gold" : ""), x, rowY, box.Width - 240, Gold);
                 Wrap(option.Detail, x, rowY + height + 12, box.Width - 240, Muted);
             }
-            Text("Inspection and cancellation are free. Confirming spends one action.", x, box.Bottom - 82, Muted);
+            Text(node.Kind is DungeonServiceKind.BellClue or DungeonServiceKind.RouteSign ? "Reading costs no time."
+                : "Inspection and cancellation are free. Confirming spends one action.", x, box.Bottom - 82, Muted);
         }
         else if (_panel == "dungeon-service-replace")
         {
@@ -370,9 +376,13 @@ internal sealed partial class WorldGame
             if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
                 _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));
         foreach (var node in state.Services.Nodes)
-            if (_session.Chunks.Seen(node.Position) && node.Position.Floor == _session.State.Position.Floor)
+            if (_session.Chunks.Seen(node.Position) && node.Position.Floor == _session.State.Position.Floor && _map.Intersects(TileRect(node.Position)))
+            {
                 _sprites.Fit(_batch, NativeAppearance.ForService(node.Kind), TileRect(node.Position),
                     _session.Visible.Contains(node.Position) ? node.UsedBy == 0 ? Gold : Muted : Gold * .35f);
+                if (node.Bell is { Number: > 0 } bell && _session.Visible.Contains(node.Position))
+                { var tile = TileRect(node.Position); Text(bell.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), tile.Right - 12, tile.Y + 2, Ink); }
+            }
         foreach (var drop in state.Loot.Drops.Where(d => d.CarriedBy == 0))
             Icon(drop.Position, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", Gold);
         var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);

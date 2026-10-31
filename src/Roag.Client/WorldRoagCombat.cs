@@ -36,9 +36,14 @@ internal sealed partial class WorldGame
         var result=_session.SubmitRoag(aim);_notice=result.Message;
         if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;if(_session.State.Dungeon != null)CollectDungeonFeedback();}
     }
+    private RoagAim SelectedRoagAim(int dx, int dy) => _session.State.Dungeon != null && _roagAim == "fixture"
+        ? new("interact", Target: _nativeService, Choice: 1)
+        : new(_roagAim, dx, dy, Choice: _roagAim == "use_utility" ? _nativeUtilitySteps : 0,
+            Vow: _roagVow && (_session.State.Dungeon == null || _roagAim is "basic_attack" or "sweeping_slash"));
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
+        if (_session.State.Dungeon != null && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
         if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
@@ -54,7 +59,7 @@ internal sealed partial class WorldGame
         if(_roagAim is "move" or "dash")
         {if(Math.Abs(p.X-active.Position.X)>=Math.Abs(p.Y-active.Position.Y))dy=0;else dx=0;}
         if (_roagAim == "use_utility") { if (Math.Abs(p.X-active.Position.X)>=Math.Abs(p.Y-active.Position.Y)) dy=0; else dx=0; }
-        CommitRoag(new(_roagAim,dx,dy,Choice:_roagAim == "use_utility" ? _nativeUtilitySteps : 0,Vow:_roagVow));
+        CommitRoag(SelectedRoagAim(dx, dy));
     }
     private void UpdateRoagKeyboard()
     {
@@ -75,7 +80,7 @@ internal sealed partial class WorldGame
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";
                 if(Press(Keys.G))_roagAim="guard";
                 if(Press(Keys.Enter) && _session.State.Dungeon != null)
-                { DungeonInteract(); _roagKeyboard = keyboard; return; }
+                { if (_roagAim == "fixture") CommitRoag(SelectedRoagAim(0, 0)); else DungeonInteract(); _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F5) && _session.State.Dungeon != null) TrySave();
                 if(Press(Keys.P))
                 {
@@ -90,7 +95,8 @@ internal sealed partial class WorldGame
                 if (_roagAim is "move" or "dash" && dx != 0 && dy != 0) dy = 0;
                 if(Press(Keys.Q)){dx=-1;dy=-1;}if(Press(Keys.E)){dx=1;dy=-1;}
                 if(Press(Keys.Z)){dx=-1;dy=1;}if(Press(Keys.C)){dx=1;dy=1;}
-                if(dx!=0||dy!=0)CommitRoag(new(_roagAim,dx,dy,Choice:_roagAim == "use_utility" ? _nativeUtilitySteps : 0,Vow:_roagVow));
+                if(dx!=0||dy!=0)
+                { if (_roagAim == "fixture") _notice = "Enter or click confirms the fixture; Escape cancels."; else CommitRoag(SelectedRoagAim(dx, dy)); }
             }
             else if(!_session.IsInCombat)
             {

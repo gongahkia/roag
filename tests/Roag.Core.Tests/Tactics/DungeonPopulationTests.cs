@@ -16,14 +16,15 @@ public sealed class DungeonPopulationTests
         {
             using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
             Assert.Equal(0, state.Queue.Clock); Assert.Equal(1, state.NextAction);
+            kinds.UnionWith(state.Services.Nodes.Select(n => n.Kind));
             foreach (var floor in world.State.Dungeon!.Floors)
             {
-                var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor).ToArray();
+                var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor && n.Kind <= DungeonServiceKind.ArchiveContract).ToArray();
                 Assert.InRange(services.Length, 1, 2);
                 Assert.Equal(services.Length, services.Select(n => world.RoomAt(n.Position)).Distinct().Count());
                 foreach (var node in services)
                 {
-                    kinds.Add(node.Kind); var room = Assert.Single(floor.Rooms, r => r.Contains(node.Position));
+                    var room = Assert.Single(floor.Rooms, r => r.Contains(node.Position));
                     Assert.DoesNotContain(room.Role, new[] { "start", "elite" });
                     Assert.Equal(Material.Floor, world.Chunks.At(node.Position)); Assert.Null(world.DungeonTerrainAt(node.Position));
                     Assert.DoesNotContain(state.Chests.Chests, c => c.Position == node.Position);

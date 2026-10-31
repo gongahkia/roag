@@ -31,6 +31,27 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void FallingFixturePreviewCanBeCancelledAndOnlyExplicitConfirmationSpendsItsAction()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var hero = session.Party.Single(); var client = Client(session);
+        var handle = hero.Position.Offset(1, 0); var center = handle.Offset(1, 0);
+        foreach (var cell in TacticalCombat.FixtureCross(center)) session.Chunks.Edit(cell, Material.Floor);
+        var node = session.DungeonCombat.SpawnDungeonService(DungeonServiceKind.FallingFixture, "test:client-fixture", handle);
+        session.Reveal(); Field("_roagAim").SetValue(client, "move"); Invoke(client, "DungeonInteract");
+        string before = JsonSerializer.Serialize(session.State);
+        Assert.Contains(Controls(client, "dungeon-service"), c => c.Id == "dungeon:service-choice:1" && c.Label == "Preview cross");
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-choice:1");
+        Assert.Equal("fixture", Field("_roagAim").GetValue(client)); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Escape), true);
+        Assert.Equal("move", Field("_roagAim").GetValue(client)); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "DungeonInteract"); Invoke(client, "ActivateDungeonControl", "dungeon:service-choice:1");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Enter), true);
+        Assert.Equal(100, session.DungeonCombat.Clock); Assert.Equal(2, session.State.Tactics!.NextAction);
+        Assert.Equal(hero.Id, session.State.Tactics.Services.Nodes.Single(n => n.Id == node.Id).UsedBy);
+        Assert.Single(session.State.Tactics.Events, e => e.Kind == "FixtureFell");
+    }
+
+    [Fact]
     public void RememberedServiceInspectionHidesItsCurrentReceipt()
     {
         using var session = WorldSession.CreateDungeonRun(42); var hero = session.Party.Single();

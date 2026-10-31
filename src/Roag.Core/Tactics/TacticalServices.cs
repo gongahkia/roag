@@ -3,17 +3,19 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp, ArchiveContract }
-public sealed record DungeonService(long Id, string Marker, DungeonServiceKind Kind, WorldPosition Position, int Seed, long UsedBy = 0, DungeonContract? Contract = null);
+public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp, ArchiveContract, Bell, BellClue, FallingFixture, RouteSign }
+public sealed record DungeonService(long Id, string Marker, DungeonServiceKind Kind, WorldPosition Position, int Seed, long UsedBy = 0,
+    DungeonContract? Contract = null, BellPiece? Bell = null, FallingFixture? Fixture = null, DungeonRouteHint? Sign = null);
 public sealed record RetiredBoon(string Id, BoonRarity Rarity);
 public sealed record DungeonServiceChoice(int Choice, string Label, string Detail, bool Enabled = true, string Reason = "",
     int Price = 0, int HealthCost = 0, int Healing = 0, bool Cleanse = false, bool Ward = false, bool Focus = false,
     UtilityKind? Utility = null, bool Replacement = false, BoonOffer? Offer = null, RetiredBoon? Retire = null);
 
-public sealed class DungeonServiceState
+public sealed partial class DungeonServiceState
 {
     public long NextService { get; set; } = 1;
     public List<DungeonService> Nodes { get; set; } = [];
+    public List<BellPuzzle> Puzzles { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {
@@ -37,20 +39,31 @@ public sealed class DungeonServiceState
             node.Contract?.Validate(plan, world, node);
             previous = node.Id;
         }
+        ValidateAssemblies(plan, world);
     }
 }
 
 public sealed partial class TacticalCombat
 {
-    public DungeonService SpawnDungeonService(DungeonServiceKind kind, string marker, WorldPosition position)
+    public DungeonService SpawnDungeonService(DungeonServiceKind kind, string marker, WorldPosition position,
+        BellPiece? bell = null, DungeonRouteHint? sign = null)
     {
         if (!Enum.IsDefined(kind) || string.IsNullOrWhiteSpace(marker) || !_world.CanEnter(position)
-            || _world.DungeonTerrainAt(position) != null || ProtectedForcedLanding(position)
+            || ProtectedForcedLanding(position)
             || State.Services.Nodes.Any(n => n.Marker == marker || n.Position == position)
-            || State.OptionalTerrain.Nodes.Any(n => n.Position == position))
+            || State.OptionalTerrain.Nodes.Any(n => n.Position == position)
+            || (kind is DungeonServiceKind.Bell or DungeonServiceKind.BellClue) != (bell != null)
+            || (kind == DungeonServiceKind.RouteSign) != (sign != null))
             throw new ArgumentException("A finite service needs its own clear physical ground and stable marker.");
         int seed = RoagRandom.Derive((int)(WorldRandom.Hash(_world.Seed, 0, salt: 9402) % (RoagRandom.Modulus - 1)) + 1, marker);
-        var node = new DungeonService(State.Services.NextService, marker, kind, position, seed);
+        var node = new DungeonService(State.Services.NextService, marker, kind, position, seed, Bell: bell, Sign: sign);
+        if (kind == DungeonServiceKind.FallingFixture)
+        {
+            var fixture = new FallingFixture(position.Offset(1, 0), FixtureCross(position.Offset(1, 0)));
+            if (fixture.Cells.Any(p => !_world.Plan.Contains(p) || _world.State.Dungeon != null && !_world.State.Dungeon.Contains(p)))
+                throw new ArgumentException("A falling fixture needs its complete physical cross inside the floor.");
+            node = node with { Fixture = fixture };
+        }
         if (kind == DungeonServiceKind.ArchiveContract)
         {
             if (_world.State.Dungeon == null || _world.RoomAt(position) is not { Area: RoomArea.Dungeon } room)
@@ -124,6 +137,16 @@ public sealed partial class TacticalCombat
                 else if (contract.Status == DungeonContractStatus.Active)
                     Add(new(0, "Abandon room contract", "Abandon for one action. Normal controls and kill rewards remain available."));
                 break;
+            case DungeonServiceKind.Bell:
+                var puzzle = State.Services.Puzzles.Single(p => p.Plaque == node.Bell!.Puzzle);
+                if (!puzzle.Completed) Add(new(0, "Ring bell " + node.Bell!.Number,
+                    "Clue " + string.Join(" -> ", puzzle.Sequence) + $" / progress {puzzle.Progress}/3. Wrong bells reset progress. Five gold once."));
+                break;
+            case DungeonServiceKind.FallingFixture:
+                bool visible = node.Fixture!.Cells.All(_world.VisionFrom(actor.Position).Contains);
+                Add(new(0, "Trigger falling fixture", "Locked five-tile cross: four physical damage to everyone after 100 world time. No guaranteed reaction turn.",
+                    Enabled: visible, Reason: visible ? "" : "See the complete impact cross before triggering."));
+                break;
             case DungeonServiceKind.AttunementForge:
             case DungeonServiceKind.Memorial:
                 var pool = State.Chests.AvailableBoons.Where(id => BoonCatalog.Default.Get(id).Allows(actor.Tactics.Build.Class)).Order(StringComparer.Ordinal).ToArray();
@@ -159,13 +182,28 @@ public sealed partial class TacticalCombat
         var option = options[intent.Choice - 1];
         if (!option.Enabled) return Invalid(option.Reason);
         if (option.Replacement && !intent.ReplaceUtility) return Invalid("Confirm replacing the carried utility.");
-        return new(true, "", ActionTiming.Recovery(100, EffectiveSpeed(actor)), [State.Services.Nodes.Single(n => n.Id == intent.Target).Position]);
+        var node = State.Services.Nodes.Single(n => n.Id == intent.Target);
+        return new(true, "", ActionTiming.Recovery(100, EffectiveSpeed(actor)), node.Fixture?.Cells ?? [node.Position])
+        { Damage = node.Fixture != null ? 4 : null };
     }
 
     private void CommitService(Actor actor, TacticalIntent intent, long action)
     {
         int index = State.Services.Nodes.FindIndex(n => n.Id == intent.Target); var node = State.Services.Nodes[index];
         var option = DungeonServiceChoices(node.Id, actor.Id)[intent.Choice - 1];
+        if (node.Kind == DungeonServiceKind.Bell)
+        {
+            RingBell(node, actor, action);
+            Emit("InteractionUsed", actor.Id, actor.Id, action, node.Position, ability: "bell"); return;
+        }
+        if (node.Fixture is { } fixture)
+        {
+            long due = checked(Clock + 100);
+            var work = State.Queue.Schedule(ScheduledKind.FixtureImpact, due, referenceId: node.Id);
+            State.Services.Nodes[index] = node with { UsedBy = actor.Id, Fixture = fixture with { Pending = new(action, actor.Id, due, work.Sequence) } };
+            Emit("FixtureLocked", actor.Id, actor.Id, action, fixture.Center, 4, ability: "core:ability/falling_fixture");
+            Emit("InteractionUsed", actor.Id, actor.Id, action, node.Position, ability: "falling_fixture"); return;
+        }
         if (node.Contract is { } contract)
         {
             if (contract.Status == DungeonContractStatus.Offered)
@@ -216,6 +254,8 @@ public sealed partial class TacticalCombat
         DungeonServiceKind.AttunementForge => "Attunement forge", DungeonServiceKind.TravellingTrader => "Travelling trader",
         DungeonServiceKind.Memorial => "Memorial", DungeonServiceKind.Camp => "Camp",
         DungeonServiceKind.ArchiveContract => "Archive contract",
+        DungeonServiceKind.Bell => "Bell", DungeonServiceKind.BellClue => "Bell plaque",
+        DungeonServiceKind.FallingFixture => "Falling fixture", DungeonServiceKind.RouteSign => "Route sign",
         DungeonServiceKind.CleanseFlask => "Cleanse flask", DungeonServiceKind.EscapeScroll => "Escape scroll",
         DungeonServiceKind.ReturnToken => "Return token", _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };

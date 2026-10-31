@@ -230,7 +230,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
-            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle) continue;
+            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)

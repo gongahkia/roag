@@ -60,6 +60,7 @@ public sealed partial class TacticalCombat
         => Enum.IsDefined(kind) && Enum.IsDefined(facing) && AttackGeometry.Cardinal(facing) && !string.IsNullOrWhiteSpace(marker)
             && _world.GroundOpen(position) && _world.DungeonTerrainAt(position) == null && !ProtectedForcedLanding(position)
             && !State.OptionalTerrain.Nodes.Any(n => n.Position == position || n.Marker == marker)
+            && !State.Services.Nodes.Any(n => n.Position == position)
             && (kind != OptionalTerrainKind.FragileCrossing || _world.State.Dungeon?.Floors.Any(f => f.Entry == position || f.Exit == position) != true
                 && TerrainRemovalPreservesRoutes(position));
 
@@ -143,6 +144,7 @@ public sealed partial class TacticalCombat
             if (_world.OccupantAt(p) != null || _world.ObjectAt(p) is { Solid: true }
                 || State.Loot.Drops.Any(d => d.CarriedBy == 0 && d.Position == p) || State.Corpses.Any(c => Actor(c.Actor).Position == p)
                 || State.EnemySnares.Any(s => s.Position == p)
+                || State.Services.Nodes.Any(n => n.Position == p)
                 || _world.State.Actors.Any(a => a.Tactics?.Supplies.Utility?.Marker?.Position == p)
                 || _world.State.Actors.Any(a => a.Tactics?.Resources is { } r && (r.Decoy == p || r.Snare == p || r.Spirit == p
                     || r.Beacon?.Position == p || r.Sentry?.Position == p || r.Bulwark?.Position == p))) continue;

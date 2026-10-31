@@ -42,11 +42,9 @@ internal static class WorldInspection
         }
         if (session.State.Tactics?.Services.Nodes.FirstOrDefault(n => n.Position == cell) is { } service)
         {
-            string title = TacticalCombat.ServiceName(service.Kind);
+            string title = TacticalCombat.ServiceName(service.Kind) + (service.Bell is { Number: > 0 } bell ? " " + bell.Number : "");
             if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this service again to inspect its current state.", "Move with the keyboard", "", "object");
-            string detail = service.UsedBy != 0 ? "Already used; no refill on returning or Continue."
-                : service.Contract is { } c ? $"Contract {c.Status}. Defeated {c.Defeated.Count}/{c.Targets.Length}. " + c.Failure
-                : "One use. Inspect saved choices freely; confirming pays one action and any listed price.";
+            string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Party[0]);
             return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
         if (session.DungeonTerrainAt(cell) is { } glyph)

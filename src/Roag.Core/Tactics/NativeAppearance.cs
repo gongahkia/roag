@@ -16,6 +16,8 @@ public static class NativeAppearance
         DungeonServiceKind.AttunementForge => "anvil", DungeonServiceKind.TravellingTrader => "merchant",
         DungeonServiceKind.Memorial => "grave", DungeonServiceKind.Camp => "campfire",
         DungeonServiceKind.CleanseFlask => "potion", DungeonServiceKind.EscapeScroll or DungeonServiceKind.ArchiveContract => "book",
-        DungeonServiceKind.ReturnToken => "banner", _ => throw new ArgumentOutOfRangeException(nameof(kind))
+        DungeonServiceKind.ReturnToken or DungeonServiceKind.RouteSign => "banner",
+        DungeonServiceKind.Bell => "roag-service-bell", DungeonServiceKind.BellClue => "book",
+        DungeonServiceKind.FallingFixture => "boulder", _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 }
