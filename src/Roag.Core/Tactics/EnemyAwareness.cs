@@ -117,7 +117,13 @@ public sealed partial class TacticalCombat
     {
         while (AdvanceToDecision() is { } actor)
         {
-            if (Friendly(actor)) return actor;
+            if (Friendly(actor))
+            {
+                if (!ShouldEatAutomatically(actor)) return actor;
+                var result = Commit(new(TacticalAction.Eat));
+                if (!result.Success) throw new InvalidOperationException(result.Message);
+                continue;
+            }
             CommitWorldEnemyTurn();
         }
         return null;

@@ -2,7 +2,7 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum GroundLootKind { Currency, Health }
+public enum GroundLootKind { Currency, Health, Food }
 
 /// <summary>
 /// Only uncollected physical loot is retained. Identity is never reused. While carried,
@@ -103,6 +103,14 @@ public sealed partial class TacticalCombat
                 State.Loot.Drops.Remove(drop); collected = true;
                 var snapshot = CaptureBoonEvent(BoonTrigger.CurrencyCollected, owner.Id, 0, action, position) with { Amount = drop.Amount };
                 Emit("CurrencyCollected", owner.Id, 0, action, position, drop.Amount, snapshot: snapshot,
+                    loot: new(drop.Id, drop.Kind, drop.Amount, Balance: balance));
+            }
+            else if (drop.Kind == GroundLootKind.Food)
+            {
+                int balance = checked(_world.State.Inventory.GetValueOrDefault("food") + drop.Amount);
+                _world.State.Inventory["food"] = balance;
+                State.Loot.Drops.Remove(drop); collected = true;
+                Emit("ProvisionsCollected", owner.Id, 0, action, position, drop.Amount,
                     loot: new(drop.Id, drop.Kind, drop.Amount, Balance: balance));
             }
             else if (owner.Health < owner.MaxHealth)

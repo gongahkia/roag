@@ -257,7 +257,7 @@ public sealed partial class ClassActionTests
     }
 
     [Fact]
-    public void ExcessHealingWardIsSupportedButUnansweredFoodConversionCannotApplySilently()
+    public void ExcessHealingAndExcessHungerBothGrantTheCappedWard()
     {
         using var a = new Arena(ClassKind.Adventurer);
         var definition = BoonCatalog.Default.Definitions.Single(d => d.Effects.Any(e => e.Scale == BoonScale.SupplyExcess));
@@ -267,8 +267,12 @@ public sealed partial class ClassActionTests
         a.Combat.ExecuteBoonEffect(healing, effect);
         Assert.Equal(3, a.Hero.Tactics!.Boons.WardTotal(0));
         var food = original with { Event = original.Event with { SupplyKind = "food", Amount = 10, ActualGain = 1 } };
-        Assert.Throws<InvalidOperationException>(() => a.Combat.ExecuteBoonEffect(food, effect));
-        Assert.Equal(3, a.Hero.Tactics.Boons.WardTotal(0));
+        a.Combat.ExecuteBoonEffect(food, effect);
+        Assert.Equal(8, a.Hero.Tactics.Boons.WardTotal(0));
+        var fractional = food with { Event = food.Event with { ActualGain = 3.25 } };
+        a.Hero.Tactics.Boons.Memory.Clear();
+        a.Combat.ExecuteBoonEffect(fractional, effect);
+        Assert.Equal(6, a.Hero.Tactics.Boons.WardTotal(0));
     }
 
     [Fact]

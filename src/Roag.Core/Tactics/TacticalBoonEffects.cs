@@ -48,8 +48,7 @@ public sealed partial class TacticalCombat
                 if (!livingOwner) return;
                 if (effect.Scale == BoonScale.SupplyExcess)
                 {
-                    if (activation.Event.SupplyKind == "food") throw new InvalidOperationException("Overflow Chalice's food conversion awaits the recorded gameplay decision.");
-                    power = Math.Min(power, Math.Max(0, (activation.Event.Amount ?? 0) - (activation.Event.ActualGain ?? 0)));
+                    power = (int)Math.Min(power, Math.Floor(Math.Max(0, (activation.Event.Amount ?? 0) - (activation.Event.ActualGain ?? 0))));
                 }
                 owner.Tactics!.Boons.ApplyTimed(activation.BoonId, effect.Kind, power, effect.Duration!.Value, Clock);
                 Emit("BoonStateApplied", owner.Id, owner.Id, activation.RootActionId ?? 0, owner.Position, power, ability: activation.BoonId);

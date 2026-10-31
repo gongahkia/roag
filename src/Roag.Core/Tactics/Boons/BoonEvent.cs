@@ -39,7 +39,7 @@ public sealed record BoonEvent
     public int? SourceMaxHpAtAttack { get; init; }
     public int? ActualLoss { get; init; }
     public int? Amount { get; init; }
-    public int? ActualGain { get; init; }
+    public double? ActualGain { get; init; }
     public int? Price { get; init; }
     public int? AdjacentHostileCount { get; init; }
     public int? AdjacentBurningCount { get; init; }

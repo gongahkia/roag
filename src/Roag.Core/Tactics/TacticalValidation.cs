@@ -208,8 +208,14 @@ public static class TacticalValidation
                 || StateAttackCount(attack.Source) != 1))
                 throw new InvalidDataException("Invalid pending class discharge.");
         }
+        var survival = queue.Pending.Where(w => w.Kind == ScheduledKind.Survival).ToArray();
+        bool needsSurvival = state.DrivesWorldClock && world.Party.Any(id => state.Participants.Contains(id) && actors[id].Life != LifeState.Dead);
+        if (survival.Length != (needsSurvival ? 1 : 0)
+            || survival.Any(w => w.ActorId != 0 || w.ReferenceId != 0 || w.Due - queue.Clock > (long)state.Tuning.SurvivalIntervalSeconds * state.Tuning.UnitsPerSecond))
+            throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
+            if (work.Kind == ScheduledKind.Survival) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)

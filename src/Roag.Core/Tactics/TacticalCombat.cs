@@ -69,6 +69,7 @@ public sealed partial class TacticalCombat
         actor.Health = Math.Clamp((int)Math.Ceiling((double)actor.Health * actor.MaxHealth / oldMaximum), 1, actor.MaxHealth);
         State.Participants.Add(actor.Id);
         State.Queue.Schedule(ScheduledKind.ActorReady, due, actor.Id, Friendly(actor));
+        if (Friendly(actor)) EnsureSurvivalScheduled();
     }
 
     public Actor? AdvanceToDecision()
@@ -86,6 +87,12 @@ public sealed partial class TacticalCombat
             PruneEmbers();
             PruneMirrors();
             PruneOaths();
+            if (work.Kind == ScheduledKind.Survival)
+            {
+                ResolveSurvival();
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
             if (work.Kind == ScheduledKind.Impact)
             {
                 var attack = State.Attacks.Single(a => a.Id == work.ReferenceId);
@@ -172,6 +179,8 @@ public sealed partial class TacticalCombat
                 return PreviewMovement(actor, definition, intent);
             case TacticalAction.UseStairs:
                 return PreviewStairs(actor, definition);
+            case TacticalAction.Eat:
+                return PreviewEating(actor);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -222,6 +231,8 @@ public sealed partial class TacticalCombat
                     CommitMovement(actor, executed, preview, action); break;
                 case TacticalAction.UseStairs:
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
+                case TacticalAction.Eat:
+                    Eat(actor, action); break;
                 case TacticalAction.Guard:
                     actor.Tactics.Guarding = true;
                     Emit("GuardRaised", actor.Id, actor.Id, action, actor.Position); break;
@@ -337,7 +348,7 @@ public sealed partial class TacticalCombat
     public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
-        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind == ScheduledKind.EmberPulse
+        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.EmberPulse
             ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : Visible(e.ActorId))
             .Select(e => new TacticalTimelineEntry(e.Kind, e.ActorId, e.Due, e.ReferenceId, false, e.Sequence));
         var projected = State.Attacks.Where(a => a.RecoveryCost != null && Visible(a.Source))
@@ -506,7 +517,10 @@ public sealed partial class TacticalCombat
         Emit("Died", source, actor.Id, action, actor.Position);
         Emit("EntityKilled", source, actor.Id, action, actor.Position, snapshot: snapshot);
         if (Friendly(actor) && !_world.Party.Any(a => a.Life != LifeState.Dead))
+        {
             _world.State.AwaitingContinuation = true;
+            foreach (var work in State.Queue.Snapshot().Pending.Where(w => w.Kind == ScheduledKind.Survival)) State.Queue.Cancel(work.Sequence);
+        }
     }
 
     private void CancelAttacks(long actor, long source = 0, long action = 0, string? reason = null)
