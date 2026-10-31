@@ -145,6 +145,7 @@ public sealed partial class TacticalCombat
         }
         finally { _drainingBoons = false; _terrainContacts.Clear(); _pushFloorCounts.Clear(); }
         SettleFragileTerrain();
+        SettlePendingEliteRewards();
         SettleDungeonVictory();
         PruneWebs();
         PruneSilt();

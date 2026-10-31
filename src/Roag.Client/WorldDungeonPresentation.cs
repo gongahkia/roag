@@ -427,6 +427,8 @@ internal sealed partial class WorldGame
         if (_session.State.Tactics is not { } state) return;
         var events = state.Events.Where(e => e.Sequence > _nativeSeenEvent && _session.Visible.Contains(e.Position)).ToArray();
         _nativeSeenEvent = state.NextEvent - 1;
+        if (events.Any(e => e.Kind == "EliteRewardDeferred")) _notice = "Elite defeated. Its chest waits for clear nearby ground.";
+        else if (events.Any(e => e.Kind == "EliteRewardPlaced" && e.Action == 0)) _notice = "The elite chest appears on cleared nearby ground.";
         if (events.Any(e => e.Kind == "DamageTaken") && _combatVolume > 0)
         {
             _combatAudio ??= new(); _combatAudio.Play("slash", _combatVolume);

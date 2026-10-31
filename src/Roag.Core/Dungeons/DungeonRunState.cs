@@ -24,6 +24,7 @@ public sealed class DungeonRunState
     public List<string> RouteHistory { get; set; } = [];
     public List<DungeonFloorState> Floors { get; set; } = [];
     public HashSet<long> BossExitReceipts { get; set; } = [];
+    public HashSet<long> PendingEliteRewards { get; set; } = [];
     public Dictionary<long, char> Terrain { get; set; } = [];
     public bool Victory { get; set; }
 
@@ -44,7 +45,7 @@ public sealed class DungeonRunState
     {
         if (Stage is < 1 or > 4 || RouteHistory == null || RouteHistory.Count != Stage - 1 || Floors == null || Floors.Count != (Stage == 4 ? 7 : Stage * 2)
             || Floors.Any(f => f == null) || Floors.Select(f => f.Origin.Floor).Distinct().Count() != Floors.Count
-            || Terrain == null || Terrain.Count > 100000 || BossExitReceipts == null
+            || Terrain == null || Terrain.Count > 100000 || BossExitReceipts == null || PendingEliteRewards == null
             || world.Tactics is not { DrivesWorldClock: true } || world.Party.Count != 1 || world.RoagCombat || world.RoagCombatState.Length != 0)
             throw new InvalidDataException("Invalid native solo expedition state.");
         for (int i = 0; i < RouteHistory.Count; i++)
@@ -97,7 +98,9 @@ public sealed class DungeonRunState
         }
         if (world.Tactics.Participants.Any(id => !actors.TryGetValue(id, out var actor) || !Contains(actor.Position))
             || Floors.Select(f => f.Origin.Floor).Order().Where((floor, index) => floor != index + 1).Any()
-            || BossExitReceipts.Any(id => !Floors.Any(f => f.Boss == id) || actors[id].Life != LifeState.Dead)
+            || BossExitReceipts.Any(id => id <= 0 || !Floors.Any(f => f.Boss == id) || !actors.TryGetValue(id, out var boss) || boss.Life != LifeState.Dead)
+            || PendingEliteRewards.Any(id => !BossExitReceipts.Contains(id) || !Floors.Any(f => f.Boss == id && f.Stage < 4)
+                || world.Tactics.Chests.Chests.Any(c => c.Marker == "elite:stage:" + Floors.Single(f => f.Boss == id).Stage))
             || Victory && !Floors.Any(f => f.Boss > 0 && actors[f.Boss] is { Life: LifeState.Dead, Tactics.DefinitionId: "core:enemy/hollow_regent" }))
             throw new InvalidDataException("Invalid dungeon participant, reward receipt or victory.");
     }

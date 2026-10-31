@@ -76,13 +76,20 @@ public sealed partial class TacticalCombat
     {
         _ = BoonChestDefinition.Get(definition);
         if (string.IsNullOrWhiteSpace(marker) || State.Chests.Chests.Any(c => c.Marker == marker || c.Position == position)
-            || !_world.CanEnter(position) || ProtectedForcedLanding(position))
+            || !ChestCellOpen(position))
             throw new ArgumentException("A chest needs a unique marker and clear physical ground.");
         int seed = RoagRandom.Derive((int)(WorldRandom.Hash(_world.Seed, 0, salt: 9310) % (RoagRandom.Modulus - 1)) + 1, marker);
         var chest = new BoonChest(State.Chests.NextChest++, definition, marker, position, seed);
         State.Chests.Chests.Add(chest);
         return chest;
     }
+
+    private bool ChestCellOpen(WorldPosition position) => _world.CanEnter(position) && !ProtectedForcedLanding(position)
+        && _world.ObjectAt(position) == null && !State.Chests.Chests.Any(c => c.Position == position)
+        && !State.OptionalTerrain.Nodes.Any(n => n.Position == position)
+        && !_world.State.Actors.Any(a => a.Tactics is { } t && (t.Supplies.Utility?.Marker?.Position == position
+            || t.Resources.Decoy == position || t.Resources.Snare == position || t.Resources.Spirit == position
+            || t.Resources.Beacon?.Position == position || t.Resources.Bulwark?.Position == position || t.Resources.Sentry?.Position == position));
 
     /// <summary>Recipient is selected before filtering/drawing; inspection advances no random stream.</summary>
     public IReadOnlyList<BoonOffer> ChestOffers(long chestId, long recipientId)

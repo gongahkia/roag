@@ -37,18 +37,33 @@ public sealed partial class TacticalCombat
             Emit("RegentDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, corpse);
             return;
         }
-        // Rewards stay near the corpse, leaving its physical route/stair anchor open.
+        run.PendingEliteRewards.Add(victim);
+        Emit("EliteDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, corpse);
+        if (!TryPlaceEliteReward(victim, e.RootActionId ?? 0)) Emit("EliteRewardDeferred", 0, victim, e.RootActionId ?? 0, corpse);
+    }
+
+    private bool TryPlaceEliteReward(long victim, long action)
+    {
+        var run = _world.State.Dungeon!; var floor = run.Floors.Single(f => f.Boss == victim); var corpse = Actor(victim).Position;
+        // Keep the receipt when bodies/fixtures temporarily occupy all nearby ground.
+        // Walking away can expose a real landing later; no object is erased to fit it.
         for (int radius = 1; radius <= 5; radius++)
             for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
             {
                 var cell = corpse.Offset(dx, dy);
-                if (Math.Abs(dx) + Math.Abs(dy) != radius || !_world.CanEnter(cell) || ProtectedForcedLanding(cell)
-                    || State.Chests.Chests.Any(c => c.Position == cell)) continue;
+                if (Math.Abs(dx) + Math.Abs(dy) != radius || !ChestCellOpen(cell)) continue;
                 SpawnBoonChest("core:chest/free_elite", "elite:stage:" + floor.Stage, cell);
-                Emit("EliteDefeated", e.SourceId ?? 0, victim, e.RootActionId ?? 0, corpse);
-                return;
+                run.PendingEliteRewards.Remove(victim);
+                Emit("EliteRewardPlaced", 0, victim, action, cell);
+                return true;
             }
-        throw new InvalidOperationException("Elite arena has no free physical reward cell.");
+        return false;
+    }
+
+    private void SettlePendingEliteRewards()
+    {
+        if (_world.State.Dungeon is not { } run || run.PendingEliteRewards.Count == 0) return;
+        foreach (long id in run.PendingEliteRewards.Order().ToArray()) TryPlaceEliteReward(id, 0);
     }
 
     private void SettleDungeonVictory()
