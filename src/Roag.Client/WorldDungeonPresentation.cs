@@ -8,6 +8,7 @@ namespace Roag.Client;
 internal sealed partial class WorldGame
 {
     private long _nativeChest, _nativeSeenEvent;
+    private int _nativeBoonPage;
 
     private void BuildDungeonControls(int w, int h)
     {
@@ -47,6 +48,13 @@ internal sealed partial class WorldGame
                 for (int i = 0; i < routes.Count; i++) Add("dungeon:route:" + (i + 1), routes[i].Name,
                     new(box.X + 28, box.Y + 92 + i * 100, box.Width - 56, 42));
             }
+            else if (_panel == "dungeon-boons")
+            {
+                int count = _session.Party.Single().Tactics!.Boons.Inventory.Stacks.Count;
+                _nativeBoonPage = Math.Clamp(_nativeBoonPage, 0, Math.Max(0, (count - 1) / 3));
+                Add("dungeon:boon-prev", "Previous", new(box.X + 24, box.Bottom - 54, 130, 34), _nativeBoonPage > 0);
+                Add("dungeon:boon-next", "Next", new(box.Right - 154, box.Bottom - 54, 130, 34), (_nativeBoonPage + 1) * 3 < count);
+            }
             else if (_panel == "dungeon-menu")
             {
                 string[] ids = ["classes", "guide", "motion", "volume", "quit"];
@@ -62,7 +70,8 @@ internal sealed partial class WorldGame
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
         string[] kinds = ["move", "basic_attack", "sweeping_slash", "dash", "guard", "wait"];
-        string[] names = ["Move", "Basic / F", "Special / R", "Movement / X", "Guard / G", "Wait / Space"];
+        var definition = ClassCatalog.Get(_session.Party.Single().Tactics!.Build!.Class);
+        string[] names = ["Move", definition.BasicName + " / F", definition.SpecialName + " / R", definition.DashName + " / X", "Guard / G", "Wait / Space"];
         int buttonWidth = (_map.Width - 16) / 3;
         for (int i = 0; i < kinds.Length; i++)
             Add("roag:" + kinds[i], names[i], new(_map.X + i % 3 * (buttonWidth + 8), h - 94 + i / 3 * 44, buttonWidth, 36), selected: _roagAim == kinds[i]);
@@ -79,6 +88,8 @@ internal sealed partial class WorldGame
             case "menu": _panel = "dungeon-menu"; break;
             case "guide": _panel = "dungeon-guide"; break;
             case "boons": _panel = "dungeon-boons"; break;
+            case "boon-prev": _nativeBoonPage--; break;
+            case "boon-next": _nativeBoonPage++; break;
             case "classes": _panel = "dungeon-class"; break;
             case "class":
                 var result = _session.ChooseDungeonClass((ClassKind)int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
@@ -128,11 +139,6 @@ internal sealed partial class WorldGame
     private void DrawDungeonTactics()
     {
         var combat = _session.DungeonCombat; var hero = _session.Party.Single(); var build = hero.Tactics!.Build!;
-        foreach (var drop in combat.State.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)))
-        {
-            var tile = TileRect(drop.Position);
-            _sprites.Fit(_batch, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", tile, Gold);
-        }
         foreach (var warning in _session.RoagTelegraphs()) foreach (var cell in warning.Cells)
         {
             var r = TileRect(cell); var color = new Color(240, 112, 78);
@@ -144,9 +150,16 @@ internal sealed partial class WorldGame
         Text($"HP {hero.Health}/{hero.MaxHealth} / level {build.Level}", x, y); y += 24;
         Text($"XP {build.Experience}/{CharacterBuild.NextThreshold(build.Level)}", x, y, Muted); y += 24;
         Text($"Gold {_session.Count("gold")}", x, y, Gold); y += 30;
+        if (_session.State.Dungeon!.Victory) { Text("REGENT DEFEATED", x, y, Gold); y += 24; }
+        Text("Aim: " + _roagAim.Replace('_', ' '), x, y, Muted); y += 24;
+        var resources = hero.Tactics.Resources;
+        string resource = build.Class switch { ClassKind.Stormcaller => $"Charge {resources.StormCharge}/3 / ward {(resources.StormWard ? "ready" : "spent")}",
+            ClassKind.Duelist => resources.Riposte ? "Riposte ready" : resources.Parry != null ? "Parry raised" : "Parry available",
+            ClassKind.Tinkerer when resources.Sentry is { } sentry => $"Sentry: {sentry.Charges} shots / {sentry.Phase}", _ => "" };
+        if (resource.Length > 0) { Text(resource, x, y, Gold); y += 24; }
         Text("TURN TIMELINE", x, y, Gold); y += 24;
         Text(_session.State.AwaitingContinuation ? "Run ended" : "You: ready now", x, y); y += 22;
-        foreach (var entry in combat.VisibleTimeline().Take(7))
+        foreach (var entry in combat.VisibleTimeline().Take(5))
         {
             var actor = _session.State.Actors.FirstOrDefault(a => a.Id == entry.ActorId);
             string name = actor == null || !actor.Recruited && !_session.Visible.Contains(actor.Position) ? "Ground effect" : actor.Name;
@@ -156,7 +169,7 @@ internal sealed partial class WorldGame
         }
         y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised").TakeLast(6))
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised").TakeLast(4))
         {
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }
@@ -206,16 +219,45 @@ internal sealed partial class WorldGame
         {
             var owned = _session.Party.Single().Tactics!.Boons.Inventory.Stacks;
             if (owned.Count == 0) Text("Find boon chests to develop your build.", x, y, Muted);
-            foreach (var pair in owned.OrderBy(p => p.Key).Take(12))
+            foreach (var pair in owned.OrderBy(p => p.Key).Skip(_nativeBoonPage * 3).Take(3))
             {
                 var boon = BoonCatalog.Default.Get(pair.Key);
                 Text(boon.Name + " / " + BoonCatalog.Rarities.Sum(r => pair.Value[r]) + " stacks", x, y, Gold); y += 24;
                 y += Wrap(boon.Description, x, y, box.Width - 48, Muted) + 10;
-                if (y > box.Bottom - 70) break;
             }
+            Text($"Page {_nativeBoonPage + 1}/{Math.Max(1, (owned.Count + 2) / 3)}", box.Center.X - 50, box.Bottom - 42, Muted);
         }
         else if (_panel == "dungeon-class")
             Text("Choose before taking your first action. Each class has its own attacks and movement.", x, y, Muted);
+    }
+
+    private void DrawDungeonObjects()
+    {
+        var state = _session.State.Tactics!;
+        void Icon(WorldPosition p, string sprite, Color tint)
+        { if (_session.Visible.Contains(p) && _map.Intersects(TileRect(p))) _sprites.Fit(_batch, sprite, TileRect(p), tint); }
+        foreach (var chest in state.Chests.Chests)
+            if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
+                _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));
+        foreach (var drop in state.Loot.Drops.Where(d => d.CarriedBy == 0))
+            Icon(drop.Position, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", Gold);
+        var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);
+        foreach (var web in state.Webs) foreach (var p in web.Span.Cells()) Icon(p, "web", hostile);
+        foreach (var trail in state.Silt) Icon(trail.Position, "water", new(122, 162, 96));
+        foreach (var ember in state.Embers) Icon(ember.Position, "hazard-fire", hostile);
+        foreach (var mirror in state.Mirrors) Icon(mirror.Position, "crystal", new(210, 153, 224));
+        foreach (var snare in state.EnemySnares) Icon(snare.Position, "trap", hostile);
+        foreach (var actor in _session.State.Actors)
+        {
+            if (actor.Tactics is not { } tactics) continue;
+            var r = tactics.Resources;
+            if (r.Decoy is { } decoy) Icon(decoy, "resident", friendly * .6f);
+            if (r.Snare is { } snare) Icon(snare, "trap", friendly);
+            if (r.Spirit is { } spirit) Icon(spirit, "wisp", friendly);
+            if (r.Beacon is { } beacon) Icon(beacon.Position, "banner", friendly);
+            if (r.Bulwark is { } bulwark) Icon(bulwark.Position, "boulder", friendly);
+            if (r.Sentry is { } sentry) Icon(sentry.Position, "bow", sentry.Phase == SentryPhase.Spent ? Muted : friendly);
+        }
     }
 
     private void CollectDungeonFeedback()

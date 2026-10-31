@@ -65,6 +65,8 @@ internal sealed partial class WorldGame
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Move with WASD or arrow keys, one tile per press.";
+        if (_session.State.Dungeon != null)
+        { _panel = "dungeon-class"; _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1; _notice = "Choose your fixed starting class."; }
     }
     private void FinishApproach()
     {
@@ -548,7 +550,7 @@ internal sealed partial class WorldGame
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
         bool playing = playerView && Playback.Busy;
         var reportedBattle = playerView ? DisplayBattle : _session.State.Battle;
-        var skills = playing ? Array.Empty<Skill>() : _session.ActiveSkills();
+        var skills = playing || _session.State.Dungeon != null ? Array.Empty<Skill>() : _session.ActiveSkills();
         CombatUnit? Presented(Actor actor) => playerView && reportedBattle is { } b && b.ActorIds.IndexOf(actor.Id) is var index && index >= 0 ? b.Units[index] : null;
         return JsonSerializer.Serialize(new
         {
@@ -558,6 +560,17 @@ internal sealed partial class WorldGame
             mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
+            nativeDungeon = _session.State.Dungeon is not { } native ? null : new
+            {
+                native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
+                activeActor = _session.State.Tactics!.ActiveActor,
+                player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
+                    classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Resources, boons = a.Tactics.Boons.Inventory.Stacks }),
+                timeline = _session.DungeonCombat.VisibleTimeline(),
+                chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
+                routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,
+                chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null
+            },
             habitat = _session.HabitatAt(_session.State.Position),
             climate = _session.WeatherAt(_session.State.Position), weatherDescription = WeatherText(), sheltered = _session.ShelteredAt(_session.State.Position),
             journeyFixture = playerView ? null : _routineFarField,

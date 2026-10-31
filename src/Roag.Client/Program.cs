@@ -18,9 +18,9 @@ try
     if (options.Help)
     {
         Console.WriteLine("""
-            VAGABONDS / a finite procedural fantasy world
+            ROAG / turn-based dungeon runs
             ./roag.sh [--seed N] [--load | --new] [--save PATH]
-              Normal launch resumes the selected world or legacy campaign; absent slots start a world.
+              Normal launch resumes the native dungeon run; absent slots start a fresh solo run.
               --new (start over; normal saving/quitting replaces the selected slot)
               --load (require and resume the selected slot)
               --import-legacy PATH (validate/copy an old RPG save and exit)
@@ -36,8 +36,10 @@ try
               --session-root PATH (local session recordings; default ~/.roag/sessions)
               --no-recording (disable ordinary session recording)
               --playtest-control PATH (isolated local mouse automation; explicit waits advance time)
-            WASD / arrows move one tile per press; click nearby people, caches or stairs to interact.
-            Use on-screen Play/Pause, action buttons and Menu. Right-click stops/closes.
+            Choose your fixed class before the first action. WASD / arrows move one tile per press.
+            F basic attack; R special; X movement skill; G directional Guard; Space waits.
+            Aim with the keyboard or click an attack direction. Enter opens an adjacent chest/route
+            or uses stairs. Escape cancels/closes. F5 saves. Menus and thinking consume no time.
             """);
         return 0;
     }

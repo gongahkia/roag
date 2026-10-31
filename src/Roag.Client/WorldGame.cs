@@ -97,6 +97,11 @@ internal sealed partial class WorldGame : Game
             _session.StartBattle(_session.FinalBoss.Id);
         }
         if (_session.IsInCombat) _notice = "Choose an ability, then a fighter. Read enemy intentions before committing.";
+        if (_session.State.Dungeon != null)
+        {
+            _notice = "WASD / arrows move one tile. F attacks, R special, X movement. Enter interacts.";
+            if (_session.State.Tactics!.NextAction == 1) _panel = "dungeon-class";
+        }
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Roag"; Window.AllowUserResizing = true;
         Window.ClientSizeChanged += (_, _) =>
@@ -397,6 +402,7 @@ internal sealed partial class WorldGame : Game
     private void DrawTerrain()
     {
         DrawCachedTerrain();
+        if (_session.State.Dungeon != null) DrawDungeonObjects();
         UpdatePointer(_mouse.Position);
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
             _sprites.Draw(_batch, _session.DiscoverySprite(d), TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : d.Outcome.Length > 0 ? new Color(129, 200, 204) : Gold);
