@@ -2,7 +2,7 @@
 
 Status: **active current tranche, incomplete**. The user resumed work on 2026-10-31 with the narrower tranche in [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md): deliver items 1–6 as a playable solo bounded-dungeon Linux release, then stop for their playtest. Items 7–20 remain deferred, important backlog; items 21–22 (full authoring parity and Windows delivery) are removed from the todo for now. Regular atomic Git commits are now explicitly authorized. All eight original full-game gates remain open and are not this tranche's completion claim. Food/Overflow Chalice and party-chest choices are resolved.
 
-Current native enemy-controller coverage: **50 of 50 verified**. The latest combined full regression passed **1,495 tests, zero failures/skips (4m25s)**, covering Mirror Hexer, original boss phase reactions and local species/role targeting together. Evidence: `artifacts/migration/verification/native-targeting/regression.trx` and `regression.log`; TRX counters verified. Controller coverage is not the percentage completion of the full migration; production client cutover and broader party/world/survival/campaign gates remain unfinished.
+Current native enemy-controller coverage: **50 of 50 verified**. The latest combined full regression passed **1,543 tests, zero failures/skips (6m44s)**, covering original controllers, stairs, pursuit and food/needs together. Evidence: `artifacts/migration/verification/tranche-baseline/regression.trx` and `regression.log`. This run predates native chests. Controller coverage is not the percentage completion of the full migration; production client cutover and broader party/world/survival/campaign gates remain unfinished.
 
 ## Resuming on another machine or in a new session
 
@@ -12,11 +12,15 @@ Transfer the latest source, planning documents, fixtures and tools, including un
 
 Use `./tools/dotnet.sh` for the repository SDK. For a fresh full regression, run `./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj --logger 'trx;LogFileName=handoff-regression.trx' --results-directory artifacts/migration/verification/handoff`. If the system temporary filesystem is too small, set `TMPDIR` to an existing writable directory with adequate space on that machine. Review the latest verification status below before claiming a clean full regression.
 
-## Latest pre-tranche working changes
+## Current tranche checkpoints
 
-Before the pause, native paid food consumption, shared provision pickup, configurable automatic eating, excess-hunger Chalice wards, gradual well-fed regeneration and lethal starvation were implemented. The focused food/needs run passed **52 tests**, zero failures/skips (5s), under `artifacts/migration/verification/native-food/focused.{trx,log}`. This includes retained imported checks, not 52 new survival tests. Food-event actual gain now supports fractional hunger; ward capacity rounds wasted hunger down to whole points. Survival remains later-tranche functionality and must not force an incomplete survival flow into the solo dungeon release. These changes have not yet had a combined full regression and must be preserved/reviewed before committing.
+- `f04c1717`: authoritative solo Linux tranche and stop-for-playtest scope.
+- `5a04dd85`: persistent enemy awareness, physical navigation/stairs and local engagement; imported free-action bypasses disabled for native actors.
+- `3af4e016`: paid provisions, configurable eating, fractional hunger overflow wards and saved survival cadence. This later-tranche foundation is preserved; survival will be inactive in the current solo dungeon release.
+- Combined regression after the pre-pause changes passed **1,543 tests, zero failures/skips (6m44s)** under `artifacts/migration/verification/tranche-baseline/regression.{trx,log}`. This covers stairs, pursuit, food/needs and the corrected decision-pump assertion, before native chest changes. It is a rules/world regression, not rendered tranche completion.
+- Native chest acquisition now passes **11 focused checks**, zero failures/skips (3s), under `artifacts/migration/verification/native-chests/final-focused.{trx,log}`. Includes 120 original class/seed/chest draws (360 offers), paid one-time claims, automatic purchase refunds, collision, free invalid/overflow rejection and actual unclaimed/claimed world saves. The first focused run had a test assuming an incompatible pair existed in the shipped catalog; its definitions expose that capability but currently declare no such pair. The case now verifies a genuine overflowing stack, without changing runtime rules. Original fixture source hashes are verified at the pinned revision.
 
-The preceding pursuit/stair changes also remain uncommitted at the scope change. Commit them in coherent, validated steps using the newly granted Git authorization. Source identities and previously accepted gameplay choices remain unchanged.
+Both food and chest decisions remain settled. No production client cutover or playable tranche handoff has occurred. Current next work: finish native chest commit and integrate the original authored dungeon catalog/generation with the production native client, then remaining interactions/presentation/delivery gates. Do not start later-tranche features.
 
 ## Source and preservation evidence
 

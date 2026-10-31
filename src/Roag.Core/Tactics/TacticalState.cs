@@ -133,6 +133,7 @@ public sealed class TacticalWorldState
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
+    public TacticalChestState Chests { get; set; } = new();
 }
 
 /// <summary>Delegated numerical tuning; one ordinary 100-cost action represents one second.</summary>

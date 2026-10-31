@@ -32,6 +32,8 @@ public sealed partial class WorldSession
     private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {
         if (!Plan.Contains(p)) return null;
+        if (State.Tactics?.Chests.Chests.FirstOrDefault(c => c.Position == p) is { Claimed: false } chest)
+            return new(Roag.Core.Tactics.BoonChestDefinition.Get(chest.Definition).Name, "chest", "boon-chest", true);
         if (TryExplicitObject(p, out var placed)) return placed;
         return GeneratedObjectAt(Plan, Chunks, p, terrain);
     }
@@ -50,6 +52,7 @@ public sealed partial class WorldSession
     internal static bool SnapshotProjectileOpen(WorldPlan plan, WorldState state, ContentCatalog content, ChunkCache chunks, WorldPosition p)
     {
         if (!plan.Contains(p) || Materials.Opaque(chunks.At(p))
+            || state.Tactics?.Chests.Chests.Any(c => !c.Claimed && c.Position == p) == true
             || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)) return false;
         var discovery = state.Discoveries.FirstOrDefault(d => d.Position == p);
         if (discovery != null) return !DiscoverySolid(content, discovery);

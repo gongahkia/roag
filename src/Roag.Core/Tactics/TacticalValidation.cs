@@ -23,6 +23,10 @@ public static class TacticalValidation
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
+        state.Chests.Validate(plan, actors);
+        if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))
+            throw new InvalidDataException("Chest recipient is not a campaign member.");
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics?.Enemy is not { } memory) continue;
