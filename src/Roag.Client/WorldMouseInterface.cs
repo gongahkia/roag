@@ -567,7 +567,15 @@ internal sealed partial class WorldGame
                 player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
                 timeline = _session.DungeonCombat.VisibleTimeline(),
+                fighters = _session.RoagFighters(),
+                telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
+                services = _session.State.Tactics.Services.Nodes.Where(n => _session.Visible.Contains(n.Position)).Select(n => new
+                {
+                    n.Id, kind = n.Kind.ToString(), name = Roag.Core.Tactics.TacticalCombat.ServiceName(n.Kind), n.Position, n.UsedBy,
+                    contract = n.Contract == null ? null : new { status = n.Contract.Status.ToString(), targets = n.Contract.Targets.Length, defeated = n.Contract.Defeated.Count, n.Contract.Failure }
+                }),
+                serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]) : null,
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,
                 chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null
             },

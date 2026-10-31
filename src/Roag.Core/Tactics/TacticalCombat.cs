@@ -236,6 +236,7 @@ public sealed partial class TacticalCombat
             actor.Tactics.EnemySnareDelay = 0;
             actor.Tactics.WebRecoveryDelay = 0;
             State.ActiveActor = 0;
+            BeforeContractAction(actor, executed, preview, action);
             if (preview.Vow is { } vow)
             {
                 actor.Health -= vow.HealthCost;
@@ -277,6 +278,7 @@ public sealed partial class TacticalCombat
                     break;
                 case TacticalAction.Wait: Emit("Waited", actor.Id, actor.Id, action, actor.Position); break;
             }
+            if (Friendly(actor)) QueueContractCompletion(actor, action);
         });
         if (Friendly(actor))
         {

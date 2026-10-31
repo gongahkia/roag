@@ -10,6 +10,8 @@ internal sealed partial class WorldGame
     private long _nativeChest, _nativeSeenEvent;
     private int _nativeBoonPage;
     private int _nativeUtilitySteps = 3;
+    private long _nativeService;
+    private int _nativeServicePage, _nativeReplacementChoice;
 
     private void BuildDungeonControls(int w, int h)
     {
@@ -65,6 +67,21 @@ internal sealed partial class WorldGame
                         new(box.X + 28, box.Y + 240, 240, 42), aimed || preview.Valid, reason: preview.Reason);
                 }
             }
+            else if (_panel == "dungeon-service")
+            {
+                var options = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]);
+                _nativeServicePage = Math.Clamp(_nativeServicePage, 0, Math.Max(0, (options.Count - 1) / 2));
+                foreach (var option in options.Skip(_nativeServicePage * 2).Take(2))
+                    Add("dungeon:service-choice:" + option.Choice, option.Replacement ? "Review exchange" : "Confirm choice",
+                        new(box.Right - 194, box.Y + 100 + (option.Choice - 1) % 2 * 160, 166, 42), option.Enabled, reason: option.Reason);
+                Add("dungeon:service-prev", "Previous", new(box.X + 24, box.Bottom - 54, 130, 34), _nativeServicePage > 0);
+                Add("dungeon:service-next", "Next", new(box.Right - 154, box.Bottom - 54, 130, 34), (_nativeServicePage + 1) * 2 < options.Count);
+            }
+            else if (_panel == "dungeon-service-replace")
+            {
+                Add("dungeon:service-confirm", "Replace carried utility", new(box.X + 28, box.Y + 210, 290, 42));
+                Add("dungeon:service-back", "Keep current utility", new(box.X + 334, box.Y + 210, 260, 42));
+            }
             else if (_panel == "dungeon-boons")
             {
                 int count = _session.Party.Single().Tactics!.Boons.Inventory.Stacks.Count;
@@ -112,6 +129,17 @@ internal sealed partial class WorldGame
                 { ClosePanel(); _roagAim = "use_utility"; }
                 else { CommitRoag(new("use_utility")); ClosePanel(); }
                 break;
+            case "service-prev": _nativeServicePage--; break;
+            case "service-next": _nativeServicePage++; break;
+            case "service-back": _panel = "dungeon-service"; break;
+            case "service-choice":
+                int selected = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]).Single(o => o.Choice == selected);
+                if (option.Replacement) { _nativeReplacementChoice = selected; _panel = "dungeon-service-replace"; }
+                else { CommitRoag(new("interact", Target: _nativeService, Choice: selected)); ClosePanel(); }
+                break;
+            case "service-confirm":
+                CommitRoag(new("interact", Target: _nativeService, Choice: _nativeReplacementChoice, ReplaceUtility: true)); ClosePanel(); break;
             case "boon-prev": _nativeBoonPage--; break;
             case "boon-next": _nativeBoonPage++; break;
             case "classes": _panel = "dungeon-class"; break;
@@ -141,12 +169,24 @@ internal sealed partial class WorldGame
         _nativeChest = chest.Id; _panel = "dungeon-chest"; return true;
     }
 
+    private bool TryOpenDungeonService(Point pointer)
+    {
+        var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
+        var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
+        var node = _session.State.Tactics!.Services.Nodes.FirstOrDefault(n => n.Position == position);
+        if (node == null || position.Distance(_session.State.Position) > 1 || !_session.Visible.Contains(position)) return false;
+        _nativeService = node.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return true;
+    }
+
     private void DungeonInteract()
     {
         var actor = _session.Party.Single();
         if (_session.AvailableDungeonRoutes(actor.Id).Count > 0) { _panel = "dungeon-routes"; return; }
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position.Distance(actor.Position) == 1);
         if (chest != null) { _nativeChest = chest.Id; _panel = "dungeon-chest"; return; }
+        var service = _session.State.Tactics!.Services.Nodes.Where(n => n.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(n.Position))
+            .OrderBy(n => n.UsedBy != 0 || n.Contract?.Status is DungeonContractStatus.Failed or DungeonContractStatus.Completed).ThenBy(n => n.Id).FirstOrDefault();
+        if (service != null) { _nativeService = service.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return; }
         CommitRoag(new("use_stairs"));
     }
 
@@ -175,6 +215,7 @@ internal sealed partial class WorldGame
             var tile = TileRect(actor.Position); var bar = new Rectangle(tile.X + 4, tile.Bottom - 5, tile.Width - 8, 3);
             FillClipped(bar, new Color(16, 22, 27));
             FillClipped(bar with { Width = Math.Max(0, bar.Width * actor.Health / actor.MaxHealth) }, actor.Recruited ? Gold : new Color(240, 112, 78));
+            if (combat.IsContractTarget(actor.Id)) FillClipped(new(tile.X + 5, tile.Y + 3, tile.Width - 10, 2), Gold);
             if (actor.Tactics!.Guarding)
                 foreach (var cell in AttackGeometry.Arc(actor.Position, actor.Tactics.Facing))
                     if (_session.Visible.Contains(cell)) FillClipped(TileRect(cell), Gold * .08f);
@@ -244,7 +285,7 @@ internal sealed partial class WorldGame
     private void DrawDungeonPanel(int w, int h)
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
-        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", _ => "MENU" };
+        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", _ => "MENU" };
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-chest")
         {
@@ -266,7 +307,7 @@ internal sealed partial class WorldGame
             for (int i = 0; i < routes.Count; i++) Wrap(routes[i].Description, x + 6, box.Y + 142 + i * 100, box.Width - 60, Muted);
         }
         else if (_panel == "dungeon-guide")
-            Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter opens an adjacent boon chest or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
         else if (_panel == "dungeon-utility")
         {
             var utility = _session.Party.Single().Tactics!.Supplies.Utility;
@@ -280,6 +321,28 @@ internal sealed partial class WorldGame
                         : "Return to the visible empty marker by a known clear path of at most four steps. The return spends one action and consumes the token." },
                     x, y, box.Width - 48, Muted);
             }
+        }
+        else if (_panel == "dungeon-service")
+        {
+            var node = _session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService);
+            Text(TacticalCombat.ServiceName(node.Kind) + $" / purse {_session.Count("gold")}", x, y, Gold);
+            var choices = _session.DungeonCombat.DungeonServiceChoices(node.Id, _session.State.Party[0]);
+            if (choices.Count == 0) Wrap(node.UsedBy != 0 ? "Already used. This service does not refill on returning or Continue."
+                : node.Contract is { } c ? $"Contract {c.Status}: {c.Failure}" : "No eligible owned stack or replacement. Nothing is spent.", x, y + 40, box.Width - 48, Muted);
+            foreach (var option in choices.Skip(_nativeServicePage * 2).Take(2))
+            {
+                int rowY = box.Y + 96 + (option.Choice - 1) % 2 * 160;
+                int height = Wrap(option.Label + (option.Price > 0 ? $" / {option.Price} gold" : ""), x, rowY, box.Width - 240, Gold);
+                Wrap(option.Detail, x, rowY + height + 12, box.Width - 240, Muted);
+            }
+            Text("Inspection and cancellation are free. Confirming spends one action.", x, box.Bottom - 82, Muted);
+        }
+        else if (_panel == "dungeon-service-replace")
+        {
+            var current = _session.Party.Single().Tactics!.Supplies.Utility;
+            var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]).Single(o => o.Choice == _nativeReplacementChoice);
+            Wrap($"Exchange {UtilityName(current!.Kind)} for {UtilityName(option.Utility!.Value)}? The old charge and any planted marker will be lost."
+                + (option.Price > 0 ? $" Pay {option.Price} gold." : ""), x, y, box.Width - 48);
         }
         else if (_panel == "dungeon-boons")
         {
@@ -306,6 +369,10 @@ internal sealed partial class WorldGame
         foreach (var chest in state.Chests.Chests)
             if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
                 _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));
+        foreach (var node in state.Services.Nodes)
+            if (_session.Chunks.Seen(node.Position) && node.Position.Floor == _session.State.Position.Floor)
+                _sprites.Fit(_batch, NativeAppearance.ForService(node.Kind), TileRect(node.Position),
+                    _session.Visible.Contains(node.Position) ? node.UsedBy == 0 ? Gold : Muted : Gold * .35f);
         foreach (var drop in state.Loot.Drops.Where(d => d.CarriedBy == 0))
             Icon(drop.Position, drop.Kind == GroundLootKind.Currency ? "coin" : drop.Kind == GroundLootKind.Health ? "heart" : "ration", Gold);
         var hostile = new Color(240, 112, 78); var friendly = new Color(113, 207, 218);

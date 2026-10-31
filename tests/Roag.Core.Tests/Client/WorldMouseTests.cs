@@ -31,6 +31,51 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void RememberedServiceInspectionHidesItsCurrentReceipt()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var hero = session.Party.Single();
+        var cell = hero.Position.Offset(1, 0); session.Chunks.Edit(cell, Material.Floor);
+        var node = session.DungeonCombat.SpawnDungeonService(DungeonServiceKind.ReturnToken, "test:private-service", cell);
+        session.Reveal(); Assert.True(session.SubmitDungeon(new(TacticalAction.Interact, Target: node.Id, Choice: 1)).Success);
+        Assert.Contains("Already used", WorldInspection.Inspect(session, cell).Detail);
+        session.Visible.Clear(); var remembered = WorldInspection.Inspect(session, cell);
+        Assert.Contains("remembered", remembered.Title); Assert.DoesNotContain("used", remembered.Detail);
+        Assert.Contains("Observe", remembered.Detail);
+    }
+
+    [Fact]
+    public void NativeServiceInspectionIsFreeAndItsConfirmedChoiceUsesTheRealPaidAction()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session); var hero = session.Party.Single();
+        var cell = hero.Position.Offset(1, 0); session.Chunks.Edit(cell, Material.Floor);
+        var node = session.DungeonCombat.SpawnDungeonService(DungeonServiceKind.ReturnToken, "test:client-token", cell);
+        session.Reveal(); Field("_roagAim").SetValue(client, "move");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Enter), true);
+        Assert.Equal("dungeon-service", Field("_panel").GetValue(client)); Assert.Equal(0, session.DungeonCombat.Clock);
+        Assert.Contains(Controls(client, "dungeon-service"), c => c.Id == "dungeon:service-choice:1" && c.Enabled);
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-choice:1");
+        Assert.Equal(100, session.DungeonCombat.Clock); Assert.Equal(UtilityKind.ReturnToken, hero.Tactics!.Supplies.Utility!.Kind);
+        Assert.Equal(hero.Id, session.State.Tactics!.Services.Nodes.Single(n => n.Id == node.Id).UsedBy);
+    }
+
+    [Fact]
+    public void NativeServiceUtilityExchangeCanBeReviewedAndCancelledWithoutSpending()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session); var hero = session.Party.Single();
+        var cell = hero.Position.Offset(1, 0); session.Chunks.Edit(cell, Material.Floor);
+        var node = session.DungeonCombat.SpawnDungeonService(DungeonServiceKind.ReturnToken, "test:client-exchange", cell);
+        hero.Tactics!.Supplies.Utility = new(UtilityKind.CleanseFlask); session.Reveal();
+        Invoke(client, "DungeonInteract"); string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-choice:1");
+        Assert.Equal("dungeon-service-replace", Field("_panel").GetValue(client));
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-back"); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-choice:1");
+        Invoke(client, "ActivateDungeonControl", "dungeon:service-confirm");
+        Assert.Equal(100, session.DungeonCombat.Clock); Assert.Equal(UtilityKind.ReturnToken, hero.Tactics.Supplies.Utility!.Kind);
+        Assert.Equal(hero.Id, session.State.Tactics!.Services.Nodes.Single(n => n.Id == node.Id).UsedBy);
+    }
+
+    [Fact]
     public void NativeUtilityPanelIsFreeAndOnlyAConfirmedDirectionSpendsTheScroll()
     {
         using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);

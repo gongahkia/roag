@@ -8,6 +8,17 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class NativeAppearanceTests
 {
     [Fact]
+    public void EveryServiceUsesAnExistingStoredVagabondsBinding()
+    {
+        using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
+        foreach (var kind in Enum.GetValues<DungeonServiceKind>())
+        {
+            string sprite = manifest.RootElement.GetProperty("bindings").GetProperty(NativeAppearance.ForService(kind)).GetString()!;
+            Assert.StartsWith("urizen-onebit-", sprite); Assert.True(manifest.RootElement.GetProperty("sprites").TryGetProperty(sprite, out _));
+        }
+    }
+
+    [Fact]
     public void AllNativeClassesAndEnemiesUseStoredUniversalAtlasIdentitiesAndUnchangedCrops()
     {
         using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);

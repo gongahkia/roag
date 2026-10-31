@@ -39,7 +39,7 @@ internal sealed partial class WorldGame
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
-        if(_session.State.Dungeon != null && _roagAim == "move" && TryOpenDungeonChest(pointer)) return;
+        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);

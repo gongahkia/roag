@@ -103,7 +103,7 @@ public sealed partial class TacticalCombat
         try
         {
             int steps = 0;
-            while (_combatEvents.Count > 0 || _boonWork.Count > 0)
+            while (_combatEvents.Count > 0 || _boonWork.Count > 0 || _contractCompletionActor != 0)
             {
                 if (++steps > 1_000_000) throw new InvalidOperationException("Boon resolution exceeded the original diagnostic limit.");
                 if (_combatEvents.TryDequeue(out var queued))
@@ -140,6 +140,7 @@ public sealed partial class TacticalCombat
                 }
                 else if (_boonWork.TryDequeue(out var work))
                     WithBoonCause(BoonCause.From(work.Activation, work.Effect.ProcCoefficient ?? 1), () => ExecuteBoonEffect(work.Activation, work.Effect));
+                else if (_contractCompletionActor != 0) CompleteContracts();
             }
         }
         finally { _drainingBoons = false; _terrainContacts.Clear(); _pushFloorCounts.Clear(); }
@@ -158,6 +159,7 @@ public sealed partial class TacticalCombat
 
     private void BeforeBoonEvent(BoonEvent e)
     {
+        ResolveContractEvent(e);
         if (e.SourceId is not { } id || id == 0) return;
         var source = Actor(id);
         if (e.Kind == BoonTrigger.AttackPerformed)

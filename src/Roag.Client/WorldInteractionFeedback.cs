@@ -37,7 +37,17 @@ internal static class WorldInspection
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             detail += targeting;
+            if (session.State.Dungeon != null && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
+        }
+        if (session.State.Tactics?.Services.Nodes.FirstOrDefault(n => n.Position == cell) is { } service)
+        {
+            string title = TacticalCombat.ServiceName(service.Kind);
+            if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this service again to inspect its current state.", "Move with the keyboard", "", "object");
+            string detail = service.UsedBy != 0 ? "Already used; no refill on returning or Continue."
+                : service.Contract is { } c ? $"Contract {c.Status}. Defeated {c.Defeated.Count}/{c.Targets.Length}. " + c.Failure
+                : "One use. Inspect saved choices freely; confirming pays one action and any listed price.";
+            return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
         if (session.DungeonTerrainAt(cell) is { } glyph)
         {

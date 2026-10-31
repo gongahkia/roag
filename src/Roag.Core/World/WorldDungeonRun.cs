@@ -131,6 +131,7 @@ public sealed partial class WorldSession
             State.Dungeon.Floors[index] = floor with { Boss = actor.Id };
         }
         PopulateDungeonOptionalTerrain(layout, origin, combat);
+        PopulateDungeonServices(layout, origin, combat);
     }
 
     private Actor SpawnDungeonEnemy(TacticalCombat combat, string definition, WorldPosition position)

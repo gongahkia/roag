@@ -79,7 +79,7 @@ public sealed partial class DungeonTerrainTests
         Assert.Equal(before, JsonSerializer.Serialize(world.State));
         Assert.True(world.SubmitDungeon(new(TacticalAction.Interact, Target: second.Id, Choice: 1, ReplaceUtility: true)).Success);
         Assert.Equal(200, combat.Clock); Assert.Equal(UtilityKind.EscapeScroll, hero.Tactics.Supplies.Utility!.Kind);
-        Assert.All(combat.State.Services.Nodes, n => Assert.Equal(hero.Id, n.UsedBy));
+        Assert.All(combat.State.Services.Nodes.Where(n => n.Id == first.Id || n.Id == second.Id), n => Assert.Equal(hero.Id, n.UsedBy));
         TacticalValidation.Validate(world.Plan, world.State);
     }
 

@@ -9,6 +9,35 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class DungeonPopulationTests
 {
     [Fact]
+    public void FiniteServicesNaturallyCoverEveryCurrentKindWithoutRepaintingOrStartingTime()
+    {
+        var kinds = new HashSet<DungeonServiceKind>();
+        for (int seed = 0; seed < 24; seed++)
+        {
+            using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
+            Assert.Equal(0, state.Queue.Clock); Assert.Equal(1, state.NextAction);
+            foreach (var floor in world.State.Dungeon!.Floors)
+            {
+                var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor).ToArray();
+                Assert.InRange(services.Length, 1, 2);
+                Assert.Equal(services.Length, services.Select(n => world.RoomAt(n.Position)).Distinct().Count());
+                foreach (var node in services)
+                {
+                    kinds.Add(node.Kind); var room = Assert.Single(floor.Rooms, r => r.Contains(node.Position));
+                    Assert.DoesNotContain(room.Role, new[] { "start", "elite" });
+                    Assert.Equal(Material.Floor, world.Chunks.At(node.Position)); Assert.Null(world.DungeonTerrainAt(node.Position));
+                    Assert.DoesNotContain(state.Chests.Chests, c => c.Position == node.Position);
+                    Assert.DoesNotContain(state.OptionalTerrain.Nodes, n => n.Position == node.Position);
+                    Assert.Equal("dungeon-service", world.ObjectAt(node.Position)!.Kind); Assert.False(world.ObjectAt(node.Position)!.Solid);
+                    if (node.Contract != null) Assert.NotEmpty(node.Contract.Targets);
+                }
+            }
+            TacticalValidation.Validate(world.Plan, world.State);
+        }
+        Assert.Equal(Enum.GetValues<DungeonServiceKind>().Order(), kinds.Order());
+    }
+
+    [Fact]
     public void NaturallyPlacedOptionalTerrainHasFiniteBudgetsAndNeverConsumesTheStartingClassChoice()
     {
         var seen = new HashSet<OptionalTerrainKind>();

@@ -3,8 +3,8 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp }
-public sealed record DungeonService(long Id, string Marker, DungeonServiceKind Kind, WorldPosition Position, int Seed, long UsedBy = 0);
+public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp, ArchiveContract }
+public sealed record DungeonService(long Id, string Marker, DungeonServiceKind Kind, WorldPosition Position, int Seed, long UsedBy = 0, DungeonContract? Contract = null);
 public sealed record RetiredBoon(string Id, BoonRarity Rarity);
 public sealed record DungeonServiceChoice(int Choice, string Label, string Detail, bool Enabled = true, string Reason = "",
     int Price = 0, int HealthCost = 0, int Healing = 0, bool Cleanse = false, bool Ward = false, bool Focus = false,
@@ -32,6 +32,9 @@ public sealed class DungeonServiceState
                 || !Materials.Walkable(chunks!.At(node.Position))
                 || node.UsedBy != 0 && !world.Party.Contains(node.UsedBy))
                 throw new InvalidDataException("Invalid service identity, ground or receipt.");
+            if ((node.Kind == DungeonServiceKind.ArchiveContract) != (node.Contract != null))
+                throw new InvalidDataException("Invalid contract service identity.");
+            node.Contract?.Validate(plan, world, node);
             previous = node.Id;
         }
     }
@@ -47,7 +50,16 @@ public sealed partial class TacticalCombat
             || State.OptionalTerrain.Nodes.Any(n => n.Position == position))
             throw new ArgumentException("A finite service needs its own clear physical ground and stable marker.");
         int seed = RoagRandom.Derive((int)(WorldRandom.Hash(_world.Seed, 0, salt: 9402) % (RoagRandom.Modulus - 1)) + 1, marker);
-        var node = new DungeonService(State.Services.NextService++, marker, kind, position, seed);
+        var node = new DungeonService(State.Services.NextService, marker, kind, position, seed);
+        if (kind == DungeonServiceKind.ArchiveContract)
+        {
+            if (_world.State.Dungeon == null || _world.RoomAt(position) is not { Area: RoomArea.Dungeon } room)
+                throw new ArgumentException("A room contract needs an authored dungeon room.");
+            var targets = DungeonContractTargets(room);
+            if (targets.Length == 0) throw new ArgumentException("A room contract needs actual eligible living targets.");
+            node = node with { Contract = new() { Room = room, Targets = targets } };
+        }
+        State.Services.NextService++;
         State.Services.Nodes.Add(node); return node;
     }
 
@@ -100,6 +112,18 @@ public sealed partial class TacticalCombat
                 Add(new(0, "Recover HP", "One use. Recover a quarter of maximum HP.", Healing: (int)(((long)actor.MaxHealth + 3) / 4)));
                 Add(new(0, "Cleanse Burning and brace", "One positive hit within three paid actions; replaces the prepared supply condition.", Cleanse: true, Ward: true));
                 break;
+            case DungeonServiceKind.ArchiveContract:
+                var contract = node.Contract!;
+                if (contract.Status == DungeonContractStatus.Offered)
+                {
+                    bool available = contract.Targets.All(id => _world.State.Actors.Any(a => a.Id == id && a.Life == LifeState.Alive
+                        && a.Health > 0 && _world.RoomAt(a.Position) == contract.Room));
+                    Add(new(0, "Accept room contract", "Clear the marked ordinary enemies without leaving this room or using a movement ability. Walking is allowed. Reward: eight gold once.",
+                        Enabled: available, Reason: available ? "" : "The original targets have already left or died."));
+                }
+                else if (contract.Status == DungeonContractStatus.Active)
+                    Add(new(0, "Abandon room contract", "Abandon for one action. Normal controls and kill rewards remain available."));
+                break;
             case DungeonServiceKind.AttunementForge:
             case DungeonServiceKind.Memorial:
                 var pool = State.Chests.AvailableBoons.Where(id => BoonCatalog.Default.Get(id).Allows(actor.Tactics.Build.Class)).Order(StringComparer.Ordinal).ToArray();
@@ -142,6 +166,14 @@ public sealed partial class TacticalCombat
     {
         int index = State.Services.Nodes.FindIndex(n => n.Id == intent.Target); var node = State.Services.Nodes[index];
         var option = DungeonServiceChoices(node.Id, actor.Id)[intent.Choice - 1];
+        if (node.Contract is { } contract)
+        {
+            if (contract.Status == DungeonContractStatus.Offered)
+            { contract.Status = DungeonContractStatus.Active; contract.Owner = actor.Id; }
+            else { contract.Status = DungeonContractStatus.Failed; contract.Failure = "abandoned"; }
+            Emit("ContractChanged", actor.Id, actor.Id, action, node.Position, ability: contract.Status.ToString());
+            Emit("InteractionUsed", actor.Id, actor.Id, action, node.Position, ability: node.Kind.ToString()); return;
+        }
         var boons = actor.Tactics!.Boons;
         _world.State.Inventory["gold"] = _world.Count("gold") - option.Price;
         if (option.Price > 0) Emit("CurrencySpent", actor.Id, 0, action, node.Position, option.Price);
@@ -183,6 +215,7 @@ public sealed partial class TacticalCombat
         DungeonServiceKind.OfferingFont => "Offering font", DungeonServiceKind.CharmWell => "Charm well",
         DungeonServiceKind.AttunementForge => "Attunement forge", DungeonServiceKind.TravellingTrader => "Travelling trader",
         DungeonServiceKind.Memorial => "Memorial", DungeonServiceKind.Camp => "Camp",
+        DungeonServiceKind.ArchiveContract => "Archive contract",
         DungeonServiceKind.CleanseFlask => "Cleanse flask", DungeonServiceKind.EscapeScroll => "Escape scroll",
         DungeonServiceKind.ReturnToken => "Return token", _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };

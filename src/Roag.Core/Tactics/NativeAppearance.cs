@@ -9,4 +9,13 @@ public static class NativeAppearance
         var enemy = EnemyCatalog.Default.Get(definition);
         return "roag-enemy-" + enemy.Id["core:enemy/".Length..].Replace('_', '-');
     }
+
+    public static string ForService(DungeonServiceKind kind) => kind switch
+    {
+        DungeonServiceKind.OfferingFont => "shrine", DungeonServiceKind.CharmWell => "well",
+        DungeonServiceKind.AttunementForge => "anvil", DungeonServiceKind.TravellingTrader => "merchant",
+        DungeonServiceKind.Memorial => "grave", DungeonServiceKind.Camp => "campfire",
+        DungeonServiceKind.CleanseFlask => "potion", DungeonServiceKind.EscapeScroll or DungeonServiceKind.ArchiveContract => "book",
+        DungeonServiceKind.ReturnToken => "banner", _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
 }

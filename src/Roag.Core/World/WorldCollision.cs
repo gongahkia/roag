@@ -1,4 +1,5 @@
 using Roag.Core.Content;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -16,6 +17,8 @@ public sealed partial class WorldSession
     private static readonly WorldObject Bulwark = new("Geomancer bulwark", "boulder", "geomancer-bulwark", true);
     private static readonly WorldObject StandardBoonChest = new("Boon Chest", "chest", "boon-chest", true),
         EliteBoonChest = new("Elite Boon Chest", "chest", "boon-chest", true);
+    private static readonly WorldObject[] DungeonServiceObjects = Enum.GetValues<DungeonServiceKind>()
+        .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
     internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
     {
@@ -35,12 +38,16 @@ public sealed partial class WorldSession
     {
         if (!Plan.Contains(p)) return null;
         if (State.Tactics is { } tactics)
+        {
             for (int i = 0; i < tactics.Chests.Chests.Count; i++)
             {
                 var chest = tactics.Chests.Chests[i];
                 if (!chest.Claimed && chest.Position == p)
                     return chest.Definition == "core:chest/free_elite" ? EliteBoonChest : StandardBoonChest;
             }
+            for (int i = 0; i < tactics.Services.Nodes.Count; i++)
+                if (tactics.Services.Nodes[i].Position == p) return DungeonServiceObjects[(int)tactics.Services.Nodes[i].Kind];
+        }
         if (TryExplicitObject(p, out var placed)) return placed;
         return GeneratedObjectAt(Plan, Chunks, p, terrain);
     }
