@@ -20,17 +20,19 @@ public sealed class WorldClientTests : IDisposable
     {
         var fresh = WorldStartup.Open(Options.Parse(["--save", Slot, "--seed", "1337"]));
         Assert.False(fresh.Resumed); var s = Assert.IsType<WorldSession>(fresh.Session); Assert.Single(s.Party); Assert.False(s.Paused); Assert.False(File.Exists(Slot));
-        s.Paused = false; s.AdvanceTicks(47); s.Save(Slot); byte[] before = File.ReadAllBytes(Slot);
+        Assert.NotNull(s.State.Dungeon);
+        s.Paused = false; for (int i = 0; i < 12; i++) Assert.True(s.SubmitDungeon(new(Roag.Core.Tactics.TacticalAction.Wait)).Success); s.Save(Slot); byte[] before = File.ReadAllBytes(Slot);
         var resumed = WorldStartup.Open(Options.Parse(["--save", Slot]));
         Assert.True(resumed.Resumed); var loaded = Assert.IsType<WorldSession>(resumed.Session);
-        Assert.Equal(1337, loaded.Seed); Assert.Equal(47, loaded.State.Tick); Assert.False(loaded.Paused); Assert.Equal(before, File.ReadAllBytes(Slot));
+        Assert.Equal(1337, loaded.Seed); Assert.Equal(1, loaded.State.Tick); Assert.False(loaded.Paused); Assert.Equal(before, File.ReadAllBytes(Slot));
     }
     [Fact]
-    public void LegacySavesStillDispatchToTheirOriginalRules()
+    public void OrdinaryNativeLaunchRejectsPrototypeSavesWithoutOverwritingThem()
     {
         var old = new Campaign(1337); old.TravelTo("to-wilds"); old.TravelTo("iron-cache"); old.Save(Slot);
-        var loaded = WorldStartup.Open(Options.Parse(["--save", Slot]));
-        Assert.True(loaded.Resumed); Assert.Equal(old.StateJson(), Assert.IsType<LegacyCampaignSession>(loaded.Session).Campaign.StateJson());
+        byte[] before = File.ReadAllBytes(Slot);
+        Assert.Throws<InvalidDataException>(() => WorldStartup.Open(Options.Parse(["--save", Slot])));
+        Assert.Equal(before, File.ReadAllBytes(Slot));
     }
     [Theory]
     [InlineData("--new")]

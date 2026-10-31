@@ -17,7 +17,7 @@ public sealed partial class WorldSession
     private NativeRuntime Rules => _roagRuntime ??= new();
     public IReadOnlyList<string> RoagClasses => ClassCatalog.Ids;
     public string RoagClassName(string id) => ClassCatalog.Get(id).Name;
-    public long RoagActiveActor => State.RoagCombat ? (long)RoagState["player_id"].Number : State.Party.FirstOrDefault();
+    public long RoagActiveActor => State.Tactics?.ActiveActor ?? (State.RoagCombat ? (long)RoagState["player_id"].Number : State.Party.FirstOrDefault());
     private V RoagState
     {
         get
@@ -57,7 +57,7 @@ public sealed partial class WorldSession
             return new(false,"Choose the starting class before taking your first action.");
         actor.RoagClass=classId;actor.RoagCharacter="";InitializeRoagParty();return new(true,RoagClassName(classId)+" selected.");
     }
-    public bool RoagCombatActor(long id)=>!RoagState.IsNil&&NativeRuntime.Entries(RoagState["entities"]).Any(e=>e["id"]==(V)id);
+    public bool RoagCombatActor(long id)=>State.Tactics?.Participants.Contains(id) ?? (!RoagState.IsNil&&NativeRuntime.Entries(RoagState["entities"]).Any(e=>e["id"]==(V)id));
     private void BeginRoagCombat(long enemyId)
     {
         if(IsInCombat||State.AwaitingContinuation||State.Endgame.Victory)return;
@@ -126,22 +126,31 @@ public sealed partial class WorldSession
     }
     public IReadOnlyList<RoagFighter> RoagFighters()
     {
+        if (State.Dungeon != null && State.Tactics is { } native)
+            return State.Actors.Where(a => native.Participants.Contains(a.Id) && a.Life != LifeState.Dead
+                && (State.Party.Contains(a.Id) || Visible.Contains(a.Position)))
+                .Select(a => new RoagFighter(a.Id, a.Name, a.Tactics!.Build is { } build ? ClassCatalog.Get(build.Class).Id : a.Tactics.DefinitionId,
+                    a.Position, a.Health, a.MaxHealth, State.Party.Contains(a.Id), a.Id == native.ActiveActor)).ToArray();
         if(!State.RoagCombat)return [];
         return NativeRuntime.Entries(RoagState["entities"]).Where(e=>!e["hp"].IsNil).Select(e=>{
             long id=(long)e["id"].Number;var actor=State.Actors.FirstOrDefault(a=>a.Id==id);
             return new RoagFighter(id,actor?.Name??e["definition_id"].Text,e["definition_id"].Text,RulePosition(e["position"]),Number(e,"hp"),Number(e,"max_hp"),e["controller"].Text=="player",id==RoagActiveActor);
         }).ToArray();
     }
-    public IReadOnlyList<RoagTelegraph> RoagTelegraphs()=>!State.RoagCombat?[]:NativeRuntime.Entries(Rules.Call("src.game","pending_strikes",RoagState).First)
-        .Select(p=>new RoagTelegraph((long)p["source_id"].Number,(long)p["due"].Number,NativeRuntime.Entries(p["target_cells"]).Select(RulePosition).ToArray())).ToArray();
+    public IReadOnlyList<RoagTelegraph> RoagTelegraphs() => State.Dungeon != null
+        ? DungeonCombat.VisibleAttacks(Visible).Select(a => new RoagTelegraph(a.Source, a.Due, a.Cells)).ToArray()
+        : !State.RoagCombat ? [] : NativeRuntime.Entries(Rules.Call("src.game","pending_strikes",RoagState).First)
+            .Select(p=>new RoagTelegraph((long)p["source_id"].Number,(long)p["due"].Number,NativeRuntime.Entries(p["target_cells"]).Select(RulePosition).ToArray())).ToArray();
     public IReadOnlyList<WorldPosition> RoagPreview(RoagAim aim)
     {
+        if (State.Dungeon != null) return TryDungeonAim(aim, out var intent) ? DungeonCombat.Preview(intent).Cells : [];
         if(!State.RoagCombat)return [];
         var preview=Rules.Call("src.game","preview",RoagState,aim.Kind,aim.Dx,aim.Dy).First;
         return NativeRuntime.Entries(preview["cells"]).Select(RulePosition).ToArray();
     }
     public ActionResult SubmitRoag(RoagAim aim)
     {
+        if (State.Dungeon != null) return TryDungeonAim(aim, out var dungeonIntent) ? SubmitDungeon(dungeonIntent) : new(false, "Choose a valid action and direction.");
         if(!State.RoagCombat||State.AwaitingContinuation)return new(false,"No active tile combat.");
         var state=RoagState;var player=Rules.Call("src.game","player",state).First;
         if(aim.Kind=="revive")

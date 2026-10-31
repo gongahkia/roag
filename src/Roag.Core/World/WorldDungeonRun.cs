@@ -19,6 +19,8 @@ public sealed partial class WorldSession
             world.State.Dungeon = new();
             world.State.Inventory["gold"] = 0;
             var combat = world.CreateTacticalSimulation(new(EnableSurvival: false));
+            combat.State.Chests.AvailableBoons = BoonCatalog.Default.NormalPool
+                .Where(id => id is not ("core:boon/road_flask" or "core:boon/ration_reserve")).ToArray();
             var first = DungeonLayoutGenerator.Generate(seed, DungeonCatalog.Default.Biomes[0].Id);
             var second = DungeonLayoutGenerator.Generate(unchecked(seed + 1), first.Biome);
             var origin = new WorldPosition(128, 128, 1);
@@ -41,7 +43,7 @@ public sealed partial class WorldSession
         catch { world.Dispose(); throw; }
     }
 
-    private int DungeonSeed => (int)(WorldRandom.Hash(Seed, 0, salt: 9401) % (RoagRandom.Modulus - 1)) + 1;
+    internal int DungeonSeed => (int)(WorldRandom.Hash(Seed, 0, salt: 9401) % (RoagRandom.Modulus - 1)) + 1;
     public TacticalCombat DungeonCombat => State.Dungeon == null
         ? throw new InvalidOperationException("No native dungeon run is loaded.") : new(this, AdvanceTacticalWorld);
 
@@ -62,6 +64,23 @@ public sealed partial class WorldSession
         var result = combat.Commit(intent);
         if (result.Success) combat.AdvanceToPartyDecision();
         return result.Success && State.AwaitingContinuation ? new(true, "You have fallen. Begin a fresh run.") : result;
+    }
+
+    private bool TryDungeonAim(RoagAim aim, out TacticalIntent intent)
+    {
+        Facing facing = DungeonCombat.Active?.Tactics?.Facing ?? Facing.South;
+        if ((aim.Dx != 0 || aim.Dy != 0) && !AttackGeometry.TryFacing(aim.Dx, aim.Dy, out facing))
+        { intent = new(TacticalAction.Wait); return false; }
+        TacticalAction? action = aim.Kind switch
+        {
+            "move" => TacticalAction.Move, "basic_attack" => TacticalAction.BasicAttack,
+            "sweeping_slash" => TacticalAction.Special, "dash" => TacticalAction.Dash,
+            "wait" => TacticalAction.Wait, "guard" => TacticalAction.Guard, "revive" => TacticalAction.Revive,
+            "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest,
+            _ => null
+        };
+        intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice);
+        return action != null;
     }
 
     private void PaintDungeonFloor(DungeonLayout layout, WorldPosition origin, TacticalCombat combat, bool boss)

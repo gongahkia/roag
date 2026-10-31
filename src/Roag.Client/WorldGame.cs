@@ -108,6 +108,7 @@ internal sealed partial class WorldGame : Game
         IsMouseVisible = true; IsFixedTimeStep = false;
         InactiveSleepTime = TimeSpan.FromMilliseconds(20);
         Exiting += (_, _) => { if (_autoSave) TrySave(); Capture(); RecordSnapshot(); if (_performance.Take(true) is { } performance) _recording?.Record("performance", performance); };
+        _nativeSeenEvent = _session.State.Tactics?.NextEvent - 1 ?? 0;
         RecordSnapshot();
     }
     protected override void LoadContent()
@@ -169,7 +170,7 @@ internal sealed partial class WorldGame : Game
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
-                    if (_session.State.RoagCombat) RoagClick(mouse.Position);
+                    if (_session.State.RoagCombat || _session.State.Dungeon != null) RoagClick(mouse.Position);
                     else if (CombatStageVisible) CombatClick(mouse.Position);
                     else if (_map.Contains(mouse.Position)) BeginSelection(mouse.Position);
                 }
@@ -180,6 +181,7 @@ internal sealed partial class WorldGame : Game
                 _lastMousePress = new((_lastMousePress?.Sequence ?? 0) + 1, 3, mouse.X, mouse.Y, WorldMouseControl.Hit(_controls, mouse.Position)?.Id);
                 if (CombatStageVisible && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
                 if (_panel.Length > 0 || CombatStageVisible || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
+                else if (_session.State.Dungeon != null) { _roagAim = "move"; _notice = "Action selection cancelled."; }
                 else OpenContext(mouse.Position);
             }
             if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !CombatStageVisible && _map.Contains(mouse.Position))
@@ -195,7 +197,7 @@ internal sealed partial class WorldGame : Game
         // Long stalls discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (!_session.Frozen) _workVisualTime += Math.Clamp(gameTime.ElapsedGameTime.TotalSeconds, 0, .2);
-        if (_session.IsInCombat && !_session.State.RoagCombat)
+        if (_session.IsInCombat && !_session.State.RoagCombat && _session.State.Dungeon == null)
         {
             if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
             StopTravel();
@@ -305,6 +307,7 @@ internal sealed partial class WorldGame : Game
             _visualSession = _session; _visualLeader = leader; _actorMotions.Clear();
             _partyMotion.Reset(_session.State.Position, resetFacing: true);
         }
+        if (_session.State.Dungeon != null && _reducedMotion) _partyMotion.Reset(_session.State.Position);
         _partyMotion.Observe(_session.State.Position, MoveDuration);
         _partyMotion.Advance(elapsed);
         _camera.Center = _partyMotion.Position;
@@ -312,7 +315,8 @@ internal sealed partial class WorldGame : Game
         {
             if (actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
             if (!_actorMotions.TryGetValue(actor.Id, out var motion)) _actorMotions[actor.Id] = motion = new();
-            motion.Observe(actor.Position, actor.Recruited || actor.Kind == ActorKind.Caravan ? MoveDuration : 1); motion.Advance(elapsed);
+            if (_session.State.Dungeon != null && _reducedMotion) motion.Reset(actor.Position);
+            motion.Observe(actor.Position, actor.Tactics != null || actor.Recruited || actor.Kind == ActorKind.Caravan ? MoveDuration : 1); motion.Advance(elapsed);
         }
     }
     private Rectangle ActorRect(Vector2 position)
@@ -327,7 +331,7 @@ internal sealed partial class WorldGame : Game
             && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
             && ActorRect(motion.Position).Contains(point));
         _pointer.Update(_session, _camera, point,
-            enabled: _panel.Length == 0 && !PointerModal && !_session.IsInCombat && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
+            enabled: _panel.Length == 0 && !PointerModal && (_session.State.Dungeon != null || !_session.IsInCombat) && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
             interactionCell: actor?.Position);
     }
     protected override void Draw(GameTime gameTime)
@@ -347,8 +351,8 @@ internal sealed partial class WorldGame : Game
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
-        if (_session.State.RoagCombat) DrawRoagCombat();
-        if (_panel.Length > 0) DrawPanel(w, h);
+        if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
+        if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
         DrawContext();
         DrawMouseControls(w, h);
         DrawHoverFeedback();
@@ -464,6 +468,7 @@ internal sealed partial class WorldGame : Game
     }
     private void DrawHud(int w, int h)
     {
+        if (_session.State.Dungeon != null) { DrawDungeonHud(w, h); return; }
         Text("VAGABONDS", 20, 16, Gold, 2);
         long tick = _session.State.Tick;
         Text($"Day {tick / 7200 + 1}  {tick / 300 % 24:00}:{tick / 5 % 60:00}    {(_session.Frozen ? "PAUSED" : "LIVING WORLD")}", 300, 22);

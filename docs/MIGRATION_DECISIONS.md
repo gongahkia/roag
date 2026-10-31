@@ -6,6 +6,8 @@ Consolidated from the migration discussion on 2026-10-26. The subsequent active 
 
 The user approved delivering items **1–6** from the remaining-work review as the current tranche, then **stopping implementation and reporting a playable game for their hands-on playtest**. Do not start the next tranche automatically. Items **7–20 remain important, approved backlog**, deferred until that playtest and a further instruction to continue. Items **21 (full authoring tools)** and **22 (Windows delivery)** are removed from the todo for now. This sequencing supersedes older instructions to continue autonomously through the complete migration without stopping.
 
+The user further confirmed that food drops, Road Flask and Ration Reserve are deferred with survival for the first tranche; excess-healing Overflow Chalice remains available. Preserve their implemented native handlers for the survival tranche.
+
 The current release is **solo, bounded dungeon runs** on the handwritten native engine, retaining the original classes, boons and enemies. It does not require the later living-world, party or open-campaign additions. Existing implementations and preservation references for later tranches must be retained; deferral does not authorize deleting those systems.
 
 | Item | Current tranche deliverable |

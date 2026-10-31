@@ -135,6 +135,7 @@ finally
         public bool NewGame { get; private set; }
         public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null || PlaytestDirectory != null;
         public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
+        public bool NativeDungeonLaunch => !_sceneSpecified || Scene is "world" or "world-dungeon";
         public bool WorldSmoke { get; private set; }
         private bool _sceneSpecified;
         public bool SkipIntro
@@ -158,7 +159,7 @@ finally
         {
             get; private set;
         }
-        public string Save { get; private set; } = Campaign.DefaultSave;
+        public string Save { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roag", "campaign.json");
         public string? ImportLegacy { get; private set; }
         public string? UiReport { get; private set; }
         public string? SessionRoot { get; private set; }

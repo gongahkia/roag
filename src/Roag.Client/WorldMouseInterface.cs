@@ -56,11 +56,12 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        var replacement = WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
+        var replacement = _session.State.Dungeon != null ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed())
+            : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
         _session.Dispose(); _session = replacement; _streamPosition = null; _streamDx = _streamDy = 0; ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         _session.Paused = _options.Preview;
         _recording?.Record("new-world", new { _session.Seed }); RecordSnapshot();
-        ClosePanel(); _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
+        ClosePanel(); _roagAim = "move"; _nativeChest = 0; _packMember = _packItem = 0; _camera.Center = Vector2.Zero;
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Move with WASD or arrow keys, one tile per press.";
@@ -103,6 +104,7 @@ internal sealed partial class WorldGame
     private void BuildMouseControls(int w, int h)
     {
         ControlCache.Begin();
+        if (_session.State.Dungeon != null) { BuildDungeonControls(w, h); return; }
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
             => ControlCache.Add(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed);
         bool ended = !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation);
@@ -395,6 +397,7 @@ internal sealed partial class WorldGame
     }
     private void ActivateControl(string id)
     {
+        if (_session.State.Dungeon != null && ActivateDungeonControl(id)) return;
         if (ActivateRoagControl(id)) return;
         _recording?.Record("ui-control", new { id, panel = _panel }, _session.State.Tick);
         string argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";

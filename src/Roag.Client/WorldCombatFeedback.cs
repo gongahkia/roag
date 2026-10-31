@@ -16,7 +16,7 @@ internal sealed partial class WorldGame
     private CombatAudio? _combatAudio;
     private double _combatSpeed = 1;
     private float _combatVolume = .4f;
-    private bool CombatStageVisible => !_session.State.RoagCombat && (Playback.Busy || _session.State.Battle != null);
+    private bool CombatStageVisible => _session.State.Dungeon == null && !_session.State.RoagCombat && (Playback.Busy || _session.State.Battle != null);
     private WorldBattle? DisplayBattle => Playback.View ?? _session.State.Battle;
     private void ResetCombatPresentation()
     {

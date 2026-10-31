@@ -20,10 +20,10 @@ internal sealed partial class WorldGame
     }
     private bool ActivateRoagControl(string id)
     {
-        if(!_session.Plan.RoagNative)return false;
+        if(!_session.Plan.RoagNative && _session.State.Dungeon == null)return false;
         if(id=="pause")
         {
-            if(_session.State.RoagCombat)CommitRoag(new("wait"));
+            if(_session.State.RoagCombat || _session.State.Dungeon != null)CommitRoag(new("wait"));
             else { _session.Paused=false;Execute(new(WorldCommandKind.Wait,Amount:5)); }
             return true;
         }
@@ -33,11 +33,12 @@ internal sealed partial class WorldGame
     private void CommitRoag(RoagAim aim)
     {
         var result=_session.SubmitRoag(aim);_notice=result.Message;
-        if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;}
+        if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;if(_session.State.Dungeon != null)CollectDungeonFeedback();}
     }
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
+        if(_session.State.Dungeon != null && _roagAim == "move" && TryOpenDungeonChest(pointer)) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);
@@ -61,11 +62,17 @@ internal sealed partial class WorldGame
     private void HandleRoagKeyboard(KeyboardState keyboard, bool focused)
     {
         bool Press(Keys key)=>keyboard.IsKeyDown(key)&&_roagKeyboard.IsKeyUp(key);
+        if (_session.State.Dungeon != null && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
+        { ClosePanel(); _roagKeyboard = keyboard; return; }
         if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.State.Endgame.Victory&&!_session.State.AwaitingContinuation)
         {
-            if(_session.State.RoagCombat)
+            if(_session.State.RoagCombat || _session.State.Dungeon != null)
             {
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";
+                if(Press(Keys.G))_roagAim="guard";
+                if(Press(Keys.Enter) && _session.State.Dungeon != null)
+                { DungeonInteract(); if (_panel.Length > 0) { _roagKeyboard = keyboard; return; } }
+                if(Press(Keys.F5) && _session.State.Dungeon != null) TrySave();
                 if(Press(Keys.P))_roagVow=!_roagVow;if(Press(Keys.Escape))_roagAim="move";
                 if(Press(Keys.Space)||Press(Keys.OemPeriod))CommitRoag(new("wait"));
                 int dx=Press(Keys.D)||Press(Keys.Right)?1:Press(Keys.A)||Press(Keys.Left)?-1:0;
@@ -87,6 +94,7 @@ internal sealed partial class WorldGame
     }
     private void DrawRoagCombat()
     {
+        if (_session.State.Dungeon != null) { DrawDungeonTactics(); return; }
         foreach(var warning in _session.RoagTelegraphs())foreach(var cell in warning.Cells)
         {
             if(!_session.Visible.Contains(cell))continue;
