@@ -82,6 +82,7 @@ public sealed partial class WorldSession
             "sweeping_slash" => TacticalAction.Special, "dash" => TacticalAction.Dash,
             "wait" => TacticalAction.Wait, "guard" => TacticalAction.Guard, "revive" => TacticalAction.Revive,
             "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest, "dungeon_route" => TacticalAction.DungeonRoute,
+            "use_utility" => TacticalAction.UseUtility,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice);

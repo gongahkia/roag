@@ -25,6 +25,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Tactical and world clocks disagree.");
         var actors = world.Actors.ToDictionary(a => a.Id);
         world.Dungeon?.Validate(plan, world, actors);
+        TacticalSupplies.ValidateMarkers(plan, world, content);
         if (state.Chests == null) throw new InvalidDataException("Missing chest state.");
         state.Chests.Validate(plan, actors);
         if (state.OptionalTerrain == null) throw new InvalidDataException("Missing optional terrain state.");

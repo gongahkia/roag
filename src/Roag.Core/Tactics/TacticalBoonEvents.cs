@@ -184,6 +184,7 @@ public sealed partial class TacticalCombat
         }
         if (e.Kind == BoonTrigger.TileEntered && source.Life == LifeState.Alive && e.Position is { } entered)
         {
+            ExpireUtilityMarker(source, entered, e.RootActionId ?? 0);
             TriggerSnares(source, e.RootActionId ?? 0, entered);
             TriggerEnemySnares(source, e.RootActionId ?? 0, entered);
         }

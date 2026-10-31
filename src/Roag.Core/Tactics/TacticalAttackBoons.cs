@@ -66,7 +66,7 @@ public sealed partial class TacticalCombat
         {
             var attack = ClassAttack(actor, executed, !preview.Bump, knownOnly: true);
             delivery = attack.Footprint.Delivery;
-            preview = preview with { Cells = attack.Footprint.Cells, Damage = attack.Damage, WeaponForm = attack.Form, Reflection = attack.Reflection,
+            preview = preview with { Cells = attack.Footprint.Cells, Damage = checked(attack.Damage + (actor.Tactics!.Supplies.FocusActions > 0 ? 2 : 0)), WeaponForm = attack.Form, Reflection = attack.Reflection,
                 FatePower = actor.Tactics!.Boons.Inventory.Stacks.ContainsKey("core:boon/fateful_dice")
                     ? actor.Tactics.Boons.Inventory.Magnitude("core:boon/fateful_dice").Power : null };
         }

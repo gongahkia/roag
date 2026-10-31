@@ -194,6 +194,8 @@ public sealed partial class TacticalCombat
                 return PreviewChest(actor, intent);
             case TacticalAction.DungeonRoute:
                 return PreviewDungeonRoute(actor, intent);
+            case TacticalAction.UseUtility:
+                return PreviewUtility(actor, intent);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -248,6 +250,8 @@ public sealed partial class TacticalCombat
                     Eat(actor, action); break;
                 case TacticalAction.ClaimChest:
                     ClaimChest(actor, intent, action); break;
+                case TacticalAction.UseUtility:
+                    CommitUtility(actor, preview, action); break;
                 case TacticalAction.DungeonRoute:
                     _world.ConnectDungeonRoute(this, intent.Choice);
                     Emit("RouteOpened", actor.Id, actor.Id, action, actor.Position); break;
@@ -270,6 +274,12 @@ public sealed partial class TacticalCombat
                 case TacticalAction.Wait: Emit("Waited", actor.Id, actor.Id, action, actor.Position); break;
             }
         });
+        if (Friendly(actor))
+        {
+            var supplies = actor.Tactics.Supplies;
+            supplies.FocusActions = Math.Max(0, supplies.FocusActions - 1);
+            supplies.WardActions = Math.Max(0, supplies.WardActions - 1);
+        }
         if (State.ControlledActor == actor.Id && _world.State.Position != actor.Position)
         {
             _world.State.Position = actor.Position;
@@ -441,6 +451,12 @@ public sealed partial class TacticalCombat
             int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - target.Armor);
             int prevented = ClassProtection(target, source, attack, afterDefense);
             if (Guards(target, attack)) prevented += (int)((long)(afterDefense - prevented) * Tuning.GuardReductionPercent / 100);
+            if (target.Tactics?.Supplies is { WardActions: > 0 } supply && afterDefense > prevented)
+            {
+                supply.WardActions = 0;
+                Emit("SupplyWardAbsorbed", target.Id, target.Id, attack.Id, target.Position, afterDefense - prevented);
+                prevented = afterDefense;
+            }
             if (target.Tactics is { } targetTactics)
                 prevented += targetTactics.Boons.ConsumeWards(afterDefense - prevented, Clock).Sum(ward => ward.Amount);
             int damage = afterDefense - prevented;

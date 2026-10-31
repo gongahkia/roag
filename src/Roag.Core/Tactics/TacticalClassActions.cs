@@ -241,6 +241,12 @@ public sealed partial class TacticalCombat
             if (fate.Face == 2) damage = checked((int)(damage + fate.Power));
         }
         if (vow != null) damage = checked((int)(damage + vow.DamageBonus));
+        if (actor.Tactics.Supplies.FocusActions > 0)
+        {
+            actor.Tactics.Supplies.FocusActions = 0;
+            damage = checked(damage + 2);
+            Emit("SupplyFocusSpent", actor.Id, actor.Id, action, origin, 2);
+        }
         bool miss = fate?.Face == 8;
         if (miss) { footprint = footprint with { Cells = [] }; damage = 0; }
         bool critical = false;

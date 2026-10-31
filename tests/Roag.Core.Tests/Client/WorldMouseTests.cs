@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roag.Client;
 using Roag.Core.World;
+using Roag.Core.Tactics;
 using Roag.Graphics;
 using Xunit;
 
@@ -29,6 +30,37 @@ public sealed class WorldMouseTests
         Field("_panel").SetValue(client, panel); Invoke(client, "BuildMouseControls", 1024, 720);
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
+    [Fact]
+    public void NativeUtilityPanelIsFreeAndOnlyAConfirmedDirectionSpendsTheScroll()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        var hero = session.Party.Single(); var origin = hero.Position;
+        for (int x = 1; x <= 3; x++) session.Chunks.Edit(origin.Offset(x, 0), Material.Floor);
+        session.Reveal(); hero.Tactics!.Supplies.Utility = new(UtilityKind.EscapeScroll);
+        Field("_roagAim").SetValue(client, "move");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.U, Keys.D), true);
+        Assert.Equal("dungeon-utility", Field("_panel").GetValue(client));
+        Assert.Equal(origin, hero.Position); Assert.Equal(0, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "ActivateDungeonControl", "dungeon:utility-steps:2");
+        Invoke(client, "ActivateDungeonControl", "dungeon:utility-use");
+        Assert.Equal("use_utility", Field("_roagAim").GetValue(client)); Assert.Equal(0, session.DungeonCombat.Clock);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D), true);
+        Assert.Equal(origin.Offset(2, 0), hero.Position); Assert.Null(hero.Tactics.Supplies.Utility);
+        Assert.Equal(100, session.DungeonCombat.Clock);
+    }
+
+    [Fact]
+    public void NativeUtilityPanelDisablesAFlaskThatCannotCleanseAnything()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        session.Party.Single().Tactics!.Supplies.Utility = new(UtilityKind.CleanseFlask);
+        string before = JsonSerializer.Serialize(session.State);
+        var controls = Controls(client, "dungeon-utility");
+        var use = Assert.Single(controls, c => c.Id == "dungeon:utility-use");
+        Assert.False(use.Enabled); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+
     [Fact]
     public void SimultaneousWaitAndDirectionCannotSpendTwoNativePartyTurns()
     {

@@ -9,6 +9,7 @@ internal sealed partial class WorldGame
 {
     private long _nativeChest, _nativeSeenEvent;
     private int _nativeBoonPage;
+    private int _nativeUtilitySteps = 3;
 
     private void BuildDungeonControls(int w, int h)
     {
@@ -17,6 +18,7 @@ internal sealed partial class WorldGame
         Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
         Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
         Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
+        Add("dungeon:utility", "Utility / U", new(w - 404, 16, 110, 34));
         var box = PanelBox(w, h);
         if (_panel.StartsWith("dungeon-", StringComparison.Ordinal))
         {
@@ -49,6 +51,19 @@ internal sealed partial class WorldGame
                 var routes = _session.AvailableDungeonRoutes(_session.State.Party[0]);
                 for (int i = 0; i < routes.Count; i++) Add("dungeon:route:" + (i + 1), routes[i].Name,
                     new(box.X + 28, box.Y + 92 + i * 100, box.Width - 56, 42));
+            }
+            else if (_panel == "dungeon-utility")
+            {
+                var utility = _session.Party.Single().Tactics!.Supplies.Utility;
+                if (utility != null)
+                {
+                    bool aimed = utility.Kind == UtilityKind.EscapeScroll;
+                    if (aimed) for (int i = 1; i <= 3; i++) Add("dungeon:utility-steps:" + i, i + (i == 1 ? " tile" : " tiles"),
+                        new(box.X + 28 + (i - 1) * 140, box.Y + 170, 126, 38), selected: _nativeUtilitySteps == i);
+                    var preview = _session.DungeonCombat.Preview(new(TacticalAction.UseUtility));
+                    Add("dungeon:utility-use", aimed ? "Choose direction" : utility.Marker == null && utility.Kind == UtilityKind.ReturnToken ? "Plant token" : "Use utility",
+                        new(box.X + 28, box.Y + 240, 240, 42), aimed || preview.Valid, reason: preview.Reason);
+                }
             }
             else if (_panel == "dungeon-boons")
             {
@@ -90,6 +105,13 @@ internal sealed partial class WorldGame
             case "menu": _panel = "dungeon-menu"; break;
             case "guide": _panel = "dungeon-guide"; break;
             case "boons": _panel = "dungeon-boons"; break;
+            case "utility": _panel = "dungeon-utility"; break;
+            case "utility-steps": _nativeUtilitySteps = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
+            case "utility-use":
+                if (_session.Party.Single().Tactics!.Supplies.Utility?.Kind == UtilityKind.EscapeScroll)
+                { ClosePanel(); _roagAim = "use_utility"; }
+                else { CommitRoag(new("use_utility")); ClosePanel(); }
+                break;
             case "boon-prev": _nativeBoonPage--; break;
             case "boon-next": _nativeBoonPage++; break;
             case "classes": _panel = "dungeon-class"; break;
@@ -164,6 +186,10 @@ internal sealed partial class WorldGame
         Text($"Gold {_session.Count("gold")}", x, y, Gold); y += 30;
         if (_session.State.Dungeon!.Victory) { Text("REGENT DEFEATED", x, y, Gold); y += 24; }
         Text("Aim: " + _roagAim.Replace('_', ' '), x, y, Muted); y += 24;
+        var supplies = hero.Tactics.Supplies;
+        if (supplies.Utility != null) { Text(UtilityName(supplies.Utility.Kind) + " / U", x, y, Gold); y += 22; }
+        if (supplies.FocusActions > 0) { Text($"Focus +2 / {supplies.FocusActions} actions", x, y, Gold); y += 22; }
+        if (supplies.WardActions > 0) { Text($"One-hit ward / {supplies.WardActions} actions", x, y, Gold); y += 22; }
         var resources = hero.Tactics.Resources;
         string resource = build.Class switch { ClassKind.Stormcaller => $"Charge {resources.StormCharge}/3 / ward {(resources.StormWard ? "ready" : "spent")}",
             ClassKind.Duelist => resources.Riposte ? "Riposte ready" : resources.Parry != null ? "Parry raised" : "Parry available",
@@ -195,7 +221,8 @@ internal sealed partial class WorldGame
         var mouse = Mouse.GetState(); if (!_map.Contains(mouse.Position)) return;
         var point = _camera.ScreenToWorld(new(mouse.X, mouse.Y));
         int dx = Math.Sign((int)Math.Floor(point.X) - hero.Position.X), dy = Math.Sign((int)Math.Floor(point.Y) - hero.Position.Y);
-        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Vow: _roagVow && _roagAim is "basic_attack" or "sweeping_slash"));
+        if (_roagAim == "use_utility") { if (Math.Abs(point.X - hero.Position.X) >= Math.Abs(point.Y - hero.Position.Y)) dy = 0; else dx = 0; }
+        var preview = _session.PreviewDungeonAim(new(_roagAim, dx, dy, Choice: _nativeUtilitySteps, Vow: _roagVow && _roagAim is "basic_attack" or "sweeping_slash"));
         var previewCells = _roagAim == "guard" && AttackGeometry.TryFacing(dx, dy, out var guardFacing)
             ? AttackGeometry.Arc(hero.Position, guardFacing) : preview.Cells;
         foreach (var cell in previewCells)
@@ -217,7 +244,7 @@ internal sealed partial class WorldGame
     private void DrawDungeonPanel(int w, int h)
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
-        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", _ => "MENU" };
+        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", _ => "MENU" };
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-chest")
         {
@@ -239,7 +266,21 @@ internal sealed partial class WorldGame
             for (int i = 0; i < routes.Count; i++) Wrap(routes[i].Description, x + 6, box.Y + 142 + i * 100, box.Width - 60, Muted);
         }
         else if (_panel == "dungeon-guide")
-            Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter opens an adjacent boon chest or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter opens an adjacent boon chest or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+        else if (_panel == "dungeon-utility")
+        {
+            var utility = _session.Party.Single().Tactics!.Supplies.Utility;
+            if (utility == null) Text("Empty. Find a utility service or travelling trader.", x, y, Muted);
+            else
+            {
+                Text(UtilityName(utility.Kind), x, y, Gold); y += 30;
+                Wrap(utility.Kind switch { UtilityKind.CleanseFlask => "Remove Burning. One paid action; the charge is retained if you are not Burning.",
+                    UtilityKind.EscapeScroll => "Travel one to three visible, clear cardinal tiles. Stairs block the path. Choose distance, then direction; confirmation spends one action.",
+                    _ => utility.Marker == null ? "Plant in your room for one action, then return once for another action. Leaving the room forfeits the token."
+                        : "Return to the visible empty marker by a known clear path of at most four steps. The return spends one action and consumes the token." },
+                    x, y, box.Width - 48, Muted);
+            }
+        }
         else if (_panel == "dungeon-boons")
         {
             var owned = _session.Party.Single().Tactics!.Boons.Inventory.Stacks;
@@ -291,6 +332,7 @@ internal sealed partial class WorldGame
         {
             if (actor.Tactics is not { } tactics) continue;
             var r = tactics.Resources;
+            if (tactics.Supplies.Utility?.Marker is { } marker) Icon(marker.Position, "banner", friendly);
             if (r.Decoy is { } decoy) Icon(decoy, "resident", friendly * .6f);
             if (r.Snare is { } snare) Icon(snare, "trap", friendly);
             if (r.Spirit is { } spirit) Icon(spirit, "wisp", friendly);
@@ -299,6 +341,9 @@ internal sealed partial class WorldGame
             if (r.Sentry is { } sentry) Icon(sentry.Position, "bow", sentry.Phase == SentryPhase.Spent ? Muted : friendly);
         }
     }
+
+    private static string UtilityName(UtilityKind kind) => kind switch
+    { UtilityKind.CleanseFlask => "Cleanse flask", UtilityKind.EscapeScroll => "Escape scroll", UtilityKind.ReturnToken => "Return token", _ => "Utility" };
 
     private void CollectDungeonFeedback()
     {

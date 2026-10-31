@@ -53,7 +53,8 @@ internal sealed partial class WorldGame
         int dx=Math.Sign(p.X-active.Position.X),dy=Math.Sign(p.Y-active.Position.Y);
         if(_roagAim is "move" or "dash")
         {if(Math.Abs(p.X-active.Position.X)>=Math.Abs(p.Y-active.Position.Y))dy=0;else dx=0;}
-        CommitRoag(new(_roagAim,dx,dy,Vow:_roagVow));
+        if (_roagAim == "use_utility") { if (Math.Abs(p.X-active.Position.X)>=Math.Abs(p.Y-active.Position.Y)) dy=0; else dx=0; }
+        CommitRoag(new(_roagAim,dx,dy,Choice:_roagAim == "use_utility" ? _nativeUtilitySteps : 0,Vow:_roagVow));
     }
     private void UpdateRoagKeyboard()
     {
@@ -69,6 +70,8 @@ internal sealed partial class WorldGame
         {
             if(_session.State.RoagCombat || _session.State.Dungeon != null)
             {
+                if (Press(Keys.U) && _session.State.Dungeon != null)
+                { _panel = "dungeon-utility"; _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";
                 if(Press(Keys.G))_roagAim="guard";
                 if(Press(Keys.Enter) && _session.State.Dungeon != null)
@@ -87,7 +90,7 @@ internal sealed partial class WorldGame
                 if (_roagAim is "move" or "dash" && dx != 0 && dy != 0) dy = 0;
                 if(Press(Keys.Q)){dx=-1;dy=-1;}if(Press(Keys.E)){dx=1;dy=-1;}
                 if(Press(Keys.Z)){dx=-1;dy=1;}if(Press(Keys.C)){dx=1;dy=1;}
-                if(dx!=0||dy!=0)CommitRoag(new(_roagAim,dx,dy,Vow:_roagVow));
+                if(dx!=0||dy!=0)CommitRoag(new(_roagAim,dx,dy,Choice:_roagAim == "use_utility" ? _nativeUtilitySteps : 0,Vow:_roagVow));
             }
             else if(!_session.IsInCombat)
             {

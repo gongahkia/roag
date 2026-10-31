@@ -35,13 +35,14 @@ public sealed class ActorTactics
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
     public ActorBoons Boons { get; set; } = new();
+    public TacticalSupplies Supplies { get; set; } = new();
 
     public void Validate()
     {
         if ((Build is null) == (InnateStats is null) || InnateStats?.Speed is <= 0 || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
             || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
             || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
-            || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null
+            || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
@@ -82,6 +83,9 @@ public sealed class ActorTactics
                 throw new InvalidDataException("Enemy squad role/state mismatch.");
         }
         Resources.Validate(Build?.Class);
+        Supplies.Validate();
+        if (Build == null && (Supplies.Utility != null || Supplies.FocusActions != 0 || Supplies.WardActions != 0))
+            throw new InvalidDataException("Only a party build can carry utilities or prepared supplies.");
         Boons.Validate(Build?.Class);
         var s = Stats;
         if (s.MaxHealth <= 0 || s.Damage < 0 || s.SpecialDamage < 0 || s.Defense < 0 || s.Speed <= 0

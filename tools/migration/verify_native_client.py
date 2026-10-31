@@ -91,6 +91,11 @@ try:
     observed = request('capture')
     assert observed['nativeDungeon']['clock'] == clock
     request('control', control='dungeon:close')
+    utility = request('control', control='dungeon:utility')
+    assert utility['panel'] == 'dungeon-utility'
+    assert utility['nativeDungeon']['clock'] == clock
+    evidence('03-empty-utility-inspection')
+    request('control', control='dungeon:close')
     saved = request('control', control='dungeon:save'); assert slot.exists(), saved['notice']
     evidence('03-paid-keyboard-save')
     request('stop'); process.wait(timeout=10)
@@ -111,7 +116,7 @@ try:
     request('stop'); process.wait(timeout=10)
     (output / 'result.json').write_text(json.dumps(dict(passed=True, seed=42, classId='Tinkerer',
         clock=clock, checks=['native class selection', 'mouse-aimed sentry', 'paid physical keyboard movement',
-        'free inspection/rendering', 'continuing save', 'rendered resume with exact class/resources/clock'], display=os.environ.get('DISPLAY')), indent=2) + '\n')
+        'free inspection/rendering', 'free utility inspection', 'continuing save', 'rendered resume with exact class/resources/supplies/clock'], display=os.environ.get('DISPLAY')), indent=2) + '\n')
     print('Native rendered class, construct, keyboard, inspection, save and exact resume checkpoint passed.')
 finally:
     if process.poll() is None:

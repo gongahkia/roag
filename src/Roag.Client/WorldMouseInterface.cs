@@ -565,7 +565,7 @@ internal sealed partial class WorldGame
                 native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
                 player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
-                    classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Resources, boons = a.Tactics.Boons.Inventory.Stacks }),
+                    classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
                 timeline = _session.DungeonCombat.VisibleTimeline(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,

@@ -143,6 +143,7 @@ public sealed partial class TacticalCombat
             if (_world.OccupantAt(p) != null || _world.ObjectAt(p) is { Solid: true }
                 || State.Loot.Drops.Any(d => d.CarriedBy == 0 && d.Position == p) || State.Corpses.Any(c => Actor(c.Actor).Position == p)
                 || State.EnemySnares.Any(s => s.Position == p)
+                || _world.State.Actors.Any(a => a.Tactics?.Supplies.Utility?.Marker?.Position == p)
                 || _world.State.Actors.Any(a => a.Tactics?.Resources is { } r && (r.Decoy == p || r.Snare == p || r.Spirit == p
                     || r.Beacon?.Position == p || r.Sentry?.Position == p || r.Bulwark?.Position == p))) continue;
             if (!TerrainRemovalPreservesRoutes(p)) continue; // Later physical edits/props can invalidate the original proof.
