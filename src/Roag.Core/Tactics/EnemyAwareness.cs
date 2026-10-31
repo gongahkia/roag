@@ -34,6 +34,7 @@ public sealed partial class TacticalCombat
                 || Friendly(actor) == Friendly(other) || actor.Position.Floor != other.Position.Floor) continue;
             var enemy = Friendly(actor) ? other : actor;
             var member = Friendly(actor) ? actor : other;
+            if (enemy.Tactics?.Enemy?.Dormant == true) continue;
             if (!_world.IsHostile(enemy)) continue;
             int dx = member.Position.X - enemy.Position.X, dy = member.Position.Y - enemy.Position.Y;
             if (dx * dx + dy * dy > 121) continue;
@@ -132,7 +133,7 @@ public sealed partial class TacticalCombat
     private void ObserveEnemyAwareness()
     {
         foreach (var enemy in _world.State.Actors.Where(a => a is { Life: LifeState.Alive, Tactics.Enemy: not null } && !Friendly(a)))
-            enemy.Tactics!.Enemy!.Awareness = ObservedEnemyTarget(enemy) ?? RememberedEnemyTarget(enemy);
+            enemy.Tactics!.Enemy!.Awareness = enemy.Tactics.Enemy.Dormant ? null : ObservedEnemyTarget(enemy) ?? RememberedEnemyTarget(enemy);
     }
 
     private void ObserveStairDeparture(Actor member, WorldPosition from, WorldPosition landing)

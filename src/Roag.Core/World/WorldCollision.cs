@@ -14,6 +14,8 @@ public sealed partial class WorldSession
         Bones = new("Scattered bones", "bones", "decoration", false), Barrel = new("Barrel", "barrel", "decoration", true, true);
 
     private static readonly WorldObject Bulwark = new("Geomancer bulwark", "boulder", "geomancer-bulwark", true);
+    private static readonly WorldObject StandardBoonChest = new("Boon Chest", "chest", "boon-chest", true),
+        EliteBoonChest = new("Elite Boon Chest", "chest", "boon-chest", true);
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
     internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
     {
@@ -32,8 +34,13 @@ public sealed partial class WorldSession
     private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {
         if (!Plan.Contains(p)) return null;
-        if (State.Tactics?.Chests.Chests.FirstOrDefault(c => c.Position == p) is { Claimed: false } chest)
-            return new(Roag.Core.Tactics.BoonChestDefinition.Get(chest.Definition).Name, "chest", "boon-chest", true);
+        if (State.Tactics is { } tactics)
+            for (int i = 0; i < tactics.Chests.Chests.Count; i++)
+            {
+                var chest = tactics.Chests.Chests[i];
+                if (!chest.Claimed && chest.Position == p)
+                    return chest.Definition == "core:chest/free_elite" ? EliteBoonChest : StandardBoonChest;
+            }
         if (TryExplicitObject(p, out var placed)) return placed;
         return GeneratedObjectAt(Plan, Chunks, p, terrain);
     }

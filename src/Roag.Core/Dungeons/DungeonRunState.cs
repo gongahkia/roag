@@ -26,7 +26,11 @@ public sealed class DungeonRunState
     public Dictionary<long, char> Terrain { get; set; } = [];
     public bool Victory { get; set; }
 
-    public bool Contains(WorldPosition p) => Floors.Any(f => f.Contains(p));
+    public bool Contains(WorldPosition p)
+    {
+        for (int i = 0; i < Floors.Count; i++) if (Floors[i].Contains(p)) return true;
+        return false;
+    }
     public static long CellKey(WorldPosition p) => (long)p.Floor * WorldPlan.Size * WorldPlan.Size + (long)p.Y * WorldPlan.Size + p.X;
     public WorldRoomId? RoomAt(WorldPosition p)
     {

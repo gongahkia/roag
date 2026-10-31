@@ -76,6 +76,7 @@ public sealed partial class TacticalCombat
     public Actor? AdvanceToDecision()
     {
         if (_world.State.AwaitingContinuation) return null;
+        ActivateDungeonElites();
         if (_world.Party.Any(a => a.Life != LifeState.Dead && !State.Participants.Contains(a.Id)))
             throw new InvalidOperationException("Register every surviving party member before advancing the timeline.");
         if (Active is { Life: LifeState.Alive } current) return current;
@@ -522,7 +523,7 @@ public sealed partial class TacticalCombat
         State.EnemySnares.RemoveAll(s => s.Source == actor.Id);
         State.Webs.RemoveAll(w => w.Source == actor.Id);
         if (actor.Tactics != null) { actor.Tactics.EnemySnareDelay = 0; actor.Tactics.WebRecoveryDelay = 0; }
-        if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; }
+        if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; if (tactics.Enemy != null) tactics.Enemy.Dormant = false; }
         State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); CancelAttacks(actor.Id, source, action, "death");
         if (State.ActiveActor == actor.Id) State.ActiveActor = 0;
         Emit("Died", source, actor.Id, action, actor.Position);

@@ -4,6 +4,20 @@ namespace Roag.Core.Tactics;
 
 public sealed partial class TacticalCombat
 {
+    private void ActivateDungeonElites()
+    {
+        if (_world.State.Dungeon is not { } run) return;
+        foreach (var floor in run.Floors.Where(f => f.Boss > 0 && f.Stage < 4))
+        {
+            var boss = Actor(floor.Boss);
+            if (boss is not { Life: LifeState.Alive, Tactics.Enemy: { Dormant: true } memory }
+                || !_world.Party.Any(a => a.Life == LifeState.Alive && a.Position.Distance(boss.Position) <= 7)) continue;
+            memory.Dormant = false;
+            State.Queue.Schedule(ScheduledKind.ActorReady, Clock, boss.Id);
+            Emit("EliteEngaged", boss.Id, boss.Id, 0, boss.Position);
+        }
+    }
+
     private TacticalPreview PreviewDungeonRoute(Actor actor, TacticalIntent intent)
     {
         var routes = _world.AvailableDungeonRoutes(actor.Id);

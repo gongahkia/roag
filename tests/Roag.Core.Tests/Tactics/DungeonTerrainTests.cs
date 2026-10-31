@@ -67,7 +67,8 @@ public sealed class DungeonTerrainTests
         var bramble = hero.Position.Offset(0, 1); var barrier = hero.Position.Offset(1, 0);
         Overlay(world, bramble, 'b'); world.Chunks.Edit(barrier, Material.Barricade);
         Assert.True(world.SubmitDungeon(new(TacticalAction.BasicAttack, Facing.East)).Success);
-        string slot = Path.Combine(Path.GetTempPath(), "roag-terrain-" + Guid.NewGuid().ToString("N"));
+        string root = Path.Combine(Path.GetTempPath(), "roag-terrain-" + Guid.NewGuid().ToString("N"));
+        string slot = Path.Combine(root, "campaign.json");
         try
         {
             world.Save(slot);
@@ -79,7 +80,7 @@ public sealed class DungeonTerrainTests
             Assert.Equal(JsonSerializer.Serialize(world.State.Tactics), JsonSerializer.Serialize(loaded.State.Tactics));
             Assert.Equal(hero.Health, loaded.Party.Single().Health);
         }
-        finally { if (Directory.Exists(slot)) Directory.Delete(slot, true); }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     [Fact]

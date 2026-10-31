@@ -39,6 +39,7 @@ public sealed class EnemyMemory
 {
     public EnemyAwareness? Awareness { get; set; }
     public EnemyPursuitBoundary? PursuitBoundary { get; set; }
+    public bool Dormant { get; set; }
     public long Attacks { get; set; }
     public bool PhaseTwo { get; set; }
     public Facing? LastMovement { get; set; }

@@ -46,7 +46,7 @@ public sealed partial class TacticalCombat
         var enemy = Actor(enemyId);
         if (enemy is not { Life: LifeState.Alive, Tactics.Enemy: not null } || Friendly(enemy))
             throw new InvalidOperationException("Target selection requires a living native enemy.");
-        if (!_world.IsHostile(enemy)) return null;
+        if (!_world.IsHostile(enemy) || enemy.Tactics.Enemy.Dormant) return null;
         var priority = EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority;
         var ecology = _world.Ecology(enemy);
         bool InTerritory(Actor p) => ecology == null || enemy.Habitat is not { } home

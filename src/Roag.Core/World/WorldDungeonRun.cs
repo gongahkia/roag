@@ -118,6 +118,8 @@ public sealed partial class WorldSession
         if (boss)
         {
             var actor = SpawnDungeonEnemy(combat, biome.EliteId, floor.Exit);
+            actor.Tactics!.Enemy!.Dormant = true;
+            combat.State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady);
             int index = State.Dungeon.Floors.IndexOf(floor);
             State.Dungeon.Floors[index] = floor with { Boss = actor.Id };
         }

@@ -41,6 +41,12 @@ internal sealed partial class WorldGame
                     Add("dungeon:claim:" + (i + 1), "Choose " + (i + 1), new(box.Right - 166, box.Y + 100 + i * 108, 138, 38), preview.Valid, reason: preview.Reason);
                 }
             }
+            else if (_panel == "dungeon-routes")
+            {
+                var routes = _session.AvailableDungeonRoutes(_session.State.Party[0]);
+                for (int i = 0; i < routes.Count; i++) Add("dungeon:route:" + (i + 1), routes[i].Name,
+                    new(box.X + 28, box.Y + 92 + i * 100, box.Width - 56, 42));
+            }
             else if (_panel == "dungeon-menu")
             {
                 string[] ids = ["classes", "guide", "motion", "volume", "quit"];
@@ -77,6 +83,9 @@ internal sealed partial class WorldGame
             case "class":
                 var result = _session.ChooseDungeonClass((ClassKind)int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
                 _notice = result.Message; if (result.Success) ClosePanel(); break;
+            case "route":
+                CommitRoag(new("dungeon_route", Choice: int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)));
+                ClosePanel(); break;
             case "claim":
                 CommitRoag(new("claim_chest", Target: _nativeChest, Choice: int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)));
                 ClosePanel(); break;
@@ -100,6 +109,7 @@ internal sealed partial class WorldGame
     private void DungeonInteract()
     {
         var actor = _session.Party.Single();
+        if (_session.AvailableDungeonRoutes(actor.Id).Count > 0) { _panel = "dungeon-routes"; return; }
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position.Distance(actor.Position) == 1);
         if (chest != null) { _nativeChest = chest.Id; _panel = "dungeon-chest"; return; }
         CommitRoag(new("use_stairs"));
@@ -110,7 +120,7 @@ internal sealed partial class WorldGame
         var combat = _session.DungeonCombat;
         Text("ROAG", 20, 16, Gold, 2);
         Text($"{combat.Clock / (double)combat.Tuning.UnitsPerSecond:0.00}s / your action", 160, 22, Muted);
-        Text($"Floor {_session.State.Position.Floor} / seed {_session.Seed}", 20, 57, Muted);
+        Text($"Stage {_session.State.Dungeon!.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}", 20, 57, Muted);
         Text(Short(_notice, Math.Max(20, (w - 310) / 8)), 300, 57, Ink);
         Fill(_side, Panel);
     }
@@ -169,7 +179,7 @@ internal sealed partial class WorldGame
     private void DrawDungeonPanel(int w, int h)
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
-        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", _ => "MENU" };
+        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", _ => "MENU" };
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-chest")
         {
@@ -183,6 +193,12 @@ internal sealed partial class WorldGame
                 Text($"{i + 1}. {boon.Name} / {offer.Rarity}", x, y + i * 108, Gold);
                 Wrap(boon.Description, x, y + 26 + i * 108, box.Width - 220, Muted);
             }
+        }
+        else if (_panel == "dungeon-routes")
+        {
+            var routes = _session.AvailableDungeonRoutes(_session.State.Party[0]);
+            Text("Opening a route spends one action. Then walk down its stairs; cleared floors remain.", x, y, Muted);
+            for (int i = 0; i < routes.Count; i++) Wrap(routes[i].Description, x + 6, box.Y + 142 + i * 100, box.Width - 60, Muted);
         }
         else if (_panel == "dungeon-guide")
             Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter opens an adjacent boon chest or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);

@@ -32,6 +32,10 @@ public static class TacticalValidation
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics?.Enemy is not { } memory) continue;
+            if (memory.Dormant && (actor.Life != LifeState.Alive || world.Dungeon == null
+                || !world.Dungeon.Floors.Any(f => f.Boss == actor.Id && f.Stage < 4)
+                || state.ActiveActor == actor.Id || memory.Attacks != 0))
+                throw new InvalidDataException("Invalid dormant dungeon elite.");
             if (memory.PursuitBoundary is { } boundary)
             {
                 boundary.Validate(plan);
@@ -137,7 +141,7 @@ public static class TacticalValidation
             }
             int readiness = queue.Pending.Count(e => e.Kind == ScheduledKind.ActorReady && e.ActorId == id);
             int windingUp = state.Attacks.Count(a => a != null && a.Source == id && a.RecoveryCost != null);
-            if (readiness != (actor.Life == LifeState.Dead || id == state.ActiveActor || windingUp > 0 ? 0 : 1)
+            if (readiness != (actor.Life == LifeState.Dead || actor.Tactics?.Enemy?.Dormant == true || id == state.ActiveActor || windingUp > 0 ? 0 : 1)
                 || windingUp > 1 || windingUp > 0 && id == state.ActiveActor
                 || actor.Health < 0 || actor.Health > actor.MaxHealth
                 || (actor.Life == LifeState.Alive) != (actor.Health > 0)
