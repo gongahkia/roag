@@ -42,7 +42,7 @@ internal sealed partial class WorldGame
         string? sample = e.Kind switch
         {
             "Moved" when _session.State.Party.Contains(e.Source) => "step", "TileEntered" when _session.State.Party.Contains(e.Source) => "terrain",
-            "WindupStarted" => "enemy", "DamageTaken" when _session.State.Party.Contains(e.Target) => "hit",
+            "WindupStarted" or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" => "enemy", "DamageTaken" when _session.State.Party.Contains(e.Target) => "hit",
             "BoonActivated" or "BoonGranted" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
             "DoorOpened" or "VaultOpened" or "VaultKeyCollected" or "ChestClaimed" or "FloorChanged" or "CurrencyCollected" => "menu",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
@@ -52,6 +52,7 @@ internal sealed partial class WorldGame
         {
             "DamageTaken" => "-" + e.Amount, "Healed" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
+            "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };
         if (e.Kind == "DamageTaken") _lastDungeonHit = _combatVisualTime;

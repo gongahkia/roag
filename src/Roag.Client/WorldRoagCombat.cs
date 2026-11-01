@@ -44,7 +44,7 @@ internal sealed partial class WorldGame
     {
         if(!_map.Contains(pointer))return;
         if (_session.State.Dungeon != null && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
-        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
+        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);

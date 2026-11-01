@@ -36,10 +36,33 @@ internal static class WorldInspection
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
+            if (actor.Tactics?.Enemy is { } memory)
+            {
+                var definition = EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
+                detail = definition.Name + ". " + stats;
+                if (definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite or EnemyBrainKind.HollowRegent)
+                    detail += memory.PhaseTwo ? " Phase 2: faster actions." : " Phase 1; changes phase at half HP.";
+                if (definition.Id == "core:enemy/shield_bearer")
+                    detail += $" Shield faces {memory.ShieldFacing}; " + (memory.ShieldLowered
+                        ? "lowered during attack/recovery." : "raised. Flank it; attacking lowers its shield.");
+            }
             detail += targeting;
             if (session.State.Dungeon != null && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
             if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
+            if (session.State.Dungeon != null)
+                return WithAccess(actor.Name, detail, actor.Recruited ? "F basic / R special / X movement / G Guard"
+                    : "Inspect its intent; aim an attack while in range", hostile ? "enemy" : "person");
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
+        }
+        if (session.State.Dungeon?.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == cell) is { } routeFloor
+            && material != Material.StairsDown)
+        {
+            if (!session.Visible.Contains(cell)) return new("Stage exit (remembered)", "Observe this exit again to inspect its seal.", "Move with the keyboard", "", "object");
+            bool available = session.State.Dungeon.BossExitReceipts.Contains(routeFloor.Boss);
+            return new(available ? "Stage exit: choose a route" : "Sealed stage exit",
+                available ? "The elite has fallen. Choose a route here for one paid action, then walk down its stairs. Cleared floors remain accessible."
+                    : "Defeat this floor's elite to unlock the next stage. The exit stays at this marked location when the elite moves.",
+                "Stand beside it and press Enter, or click while adjacent", "", "object");
         }
         if (session.DungeonQuestNodeAt(cell) is { } questSite)
         {

@@ -9,6 +9,7 @@ This is a gameplay probe: a defeat or action budget is reported, never a pass.
 import argparse
 from collections import Counter, deque
 import hashlib
+import heapq
 import json
 import os
 from pathlib import Path
@@ -93,11 +94,11 @@ class Client:
         temporary.write_text(json.dumps(spec)); temporary.replace(self.control / 'request.json')
         return spec
 
-    def finish(self, spec):
+    def finish(self, spec, physical_key=None):
         response = self.until(lambda: (r if (r := self.read('response.json')) and r['id'] == spec['id'] else None))
         if not response['success']: raise RuntimeError(str(response))
         self.ui = self.read('observation.json')['ui']
-        self.journal.write(json.dumps(dict(input=spec, position=self.ui['position'], clock=self.ui['nativeDungeon']['clock'],
+        self.journal.write(json.dumps(dict(input=spec, physicalKey=physical_key, position=self.ui['position'], clock=self.ui['nativeDungeon']['clock'],
             health=self.ui['nativeDungeon']['player'][0]['health'], notice=self.ui['notice'], panel=self.ui['panel'])) + '\n')
         self.journal.flush()
         return self.ui
@@ -111,7 +112,7 @@ class Client:
         subprocess.run(['xdotool', 'keydown', key], check=True)
         time.sleep(.15)
         subprocess.run(['xdotool', 'keyup', key], check=True)
-        return self.finish(spec)
+        return self.finish(spec, key)
 
     def control_click(self, name):
         return self.request('control', control=name)
@@ -139,8 +140,10 @@ class Client:
         self.log.close(); self.journal.close()
 
 class Journey:
-    def __init__(self, client):
+    def __init__(self, client, class_index=1, features=False):
         self.client = client
+        self.class_index = class_index
+        self.features = features
         self.known = {}
         self.visits = Counter()
         self.receipts = set()
@@ -168,6 +171,7 @@ class Journey:
         self.visible = {position(c): c for c in self.ui['cells']}
         self.fighters = [f for f in self.state['fighters'] if not f['friendly'] and f['health'] > 0]
         self.occupied = {position(f['position']) for f in self.fighters}
+        for gate in self.state.get('routeGates', []): self.exits[self.at[2]] = position(gate['position'])
         for enemy in self.fighters:
             if self.enemies.get(enemy['class'], {}).get('ai') in ['warden', 'biome_elite', 'hollow_regent']:
                 self.exits.setdefault(self.at[2], position(enemy['position']))
@@ -190,16 +194,24 @@ class Journey:
 
     def path(self, goals, safe=False):
         goals = set(goals)
-        queue = deque([self.at]); previous = {self.at: None}
+        queue = [(0, self.at)]; previous = {self.at: None}; costs = {self.at: 0}
         while queue:
-            p = queue.popleft()
+            cost, p = heapq.heappop(queue)
+            if cost != costs[p]: continue
             if p in goals:
                 route = []
                 while previous[p] is not None: route.append(p); p = previous[p]
                 return route[::-1]
             for dx, dy, _ in DIRECTIONS:
                 q = p[0] + dx, p[1] + dy, p[2]
-                if q not in previous and self.open(q, safe): previous[q] = p; queue.append(q)
+                if not self.open(q, safe): continue
+                terrain = self.known[q].get('terrain')
+                # This is the same semantic overlay shown by sprites and hover.
+                # Prefer a safe detour over contact damage; armor can negate it.
+                price = 1 + self.failed[q] * 40 + (30 if terrain == 'b' and self.player['stats']['defense'] == 0 else 0) + (2 if terrain == 'g' else 0)
+                candidate = cost + price
+                if candidate < costs.get(q, float('inf')):
+                    previous[q] = p; costs[q] = candidate; heapq.heappush(queue, (candidate, q))
         return None
 
     def move(self, p):
@@ -209,7 +221,16 @@ class Journey:
         before = self.state['clock']
         self.client.key(key)
         self.visits[p] += 1
-        if self.client.ui['nativeDungeon']['clock'] == before: self.failed[p] += 1
+        after = self.client.ui
+        if after['nativeDungeon']['clock'] == before or position(after['position']) == self.at:
+            self.failed[p] += 1
+            # A visible push floor can return a walker to the starting cell.
+            # Try the class's ordinary movement skill through the known lane.
+            if self.failed[p] in [2, 5, 8] and after['nativeDungeon']['clock'] > before:
+                lane = [(self.at[0] + dx * n, self.at[1] + dy * n, self.at[2]) for n in range(1, 4 if self.player['classId'] == 'Ranger' else 3)]
+                if all(q in self.known and self.known[q]['groundOpen'] for q in lane):
+                    self.client.key('x+' + key)
+                    if position(self.client.ui['position']) != self.at: self.receipts.add('movement-skill')
         return True
 
     def go(self, goals, safe=False):
@@ -220,7 +241,7 @@ class Journey:
         return [(p[0] + dx, p[1] + dy, p[2]) for dx, dy, _ in DIRECTIONS]
 
     def aligned(self, a, b):
-        if a[2] != b[2] or a[0] != b[0] and a[1] != b[1] or distance(a, b) > 4: return False
+        if a[2] != b[2] or a[0] != b[0] and a[1] != b[1] or distance(a, b) > {'Ranger': 4, 'Geomancer': 3, 'Adventurer': 1}[self.player['classId']]: return False
         dx, dy = (b[0] > a[0]) - (b[0] < a[0]), (b[1] > a[1]) - (b[1] < a[1])
         p = a[0] + dx, a[1] + dy, a[2]
         while p != b:
@@ -265,6 +286,16 @@ class Journey:
             if distance(self.at, target) > radius:
                 if self.go([target, *self.neighbors(target)] if radius else [target]): return True
             self.destination = None
+        if self.player['classId'] == 'Adventurer':
+            for secret in self.state['secrets']:
+                if secret['kind'] != 'CrackedCache' or secret['revealed']: continue
+                p = position(secret['position'])
+                if distance(p, self.at) == 1:
+                    dx, dy = p[0] - self.at[0], p[1] - self.at[1]
+                    direction = next(k for x, y, k in DIRECTIONS if (x, y) == (dx, dy))
+                    self.client.key('f+' + direction); self.receipts.add('secret')
+                    self.client.capture('secret-' + str(secret['id']) + '-opened'); return True
+                if self.approach(p, 1): return True
         for service in self.state['services']:
             if service['usedBy'] or service['id'] in self.inspected_services: continue
             if service['kind'] not in ['Camp', 'CleanseFlask', 'EscapeScroll', 'ReturnToken', 'CharmWell', 'OfferingFont', 'TravellingTrader']: continue
@@ -334,6 +365,34 @@ class Journey:
         if self.client.ui['panel']: self.client.control_click('dungeon:close')
         return False
 
+    def exercise_gate(self):
+        self.observe()
+        gate = self.state['gates'][0]
+        gate_position = position(gate['position'])
+        plate = next(position(f['position']) for f in self.state['roomFeatures']
+            if f['kind'] == 'PressurePlate' and distance(position(f['position']), gate_position) == 1)
+        for _ in range(40):
+            self.observe()
+            if self.at == plate: break
+            assert not self.fighters, 'Dedicated gate check needs an undisturbed approach.'
+            assert self.go([plate]), 'Plate has no known ordinary route.'
+        self.observe()
+        assert self.at == plate
+        opened = next(g for g in self.state['gates'] if g['id'] == gate['id'])
+        assert opened['open'] and opened['closeAt'] > 0
+        close_at = opened['closeAt']
+        self.client.capture('gate-plate-opened')
+        self.move(gate_position); self.observe(); assert self.at == gate_position
+        while self.state['clock'] < close_at:
+            self.client.control_click('roag:wait'); self.observe()
+        assert next(g for g in self.state['gates'] if g['id'] == gate['id'])['open']
+        self.client.capture('gate-occupied-at-closure')
+        leaving = next(p for p in self.neighbors(self.at) if p != plate and self.open(p))
+        self.move(leaving); self.observe()
+        assert not next(g for g in self.state['gates'] if g['id'] == gate['id'])['open']
+        self.client.capture('gate-closed-after-vacancy')
+        self.receipts.add('occupied-gate-closure')
+
     def checkpoint(self):
         self.client.control_click('dungeon:save')
         (self.client.output / 'knowledge.json').write_text(json.dumps(dict(cells=list(self.known.values()),
@@ -341,7 +400,7 @@ class Journey:
 
     def run(self, budget, lifecycle):
         if not self.client.continuation:
-            self.client.control_click('dungeon:class:1')
+            self.client.control_click('dungeon:class:' + str(self.class_index))
             self.client.control_click('dungeon:save')
             self.client.control_click('dungeon:menu')
             self.client.control_click('dungeon:new-question')
@@ -349,9 +408,16 @@ class Journey:
             self.client.capture('00-fresh-run-confirmation')
             self.client.control_click('dungeon:new-cancel')
             assert self.client.ui['nativeDungeon']['clock'] == before
-            self.client.capture('01-ranger-start')
+            self.client.capture('01-run-start')
+            if self.features: self.exercise_gate()
+        if self.client.continuation: self.client.capture('continuation-start')
         for self.steps in range(1, budget + 1):
             self.observe()
+            if (self.client.output / 'pause-request').exists():
+                self.checkpoint(); self.client.capture('continuation-boundary')
+                (self.client.output / 'handoff.json').write_text(json.dumps(dict(position=self.client.ui['position'],
+                    clock=self.client.ui['nativeDungeon']['clock'], player=self.client.ui['nativeDungeon']['player'], rollback=False)) + '\n')
+                return 'paused'
             if self.player['health'] <= 0:
                 self.client.capture('terminal-run')
                 self.client.resume()
@@ -368,6 +434,7 @@ class Journey:
                     self.client.resume()
                     assert self.client.ui['nativeDungeon']['clock'] == 0
                 return 'defeat'
+            if self.features and 'secret' in self.receipts: return 'features-verified'
             if self.state['victory']:
                 self.client.capture('victory'); self.client.resume(); self.client.capture('victory-resumed'); return 'victory'
             if self.client.sequence > 880: self.client.resume()
@@ -387,10 +454,12 @@ if __name__ == '__main__':
     parser.add_argument('--budget', type=int, default=6000)
     parser.add_argument('--runtime', type=Path, help='Extracted Linux package directory, or a built client directory.')
     parser.add_argument('--continue-from', dest='continuation', type=Path, help='Previous stopped probe evidence; continue its latest ordinary save and observed map.')
+    parser.add_argument('--class-index', type=int, choices=[0, 1, 10], default=1, help='Adventurer, Ranger or Geomancer; probe supports their ordinary attack ranges.')
+    parser.add_argument('--features', action='store_true', help='Exercise the natural starting gate, then seek an Adventurer cracked cache.')
     parser.add_argument('--lifecycle', action='store_true', help='Encounter danger normally, wait for defeat, verify terminal resume/fresh run.')
     args = parser.parse_args()
     client = Client(args.output.resolve(), args.seed, args.runtime.resolve() if args.runtime else None, args.continuation.resolve() if args.continuation else None)
-    journey = Journey(client)
+    journey = Journey(client, args.class_index, args.features)
     try:
         outcome = journey.run(args.budget, args.lifecycle)
         if not args.lifecycle: journey.checkpoint()
@@ -398,4 +467,5 @@ if __name__ == '__main__':
             lifecycleVerified=args.lifecycle and outcome == 'defeat', fullRunVerified=not args.lifecycle and outcome == 'victory')
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)
+        client.request('stop'); client.process.wait(timeout=15)
     finally: client.close()

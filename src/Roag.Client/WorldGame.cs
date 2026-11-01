@@ -452,7 +452,13 @@ internal sealed partial class WorldGame : Game
         {
             var motion = _actorMotions[actor.Id];
             var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion));
+            if (_session.State.Dungeon != null)
+                FillClipped(new(rect.X + 3, rect.Y + 3, rect.Width - 6, rect.Height - 6), new Color(9, 14, 19) * .9f);
             _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+            if (_session.State.Dungeon != null && actor.Id == _session.RoagActiveActor)
+                foreach (var corner in new[] { new Point(rect.Left + 1, rect.Top + 1), new Point(rect.Right - 8, rect.Top + 1),
+                    new Point(rect.Left + 1, rect.Bottom - 3), new Point(rect.Right - 8, rect.Bottom - 3) })
+                    FillClipped(new(corner.X, corner.Y, 7, 2), Gold);
         }
         if (_panel.Length == 0 && !_session.IsInCombat && _session.State.WorkRally is { } rally)
         {

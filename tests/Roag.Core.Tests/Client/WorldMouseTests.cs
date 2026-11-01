@@ -31,6 +31,38 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void NativeEnemyInspectionShowsShieldCounterplayAndHidesUnseenState()
+    {
+        using var session = WorldSession.CreateDungeonRun(42);
+        var enemy = session.State.Actors.First(a => a.Tactics?.Enemy != null);
+        session.DungeonCombat.ReplaceUnactedEnemy(enemy, "core:enemy/shield_bearer");
+        enemy.Position = session.Party.Single().Position.Offset(1, 0); session.Reveal();
+        enemy.Tactics!.Enemy!.ShieldFacing = Facing.East;
+        string before = JsonSerializer.Serialize(session.State);
+        var raised = WorldInspection.Inspect(session, enemy.Position);
+        Assert.Contains("Shield faces East; raised", raised.Detail); Assert.Contains("Flank", raised.Detail);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        enemy.Tactics.Enemy.ShieldLowered = true;
+        Assert.Contains("lowered during attack/recovery", WorldInspection.Inspect(session, enemy.Position).Detail);
+        session.Visible.Remove(enemy.Position);
+        Assert.DoesNotContain("Shield faces", WorldInspection.Inspect(session, enemy.Position).Detail);
+    }
+
+    [Fact]
+    public void NativeBossInspectionDescribesItsCurrentPhaseWithoutAdvancingTime()
+    {
+        using var session = WorldSession.CreateDungeonRun(42);
+        var enemy = session.State.Actors.First(a => a.Tactics?.Enemy != null);
+        session.DungeonCombat.ReplaceUnactedEnemy(enemy, "core:enemy/thorn_warden");
+        enemy.Position = session.Party.Single().Position.Offset(1, 0); session.Reveal();
+        Assert.Contains("Phase 1", WorldInspection.Inspect(session, enemy.Position).Detail);
+        enemy.Tactics!.Enemy!.PhaseTwo = true;
+        string before = JsonSerializer.Serialize(session.State);
+        Assert.Contains("Phase 2", WorldInspection.Inspect(session, enemy.Position).Detail);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+
+    [Fact]
     public void KeyboardDoorOpeningPaysOnceWithoutEnteringAndNeedsANewPressToWalkThrough()
     {
         using var session = WorldSession.CreateDungeonRun(42); var client = Client(session); var hero = session.Party.Single(); var origin = hero.Position;

@@ -605,6 +605,9 @@ internal sealed partial class WorldGame
                     contract = n.Contract == null ? null : new { status = n.Contract.Status.ToString(), targets = n.Contract.Targets.Length, defeated = n.Contract.Defeated.Count, n.Contract.Failure }
                 }),
                 serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]) : null,
+                routeGates = native.Floors.Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
+                    && _session.Chunks.At(f.Exit) != Material.StairsDown)
+                    .Select(f => new { f.Stage, position = f.Exit, available = native.BossExitReceipts.Contains(f.Boss) }),
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,
                 chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null
             },
@@ -636,7 +639,8 @@ internal sealed partial class WorldGame
             selection = Selection.Cells.Select(p => new { x = p.X, y = p.Y, floor = p.Floor }),
             selecting = _dragStart != null,
             cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
-                material = _session.Chunks.At(p).ToString(), groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
+                material = _session.Chunks.At(p).ToString(), terrain = _session.DungeonTerrainAt(p)?.ToString(),
+                groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
                 clickable = WorldMouseControl.Hit(_controls, TileRect(p).Center) == null,
                 prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
             work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker,

@@ -198,6 +198,18 @@ internal sealed partial class WorldGame
         _nativeChest = chest.Id; _panel = "dungeon-chest"; return true;
     }
 
+    private bool TryOpenDungeonRoute(Point pointer)
+    {
+        var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
+        var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
+        var floor = _session.State.Dungeon!.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == position);
+        if (floor == null || _session.Chunks.At(position) == Material.StairsDown || !_session.Visible.Contains(position)) return false;
+        if (_session.AvailableDungeonRoutes(_session.State.Party[0]).Count > 0) _panel = "dungeon-routes";
+        else _notice = position.Distance(_session.State.Position) > 1 ? "Stand beside the marked stage exit to choose a route."
+            : "This route remains sealed until this floor's elite falls.";
+        return true;
+    }
+
     private bool TryOpenDungeonService(Point pointer)
     {
         var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
@@ -295,7 +307,8 @@ internal sealed partial class WorldGame
         }
         y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected").TakeLast(4))
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
+                     or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" or "EliteDefeated" or "Victory").TakeLast(4))
         {
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }
@@ -430,6 +443,16 @@ internal sealed partial class WorldGame
         var state = _session.State.Tactics!;
         void Icon(WorldPosition p, string sprite, Color tint)
         { if (_session.Visible.Contains(p) && _map.Intersects(TileRect(p))) _sprites.Fit(_batch, sprite, TileRect(p), tint); }
+        foreach (var floor in _session.State.Dungeon!.Floors.Where(f => f.Stage < 4 && f.Boss > 0))
+        {
+            if (floor.Exit.Floor != _session.State.Position.Floor || !_session.Chunks.Seen(floor.Exit)
+                || !_map.Intersects(TileRect(floor.Exit)) || _session.Chunks.At(floor.Exit) == Material.StairsDown) continue;
+            bool visible = _session.Visible.Contains(floor.Exit);
+            bool available = visible && _session.State.Dungeon.BossExitReceipts.Contains(floor.Boss);
+            var tile = TileRect(floor.Exit);
+            _sprites.Fit(_batch, "stairs-down", tile, visible ? available ? Gold : Muted : Muted * .35f);
+            if (visible) Text(available ? "ROUTE" : "SEALED", tile.X - 6, tile.Bottom + 2, available ? Gold : Muted);
+        }
         foreach (var vault in state.Vaults.Nodes)
         {
             if (vault.Position.Floor != _session.State.Position.Floor) continue;
