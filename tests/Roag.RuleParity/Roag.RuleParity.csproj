@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
 <ItemGroup><ProjectReference Include="../../src/Roag.Core/Roag.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../src/Roag.Reference/Roag.Reference.csproj" /></ItemGroup>
 </Project>

@@ -143,7 +143,7 @@ def generate(rel,out,test=False):
  (out/(cls+'.cs')).write_text(header+f'internal static class {cls} {{ internal static V Load(NativeRuntime rt) {{\n'+code+'\nreturn V.Nil;\n} }\n' if False else header+f'internal static class {cls} {{ internal static Results Load(NativeRuntime rt) {{\n'+code+'\nreturn Results.Empty;\n} }\n')
  return name,cls
 if __name__=='__main__':
- out=ROOT/'src/Roag.Core/Rules/Generated';names=[]
+ out=ROOT/'src/Roag.Reference/Rules/Generated';names=[]
  files=subprocess.check_output(['git','ls-tree','-r','--name-only',BASE,'src'],cwd=ROOT).decode().splitlines()
  for rel in files:
   if rel.endswith('.lua'):

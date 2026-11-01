@@ -30,7 +30,7 @@ All four [additional boss concepts](MIGRATION_BOSS_PROPOSALS.md) are vetted. The
 
 The accepted destination is handwritten, idiomatic C# using the Vagabonds architecture. Where systems overlap, adapt Vagabonds to Roag's systems. Preserve original Roag behavior and content, using its source and tests as references.
 
-The generated modules in `src/Roag.Core/Rules/Generated`, their dynamic value/collection runtime and the preliminary gameplay adapters are an earlier prototype, not the accepted production foundation or proof of parity. Replacement and subsequent cleanup are authorized. Original Lua files remain available as references; their eventual removal must follow verified native replacements. Genuine new gameplay ambiguities must be clarified with the user before dependent engineering work; routine engineering and delegated numerical tuning may proceed.
+The generated modules in `src/Roag.Reference/Rules/Generated` (formerly in `Roag.Core`), their dynamic value/collection runtime and the preliminary gameplay adapters are an earlier prototype, not the accepted production foundation or proof of parity. Replacement and subsequent cleanup are authorized. Original Lua files remain available as references; their eventual removal must follow verified native replacements. Genuine new gameplay ambiguities must be clarified with the user before dependent engineering work; routine engineering and delegated numerical tuning may proceed.
 
 ## Verification status
 
