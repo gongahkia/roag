@@ -185,7 +185,7 @@ internal static class WorldInspection
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithAccess(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
         if (session.SituationAtWall(cell) is { Known: true, Outcome.Length: 0 } place)
             return new("Side wall / " + place.Name, "Excavating this wall opens a physical bypass to the supplies.", "Right-click and choose Dig; companions can do the work.", session.TargetBlockReason(WorldCommandKind.Dig, cell, requireAdjacent: false), "discovery");
-        if (session.ResourceAt(cell) is { } resource)
+        if (session.State.Dungeon == null && session.ResourceAt(cell) is { } resource)
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Walk beside the camp; right-click to rest or craft", _ => "Move with WASD or arrow keys" };
@@ -195,7 +195,12 @@ internal static class WorldInspection
         if (session.State.Dungeon != null && material is Material.StairsDown or Material.StairsUp) action = "Step onto the stair, or press Enter while standing on it";
         return WithAccess(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + placeName + ".", action, "terrain");
         WorldHoverInfo WithAccess(string title, string detail, string action, string kind)
-        { return new(title, detail, action, WorldMouseNavigation.HoverBlockReason(session, cell), kind); }
+        {
+            string reason = WorldMouseNavigation.HoverBlockReason(session, cell);
+            if (session.State.Dungeon != null && reason.IndexOf("Right-click", StringComparison.Ordinal) is >= 0 and var deferredHint)
+                reason = reason[..deferredHint].TrimEnd();
+            return new(title, detail, action, reason, kind);
+        }
     }
     private static string Threat(WorldSession session, Actor actor)
     {
