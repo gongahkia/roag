@@ -284,7 +284,7 @@ class Journey:
                     lane.append(cell)
                 if lane and lane[-1] not in self.danger:
                     escapes.append((min(distance(lane[-1], position(f['position'])) for f in self.fighters), key))
-            for _, key in sorted(escapes, reverse=True):
+            for _, key in sorted(escapes):
                 self.client.key('x+' + key)
                 if position(self.client.ui['position']) != self.at:
                     self.receipts.add('movement-skill-evasion'); return True
