@@ -103,7 +103,9 @@
               "StairsUp",
               "Storage",
               "Camp",
-              "Barricade"
+              "Barricade",
+              "ClosedDoor",
+              "Pillar"
             ]
           },
           "cells": {
