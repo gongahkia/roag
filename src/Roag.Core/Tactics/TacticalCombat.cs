@@ -4,7 +4,7 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public sealed record TacticalIntent(TacticalAction Action, Facing Facing = Facing.South, long Target = 0, bool Vow = false, int Choice = 0, bool ReplaceUtility = false);
+public sealed record TacticalIntent(TacticalAction Action, Facing Facing = Facing.South, long Target = 0, bool Vow = false, int Choice = 0, bool ReplaceUtility = false, string Item = "");
 public sealed record TacticalPreview(bool Valid, string Reason, long Recovery, IReadOnlyList<WorldPosition> Cells,
     bool Bump = false, bool Swap = false, int? ReturnDistance = null)
 {
@@ -205,6 +205,9 @@ public sealed partial class TacticalCombat
                 return PreviewStairs(actor, definition);
             case TacticalAction.Eat:
                 return PreviewEating(actor);
+            case TacticalAction.Equip:
+            case TacticalAction.Unequip:
+                return PreviewEquipment(actor, intent);
             case TacticalAction.ClaimChest:
                 return PreviewChest(actor, intent);
             case TacticalAction.DungeonRoute:
@@ -279,6 +282,9 @@ public sealed partial class TacticalCombat
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
                 case TacticalAction.Eat:
                     Eat(actor, action); break;
+                case TacticalAction.Equip:
+                case TacticalAction.Unequip:
+                    CommitEquipment(actor, executed, action); break;
                 case TacticalAction.ClaimChest:
                     ClaimChest(actor, intent, action); break;
                 case TacticalAction.UseUtility:

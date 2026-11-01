@@ -172,8 +172,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             case WorldCommandKind.Discover: return VisitDiscovery(command.Target);
             case WorldCommandKind.Equip: return Equip(command.ActorId, command.Item);
             case WorldCommandKind.Unequip:
-                if (target == null || !State.Party.Contains(target.Id) || !target.Equipment.TryGetValue(command.Item, out var gear)) return new(false, "Choose an occupied equipment slot.");
-                Add(Item(gear.Item).Stack, 1); target.Equipment.Remove(command.Item); target.Health = Math.Min(target.Health, target.MaxHealth); return new(true, "Equipment returned to the pack.");
+                return Unequip(command.ActorId, command.Item);
             case WorldCommandKind.Move:
                 if (!near || command.Target == State.Position) return new(false, "Choose an adjacent tile.");
                 string collision = MovementBlockReason(command.Target, State.Party[0]);

@@ -151,7 +151,8 @@ public sealed class TacticalWorldState
 /// <summary>Delegated numerical tuning; one ordinary 100-cost action represents one second.</summary>
 public sealed record TacticalTuning(int GuardReductionPercent = 50, int GuardCost = 100,
     int WaitCost = 100, int ReviveCost = 100, int UnitsPerSecond = 100, int EatCost = 100,
-    int SurvivalIntervalSeconds = 10, int WellFedHungerMaximum = 20, bool EnableSurvival = true)
+    int SurvivalIntervalSeconds = 10, int WellFedHungerMaximum = 20, bool EnableSurvival = true,
+    int EquipmentCost = 100)
 {
     // The imported calendar has 300 world ticks/hour. One world tick represents
     // twelve seconds; tactical timestamps retain sub-tick recovery exactly.
@@ -159,7 +160,7 @@ public sealed record TacticalTuning(int GuardReductionPercent = 50, int GuardCos
     public void Validate()
     {
         if (GuardReductionPercent is < 0 or > 100 || GuardCost <= 0 || WaitCost <= 0 || ReviveCost <= 0 || UnitsPerSecond <= 0 || EatCost <= 0
-            || SurvivalIntervalSeconds <= 0 || WellFedHungerMaximum is < 0 or > 100)
+            || SurvivalIntervalSeconds <= 0 || WellFedHungerMaximum is < 0 or > 100 || EquipmentCost <= 0)
             throw new ArgumentOutOfRangeException(nameof(TacticalTuning));
     }
 }

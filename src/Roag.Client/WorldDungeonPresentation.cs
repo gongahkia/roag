@@ -31,6 +31,8 @@ internal sealed partial class WorldGame
         {
             Add("dungeon:close", "Close", new(box.Right - 100, box.Top + 12, 80, 34));
             if (_panel == "dungeon-party") BuildDungeonPartyPanelControls(box);
+            else if (_panel == "dungeon-gear") BuildDungeonGearControls(box);
+            else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
             else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
@@ -102,8 +104,8 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party", "gear"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue", "Equipment / K"];
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
             }
@@ -160,6 +162,14 @@ internal sealed partial class WorldGame
             case "boons": _panel = "dungeon-boons"; break;
             case "utility": _panel = "dungeon-utility"; break;
             case "party": _panel = "dungeon-party"; break;
+            case "gear": _panel = "dungeon-gear"; break;
+            case "gear-item": OpenDungeonGearDetail(parts[2]); break;
+            case "gear-slot":
+                if (_session.DungeonMember.Equipment.TryGetValue(parts[2], out var gear)) OpenDungeonGearDetail(gear.Item, parts[2]);
+                break;
+            case "gear-prev": _nativeGearPage--; break;
+            case "gear-next": _nativeGearPage++; break;
+            case "gear-confirm": ConfirmDungeonGear(); break;
             case "member": SelectDungeonMember(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
@@ -398,11 +408,14 @@ internal sealed partial class WorldGame
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
+        if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
+        if (_panel == "dungeon-gear") { DrawDungeonGearPanel(box, x, y); return; }
+        if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-chest-recipient")
@@ -450,7 +463,7 @@ internal sealed partial class WorldGame
         }
         else if (_panel == "dungeon-guide")
         {
-            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. K opens equipment; equipping/removing costs one action. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
             Wrap("Controller: D-pad / left stick moves one tile per press. X aims basic, Y special, right shoulder movement. Left shoulder aims Guard, or toggles Vow during attack aim. Right trigger waits. A interacts; left-stick press also interacts. Right-stick press opens utilities. Start opens the menu / cancels aim; Back toggles the map; left trigger opens boons. In menus, D-pad selects, A confirms, B closes. Keyboard menus use arrows, number keys and Enter. F1 opens help, I/V inspect boons, Tab toggles the explored map, Escape opens the menu.", x, y + 16, box.Width - 48, Muted);
         }
         else if (_panel == "dungeon-utility")

@@ -6,6 +6,22 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
+    // Only the native command transaction calls this path after paying recovery.
+    // The legacy public Submit path rejects all native-timeline worlds.
+    internal ActionResult ChangeTacticalEquipment(Actor actor, string itemOrSlot, bool remove)
+        => remove ? Unequip(actor.Id, itemOrSlot) : Equip(actor.Id, itemOrSlot);
+
+    private ActionResult Unequip(long actorId, string slot)
+    {
+        var actor = Party.FirstOrDefault(a => a.Id == actorId && a.Life == LifeState.Alive);
+        if (actor == null || !actor.Equipment.TryGetValue(slot, out var gear))
+            return new(false, "Choose an occupied equipment slot on a conscious member.");
+        Add(Item(gear.Item).Stack, 1);
+        actor.Equipment.Remove(slot);
+        actor.Health = Math.Min(actor.Health, actor.MaxHealth);
+        return new(true, "Equipment returned to the shared pack.");
+    }
+
     private readonly Dictionary<string, ItemDefinition> _resolvedEquipment = [];
     public bool TryItem(string id, [NotNullWhen(true)] out ItemDefinition? item)
     {

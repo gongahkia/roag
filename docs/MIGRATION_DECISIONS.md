@@ -11,6 +11,8 @@ The user has explicitly activated the goal in the attached `goal-objective.md`: 
 
 Maintain solo/four-member play and the delivered native combat, builds, resources, ownership, private sight, shared timeline, title, clean HUD, sprites and feedback. Regular atomic commits and muted gameplay tests remain required. Windows, full original authoring-tool parity, politics/disasters/titans remain excluded. No approval is required between A and B. All eight applicable full-game acceptance gates require actual evidence before final completion; previous bounded-tranche acceptance does not close them. The original references and detailed approved mechanics below remain authoritative.
 
+Equipment timing decision (2026-11-01): equipping and unequipping each cost **one paid action both inside and outside local combat**. Browsing and comparisons are free. The acting ready member changes their own gear; unequipped gear remains globally shared. Calculate recovery using the member's speed before the change, preserving already scheduled recovery/work for everyone.
+
 ## Completed delivery scope — 2026-11-01 party tranche
 
 The active user goal authorizes **items 7–8 and player-controlled combat rescue from item 10**, superseding the completed solo tranche's pause for this scope only. Implement four fixed-class members recruited from an initial solo start, direct selection/readiness/resources/targeting UI, shared supplies and contribution XP, recipient-first permanently assigned boon offers, split-floor movement and sight, paid following/regrouping, player rescue and exact continuing saves. Preserve the bounded dungeon, title, artwork, effects and clean HUD. Do not restore the instruction strips or bottom action grid.
@@ -70,7 +72,7 @@ Current-tranche completion is not completion of the original eight full-game gat
 - The player chooses a boon's recipient. Assigned boons stay with that member and cannot be transferred. For boon chests, choose the recipient before generating three offers eligible for that member (confirmed 2026-10-31).
 - Gold, supplies and unequipped items are shared; equipped gear is assigned individually. All party supplies are globally accessible even across separated groups; no physical-carrier restriction for party supplies.
 - Equipment can add stats and effects while preserving the class's Roag attack patterns/core moves.
-- Changing equipped gear during combat is allowed and consumes an action; browsing inventory is free.
+- Equipping and unequipping are allowed and each consume an action both inside and outside combat; browsing inventory and comparisons are free.
 - Compatible Vagabonds talents become class-appropriate boons and equipment effects. Do not retain a separate innate-talent layer merely because the old engine had one.
 - Adapt Vagabonds' abilities to Roag class resources and recovery; do not add its separate mana system.
 - Kill XP is split among contributing members, weighted by contribution. Noncontributors do not automatically receive an equal party payout.

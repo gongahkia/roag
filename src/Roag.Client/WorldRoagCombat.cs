@@ -87,6 +87,7 @@ internal sealed partial class WorldGame
                 if (_session.State.Dungeon != null)
                 {
                     if (Press(Keys.B)) { _panel = "dungeon-party"; _roagKeyboard = keyboard; return; }
+                    if (Press(Keys.K)) { _panel = "dungeon-gear"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.T)) { SelectDungeonMember(_session.State.Tactics!.ActiveActor); _roagKeyboard = keyboard; return; }
                     var members = DungeonRoster;
                     for (int i = 0; i < members.Length; i++)

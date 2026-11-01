@@ -13,6 +13,56 @@ namespace Roag.Tests.Client;
 
 public sealed class WorldMouseTests
 {
+    [Fact]
+    public void NativeGearBrowsingUsesAtlasSpritesAndComparisonsBeforeOnePaidConfirmation()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move");
+        foreach (string item in new[] { "item.iron-sword", "item.chainmail", "item.quick-silver", "item.pickaxe" }) session.State.Inventory[item] = 1;
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.K), true);
+        Assert.Equal("dungeon-gear", Field("_panel").GetValue(client));
+        var controls = Controls(client, "dungeon-gear");
+        var cards = controls.Where(c => c.Id.StartsWith("dungeon:gear-item:", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(3, cards.Length); Assert.All(cards, c => Assert.NotNull(c.Sprite));
+        Assert.Contains(controls, c => c.Id == "dungeon:gear-next" && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", cards[0].Id);
+        Assert.Equal("dungeon-gear-detail", Field("_panel").GetValue(client));
+        Assert.Contains(Controls(client, "dungeon-gear-detail"), c => c.Id == "dungeon:gear-confirm" && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        string id = cards[0].Id["dungeon:gear-item:".Length..]; var itemDefinition = session.Item(id);
+        Invoke(client, "ActivateDungeonControl", "dungeon:gear-confirm");
+        Assert.Equal(100, session.DungeonCombat.Clock); Assert.Equal("", Field("_panel").GetValue(client));
+        Assert.Equal(id, session.DungeonMember.Equipment[itemDefinition.Slot].Item);
+        Assert.Equal(0, session.Count(itemDefinition.Stack));
+        var slots = Controls(client, "dungeon-gear");
+        Assert.Contains(slots, c => c.Id == "dungeon:gear-slot:" + itemDefinition.Slot && c.Enabled && c.Sprite == itemDefinition.Sprite);
+        Invoke(client, "ActivateDungeonControl", "dungeon:gear-slot:" + itemDefinition.Slot);
+        long time = session.DungeonCombat.Clock;
+        long recovery = session.DungeonCombat.Preview(new(TacticalAction.Unequip, Item: itemDefinition.Slot)).Recovery;
+        Invoke(client, "ActivateDungeonControl", "dungeon:gear-confirm");
+        Assert.Equal(time + recovery, session.DungeonCombat.Clock); Assert.Equal(1, session.Count(itemDefinition.Stack));
+        Assert.Empty(session.DungeonMember.Equipment);
+    }
+
+    [Fact]
+    public void ARecoveringMembersGearCanBeInspectedButCannotBeChangedByTheReadyMember()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        session.State.Inventory["item.iron-sword"] = 1;
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        string before = JsonSerializer.Serialize(session.State);
+        var controls = Controls(client, "dungeon-gear");
+        Invoke(client, "ActivateDungeonControl", controls.Single(c => c.Id == "dungeon:gear-item:item.iron-sword").Id);
+        var confirm = Controls(client, "dungeon-gear-detail").Single(c => c.Id == "dungeon:gear-confirm");
+        Assert.False(confirm.Enabled); Assert.Contains("ready member", confirm.DisabledReason);
+        Invoke(client, "ActivateDungeonControl", "dungeon:gear-confirm");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.Empty(friend.Equipment); Assert.All(session.Party, a => Assert.Empty(a.Equipment));
+    }
+
     private static FieldInfo Field(string name) => typeof(WorldGame).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
     private static object? Invoke(WorldGame client, string name, params object[] args) => typeof(WorldGame).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(client, args);
     private static WorldGame Client(WorldSession session)
