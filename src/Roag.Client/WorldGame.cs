@@ -324,7 +324,7 @@ internal sealed partial class WorldGame : Game
     }
     private void UpdateMotions(TimeSpan elapsed)
     {
-        long leader = _session.State.Party[0];
+        long leader = _session.State.Dungeon != null ? _session.DungeonMember.Id : _session.State.Party[0];
         if (!ReferenceEquals(_visualSession, _session) || _visualLeader != leader)
         {
             _visualSession = _session; _visualLeader = leader; _actorMotions.Clear();
@@ -472,7 +472,8 @@ internal sealed partial class WorldGame : Game
             var banner = new Rectangle(Math.Clamp((int)point.X - 8, _map.Left + 4, _map.Right - 20), Math.Clamp((int)point.Y - 8, _map.Top + 48, _map.Bottom - 20), 16, 16);
             _sprites.Fit(_batch, "banner", banner, Gold);
         }
-        foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
+        foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead
+            && (_session.State.Dungeon == null || _session.Visible.Contains(a.Position))))
         {
             var motion = _actorMotions[actor.Id];
             var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)));

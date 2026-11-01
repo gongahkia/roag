@@ -38,6 +38,9 @@ internal sealed partial class WorldGame
     }
     private RoagAim SelectedRoagAim(int dx, int dy) => _session.State.Dungeon != null && _roagAim == "fixture"
         ? new("interact", Target: _nativeService, Choice: 1)
+        : _session.State.Dungeon != null && _roagAim == "revive"
+            ? new("revive", Target: _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed
+                && a.Position == _session.DungeonMember.Position.Offset(dx, dy))?.Id ?? 0)
         : new(_roagAim, dx, dy, Choice: _roagAim == "use_utility" ? _nativeUtilitySteps : 0,
             Vow: _roagVow && (_session.State.Dungeon == null || _roagAim is "basic_attack" or "sweeping_slash"));
     private void RoagClick(Point pointer)
@@ -46,7 +49,7 @@ internal sealed partial class WorldGame
         if (_session.State.Dungeon != null && _nativeMapVisible && DungeonMapBounds().Contains(pointer))
         { _notice = "The explored map is informational. Tab hides it; movement uses the keyboard."; return; }
         if (_session.State.Dungeon != null && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
-        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
+        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonPerson(pointer) || TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);
@@ -81,6 +84,16 @@ internal sealed partial class WorldGame
         {
             if(_session.State.RoagCombat || _session.State.Dungeon != null)
             {
+                if (_session.State.Dungeon != null)
+                {
+                    if (Press(Keys.B)) { _panel = "dungeon-party"; _roagKeyboard = keyboard; return; }
+                    if (Press(Keys.T)) { SelectDungeonMember(_session.State.Tactics!.ActiveActor); _roagKeyboard = keyboard; return; }
+                    var members = DungeonRoster;
+                    for (int i = 0; i < members.Length; i++)
+                        if (Press(Keys.D1 + i) || Press(Keys.NumPad1 + i))
+                        { SelectDungeonMember(members[i].Id); _roagKeyboard = keyboard; return; }
+                    if (Press(Keys.H)) _roagAim = "revive";
+                }
                 if (_session.State.Dungeon != null && Press(Keys.Tab))
                 { ToggleDungeonMap(); _roagKeyboard = keyboard; return; }
                 if (_session.State.Dungeon != null && (Press(Keys.F1) || Press(Keys.I) || Press(Keys.V) || Press(Keys.Escape) && _roagAim == "move"))

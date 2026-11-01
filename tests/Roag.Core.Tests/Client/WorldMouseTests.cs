@@ -699,4 +699,89 @@ public sealed class WorldMouseTests
         }
     }
 
+    private static void RecruitDungeonParty(WorldSession world)
+    {
+        foreach (var recruit in world.State.Dungeon!.Recruits.Where(r => world.ActorById(r.Actor).Position.Floor == 1))
+        {
+            var actor = world.DungeonCombat.Active!;
+            var p = world.ActorById(recruit.Actor).Position;
+            actor.Position = new[] { p.Offset(0, -1), p.Offset(1, 0), p.Offset(0, 1), p.Offset(-1, 0) }.First(c => world.CanEnter(c, actor.Id));
+            Assert.True(world.SelectDungeonMember(actor.Id).Success);
+            Assert.True(world.SubmitDungeon(new(TacticalAction.Recruit, Target: recruit.Actor)).Success);
+        }
+    }
+
+    [Fact]
+    public void PartyControlsShowEachFixedClassAndFreeKeyboardSelectionCannotSpendAnotherMembersTurn()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); RecruitDungeonParty(session);
+        var client = Client(session); Field("_roagAim").SetValue(client, "move");
+        var members = session.Party.ToArray();
+        var buttons = Controls(client, "").Where(c => c.Id.StartsWith("dungeon:member:")).ToArray();
+        Assert.Equal(4, buttons.Length);
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(members[i].Sprite, buttons[i].Sprite);
+            Assert.Contains(ClassCatalog.Get(members[i].Tactics!.Build!.Class).Name, buttons[i].Label);
+            Assert.Contains("HP", buttons[i].Detail);
+        }
+        Assert.DoesNotContain(Controls(client, ""), c => c.Id.StartsWith("roag:"));
+        long ready = session.State.Tactics!.ActiveActor;
+        var other = members.First(a => a.Id != ready);
+        int index = Array.IndexOf(members, other);
+        string queue = JsonSerializer.Serialize(session.State.Tactics.Timeline);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.D1 + index), true);
+        Assert.Equal(other.Id, session.DungeonMember.Id);
+        Assert.Equal(ready, session.State.Tactics.ActiveActor);
+        Assert.False(session.SubmitDungeon(new(TacticalAction.Wait)).Success);
+        Assert.Equal(queue, JsonSerializer.Serialize(session.State.Tactics.Timeline));
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.T), true);
+        Assert.Equal(ready, session.DungeonMember.Id);
+        Assert.Equal(queue, JsonSerializer.Serialize(session.State.Tactics.Timeline));
+        var panel = Controls(client, "dungeon-party");
+        Assert.All(panel.Where(c => c.Id.StartsWith("dungeon:member:")), c => Assert.InRange(c.Bounds.Bottom, 0, 480));
+        Assert.Contains(panel, c => c.Id == "dungeon:ready" && c.Enabled);
+    }
+
+    [Fact]
+    public void NativeRecruitInspectionAndConfirmationExposeFixedClassBeforeAnyAction()
+    {
+        using var session = WorldSession.CreateDungeonRun(42);
+        var recruit = session.State.Dungeon!.Recruits[0]; var candidate = session.ActorById(recruit.Actor);
+        var actor = session.DungeonCombat.Active!;
+        actor.Position = new[] { candidate.Position.Offset(0, -1), candidate.Position.Offset(1, 0), candidate.Position.Offset(0, 1), candidate.Position.Offset(-1, 0) }
+            .First(p => session.CanEnter(p, actor.Id));
+        Assert.True(session.SelectDungeonMember(actor.Id).Success);
+        string before = JsonSerializer.Serialize(session.State);
+        var inspection = WorldInspection.Inspect(session, candidate.Position);
+        Assert.Contains(ClassCatalog.Get(recruit.Class).Name, inspection.Title);
+        Assert.Contains("no gold", inspection.Detail);
+        var client = Client(session); Field("_nativeRecruit").SetValue(client, candidate.Id);
+        Assert.Contains(Controls(client, "dungeon-recruit"), c => c.Id == "dungeon:recruit" && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:recruit");
+        Assert.Equal(2, session.Party.Count());
+        Assert.Equal(recruit.Class, candidate.Tactics!.Build!.Class);
+    }
+
+    [Fact]
+    public void DownedMemberInspectionAndPartyButtonExposeTheActualMedicineRescueRules()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); RecruitDungeonParty(session);
+        var actor = session.DungeonCombat.Active!;
+        var target = session.Party.First(a => a.Id != actor.Id);
+        var p = actor.Position;
+        target.Position = new[] { p.Offset(0, -1), p.Offset(1, 0), p.Offset(0, 1), p.Offset(-1, 0) }.First(c => session.CanEnter(c, target.Id));
+        target.Life = LifeState.Downed; target.Health = 0; target.Tactics!.BleedTurns = 5;
+        session.State.Inventory["medicine"] = 1; session.Reveal();
+        var inspection = WorldInspection.Inspect(session, target.Position);
+        Assert.Contains("DOWNED", inspection.Title); Assert.Contains("5 own turns", inspection.Detail); Assert.Contains("25%", inspection.Detail);
+        var client = Client(session);
+        Assert.Contains(Controls(client, "dungeon-party"), c => c.Id == "dungeon:revive:" + target.Id && c.Enabled);
+        Invoke(client, "ActivateDungeonControl", "dungeon:revive:" + target.Id);
+        Assert.Equal(LifeState.Alive, target.Life); Assert.Equal(Math.Max(1, target.MaxHealth / 4), target.Health);
+        Assert.Equal(0, session.Count("medicine")); Assert.Equal(0, target.Tactics.BleedTurns);
+    }
+
 }

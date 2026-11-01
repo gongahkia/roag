@@ -582,8 +582,9 @@ internal sealed partial class WorldGame
             {
                 native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
+                controlledActor = _session.State.Tactics.ControlledActor,
                 aim = _roagAim,
-                player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
+                player = _session.Party.Select(a => new { a.Id, a.Name, a.Position, life = a.Life.ToString(), a.Health, maxHealth = a.MaxHealth, a.Tactics!.BleedTurns,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,
                     a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
                 conditions = _session.Party.Where(a => a.Id == _session.State.Tactics.ControlledActor)
@@ -593,6 +594,8 @@ internal sealed partial class WorldGame
                 fighters = _session.RoagFighters(),
                 telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
+                recruits = native.Recruits.Where(r => _session.State.Actors.Any(a => a.Id == r.Actor && !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)))
+                    .Select(r => new { r.Actor, classId = r.Class.ToString(), position = _session.State.Actors.Single(a => a.Id == r.Actor).Position }),
                 loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
                 menuFocus = _controllerFocus,
                 mapVisible = _nativeMapVisible,
@@ -631,16 +634,16 @@ internal sealed partial class WorldGame
                     n.Id, kind = n.Kind.ToString(), name = Roag.Core.Tactics.TacticalCombat.ServiceName(n.Kind), n.Position, n.UsedBy,
                     contract = n.Contract == null ? null : new { status = n.Contract.Status.ToString(), targets = n.Contract.Targets.Length, defeated = n.Contract.Defeated.Count, n.Contract.Failure }
                 }),
-                serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]) : null,
+                serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id) : null,
                 routeGates = native.Floors.Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
                     && _session.Chunks.At(f.Exit) != Material.StairsDown)
                     .Select(f => new { f.Stage, position = f.Exit, available = native.BossExitReceipts.Contains(f.Boss) }),
-                routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,
-                chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null,
+                routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.DungeonMember.Id) : null,
+                chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.DungeonMember.Id) : null,
                 boonSprites = _panel == "dungeon-chest"
-                    ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0])
+                    ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.DungeonMember.Id)
                         .Select(o => new { boon = o.Boon, sprite = Roag.Core.Tactics.NativeAppearance.ForBoon(o.Boon) }).ToArray()
-                    : _panel == "dungeon-boons" ? _session.Party.Single().Tactics!.Boons.Inventory.Stacks.Keys.Order()
+                    : _panel == "dungeon-boons" ? _session.DungeonMember.Tactics!.Boons.Inventory.Stacks.Keys.Order()
                         .Skip(_nativeBoonPage * 3).Take(3)
                         .Select(id => new { boon = id, sprite = Roag.Core.Tactics.NativeAppearance.ForBoon(id) }).ToArray() : null
             },

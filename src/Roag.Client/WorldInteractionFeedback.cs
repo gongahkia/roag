@@ -19,6 +19,13 @@ internal static class WorldInspection
         var actor = session.State.Actors.LastOrDefault(a => a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null)
         {
+            if (!actor.Recruited && session.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == actor.Id) is { } recruit)
+                return new(actor.Name + " / " + ClassCatalog.Get(recruit.Class).Name,
+                    "Fixed-class adventurer. Joining costs one action and no gold; builds and assigned boons stay individual.",
+                    "Click to inspect recruitment, or press Enter beside them", session.State.Position.Distance(cell) == 1 ? "" : "Stand beside this adventurer", "person");
+            if (actor.Recruited && actor.Life == LifeState.Downed && actor.Tactics != null)
+                return new(actor.Name + " / DOWNED", $"{actor.Tactics.BleedTurns} own turns until permanent death. Damaging hits shorten the timer. Revive with one medicine and one adjacent action for 25% maximum HP.",
+                    "B opens rescue controls; H aims revival", "", "person");
             string targeting = "";
             if (session.InspectTacticalEnemy(actor.Id) is { } intent)
             {
@@ -87,7 +94,7 @@ internal static class WorldInspection
         {
             string title = TacticalCombat.ServiceName(service.Kind) + (service.Bell is { Number: > 0 } bell ? " " + bell.Number : "");
             if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this service again to inspect its current state.", "Move with the keyboard", "", "object");
-            string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Party[0]);
+            string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Dungeon != null ? session.DungeonMember.Id : session.State.Party[0]);
             return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
         if (session.State.Tactics?.Secrets.Nodes.FirstOrDefault(n => n.Clue == cell) is { } secret)

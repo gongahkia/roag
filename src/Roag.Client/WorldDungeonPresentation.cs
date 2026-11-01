@@ -24,12 +24,15 @@ internal sealed partial class WorldGame
             Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
             Add("dungeon:map", "Map / Tab", new(w - 520, 16, 108, 34), selected: _nativeMapVisible);
             Add("dungeon:utility", "Utility / U", new(w - 404, 16, 110, 34));
+            Add("dungeon:party", "Party / B", new(w - 632, 16, 104, 34));
         }
         var box = PanelBox(w, h);
         if (_panel.StartsWith("dungeon-", StringComparison.Ordinal))
         {
             Add("dungeon:close", "Close", new(box.Right - 100, box.Top + 12, 80, 34));
-            if (_panel == "dungeon-class")
+            if (_panel == "dungeon-party") BuildDungeonPartyPanelControls(box);
+            else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
+            else if (_panel == "dungeon-class")
             {
                 foreach (var kind in Enum.GetValues<ClassKind>())
                 {
@@ -37,7 +40,7 @@ internal sealed partial class WorldGame
                     var definition = ClassCatalog.Get(kind);
                     Add("dungeon:class:" + i, definition.Name,
                         DungeonClassCards.Bounds(box, i),
-                        _session.State.Tactics!.NextAction == 1, _session.Party.Single().Tactics!.Build!.Class == kind,
+                        _session.State.Tactics!.NextAction == 1, _session.DungeonMember.Tactics!.Build!.Class == kind,
                         "The class is fixed after the first paid action.",
                         $"HP {definition.Health}, damage {definition.Damage}, defense {definition.Defense}, speed {definition.Speed}. {definition.BasicName}; {definition.SpecialName}; {definition.DashName}.",
                         sprite: NativeAppearance.ForClass(kind), detail: DungeonClassCards.Description(kind));
@@ -45,7 +48,7 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-chest")
             {
-                var actor = _session.Party.Single();
+                var actor = _session.DungeonMember;
                 var offers = _session.DungeonCombat.ChestOffers(_nativeChest, actor.Id);
                 for (int i = 0; i < offers.Count; i++)
                 {
@@ -55,13 +58,13 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-routes")
             {
-                var routes = _session.AvailableDungeonRoutes(_session.State.Party[0]);
+                var routes = _session.AvailableDungeonRoutes(_session.DungeonMember.Id);
                 for (int i = 0; i < routes.Count; i++) Add("dungeon:route:" + (i + 1), routes[i].Name,
                     new(box.X + 28, box.Y + 92 + i * 100, box.Width - 56, 42));
             }
             else if (_panel == "dungeon-utility")
             {
-                var utility = _session.Party.Single().Tactics!.Supplies.Utility;
+                var utility = _session.DungeonMember.Tactics!.Supplies.Utility;
                 if (utility != null)
                 {
                     bool aimed = utility.Kind == UtilityKind.EscapeScroll;
@@ -74,7 +77,7 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-service")
             {
-                var options = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]);
+                var options = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id);
                 _nativeServicePage = Math.Clamp(_nativeServicePage, 0, Math.Max(0, (options.Count - 1) / 2));
                 foreach (var option in options.Skip(_nativeServicePage * 2).Take(2))
                     Add("dungeon:service-choice:" + option.Choice, option.Replacement ? "Review exchange"
@@ -90,15 +93,15 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-boons")
             {
-                int count = _session.Party.Single().Tactics!.Boons.Inventory.Stacks.Count;
+                int count = _session.DungeonMember.Tactics!.Boons.Inventory.Stacks.Count;
                 _nativeBoonPage = Math.Clamp(_nativeBoonPage, 0, Math.Max(0, (count - 1) / 3));
                 Add("dungeon:boon-prev", "Previous", new(box.X + 24, box.Bottom - 54, 130, 34), _nativeBoonPage > 0);
                 Add("dungeon:boon-next", "Next", new(box.Right - 154, box.Bottom - 54, 130, 34), (_nativeBoonPage + 1) * 3 < count);
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue"];
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
             }
@@ -130,6 +133,8 @@ internal sealed partial class WorldGame
         }
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
+        if (_panel.Length == 0 && _session.Party.Count(a => a.Life != LifeState.Dead) > 1)
+            BuildDungeonMemberControls();
     }
 
     private bool ActivateDungeonControl(string id)
@@ -152,9 +157,14 @@ internal sealed partial class WorldGame
             case "new-cancel": ClosePanel(); break;
             case "boons": _panel = "dungeon-boons"; break;
             case "utility": _panel = "dungeon-utility"; break;
+            case "party": _panel = "dungeon-party"; break;
+            case "member": SelectDungeonMember(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
+            case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
+            case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
+            case "recruit": CommitRoag(new("recruit", Target: _nativeRecruit)); ClosePanel(); break;
             case "utility-steps": _nativeUtilitySteps = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
             case "utility-use":
-                if (_session.Party.Single().Tactics!.Supplies.Utility?.Kind == UtilityKind.EscapeScroll)
+                if (_session.DungeonMember.Tactics!.Supplies.Utility?.Kind == UtilityKind.EscapeScroll)
                 { ClosePanel(); _roagAim = "use_utility"; }
                 else { CommitRoag(new("use_utility")); ClosePanel(); }
                 break;
@@ -163,7 +173,7 @@ internal sealed partial class WorldGame
             case "service-back": _panel = "dungeon-service"; break;
             case "service-choice":
                 int selected = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
-                var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]).Single(o => o.Choice == selected);
+                var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id).Single(o => o.Choice == selected);
                 if (option.Replacement) { _nativeReplacementChoice = selected; _panel = "dungeon-service-replace"; }
                 else if (_session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService).Fixture != null)
                 { ClosePanel(); _roagAim = "fixture"; _notice = "Fixture preview: four physical damage in +1.00s. Enter/click confirms; Escape cancels. No guaranteed reaction turn."; }
@@ -195,7 +205,7 @@ internal sealed partial class WorldGame
         var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
         var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position == position);
-        if (chest == null || _session.DungeonCombat.ChestOffers(chest.Id, _session.State.Party[0]).Count == 0) return false;
+        if (chest == null || _session.DungeonCombat.ChestOffers(chest.Id, _session.DungeonMember.Id).Count == 0) return false;
         OpenDungeonChest(chest.Id); return true;
     }
 
@@ -211,7 +221,7 @@ internal sealed partial class WorldGame
         var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
         var floor = _session.State.Dungeon!.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == position);
         if (floor == null || _session.Chunks.At(position) == Material.StairsDown || !_session.Visible.Contains(position)) return false;
-        if (_session.AvailableDungeonRoutes(_session.State.Party[0]).Count > 0) _panel = "dungeon-routes";
+        if (_session.AvailableDungeonRoutes(_session.DungeonMember.Id).Count > 0) _panel = "dungeon-routes";
         else _notice = position.Distance(_session.State.Position) > 1 ? "Stand beside the marked stage exit to choose a route."
             : "This route remains sealed until this floor's elite falls.";
         return true;
@@ -237,7 +247,12 @@ internal sealed partial class WorldGame
 
     private void DungeonInteract()
     {
-        var actor = _session.Party.Single();
+        var actor = _session.DungeonMember;
+        var downed = _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed && a.Position.Distance(actor.Position) == 1);
+        if (downed != null) { _panel = "dungeon-party"; return; }
+        var recruit = _session.State.Dungeon!.Recruits.Select(r => _session.State.Actors.Single(a => a.Id == r.Actor))
+            .FirstOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(actor.Position) == 1 && _session.Visible.Contains(a.Position));
+        if (recruit != null) { _nativeRecruit = recruit.Id; _panel = "dungeon-recruit"; return; }
         if (_session.AvailableDungeonRoutes(actor.Id).Count > 0) { _panel = "dungeon-routes"; return; }
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position.Distance(actor.Position) == 1);
         if (chest != null) { OpenDungeonChest(chest.Id); return; }
@@ -256,7 +271,7 @@ internal sealed partial class WorldGame
     {
         var combat = _session.DungeonCombat;
         Text("ROAG", 20, 16, Gold, 2);
-        Text($"{combat.Clock / (double)combat.Tuning.UnitsPerSecond:0.00}s / your action", 160, 22, Muted);
+        Text($"{combat.Clock / (double)combat.Tuning.UnitsPerSecond:0.00}s / {(_session.DungeonMember.Id == combat.State.ActiveActor ? "your action" : "viewing member")}", 160, 22, Muted);
         string identity = $"Stage {_session.State.Dungeon!.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}";
         Text(identity, 20, 57, Muted);
         Fill(_side, Panel);
@@ -264,7 +279,7 @@ internal sealed partial class WorldGame
 
     private void DrawDungeonTactics()
     {
-        var combat = _session.DungeonCombat; var hero = _session.Party.Single(); var build = hero.Tactics!.Build!;
+        var combat = _session.DungeonCombat; var hero = _session.DungeonMember; var build = hero.Tactics!.Build!;
         DrawDungeonFeedback();
         foreach (var warning in _session.RoagTelegraphs()) foreach (var cell in warning.Cells)
         {
@@ -278,16 +293,18 @@ internal sealed partial class WorldGame
             var tile = TileRect(actor.Position); var bar = new Rectangle(tile.X + 4, tile.Bottom - 5, tile.Width - 8, 3);
             FillClipped(bar, new Color(16, 22, 27));
             FillClipped(bar with { Width = Math.Max(0, bar.Width * actor.Health / actor.MaxHealth) }, actor.Recruited ? Gold : new Color(240, 112, 78));
+            if (actor.Life == LifeState.Downed) Text($"DOWN {actor.Tactics!.BleedTurns}", tile.X, tile.Y - 12, new Color(240, 112, 78));
             if (combat.IsContractTarget(actor.Id)) FillClipped(new(tile.X + 5, tile.Y + 3, tile.Width - 10, 2), Gold);
             if (actor.Tactics!.Guarding)
                 foreach (var cell in AttackGeometry.Arc(actor.Position, actor.Tactics.Facing))
                     if (_session.Visible.Contains(cell)) FillClipped(TileRect(cell), Gold * .08f);
         }
         int x = _side.X + 14, y = _side.Y + 14;
+        if (_session.Party.Count(a => a.Life != LifeState.Dead) > 1) y += _session.Party.Count(a => a.Life != LifeState.Dead) * 48 + 8;
         Text(ClassCatalog.Get(build.Class).Name.ToUpperInvariant(), x, y, Gold); y += 26;
         Text($"HP {hero.Health}/{hero.MaxHealth} / level {build.Level}", x, y); y += 24;
         Text($"XP {build.Experience}/{CharacterBuild.NextThreshold(build.Level)}", x, y, Muted); y += 24;
-        Text($"Gold {_session.Count("gold")}", x, y, Gold); y += 30;
+        Text($"Gold {_session.Count("gold")} / medicine {_session.Count("medicine")}", x, y, Gold); y += 30;
         if (_session.State.Dungeon!.Victory) { Text("REGENT DEFEATED", x, y, Gold); y += 24; }
         Text("Aim: " + _roagAim.Replace('_', ' '), x, y, Muted); y += 24;
         var supplies = hero.Tactics.Supplies;
@@ -303,10 +320,13 @@ internal sealed partial class WorldGame
         if (resource.Length > 0) { Text(resource, x, y, Gold); y += 24; }
         if (_notice.Length > 0 && !_notice.StartsWith("WASD /", StringComparison.Ordinal)
             && _notice is not ("Action committed." or "Choose your fixed starting class."))
-        { y += Wrap(_notice, x, y, _side.Width - 28, Muted); y += 8; }
-        Text("TURN TIMELINE", x, y, Gold); y += 24;
-        Text(_session.State.AwaitingContinuation ? "Run ended" : "You: ready now", x, y); y += 22;
-        foreach (var entry in combat.VisibleTimeline().Take(5))
+        { y += Wrap(Short(_notice, 96), x, y, _side.Width - 28, Muted); y += 8; }
+        if (y + 46 < _side.Bottom)
+        {
+            Text("TURN TIMELINE", x, y, Gold); y += 24;
+            Text(_session.State.AwaitingContinuation ? "Run ended" : "Ready: " + Short(combat.Active?.Name ?? "none", 24), x, y); y += 22;
+        }
+        foreach (var entry in combat.VisibleTimeline().Take(Math.Clamp((_side.Bottom - y - 16) / 20, 0, 5)))
         {
             var actor = _session.State.Actors.FirstOrDefault(a => a.Id == entry.ActorId);
             string name = actor == null || !actor.Recruited && !_session.Visible.Contains(actor.Position) ? "Ground effect" : actor.Name;
@@ -314,11 +334,13 @@ internal sealed partial class WorldGame
             Text(Short($"{Math.Max(0, entry.Due - combat.Clock) / 100.0:0.00}s {name} {kind}", 34), x, y, entry.Kind == ScheduledKind.Impact ? new Color(240, 112, 78) : Muted);
             y += 20;
         }
-        y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
+        y += 14;
+        if (y + 44 < _side.Bottom) { Text("RECENT EVENTS", x, y, Gold); y += 22; }
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
                      && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
                      or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" or "EliteDefeated" or "Victory").TakeLast(4))
         {
+            if (y + 20 >= _side.Bottom) break;
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }
         if (_session.State.AwaitingContinuation)
@@ -334,6 +356,13 @@ internal sealed partial class WorldGame
         int dx = Math.Sign((int)Math.Floor(point.X) - hero.Position.X), dy = Math.Sign((int)Math.Floor(point.Y) - hero.Position.Y);
         if (_roagAim == "use_utility") { if (Math.Abs(point.X - hero.Position.X) >= Math.Abs(point.Y - hero.Position.Y)) dy = 0; else dx = 0; }
         var preview = _session.PreviewDungeonAim(SelectedRoagAim(dx, dy));
+        if (preview.Valid && _roagAim is "basic_attack" or "sweeping_slash")
+        {
+            var allies = _session.Party.Where(a => a.Id != hero.Id && a.Life != LifeState.Dead
+                && _session.Visible.Contains(a.Position) && preview.Cells.Contains(a.Position)).ToArray();
+            if (allies.Length > 0) Text("FRIENDLY FIRE: " + string.Join(", ", allies.Select(a => ClassCatalog.Get(a.Tactics!.Build!.Class).Name)),
+                _map.X + 4, _map.Bottom - 68, new Color(240, 112, 78));
+        }
         var previewCells = _roagAim == "guard" && AttackGeometry.TryFacing(dx, dy, out var guardFacing)
             ? AttackGeometry.Arc(hero.Position, guardFacing) : preview.Cells;
         foreach (var cell in previewCells)
@@ -357,7 +386,11 @@ internal sealed partial class WorldGame
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
+        if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
+        if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         Text(title, x, y, Gold, 1.3f); y += 48;
+        if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
+        if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-new-confirm")
         {
             Text("START A NEW RUN?", x, y, Gold); y += 32;
@@ -377,7 +410,7 @@ internal sealed partial class WorldGame
                 ? (int)(Math.Sin(Math.Clamp(opening / .4, 0, 1) * Math.PI) * 5) : 0;
             _sprites.Fit(_batch, "chest-open", new(x - pop, y - 6 - pop, 28 + pop * 2, 28 + pop * 2), Gold);
             Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x + 40, y, Gold); y += 34;
-            var offers = _session.DungeonCombat.ChestOffers(chest.Id, _session.State.Party[0]);
+            var offers = _session.DungeonCombat.ChestOffers(chest.Id, _session.DungeonMember.Id);
             for (int i = 0; i < offers.Count; i++)
             {
                 var offer = offers[i]; var boon = BoonCatalog.Default.Get(offer.Boon);
@@ -390,18 +423,18 @@ internal sealed partial class WorldGame
         }
         else if (_panel == "dungeon-routes")
         {
-            var routes = _session.AvailableDungeonRoutes(_session.State.Party[0]);
+            var routes = _session.AvailableDungeonRoutes(_session.DungeonMember.Id);
             Text("Opening a route spends one action. Then walk down its stairs; cleared floors remain.", x, y, Muted);
             for (int i = 0; i < routes.Count; i++) Wrap(routes[i].Description, x + 6, box.Y + 142 + i * 100, box.Width - 60, Muted);
         }
         else if (_panel == "dungeon-guide")
         {
-            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
             Wrap("Controller: D-pad / left stick moves one tile per press. X aims basic, Y special, right shoulder movement. Left shoulder aims Guard, or toggles Vow during attack aim. Right trigger waits. A interacts; left-stick press also interacts. Right-stick press opens utilities. Start opens the menu / cancels aim; Back toggles the map; left trigger opens boons. In menus, D-pad selects, A confirms, B closes. Keyboard menus use arrows, number keys and Enter. F1 opens help, I/V inspect boons, Tab toggles the explored map, Escape opens the menu.", x, y + 16, box.Width - 48, Muted);
         }
         else if (_panel == "dungeon-utility")
         {
-            var utility = _session.Party.Single().Tactics!.Supplies.Utility;
+            var utility = _session.DungeonMember.Tactics!.Supplies.Utility;
             if (utility == null) Text("Empty. Find a utility service or travelling trader.", x, y, Muted);
             else
             {
@@ -417,10 +450,10 @@ internal sealed partial class WorldGame
         {
             var node = _session.State.Tactics!.Services.Nodes.Single(n => n.Id == _nativeService);
             Text(TacticalCombat.ServiceName(node.Kind) + (node.Bell is { Number: > 0 } bell ? " " + bell.Number : "") + $" / purse {_session.Count("gold")}", x, y, Gold);
-            var choices = _session.DungeonCombat.DungeonServiceChoices(node.Id, _session.State.Party[0]);
+            var choices = _session.DungeonCombat.DungeonServiceChoices(node.Id, _session.DungeonMember.Id);
             if (choices.Count == 0) Wrap(node.UsedBy == 0 && node.Kind is DungeonServiceKind.AttunementForge or DungeonServiceKind.Memorial
                 ? "No eligible owned stack or replacement. Nothing is spent."
-                : _session.DungeonCombat.DungeonServiceDescription(node.Id, _session.State.Party[0]), x, y + 40, box.Width - 48, Muted);
+                : _session.DungeonCombat.DungeonServiceDescription(node.Id, _session.DungeonMember.Id), x, y + 40, box.Width - 48, Muted);
             foreach (var option in choices.Skip(_nativeServicePage * 2).Take(2))
             {
                 int rowY = box.Y + 96 + (option.Choice - 1) % 2 * 160;
@@ -432,14 +465,14 @@ internal sealed partial class WorldGame
         }
         else if (_panel == "dungeon-service-replace")
         {
-            var current = _session.Party.Single().Tactics!.Supplies.Utility;
-            var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.State.Party[0]).Single(o => o.Choice == _nativeReplacementChoice);
+            var current = _session.DungeonMember.Tactics!.Supplies.Utility;
+            var option = _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id).Single(o => o.Choice == _nativeReplacementChoice);
             Wrap($"Exchange {UtilityName(current!.Kind)} for {UtilityName(option.Utility!.Value)}? The old charge and any planted marker will be lost."
                 + (option.Price > 0 ? $" Pay {option.Price} gold." : ""), x, y, box.Width - 48);
         }
         else if (_panel == "dungeon-boons")
         {
-            var owned = _session.Party.Single().Tactics!.Boons.Inventory.Stacks;
+            var owned = _session.DungeonMember.Tactics!.Boons.Inventory.Stacks;
             if (owned.Count == 0) Text("Find boon chests to develop your build.", x, y, Muted);
             foreach (var pair in owned.OrderBy(p => p.Key).Skip(_nativeBoonPage * 3).Take(3))
             {

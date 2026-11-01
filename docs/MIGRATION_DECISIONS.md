@@ -8,6 +8,8 @@ The active user goal authorizes **items 7–8 and player-controlled combat rescu
 
 Recruitment decision (2026-11-01): persistent fixed-class adventurers appear in safe dungeon rooms. Their class is visible before recruitment; joining costs one action and no gold. Recruitment does not relocate anyone. Numerical placement/recovery choices are delegated and must be documented and tested.
 
+Chest locality decision (2026-11-01): **only the member physically opening a boon chest can receive its boon**. Bring the chosen recipient beside it and use their own scheduled action. Recipient selection still precedes the three class-eligible offers; shared supplies do not permit remote boon assignment.
+
 Rescue retains one adjacent rescuer, one medicine and one action, 25% maximum HP (floor, minimum one), five own scheduled turns of bleed-out, shortening by damaging hits and reset on repeat downing. All-down is not immediate defeat; scheduled consequences continue until final death. NPC rescue remains deferred.
 
 Equipment/cooperation (9), NPC rescue and remaining survival/camping/society/ecology/expanded-world/special-dungeon/new-boss/open-campaign/profile work remain deferred. Preserve their foundations. Regular atomic commits remain authorized. Completion requires appropriate regression, real-input rendered four-member recruitment/boss/split-floor/rescue/exact-save verification, distinct and duplicate-class ownership checks and an updated reproducible Linux package. Then stop for the user's playtest. The eight full-migration gates remain separate and open.

@@ -11,7 +11,7 @@ internal sealed partial class WorldGame
 
     private WorldMouseControl[] DungeonMenuChoices() => _controls.Where(c => c.Enabled && c.Id.StartsWith("dungeon:", StringComparison.Ordinal)
         && (_session.State.AwaitingContinuation && _panel.Length == 0 ? c.Id is "dungeon:new" or "dungeon:death-save"
-            : c.Id is not ("dungeon:save" or "dungeon:boons" or "dungeon:menu" or "dungeon:utility" or "dungeon:map"))).ToArray();
+            : c.Id is not ("dungeon:save" or "dungeon:boons" or "dungeon:menu" or "dungeon:utility" or "dungeon:map" or "dungeon:party"))).ToArray();
 
     private void EnsureDungeonMenuFocus(WorldMouseControl[] choices)
     {
