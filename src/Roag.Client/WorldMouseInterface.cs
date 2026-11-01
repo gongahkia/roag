@@ -567,11 +567,14 @@ internal sealed partial class WorldGame
                 native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
                 player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
-                    classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
+                    classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,
+                    a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
                 timeline = _session.DungeonCombat.VisibleTimeline(),
                 fighters = _session.RoagFighters(),
                 telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
+                loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
+                menuFocus = _controllerFocus,
                 secrets = _session.State.Tactics.Secrets.Nodes.Where(s => _session.Visible.Contains(s.Clue))
                     .Select(s => new { s.Id, kind = s.Kind.ToString(), position = s.Clue, s.Revealed }),
                 roomFeatures = _session.State.Tactics.RoomFeatures.Nodes.Where(f => _session.Visible.Contains(f.Position))

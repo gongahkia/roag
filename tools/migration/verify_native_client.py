@@ -86,6 +86,21 @@ try:
     moved = read('observation.json')['ui']
     assert moved['position'] == dict(x=position['x'], y=position['y'] + 1, floor=position['floor']), moved['notice']
     clock = moved['nativeDungeon']['clock']
+    def keypress(key):
+        global sequence
+        observation = read('observation.json'); sequence += 1
+        spec = dict(schemaVersion=1,id='native-' + str(sequence),observation=observation['observation'],kind='wait',seconds=.6)
+        temporary=control/'request.tmp';temporary.write_text(json.dumps(spec));temporary.replace(control/'request.json')
+        time.sleep(.12);subprocess.run(['xdotool','keydown',key],check=True);time.sleep(.15);subprocess.run(['xdotool','keyup',key],check=True)
+        until(lambda:(r if(r:=read('response.json'))and r['id']==spec['id']else None))
+        ui=read('observation.json')['ui'];assert ui['nativeDungeon']['clock']==clock;return ui
+    assert keypress('F1')['panel']=='dungeon-guide'
+    evidence('03-keyboard-help')
+    assert keypress('Escape')['panel']==''
+    assert keypress('Escape')['panel']=='dungeon-menu'
+    keypress('Down')
+    assert keypress('Return')['panel']=='dungeon-guide'
+    assert keypress('Escape')['panel']==''
     # Inspection and rendering must not advance the shared action clock.
     request('control', control='dungeon:boons'); time.sleep(.2)
     observed = request('capture')
@@ -132,7 +147,7 @@ try:
     request('stop'); process.wait(timeout=10)
     (output / 'result.json').write_text(json.dumps(dict(passed=True, seed=42, classId='Tinkerer',
         clock=clock, checks=['native class selection', 'mouse-aimed sentry', 'paid physical keyboard movement',
-        'free inspection/rendering', 'free utility inspection', 'all presentation controls consume no time', 'persisted sans/large/high-contrast/reduced-motion/mute preferences',
+        'free inspection/rendering', 'free physical keyboard help/menu navigation', 'free utility inspection', 'all presentation controls consume no time', 'persisted sans/large/high-contrast/reduced-motion/mute preferences',
         'continuing save', 'rendered resume with exact class/resources/supplies/clock'], audio=appearance, display=os.environ.get('DISPLAY')), indent=2) + '\n')
     print('Native rendered class, construct, keyboard, inspection, save and exact resume checkpoint passed.')
 finally:

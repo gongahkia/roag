@@ -25,3 +25,8 @@ The individual tileset directories contain CC0 licenses. No dungeon-generation
 library code is imported. Match evidence is in reference/urizen-names.json.
 Regolith usage suggestions and uncertain visual labels are local documentation,
 not author-provided meanings or active runtime sprite bindings.
+
+Native UI text fonts (separate from gameplay sprites)
+BigBlue TerminalPlus by VileR (2015), CC BY-SA 4.0; see fonts/LICENSE-BigBlue-Terminal.txt.
+Source Code Pro Regular by Adobe (2023), SIL Open Font License 1.1; see fonts/LICENSE-SourceCodePro.md.
+Source fonts are unmodified; tools/build_ui_fonts.py produces the cached text glyphs.

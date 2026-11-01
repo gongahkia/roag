@@ -48,7 +48,8 @@ internal sealed partial class WorldGame
     private Keys[] DungeonControllerKeys(GamePadState pad, bool focused)
     {
         var previous = _dungeonPad; _dungeonPad = pad;
-        if (_session.State.Dungeon == null || !focused) { _controllerFocus = null; return []; }
+        if (_session.State.Dungeon == null) { _controllerFocus = null; return []; }
+        if (!focused) return [];
         if (!pad.IsConnected) return [];
         bool Press(Buttons button) => DungeonController.Press(pad, previous, button);
         if (_panel.Length > 0 || _session.State.AwaitingContinuation)
