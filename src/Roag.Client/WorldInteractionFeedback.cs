@@ -60,6 +60,7 @@ internal static class WorldInspection
             if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe it again to inspect its current state.", "Move with the keyboard", "", "object");
             string detail = feature.Used ? "Already collected or broken. Its reward cannot be repeated." : feature.Kind switch
             {
+                DungeonRoomFeatureKind.PressurePlate => "Any actor crossing this plate opens its adjacent gate for three seconds. Standing here does not keep extending the timer.",
                 DungeonRoomFeatureKind.Ore => "Any performed attack footprint breaks it once, leaving three gold on this tile.",
                 DungeonRoomFeatureKind.Ward => "Cross to gain a ward that blocks one positive hit and lasts three own actions. Existing focus is retained.",
                 DungeonRoomFeatureKind.Brazier => "Cross to clear sight-blocking mist within two tiles for three seconds. "
@@ -68,6 +69,13 @@ internal static class WorldInspection
                 _ => "Room scenery. It does not block movement or projectiles."
             };
             return new(title, detail, feature.Kind == DungeonRoomFeatureKind.Ore ? "Aim an attack with F or R" : "Move with the keyboard", "", "object");
+        }
+        if (session.State.Tactics?.Gates.Nodes.FirstOrDefault(g => g.Position == cell) is { } gate)
+        {
+            if (!session.Visible.Contains(cell)) return new("Timed gate (remembered)", "Observe this gate again to inspect its current state.", "Move with the keyboard", "", "object");
+            return new("Timed gate", gate.CloseAt == 0 ? "Closed. Cross its adjacent pressure plate to open it; walking into the gate cannot open it."
+                : gate.CloseAt <= session.DungeonCombat.Clock ? "Closure is due. It stays open until its tile is unoccupied."
+                : $"Closes in {(gate.CloseAt - session.DungeonCombat.Clock) / 100.0:0.00}s. It waits for anyone occupying the gate tile.", "Move with the keyboard", "", "object");
         }
         if (session.DungeonDoorAt(cell) != null)
         {

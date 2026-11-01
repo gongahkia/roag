@@ -35,8 +35,10 @@ public static class TacticalValidation
         state.Services.Validate(plan, world, content);
         if (state.Doors == null) throw new InvalidDataException("Missing native door registry.");
         state.Doors.Validate(plan, world, content);
+        if (state.Gates == null) throw new InvalidDataException("Missing physical gate registry.");
         if (state.RoomFeatures == null) throw new InvalidDataException("Missing room feature registry.");
         state.RoomFeatures.Validate(plan, world, content);
+        state.Gates.Validate(plan, world, content);
         if (state.OptionalTerrain == null) throw new InvalidDataException("Missing optional terrain state.");
         state.OptionalTerrain.Validate(plan, world, content);
         if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))
@@ -239,7 +241,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
-            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact) continue;
+            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact or ScheduledKind.GateClosure) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)

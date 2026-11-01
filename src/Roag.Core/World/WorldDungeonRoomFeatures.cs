@@ -34,6 +34,19 @@ public sealed partial class WorldSession
             }
             return false;
         }
+        foreach (var candidate in candidates.Where(c => !c.Room).OrderBy(c => RoagRandom.Derive(seed, "timed-gate:" + c.Position.X + "," + c.Position.Y)))
+        {
+            var gate = candidate.Position;
+            if (!Safe(gate) || EncounterDirections.Count(d => Materials.Walkable(Chunks.At(gate.Offset(d.X, d.Y)))) < 2) continue;
+            bool placed = false;
+            foreach (var (dx, dy) in EncounterDirections)
+            {
+                var plate = gate.Offset(dx, dy); string marker = $"floor:{origin.Floor}/timed-gate/{gate.X},{gate.Y}";
+                if (!Safe(plate) || !combat.CanPlaceTimedGate(marker, gate, plate)) continue;
+                combat.SpawnTimedGate(marker, gate, plate); placed = true; break;
+            }
+            if (placed) break;
+        }
         foreach (var kind in new[] { DungeonRoomFeatureKind.Pillar, DungeonRoomFeatureKind.Ore, DungeonRoomFeatureKind.Brazier, DungeonRoomFeatureKind.Ward })
             Place(kind, room: true);
         DungeonRoomFeatureKind? scenery = layout.Biome switch

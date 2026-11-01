@@ -12,6 +12,7 @@ public sealed class DungeonPopulationTests
     public void FiniteServicesNaturallyCoverEveryCurrentKindWithoutRepaintingOrStartingTime()
     {
         var kinds = new HashSet<DungeonServiceKind>();
+        int timedGates = 0;
         for (int seed = 0; seed < 24; seed++)
         {
             using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
@@ -20,6 +21,16 @@ public sealed class DungeonPopulationTests
             foreach (var floor in world.State.Dungeon!.Floors)
             {
                 var secret = Assert.Single(state.Secrets.Nodes, n => n.Position.Floor == floor.Origin.Floor);
+                var gates = state.Gates.Nodes.Where(g => g.Position.Floor == floor.Origin.Floor).ToArray();
+                Assert.InRange(gates.Length, 0, 1); timedGates += gates.Length;
+                foreach (var gate in gates)
+                {
+                    var plate = Assert.Single(state.RoomFeatures.Nodes, n => n.Gate == gate.Id);
+                    Assert.Equal(1, gate.Position.Distance(plate.Position)); Assert.Equal(DungeonRoomFeatureKind.PressurePlate, plate.Kind);
+                    Assert.Equal(Material.ClosedDoor, world.Chunks.At(gate.Position)); Assert.Equal(0, gate.Schedule);
+                    Assert.DoesNotContain(floor.Rooms, r => r.Contains(gate.Position));
+                    Assert.Equal("dungeon-gate", world.ObjectAt(gate.Position)!.Kind);
+                }
                 Assert.False(secret.Revealed); Assert.Equal(0, secret.Reward);
                 var features = state.RoomFeatures.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor).ToArray();
                 foreach (var required in new[] { DungeonRoomFeatureKind.Ore, DungeonRoomFeatureKind.Brazier, DungeonRoomFeatureKind.Ward, DungeonRoomFeatureKind.Pillar })
@@ -62,6 +73,7 @@ public sealed class DungeonPopulationTests
             TacticalValidation.Validate(world.Plan, world.State);
         }
         Assert.Equal(Enum.GetValues<DungeonServiceKind>().Order(), kinds.Order());
+        Assert.True(timedGates > 0);
     }
 
     [Fact]

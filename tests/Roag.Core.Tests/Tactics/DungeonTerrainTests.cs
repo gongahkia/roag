@@ -49,9 +49,13 @@ public sealed partial class DungeonTerrainTests
     {
         var world = WorldSession.CreateDungeonRun(42, kind);
         var start = world.Party.Single().Position;
+        bool InArena(WorldPosition p) => p.Floor == start.Floor && Math.Abs(p.X - start.X) <= 4 && Math.Abs(p.Y - start.Y) <= 4;
+        var gates = world.DungeonCombat.State.Gates;
+        var replacedGates = gates.Nodes.Where(g => InArena(g.Position)
+            || world.DungeonCombat.State.RoomFeatures.Nodes.Any(n => n.Gate == g.Id && InArena(n.Position))).ToArray();
+        foreach (var gate in replacedGates) { world.Chunks.Edit(gate.Position, Material.Floor); gates.Nodes.Remove(gate); }
         // This fixture replaces a local authored area with an empty arena.
-        world.DungeonCombat.State.RoomFeatures.Nodes.RemoveAll(n => n.Position.Floor == start.Floor
-            && Math.Abs(n.Position.X - start.X) <= 4 && Math.Abs(n.Position.Y - start.Y) <= 4);
+        world.DungeonCombat.State.RoomFeatures.Nodes.RemoveAll(n => InArena(n.Position) || replacedGates.Any(g => g.Id == n.Gate));
         for (int y = -4; y <= 4; y++) for (int x = -4; x <= 4; x++)
         {
             var p = start.Offset(x, y);

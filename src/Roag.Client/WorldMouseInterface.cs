@@ -576,6 +576,8 @@ internal sealed partial class WorldGame
                     .Select(f => new { f.Id, kind = f.Kind.ToString(), f.Position, f.Used, f.LitUntil }),
                 doors = _session.State.Tactics.Doors.Nodes.Where(d => _session.Visible.Contains(d.Position))
                     .Select(d => new { d.Id, d.Position, open = _session.Chunks.At(d.Position) == Material.Door }),
+                gates = _session.State.Tactics.Gates.Nodes.Where(g => _session.Visible.Contains(g.Position))
+                    .Select(g => new { g.Id, g.Position, open = _session.Chunks.At(g.Position) == Material.Door, g.CloseAt }),
                 services = _session.State.Tactics.Services.Nodes.Where(n => _session.Visible.Contains(n.Position)).Select(n => new
                 {
                     n.Id, kind = n.Kind.ToString(), name = Roag.Core.Tactics.TacticalCombat.ServiceName(n.Kind), n.Position, n.UsedBy,

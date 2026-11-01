@@ -123,6 +123,12 @@ public sealed partial class TacticalCombat
                 if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
+            if (work.Kind == ScheduledKind.GateClosure)
+            {
+                ResolveAtomically(RootCause(0), () => ResolveGateClosure(work));
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
             if (work.Kind == ScheduledKind.Effect)
             {
                 if (!ResolveBoonWork(work))
@@ -403,7 +409,8 @@ public sealed partial class TacticalCombat
         var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.EmberPulse
             ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : e.Kind == ScheduledKind.TerrainCycle
                 ? State.OptionalTerrain.Nodes.Any(n => n.Schedule == e.Sequence && n.Phase == OptionalTerrainPhase.Warning && _world.Visible.Contains(n.Position))
-                : e.Kind == ScheduledKind.FixtureImpact ? State.Services.Nodes.Any(n => n.Fixture?.Pending?.Schedule == e.Sequence && _world.Visible.Contains(n.Fixture.Center)) : Visible(e.ActorId))
+                : e.Kind == ScheduledKind.FixtureImpact ? State.Services.Nodes.Any(n => n.Fixture?.Pending?.Schedule == e.Sequence && _world.Visible.Contains(n.Fixture.Center))
+                : e.Kind == ScheduledKind.GateClosure ? State.Gates.Nodes.Any(g => g.Schedule == e.Sequence && _world.Visible.Contains(g.Position)) : Visible(e.ActorId))
             .Select(e => new TacticalTimelineEntry(e.Kind, e.ActorId, e.Due, e.ReferenceId, false, e.Sequence));
         var projected = State.Attacks.Where(a => a.RecoveryCost != null && Visible(a.Source))
             .Select(a => new TacticalTimelineEntry(ScheduledKind.ActorReady, a.Source,

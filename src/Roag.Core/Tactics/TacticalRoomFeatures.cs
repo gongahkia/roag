@@ -3,9 +3,9 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum DungeonRoomFeatureKind { Ore, Brazier, Ward, Pillar, Overgrowth, Mushroom, MineRail, Crystal }
+public enum DungeonRoomFeatureKind { Ore, Brazier, Ward, Pillar, Overgrowth, Mushroom, MineRail, Crystal, PressurePlate }
 public sealed record DungeonRoomFeature(long Id, string Marker, DungeonRoomFeatureKind Kind, WorldPosition Position,
-    bool Used = false, long LitUntil = 0, int Variant = 1);
+    bool Used = false, long LitUntil = 0, int Variant = 1, long Gate = 0);
 
 public sealed class DungeonRoomFeatureState
 {
@@ -37,6 +37,7 @@ public sealed class DungeonRoomFeatureState
                 || node.Kind != DungeonRoomFeatureKind.Brazier && node.LitUntil != 0
                 || node.LitUntil > world.Tactics!.Queue.Clock && node.LitUntil - world.Tactics.Queue.Clock > 300
                 || node.Used && node.Kind is not (DungeonRoomFeatureKind.Ore or DungeonRoomFeatureKind.Ward)
+                || node.Gate < 0 || (node.Kind == DungeonRoomFeatureKind.PressurePlate) != (node.Gate > 0)
                 || chunks!.At(node.Position) != (node.Kind == DungeonRoomFeatureKind.Pillar ? Material.Pillar : Material.Floor))
                 throw new InvalidDataException("Invalid room feature identity, physical tile or finite state.");
             previous = node.Id;
@@ -55,11 +56,12 @@ public sealed partial class TacticalCombat
             && !State.RoomFeatures.Nodes.Any(n => n.Position == position || n.Marker == marker)
             && (kind != DungeonRoomFeatureKind.Pillar || TerrainRemovalPreservesRoutes(position));
 
-    public DungeonRoomFeature SpawnRoomFeature(DungeonRoomFeatureKind kind, string marker, WorldPosition position, int variant = 1)
+    public DungeonRoomFeature SpawnRoomFeature(DungeonRoomFeatureKind kind, string marker, WorldPosition position, int variant = 1, long gate = 0)
     {
-        if (variant is < 1 or > 2 || !CanPlaceRoomFeature(kind, marker, position))
+        if (variant is < 1 or > 2 || (kind == DungeonRoomFeatureKind.PressurePlate) != (gate > 0)
+            || gate > 0 && !State.Gates.Nodes.Any(g => g.Id == gate) || !CanPlaceRoomFeature(kind, marker, position))
             throw new ArgumentException("A room feature needs its own clear plain ground without sealing an accessible route.");
-        var node = new DungeonRoomFeature(State.RoomFeatures.NextFeature++, marker, kind, position, Variant: variant);
+        var node = new DungeonRoomFeature(State.RoomFeatures.NextFeature++, marker, kind, position, Variant: variant, Gate: gate);
         State.RoomFeatures.Nodes.Add(node);
         if (kind == DungeonRoomFeatureKind.Pillar) { _world.Chunks.Edit(position, Material.Pillar); _world.Reveal(); }
         return node;
@@ -72,6 +74,8 @@ public sealed partial class TacticalCombat
         for (int i = 0; i < State.RoomFeatures.Nodes.Count; i++)
         {
             var node = State.RoomFeatures.Nodes[i];
+            if (node.Kind == DungeonRoomFeatureKind.PressurePlate && e.Kind == BoonTrigger.TileEntered && e.Position == node.Position)
+            { OpenTimedGate(node.Gate, e.SourceId ?? 0, action); continue; }
             if (node.Kind == DungeonRoomFeatureKind.Ore && !node.Used && e.Kind == BoonTrigger.AttackPerformed && e.TargetCells.Contains(node.Position))
             {
                 State.RoomFeatures.Nodes[i] = node with { Used = true };
@@ -104,6 +108,7 @@ public sealed partial class TacticalCombat
         DungeonRoomFeatureKind.Ward => "Ward flask", DungeonRoomFeatureKind.Pillar => "Stone pillar",
         DungeonRoomFeatureKind.Overgrowth => "Overgrowth", DungeonRoomFeatureKind.Mushroom => "Mushrooms",
         DungeonRoomFeatureKind.MineRail => "Mine rail", DungeonRoomFeatureKind.Crystal => "Crystal growth",
+        DungeonRoomFeatureKind.PressurePlate => "Pressure plate",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 }

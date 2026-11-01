@@ -378,6 +378,10 @@ internal sealed partial class WorldGame
         foreach (var chest in state.Chests.Chests)
             if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
                 _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));
+        foreach (var gate in state.Gates.Nodes)
+            if (gate.Position.Floor == _session.State.Position.Floor && _session.Chunks.Seen(gate.Position) && _map.Intersects(TileRect(gate.Position)))
+                _sprites.Fit(_batch, _session.Visible.Contains(gate.Position) && _session.Chunks.At(gate.Position) == Material.Door ? "gate-open" : "gate", TileRect(gate.Position),
+                    _session.Visible.Contains(gate.Position) ? Gold : Gold * .35f);
         foreach (var node in state.Services.Nodes)
             if (_session.Chunks.Seen(node.Position) && node.Position.Floor == _session.State.Position.Floor && _map.Intersects(TileRect(node.Position)))
             {

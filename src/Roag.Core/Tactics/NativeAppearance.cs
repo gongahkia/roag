@@ -9,6 +9,7 @@ public static class NativeAppearance
         DungeonRoomFeatureKind.Brazier => "brazier", DungeonRoomFeatureKind.Ward => "shield",
         DungeonRoomFeatureKind.Overgrowth => "shrub", DungeonRoomFeatureKind.Mushroom => "mushroom",
         DungeonRoomFeatureKind.MineRail => "roag-room-mine-rail", DungeonRoomFeatureKind.Crystal => "crystal",
+        DungeonRoomFeatureKind.PressurePlate => "mark",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 
