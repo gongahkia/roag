@@ -61,6 +61,9 @@ Thinking, menus, aiming, inspection and rendering do not advance the timeline.
 Orange locked cells show enemy attack impacts; move out before their due time.
 Watch the timeline and class recovery. Doors take a paid opening action before
 entry. Boon chests show three eligible offers and their cost before confirmation.
+After an elite falls, return to its marked stage exit: Enter or an adjacent
+click opens route choices. Opening a route costs an action; then walk down
+the new stairs. The marker remains at the exit even if the elite moved.
 
 ## Saves, settings and defeat
 

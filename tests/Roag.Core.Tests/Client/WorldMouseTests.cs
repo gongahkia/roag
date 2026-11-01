@@ -31,6 +31,32 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void NativeStageExitIsInspectableAndItsAdjacentClickOpensTheFreeRouteMenu()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        var floor = session.State.Dungeon!.Floors.Single(f => f.Boss > 0);
+        var boss = session.ActorById(floor.Boss); boss.Position = floor.Exit.Offset(2, 0);
+        var hero = session.Party.Single(); hero.Position = session.State.Position = floor.Exit.Offset(-1, 0);
+        session.Chunks.Edit(hero.Position, Material.Floor); session.Reveal();
+        var camera = (MapCamera)Field("_camera").GetValue(client)!;
+        camera.Center = new(hero.Position.X + .5f, hero.Position.Y + .5f);
+        var screen = camera.WorldToScreen(new(floor.Exit.X + .5f, floor.Exit.Y + .5f));
+        var pointer = new Point((int)screen.X, (int)screen.Y);
+        Assert.Contains("Sealed", WorldInspection.Inspect(session, floor.Exit).Title);
+        string sealedState = JsonSerializer.Serialize(session.State);
+        Assert.True((bool)Invoke(client, "TryOpenDungeonRoute", pointer)!);
+        Assert.Equal("", Field("_panel").GetValue(client)); Assert.Equal(sealedState, JsonSerializer.Serialize(session.State));
+        boss.Health = 0; boss.Life = LifeState.Dead; session.State.Dungeon.BossExitReceipts.Add(boss.Id);
+        Assert.Contains("choose a route", WorldInspection.Inspect(session, floor.Exit).Title);
+        string before = JsonSerializer.Serialize(session.State);
+        Assert.True((bool)Invoke(client, "TryOpenDungeonRoute", pointer)!);
+        Assert.Equal("dungeon-routes", Field("_panel").GetValue(client)); Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.Contains(Controls(client, "dungeon-routes"), c => c.Id == "dungeon:route:1" && c.Enabled);
+        session.Visible.Clear(); var remembered = WorldInspection.Inspect(session, floor.Exit);
+        Assert.Contains("remembered", remembered.Title); Assert.DoesNotContain("fallen", remembered.Detail);
+    }
+
+    [Fact]
     public void NativeEnemyInspectionShowsShieldCounterplayAndHidesUnseenState()
     {
         using var session = WorldSession.CreateDungeonRun(42);
