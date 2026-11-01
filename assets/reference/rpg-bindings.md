@@ -6,7 +6,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
-**181 semantic aliases, 94 font glyphs, 264 distinct runtime-bound IDs.**
+**284 semantic aliases, 94 font glyphs, 318 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -89,6 +89,109 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | relic | urizen-onebit-r13-c027 | magic / orb | author_metadata_visible_rgb_match / high | Render as relic; preserve the source identity and keep mechanics in game data. |
 | resident | urizen-onebit-r00-c105 | Figure row 00, profession column 01: hammer-like hand tool | visual_region_and_silhouette / low | Render as resident; preserve the source identity and keep mechanics in game data. |
 | resolve | godot-white-brain | brain | publisher_filename / high | Render as resolve; preserve the source identity and keep mechanics in game data. |
+| roag-boon-aftershock | godot-white-thunder | thunder | publisher_filename / high | Render as roag boon aftershock; preserve the source identity and keep mechanics in game data. |
+| roag-boon-alchemical-flip | godot-white-potion | potion | publisher_filename / high | Render as roag boon alchemical flip; preserve the source identity and keep mechanics in game data. |
+| roag-boon-anchor-maul | godot-white-hammer | hammer | publisher_filename / high | Render as roag boon anchor maul; preserve the source identity and keep mechanics in game data. |
+| roag-boon-backswing | godot-white-sword | sword | publisher_filename / high | Render as roag boon backswing; preserve the source identity and keep mechanics in game data. |
+| roag-boon-backtrail-mantle | godot-white-path_follow | path follow | publisher_filename / high | Render as roag boon backtrail mantle; preserve the source identity and keep mechanics in game data. |
+| roag-boon-battle-march | godot-white-boots | boots | publisher_filename / high | Render as roag boon battle march; preserve the source identity and keep mechanics in game data. |
+| roag-boon-beacon-afterglow | godot-white-flag | flag | publisher_filename / high | Render as roag boon beacon afterglow; preserve the source identity and keep mechanics in game data. |
+| roag-boon-beggars-cap | godot-white-hat | hat | publisher_filename / high | Render as roag boon beggars cap; preserve the source identity and keep mechanics in game data. |
+| roag-boon-betrayal-ward | godot-white-shield | shield | publisher_filename / high | Render as roag boon betrayal ward; preserve the source identity and keep mechanics in game data. |
+| roag-boon-bishops-wake | godot-white-triangle | triangle | publisher_filename / high | Render as roag boon bishops wake; preserve the source identity and keep mechanics in game data. |
+| roag-boon-bloodrush | godot-white-heart | heart | publisher_filename / high | Render as roag boon bloodrush; preserve the source identity and keep mechanics in game data. |
+| roag-boon-borrowed-guard | godot-white-shield | shield | publisher_filename / high | Render as roag boon borrowed guard; preserve the source identity and keep mechanics in game data. |
+| roag-boon-bramble-compact | godot-white-tree | tree | publisher_filename / high | Render as roag boon bramble compact; preserve the source identity and keep mechanics in game data. |
+| roag-boon-brokers-seal | godot-white-coin | coin | publisher_filename / high | Render as roag boon brokers seal; preserve the source identity and keep mechanics in game data. |
+| roag-boon-cinder-stopper | godot-white-glow | glow | publisher_filename / high | Render as roag boon cinder stopper; preserve the source identity and keep mechanics in game data. |
+| roag-boon-circuit-chorus | godot-white-signal | signal | publisher_filename / high | Render as roag boon circuit chorus; preserve the source identity and keep mechanics in game data. |
+| roag-boon-cluster-rupture | godot-white-area_damage | area damage | publisher_filename / high | Render as roag boon cluster rupture; preserve the source identity and keep mechanics in game data. |
+| roag-boon-counterweight | godot-white-gear | gear | publisher_filename / high | Render as roag boon counterweight; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crescent-reach | godot-white-sword | sword | publisher_filename / high | Render as roag boon crescent reach; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crossfire-omen | godot-white-target_2 | target 2 | publisher_filename / high | Render as roag boon crossfire omen; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crosswind | godot-white-wind | wind | publisher_filename / high | Render as roag boon crosswind; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crowdbreaker | godot-white-hammer | hammer | publisher_filename / high | Render as roag boon crowdbreaker; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crownfire | godot-white-glow | glow | publisher_filename / high | Render as roag boon crownfire; preserve the source identity and keep mechanics in game data. |
+| roag-boon-crystal-harmony | godot-white-gem | gem | publisher_filename / high | Render as roag boon crystal harmony; preserve the source identity and keep mechanics in game data. |
+| roag-boon-detonation-bloom | godot-white-area_damage | area damage | publisher_filename / high | Render as roag boon detonation bloom; preserve the source identity and keep mechanics in game data. |
+| roag-boon-distant-bastion | godot-white-tower | tower | publisher_filename / high | Render as roag boon distant bastion; preserve the source identity and keep mechanics in game data. |
+| roag-boon-doorward-lamp | godot-white-door | door | publisher_filename / high | Render as roag boon doorward lamp; preserve the source identity and keep mechanics in game data. |
+| roag-boon-earthshaker | godot-white-hammer | hammer | publisher_filename / high | Render as roag boon earthshaker; preserve the source identity and keep mechanics in game data. |
+| roag-boon-emberbrand | godot-white-glow | glow | publisher_filename / high | Render as roag boon emberbrand; preserve the source identity and keep mechanics in game data. |
+| roag-boon-executioners-thread | godot-white-skull | skull | publisher_filename / high | Render as roag boon executioners thread; preserve the source identity and keep mechanics in game data. |
+| roag-boon-expanding-sigil | godot-white-expand | expand | publisher_filename / high | Render as roag boon expanding sigil; preserve the source identity and keep mechanics in game data. |
+| roag-boon-fan-of-blades | godot-white-sword | sword | publisher_filename / high | Render as roag boon fan of blades; preserve the source identity and keep mechanics in game data. |
+| roag-boon-far-witness | godot-white-visibility | visibility | publisher_filename / high | Render as roag boon far witness; preserve the source identity and keep mechanics in game data. |
+| roag-boon-fateful-dice | godot-white-dice | dice | publisher_filename / high | Render as roag boon fateful dice; preserve the source identity and keep mechanics in game data. |
+| roag-boon-field-dressing | godot-white-heart | heart | publisher_filename / high | Render as roag boon field dressing; preserve the source identity and keep mechanics in game data. |
+| roag-boon-final-spark | godot-white-star | star | publisher_filename / high | Render as roag boon final spark; preserve the source identity and keep mechanics in game data. |
+| roag-boon-flashpoint | godot-white-particle | particle | publisher_filename / high | Render as roag boon flashpoint; preserve the source identity and keep mechanics in game data. |
+| roag-boon-fourfold-ledger | godot-white-grid | grid | publisher_filename / high | Render as roag boon fourfold ledger; preserve the source identity and keep mechanics in game data. |
+| roag-boon-fracture-dividend | godot-white-hammer | hammer | publisher_filename / high | Render as roag boon fracture dividend; preserve the source identity and keep mechanics in game data. |
+| roag-boon-froststep-catalyst | godot-white-freeze | freeze | publisher_filename / high | Render as roag boon froststep catalyst; preserve the source identity and keep mechanics in game data. |
+| roag-boon-funeral-coin | godot-white-skull | skull | publisher_filename / high | Render as roag boon funeral coin; preserve the source identity and keep mechanics in game data. |
+| roag-boon-grasping-hand | godot-white-hand | hand | publisher_filename / high | Render as roag boon grasping hand; preserve the source identity and keep mechanics in game data. |
+| roag-boon-grave-dividend | godot-white-skull | skull | publisher_filename / high | Render as roag boon grave dividend; preserve the source identity and keep mechanics in game data. |
+| roag-boon-grounding-rod | godot-white-thunder | thunder | publisher_filename / high | Render as roag boon grounding rod; preserve the source identity and keep mechanics in game data. |
+| roag-boon-guardians-vow | godot-white-shield | shield | publisher_filename / high | Render as roag boon guardians vow; preserve the source identity and keep mechanics in game data. |
+| roag-boon-harriers-response | godot-white-follow | follow | publisher_filename / high | Render as roag boon harriers response; preserve the source identity and keep mechanics in game data. |
+| roag-boon-hollow-crown | godot-white-trophy | trophy | publisher_filename / high | Render as roag boon hollow crown; preserve the source identity and keep mechanics in game data. |
+| roag-boon-hollow-sigil | godot-white-circle | circle | publisher_filename / high | Render as roag boon hollow sigil; preserve the source identity and keep mechanics in game data. |
+| roag-boon-hourglass-clasp | godot-white-time | time | publisher_filename / high | Render as roag boon hourglass clasp; preserve the source identity and keep mechanics in game data. |
+| roag-boon-knights-gambit | godot-white-follower | follower | publisher_filename / high | Render as roag boon knights gambit; preserve the source identity and keep mechanics in game data. |
+| roag-boon-linebreaker-pawn | godot-white-character | character | publisher_filename / high | Render as roag boon linebreaker pawn; preserve the source identity and keep mechanics in game data. |
+| roag-boon-long-wick | godot-white-light_bulb | light bulb | publisher_filename / high | Render as roag boon long wick; preserve the source identity and keep mechanics in game data. |
+| roag-boon-longblade-geometry | godot-white-expand | expand | publisher_filename / high | Render as roag boon longblade geometry; preserve the source identity and keep mechanics in game data. |
+| roag-boon-mirror-dividend | godot-white-mirror | mirror | publisher_filename / high | Render as roag boon mirror dividend; preserve the source identity and keep mechanics in game data. |
+| roag-boon-mist-lullaby | godot-white-audio | audio | publisher_filename / high | Render as roag boon mist lullaby; preserve the source identity and keep mechanics in game data. |
+| roag-boon-mist-veil | godot-white-visibility_off | visibility off | publisher_filename / high | Render as roag boon mist veil; preserve the source identity and keep mechanics in game data. |
+| roag-boon-needle-flight | godot-white-projectile | projectile | publisher_filename / high | Render as roag boon needle flight; preserve the source identity and keep mechanics in game data. |
+| roag-boon-opening-cut | godot-white-sword | sword | publisher_filename / high | Render as roag boon opening cut; preserve the source identity and keep mechanics in game data. |
+| roag-boon-ordered-ranks | godot-white-grid | grid | publisher_filename / high | Render as roag boon ordered ranks; preserve the source identity and keep mechanics in game data. |
+| roag-boon-overflow-chalice | godot-white-receptacle | receptacle | publisher_filename / high | Render as roag boon overflow chalice; preserve the source identity and keep mechanics in game data. |
+| roag-boon-packed-powder | godot-white-canon | canon | publisher_filename / high | Render as roag boon packed powder; preserve the source identity and keep mechanics in game data. |
+| roag-boon-pain-dividend | godot-white-hitbox | hitbox | publisher_filename / high | Render as roag boon pain dividend; preserve the source identity and keep mechanics in game data. |
+| roag-boon-passing-ember | godot-white-glow | glow | publisher_filename / high | Render as roag boon passing ember; preserve the source identity and keep mechanics in game data. |
+| roag-boon-patient-rebuke | godot-white-paused | paused | publisher_filename / high | Render as roag boon patient rebuke; preserve the source identity and keep mechanics in game data. |
+| roag-boon-perfect-guard | godot-white-shield | shield | publisher_filename / high | Render as roag boon perfect guard; preserve the source identity and keep mechanics in game data. |
+| roag-boon-phantom-lunge | godot-white-visibility_off | visibility off | publisher_filename / high | Render as roag boon phantom lunge; preserve the source identity and keep mechanics in game data. |
+| roag-boon-pilgrims-vow | godot-white-parchment | parchment | publisher_filename / high | Render as roag boon pilgrims vow; preserve the source identity and keep mechanics in game data. |
+| roag-boon-pommel-return | godot-white-reset | reset | publisher_filename / high | Render as roag boon pommel return; preserve the source identity and keep mechanics in game data. |
+| roag-boon-prospectors-heart | godot-white-gem | gem | publisher_filename / high | Render as roag boon prospectors heart; preserve the source identity and keep mechanics in game data. |
+| roag-boon-pulse-step | godot-white-boots | boots | publisher_filename / high | Render as roag boon pulse step; preserve the source identity and keep mechanics in game data. |
+| roag-boon-purging-seal | godot-white-clear | clear | publisher_filename / high | Render as roag boon purging seal; preserve the source identity and keep mechanics in game data. |
+| roag-boon-pursuit-spark | godot-white-follow | follow | publisher_filename / high | Render as roag boon pursuit spark; preserve the source identity and keep mechanics in game data. |
+| roag-boon-ration-reserve | godot-white-meat | meat | publisher_filename / high | Render as roag boon ration reserve; preserve the source identity and keep mechanics in game data. |
+| roag-boon-recurve | godot-white-reset_2 | reset 2 | publisher_filename / high | Render as roag boon recurve; preserve the source identity and keep mechanics in game data. |
+| roag-boon-reprisal-nova | godot-white-star | star | publisher_filename / high | Render as roag boon reprisal nova; preserve the source identity and keep mechanics in game data. |
+| roag-boon-resonant-wounds | godot-white-heart | heart | publisher_filename / high | Render as roag boon resonant wounds; preserve the source identity and keep mechanics in game data. |
+| roag-boon-rhythm-of-steel | godot-white-audio | audio | publisher_filename / high | Render as roag boon rhythm of steel; preserve the source identity and keep mechanics in game data. |
+| roag-boon-rime-disk | godot-white-freeze | freeze | publisher_filename / high | Render as roag boon rime disk; preserve the source identity and keep mechanics in game data. |
+| roag-boon-ring-of-reversal | godot-white-ring | ring | publisher_filename / high | Render as roag boon ring of reversal; preserve the source identity and keep mechanics in game data. |
+| roag-boon-road-flask | godot-white-potion | potion | publisher_filename / high | Render as roag boon road flask; preserve the source identity and keep mechanics in game data. |
+| roag-boon-rooks-wake | godot-white-tower | tower | publisher_filename / high | Render as roag boon rooks wake; preserve the source identity and keep mechanics in game data. |
+| roag-boon-scavengers-hook | godot-white-drag | drag | publisher_filename / high | Render as roag boon scavengers hook; preserve the source identity and keep mechanics in game data. |
+| roag-boon-secret-apple | urizen-onebit-r17-c003 | food / apple | author_metadata_visible_rgb_match / high | Render as roag boon secret apple; preserve the source identity and keep mechanics in game data. |
+| roag-boon-sentry-quartermaster | godot-white-robot | robot | publisher_filename / high | Render as roag boon sentry quartermaster; preserve the source identity and keep mechanics in game data. |
+| roag-boon-shared-agony | godot-white-duplicate | duplicate | publisher_filename / high | Render as roag boon shared agony; preserve the source identity and keep mechanics in game data. |
+| roag-boon-spirit-shelter | godot-white-human_controller | human controller | publisher_filename / high | Render as roag boon spirit shelter; preserve the source identity and keep mechanics in game data. |
+| roag-boon-split-thrust | godot-white-duplicate | duplicate | publisher_filename / high | Render as roag boon split thrust; preserve the source identity and keep mechanics in game data. |
+| roag-boon-splitflight | godot-white-projectile | projectile | publisher_filename / high | Render as roag boon splitflight; preserve the source identity and keep mechanics in game data. |
+| roag-boon-spoils-aegis | godot-white-shield | shield | publisher_filename / high | Render as roag boon spoils aegis; preserve the source identity and keep mechanics in game data. |
+| roag-boon-static-footsteps | godot-white-boots | boots | publisher_filename / high | Render as roag boon static footsteps; preserve the source identity and keep mechanics in game data. |
+| roag-boon-stone-backstop | godot-white-wall | wall | publisher_filename / high | Render as roag boon stone backstop; preserve the source identity and keep mechanics in game data. |
+| roag-boon-stonewake | godot-white-shovel | shovel | publisher_filename / high | Render as roag boon stonewake; preserve the source identity and keep mechanics in game data. |
+| roag-boon-storm-conductor | godot-white-thunder | thunder | publisher_filename / high | Render as roag boon storm conductor; preserve the source identity and keep mechanics in game data. |
+| roag-boon-sunderers-mark | godot-white-target | target | publisher_filename / high | Render as roag boon sunderers mark; preserve the source identity and keep mechanics in game data. |
+| roag-boon-temporal-echo | godot-white-time | time | publisher_filename / high | Render as roag boon temporal echo; preserve the source identity and keep mechanics in game data. |
+| roag-boon-thorn-mirror | godot-white-mirror | mirror | publisher_filename / high | Render as roag boon thorn mirror; preserve the source identity and keep mechanics in game data. |
+| roag-boon-threefold-remedy | godot-white-potion | potion | publisher_filename / high | Render as roag boon threefold remedy; preserve the source identity and keep mechanics in game data. |
+| roag-boon-turncoat-spark | godot-white-reset | reset | publisher_filename / high | Render as roag boon turncoat spark; preserve the source identity and keep mechanics in game data. |
+| roag-boon-twin-seals | godot-white-duplicate | duplicate | publisher_filename / high | Render as roag boon twin seals; preserve the source identity and keep mechanics in game data. |
+| roag-boon-vent-mantle | godot-white-wind | wind | publisher_filename / high | Render as roag boon vent mantle; preserve the source identity and keep mechanics in game data. |
+| roag-boon-volatile-vial | godot-white-potion | potion | publisher_filename / high | Render as roag boon volatile vial; preserve the source identity and keep mechanics in game data. |
+| roag-boon-ward-ledger | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as roag boon ward ledger; preserve the source identity and keep mechanics in game data. |
+| roag-boon-windup-hunter | godot-white-time | time | publisher_filename / high | Render as roag boon windup hunter; preserve the source identity and keep mechanics in game data. |
 | roag-class-adventurer | urizen-onebit-r00-c107 | Figure row 00, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag class adventurer; preserve the source identity and keep mechanics in game data. |
 | roag-class-alchemist | urizen-onebit-r09-c112 | Figure row 09, profession column 08: small vessel | visual_region_and_silhouette / low | Render as roag class alchemist; preserve the source identity and keep mechanics in game data. |
 | roag-class-arcanist | urizen-onebit-r00-c187 | Figure row 00, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag class arcanist; preserve the source identity and keep mechanics in game data. |

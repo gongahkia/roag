@@ -367,13 +367,15 @@ internal sealed partial class WorldGame
         {
             var chest = _session.State.Tactics!.Chests.Chests.Single(c => c.Id == _nativeChest);
             var definition = BoonChestDefinition.Get(chest.Definition);
-            Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x, y, Gold); y += 34;
+            _sprites.Fit(_batch, "chest", new(x, y - 6, 28, 28), Gold);
+            Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x + 40, y, Gold); y += 34;
             var offers = _session.DungeonCombat.ChestOffers(chest.Id, _session.State.Party[0]);
             for (int i = 0; i < offers.Count; i++)
             {
                 var offer = offers[i]; var boon = BoonCatalog.Default.Get(offer.Boon);
-                Text($"{i + 1}. {boon.Name} / {offer.Rarity}", x, y + i * 108, Gold);
-                Wrap(boon.Description, x, y + 26 + i * 108, box.Width - 220, Muted);
+                DrawDungeonBoonIcon(boon.Id, offer.Rarity, new(x, y + i * 108, 64, 64));
+                Text($"{i + 1}. {boon.Name} / {offer.Rarity}", x + 76, y + i * 108, Gold);
+                Wrap(boon.Description, x + 76, y + 26 + i * 108, box.Width - 296, Muted);
             }
         }
         else if (_panel == "dungeon-routes")
@@ -432,14 +434,30 @@ internal sealed partial class WorldGame
             foreach (var pair in owned.OrderBy(p => p.Key).Skip(_nativeBoonPage * 3).Take(3))
             {
                 var boon = BoonCatalog.Default.Get(pair.Key);
-                Text(boon.Name + " / " + BoonCatalog.Rarities.Sum(r => pair.Value[r]) + " stacks", x, y, Gold); y += 24;
-                Text(string.Join(" / ", BoonCatalog.Rarities.Where(r => pair.Value[r] > 0).Select(r => r + " " + pair.Value[r])), x, y, Muted); y += 22;
-                y += Wrap(boon.Description, x, y, box.Width - 48, Muted) + 10;
+                int top = y;
+                DrawDungeonBoonIcon(boon.Id, BoonCatalog.Rarities.Last(r => pair.Value[r] > 0), new(x, y, 64, 64));
+                Text(boon.Name + " / " + BoonCatalog.Rarities.Sum(r => pair.Value[r]) + " stacks", x + 76, y, Gold); y += 24;
+                Text(string.Join(" / ", BoonCatalog.Rarities.Where(r => pair.Value[r] > 0).Select(r => r + " " + pair.Value[r])), x + 76, y, Muted); y += 22;
+                y += Wrap(boon.Description, x + 76, y, box.Width - 124, Muted) + 10;
+                y = Math.Max(y, top + 80);
             }
             Text($"Page {_nativeBoonPage + 1}/{Math.Max(1, (owned.Count + 2) / 3)}", box.Center.X - 50, box.Bottom - 42, Muted);
         }
         else if (_panel == "dungeon-class")
             Text("Choose before taking your first action. Each class has its own attacks and movement.", x, y, Muted);
+    }
+
+    private void DrawDungeonBoonIcon(string boon, BoonRarity rarity, Rectangle bounds)
+    {
+        Color color = rarity switch
+        {
+            BoonRarity.Common => new(196, 207, 199), BoonRarity.Uncommon => new(126, 211, 153),
+            BoonRarity.Rare => new(126, 184, 240), BoonRarity.Legendary => Gold,
+            _ => throw new ArgumentOutOfRangeException(nameof(rarity))
+        };
+        Fill(bounds, color * .8f);
+        Fill(new(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), new(12, 22, 24));
+        _sprites.Fit(_batch, NativeAppearance.ForBoon(boon), new(bounds.X + 8, bounds.Y + 8, bounds.Width - 16, bounds.Height - 16), color);
     }
 
     private void DrawDungeonObjects()

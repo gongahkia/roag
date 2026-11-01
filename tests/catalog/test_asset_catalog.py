@@ -133,7 +133,15 @@ class CatalogTests(unittest.TestCase):
         media = {p for p in files if Path(p).suffix.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tga', '.svg', '.ase', '.aseprite', '.zip'}}
         originals = {'assets/' + r['path'] for r in [*self.catalog['images'], *self.catalog['archives']]}
         references = self.catalog['reference_images']['images']
-        self.assertEqual(media, originals | {r['path'] for r in references})
+        # The imported catalog does not own the retained original Roag art.
+        # Keep that reference history distinct from the allowed gameplay atlas.
+        roag_files = set(subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', '-z',
+            'd498fe0889050d2a23f2ff86d80db6084ed6467a'], cwd=ROOT).decode().split('\0'))
+        retained_roag = media & roag_files
+        # The separately documented/reproducible UI font atlas is typography,
+        # not a newly supplied gameplay sprite or imported source image.
+        derived_fonts = {'assets/fonts/ui-fonts.png'}
+        self.assertEqual(media, originals | {r['path'] for r in references} | retained_roag | derived_fonts)
         self.assertEqual(len(references), 22)
         for r in references:
             self.assertEqual(r['usage'], 'reference_only')
@@ -176,9 +184,9 @@ class CatalogTests(unittest.TestCase):
 
     def test_game_binding_inventory_preserves_sources_and_includes_expedition_art(self):
         counts = self.catalog['catalog_summary']
-        # The expedition expansion binds 13 formerly unused sprites. Source
-        # inventory and the historical Ithica selection remain unchanged.
-        for key, value in [('occupied_sprites', 7115), ('records', 11887), ('used_ithica', 166), ('preview_only', 88), ('unused_sprites', 6861)]:
+        # Native actor and boon icons add explicit preview/game bindings.
+        # Original source inventory and historical Ithica casting stay fixed.
+        for key, value in [('occupied_sprites', 7115), ('records', 11887), ('used_ithica', 166), ('preview_only', 188), ('unused_sprites', 6761)]:
             self.assertEqual(counts[key], value)
 
     def test_known_ghost_can_be_queried_without_game_casting(self):

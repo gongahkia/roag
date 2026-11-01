@@ -14,6 +14,8 @@ public static class NativeAppearance
     };
 
     public static string ForClass(ClassKind kind) => "roag-class-" + ClassCatalog.Get(kind).Key.Replace('_', '-');
+    public static string ForBoon(string definition)
+        => "roag-boon-" + BoonCatalog.Default.Get(definition).Id["core:boon/".Length..].Replace('_', '-');
     public static string ForEnemy(string definition)
     {
         var enemy = EnemyCatalog.Default.Get(definition);

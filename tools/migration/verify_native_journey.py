@@ -28,8 +28,9 @@ def distance(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1]) if a[2] == b[2] else 100000
 
 class Client:
-    def __init__(self, output, seed, runtime_source=None, continuation=None):
+    def __init__(self, output, seed, runtime_source=None, continuation=None, window_size='1280x800'):
         self.output = output
+        self.window_size = window_size
         output.mkdir(parents=True, exist_ok=False)
         self.control = output / 'control'
         self.control.mkdir()
@@ -70,7 +71,7 @@ class Client:
         environment = {**os.environ, 'ALSOFT_DRIVERS': 'null', 'SDL_AUDIODRIVER': 'dummy'}
         self.process = subprocess.Popen([*command,
             *flags, '--save', str(self.slot), '--playtest-control', str(self.control),
-            '--window-size', '1280x800', '--no-recording'], cwd=self.runtime, env=environment,
+            '--window-size', self.window_size, '--no-recording'], cwd=self.runtime, env=environment,
             stdout=self.log, stderr=subprocess.STDOUT)
         self.ui = self.until(lambda: self.read('observation.json'))['ui']
         self.window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--name', '^Roag$'], text=True).splitlines()[-1]

@@ -613,7 +613,13 @@ internal sealed partial class WorldGame
                     && _session.Chunks.At(f.Exit) != Material.StairsDown)
                     .Select(f => new { f.Stage, position = f.Exit, available = native.BossExitReceipts.Contains(f.Boss) }),
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.State.Party[0]) : null,
-                chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null
+                chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0]) : null,
+                boonSprites = _panel == "dungeon-chest"
+                    ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.State.Party[0])
+                        .Select(o => new { boon = o.Boon, sprite = Roag.Core.Tactics.NativeAppearance.ForBoon(o.Boon) }).ToArray()
+                    : _panel == "dungeon-boons" ? _session.Party.Single().Tactics!.Boons.Inventory.Stacks.Keys.Order()
+                        .Skip(_nativeBoonPage * 3).Take(3)
+                        .Select(id => new { boon = id, sprite = Roag.Core.Tactics.NativeAppearance.ForBoon(id) }).ToArray() : null
             },
             habitat = _session.HabitatAt(_session.State.Position),
             climate = _session.WeatherAt(_session.State.Position), weatherDescription = WeatherText(), sheltered = _session.ShelteredAt(_session.State.Position),

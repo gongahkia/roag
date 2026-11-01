@@ -8,6 +8,23 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class NativeAppearanceTests
 {
     [Fact]
+    public void EveryBoonHasAStoredIconFromTheImportedUniversalAtlas()
+    {
+        using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
+        var bindings = manifest.RootElement.GetProperty("bindings");
+        var sprites = manifest.RootElement.GetProperty("sprites");
+        Assert.Equal(103, BoonCatalog.Default.Definitions.Length);
+        foreach (var boon in BoonCatalog.Default.Definitions)
+        {
+            string sprite = bindings.GetProperty(NativeAppearance.ForBoon(boon.Id)).GetString()!;
+            var crop = sprites.GetProperty(sprite);
+            Assert.True(crop.GetProperty("rect")[2].GetInt32() > 0);
+            Assert.True(crop.GetProperty("rect")[3].GetInt32() > 0);
+            Assert.DoesNotContain("roag", crop.GetProperty("source").GetString()!, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public void EveryRoomFeatureUsesAnExistingStoredUniversalBinding()
     {
         using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
