@@ -81,6 +81,43 @@ public sealed class DungeonRecruitmentTests
     }
 
     [Fact]
+    public void PermanentDeathFreesASurvivingSlotWhileRetainingTheFoundersAssignedBuildThroughSave()
+    {
+        using var world = WorldSession.CreateDungeonRun(37);
+        var founder = world.Party.Single();
+        founder.Tactics!.Boons.Inventory = founder.Tactics.Boons.Inventory.Grant("core:boon/temporal_echo", BoonRarity.Common, ClassKind.Adventurer);
+        foreach (var recruit in world.State.Dungeon!.Recruits.Where(r => world.ActorById(r.Actor).Position.Floor == 1))
+        {
+            StandBeside(world, recruit);
+            Assert.True(world.SubmitDungeon(new(TacticalAction.Recruit, Target: recruit.Actor)).Success);
+        }
+        var enemy = world.State.Actors.First(a => a.Tactics?.Enemy != null);
+        void Hit(int damage) => world.DungeonCombat.ResolveAttack(new(world.State.Tactics!.NextAction++, enemy.Id, enemy.Position,
+            [founder.Position], "test:replacement-slot", AttackDelivery.Area, DamageElement.Physical, damage, world.DungeonCombat.Clock));
+        Hit(10000); for (int i = 0; i < 5; i++) Hit(10);
+        Assert.Equal(LifeState.Dead, founder.Life); Assert.False(world.State.AwaitingContinuation);
+        world.DungeonCombat.AdvanceToPartyDecision();
+        var replacement = world.State.Dungeon.Recruits.Single(r => !world.State.Party.Contains(r.Actor));
+        StandBeside(world, replacement);
+        Assert.True(world.SubmitDungeon(new(TacticalAction.Recruit, Target: replacement.Actor)).Success);
+        Assert.Equal(5, world.Party.Count()); Assert.Equal(4, world.Party.Count(a => a.Life != LifeState.Dead));
+        string builds = JsonSerializer.Serialize(world.Party.Select(a => a.Tactics));
+        string root = Path.Combine(Path.GetTempPath(), "roag-replacement-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(root, "campaign.json"); world.Save(slot);
+            using var loaded = WorldSession.Load(slot);
+            Assert.Equal(world.State.Party, loaded.State.Party);
+            Assert.Equal(builds, JsonSerializer.Serialize(loaded.Party.Select(a => a.Tactics)));
+            Assert.Equal(LifeState.Dead, loaded.ActorById(founder.Id).Life);
+            Assert.Single(loaded.ActorById(founder.Id).Tactics!.Boons.Inventory.Stacks);
+            Assert.Empty(loaded.ActorById(replacement.Actor).Tactics!.Boons.Inventory.Stacks);
+            Assert.True(loaded.SubmitDungeon(new(TacticalAction.Wait)).Success);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public void UnjoinedAndJoinedRecruitsResumeWithoutRepopulationOrClassRerolls()
     {
         using var world = WorldSession.CreateDungeonRun(42);
