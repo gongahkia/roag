@@ -105,6 +105,7 @@ public sealed partial class WorldSession
             "recruit" => TacticalAction.Recruit,
             "abandon" => TacticalAction.Abandon,
             "cooperate" => TacticalAction.Cooperate,
+            "recover_equipment" => TacticalAction.RecoverEquipment,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice, aim.ReplaceUtility);

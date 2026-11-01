@@ -590,6 +590,8 @@ internal sealed partial class WorldGame
                 equipment = _session.Party.Select(a => new { a.Id, slots = a.Equipment, a.Tactics!.EquipmentCoverUsed }),
                 packEquipment = DungeonPackGear.Select(i => new { i.Id, i.Name, i.Sprite, i.Slot, count = _session.Count(i.Stack) }),
                 cooperation = _session.Party.Select(a => new { a.Id, a.Tactics!.CooperationCommitted }),
+                gearedCorpses = _session.Party.Where(a => a.Life == LifeState.Dead && a.Equipment.Count > 0 && _session.Visible.Contains(a.Position))
+                    .Select(a => new { a.Id, a.Name, a.Position, slots = a.Equipment }),
                 aim = _roagAim,
                 player = _session.Party.Select(a => new { a.Id, a.Name, a.Position, life = a.Life.ToString(), a.Health, maxHealth = a.MaxHealth, a.Tactics!.BleedTurns,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,

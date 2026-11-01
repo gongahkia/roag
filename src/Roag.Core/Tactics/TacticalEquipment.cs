@@ -6,6 +6,25 @@ internal sealed record EquipmentCover(long Source, int Amount);
 
 public sealed partial class TacticalCombat
 {
+    private TacticalPreview PreviewCorpseEquipment(Actor actor, long target)
+    {
+        var corpse = _world.State.Actors.FirstOrDefault(a => a.Id == target);
+        if (!Friendly(actor) || corpse is not { Life: LifeState.Dead } || !Friendly(corpse) || corpse.Equipment.Count == 0)
+            return Invalid("Choose a fallen companion whose body still holds equipment.");
+        if (actor.Position.Distance(corpse.Position) > 1 || !_world.GroundOpen(corpse.Position)
+            || !_world.VisionFrom(actor.Position).Contains(corpse.Position))
+            return Invalid("Stand on or beside the visible body to recover its equipment.");
+        return new(true, "", ActionTiming.Recovery(Tuning.WaitCost, EffectiveSpeed(actor)), [corpse.Position]);
+    }
+
+    private void CommitCorpseEquipment(Actor actor, long target, long action)
+    {
+        var corpse = Actor(target);
+        foreach (var item in _world.RecoverCorpseEquipment(corpse))
+            Emit("EquipmentItemRecovered", actor.Id, corpse.Id, action, corpse.Position, 1, ability: item);
+        Emit("EquipmentRecovered", actor.Id, corpse.Id, action, corpse.Position);
+    }
+
     private EquipmentCover? EquipmentCoverFor(Actor target, Actor? source, int damage, bool direct)
     {
         if (!direct || source == null || damage <= 1 || target.Life != LifeState.Alive || !Friendly(target)

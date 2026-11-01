@@ -212,6 +212,8 @@ public sealed partial class TacticalCombat
                 return PreviewEquipment(actor, intent);
             case TacticalAction.Cooperate:
                 return PreviewCooperation(actor, intent);
+            case TacticalAction.RecoverEquipment:
+                return PreviewCorpseEquipment(actor, intent.Target);
             case TacticalAction.ClaimChest:
                 return PreviewChest(actor, intent);
             case TacticalAction.DungeonRoute:
@@ -291,6 +293,8 @@ public sealed partial class TacticalCombat
                     CommitEquipment(actor, executed, action); break;
                 case TacticalAction.Cooperate:
                     CommitCooperation(actor, executed, preview, action); break;
+                case TacticalAction.RecoverEquipment:
+                    CommitCorpseEquipment(actor, executed.Target, action); break;
                 case TacticalAction.ClaimChest:
                     ClaimChest(actor, intent, action); break;
                 case TacticalAction.UseUtility:

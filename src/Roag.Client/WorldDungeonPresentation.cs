@@ -34,6 +34,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear") BuildDungeonGearControls(box);
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
+            else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
             else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
@@ -175,6 +176,7 @@ internal sealed partial class WorldGame
             case "cooperate": _panel = "dungeon-cooperate"; break;
             case "cooperate-choice": ChooseDungeonCooperation(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture),
                 int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture)); break;
+            case "recover-equipment": CommitRoag(new("recover_equipment", Target: _nativeCorpse)); ClosePanel(); break;
             case "member": SelectDungeonMember(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
@@ -279,6 +281,9 @@ internal sealed partial class WorldGame
         var actor = _session.DungeonMember;
         var downed = _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed && a.Position.Distance(actor.Position) == 1);
         if (downed != null) { _panel = "dungeon-party"; return; }
+        var corpse = _session.Party.FirstOrDefault(a => a.Life == LifeState.Dead && a.Equipment.Count > 0
+            && a.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(a.Position));
+        if (corpse != null) { _nativeCorpse = corpse.Id; _panel = "dungeon-corpse"; return; }
         var recruit = _session.State.Dungeon!.Recruits.Select(r => _session.State.Actors.Single(a => a.Id == r.Actor))
             .FirstOrDefault(a => !a.Recruited && a.Life == LifeState.Alive && a.Position.Distance(actor.Position) == 1 && _session.Visible.Contains(a.Position));
         if (recruit != null) { _nativeRecruit = recruit.Id; _panel = "dungeon-recruit"; return; }
@@ -415,6 +420,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
+        if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
@@ -423,6 +429,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear") { DrawDungeonGearPanel(box, x, y); return; }
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
+        if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-chest-recipient")
@@ -550,6 +557,8 @@ internal sealed partial class WorldGame
         var state = _session.State.Tactics!;
         void Icon(WorldPosition p, string sprite, Color tint)
         { if (_session.Visible.Contains(p) && _map.Intersects(TileRect(p))) _sprites.Fit(_batch, sprite, TileRect(p), tint); }
+        foreach (var corpse in _session.Party.Where(a => a.Life == LifeState.Dead))
+            Icon(corpse.Position, "bones", Gold);
         foreach (var floor in _session.State.Dungeon!.Floors.Where(f => f.Stage < 4 && f.Boss > 0))
         {
             if (floor.Exit.Floor != _session.State.Position.Floor || !_session.Chunks.Seen(floor.Exit)

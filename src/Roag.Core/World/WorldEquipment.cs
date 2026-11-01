@@ -6,6 +6,16 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
+    internal string[] RecoverCorpseEquipment(Actor corpse)
+    {
+        if (corpse.Life != LifeState.Dead || !State.Party.Contains(corpse.Id))
+            throw new InvalidOperationException("Recover equipment only from a fallen companion.");
+        var items = corpse.Equipment.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => Item(p.Value.Item)).ToArray();
+        foreach (var item in items) Add(item.Stack, 1);
+        corpse.Equipment.Clear();
+        return items.Select(i => i.Id).ToArray();
+    }
+
     // Only the native command transaction calls this path after paying recovery.
     // The legacy public Submit path rejects all native-timeline worlds.
     internal ActionResult ChangeTacticalEquipment(Actor actor, string itemOrSlot, bool remove)

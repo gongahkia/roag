@@ -14,6 +14,29 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void CorpseEquipmentIsPrivatelyInspectedAndPhysicallyRecoveredForOnePaidAction()
+    {
+        using var session = WorldSession.CreateDungeonRun(37);
+        var hero = session.Party.Single(); var member = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        Assert.True(session.SubmitDungeon(new(TacticalAction.Equip, Item: "item.pickaxe")).Success);
+        Roag.Core.Tests.Tactics.DungeonAbandonmentTests.Down(session, hero);
+        Assert.True(session.SubmitDungeon(new(TacticalAction.Abandon, Target: hero.Id)).Success);
+        var client = Client(session);
+        Assert.DoesNotContain("fallen equipment", WorldInspection.Inspect(session, hero.Position).Title);
+        member.Position = session.State.Position = hero.Position.Offset(1, 0); session.Chunks.Edit(member.Position, Material.Floor); session.Reveal();
+        Assert.Contains("fallen equipment", WorldInspection.Inspect(session, hero.Position).Title);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "DungeonInteract"); Assert.Equal("dungeon-corpse", Field("_panel").GetValue(client));
+        Assert.Contains(Controls(client, "dungeon-corpse"), c => c.Id == "dungeon:recover-equipment" && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        long time = session.DungeonCombat.Clock;
+        Invoke(client, "ActivateDungeonControl", "dungeon:recover-equipment");
+        Assert.True(session.DungeonCombat.Clock > time); Assert.Equal(1, session.Count("pickaxe"));
+        Assert.Empty(hero.Equipment); Assert.Equal(LifeState.Dead, hero.Life);
+        Assert.Equal("", Field("_panel").GetValue(client));
+    }
+
+    [Fact]
     public void NativeCooperationControlsExplainRecoveryAndFreeAimingBeforePaidAid()
     {
         using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);
@@ -43,7 +66,7 @@ public sealed class WorldMouseTests
     {
         using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);
         Field("_roagAim").SetValue(client, "move");
-        foreach (string item in new[] { "item.iron-sword", "item.chainmail", "item.quick-silver", "item.pickaxe" }) session.State.Inventory[item] = 1;
+        foreach (string item in new[] { "item.iron-sword", "item.chainmail", "item.quick-silver", "item.pickaxe" }) session.State.Inventory[session.Item(item).Stack] = 1;
         string before = JsonSerializer.Serialize(session.State);
         Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.K), true);
         Assert.Equal("dungeon-gear", Field("_panel").GetValue(client));

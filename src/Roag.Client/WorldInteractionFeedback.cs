@@ -64,6 +64,12 @@ internal static class WorldInspection
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
         if (session.State.Dungeon != null && session.Visible.Contains(cell)
+            && session.Party.FirstOrDefault(a => a.Life == LifeState.Dead && a.Position == cell) is { } corpse)
+            return new(corpse.Name + " / fallen equipment", (corpse.Equipment.Count > 0 ? "Equipment remains on this body." : "No equipment remains.")
+                + " Assigned boons and permanent death remain with the fallen member.",
+                "Click to inspect; Enter beside the body. Recovery costs one action.",
+                session.DungeonMember.Position.Distance(cell) <= 1 ? "" : "Stand on or beside the body", "corpse");
+        if (session.State.Dungeon != null && session.Visible.Contains(cell)
             && DungeonMemberResources.Objects(session).FirstOrDefault(o => o.Position == cell) is { } construct)
         {
             var owner = session.ActorById(construct.Owner);
