@@ -34,6 +34,8 @@ internal sealed class DungeonAudio : IDisposable
     private readonly Dictionary<string, SoundEffect> _samples = [];
     private readonly List<SoundEffectInstance> _voices = [];
     private SoundEffectInstance? _music, _ambience;
+    private SoundEffectInstance? _retiringMusic, _retiringAmbience;
+    private double _transitionAge = 1;
     private string _scene = "";
     public bool Unavailable { get; private set; }
     public int PlayedCues { get; private set; }
@@ -58,28 +60,27 @@ internal sealed class DungeonAudio : IDisposable
         catch (Exception e) when (AudioFailure(e)) { Unavailable = true; Stop(); }
     }
 
-    public void Update(string scene, float music, float effects, bool paused)
+    public void Update(string scene, float music, float effects, bool paused, double elapsed)
     {
         if (Unavailable) return;
         try
         {
             Prune();
-            foreach (var voice in _voices) voice.Volume = Math.Clamp(effects, 0, 1);
+            foreach (var voice in _voices) Mix(voice, effects, paused);
             if (_scene != scene)
             {
-                _music?.Stop(); _music?.Dispose(); _ambience?.Stop(); _ambience?.Dispose(); _ambience = null;
+                Release(_retiringMusic); Release(_retiringAmbience);
+                _retiringMusic = _music; _retiringAmbience = _ambience; _ambience = null; _transitionAge = 0;
                 _scene = scene; _music = Sample("music").CreateInstance(); _music.IsLooped = true;
                 if (!scene.EndsWith("victory", StringComparison.Ordinal) && !scene.EndsWith("defeat", StringComparison.Ordinal))
                 { _ambience = Sample("ambience").CreateInstance(); _ambience.IsLooped = true; }
             }
-            // The original user mix applies music volume to both looping beds.
-            foreach (var voice in new[] { _music, _ambience })
-            {
-                if (voice == null) continue;
-                voice.Volume = Math.Clamp(music, 0, 1);
-                if (paused || music <= 0) { if (voice.State == SoundState.Playing) voice.Pause(); }
-                else if (voice.State == SoundState.Paused) voice.Resume(); else if (voice.State == SoundState.Stopped) voice.Play();
-            }
+            if (!paused) _transitionAge += Math.Clamp(elapsed, 0, .2);
+            float blend = (float)Math.Clamp(_transitionAge / .8, 0, 1);
+            // Preserve the built-in 800ms crossfade and music mix on both beds.
+            Mix(_music, music * blend, paused); Mix(_ambience, music * blend, paused);
+            Mix(_retiringMusic, music * (1 - blend), paused); Mix(_retiringAmbience, music * (1 - blend), paused);
+            if (blend >= 1) { Release(_retiringMusic); Release(_retiringAmbience); _retiringMusic = _retiringAmbience = null; }
         }
         catch (Exception e) when (AudioFailure(e)) { Unavailable = true; Stop(); }
     }
@@ -88,16 +89,24 @@ internal sealed class DungeonAudio : IDisposable
     {
         for (int i = _voices.Count - 1; i >= 0; i--) if (_voices[i].State == SoundState.Stopped) { _voices[i].Dispose(); _voices.RemoveAt(i); }
     }
+    private static void Mix(SoundEffectInstance? voice, float volume, bool paused)
+    {
+        if (voice == null) return;
+        voice.Volume = Math.Clamp(volume, 0, 1);
+        if (paused || volume <= 0) { if (voice.State == SoundState.Playing) voice.Pause(); }
+        else if (voice.State == SoundState.Paused) voice.Resume(); else if (voice.State == SoundState.Stopped) voice.Play();
+    }
+    private static void Release(SoundEffectInstance? voice)
+    {
+        if (voice == null) return;
+        try { voice.Stop(); } catch (Exception e) when (AudioFailure(e)) { }
+        finally { voice.Dispose(); }
+    }
     public void Stop()
     {
-        static void Release(SoundEffectInstance? voice)
-        {
-            if (voice == null) return;
-            try { voice.Stop(); } catch (Exception e) when (AudioFailure(e)) { }
-            finally { voice.Dispose(); }
-        }
         foreach (var voice in _voices) Release(voice);
         _voices.Clear(); Release(_music); _music = null; Release(_ambience); _ambience = null; _scene = "";
+        Release(_retiringMusic); Release(_retiringAmbience); _retiringMusic = _retiringAmbience = null;
     }
     public void Dispose() { Stop(); foreach (var sample in _samples.Values) sample.Dispose(); _samples.Clear(); }
     private static bool AudioFailure(Exception e) => e is NoAudioHardwareException or InvalidOperationException or DllNotFoundException;

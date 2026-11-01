@@ -162,7 +162,7 @@ internal sealed partial class WorldGame : Game
         }
         if (_playtest is { StopRequested: true, Holding: true }) { Exit(); return; }
         UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
-        UpdateDungeonPresentation();
+        UpdateDungeonPresentation(gameTime.ElapsedGameTime.TotalSeconds);
         if (_playtest == null) mouse = Mouse.GetState();
         _session.Focused = WorldClockEnabled;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);

@@ -19,7 +19,7 @@ internal sealed partial class WorldGame
         _dungeonAudio ??= new(); _dungeonAudio.Play(kind, _preferences.EffectsVolume);
     }
 
-    private void UpdateDungeonPresentation()
+    private void UpdateDungeonPresentation(double elapsed)
     {
         if (_session.State.Dungeon is not { } run) return;
         _dungeonEffects.RemoveAll(e => _combatVisualTime - e.Born > 1.1 || e.Position.Floor != _session.State.Position.Floor);
@@ -33,7 +33,7 @@ internal sealed partial class WorldGame
                 : run.Stage == 4 ? "final_boss" : (boss ? "elite/" : "explore/") + floor.Biome;
         }
         _dungeonAudio ??= new();
-        _dungeonAudio.Update(_dungeonAudioScene, _preferences.MusicVolume, _preferences.EffectsVolume, !InputFocused);
+        _dungeonAudio.Update(_dungeonAudioScene, _preferences.MusicVolume, _preferences.EffectsVolume, !InputFocused, elapsed);
     }
 
     private void ShowDungeonEvent(TacticalEvent e)

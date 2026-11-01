@@ -22,7 +22,7 @@ internal sealed partial class WorldGame
     private void SaveDungeonPreferences()
     {
         ApplyDungeonPreferences();
-        if (_options.Preview) return;
+        if (_options.Preview && _options.PlaytestDirectory == null) return;
         try { _preferences.Save(DungeonPreferencesPath); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         { _notice = "Presentation settings apply this session; they could not be saved."; }
