@@ -26,24 +26,28 @@ def distance(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1]) if a[2] == b[2] else 100000
 
 class Client:
-    def __init__(self, output, seed):
+    def __init__(self, output, seed, runtime_source=None, continuation=None):
         self.output = output
         output.mkdir(parents=True, exist_ok=False)
         self.control = output / 'control'
         self.control.mkdir()
         self.slot = self.control / 'campaign.json'
         self.runtime = output / 'runtime'
-        shutil.copytree(ROOT / 'src/Roag.Client/bin/Debug/net10.0', self.runtime)
+        shutil.copytree(runtime_source or ROOT / 'src/Roag.Client/bin/Debug/net10.0', self.runtime)
+        self.continuation = continuation
+        if continuation:
+            shutil.copy2(continuation / 'control/campaign.json', self.slot)
+            shutil.copytree(continuation / 'control/campaign.json.chunks', Path(str(self.slot) + '.chunks'))
         metadata = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             status=subprocess.check_output(['git', 'status', '--short'], cwd=ROOT, text=True),
             assemblies={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.runtime.glob('Roag*.dll')},
-            seed=seed, display=os.environ.get('DISPLAY'))
+            seed=seed, display=os.environ.get('DISPLAY'), continuation=str(continuation) if continuation else None)
         (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
         self.journal = (output / 'inputs.jsonl').open('w')
         self.sequence = 0
         self.launches = 0
         self.process = None
-        self.start(['--new', '--seed', str(seed)])
+        self.start(['--load'] if continuation else ['--new', '--seed', str(seed)])
 
     def start(self, flags):
         self.launches += 1
@@ -51,7 +55,8 @@ class Client:
             path = self.control / name
             if path.exists(): path.rename(self.control / (str(self.launches) + '-old-' + name))
         self.log = (self.output / ('client-' + str(self.launches) + '.log')).open('wb')
-        self.process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(self.runtime / 'Roag.Client.dll'),
+        command = [str(self.runtime / 'Roag.Client')] if (self.runtime / 'libhostfxr.so').exists() else [str(ROOT / 'tools/dotnet.sh'), str(self.runtime / 'Roag.Client.dll')]
+        self.process = subprocess.Popen([*command,
             *flags, '--save', str(self.slot), '--playtest-control', str(self.control),
             '--window-size', '1280x800', '--no-recording'], cwd=self.runtime, stdout=self.log, stderr=subprocess.STDOUT)
         self.ui = self.until(lambda: self.read('observation.json'))['ui']
@@ -134,6 +139,14 @@ class Journey:
         self.failed = Counter()
         self.steps = 0
         self.last_floor = 1
+        self.exits = {}
+        self.inspected_services = set()
+        if client.continuation and (client.continuation / 'knowledge.json').exists():
+            memory = json.loads((client.continuation / 'knowledge.json').read_text())
+            self.known = {position(c): c for c in memory['cells']}
+            self.exits = {int(k): tuple(v) for k, v in memory['exits'].items()}
+            self.receipts.update(memory['receipts'])
+            self.inspected_services.update(memory['inspectedServices'])
         self.enemies = {d['id']: d for d in json.loads((ROOT / 'assets/tactics/enemies.json').read_text())['definitions']}
 
     def observe(self):
@@ -145,6 +158,9 @@ class Journey:
         self.visible = {position(c): c for c in self.ui['cells']}
         self.fighters = [f for f in self.state['fighters'] if not f['friendly'] and f['health'] > 0]
         self.occupied = {position(f['position']) for f in self.fighters}
+        for enemy in self.fighters:
+            if self.enemies.get(enemy['class'], {}).get('ai') in ['warden', 'biome_elite', 'hollow_regent']:
+                self.exits.setdefault(self.at[2], position(enemy['position']))
         self.danger = {position(c) for t in self.state['telegraphs'] if t['due'] <= self.state['clock'] + 190 for c in t['cells']}
         self.doors = {position(d['position']) for d in self.state['doors']}
         self.blocked = {position(c['position']) for c in self.state['chests'] if not c['claimed']}
@@ -179,7 +195,7 @@ class Journey:
     def move(self, p):
         dx, dy = p[0] - self.at[0], p[1] - self.at[1]
         key = next(k for x, y, k in DIRECTIONS if (x, y) == (dx, dy))
-        self.client.control_click('roag:move')
+        if not any(c['id'] == 'roag:move' and c['selected'] for c in self.client.ui['controls']): self.client.control_click('roag:move')
         before = self.state['clock']
         self.client.key(key)
         self.visits[p] += 1
@@ -213,9 +229,10 @@ class Journey:
         for enemy in enemies:
             target = position(enemy['position'])
             if self.aligned(self.at, target) and target in self.visible and self.visible[target]['clickable']:
-                self.client.control_click('roag:basic_attack')
                 clock = self.state['clock']
-                self.client.request('tile', x=target[0], y=target[1])
+                dx, dy = (target[0] > self.at[0]) - (target[0] < self.at[0]), (target[1] > self.at[1]) - (target[1] < self.at[1])
+                direction = next(k for x, y, k in DIRECTIONS if (x, y) == (dx, dy))
+                self.client.key('f+' + direction)
                 if self.client.ui['nativeDungeon']['clock'] == clock: self.failed[target] += 1
                 else: self.receipts.add('combat')
                 return True
@@ -227,6 +244,25 @@ class Journey:
         return self.go([p for f in enemies for p in self.neighbors(position(f['position']))], True)
 
     def quiet_tasks(self):
+        for service in self.state['services']:
+            if service['usedBy'] or service['id'] in self.inspected_services: continue
+            if service['kind'] not in ['Camp', 'CleanseFlask', 'EscapeScroll', 'ReturnToken', 'CharmWell', 'OfferingFont', 'TravellingTrader']: continue
+            if service['kind'] == 'Camp' and self.player['health'] == self.player['maxHealth']: continue
+            p = position(service['position'])
+            if distance(p, self.at) <= 1 and p in self.visible and self.visible[p]['clickable']:
+                self.client.control_click('roag:move'); self.client.request('tile', x=p[0], y=p[1])
+                assert self.client.ui['panel'] == 'dungeon-service', self.client.ui['notice']
+                self.client.capture('service-' + str(service['id']) + '-offers')
+                offers = self.client.ui['nativeDungeon']['serviceOffers'] or []
+                eligible = [o for o in offers if o['enabled'] and not o['healthCost']]
+                if eligible:
+                    option = sorted(eligible, key=lambda o: (-o['healing'], o['replacement'], o['price'], o['choice']))[0]
+                    self.client.control_click('dungeon:service-choice:' + str(option['choice']))
+                    if self.client.ui['panel'] == 'dungeon-service-replace': self.client.control_click('dungeon:service-confirm')
+                    self.receipts.add('service-' + service['kind'])
+                else: self.client.control_click('dungeon:close')
+                self.inspected_services.add(service['id']); return True
+            if self.go([p, *self.neighbors(p)]): return True
         for drop in self.state['loot']:
             p = position(drop['position'])
             if drop['kind'] == 0 or self.player['health'] < self.player['maxHealth']:
@@ -266,9 +302,10 @@ class Journey:
             if self.go([p]): return True
         stairs = [p for p, c in self.known.items() if p[2] == self.at[2] and c['material'] == 'StairsDown']
         if self.go(stairs): return True
-        # A defeated elite's exit becomes the next-stage route selection anchor.
-        for fighter in self.state['fighters']:
-            if 'elite' in self.enemies.get(fighter['class'], {}).get('ai', ''): continue
+        # Remember only an elite position actually observed in the game.
+        exit_position = self.exits.get(self.at[2])
+        if exit_position and distance(exit_position, self.at) > 1:
+            if self.go([exit_position, *self.neighbors(exit_position)]): return True
         self.client.key('Return')
         if self.client.ui['panel'] == 'dungeon-routes':
             self.client.capture('stage-' + str(self.state['stage']) + '-routes')
@@ -276,10 +313,22 @@ class Journey:
         if self.client.ui['panel']: self.client.control_click('dungeon:close')
         return False
 
-    def run(self, budget, lifecycle):
-        self.client.control_click('dungeon:class:1')
+    def checkpoint(self):
         self.client.control_click('dungeon:save')
-        self.client.capture('01-ranger-start')
+        (self.client.output / 'knowledge.json').write_text(json.dumps(dict(cells=list(self.known.values()),
+            exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services))) + '\n')
+
+    def run(self, budget, lifecycle):
+        if not self.client.continuation:
+            self.client.control_click('dungeon:class:1')
+            self.client.control_click('dungeon:save')
+            self.client.control_click('dungeon:menu')
+            self.client.control_click('dungeon:new-question')
+            before = self.client.ui['nativeDungeon']['clock']
+            self.client.capture('00-fresh-run-confirmation')
+            self.client.control_click('dungeon:new-cancel')
+            assert self.client.ui['nativeDungeon']['clock'] == before
+            self.client.capture('01-ranger-start')
         for self.steps in range(1, budget + 1):
             self.observe()
             if self.player['health'] <= 0:
@@ -301,7 +350,9 @@ class Journey:
             if self.state['victory']:
                 self.client.capture('victory'); self.client.resume(); self.client.capture('victory-resumed'); return 'victory'
             if self.client.sequence > 880: self.client.resume()
-            if self.steps % 50 == 0: self.client.capture('progress-' + str(self.steps))
+            if self.steps % 50 == 0:
+                self.client.capture('progress-' + str(self.steps))
+                self.checkpoint()
             if lifecycle and self.fighters:
                 self.client.control_click('roag:wait'); continue
             if self.fight() or self.quiet_tasks() or self.explore(): continue
@@ -312,13 +363,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--budget', type=int, default=1600)
+    parser.add_argument('--budget', type=int, default=6000)
+    parser.add_argument('--runtime', type=Path, help='Extracted Linux package directory, or a built client directory.')
+    parser.add_argument('--continue-from', dest='continuation', type=Path, help='Previous stopped probe evidence; continue its latest ordinary save and observed map.')
     parser.add_argument('--lifecycle', action='store_true', help='Encounter danger normally, wait for defeat, verify terminal resume/fresh run.')
     args = parser.parse_args()
-    client = Client(args.output.resolve(), args.seed)
+    client = Client(args.output.resolve(), args.seed, args.runtime.resolve() if args.runtime else None, args.continuation.resolve() if args.continuation else None)
     journey = Journey(client)
     try:
         outcome = journey.run(args.budget, args.lifecycle)
+        journey.checkpoint()
         result = dict(outcome=outcome, actions=journey.steps, receipts=sorted(journey.receipts),
             lifecycleVerified=args.lifecycle and outcome == 'defeat', fullRunVerified=not args.lifecycle and outcome == 'victory')
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
