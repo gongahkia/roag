@@ -84,6 +84,12 @@ try:
         client.control_click('dungeon:class:7'); client.key('s')
         assert client.ui['nativeDungeon']['clock'] > 0
     client.capture('04-real-run')
+    if args.continue_from:
+        clock = client.ui['nativeDungeon']['clock']
+        client.key('t'); client.key('space')
+        assert client.ui['nativeDungeon']['clock'] > clock
+        client.resume(); client.control_click('title:continue')
+        client.capture('04-paid-continuation')
     client.control_click('dungeon:menu'); client.control_click('dungeon:title')
     assert client.ui['panel'] == 'title'
     continuing = copy.deepcopy(client.ui['nativeDungeon']['player']); clock = client.ui['nativeDungeon']['clock']
@@ -114,7 +120,8 @@ try:
     (client.output / 'result.json').write_text(json.dumps(dict(passed=True, window=args.window_size,
         checks=['native enemy motion and damage', 'scrolling translucent title', 'save unchanged while watching',
             'settings and stationary reduced-motion camera', 'no gameplay keys/save from title',
-            'continue exact selected character', 'return to title saves actual run', 'new-run cancel',
+            'continue exact selected character', 'paid continued action and exact reload',
+            'return to title saves actual run', 'new-run cancel',
             'exact restart with preferences', 'quit leaves selected save unchanged',
             'confirmed fresh run starts at class selection and reloads']), indent=2) + '\n')
     print('Rendered title, autonomous combat, settings and continuing-save checks passed.', flush=True)
