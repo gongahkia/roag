@@ -74,7 +74,7 @@ class Client:
             '--window-size', self.window_size, '--no-recording'], cwd=self.runtime, env=environment,
             stdout=self.log, stderr=subprocess.STDOUT)
         self.ui = self.until(lambda: self.read('observation.json'))['ui']
-        self.window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--name', '^Roag$'], text=True).splitlines()[-1]
+        self.window = subprocess.check_output(['xdotool', 'search', '--all', '--onlyvisible', '--pid', str(self.process.pid), '--name', '^Roag$'], text=True).splitlines()[-1]
         subprocess.run(['xdotool', 'windowfocus', self.window], check=True)
         self.sequence = 0
 
@@ -111,8 +111,8 @@ class Client:
     def request(self, kind, **args):
         return self.finish(self.send(kind, **args))
 
-    def key(self, key):
-        spec = self.send('wait', seconds=.32)
+    def key(self, key, seconds=.32):
+        spec = self.send('wait', seconds=seconds)
         # Wait for the game to accept the interval before pressing. Keep the
         # key held through the observation, then release it before the next
         # request. Both edges go through SDL's ordinary keyboard state.

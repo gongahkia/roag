@@ -150,7 +150,7 @@ internal sealed partial class WorldGame
         int rays = treasure ? 12 : 7;
         for (int i = 0; i < rays; i++)
         {
-            float angle = i * MathHelper.TwoPi / rays + (effect.Source % 7) * .31f;
+            float angle = i * MathHelper.TwoPi / rays + ((effect.Position.X + effect.Position.Y * 3) % 7) * .31f;
             var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
             float travel = _preferences.ReducedMotion ? 9 : 5 + MathF.Sqrt(t) * (treasure ? 42 : 22);
             var p = center + direction * travel;

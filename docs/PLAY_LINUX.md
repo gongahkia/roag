@@ -42,6 +42,7 @@ reference checks do not establish completed native gameplay acceptance.
 ## Controls
 
 - Choose your class before the first paid action; it is then fixed for the run.
+  Each class card shows its character sprite and a short description.
 - WASD or arrows: one tile per press. Holding a direction does not repeat.
 - F: aim the basic attack. R: aim the class special. X: aim its movement skill.
   Use a direction key to execute, or click an attack direction. Mouse clicks
@@ -89,6 +90,9 @@ kept separately as `dungeon-presentation.json` beside the selected save.
 
 The menu offers separate master/music/effects volume, fonts, text size,
 contrast, reduced motion, shake, hit flashes, combat effects and damage numbers.
+Attacks and hits have brief directional accents, recoil, sparks and sound cues;
+chests reveal their illustrated choices and show the acquired boon. These
+effects animate while you think and never advance the turn clock.
 The retained original audio consists of simple synthesized cues/loops.
 
 For diagnostics, local recordings normally live under `~/.roag/sessions`.
