@@ -369,6 +369,7 @@ internal sealed partial class WorldGame : Game
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
         if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
+        if (_session.State.Dungeon != null) DrawDungeonMap();
         if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
         DrawContext();
         DrawMouseControls(w, h);

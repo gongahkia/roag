@@ -14,7 +14,7 @@ internal static class DungeonController
         var keys = new List<Keys>();
         foreach (var (button, key) in new[] { (Buttons.A, Keys.Enter), (Buttons.B, Keys.Escape), (Buttons.X, Keys.F), (Buttons.Y, Keys.R),
             (Buttons.RightShoulder, Keys.X), (Buttons.LeftShoulder, attacking ? Keys.P : Keys.G),
-            (Buttons.LeftStick, Keys.Enter), (Buttons.RightStick, Keys.U), (Buttons.RightTrigger, Keys.Space) })
+            (Buttons.LeftStick, Keys.Enter), (Buttons.RightStick, Keys.U), (Buttons.LeftTrigger, Keys.I), (Buttons.RightTrigger, Keys.Space) })
             if (Press(current, previous, button)) keys.Add(key);
         var directions = new[] { (Buttons.DPadUp, Keys.W), (Buttons.DPadDown, Keys.S), (Buttons.DPadLeft, Keys.A), (Buttons.DPadRight, Keys.D) };
         if (directions.Any(d => Press(current, previous, d.Item1)))

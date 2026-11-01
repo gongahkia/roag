@@ -24,7 +24,7 @@ and [preservation checklist](docs/MIGRATION_PRESERVATION.md).
 Normal launch resumes `~/.roag/campaign.json`, or starts a fresh native dungeon
 when the slot is absent. Choose your fixed class before the first paid action.
 WASD/arrows move one tile per press; F aims basic, R special, X movement skill,
-G Guard, Space Wait, Enter interacts, U opens utilities, Tab inspects boons,
+G Guard, Space Wait, Enter interacts, U opens utilities, I/V inspect boons, Tab toggles the explored minimap,
 F1 opens help, Escape cancels/opens the menu and F5 saves. Menus and thinking
 consume no time. Mouse clicks inspect/interact/aim; they never plot walking.
 

@@ -43,6 +43,8 @@ internal sealed partial class WorldGame
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
+        if (_session.State.Dungeon != null && _nativeMapVisible && DungeonMapBounds().Contains(pointer))
+        { _notice = "The explored map is informational. Tab hides it; movement uses the keyboard."; return; }
         if (_session.State.Dungeon != null && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
         if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
@@ -79,8 +81,10 @@ internal sealed partial class WorldGame
         {
             if(_session.State.RoagCombat || _session.State.Dungeon != null)
             {
-                if (_session.State.Dungeon != null && (Press(Keys.F1) || Press(Keys.Tab) || Press(Keys.Escape) && _roagAim == "move"))
-                { _panel = Press(Keys.F1) ? "dungeon-guide" : Press(Keys.Tab) ? "dungeon-boons" : "dungeon-menu"; _roagKeyboard = keyboard; return; }
+                if (_session.State.Dungeon != null && Press(Keys.Tab))
+                { ToggleDungeonMap(); _roagKeyboard = keyboard; return; }
+                if (_session.State.Dungeon != null && (Press(Keys.F1) || Press(Keys.I) || Press(Keys.V) || Press(Keys.Escape) && _roagAim == "move"))
+                { _panel = Press(Keys.F1) ? "dungeon-guide" : Press(Keys.I) || Press(Keys.V) ? "dungeon-boons" : "dungeon-menu"; _roagKeyboard = keyboard; return; }
                 if (Press(Keys.U) && _session.State.Dungeon != null)
                 { _panel = "dungeon-utility"; _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";

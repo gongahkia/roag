@@ -582,6 +582,7 @@ internal sealed partial class WorldGame
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
                 loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
                 menuFocus = _controllerFocus,
+                mapVisible = _nativeMapVisible,
                 secrets = _session.State.Tactics.Secrets.Nodes.Where(s => _session.Visible.Contains(s.Clue))
                     .Select(s => new { s.Id, kind = s.Kind.ToString(), position = s.Clue, s.Revealed }),
                 roomFeatures = _session.State.Tactics.RoomFeatures.Nodes.Where(f => _session.Visible.Contains(f.Position))
@@ -644,7 +645,8 @@ internal sealed partial class WorldGame
             cells = _session.Visible.Where(p => _map.Contains(TileRect(p).Center)).Select(p => new { x = p.X, y = p.Y, floor = p.Floor,
                 material = _session.Chunks.At(p).ToString(), terrain = _session.DungeonTerrainAt(p)?.ToString(),
                 groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
-                clickable = WorldMouseControl.Hit(_controls, TileRect(p).Center) == null,
+                clickable = WorldMouseControl.Hit(_controls, TileRect(p).Center) == null
+                    && !(_session.State.Dungeon != null && _nativeMapVisible && _panel.Length == 0 && !_session.State.AwaitingContinuation && DungeonMapBounds().Contains(TileRect(p).Center)),
                 prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
             work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker,
                 supplies = o.Supplies?.Select(s => new { s.Stack, s.Count, phase = s.Phase.ToString(), s.Carrier, s.Storage }), supplyDescription = _session.WorkSupplyDescription(o),

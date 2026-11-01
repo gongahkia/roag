@@ -49,12 +49,13 @@ reference checks do not establish completed native gameplay acceptance.
 - G then a direction: Guard. Space: Wait. Both consume an action.
 - Enter: interact with an adjacent chest/service/vault, select an available
   stage route or return through stairs. Entering stairs moves you individually.
-- U: carried utility. Tab: inspect boons. Hover tiles/enemies for inspection.
+- U: carried utility. I/V: inspect boons. Tab: toggle the explored-floor minimap.
+  Hover tiles/enemies for inspection.
 - F1: help. Escape: menu or close panel. Arrows select; Enter confirms.
 - F5 or Save: save the continuing run. Menu → Save and quit exits safely.
 - Xbox-style controller: D-pad/left stick moves; X basic, Y special, right
   shoulder movement, left shoulder Guard, right trigger Wait, A interact,
-  right-stick press utility, Start menu/cancel, Back boons. Menus use D-pad,
+  right-stick press utility, Start menu/cancel, Back map, left trigger boons. Menus use D-pad,
   A confirm, B close. Physical controller verification is still pending.
 
 Thinking, menus, aiming, inspection and rendering do not advance the timeline.

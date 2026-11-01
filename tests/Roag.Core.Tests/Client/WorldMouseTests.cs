@@ -31,6 +31,22 @@ public sealed class WorldMouseTests
         return ((List<WorldMouseControl>)Field("_controls").GetValue(client)!).ToList();
     }
     [Fact]
+    public void OriginalMapAndBoonKeysAreFreeAndHeldTabDoesNotRepeatTheToggle()
+    {
+        using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);
+        Field("_nativeMapVisible").SetValue(client, true); Field("_roagAim").SetValue(client, "move");
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Tab), true);
+        Assert.False((bool)Field("_nativeMapVisible").GetValue(client)!);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Tab), true);
+        Assert.False((bool)Field("_nativeMapVisible").GetValue(client)!);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.I), true);
+        Assert.Equal("dungeon-boons", Field("_panel").GetValue(client));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+
+    [Fact]
     public void NativeStageExitIsInspectableAndItsAdjacentClickOpensTheFreeRouteMenu()
     {
         using var session = WorldSession.CreateDungeonRun(42); var client = Client(session);

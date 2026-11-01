@@ -11,7 +11,7 @@ internal sealed partial class WorldGame
 
     private WorldMouseControl[] DungeonMenuChoices() => _controls.Where(c => c.Enabled && c.Id.StartsWith("dungeon:", StringComparison.Ordinal)
         && (_session.State.AwaitingContinuation && _panel.Length == 0 ? c.Id is "dungeon:new" or "dungeon:death-save"
-            : c.Id is not ("dungeon:save" or "dungeon:boons" or "dungeon:menu" or "dungeon:utility"))).ToArray();
+            : c.Id is not ("dungeon:save" or "dungeon:boons" or "dungeon:menu" or "dungeon:utility" or "dungeon:map"))).ToArray();
 
     private void EnsureDungeonMenuFocus(WorldMouseControl[] choices)
     {
@@ -65,7 +65,7 @@ internal sealed partial class WorldGame
         }
         _controllerFocus = null; _controllerPanel = "";
         if (Press(Buttons.Start)) { if (_roagAim == "move") _panel = "dungeon-menu"; else _roagAim = "move"; return []; }
-        if (Press(Buttons.Back)) { _panel = "dungeon-boons"; return []; }
+        if (Press(Buttons.Back)) { ToggleDungeonMap(); return []; }
         return DungeonController.GameplayKeys(pad, previous, _roagAim is "basic_attack" or "sweeping_slash");
     }
 }

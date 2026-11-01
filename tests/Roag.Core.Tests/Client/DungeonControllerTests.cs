@@ -27,7 +27,7 @@ public sealed class DungeonControllerTests
     public void OriginalActionButtonsAndNativeGuardUseTheSameValidatedKeyboardPath()
     {
         foreach (var (button, key) in new[] { (Buttons.A, Keys.Enter), (Buttons.B, Keys.Escape), (Buttons.X, Keys.F), (Buttons.Y, Keys.R),
-            (Buttons.RightShoulder, Keys.X), (Buttons.LeftShoulder, Keys.G), (Buttons.RightStick, Keys.U), (Buttons.LeftStick, Keys.Enter), (Buttons.RightTrigger, Keys.Space) })
+            (Buttons.RightShoulder, Keys.X), (Buttons.LeftShoulder, Keys.G), (Buttons.RightStick, Keys.U), (Buttons.LeftTrigger, Keys.I), (Buttons.LeftStick, Keys.Enter), (Buttons.RightTrigger, Keys.Space) })
             Assert.Equal(new[] { key }, DungeonController.GameplayKeys(Pad(button), Pad(), false));
         Assert.Equal(new[] { Keys.P }, DungeonController.GameplayKeys(Pad(Buttons.LeftShoulder), Pad(), true));
         Assert.Equal(new[] { Keys.W, Keys.D }, DungeonController.GameplayKeys(Pad(Buttons.DPadUp, Buttons.DPadRight), Pad(), true));
