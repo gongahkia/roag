@@ -54,7 +54,7 @@ Ordinary world launches automatically retain bounded local diagnostics; use Menu
 
 `./dev agent context` summarizes the checkout; `./dev agent doctor` reports prerequisites; `./dev agent impact` suggests relevant checks. Use `./dev agent verify --profile full --detach` for durable verification with logs and reconnectable run IDs. Explicit task requirements/checkpoints retain handoffs and require fresh evidence before completion. Content merge patches, deterministic JSON scenarios and read-only save diagnostics support reproducible debugging. See the [agent workflow guide](docs/AGENT_TOOLING.md) for examples and Linux/WSL worker requirements.
 
-If launch reports “World content differs from this build,” preserve that save and start a separate slot with `./roag.sh --new --save "$HOME/.vagabonds/expedition.json"` (choose an unused filename). Resume that slot with `--load --save` and the same path.
+If launch reports “World content differs from this build,” the earlier save is preserved. Follow the error's new-slot command, or use `./roag.sh --new --save "$HOME/.roag/native-playtest.json"` with an unused filename. Resume with `./roag.sh --load --save "$HOME/.roag/native-playtest.json"`; bare launches still select the original default slot.
 
 ## Build and inspect
 

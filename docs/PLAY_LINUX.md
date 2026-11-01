@@ -71,6 +71,17 @@ the new stairs. The marker remains at the exit even if the elite moved.
 The default slot is `~/.roag/campaign.json`, with its companion `.chunks`
 directory. Keep both together when moving a save. Normal launch resumes it;
 `--load` requires it to exist. Use `--save PATH` for an independent slot.
+An earlier prototype/content-version save cannot resume this dungeon game.
+It is preserved, and the startup error prints commands for an unused separate
+slot. For example, if `native-playtest.json` does not already exist:
+
+```sh
+./roag --new --save "$HOME/.roag/native-playtest.json"
+./roag --load --save "$HOME/.roag/native-playtest.json"
+```
+
+Use `./roag.sh` for source builds. Keep using the selected `--save` path when
+resuming; a bare launch still selects the original default slot.
 There is no in-game rollback. A terminal death is recorded before a fresh run
 can replace it; a failed write exposes a retry and preserves the ended run.
 A new run replaces the character, build and dungeon. Presentation settings are

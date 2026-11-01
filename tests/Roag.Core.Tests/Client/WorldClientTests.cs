@@ -102,4 +102,27 @@ public sealed class WorldClientTests : IDisposable
         Assert.Throws<InvalidDataException>(() => WorldStartup.Open(Options.Parse(["--save", Slot])));
         Assert.Equal("{}", File.ReadAllText(Slot));
     }
+
+    [Fact]
+    public void IncompatibleContentExplainsHowToStartAnUnusedSlotWithoutChangingAnySave()
+    {
+        using var world = WorldSession.CreateDungeonRun(42); world.Save(Slot);
+        var manifest = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Slot))!;
+        manifest["contentHash"] = "earlier-content";
+        File.WriteAllText(Slot, manifest.ToJsonString());
+        byte[] before = File.ReadAllBytes(Slot);
+        string other = Path.Combine(_root, "native-playtest.json");
+        File.WriteAllText(other, "keep this slot");
+        Directory.CreateDirectory(Path.Combine(_root, "native-playtest-2.json.chunks"));
+        string unused = Path.Combine(_root, "native-playtest-3.json");
+
+        var error = Assert.Throws<InvalidDataException>(() => WorldStartup.Open(Options.Parse(["--save", Slot])));
+        Assert.Contains("content differs", error.Message);
+        Assert.Contains("Existing save preserved: " + Slot, error.Message);
+        Assert.Contains("./roag.sh --new --save '" + unused + "'", error.Message);
+        Assert.Contains("./roag.sh --load --save '" + unused + "'", error.Message);
+        Assert.Equal(before, File.ReadAllBytes(Slot));
+        Assert.Equal("keep this slot", File.ReadAllText(other));
+        Assert.False(File.Exists(unused));
+    }
 }
