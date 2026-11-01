@@ -442,6 +442,8 @@ class Journey:
 
     def checkpoint(self):
         self.client.control_click('dungeon:save')
+        (self.client.output / 'handoff.json').write_text(json.dumps(dict(position=self.client.ui['position'],
+            clock=self.client.ui['nativeDungeon']['clock'], player=self.client.ui['nativeDungeon']['player'], rollback=False)) + '\n')
         (self.client.output / 'knowledge.json').write_text(json.dumps(dict(cells=list(self.known.values()),
             exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services), destination=self.destination, readyRoutes=self.ready_routes)) + '\n')
 
