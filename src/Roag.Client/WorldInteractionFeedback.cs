@@ -21,7 +21,9 @@ internal static class WorldInspection
         {
             if (!actor.Recruited && session.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == actor.Id) is { } recruit)
                 return new(actor.Name + " / " + ClassCatalog.Get(recruit.Class).Name,
-                    "Fixed-class adventurer. Joining costs one action and no gold; builds and assigned boons stay individual.",
+                    "Fixed-class adventurer. Joining costs one action and no gold; builds and assigned boons stay individual."
+                        + $" Carries {actor.Cargo.GetValueOrDefault("medicine")} medicine."
+                        + (actor.Tactics?.Resident is { Target: > 0 } rescue ? " Going to aid " + session.ActorById(rescue.Target).Name + "." : ""),
                     "Click to inspect recruitment, or press Enter beside them", session.State.Position.Distance(cell) == 1 ? "" : "Stand beside this adventurer", "person");
             if (actor.Recruited && actor.Life == LifeState.Downed && actor.Tactics != null)
                 return new(actor.Name + " / DOWNED", $"{actor.Tactics.BleedTurns} own turns until permanent death. Damaging hits shorten the timer. Revive with one medicine and one adjacent action for 25% maximum HP.",

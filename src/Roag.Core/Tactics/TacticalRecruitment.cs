@@ -8,7 +8,8 @@ public sealed partial class TacticalCombat
     {
         var recruit = _world.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == targetId);
         var candidate = _world.State.Actors.FirstOrDefault(a => a.Id == targetId);
-        if (!Friendly(actor) || recruit == null || candidate is not { Life: LifeState.Alive, Recruited: false, Tactics: null }
+        if (!Friendly(actor) || recruit == null || candidate is not { Life: LifeState.Alive, Recruited: false }
+            || candidate.Tactics != null && candidate.Tactics.Resident == null
             || actor.Position.Distance(candidate.Position) != 1 || !_world.VisionFrom(actor.Position).Contains(candidate.Position))
             return Invalid("Stand beside an available adventurer to recruit them.");
         if (_world.Party.Count(a => a.Life != LifeState.Dead) >= 4)
@@ -24,8 +25,19 @@ public sealed partial class TacticalCombat
         _world.State.Party.Add(candidate.Id);
         int seed = RoagRandom.Derive(_world.DungeonSeed, "recruit-build:" + candidate.Id);
         // Joining pays its own full recovery too; recruitment never manufactures an immediate extra turn.
-        Register(candidate, new() { Build = CharacterBuild.Create(recruit.Class, seed), AutoEat = false },
-            checked(Clock + ActionTiming.Recovery(100, ClassCatalog.Get(recruit.Class).Speed)));
+        long recovery = ActionTiming.Recovery(100, ClassCatalog.Get(recruit.Class).Speed);
+        if (candidate.Tactics == null)
+            Register(candidate, new() { Build = CharacterBuild.Create(recruit.Class, seed), AutoEat = false }, checked(Clock + recovery));
+        else
+        {
+            // An already acting rescuer retains their build and previously paid
+            // recovery, then pays the joining recovery as a new party member.
+            long due = State.Queue.Snapshot().Pending.Single(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == candidate.Id).Due;
+            candidate.Tactics.Resident = null;
+            State.Queue.CancelActor(candidate.Id, ScheduledKind.ActorReady);
+            State.Queue.Schedule(ScheduledKind.ActorReady, checked(due + recovery), candidate.Id, playerControlled: true);
+        }
+        _world.ShareRecruitMedicine(candidate);
         _world.FollowDungeonRecruit(candidate, actor);
         Emit("Recruited", actor.Id, candidate.Id, action, candidate.Position);
     }

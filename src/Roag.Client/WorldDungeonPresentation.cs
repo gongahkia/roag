@@ -326,7 +326,7 @@ internal sealed partial class WorldGame
             if (actor.Tactics is { DefinitionId: "core:enemy/haunted_cache", Enemy.Alerted: false } && actor.Health == actor.MaxHealth) continue;
             var tile = TileRect(actor.Position); var bar = new Rectangle(tile.X + 4, tile.Bottom - 5, tile.Width - 8, 3);
             FillClipped(bar, new Color(16, 22, 27));
-            FillClipped(bar with { Width = Math.Max(0, bar.Width * actor.Health / actor.MaxHealth) }, actor.Recruited ? Gold : new Color(240, 112, 78));
+            FillClipped(bar with { Width = Math.Max(0, bar.Width * actor.Health / actor.MaxHealth) }, _session.IsHostile(actor) ? new Color(240, 112, 78) : Gold);
             if (actor.Life == LifeState.Downed) Text($"DOWN {actor.Tactics!.BleedTurns}", tile.X, tile.Y - 12, new Color(240, 112, 78));
             if (combat.IsContractTarget(actor.Id)) FillClipped(new(tile.X + 5, tile.Y + 3, tile.Width - 10, 2), Gold);
             if (actor.Tactics!.Guarding)

@@ -34,6 +34,7 @@ public sealed class ActorTactics
     public long StunnedUntil { get; set; }
     public bool CooperationCommitted { get; set; }
     public bool EquipmentCoverUsed { get; set; }
+    public ResidentRescue? Resident { get; set; }
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
     public ActorBoons Boons { get; set; } = new();
@@ -139,6 +140,7 @@ public sealed class TacticalWorldState
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public CooperationTuning Cooperation { get; set; } = new();
+    public RescueTuning Rescue { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();
     public DungeonServiceState Services { get; set; } = new();

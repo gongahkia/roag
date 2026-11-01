@@ -49,7 +49,7 @@ public sealed partial class WorldSession
             return State.Actors.Where(a => native.Participants.Contains(a.Id) && a.Life != LifeState.Dead
                 && (State.Party.Contains(a.Id) || Visible.Contains(a.Position)))
                 .Select(a => new RoagFighter(a.Id, a.Name, a.Tactics!.Build is { } build ? ClassCatalog.Get(build.Class).Id : a.Tactics.DefinitionId,
-                    a.Position, a.Health, a.MaxHealth, State.Party.Contains(a.Id), a.Id == native.ActiveActor)).ToArray();
+                    a.Position, a.Health, a.MaxHealth, State.Party.Contains(a.Id) || !IsHostile(a), a.Id == native.ActiveActor)).ToArray();
         return State.RoagCombat ? PrototypeCombat.RoagFighters() : [];
     }
 

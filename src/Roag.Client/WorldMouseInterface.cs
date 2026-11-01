@@ -604,7 +604,10 @@ internal sealed partial class WorldGame
                 telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
                 recruits = native.Recruits.Where(r => _session.State.Actors.Any(a => a.Id == r.Actor && !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)))
-                    .Select(r => new { r.Actor, classId = r.Class.ToString(), position = _session.State.Actors.Single(a => a.Id == r.Actor).Position }),
+                    .Select(r => new { r.Actor, classId = r.Class.ToString(), position = _session.State.Actors.Single(a => a.Id == r.Actor).Position,
+                        medicine = _session.ActorById(r.Actor).Cargo.GetValueOrDefault("medicine") }),
+                rescuers = _session.State.Actors.Where(a => a.Tactics?.Resident != null && _session.Visible.Contains(a.Position))
+                    .Select(a => new { a.Id, a.Position, medicine = a.Cargo.GetValueOrDefault("medicine"), activity = a.Tactics!.Resident }),
                 loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
                 menuFocus = _controllerFocus,
                 mapVisible = _nativeMapVisible,

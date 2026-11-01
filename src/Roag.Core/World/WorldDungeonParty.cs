@@ -49,6 +49,10 @@ public sealed partial class WorldSession
             actor.Job = "adventurer"; actor.CombatTrait = ""; actor.Equipment.Clear(); actor.Talents.Clear();
             actor.Body.Hunger = actor.Body.Fatigue = 0; actor.Body.Wounds = 0;
             actor.SpriteId = NativeAppearance.ForClass(kind);
+            // Existing adventurers may carry a real, finite rescue provision.
+            // This is seeded at creation, never spawned when someone falls.
+            if (RoagRandom.Derive(DungeonSeed, "recruit-medicine:" + actor.Id) % 100 < State.Tactics!.Rescue.MedicineCarrierPercent)
+                actor.Cargo["medicine"] = 1;
             State.Actors.Add(actor); State.Dungeon!.Recruits.Add(new(actor.Id, kind));
             occupied.Add(p);
             if (occupied.Count == count) return;

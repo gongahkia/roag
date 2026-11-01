@@ -51,7 +51,7 @@ internal sealed partial class WorldGame
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
-            "Revived" => "boon", "Recruited" => "menu",
+            "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
         };
@@ -60,7 +60,7 @@ internal sealed partial class WorldGame
         {
             "DamageTaken" => "-" + e.Amount, "Healed" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
-            "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount,
+            "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount, "RescueNoticed" => "AID",
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };

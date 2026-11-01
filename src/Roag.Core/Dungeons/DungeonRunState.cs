@@ -61,7 +61,8 @@ public sealed class DungeonRunState
             || Recruits.Any(r => !Enum.IsDefined(r.Class) || !actors.TryGetValue(r.Actor, out var actor)
                 || actor.Kind != ActorKind.Person || !Contains(actor.Position)
                 || actor.Recruited != world.Party.Contains(actor.Id)
-                || (actor.Tactics != null) != actor.Recruited
+                || (actor.Recruited ? actor.Tactics?.Build == null || actor.Tactics.Resident != null
+                    : actor.Tactics != null && actor.Tactics.Resident == null)
                 || actor.Tactics?.Build is { } build && build.Class != r.Class))
             throw new InvalidDataException("Invalid fixed-class dungeon recruit.");
         if (Following == null || Following.Any(pair => pair.Key == pair.Value || !world.Party.Contains(pair.Key)

@@ -106,7 +106,7 @@ internal sealed partial class WorldGame
     private void BuildDungeonRecruitControls(Rectangle box)
     {
         var preview = _session.DungeonCombat.Preview(new(TacticalAction.Recruit, Target: _nativeRecruit));
-        AddDungeonPartyControl("dungeon:recruit", "Recruit / one action", new(box.X + 28, box.Y + 254, 300, 42),
+        AddDungeonPartyControl("dungeon:recruit", "Recruit / one action", new(box.X + 28, box.Y + 330, 300, 42),
             DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
     }
 
@@ -156,7 +156,8 @@ internal sealed partial class WorldGame
         Text(actor.Name, x + 116, y + 4, Gold);
         Text(definition.Name + " / fixed class", x + 116, y + 32);
         Wrap(DungeonClassCards.Description(recruit.Class), x + 116, y + 60, box.Width - 180, Muted);
-        Wrap("Join this expedition for one action, with no gold fee. Everyone keeps their own class, build and assigned boons. Up to four surviving members can travel together.", x, y + 130, box.Width - 48, Muted);
+        Wrap("Join this expedition for one action, with no gold fee. Everyone keeps their own class, build and assigned boons. Up to four surviving members can travel together."
+            + $" Carries {actor.Cargo.GetValueOrDefault("medicine")} medicine, which joins the shared pack.", x, y + 130, box.Width - 48, Muted);
     }
 
     private void SelectDungeonMember(long memberId)

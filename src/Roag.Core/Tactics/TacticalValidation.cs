@@ -106,6 +106,16 @@ public static class TacticalValidation
         state.Rewards.Validate(actors);
         if (state.Cooperation == null) throw new InvalidDataException("Missing cooperation tuning.");
         state.Cooperation.Validate();
+        if (state.Rescue == null) throw new InvalidDataException("Missing native rescue tuning.");
+        state.Rescue.Validate();
+        foreach (var resident in world.Actors.Where(a => a.Tactics?.Resident != null))
+        {
+            var rescue = resident.Tactics!.Resident!;
+            if (resident.Kind != ActorKind.Person || resident.Recruited || resident.Tactics.Build == null || resident.Tactics.Enemy != null
+                || !plan.Contains(rescue.Home) || !plan.Contains(rescue.LastKnown) || rescue.Target < 0
+                || rescue.Target != 0 && !world.Party.Contains(rescue.Target))
+                throw new InvalidDataException("Invalid physical NPC rescuer or casualty memory.");
+        }
         if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
         state.Loot.Validate(plan, actors);
         if (state.Vaults == null) throw new InvalidDataException("Missing keyed vault registry.");

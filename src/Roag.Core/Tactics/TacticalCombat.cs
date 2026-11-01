@@ -231,8 +231,8 @@ public sealed partial class TacticalCombat
             case TacticalAction.Revive:
                 var target = _world.State.Actors.FirstOrDefault(a => a.Id == intent.Target);
                 if (target is not { Life: LifeState.Downed, Tactics: not null } || !Friendly(target)
-                    || !Friendly(actor) || actor.Position.Distance(target.Position) != 1
-                    || _world.State.Inventory.GetValueOrDefault("medicine") < 1)
+                    || !CanRescue(actor) || actor.Position.Distance(target.Position) != 1
+                    || RescueMedicine(actor) < 1)
                     return Invalid("Stand beside a downed companion with one medicine.");
                 cost = Tuning.ReviveCost; cells = [target.Position]; break;
             case TacticalAction.Recruit:
@@ -313,12 +313,15 @@ public sealed partial class TacticalCombat
                     Emit("GuardRaised", actor.Id, actor.Id, action, actor.Position); break;
                 case TacticalAction.Revive:
                     var target = Actor(intent.Target);
-                    _world.State.Inventory["medicine"]--;
+                    if (Friendly(actor)) _world.State.Inventory["medicine"]--;
+                    else actor.Cargo["medicine"]--;
+                    _world.State.ResourcesConsumed++;
                     target.Life = LifeState.Alive; target.Health = Math.Max(1, target.MaxHealth / 4);
                     target.Tactics!.BleedTurns = 0;
                     RecordCombatHealing(actor.Id, target.Id, target.Health);
                     State.Queue.CancelActor(target.Id, ScheduledKind.ActorReady);
                     ScheduleReady(target, Tuning.WaitCost);
+                    _world.RememberNativeRescue(actor, target);
                     Emit("Revived", actor.Id, target.Id, action, target.Position, target.Health); break;
                 case TacticalAction.Recruit:
                     RecruitDungeonMember(actor, intent.Target, action); break;
@@ -608,6 +611,7 @@ public sealed partial class TacticalCombat
         if (State.ActiveActor == actor.Id || !State.Queue.Snapshot().Pending.Any(e => e.Kind == ScheduledKind.ActorReady && e.ActorId == actor.Id))
         { State.ActiveActor = State.ActiveActor == actor.Id ? 0 : State.ActiveActor; ScheduleReady(actor, Tuning.WaitCost); }
         Emit("Downed", source, actor.Id, action, actor.Position, 5);
+        WakeResidentRescuers(actor);
     }
 
     private void Die(Actor actor, long source, long action, BoonEvent? snapshot = null)

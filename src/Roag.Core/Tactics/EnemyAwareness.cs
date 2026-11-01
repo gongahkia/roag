@@ -129,7 +129,8 @@ public sealed partial class TacticalCombat
                 if (TryFollowerTurn(actor)) continue;
                 return actor;
             }
-            CommitWorldEnemyTurn();
+            if (actor.Tactics!.Resident != null) CommitResidentRescueTurn(actor);
+            else CommitWorldEnemyTurn();
         }
         return null;
     }
