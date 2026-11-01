@@ -30,6 +30,8 @@ public sealed class DungeonRunState
     public Dictionary<long, char> Terrain { get; set; } = [];
     public bool Victory { get; set; }
     public List<DungeonRecruit> Recruits { get; set; } = [];
+    /// <summary>Follower to group leader. Missing members take individual commands; groups never form chains.</summary>
+    public Dictionary<long, long> Following { get; set; } = [];
 
     public bool Contains(WorldPosition p)
     {
@@ -62,6 +64,11 @@ public sealed class DungeonRunState
                 || (actor.Tactics != null) != actor.Recruited
                 || actor.Tactics?.Build is { } build && build.Class != r.Class))
             throw new InvalidDataException("Invalid fixed-class dungeon recruit.");
+        if (Following == null || Following.Any(pair => pair.Key == pair.Value || !world.Party.Contains(pair.Key)
+            || !world.Party.Contains(pair.Value) || Following.ContainsKey(pair.Value)
+            || !actors.TryGetValue(pair.Key, out var follower) || follower.Life == LifeState.Dead
+            || !actors.TryGetValue(pair.Value, out var leader) || leader.Life == LifeState.Dead))
+            throw new InvalidDataException("Invalid dungeon following group.");
         for (int i = 0; i < RouteHistory.Count; i++)
             if (!DungeonRoutes.ForStage(i + 1, RouteHistory.Take(i).ToArray()).Any(r => r.Id == RouteHistory[i]))
                 throw new InvalidDataException("Invalid selected biome route.");

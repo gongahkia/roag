@@ -120,10 +120,14 @@ public sealed partial class TacticalCombat
         {
             if (Friendly(actor))
             {
-                if (!ShouldEatAutomatically(actor)) return actor;
-                var result = Commit(new(TacticalAction.Eat));
-                if (!result.Success) throw new InvalidOperationException(result.Message);
-                continue;
+                if (ShouldEatAutomatically(actor))
+                {
+                    var result = Commit(new(TacticalAction.Eat));
+                    if (!result.Success) throw new InvalidOperationException(result.Message);
+                    continue;
+                }
+                if (TryFollowerTurn(actor)) continue;
+                return actor;
             }
             CommitWorldEnemyTurn();
         }

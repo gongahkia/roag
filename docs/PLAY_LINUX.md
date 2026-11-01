@@ -118,3 +118,8 @@ The retained original audio consists of simple synthesized cues/loops.
 For diagnostics, local recordings normally live under `~/.roag/sessions`.
 `--no-recording` disables them. Preserve a problem save and describe the seed,
 class, floor and action that caused the issue when reporting it.
+
+
+Party tranche controls (under integration): start alone and inspect the fixed-class adventurers in safe rooms. Joining costs one action and no gold, up to four surviving members. B/menu opens portraits, HP, readiness, floor and group/rescue controls. 1–4 changes the viewed member; T returns to the ready member. Viewing someone else grants no action. Only the actual opener receives a chest boon; bring that member beside it on their turn, confirm the recipient, then choose an offer. Gold and medicine are shared, including across floors; builds/boons/utilities remain individual.
+
+Outside local combat, grouped followers spend their own turns moving or waiting. In the party page, Lead group changes the selected member's group leader, Regroup nearby gathers eligible companions within six tiles, and Split selected restores individual commands (splitting a leader also detaches their followers). These policy controls consume no time and move nobody. Stairs move only the actor and separate their group; companions remain on their tiles. H aims adjacent medicine rescue, or use the party page's Revive button: one medicine/action, 25% max HP, five own scheduled turns to bleed out; damaging hits shorten the timer. These source features are being verified; the earlier packaged solo playtest release does not include them yet.

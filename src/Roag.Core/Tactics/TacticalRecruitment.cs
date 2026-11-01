@@ -26,6 +26,7 @@ public sealed partial class TacticalCombat
         // Joining pays its own full recovery too; recruitment never manufactures an immediate extra turn.
         Register(candidate, new() { Build = CharacterBuild.Create(recruit.Class, seed), AutoEat = false },
             checked(Clock + ActionTiming.Recovery(100, ClassCatalog.Get(recruit.Class).Speed)));
+        _world.FollowDungeonRecruit(candidate, actor);
         Emit("Recruited", actor.Id, candidate.Id, action, candidate.Position);
     }
 }

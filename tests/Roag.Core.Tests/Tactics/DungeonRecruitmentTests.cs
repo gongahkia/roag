@@ -57,12 +57,13 @@ public sealed class DungeonRecruitmentTests
             long clock = world.DungeonCombat.Clock;
             var preview = world.DungeonCombat.Preview(new(TacticalAction.Recruit, Target: recruit.Actor));
             Assert.True(preview.Valid, preview.Reason);
-            Assert.True(world.SubmitDungeon(new(TacticalAction.Recruit, Target: recruit.Actor)).Success);
+            Assert.True(world.DungeonCombat.Commit(new(TacticalAction.Recruit, Target: recruit.Actor)).Success);
             var member = world.Party.Single(a => a.Id == recruit.Actor);
             Assert.Equal(recruit.Class, member.Tactics!.Build!.Class);
             Assert.Equal(member.MaxHealth, member.Health);
             Assert.All(world.State.Actors, a => Assert.Equal(positions[a.Id], a.Position));
             Assert.Equal(gold, world.State.Inventory["gold"]);
+            world.DungeonCombat.AdvanceToPartyDecision();
             long ready = world.State.Tactics!.ActiveActor == recruiter.Id ? world.DungeonCombat.Clock
                 : world.State.Tactics.Timeline.Pending.Single(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == recruiter.Id).Due;
             Assert.Equal(clock + preview.Recovery, ready);

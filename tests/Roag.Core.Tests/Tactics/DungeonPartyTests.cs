@@ -8,7 +8,7 @@ namespace Roag.Core.Tests.Tactics;
 
 public sealed class DungeonPartyTests
 {
-    private static Actor AddMember(WorldSession world, ClassKind kind, int floor)
+    internal static Actor AddMember(WorldSession world, ClassKind kind, int floor)
     {
         var site = world.State.Dungeon!.Floors.Single(f => f.Origin.Floor == floor);
         var cell = Enumerable.Range(1, site.Width - 2)

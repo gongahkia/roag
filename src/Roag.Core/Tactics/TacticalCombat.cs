@@ -582,6 +582,7 @@ public sealed partial class TacticalCombat
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
         actor.Life = LifeState.Dead; actor.Health = 0;
+        if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);
         if (actor.Tactics != null) { actor.Tactics.Supplies.WardThroughRecovery = false; actor.Tactics.Supplies.WardRefreshAction = 0; }
         PruneOaths();
         ReleaseCarriedLoot(actor, action);

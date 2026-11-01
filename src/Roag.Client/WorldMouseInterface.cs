@@ -583,6 +583,7 @@ internal sealed partial class WorldGame
                 native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
                 controlledActor = _session.State.Tactics.ControlledActor,
+                following = native.Following,
                 aim = _roagAim,
                 player = _session.Party.Select(a => new { a.Id, a.Name, a.Position, life = a.Life.ToString(), a.Health, maxHealth = a.MaxHealth, a.Tactics!.BleedTurns,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,

@@ -163,6 +163,9 @@ internal sealed partial class WorldGame
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
             case "recruit": CommitRoag(new("recruit", Target: _nativeRecruit)); ClosePanel(); break;
+            case "lead-selected": _notice = _session.ChooseDungeonLeader(_session.DungeonMember.Id).Message; break;
+            case "regroup": _notice = _session.RegroupDungeonParty(_session.DungeonMember.Id).Message; break;
+            case "split": _notice = _session.SplitDungeonMember(_session.DungeonMember.Id).Message; break;
             case "chest-recipient":
                 long recipient = long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
                 if (recipient == _session.DungeonMember.Id && DungeonSelectionReady

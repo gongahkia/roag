@@ -18,6 +18,7 @@ public sealed partial class TacticalCombat
         var from = actor.Position;
         ObserveStairDeparture(actor, from, landing);
         _world.MoveTacticalActor(actor, landing);
+        if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);
         Emit("FloorChanged", actor.Id, actor.Id, action, landing, from: from);
         // Arrival is a real occupied tile, not a traversed line between different floors.
         Emit("TileEntered", actor.Id, actor.Id, action, landing);

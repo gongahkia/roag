@@ -45,14 +45,20 @@ internal sealed partial class WorldGame
             int y = box.Y + 104 + i * 76;
             AddDungeonPartyControl("dungeon:member:" + member.Id, member.Name + " / " + ClassCatalog.Get(member.Tactics!.Build!.Class).Name,
                 new(box.X + 24, y, box.Width - 224, 64), selected: member.Id == _session.DungeonMember.Id,
-                sprite: member.Sprite, detail: $"HP {member.Health}/{member.MaxHealth} / F{member.Position.Floor} / {DungeonReadiness(member)}");
+                sprite: member.Sprite, detail: $"HP {member.Health}/{member.MaxHealth} / F{member.Position.Floor} / {DungeonReadiness(member)} / {DungeonGroupLabel(member)}");
             if (member.Life != LifeState.Downed) continue;
             var preview = _session.DungeonCombat.Preview(new(TacticalAction.Revive, Target: member.Id));
             AddDungeonPartyControl("dungeon:revive:" + member.Id, "Revive", new(box.Right - 184, y + 14, 156, 42),
                 DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
         }
-        AddDungeonPartyControl("dungeon:ready", "View ready member", new(box.X + 24, box.Bottom - 62, 260, 40),
+        int width = (box.Width - 72) / 4;
+        AddDungeonPartyControl("dungeon:ready", "View ready", new(box.X + 24, box.Bottom - 62, width, 40),
             _session.State.Tactics!.ActiveActor > 0);
+        AddDungeonPartyControl("dungeon:lead-selected", "Lead group", new(box.X + 32 + width, box.Bottom - 62, width, 40),
+            _session.DungeonMember.Life == LifeState.Alive);
+        AddDungeonPartyControl("dungeon:regroup", "Regroup nearby", new(box.X + 40 + width * 2, box.Bottom - 62, width, 40),
+            _session.DungeonMember.Life == LifeState.Alive);
+        AddDungeonPartyControl("dungeon:split", "Split selected", new(box.X + 48 + width * 3, box.Bottom - 62, width, 40));
     }
 
     private void BuildDungeonRecruitControls(Rectangle box)
@@ -88,6 +94,15 @@ internal sealed partial class WorldGame
         string footer = "Revive: adjacent conscious rescuer, one medicine and one action; restores 25% HP.";
         if (dead > 0) footer += $" {dead} permanently dead.";
         Wrap(footer, x, box.Bottom - 114, box.Width - 48, Muted);
+        Text(Short(_notice, Math.Max(1, (box.Width - 48) / (_uiFonts?.Advance ?? 8))), x, box.Bottom - 80, Gold);
+    }
+
+    private string DungeonGroupLabel(Actor member)
+    {
+        var following = _session.State.Dungeon!.Following;
+        if (following.TryGetValue(member.Id, out long leader))
+            return "follows #" + (Array.FindIndex(DungeonRoster, a => a.Id == leader) + 1);
+        return following.Values.Contains(member.Id) ? "group leader" : "individual";
     }
 
     private void DrawDungeonRecruitPanel(Rectangle box, int x, int y)

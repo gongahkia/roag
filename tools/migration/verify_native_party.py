@@ -109,7 +109,52 @@ def verify(client):
     client.key('t'); assert client.ui['nativeDungeon']['controlledActor'] == active
     client.key('space'); client.resume()
     client.capture('continued-paid-party-action')
-    result = dict(recruitmentControlSaveVerified=True, iterations=iteration + 1,
+    # Group policy is free; actual following happens only on paid readiness.
+    client.key('t')
+    state = client.ui['nativeDungeon']; ready = state['activeActor']
+    member = next(a for a in state['player'] if a['id'] != ready)
+    client.control_click('dungeon:member:' + str(member['id']))
+    client.control_click('dungeon:party')
+    before = client.ui['nativeDungeon']
+    client.control_click('dungeon:split')
+    after = client.ui['nativeDungeon']
+    for field in ['clock', 'activeActor', 'timeline', 'player']:
+        assert after[field] == before[field], 'free split changed ' + field
+    assert str(member['id']) not in after['following']
+    client.capture('explicit-split-policy')
+    client.control_click('dungeon:regroup')
+    after = client.ui['nativeDungeon']
+    assert len(after['following']) == 3, client.ui['notice']
+    for field in ['clock', 'activeActor', 'timeline', 'player']:
+        assert after[field] == before[field], 'free regroup changed ' + field
+    client.capture('regroup-around-selected-member')
+    client.control_click('dungeon:close'); client.key('t')
+    before = client.ui['nativeDungeon']
+    client.control_click('dungeon:party'); client.control_click('dungeon:lead-selected')
+    after = client.ui['nativeDungeon']
+    for field in ['clock', 'activeActor', 'timeline', 'player']:
+        assert after[field] == before[field], 'free leadership changed ' + field
+    assert set(after['following'].values()) == {after['activeActor']}
+    client.capture('free-leadership-change')
+    client.control_click('dungeon:close')
+    acting = client.ui['nativeDungeon']['activeActor']
+    initial = {a['id']: position(a['position']) for a in client.ui['nativeDungeon']['player']}
+    at = initial[acting]
+    options = [(at[0] + dx, at[1] + dy, at[2]) for dx, dy, _ in DIRECTIONS]
+    path = route(client.ui, options)
+    assert path, 'No free ordinary step beside the ready member'
+    target = path[0]
+    key = next(k for dx, dy, k in DIRECTIONS if (at[0] + dx, at[1] + dy, at[2]) == target)
+    client.key(key)
+    final = {a['id']: position(a['position']) for a in client.ui['nativeDungeon']['player']}
+    assert final[acting] == target, client.ui['notice']
+    assert len(set(final.values())) == 4, 'Group members overlapped'
+    client.capture('paid-group-step')
+    before_follow = client.ui['nativeDungeon']['following']
+    client.resume()
+    assert client.ui['nativeDungeon']['following'] == before_follow
+    client.capture('exact-group-policy-reload')
+    result = dict(recruitmentControlSaveVerified=True, groupPolicyVerified=True, iterations=iteration + 1,
         clock=client.ui['nativeDungeon']['clock'], player=client.ui['nativeDungeon']['player'],
         limits='Focused starting-room recruitment/control/build views/save check; boss, split-floor and rescue journey still pending.')
     (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
