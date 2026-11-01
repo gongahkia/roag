@@ -228,6 +228,11 @@ public sealed partial class TacticalCombat
                 cost = Tuning.ReviveCost; cells = [target.Position]; break;
             case TacticalAction.Recruit:
                 return PreviewRecruit(actor, intent.Target);
+            case TacticalAction.Abandon:
+                var abandoned = _world.State.Actors.FirstOrDefault(a => a.Id == intent.Target);
+                if (!Friendly(actor) || abandoned is not { Life: LifeState.Downed, Tactics: not null } || !Friendly(abandoned))
+                    return Invalid("Choose a downed party member to abandon permanently.");
+                cost = Tuning.WaitCost; break;
             case TacticalAction.BasicAttack:
             case TacticalAction.Special:
                 if (definition is null) return Invalid("Use an authored enemy intent.");
@@ -301,6 +306,9 @@ public sealed partial class TacticalCombat
                     Emit("Revived", actor.Id, target.Id, action, target.Position, target.Health); break;
                 case TacticalAction.Recruit:
                     RecruitDungeonMember(actor, intent.Target, action); break;
+                case TacticalAction.Abandon:
+                    Die(Actor(intent.Target), actor.Id, action);
+                    Emit("Abandoned", actor.Id, intent.Target, action, actor.Position); break;
                 case TacticalAction.BasicAttack:
                 case TacticalAction.Special:
                     CommitClassAttack(actor, executed, preview, action);
