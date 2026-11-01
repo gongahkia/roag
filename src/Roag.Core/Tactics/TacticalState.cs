@@ -141,6 +141,7 @@ public sealed class TacticalWorldState
     public DungeonServiceState Services { get; set; } = new();
     public TacticalDoorState Doors { get; set; } = new();
     public DungeonGateState Gates { get; set; } = new();
+    public DungeonQuestState Quests { get; set; } = new();
     public DungeonVaultState Vaults { get; set; } = new();
     public TacticalSecretState Secrets { get; set; } = new();
     public DungeonRoomFeatureState RoomFeatures { get; set; } = new();

@@ -16,14 +16,15 @@ public sealed record DungeonRoomPlacement(int Index, int X, int Y, PlacedRoom Sh
 /// <summary>Construction result, consumed into actual world chunks; never another live terrain authority.</summary>
 public sealed record DungeonDoorSite(int Room, RoomPoint Position);
 public sealed record DungeonLayout(string Biome, int Width, int Height, string[] Rows,
-    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms, RoomPoint[] OptionalShortcuts, DungeonDoorSite[] Doors);
+    DungeonRoomPlacement[] Rooms, RoomPoint Start, RoomPoint Elite, int[] CriticalRooms, RoomPoint[] OptionalShortcuts, DungeonDoorSite[] Doors,
+    DungeonCorridor[] Corridors, DungeonBranch? Branch);
 
-public static class DungeonLayoutGenerator
+public static partial class DungeonLayoutGenerator
 {
     public static DungeonLayout Generate(int seed, string biomeId)
     {
         var catalog = DungeonCatalog.Default;
-        _ = catalog.Biomes.Single(b => b.Id == biomeId);
+        var biome = catalog.Biomes.Single(b => b.Id == biomeId);
         var rules = catalog.Generation;
         var random = new RoagRandom((int)(WorldRandom.Hash(seed, 0, salt: 9400) % (RoagRandom.Modulus - 1)) + 1);
         int count = rules.RoomMin + random.NextOneBased(rules.RoomMax - rules.RoomMin + 1) - 1;
@@ -32,6 +33,7 @@ public static class DungeonLayoutGenerator
         var rooms = new List<DungeonRoomPlacement>();
         var edges = new List<(int From, int To)>();
         var shortcuts = new List<RoomPoint>();
+        var corridors = new List<DungeonCorridor>();
         for (int i = 0; i < count; i++)
         {
             string role = i == 0 ? "start" : i == count - 1 ? "elite"
@@ -44,6 +46,12 @@ public static class DungeonLayoutGenerator
             var placement = new DungeonRoomPlacement(i, x, y, shape, role); rooms.Add(placement);
             for (int yy = 0; yy < shape.Height; yy++) for (int xx = 0; xx < shape.Width; xx++)
                 grid[y + yy][x + xx] = shape.Rows[yy][xx];
+            foreach (var editable in shape.Editable)
+                if (random.NextOneBased(100) <= 35)
+                {
+                    var p = placement.At(editable); char original = shape.Rows[editable.Y - 1][editable.X - 1];
+                    grid[p.Y][p.X] = biome.Strategy == "canals" ? original == '~' ? '.' : '~' : original == '#' ? '.' : '#';
+                }
         }
         // A connected spine with extra physical loops. Corridors connect authored
         // sockets through the gaps between rooms, preserving every room footprint.
@@ -77,21 +85,25 @@ public static class DungeonLayoutGenerator
                 : neighbor < doorRoom.Index ? "N" : "S";
             doors.Add(new(doorRoom.Index, doorRoom.Socket(facing)));
         }
+        var startPoint = Marker(rooms[0], "player");
+        var branch = AttachBranch(corridors, rooms, grid, startPoint, random);
         return new(biomeId, rules.Width, rules.Height, grid.Select(row => new string(row)).ToArray(), rooms.ToArray(),
-            Marker(rooms[0], "player"), Marker(rooms[^1], "elite"), critical.ToArray(), shortcuts.ToArray(), doors.ToArray());
+            startPoint, Marker(rooms[^1], "elite"), critical.ToArray(), shortcuts.ToArray(), doors.ToArray(), corridors.ToArray(), branch);
 
         void Connect(DungeonRoomPlacement first, DungeonRoomPlacement second, bool horizontal)
         {
             edges.Add((first.Index, second.Index));
             var start = first.Socket(horizontal ? "E" : "S"); var end = second.Socket(horizontal ? "W" : "N");
+            var cells = CorridorPath(start, end, horizontal, biome.Strategy, random);
+            foreach (var p in cells) if (grid[p.Y][p.X] == '#') grid[p.Y][p.X] = '.';
+            corridors.Add(DecorateCorridor(first.Index, second.Index, cells, biome.Strategy, rooms, grid));
             if (horizontal)
             {
                 int middle = (first.X + first.Shape.Width - 1 + second.X) / 2;
-                Segment(start, new(middle, start.Y)); Segment(new(middle, start.Y), new(middle, end.Y)); Segment(new(middle, end.Y), end);
                 // A finite parallel bank adds an optional shortcut beside the
                 // protected corridor. Closing its center cannot remove the spine.
                 int bx = start.X + 2;
-                if (bx + 2 <= middle)
+                if (bx + 2 <= middle && cells.Contains(new(bx + 2, start.Y)))
                     foreach (int by in new[] { start.Y - 1, start.Y + 1 })
                     {
                         bool free = by > 0 && by < rules.Height - 1;
@@ -101,11 +113,6 @@ public static class DungeonLayoutGenerator
                         Segment(new(bx, start.Y), new(bx, by)); Segment(new(bx, by), new(bx + 2, by)); Segment(new(bx + 2, by), new(bx + 2, start.Y));
                         shortcuts.Add(new(bx + 1, by)); break;
                     }
-            }
-            else
-            {
-                int middle = (first.Y + first.Shape.Height - 1 + second.Y) / 2;
-                Segment(start, new(start.X, middle)); Segment(new(start.X, middle), new(end.X, middle)); Segment(new(end.X, middle), end);
             }
         }
         void Segment(RoomPoint first, RoomPoint last)

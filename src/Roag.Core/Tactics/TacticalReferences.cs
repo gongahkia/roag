@@ -9,6 +9,7 @@ public static class TacticalReferences
     {
         if (world.Tactics is not { } state) return false;
         if (world.Dungeon?.Floors.Any(f => f.Boss == id) == true) return true;
+        if (state.Quests.Nodes.Any(q => q.Target == id && !q.EnemyDefeated)) return true;
         if (state.Services.Nodes.Any(n => n.Fixture?.Pending?.Owner == id)) return true;
         if (state.Services.Nodes.Any(n => n.Contract is { Status: DungeonContractStatus.Offered or DungeonContractStatus.Active } c
             && (c.Owner == id || c.Targets.Contains(id)))) return true;

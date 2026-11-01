@@ -394,6 +394,23 @@ internal sealed partial class WorldGame
                     _session.Visible.Contains(vault.Position) ? Gold : Gold * .35f);
             if (!vault.KeyCollected) Icon(vault.KeyPosition, "key", Gold);
         }
+        foreach (var quest in state.Quests.Nodes)
+            foreach (var node in quest.Nodes)
+            {
+                var p = node.Position;
+                if (node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Enemy || p.Floor != _session.State.Position.Floor
+                    || !_session.Chunks.Seen(p) || !_map.Intersects(TileRect(p))) continue;
+                bool visible = _session.Visible.Contains(p);
+                if (visible && node.Activated && node.Kind is not (Roag.Core.Dungeons.DungeonBranchNodeKind.Gate or Roag.Core.Dungeons.DungeonBranchNodeKind.Brazier)) continue;
+                string sprite = node.Kind switch
+                {
+                    Roag.Core.Dungeons.DungeonBranchNodeKind.Clue => "book", Roag.Core.Dungeons.DungeonBranchNodeKind.Key => "key",
+                    Roag.Core.Dungeons.DungeonBranchNodeKind.Plate => "mark", Roag.Core.Dungeons.DungeonBranchNodeKind.Brazier => "brazier",
+                    Roag.Core.Dungeons.DungeonBranchNodeKind.Gate => visible && quest.Opened ? "gate-open" : "gate", _ => "coin"
+                };
+                Color tint = visible ? node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Reward && !quest.Ready ? Muted : Gold : Gold * .35f;
+                _sprites.Fit(_batch, sprite, TileRect(p), tint);
+            }
         foreach (var chest in state.Chests.Chests)
             if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
                 _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));

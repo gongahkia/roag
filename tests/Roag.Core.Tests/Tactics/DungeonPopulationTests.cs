@@ -14,6 +14,7 @@ public sealed class DungeonPopulationTests
         var kinds = new HashSet<DungeonServiceKind>();
         int timedGates = 0;
         var vaultOutcomes = new HashSet<DungeonVaultOutcome>();
+        var branches = new HashSet<DungeonBranchKind>();
         for (int seed = 0; seed < 24; seed++)
         {
             using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
@@ -21,6 +22,20 @@ public sealed class DungeonPopulationTests
             kinds.UnionWith(state.Services.Nodes.Select(n => n.Kind));
             foreach (var floor in world.State.Dungeon!.Floors)
             {
+                var quests = state.Quests.Nodes.Where(q => q.Cells[0].Floor == floor.Origin.Floor).ToArray();
+                Assert.InRange(quests.Length, 0, 1);
+                foreach (var quest in quests)
+                {
+                    branches.Add(quest.Kind); Assert.False(quest.Opened); Assert.False(quest.Ready); Assert.False(quest.Completed);
+                    Assert.All(quest.Cells, p =>
+                    {
+                        Assert.DoesNotContain(floor.Rooms, r => r.Contains(p));
+                        Assert.DoesNotContain(state.RoomFeatures.Nodes, n => n.Position == p);
+                        Assert.DoesNotContain(state.Vaults.Nodes, n => n.Position == p || n.KeyPosition == p);
+                        Assert.DoesNotContain(state.OptionalTerrain.Nodes, n => n.Position == p);
+                    });
+                    if (quest.Kind == DungeonBranchKind.FalseEnd) Assert.Equal("core:enemy/", world.ActorById(quest.Target).Tactics!.DefinitionId[..11]);
+                }
                 var secret = Assert.Single(state.Secrets.Nodes, n => n.Position.Floor == floor.Origin.Floor);
                 var gates = state.Gates.Nodes.Where(g => g.Position.Floor == floor.Origin.Floor).ToArray();
                 var vaults = state.Vaults.Nodes.Where(v => v.Position.Floor == floor.Origin.Floor).ToArray();
@@ -88,6 +103,7 @@ public sealed class DungeonPopulationTests
         Assert.Equal(Enum.GetValues<DungeonServiceKind>().Order(), kinds.Order());
         Assert.True(timedGates > 0);
         Assert.Equal(Enum.GetValues<DungeonVaultOutcome>().Order(), vaultOutcomes.Order());
+        Assert.Equal(Enum.GetValues<DungeonBranchKind>().Order(), branches.Order());
     }
 
     [Fact]

@@ -85,6 +85,7 @@ public sealed partial class TacticalCombat
     }
 
     private bool ChestCellOpen(WorldPosition position, string? vaultMarker = null) => _world.CanEnter(position) && !ProtectedForcedLanding(position)
+        && !_world.DungeonQuestCell(position)
         && (_world.ObjectAt(position) == null || vaultMarker != null && State.Vaults.Nodes.Any(v => v.Opened && v.Outcome == DungeonVaultOutcome.Boon
             && v.Position == position && vaultMarker == "review:vault:" + v.Marker))
         && !State.Chests.Chests.Any(c => c.Position == position)

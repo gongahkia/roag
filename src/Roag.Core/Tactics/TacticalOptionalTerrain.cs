@@ -59,6 +59,7 @@ public sealed partial class TacticalCombat
     public bool CanPlaceOptionalTerrain(OptionalTerrainKind kind, string marker, WorldPosition position, Facing facing = Facing.South)
         => Enum.IsDefined(kind) && Enum.IsDefined(facing) && AttackGeometry.Cardinal(facing) && !string.IsNullOrWhiteSpace(marker)
             && _world.GroundOpen(position) && _world.DungeonTerrainAt(position) == null && !ProtectedForcedLanding(position)
+            && !_world.DungeonQuestCell(position)
             && !State.OptionalTerrain.Nodes.Any(n => n.Position == position || n.Marker == marker)
             && !State.Services.Nodes.Any(n => n.Position == position)
             && !State.Secrets.Nodes.Any(n => !n.Revealed && n.Clue == position)

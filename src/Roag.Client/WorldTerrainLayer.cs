@@ -48,6 +48,8 @@ internal sealed partial class WorldGame
             { sprite = material == Material.ClosedDoor ? "gate" : "gate-open"; tint = Gold; ground = false; }
             if (_session.DungeonGateAt(p) != null)
             { sprite = _session.Visible.Contains(p) && material == Material.Door ? "gate-open" : "gate"; tint = Gold; ground = false; }
+            if (_session.DungeonQuestNodeAt(p)?.Node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Gate)
+            { sprite = bright && material == Material.Door ? "gate-open" : "gate"; tint = Gold; ground = false; }
             var resource = _session.ResourceAt(p);
             if (resource != null)
             {

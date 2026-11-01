@@ -30,6 +30,10 @@ public sealed partial class WorldSession
         .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
     private static readonly WorldObject[] DungeonRoomObjects = Enum.GetValues<DungeonRoomFeatureKind>()
         .Select(k => new WorldObject(TacticalCombat.RoomFeatureName(k), NativeAppearance.ForRoomFeature(k), "dungeon-room-feature", k == DungeonRoomFeatureKind.Pillar)).ToArray();
+    private static readonly WorldObject QuestClue = new("Branch clue", "book", "dungeon-quest", false),
+        QuestKey = new("Branch key", "key", "dungeon-quest", false), QuestPlate = new("Branch switch", "mark", "dungeon-quest", false),
+        QuestBrazier = new("Signal brazier", "brazier", "dungeon-quest", false), QuestReward = new("Branch reward", "coin", "dungeon-quest", false),
+        QuestGateClosed = new("Branch gate", "gate", "dungeon-quest", true), QuestGateOpen = new("Open branch gate", "gate-open", "dungeon-quest", false);
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
     internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
     {
@@ -62,6 +66,18 @@ public sealed partial class WorldSession
                 if (tactics.Doors.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
             for (int i = 0; i < tactics.Gates.Nodes.Count; i++)
                 if (tactics.Gates.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedTimedGate : OpenTimedGate;
+            if (DungeonQuestNodeAt(p) is { } questSite)
+            {
+                var (quest, node) = questSite;
+                if (node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Gate) return quest.Opened ? QuestGateOpen : QuestGateClosed;
+                if (!node.Activated) return node.Kind switch
+                {
+                    Roag.Core.Dungeons.DungeonBranchNodeKind.Clue => QuestClue, Roag.Core.Dungeons.DungeonBranchNodeKind.Key => QuestKey,
+                    Roag.Core.Dungeons.DungeonBranchNodeKind.Plate => QuestPlate, Roag.Core.Dungeons.DungeonBranchNodeKind.Brazier => QuestBrazier,
+                    _ => QuestReward
+                };
+                if (node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Brazier) return QuestBrazier;
+            }
             for (int i = 0; i < tactics.Vaults.Nodes.Count; i++)
             {
                 var vault = tactics.Vaults.Nodes[i];

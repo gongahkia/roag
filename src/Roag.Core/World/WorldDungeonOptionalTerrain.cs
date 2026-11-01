@@ -9,7 +9,7 @@ public sealed partial class WorldSession
     {
         var floor = State.Dungeon!.Floors.Single(f => f.Origin.Floor == origin.Floor);
         int seed = RoagRandom.Derive(DungeonSeed, $"floor:{origin.Floor}/optional-terrain");
-        bool Available(WorldPosition p) => CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
+        bool Available(WorldPosition p) => !DungeonQuestCell(p) && CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
             && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 6 && p.Distance(floor.Exit) >= 3
             && !combat.State.Chests.Chests.Any(c => c.Position.Distance(p) <= 1)

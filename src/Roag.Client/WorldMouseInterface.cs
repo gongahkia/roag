@@ -578,6 +578,10 @@ internal sealed partial class WorldGame
                     .Select(d => new { d.Id, d.Position, open = _session.Chunks.At(d.Position) == Material.Door }),
                 gates = _session.State.Tactics.Gates.Nodes.Where(g => _session.Visible.Contains(g.Position))
                     .Select(g => new { g.Id, g.Position, open = _session.Chunks.At(g.Position) == Material.Door, g.CloseAt }),
+                questNodes = _session.State.Tactics.Quests.Nodes.SelectMany(q => q.Nodes.Where(n => _session.Visible.Contains(n.Position))
+                    .Select(n => new { q.Id, kind = q.Kind.ToString(), node = n.Kind.ToString(), n.Position, n.Activated,
+                        ready = n.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Reward && q.Ready,
+                        open = n.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Gate && q.Opened })),
                 vaults = _session.State.Tactics.Vaults.Nodes.Where(v => _session.Visible.Contains(v.Position))
                     .Select(v => new { v.Id, v.Position, keyHeld = v.KeyCollected && !v.Opened, v.Opened, outcome = v.Outcome?.ToString(), v.Clue }),
                 vaultKeys = _session.State.Tactics.Vaults.Nodes.Where(v => !v.KeyCollected && _session.Visible.Contains(v.KeyPosition))

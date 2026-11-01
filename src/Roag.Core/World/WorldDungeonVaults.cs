@@ -29,7 +29,7 @@ public sealed partial class WorldSession
     {
         var floor = State.Dungeon!.Floors.Single(f => f.Origin == origin);
         int seed = RoagRandom.Derive(DungeonSeed, $"floor:{origin.Floor}/vault");
-        bool Safe(WorldPosition p) => CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null && ObjectAt(p) == null
+        bool Safe(WorldPosition p) => !DungeonQuestCell(p) && CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 4 && p.Distance(floor.Exit) >= 3
             && !combat.State.Chests.Chests.Any(c => c.Position.Distance(p) < 2)
             && !combat.State.Doors.Nodes.Any(d => d.Position.Distance(p) < 2)
@@ -42,7 +42,7 @@ public sealed partial class WorldSession
             foreach (var (dx, dy) in EncounterDirections)
             {
                 var next = point.Offset(dx, dy);
-                if (!floor.Contains(next) || reachable.Contains(next) || DungeonGateAt(next) != null
+                if (!floor.Contains(next) || reachable.Contains(next) || DungeonGateAt(next) != null || DungeonQuestNodeAt(next)?.Node.Kind == DungeonBranchNodeKind.Gate
                     || !(GroundOpen(next) || DungeonDoorAt(next) != null || Chunks.At(next) == Material.Barricade)) continue;
                 reachable.Add(next); queue.Enqueue(next);
             }

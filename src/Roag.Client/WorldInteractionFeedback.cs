@@ -38,7 +38,25 @@ internal static class WorldInspection
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             detail += targeting;
             if (session.State.Dungeon != null && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
+            if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
+        }
+        if (session.DungeonQuestNodeAt(cell) is { } questSite)
+        {
+            var (quest, questNode) = questSite;
+            string title = questNode.Kind == DungeonBranchNodeKind.Brazier ? "Signal brazier" : "Branch " + questNode.Kind.ToString().ToLowerInvariant();
+            if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this branch again to inspect its current state.", "Move with the keyboard", "", "object");
+            string condition = quest.Kind switch
+            {
+                DungeonBranchKind.Spur => "Discover the clue to unlock the reward.", DungeonBranchKind.Braid => "Find the branch key to open its gate.",
+                DungeonBranchKind.Switchback => "Cross the branch switch to open its gate permanently.", DungeonBranchKind.Hub => "Light both signal braziers by crossing their tiles.",
+                _ => "Discover the clue to open the gate, then defeat the branch guard."
+            };
+            string detail = questNode.Kind == DungeonBranchNodeKind.Reward ? quest.Completed ? "Collected. This branch pays only once."
+                : quest.Ready ? "Ready. Cross this tile to collect five gold." : "Locked. " + condition
+                : questNode.Kind == DungeonBranchNodeKind.Gate ? quest.Opened ? "Permanently open." : "Closed. " + condition
+                : (questNode.Activated ? "Activated. " : "Cross this tile. ") + condition;
+            return new(title, detail, "Move with the keyboard", "", "object");
         }
         if (session.State.Tactics?.Services.Nodes.FirstOrDefault(n => n.Position == cell) is { } service)
         {

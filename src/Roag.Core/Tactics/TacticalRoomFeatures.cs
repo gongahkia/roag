@@ -49,6 +49,7 @@ public sealed partial class TacticalCombat
 {
     public bool CanPlaceRoomFeature(DungeonRoomFeatureKind kind, string marker, WorldPosition position)
         => Enum.IsDefined(kind) && !string.IsNullOrWhiteSpace(marker) && _world.CanEnter(position)
+            && !_world.DungeonQuestCell(position)
             && _world.Chunks.At(position) == Material.Floor && _world.DungeonTerrainAt(position) == null
             && _world.ObjectAt(position) == null && !ProtectedForcedLanding(position)
             && !State.Chests.Chests.Any(n => n.Position == position)

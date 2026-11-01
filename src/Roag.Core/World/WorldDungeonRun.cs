@@ -124,6 +124,7 @@ public sealed partial class WorldSession
             var position = At(room.At(enemies[room.Index % enemies.Length]));
             if (CanEnter(position)) SpawnDungeonEnemy(combat, biome.EnemyIds[serial++ % biome.EnemyIds.Length], position);
         }
+        PopulateDungeonCorridors(layout, origin, combat, biome.EnemyIds, serial);
         PopulateDungeonEncounters(layout, origin, combat);
         if (boss)
         {

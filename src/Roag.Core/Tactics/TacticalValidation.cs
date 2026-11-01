@@ -39,6 +39,8 @@ public static class TacticalValidation
         if (state.RoomFeatures == null) throw new InvalidDataException("Missing room feature registry.");
         state.RoomFeatures.Validate(plan, world, content);
         state.Gates.Validate(plan, world, content);
+        if (state.Quests == null) throw new InvalidDataException("Missing corridor quest registry.");
+        state.Quests.Validate(plan, world, content);
         if (state.OptionalTerrain == null) throw new InvalidDataException("Missing optional terrain state.");
         state.OptionalTerrain.Validate(plan, world, content);
         if (state.Chests.Chests.Any(c => c.Claimed && !world.Party.Contains(c.Recipient)))
