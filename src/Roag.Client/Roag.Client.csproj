@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RuntimeIdentifiers>linux-x64</RuntimeIdentifiers></PropertyGroup>
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>

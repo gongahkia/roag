@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RuntimeIdentifiers>linux-x64</RuntimeIdentifiers></PropertyGroup>
   <ItemGroup><EmbeddedResource Include="../../assets/tactics/boons.json" LogicalName="Roag.Tactics.Boons.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="../../assets/tactics/enemies.json" LogicalName="Roag.Tactics.Enemies.json" /></ItemGroup>
   <ItemGroup><EmbeddedResource Include="../../assets/tactics/dungeons.json" LogicalName="Roag.Tactics.Dungeons.json" /></ItemGroup>
