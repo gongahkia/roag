@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Explore the normal rendered game using only visible observations and input.
 
-Build Roag.Client, then run under xvfb-run with SDL_AUDIODRIVER=dummy and
-LIBGL_ALWAYS_SOFTWARE=1. Saves, screenshots and an input journal stay in the
+Build Roag.Client, then run under xvfb-run with LIBGL_ALWAYS_SOFTWARE=1.
+Test clients use OpenAL's null backend and SDL dummy audio so they stay muted.
+Saves, screenshots and an input journal stay in the
 fresh evidence directory. No gameplay state, positions or results are injected.
 This is a gameplay probe: a defeat or action budget is reported, never a pass.
 """
@@ -42,7 +43,8 @@ class Client:
         metadata = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             status=subprocess.check_output(['git', 'status', '--short'], cwd=ROOT, text=True),
             assemblies={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.runtime.glob('Roag*.dll')},
-            seed=seed, display=os.environ.get('DISPLAY'), continuation=str(continuation) if continuation else None)
+            seed=seed, display=os.environ.get('DISPLAY'), audioBackend='OpenAL null / SDL dummy',
+            continuation=str(continuation) if continuation else None)
         (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
         self.journal = (output / 'inputs.jsonl').open('w')
         self.sequence = 0
@@ -65,9 +67,11 @@ class Client:
             if path.exists(): path.rename(self.control / (str(self.launches) + '-old-' + name))
         self.log = (self.output / ('client-' + str(self.launches) + '.log')).open('wb')
         command = [str(self.runtime / 'Roag.Client')] if (self.runtime / 'libhostfxr.so').exists() else [str(ROOT / 'tools/dotnet.sh'), str(self.runtime / 'Roag.Client.dll')]
+        environment = {**os.environ, 'ALSOFT_DRIVERS': 'null', 'SDL_AUDIODRIVER': 'dummy'}
         self.process = subprocess.Popen([*command,
             *flags, '--save', str(self.slot), '--playtest-control', str(self.control),
-            '--window-size', '1280x800', '--no-recording'], cwd=self.runtime, stdout=self.log, stderr=subprocess.STDOUT)
+            '--window-size', '1280x800', '--no-recording'], cwd=self.runtime, env=environment,
+            stdout=self.log, stderr=subprocess.STDOUT)
         self.ui = self.until(lambda: self.read('observation.json'))['ui']
         self.window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--name', '^Roag$'], text=True).splitlines()[-1]
         subprocess.run(['xdotool', 'windowfocus', self.window], check=True)
@@ -266,7 +270,11 @@ class Journey:
         if self.at in self.danger:
             safe = [p for p in self.neighbors(self.at) if self.open(p, True)]
             if safe:
-                return self.move(max(safe, key=lambda p: min(distance(p, position(f['position'])) for f in self.fighters)))
+                # Stay within fighting reach when possible. Always retreating
+                # from a stationary boss can repeat the same warning forever.
+                return self.move(min(safe, key=lambda p: (
+                    not any(self.aligned(p, position(f['position'])) for f in self.fighters),
+                    self.visits[p], min(distance(p, position(f['position'])) for f in self.fighters))))
             escapes = []
             for dx, dy, key in DIRECTIONS:
                 lane = []
