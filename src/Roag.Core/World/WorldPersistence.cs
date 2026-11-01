@@ -228,7 +228,8 @@ public sealed partial class WorldSession
                 if (item == null || item.Slot != slot || slot == "none" || gear != new EquipmentState(item.Id, item.Health, item.Power, item.Armor, item.Speed)) throw new InvalidDataException("Invalid equipped item.");
             }
         }
-        if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !s.Actors.Any(a => a.Id == s.Endgame.ActorId && catalog.Entries[a.Archetype] is BossDefinition)
+        bool boundedObjective = s.Dungeon != null && s.Endgame is { ActorId: 0, SiteId: 0, Victory: false };
+        if (s.Endgame == null || s.Endgame.SiteId is < 0 or >= 48 || !boundedObjective && !s.Actors.Any(a => a.Id == s.Endgame.ActorId && catalog.Entries[a.Archetype] is BossDefinition)
             || s.Endgame.Victory && (s.Battle != null || s.Actors.Single(a => a.Id == s.Endgame.ActorId).Life != LifeState.Dead)
             || s.Loot == null || s.Loot.Count > 10000 || s.Loot.Any(c => c == null || c.Id == null || !plan.Contains(c.Position) || c.Contents == null || c.Contents.Any(p => p.Value < 0 || !stacks.Contains(p.Key))
                 || c.Choices == null || c.Choices.Length is not (0 or 3) || c.Choices.Distinct().Count() != c.Choices.Length

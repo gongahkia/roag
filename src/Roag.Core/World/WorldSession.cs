@@ -34,6 +34,10 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         Chunks.Prefetch(state.Position); RefreshVisibility(observe);
     }
     public static WorldSession Create(int seed, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null, bool roagNative = false, int floorCount = WorldPlan.Floors)
+        => CreateWorld(seed, content, diagnostics, roagNative, floorCount, populateWorld: true);
+
+    private static WorldSession CreateWorld(int seed, ContentCatalog? content, Action<WorldDiagnosticEvent>? diagnostics,
+        bool roagNative, int floorCount, bool populateWorld)
     {
         content ??= ContentCatalog.Default;
         if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
@@ -45,6 +49,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         foreach (var town in plan.Towns)
         {
             s.Towns.Add(new() { Id = town.Id });
+            if (!populateWorld) continue;
             for (int i = 0; i < 8; i++)
             {
                 var actor = ActorFactory.Create(content, i == 4 ? content.Game.Healer : content.Game.Villager, seed, 1000 + town.Id * 16 + i, town.Center, town.Id, town.Culture, town.FactionId);
@@ -55,20 +60,28 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 s.Actors.Add(actor);
             }
         }
-        foreach (var road in plan.Roads)
+        foreach (var road in populateWorld ? plan.Roads : [])
         {
             var caravan = ActorFactory.Create(content, content.Game.Caravan, seed, 20000 + road.Id, road.A, road.FromTown, faction: plan.Towns[road.FromTown].FactionId);
             caravan.Position = road.A.Offset((road.Id % 3 - 1) * 3, 7 + road.Id % 2 * 3);
             caravan.Name = "Caravan of " + plan.Towns[road.FromTown].Name; caravan.DestinationTown = road.ToTown; caravan.NextTravelTick = 100 + road.Id * 7;
             s.Actors.Add(caravan);
         }
-        foreach (var site in plan.Sites)
+        foreach (var site in populateWorld ? plan.Sites : [])
         {
             for (int i = 0; i < 3; i++) s.Actors.Add(ActorFactory.Create(content, i == 0 ? content.Game.Beast : content.Game.Raider, seed, 30000 + site.Id * 4 + i,
                 (site.Center with { Floor = i == 2 ? 1 : 0 }).Offset(i * 3 - 4, 4), site.Id % 24, faction: site.Id % 6));
         }
         var session = new WorldSession(plan, s, content, diagnostics);
         session.NewLoneHero();
+        if (!populateWorld)
+        {
+            // Bounded runs share persistent terrain and actor infrastructure,
+            // but do not materialize the deferred living-world population.
+            s.Endgame = new() { ActorId = 0, SiteId = 0 };
+            s.Arc.PatronId = s.Party.Single();
+            return session;
+        }
         if (roagNative) { foreach (var site in plan.Sites.Where(site => WorldRandom.Hash(seed, site.Id, salt: 9301) % 4 == 0)) s.RoagChallengeSites.Add(site.Id); session.InitializeRoagParty(); }
         session.PopulateAdventures();
         session.PopulateDiscoveries();

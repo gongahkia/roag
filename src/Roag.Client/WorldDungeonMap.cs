@@ -18,7 +18,9 @@ internal sealed partial class WorldGame
     private Rectangle DungeonMapBounds()
     {
         var floor = _session.State.Dungeon!.Floors.Single(f => f.Contains(_session.State.Position));
-        return new(_map.X + 4, _map.Y + 4, (int)Math.Ceiling(floor.Width * 1.3f) + 16, (int)Math.Ceiling(floor.Height * 1.3f) + 32);
+        int titleWidth = "MAP / Tab".Length * (_uiFonts?.Advance ?? 8);
+        return new(_map.X + 4, _map.Y + 4, Math.Max((int)Math.Ceiling(floor.Width * 1.3f), titleWidth) + 16,
+            (int)Math.Ceiling(floor.Height * 1.3f) + 32);
     }
 
     private void DrawDungeonMap()

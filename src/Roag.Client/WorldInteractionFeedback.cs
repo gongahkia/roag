@@ -197,8 +197,11 @@ internal static class WorldInspection
         WorldHoverInfo WithAccess(string title, string detail, string action, string kind)
         {
             string reason = WorldMouseNavigation.HoverBlockReason(session, cell);
-            if (session.State.Dungeon != null && reason.IndexOf("Right-click", StringComparison.Ordinal) is >= 0 and var deferredHint)
-                reason = reason[..deferredHint].TrimEnd();
+            if (session.State.Dungeon != null)
+            {
+                int deferredHint = reason.IndexOf("Right-click", StringComparison.Ordinal);
+                if (deferredHint >= 0) reason = reason[..deferredHint].TrimEnd();
+            }
             return new(title, detail, action, reason, kind);
         }
     }

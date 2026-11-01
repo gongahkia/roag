@@ -13,7 +13,7 @@ public sealed partial class WorldSession
     /// <summary>Create the bounded solo run on persistent world chunks and actors.</summary>
     public static WorldSession CreateDungeonRun(int seed, ClassKind kind = ClassKind.Adventurer)
     {
-        var world = Create(seed, floorCount: 8);
+        var world = CreateWorld(seed, null, null, roagNative: false, floorCount: 8, populateWorld: false);
         try
         {
             world.State.Dungeon = new();

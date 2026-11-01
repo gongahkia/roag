@@ -9,6 +9,35 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class DungeonRunTests
 {
     [Theory]
+    [InlineData(5)]
+    [InlineData(42)]
+    public void BoundedRunsMaterializeOnlyNativeActorsAndRewardsAndRemainLoadable(int seed)
+    {
+        // Seed 5 previously placed an unscheduled imported road raider inside
+        // the first native floor; it blocked tiles and received native attacks.
+        using var world = WorldSession.CreateDungeonRun(seed);
+        Assert.All(world.State.Actors, actor => Assert.NotNull(actor.Tactics));
+        Assert.Empty(world.State.Loot);
+        Assert.Empty(world.State.Discoveries);
+        Assert.Empty(world.State.EncounterPopulations);
+        Assert.Equal(0, world.State.Endgame.ActorId);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-bounded-population-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "campaign.json");
+            Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
+            world.Save(slot);
+            using var loaded = WorldSession.Load(slot);
+            Assert.All(loaded.State.Actors, actor => Assert.NotNull(actor.Tactics));
+            Assert.Empty(loaded.State.Loot);
+            Assert.Equal(world.DungeonCombat.Clock, loaded.DungeonCombat.Clock);
+            Assert.Equal(world.State.Position, loaded.State.Position);
+            Assert.True(loaded.SubmitDungeon(new(TacticalAction.Wait)).Success);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Theory]
     [InlineData(42, ClassKind.Adventurer)]
     [InlineData(-17, ClassKind.Ranger)]
     [InlineData(999, ClassKind.Wayfinder)]
