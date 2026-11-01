@@ -8,6 +8,14 @@ Implementation is authorized by the active goal. The approved decisions in [MIGR
 
 [Original enemy inventory](migration/original-enemy-inventory.json) enumerates all 50 registered enemy definitions across 13 AI families, including dynamically assembled biome elites, expansion regulars, squads and idea enemies. It records exact original stats/rewards/flags and source hashes. Regenerate with the optional LuaJIT/lupa reference environment using `python tools/migration/inventory_enemies.py`. This is preservation evidence, not native enemy behavior or final sprite bindings.
 
+## Current-tranche acceptance
+
+[MIGRATION_PLAYTEST.md](MIGRATION_PLAYTEST.md) maps each of items 1–6 to its implementation, rendered journey, actual archive and reproducible checks. The continuing seed-37 run has cleared all seven floors and all four encountered original bosses, including their second phases; paid movement and exact save continuation after victory pass. The final self-contained Linux package also passes victory continuation, the fresh seed-5 terminal/fresh-run lifecycle and the minimap/input journey. The 69-check population/save/route regression passes. **Final full regression is still running; release sign-off remains pending that result.**
+
+The original-source families below track the **full migration**, including future party, survival, living-world and campaign integrations. Their partial statuses and historical pending notes do not erase the narrower completed checkpoints above. Conversely, completing the solo tranche does not check off those future requirements. Physical controller and audible quality remain unverified; current rendered evidence uses Xvfb/software OpenGL and silent audio.
+
+## Full migration source-family coverage
+
 Statuses: **reference** = retained original; **imported** = retained Vagabonds code, integration pending; **partial** = handwritten implementation exists with limited evidence; **verified** requires native gameplay integration and appropriate checks. No family is fully verified yet.
 
 | Family / original source modules | Native destination and required conversion | Status / evidence |
