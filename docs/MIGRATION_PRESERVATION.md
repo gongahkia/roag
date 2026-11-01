@@ -69,3 +69,5 @@ Race politics, earthquakes, titans/kaiju and general disaster generation remain 
 ## Acceptance evidence
 
 The eight completion gates in the decision document remain open. Record concrete evidence and its scope in [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md); never infer integration or rendered acceptance from isolated unit tests.
+
+Terminal lifecycle evidence (2026-11-01): `native-lifecycle/client-lifecycle` passes 173 affected checks. Actual rendered `native-lifecycle/rendered-natural` verifies ordinary final death, terminal-slot relaunch, fresh seed/time-zero living character and exact fresh-slot relaunch. This covers the bounded solo lifecycle only; full rendered progression and final Linux release remain open.
