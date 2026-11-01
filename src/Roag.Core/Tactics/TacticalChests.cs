@@ -76,7 +76,7 @@ public sealed partial class TacticalCombat
     {
         _ = BoonChestDefinition.Get(definition);
         if (string.IsNullOrWhiteSpace(marker) || State.Chests.Chests.Any(c => c.Marker == marker || c.Position == position)
-            || !ChestCellOpen(position))
+            || !ChestCellOpen(position, marker))
             throw new ArgumentException("A chest needs a unique marker and clear physical ground.");
         int seed = RoagRandom.Derive((int)(WorldRandom.Hash(_world.Seed, 0, salt: 9310) % (RoagRandom.Modulus - 1)) + 1, marker);
         var chest = new BoonChest(State.Chests.NextChest++, definition, marker, position, seed);
@@ -84,8 +84,10 @@ public sealed partial class TacticalCombat
         return chest;
     }
 
-    private bool ChestCellOpen(WorldPosition position) => _world.CanEnter(position) && !ProtectedForcedLanding(position)
-        && _world.ObjectAt(position) == null && !State.Chests.Chests.Any(c => c.Position == position)
+    private bool ChestCellOpen(WorldPosition position, string? vaultMarker = null) => _world.CanEnter(position) && !ProtectedForcedLanding(position)
+        && (_world.ObjectAt(position) == null || vaultMarker != null && State.Vaults.Nodes.Any(v => v.Opened && v.Outcome == DungeonVaultOutcome.Boon
+            && v.Position == position && vaultMarker == "review:vault:" + v.Marker))
+        && !State.Chests.Chests.Any(c => c.Position == position)
         && !State.OptionalTerrain.Nodes.Any(n => n.Position == position)
         && !_world.State.Actors.Any(a => a.Tactics is { } t && (t.Supplies.Utility?.Marker?.Position == position
             || t.Resources.Decoy == position || t.Resources.Snare == position || t.Resources.Spirit == position

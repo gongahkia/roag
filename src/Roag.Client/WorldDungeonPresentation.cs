@@ -181,6 +181,15 @@ internal sealed partial class WorldGame
         _nativeService = node.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return true;
     }
 
+    private bool TryOpenDungeonVault(Point pointer)
+    {
+        var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
+        var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
+        if (_session.DungeonVaultAt(position) is not { Opened: false } vault || position.Distance(_session.State.Position) != 1
+            || !_session.Visible.Contains(position)) return false;
+        CommitRoag(new("open_vault", Target: vault.Id)); return true;
+    }
+
     private void DungeonInteract()
     {
         var actor = _session.Party.Single();
@@ -190,6 +199,8 @@ internal sealed partial class WorldGame
         var service = _session.State.Tactics!.Services.Nodes.Where(n => n.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(n.Position))
             .OrderBy(n => n.UsedBy != 0 || n.Contract?.Status is DungeonContractStatus.Failed or DungeonContractStatus.Completed).ThenBy(n => n.Id).FirstOrDefault();
         if (service != null) { _nativeService = service.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return; }
+        var vault = _session.State.Tactics.Vaults.Nodes.FirstOrDefault(v => !v.Opened && v.Position.Distance(actor.Position) == 1 && _session.Visible.Contains(v.Position));
+        if (vault != null) { CommitRoag(new("open_vault", Target: vault.Id)); return; }
         var door = _session.State.Tactics.Doors.Nodes.FirstOrDefault(d => d.Position.Distance(actor.Position) == 1
             && _session.Chunks.At(d.Position) == Material.ClosedDoor && _session.Visible.Contains(d.Position));
         if (door != null) { CommitRoag(new("open_door", Target: door.Id)); return; }
@@ -254,7 +265,7 @@ internal sealed partial class WorldGame
         }
         y += 14; Text("RECENT EVENTS", x, y, Gold); y += 22;
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered").TakeLast(4))
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected").TakeLast(4))
         {
             Text(Short(e.Kind + (e.Amount > 0 ? " " + e.Amount : ""), 34), x, y, Muted); y += 20;
         }
@@ -375,6 +386,14 @@ internal sealed partial class WorldGame
         var state = _session.State.Tactics!;
         void Icon(WorldPosition p, string sprite, Color tint)
         { if (_session.Visible.Contains(p) && _map.Intersects(TileRect(p))) _sprites.Fit(_batch, sprite, TileRect(p), tint); }
+        foreach (var vault in state.Vaults.Nodes)
+        {
+            if (vault.Position.Floor != _session.State.Position.Floor) continue;
+            if (_session.Chunks.Seen(vault.Position) && _map.Intersects(TileRect(vault.Position)))
+                _sprites.Fit(_batch, _session.Visible.Contains(vault.Position) && vault.Opened ? "chest-open" : "chest", TileRect(vault.Position),
+                    _session.Visible.Contains(vault.Position) ? Gold : Gold * .35f);
+            if (!vault.KeyCollected) Icon(vault.KeyPosition, "key", Gold);
+        }
         foreach (var chest in state.Chests.Chests)
             if (_session.Chunks.Seen(chest.Position) && chest.Position.Floor == _session.State.Position.Floor)
                 _sprites.Fit(_batch, chest.Claimed ? "chest-open" : "chest", TileRect(chest.Position), Gold * (_session.Visible.Contains(chest.Position) ? 1 : .35f));

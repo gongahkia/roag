@@ -15,6 +15,7 @@ public sealed record TacticalPreview(bool Valid, string Reason, long Recovery, I
     public MirrorReflection? Reflection { get; init; }
     public WorldPosition? StairLanding { get; init; }
     public long? Door { get; init; }
+    public long? Vault { get; init; }
     public IReadOnlyList<BoonPreviewCell> BoonCells { get; init; } = [];
 }
 
@@ -55,7 +56,7 @@ public sealed partial class TacticalCombat
         : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
         && (_world.State.Dungeon == null || _world.State.Dungeon.Contains(p))
-        && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true };
+        && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true, Kind: not "dungeon-vault" };
 
     public void Register(Actor actor, ActorTactics tactics, long? readyAt = null)
     {
@@ -214,6 +215,8 @@ public sealed partial class TacticalCombat
                 return PreviewService(actor, intent);
             case TacticalAction.OpenDoor:
                 return PreviewDoor(actor, intent.Target);
+            case TacticalAction.OpenVault:
+                return PreviewVault(actor, intent.Target);
             case TacticalAction.Wait: cost = Tuning.WaitCost; break;
             case TacticalAction.Guard: cost = Tuning.GuardCost; break;
             case TacticalAction.Revive:
@@ -244,6 +247,7 @@ public sealed partial class TacticalCombat
         long action = State.NextAction++;
         actor.Tactics!.Facing = intent.Facing;
         var executed = preview.Door is { } door ? intent with { Action = TacticalAction.OpenDoor, Target = door }
+            : preview.Vault is { } vault ? intent with { Action = TacticalAction.OpenVault, Target = vault }
             : preview.Bump ? intent with { Action = TacticalAction.BasicAttack } : intent;
         _lastWasDash = executed.Action == TacticalAction.Dash;
         ResolveAtomically(RootCause(action), () =>
@@ -276,6 +280,8 @@ public sealed partial class TacticalCombat
                     CommitService(actor, intent, action); break;
                 case TacticalAction.OpenDoor:
                     OpenDoor(actor, executed.Target, action); break;
+                case TacticalAction.OpenVault:
+                    OpenVault(actor, executed.Target, action); break;
                 case TacticalAction.DungeonRoute:
                     _world.ConnectDungeonRoute(this, intent.Choice);
                     Emit("RouteOpened", actor.Id, actor.Id, action, actor.Position); break;

@@ -88,6 +88,7 @@ public sealed partial class TacticalCombat
         && FixtureCross(plaque).All(p => _world.RoomAt(p) == room && _world.CanEnter(p) && !ProtectedForcedLanding(p)
             && !State.Services.Nodes.Any(n => n.Position == p) && !State.OptionalTerrain.Nodes.Any(n => n.Position == p)
             && !State.Secrets.Nodes.Any(n => !n.Revealed && n.Clue == p)
+            && !State.Vaults.Nodes.Any(v => v.Position == p || !v.KeyCollected && v.KeyPosition == p)
             && !State.RoomFeatures.Nodes.Any(n => n.Position == p))
         && !State.Services.Nodes.Any(n => n.Marker.StartsWith(marker + "/", StringComparison.Ordinal));
 

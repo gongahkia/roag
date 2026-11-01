@@ -104,6 +104,8 @@ public static class TacticalValidation
         state.Rewards.Validate(actors);
         if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
         state.Loot.Validate(plan, actors);
+        if (state.Vaults == null) throw new InvalidDataException("Missing keyed vault registry.");
+        state.Vaults.Validate(plan, world, content);
         if (state.Secrets == null) throw new InvalidDataException("Missing native secret registry.");
         state.Secrets.Validate(plan, world, content);
         ValidateBoonWork(plan, state, actors, queue);

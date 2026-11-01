@@ -42,6 +42,8 @@ public sealed partial class TacticalCombat
             {
                 if (intent.Action == TacticalAction.Move && _world.DungeonDoorAt(cell) is { } door)
                     return PreviewDoor(actor, door.Id);
+                if (intent.Action == TacticalAction.Move && _world.DungeonVaultAt(cell) is { Opened: false } vault)
+                    return PreviewVault(actor, vault.Id);
                 if (intent.Action == TacticalAction.Move && definition != null && BodyAt(cell) is { Life: LifeState.Alive } target
                     && HostileTo(actor, target))
                     return new(true, "", ActionTiming.Recovery(definition.Costs.BasicAttack, EffectiveSpeed(actor)),

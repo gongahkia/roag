@@ -54,6 +54,7 @@ public sealed partial class TacticalCombat
             || State.OptionalTerrain.Nodes.Any(n => n.Position == position)
             || State.Secrets.Nodes.Any(n => !n.Revealed && n.Clue == position)
             || State.RoomFeatures.Nodes.Any(n => n.Position == position)
+            || State.Vaults.Nodes.Any(v => v.Position == position || !v.KeyCollected && v.KeyPosition == position)
             || (kind is DungeonServiceKind.Bell or DungeonServiceKind.BellClue) != (bell != null)
             || (kind == DungeonServiceKind.RouteSign) != (sign != null))
             throw new ArgumentException("A finite service needs its own clear physical ground and stable marker.");

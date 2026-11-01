@@ -49,6 +49,7 @@ public sealed partial class DungeonTerrainTests
     {
         var world = WorldSession.CreateDungeonRun(42, kind);
         var start = world.Party.Single().Position;
+        world.DungeonCombat.State.Vaults.Nodes.RemoveAll(v => v.Position.Floor == start.Floor);
         bool InArena(WorldPosition p) => p.Floor == start.Floor && Math.Abs(p.X - start.X) <= 4 && Math.Abs(p.Y - start.Y) <= 4;
         var gates = world.DungeonCombat.State.Gates;
         var replacedGates = gates.Nodes.Where(g => InArena(g.Position)

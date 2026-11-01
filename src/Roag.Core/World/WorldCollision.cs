@@ -23,6 +23,9 @@ public sealed partial class WorldSession
         MossSecretSigil = new("Moss sigil", "mark", "dungeon-secret", false);
     private static readonly WorldObject ClosedTimedGate = new("Timed gate", "gate", "dungeon-gate", true),
         OpenTimedGate = new("Open timed gate", "gate-open", "dungeon-gate", false);
+    private static readonly WorldObject ClosedVault = new("Locked vault", "chest", "dungeon-vault", true),
+        OpenVault = new("Opened vault", "chest-open", "dungeon-vault", false),
+        VaultKey = new("Vault key", "key", "dungeon-vault-key", false);
     private static readonly WorldObject[] DungeonServiceObjects = Enum.GetValues<DungeonServiceKind>()
         .Select(k => new WorldObject(TacticalCombat.ServiceName(k), NativeAppearance.ForService(k), "dungeon-service", false)).ToArray();
     private static readonly WorldObject[] DungeonRoomObjects = Enum.GetValues<DungeonRoomFeatureKind>()
@@ -59,6 +62,12 @@ public sealed partial class WorldSession
                 if (tactics.Doors.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
             for (int i = 0; i < tactics.Gates.Nodes.Count; i++)
                 if (tactics.Gates.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedTimedGate : OpenTimedGate;
+            for (int i = 0; i < tactics.Vaults.Nodes.Count; i++)
+            {
+                var vault = tactics.Vaults.Nodes[i];
+                if (vault.Position == p) return vault.Opened ? OpenVault : ClosedVault;
+                if (!vault.KeyCollected && vault.KeyPosition == p) return VaultKey;
+            }
             for (int i = 0; i < tactics.Secrets.Nodes.Count; i++)
             {
                 var secret = tactics.Secrets.Nodes[i];

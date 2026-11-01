@@ -85,6 +85,21 @@ internal static class WorldInspection
                 : "A permanently opened passage. Movement and projectiles pass through.",
                 closed ? "Walk towards it, or press Enter while adjacent" : "Move with the keyboard", "", "object");
         }
+        if (session.State.Tactics?.Vaults.Nodes.FirstOrDefault(v => v.Position == cell || v.KeyPosition == cell) is { } vault)
+        {
+            bool key = vault.KeyPosition == cell;
+            if (!session.Visible.Contains(cell)) return new(key ? "Vault key (remembered)" : "Vault (remembered)",
+                "Observe it again to inspect its current state.", "Move with the keyboard", "", "object");
+            if (key && !vault.KeyCollected) return new("Vault key", "Cross to collect the key for this floor's vault. Walking and Dash work.", "Move with the keyboard", "", "object");
+            if (!key)
+            {
+                string detail = !vault.Opened ? vault.KeyCollected ? "Key held. Opening spends one movement-cost action and the key; you remain in place."
+                    : "Find this floor's key. The locked vault blocks movement; sight and projectiles pass through."
+                    : "Opened once: " + vault.Outcome + "." + (vault.Clue is { } clue ? " A secret lies " + clue.ToString().ToLowerInvariant() + "." : "");
+                return new(vault.Opened ? "Opened vault" : "Locked vault", detail, vault.Opened ? "Move with the keyboard"
+                    : "Walk towards it, or click / press Enter while adjacent", "", "object");
+            }
+        }
         if (session.DungeonTerrainAt(cell) is { } glyph)
         {
             var (name, detail) = glyph switch

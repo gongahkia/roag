@@ -85,6 +85,7 @@ public sealed partial class WorldSession
             "use_utility" => TacticalAction.UseUtility,
             "interact" => TacticalAction.Interact,
             "open_door" => TacticalAction.OpenDoor,
+            "open_vault" => TacticalAction.OpenVault,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice, aim.ReplaceUtility);
@@ -136,6 +137,7 @@ public sealed partial class WorldSession
         PopulateDungeonOptionalTerrain(layout, origin, combat);
         PopulateDungeonServices(layout, origin, combat);
         PopulateDungeonRoomFeatures(layout, origin, combat);
+        PopulateDungeonVault(layout, origin, combat);
     }
 
     private Actor SpawnDungeonEnemy(TacticalCombat combat, string definition, WorldPosition position)
