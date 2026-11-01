@@ -71,6 +71,7 @@ internal sealed partial class WorldGame
     private void HandleRoagKeyboard(KeyboardState keyboard, bool focused)
     {
         bool Press(Keys key)=>keyboard.IsKeyDown(key)&&_roagKeyboard.IsKeyUp(key);
+        if (_session.State.Dungeon != null && focused && Press(Keys.F5)) { TrySave(); _roagKeyboard = keyboard; return; }
         if (_session.State.Dungeon != null && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
         { ClosePanel(); _roagKeyboard = keyboard; return; }
         if (focused && HandleDungeonMenuKeyboard(keyboard)) { _roagKeyboard = keyboard; return; }

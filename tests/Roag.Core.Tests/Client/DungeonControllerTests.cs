@@ -17,17 +17,17 @@ public sealed class DungeonControllerTests
         Assert.Empty(DungeonController.GameplayKeys(right, right, false));
         Assert.Empty(DungeonController.GameplayKeys(neutral, right, false));
         Assert.Contains(Keys.D, DungeonController.GameplayKeys(right, neutral, false));
-        var stick = new GamePadState(new Vector2(.8f, .1f), Vector2.Zero, 0, 0);
+        var stick = new GamePadState(new Vector2(.8f, .1f), Vector2.Zero, 0, 0, Array.Empty<Buttons>());
         Assert.Equal(new[] { Keys.D }, DungeonController.GameplayKeys(stick, neutral, false));
         Assert.Empty(DungeonController.GameplayKeys(stick, stick, false));
-        Assert.Empty(DungeonController.GameplayKeys(new GamePadState(new Vector2(.1f, .2f), Vector2.Zero, 0, 0), neutral, false));
+        Assert.Empty(DungeonController.GameplayKeys(new GamePadState(new Vector2(.1f, .2f), Vector2.Zero, 0, 0, Array.Empty<Buttons>()), neutral, false));
     }
 
     [Fact]
     public void OriginalActionButtonsAndNativeGuardUseTheSameValidatedKeyboardPath()
     {
         foreach (var (button, key) in new[] { (Buttons.A, Keys.Enter), (Buttons.B, Keys.Escape), (Buttons.X, Keys.F), (Buttons.Y, Keys.R),
-            (Buttons.RightShoulder, Keys.X), (Buttons.LeftShoulder, Keys.G), (Buttons.RightStick, Keys.U), (Buttons.LeftStick, Keys.Enter) })
+            (Buttons.RightShoulder, Keys.X), (Buttons.LeftShoulder, Keys.G), (Buttons.RightStick, Keys.U), (Buttons.LeftStick, Keys.Enter), (Buttons.RightTrigger, Keys.Space) })
             Assert.Equal(new[] { key }, DungeonController.GameplayKeys(Pad(button), Pad(), false));
         Assert.Equal(new[] { Keys.P }, DungeonController.GameplayKeys(Pad(Buttons.LeftShoulder), Pad(), true));
         Assert.Equal(new[] { Keys.W, Keys.D }, DungeonController.GameplayKeys(Pad(Buttons.DPadUp, Buttons.DPadRight), Pad(), true));
