@@ -2,7 +2,7 @@
 
 Implementation is authorized by the active goal. The approved decisions in [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md) govern this checklist. An unchecked row remains unfinished even if the prototype or imported code compiles.
 
-**Delivery sequencing (2026-10-31):** current tranche is items 1–6, solo bounded dungeon play, then stop for the user's playtest. Items 7–20 remain future approved work. Full original authoring-tool parity and Windows delivery are removed from the todo for now. Unchecked future-tranche entries below retain preservation context and are not current-tranche blockers. See the authoritative tranche table in MIGRATION_DECISIONS.md.
+**Delivery sequencing (2026-11-01):** solo items 1–6 are complete. The active goal now authorizes items 7–8 and player-controlled combat rescue from item 10, within bounded dungeons, followed by another playtest stop. Equipment/cooperation, NPC rescue and other later systems remain deferred. Preserve their foundations. Full authoring parity and Windows remain outside the todo. Historical solo-stop statements below describe that earlier checkpoint, not the active party scope. See MIGRATION_DECISIONS.md; party acceptance is still open.
 
 [Original source inventory](migration/original-source-inventory.json) records every original Lua source module, its hash, named functions, literal content references and original test paths at `d498fe0889050d2a23f2ff86d80db6084ed6467a`. Regenerate with `python3 tools/migration/inventory_sources.py`. Literal references are an audit index, not an enumeration of registered content: computed IDs and variants must also be checked when each family is ported. The preserved sources and Git revision remain available until their replacements are verified.
 

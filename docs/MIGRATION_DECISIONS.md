@@ -2,7 +2,17 @@
 
 Consolidated from the migration discussion on 2026-10-26. The subsequent active implementation goal explicitly authorizes resuming gameplay work and supersedes the earlier pause. This document records approved direction and acceptance requirements; implementation evidence belongs in [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md).
 
-## Current delivery scope — 2026-10-31 tranche decision
+## Current delivery scope — 2026-11-01 party tranche
+
+The active user goal authorizes **items 7–8 and player-controlled combat rescue from item 10**, superseding the completed solo tranche's pause for this scope only. Implement four fixed-class members recruited from an initial solo start, direct selection/readiness/resources/targeting UI, shared supplies and contribution XP, recipient-first permanently assigned boon offers, split-floor movement and sight, paid following/regrouping, player rescue and exact continuing saves. Preserve the bounded dungeon, title, artwork, effects and clean HUD. Do not restore the instruction strips or bottom action grid.
+
+Recruitment decision (2026-11-01): persistent fixed-class adventurers appear in safe dungeon rooms. Their class is visible before recruitment; joining costs one action and no gold. Recruitment does not relocate anyone. Numerical placement/recovery choices are delegated and must be documented and tested.
+
+Rescue retains one adjacent rescuer, one medicine and one action, 25% maximum HP (floor, minimum one), five own scheduled turns of bleed-out, shortening by damaging hits and reset on repeat downing. All-down is not immediate defeat; scheduled consequences continue until final death. NPC rescue remains deferred.
+
+Equipment/cooperation (9), NPC rescue and remaining survival/camping/society/ecology/expanded-world/special-dungeon/new-boss/open-campaign/profile work remain deferred. Preserve their foundations. Regular atomic commits remain authorized. Completion requires appropriate regression, real-input rendered four-member recruitment/boss/split-floor/rescue/exact-save verification, distinct and duplicate-class ownership checks and an updated reproducible Linux package. Then stop for the user's playtest. The eight full-migration gates remain separate and open.
+
+## Completed delivery scope — 2026-10-31 solo tranche decision
 
 The user approved delivering items **1–6** from the remaining-work review as the current tranche, then **stopping implementation and reporting a playable game for their hands-on playtest**. Do not start the next tranche automatically. Items **7–20 remain important, approved backlog**, deferred until that playtest and a further instruction to continue. Items **21 (full authoring tools)** and **22 (Windows delivery)** are removed from the todo for now. This sequencing supersedes older instructions to continue autonomously through the complete migration without stopping.
 
