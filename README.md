@@ -6,8 +6,9 @@ acquire boons and utilities, clear three paired stages and fight the Hollow
 Regent. It uses the imported Vagabonds world/chunk foundation and universal
 sprite mappings, with handwritten native combat and a shared action timeline.
 
-**The migration tranche is still under verification; it is not yet signed off
-for the requested playtest.** Party, survival, living-world integration and the
+**Items 1–6 are ready for the requested Linux playtest.** Implementation is
+stopped for your feedback; see the [build and verification handoff](docs/MIGRATION_PLAYTEST.md).
+Party, survival, living-world integration and the
 larger campaign remain approved later-tranche work. See the authoritative
 [scope](docs/MIGRATION_DECISIONS.md), [current evidence](docs/MIGRATION_PROGRESS.md)
 and [preservation checklist](docs/MIGRATION_PRESERVATION.md).

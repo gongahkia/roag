@@ -2,7 +2,7 @@
 
 Scope is items **1–6** in [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md): a solo bounded dungeon game, followed by the user's playtest. Items 7–20 remain deferred; full authoring parity and Windows are outside the current todo. This is not completion of the full migration or its eight original gates.
 
-Status: final package checks passed; the final-code full regression is still running. Do not interpret this record as release sign-off before that result is recorded.
+Status (2026-11-01): **items 1–6 complete and ready for the requested Linux playtest. Implementation is stopped pending the user's feedback.** Final-code regression: **1,718 passed, zero failures/skips (12m55s)**. Full migration remains incomplete.
 
 ## Linux build
 
@@ -21,7 +21,7 @@ Status: final package checks passed; the final-code full regression is still run
 | 3. Dungeon content | All 50 original controllers, 147 authored rooms and seven biome catalogs have native placement/behavior checks. The rendered seed-37 journey crosses all seven physical floors, defeats Thorn Warden, Mycelial Matriarch, Canal Lockmaster and Hollow Regent, and uses paid stage routes. All four bosses reached phase two in the resulting ordinary save. |
 | 4. Rewards/build loop | The same run acquires assigned eligible boon offers, currency, XP/stat growth, health supplies, utility services and vault outcomes, retaining its build across saves. Focused checks cover one-time receipts and blocked/delayed elite rewards; the final Ranger has 13 assigned boons and level 10/240 XP. |
 | 5. Presentation/input | Stored universal-atlas bindings, private inspection, visible locked attacks/timeline, phase and shield feedback, explored-floor minimap, keyboard/mouse/controller mappings, help and persistent presentation settings are implemented. Rendered controls/settings/map, combat and phase-two screens were inspected. All eight original PCM samples match byte-for-byte. |
-| 6. Lifecycle/Linux delivery | Actual bundled apphost passes new-run, ordinary final death, terminal reload, fresh character/seed, exact continuing reload, victory reload and paid movement after victory. Extracted file hashes and direct launch without `DOTNET_ROOT` pass. Full regression status is recorded below when it finishes. |
+| 6. Lifecycle/Linux delivery | Actual bundled apphost passes new-run, ordinary final death, terminal reload, fresh character/seed, exact continuing reload, victory reload and paid movement after victory. Extracted file hashes and direct launch without `DOTNET_ROOT` pass. The final-code full regression passes 1,718 tests with no failures or skips. |
 
 ## Evidence and reproduction
 
@@ -31,7 +31,7 @@ Evidence paths below are relative to `artifacts/migration/verification/`. Artifa
 | --- | --- |
 | Pre-final full integration | 1,716 passed, zero failed/skipped, 14m21s; `native-production/final-regression.{trx,log}`. Exact clean `3ea5ce0a` source/assemblies in `final-build.json` / immutable `final-runner/`. Predates the population/map/hover corrections. |
 | Final population/save/routes/map | 69 passed, zero failed/skipped, 1m58s; `native-production/bounded-population.{trx,log}`. |
-| Final-code full integration | Running; `native-production/release-regression.{trx,log}`, `release-build.json`, immutable `release-runner/`. |
+| Final-code full integration | **1,718 passed, zero failed/skipped, 12m55s**; `native-production/release-regression.{trx,log}`, clean `181c9c8c` identities in `release-build.json`, immutable `release-runner/`. |
 | Actual continuing full journey | `native-production/muted-regent-finish/result.json`: `fullRunVerified: true`; victory at 374,088, paid movement to 374,162, exact saved/relaunched position/clock/full build/victory. |
 | Final package victory continuation | `native-production/release-victory-continuation/`: exact cross-version continuing load, another paid move to 374,236, exact reload with victory preserved. |
 | Final package fresh seed-5 lifecycle | `native-production/release-seed5-lifecycle/`: natural terminal death/reload at clock 4,785, fresh seed/living character at clock zero, exact fresh reload; 53 decision iterations, `lifecycleVerified: true`. |
@@ -64,4 +64,4 @@ The probe uses actual visible input and ordinary saves. Defeat or a budget limit
 
 Verified here on Linux x64 using actual MonoGame rendering under Xvfb/software OpenGL, ordinary mouse controls and real X11 key states. A physical gamepad and audible output quality have not been tested. PCM preservation, controller state/mapping tests and silent device initialization do not establish those physical-device results. The complete rendered run samples Ranger/three stage biomes; the catalog/reference/native suites provide the broader class/enemy/biome coverage. It is not a manual playthrough of every class or route.
 
-After the final regression passes and the current tranche is signed off, stop implementation for the user's playtest. Do not start party, survival, living-world, extra bosses, profile progression or other items 7–20 automatically. Retain their implementations and preservation references.
+Implementation is now stopped for the user's playtest. Do not start party, survival, living-world, extra bosses, profile progression or other items 7–20 automatically. Retain their implementations and preservation references.
