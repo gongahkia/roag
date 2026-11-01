@@ -41,7 +41,14 @@ public sealed partial class WorldSession
     }
     public IEnumerable<ItemDefinition> CarriedEquipment() => Content.All<ItemDefinition>().Where(i => i.Slot != "none" && (!i.Tags.Contains("signature") || Count(i.Stack) > 0 || Party.Any(a => a.Equipment.Values.Any(e => e.Item == i.Id))))
         .Concat(State.GeneratedEquipment.Keys.Where(id => Count(id) > 0 || Party.Any(a => a.Equipment.Values.Any(e => e.Item == id))).Order(StringComparer.Ordinal).Select(Item));
-    public string EquipmentDescription(ItemDefinition item) => string.Join(" ", new[] { item.Description }.Concat(item.Effects.Select(id => Content.Get<AffixDefinition>(id).Description)).Where(s => s.Length > 0));
+    public string EquipmentDescription(ItemDefinition item) => string.Join(" ", new[] { item.Description }
+        .Concat(item.Effects.Select(id => EquipmentEffectDescription(Content.Get<AffixDefinition>(id)))).Where(s => s.Length > 0));
+    private string EquipmentEffectDescription(AffixDefinition effect) => State.Tactics is not { } tactics ? effect.Description : effect.Effect switch
+    {
+        "protect" => $"Blocks up to {effect.Power} damage for another conscious member at half health or lower within {tactics.Tuning.AllyCoverRange} clear tiles; leaves at least one damage. Refreshes on the wearer's next own turn.",
+        "burn-power" => $"Direct class fire attacks gain {effect.Power} power; ongoing burn damage is unchanged.",
+        _ => effect.Description
+    };
     public string EquipmentEffectNames(ItemDefinition item) => string.Join(", ", item.Effects.Select(id => Content.Get<AffixDefinition>(id).Name));
     public string EquipmentSummary(ItemDefinition item) => string.Join("; ", item.Effects.Select(Content.Get<AffixDefinition>).Select(e => e.Effect switch
     {

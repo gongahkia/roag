@@ -23,7 +23,8 @@ public sealed partial class TacticalCombat
         return contribution;
     }
 
-    private void RecordCombatDamage(Actor source, Actor target, int loss, int prevented, int healthBefore, AttackAssistance? assistance = null)
+    private void RecordCombatDamage(Actor source, Actor target, int loss, int prevented, int healthBefore, AttackAssistance? assistance = null,
+        EquipmentCover? cover = null)
     {
         if (loss > 0 && Contributor(source) && RewardEnemy(target))
         {
@@ -41,10 +42,13 @@ public sealed partial class TacticalCombat
         if (loss > 0) ledger.UnhealedDamage[target.Id] = checked(ledger.UnhealedDamage.GetValueOrDefault(target.Id) + loss);
         if (protection > 0)
         {
-            // Existing Guard, parry and boon wards are self-owned. Ally-owned shielding
-            // must supply its actual owner when those effects are connected.
-            var contribution = Contribution(ledger, target.Id);
-            contribution.Protection = checked(contribution.Protection + protection);
+            var ownership = cover == null ? null : new AttackAssistance(cover.Source, prevented - cover.Amount, cover.Amount);
+            foreach (var (member, amount) in AssistanceShares(target.Id, protection, ownership))
+            {
+                if (amount == 0) continue;
+                var contribution = Contribution(ledger, member);
+                contribution.Protection = checked(contribution.Protection + amount);
+            }
         }
     }
 

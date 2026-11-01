@@ -12,6 +12,8 @@ public sealed partial class TacticalCombat
     {
         var footprint = ClassFootprint(actor, intent, explicitAim);
         int damage = intent.Action == TacticalAction.BasicAttack ? actor.Power : SpecialPower(actor);
+        if (footprint.Element == DamageElement.Fire)
+            damage = checked(damage + _world.EquipmentEffectPower(actor, "burn-power"));
         if (intent.Action == TacticalAction.BasicAttack && actor.Tactics!.Resources.Riposte) damage = checked(damage + 2);
         var inventory = actor.Tactics!.Boons.Inventory;
         var modifiers = BoonCatalog.Default.Definitions.Where(d => inventory.Stacks.ContainsKey(d.Id))

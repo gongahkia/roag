@@ -98,6 +98,8 @@ internal sealed partial class WorldGame
         var preview = _session.DungeonCombat.Preview(DungeonGearIntent);
         string notice = !DungeonSelectionReady ? "Only the ready member may change their own gear. Browsing stays free."
             : preview.Valid ? $"One paid action / recovery {preview.Recovery / 100.0:0.00}s at current speed." : preview.Reason;
+        if (_nativeGearSlot.Length > 0 && _session.EquipmentEffectPower(member, "protect") > 0)
+            notice += member.Tactics!.EquipmentCoverUsed ? " Ally cover spent until your next turn." : " Ally cover ready.";
         Wrap(notice, x, box.Bottom - 112, box.Width - 48, Gold);
     }
 }

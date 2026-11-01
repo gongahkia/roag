@@ -587,7 +587,7 @@ internal sealed partial class WorldGame
                 activeActor = _session.State.Tactics!.ActiveActor,
                 controlledActor = _session.State.Tactics.ControlledActor,
                 following = native.Following,
-                equipment = _session.Party.Select(a => new { a.Id, slots = a.Equipment }),
+                equipment = _session.Party.Select(a => new { a.Id, slots = a.Equipment, a.Tactics!.EquipmentCoverUsed }),
                 packEquipment = DungeonPackGear.Select(i => new { i.Id, i.Name, i.Sprite, i.Slot, count = _session.Count(i.Stack) }),
                 cooperation = _session.Party.Select(a => new { a.Id, a.Tactics!.CooperationCommitted }),
                 aim = _roagAim,

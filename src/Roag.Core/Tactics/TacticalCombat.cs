@@ -164,6 +164,7 @@ public sealed partial class TacticalCombat
             }
             actor.Tactics!.Guarding = false;
             actor.Tactics.CooperationCommitted = false;
+            actor.Tactics.EquipmentCoverUsed = false;
             actor.Tactics.Resources.Parry = null;
             if (actor.Tactics.SnaredBy != 0)
             {
@@ -483,7 +484,8 @@ public sealed partial class TacticalCombat
         });
     }
 
-    private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable, EnemyProtection? Protection);
+    private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable, EnemyProtection? Protection,
+        EquipmentCover? Cover = null);
 
     private void ResolveDamageBatch(LockedAttack attack, AttackAssistance? assistance = null)
     {
@@ -524,6 +526,8 @@ public sealed partial class TacticalCombat
             }
             if (target.Tactics is { } targetTactics)
                 prevented += targetTactics.Boons.ConsumeWards(afterDefense - prevented, Clock).Sum(ward => ward.Amount);
+            var cover = EquipmentCoverFor(target, source, afterDefense - prevented, direct);
+            prevented += cover?.Amount ?? 0;
             int damage = afterDefense - prevented;
             var neighbors = _world.State.Actors.Where(a => a.Id != target.Id && a.Health > 0 && a.Position.Floor == cell.Floor
                 && Math.Max(Math.Abs(a.Position.X - cell.X), Math.Abs(a.Position.Y - cell.Y)) == 1).ToArray();
@@ -539,17 +543,19 @@ public sealed partial class TacticalCombat
                 AdjacentHostileCount = neighbors.Count(a => source == null || BoonFaction(a) != BoonFaction(source)),
                 AdjacentBurningCount = neighbors.Count(a => BoonFaction(a) == BoonFaction(target) && a.Tactics?.Burning != null)
             };
-            hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection));
+            hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection, cover));
             if (attack.Delivery == AttackDelivery.Projectile) break;
         }
         RedistributeOathDamage(hits, attack);
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
         if (source != null)
             foreach (var hit in hits)
-                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value, assistance);
+                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value, assistance, hit.Cover);
         foreach (var hit in hits)
         {
             var target = hit.Target;
+            if (hit.Cover is { } cover)
+                Emit("AllyCovered", cover.Source, target.Id, attack.Id, target.Position, cover.Amount, ability: "equipment:protect");
             Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", attack.Source, target.Id, attack.Id,
                 target.Position, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.AbilityId ?? attack.Ability, snapshot: hit.Snapshot, protection: hit.Protection);
             if (hit.Snapshot.ActualLoss > 0 && target.Health > 0 && source != null && HostileTo(source, target)

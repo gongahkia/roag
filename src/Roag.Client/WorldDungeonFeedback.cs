@@ -60,7 +60,7 @@ internal sealed partial class WorldGame
         {
             "DamageTaken" => "-" + e.Amount, "Healed" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
-            "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED",
+            "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount,
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };

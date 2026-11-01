@@ -33,6 +33,7 @@ public sealed class ActorTactics
     public bool AutoEatInCombat { get; set; }
     public long StunnedUntil { get; set; }
     public bool CooperationCommitted { get; set; }
+    public bool EquipmentCoverUsed { get; set; }
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
     public ActorBoons Boons { get; set; } = new();
@@ -43,7 +44,7 @@ public sealed class ActorTactics
         if ((Build is null) == (InnateStats is null) || InnateStats?.Speed is <= 0 || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
             || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
             || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
-            || StunnedUntil < 0 || CooperationCommitted && Build == null || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
+            || StunnedUntil < 0 || (CooperationCommitted || EquipmentCoverUsed) && Build == null || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
@@ -154,7 +155,7 @@ public sealed class TacticalWorldState
 public sealed record TacticalTuning(int GuardReductionPercent = 50, int GuardCost = 100,
     int WaitCost = 100, int ReviveCost = 100, int UnitsPerSecond = 100, int EatCost = 100,
     int SurvivalIntervalSeconds = 10, int WellFedHungerMaximum = 20, bool EnableSurvival = true,
-    int EquipmentCost = 100)
+    int EquipmentCost = 100, int AllyCoverRange = 2)
 {
     // The imported calendar has 300 world ticks/hour. One world tick represents
     // twelve seconds; tactical timestamps retain sub-tick recovery exactly.
@@ -162,7 +163,7 @@ public sealed record TacticalTuning(int GuardReductionPercent = 50, int GuardCos
     public void Validate()
     {
         if (GuardReductionPercent is < 0 or > 100 || GuardCost <= 0 || WaitCost <= 0 || ReviveCost <= 0 || UnitsPerSecond <= 0 || EatCost <= 0
-            || SurvivalIntervalSeconds <= 0 || WellFedHungerMaximum is < 0 or > 100 || EquipmentCost <= 0)
+            || SurvivalIntervalSeconds <= 0 || WellFedHungerMaximum is < 0 or > 100 || EquipmentCost <= 0 || AllyCoverRange is < 1 or > 12)
             throw new ArgumentOutOfRangeException(nameof(TacticalTuning));
     }
 }

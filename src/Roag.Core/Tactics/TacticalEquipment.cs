@@ -2,8 +2,27 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
+internal sealed record EquipmentCover(long Source, int Amount);
+
 public sealed partial class TacticalCombat
 {
+    private EquipmentCover? EquipmentCoverFor(Actor target, Actor? source, int damage, bool direct)
+    {
+        if (!direct || source == null || damage <= 1 || target.Life != LifeState.Alive || !Friendly(target)
+            || !HostileTo(target, source) || (long)target.Health * 2 > target.MaxHealth) return null;
+        var protector = _world.Party.Where(a => a.Id != target.Id && a is { Life: LifeState.Alive, Health: > 0,
+                Tactics: { Build: not null, EquipmentCoverUsed: false } } && a.Tactics.StunnedUntil <= Clock
+                && a.Position.Distance(target.Position) <= Tuning.AllyCoverRange
+                && EnemySquads.Clear(a.Position, target.Position, SupportOpen))
+            .Select(a => (Actor: a, Power: _world.EquipmentEffectPower(a, "protect"))).Where(p => p.Power > 0)
+            .OrderByDescending(p => p.Power).ThenBy(p => p.Actor.Id).FirstOrDefault();
+        if (protector.Actor == null) return null;
+        protector.Actor.Tactics!.EquipmentCoverUsed = true;
+        // Preserve the imported minimum of one remaining damage: cover mitigates
+        // a real hit, rather than providing a general invulnerability ward.
+        return new(protector.Actor.Id, Math.Min(damage - 1, protector.Power));
+    }
+
     private TacticalPreview PreviewEquipment(Actor actor, TacticalIntent intent)
     {
         if (!Friendly(actor) || actor.Tactics?.Build == null || intent.Target != 0 && intent.Target != actor.Id)
