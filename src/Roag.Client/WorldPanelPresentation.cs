@@ -11,6 +11,11 @@ internal sealed partial class WorldGame
 {
     private static Rectangle ControlSpriteBox(WorldMouseControl control)
     {
+        if (control.Id.StartsWith("dungeon:class:", StringComparison.Ordinal))
+        {
+            int portrait = Math.Min(60, (control.Bounds.Height - 16) / 12 * 12);
+            return new(control.Bounds.X + 10, control.Bounds.Center.Y - portrait / 2, portrait, portrait);
+        }
         int size = Math.Min(56, control.Bounds.Height - 8);
         return new(control.Bounds.X + 6, control.Bounds.Center.Y - size / 2, size, size);
     }
@@ -27,7 +32,14 @@ internal sealed partial class WorldGame
             return;
         }
         var icon = ControlSpriteBox(control);
-        _sprites.Fit(_batch, sprite, icon, control.Dimmed ? Muted * .6f : Ink);
+        _sprites.Fit(_batch, sprite, icon, control.Dimmed ? Muted * .6f : control.Selected ? Gold : Ink);
+        if (control.Id.StartsWith("dungeon:class:", StringComparison.Ordinal))
+        {
+            int left = icon.Right + 10, top = r.Y + Math.Max(8, (r.Height - 60) / 2);
+            Text(control.Label, left, top, ink);
+            Wrap(control.Detail, left, top + 24, r.Right - left - 10, Muted);
+            return;
+        }
         int tx = icon.Right + 10, right = r.Right - (control.BadgeSprite == null ? 8 : 42);
         int columns = Math.Max(1, (right - tx) / 8);
         Text(Short(control.Label, columns), tx, r.Center.Y - 14, ink);

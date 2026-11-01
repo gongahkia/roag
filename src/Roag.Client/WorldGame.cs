@@ -369,7 +369,7 @@ internal sealed partial class WorldGame : Game
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
         if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
-        if (_session.State.Dungeon != null) DrawDungeonMap();
+        if (_session.State.Dungeon != null) { DrawDungeonMap(); DrawDungeonReward(); }
         if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
         DrawContext();
         DrawMouseControls(w, h);
@@ -425,11 +425,11 @@ internal sealed partial class WorldGame : Game
         {
             var motion = _actorMotions[actor.Id];
             if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
-            var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)); if (!_map.Intersects(rect)) continue;
+            var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion))); if (!_map.Intersects(rect)) continue;
             bool cache = _session.State.Dungeon != null && actor.Tactics?.DefinitionId == "core:enemy/haunted_cache";
             bool concealedCache = cache && actor.Tactics!.Enemy is { Alerted: false } && actor.Health == actor.MaxHealth;
             _sprites.Draw(_batch, cache && !concealedCache ? "chest-open" : actor.Sprite, rect,
-                concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+                DungeonActorTint(actor.Id, concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176)), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
         }
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {
@@ -452,10 +452,10 @@ internal sealed partial class WorldGame : Game
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead))
         {
             var motion = _actorMotions[actor.Id];
-            var rect = ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion));
+            var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)));
             if (_session.State.Dungeon != null)
                 FillClipped(new(rect.X + 3, rect.Y + 3, rect.Width - 6, rect.Height - 6), new Color(9, 14, 19) * .9f);
-            _sprites.Draw(_batch, actor.Sprite, rect, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink, effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+            _sprites.Draw(_batch, actor.Sprite, rect, DungeonActorTint(actor.Id, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
             if (_session.State.Dungeon != null && actor.Id == _session.RoagActiveActor)
                 foreach (var corner in new[] { new Point(rect.Left + 1, rect.Top + 1), new Point(rect.Right - 8, rect.Top + 1),
                     new Point(rect.Left + 1, rect.Bottom - 3), new Point(rect.Right - 8, rect.Bottom - 3) })

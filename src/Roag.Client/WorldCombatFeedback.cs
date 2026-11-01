@@ -21,7 +21,7 @@ internal sealed partial class WorldGame
     private void ResetCombatPresentation()
     {
         Playback.Reset(); _combatFloats.Clear(); _combatAudio?.Stop(); _enemyTimer = 0;
-        _dungeonEffects?.Clear(); _dungeonAudio?.Stop(); _lastDungeonHit = -10; _audioContext = null;
+        _dungeonFeedback?.Reset(); _dungeonAudio?.Stop(); _dungeonPresentationStamp = 0; _audioContext = null;
         _feedbackSession = _session; _seenFeedback = _session.State.NextCombatEvent - 1;
     }
     private void UpdateCombatPlayback(double elapsed)

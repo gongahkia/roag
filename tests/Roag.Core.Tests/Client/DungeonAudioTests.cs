@@ -7,6 +7,20 @@ namespace Roag.Core.Tests.Client;
 
 public sealed class DungeonAudioTests
 {
+    [Theory]
+    [InlineData("attack")]
+    [InlineData("chest")]
+    public void AdditionalActionCuesAreDeterministicBoundedPcmWithoutAnAudioDevice(string kind)
+    {
+        var pcm = DungeonSoundSynthesis.Sample(kind);
+        Assert.Equal(pcm, DungeonSoundSynthesis.Sample(kind)); Assert.Equal(0, pcm.Length % 2);
+        var samples = Enumerable.Range(0, pcm.Length / 2).Select(i => (int)BitConverter.ToInt16(pcm, i * 2)).ToArray();
+        Assert.InRange(samples.Length, DungeonSoundSynthesis.SampleRate / 10, DungeonSoundSynthesis.SampleRate);
+        Assert.Contains(samples, s => s > 1000); Assert.Contains(samples, s => s < -1000);
+        Assert.All(samples, s => Assert.InRange(s, -24000, 24000));
+        Assert.InRange(Math.Abs(samples[0]), 0, 10); Assert.InRange(Math.Abs(samples[^1]), 0, 100);
+    }
+
     [Fact]
     public void NativeBuiltInAudioMatchesAllEightOriginalPcmSamplesWithoutAnAudioDevice()
     {

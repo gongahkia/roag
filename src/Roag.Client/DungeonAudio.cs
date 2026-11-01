@@ -8,6 +8,7 @@ internal static class DungeonSoundSynthesis
     public const int SampleRate = 22050;
     public static byte[] Sample(string kind)
     {
+        if (kind is "attack" or "chest") return ActionSample(kind);
         (double duration, double frequency, double volume) = kind switch
         {
             "step" => (.085, 150, .2), "hit" => (.14, 85, .36), "boon" => (.28, 660, .26), "menu" => (.09, 480, .18),
@@ -24,6 +25,36 @@ internal static class DungeonSoundSynthesis
             else if (kind is "boon" or "music" or "ambience") wave = wave * .65 + Math.Sin(2 * Math.PI * (frequency * 1.5) * t) * .35;
             short value = (short)Math.Floor(Math.Clamp(wave * envelope * volume, -1, 1) * 32767 + .5);
             pcm[i * 2] = (byte)(value & 255); pcm[i * 2 + 1] = (byte)((value >> 8) & 255);
+        }
+        return pcm;
+    }
+
+    private static byte[] ActionSample(string kind)
+    {
+        double duration = kind == "attack" ? .11 : .48;
+        int count = (int)(SampleRate * duration);
+        var pcm = new byte[count * 2]; uint noise = 0x524F4147;
+        for (int i = 0; i < count; i++)
+        {
+            double t = i / (double)SampleRate, wave;
+            if (kind == "attack")
+            {
+                noise = unchecked(noise * 1664525 + 1013904223);
+                wave = ((noise / (double)uint.MaxValue * 2 - 1) * .55 + Math.Sin(2 * Math.PI * (850 * t - 3000 * t * t)) * .45)
+                    * Math.Pow(Math.Sin(Math.PI * t / duration), 2) * .23;
+            }
+            else
+            {
+                wave = 0;
+                for (int note = 0; note < 4; note++)
+                {
+                    double local = t - note * .065, frequency = note switch { 0 => 523.25, 1 => 659.25, 2 => 783.99, _ => 1046.5 };
+                    if (local >= 0) wave += Math.Sin(2 * Math.PI * frequency * local) * Math.Exp(-local * 9) * .12;
+                }
+                wave *= Math.Clamp((duration - t) / .04, 0, 1);
+            }
+            short sample = (short)Math.Clamp(Math.Round(wave * short.MaxValue), short.MinValue, short.MaxValue);
+            pcm[i * 2] = (byte)(sample & 255); pcm[i * 2 + 1] = (byte)((sample >> 8) & 255);
         }
         return pcm;
     }

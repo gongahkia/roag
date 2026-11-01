@@ -583,6 +583,13 @@ internal sealed partial class WorldGame
                 loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
                 menuFocus = _controllerFocus,
                 mapVisible = _nativeMapVisible,
+                feedback = _dungeonFeedback == null ? null : new
+                {
+                    effects = _dungeonFeedback.Effects.Where(e => _session.Visible.Contains(e.Position))
+                        .Select(e => new { e.Kind, e.Position, e.Label, e.PlayerHit, age = _dungeonFeedback.Time - e.Born }),
+                    reward = _panel.Length == 0 ? _dungeonFeedback.Reward?.Boon : null,
+                    chestOpeningAge = _panel == "dungeon-chest" ? (double?)(_dungeonFeedback.Time - _dungeonFeedback.ChestOpened) : null
+                },
                 secrets = _session.State.Tactics.Secrets.Nodes.Where(s => _session.Visible.Contains(s.Clue))
                     .Select(s => new { s.Id, kind = s.Kind.ToString(), position = s.Clue, s.Revealed }),
                 roomFeatures = _session.State.Tactics.RoomFeatures.Nodes.Where(f => _session.Visible.Contains(f.Position))

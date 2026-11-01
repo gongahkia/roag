@@ -15,8 +15,8 @@ internal sealed partial class WorldGame
 
     private void BuildDungeonControls(int w, int h)
     {
-        void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false, string reason = "", string tip = "")
-            => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, null, "", -1, null, false);
+        void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false, string reason = "", string tip = "", string? sprite = null, string detail = "")
+            => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, sprite, detail, -1, null, false);
         Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
         Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
         Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
@@ -30,13 +30,14 @@ internal sealed partial class WorldGame
             {
                 foreach (var kind in Enum.GetValues<ClassKind>())
                 {
-                    int i = (int)kind, width = (box.Width - 64) / 3;
+                    int i = (int)kind;
                     var definition = ClassCatalog.Get(kind);
                     Add("dungeon:class:" + i, definition.Name,
-                        new(box.X + 20 + i % 3 * (width + 12), box.Y + 92 + i / 3 * 56, width, 44),
+                        DungeonClassCards.Bounds(box, i),
                         _session.State.Tactics!.NextAction == 1, _session.Party.Single().Tactics!.Build!.Class == kind,
                         "The class is fixed after the first paid action.",
-                        $"HP {definition.Health}, damage {definition.Damage}, defense {definition.Defense}, speed {definition.Speed}. {definition.BasicName}; {definition.SpecialName}; {definition.DashName}.");
+                        $"HP {definition.Health}, damage {definition.Damage}, defense {definition.Defense}, speed {definition.Speed}. {definition.BasicName}; {definition.SpecialName}; {definition.DashName}.",
+                        sprite: NativeAppearance.ForClass(kind), detail: DungeonClassCards.Description(kind));
                 }
             }
             else if (_panel == "dungeon-chest")
@@ -197,7 +198,13 @@ internal sealed partial class WorldGame
         var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position == position);
         if (chest == null || _session.DungeonCombat.ChestOffers(chest.Id, _session.State.Party[0]).Count == 0) return false;
-        _nativeChest = chest.Id; _panel = "dungeon-chest"; return true;
+        OpenDungeonChest(chest.Id); return true;
+    }
+
+    private void OpenDungeonChest(long chest)
+    {
+        _nativeChest = chest; _panel = "dungeon-chest";
+        _dungeonFeedback.OpenChest(); PlayDungeonSound("chest");
     }
 
     private bool TryOpenDungeonRoute(Point pointer)
@@ -235,7 +242,7 @@ internal sealed partial class WorldGame
         var actor = _session.Party.Single();
         if (_session.AvailableDungeonRoutes(actor.Id).Count > 0) { _panel = "dungeon-routes"; return; }
         var chest = _session.State.Tactics!.Chests.Chests.FirstOrDefault(c => !c.Claimed && c.Position.Distance(actor.Position) == 1);
-        if (chest != null) { _nativeChest = chest.Id; _panel = "dungeon-chest"; return; }
+        if (chest != null) { OpenDungeonChest(chest.Id); return; }
         var service = _session.State.Tactics!.Services.Nodes.Where(n => n.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(n.Position))
             .OrderBy(n => n.UsedBy != 0 || n.Contract?.Status is DungeonContractStatus.Failed or DungeonContractStatus.Completed).ThenBy(n => n.Id).FirstOrDefault();
         if (service != null) { _nativeService = service.Id; _nativeServicePage = 0; _panel = "dungeon-service"; return; }
@@ -367,13 +374,18 @@ internal sealed partial class WorldGame
         {
             var chest = _session.State.Tactics!.Chests.Chests.Single(c => c.Id == _nativeChest);
             var definition = BoonChestDefinition.Get(chest.Definition);
-            _sprites.Fit(_batch, "chest", new(x, y - 6, 28, 28), Gold);
+            double opening = _dungeonFeedback.Time - _dungeonFeedback.ChestOpened;
+            int pop = _preferences.CombatEffects && !_preferences.ReducedMotion && opening < .4
+                ? (int)(Math.Sin(Math.Clamp(opening / .4, 0, 1) * Math.PI) * 5) : 0;
+            _sprites.Fit(_batch, "chest-open", new(x - pop, y - 6 - pop, 28 + pop * 2, 28 + pop * 2), Gold);
             Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x + 40, y, Gold); y += 34;
             var offers = _session.DungeonCombat.ChestOffers(chest.Id, _session.State.Party[0]);
             for (int i = 0; i < offers.Count; i++)
             {
                 var offer = offers[i]; var boon = BoonCatalog.Default.Get(offer.Boon);
-                DrawDungeonBoonIcon(boon.Id, offer.Rarity, new(x, y + i * 108, 64, 64));
+                float reveal = !_preferences.CombatEffects || _preferences.ReducedMotion ? 1
+                    : (float)Math.Clamp((opening - i * .055) / .18, 0, 1);
+                DrawDungeonBoonIcon(boon.Id, offer.Rarity, new(x, y + i * 108, 64, 64), reveal);
                 Text($"{i + 1}. {boon.Name} / {offer.Rarity}", x + 76, y + i * 108, Gold);
                 Wrap(boon.Description, x + 76, y + 26 + i * 108, box.Width - 296, Muted);
             }
@@ -447,7 +459,7 @@ internal sealed partial class WorldGame
             Text("Choose before taking your first action. Each class has its own attacks and movement.", x, y, Muted);
     }
 
-    private void DrawDungeonBoonIcon(string boon, BoonRarity rarity, Rectangle bounds)
+    private void DrawDungeonBoonIcon(string boon, BoonRarity rarity, Rectangle bounds, float reveal = 1)
     {
         Color color = rarity switch
         {
@@ -457,7 +469,8 @@ internal sealed partial class WorldGame
         };
         Fill(bounds, color * .8f);
         Fill(new(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), new(12, 22, 24));
-        _sprites.Fit(_batch, NativeAppearance.ForBoon(boon), new(bounds.X + 8, bounds.Y + 8, bounds.Width - 16, bounds.Height - 16), color);
+        int inset = 8 + (int)((1 - reveal) * 10);
+        _sprites.Fit(_batch, NativeAppearance.ForBoon(boon), new(bounds.X + inset, bounds.Y + inset, bounds.Width - inset * 2, bounds.Height - inset * 2), color * (.4f + reveal * .6f));
     }
 
     private void DrawDungeonObjects()
