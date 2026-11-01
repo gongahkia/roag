@@ -51,7 +51,7 @@ internal sealed partial class WorldGame
     private string[] StorageItems() => _session.State.Inventory.Keys.Concat(StoredItems().Keys).Distinct().Where(i => _session.Count(i) > 0 || StoredItems().GetValueOrDefault(i) > 0).Order(StringComparer.Ordinal).ToArray();
     private string[] JournalLines(int width) => JournalRows(width).Select(row => row.Text).ToArray();
     private void StopTravel() { _pendingInteraction = null; _session.PartyTravelling = false; }
-    private void ClosePanel() { _dialogue = null; _afterDialogue = ""; _voice?.Stop(); _contextCells = null; _panel = ""; StopTravel(); }
+    private void ClosePanel() { _dialogue = null; _afterDialogue = ""; _voice?.Stop(); _contextCells = null; _panel = _titleBackdrop == null ? "" : "title"; StopTravel(); }
     private void Zoom(int direction) { _camera.ZoomAt(_map.Center.ToVector2(), direction); UpdateView(); }
     private void NewWorld()
     {
@@ -110,6 +110,7 @@ internal sealed partial class WorldGame
     private void BuildMouseControls(int w, int h)
     {
         ControlCache.Begin();
+        if (_titleBackdrop != null && _panel != "dungeon-settings") { BuildTitleControls(w, h); return; }
         if (_session.State.Dungeon != null) { BuildDungeonControls(w, h); return; }
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
             => ControlCache.Add(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed);
@@ -403,6 +404,7 @@ internal sealed partial class WorldGame
     }
     private void ActivateControl(string id)
     {
+        if (ActivateTitleControl(id)) return;
         if (_session.State.Dungeon != null && ActivateDungeonControl(id)) return;
         if (ActivateRoagControl(id)) return;
         _recording?.Record("ui-control", new { id, panel = _panel }, _session.State.Tick);
@@ -535,6 +537,7 @@ internal sealed partial class WorldGame
             Fill(new(r.X, r.Bottom - 2, r.Width, 2), edge);
             DrawControlContents(control);
         }
+        if (_titleBackdrop != null) return;
         int ny = h - 136;
         Fill(new(_map.X, ny, CombatStageVisible ? CombatArea.Width : _map.Width, 36), new(16, 22, 27));
         string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip
@@ -562,6 +565,14 @@ internal sealed partial class WorldGame
         {
             seed = _session.Seed, contentHash = _session.Content.Hash, sessionId = _recording?.Id,
             width = w, height = h, panel = _panel, paused = _session.Paused, frozen = _session.Frozen,
+            title = _titleBackdrop == null ? null : new
+            {
+                seed = _titleBackdrop.World.Seed, clock = _titleBackdrop.World.DungeonCombat.Clock,
+                _titleBackdrop.Scenes, _titleBackdrop.Actions, _titleBackdrop.Hits, camera = _titleBackdrop.Camera,
+                effects = _titleBackdrop.Effects.Select(e => new { e.Kind, e.Label, e.Position }),
+                actors = _titleBackdrop.World.State.Actors.Where(a => a.Life != LifeState.Dead && a.Position.Floor == _titleBackdrop.World.State.Position.Floor)
+                    .Select(a => new { a.Id, a.Position, a.Health, a.Sprite })
+            },
             focused = _session.Focused, nativeFocused = IsActive, agentHold = _playtest != null && (_playtest.Holding || _playtest.NeedsObservation), pointer = new { x = _mouse.X, y = _mouse.Y },
             mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },

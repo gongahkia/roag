@@ -20,7 +20,9 @@ try
         Console.WriteLine("""
             ROAG / turn-based dungeon runs
             ./roag.sh [--seed N] [--load | --new] [--save PATH]
-              Normal launch resumes the native dungeon run; absent slots start a fresh solo run.
+              Normal launch opens the title menu with the selected continuing run ready.
+              --title (show the animated title menu, including during an automated preview)
+              --skip-intro (enter the selected run directly, bypassing the title menu)
               --new (start over; normal saving/quitting replaces the selected slot)
               --load (require and resume the selected slot)
               --import-legacy PATH (validate/copy an old RPG save and exit)
@@ -135,6 +137,9 @@ finally
             get; private set;
         }
         public bool NewGame { get; private set; }
+        public bool TitleRequested { get; private set; }
+        public bool ShowTitleScreen => NativeDungeonLaunch && !WorldSmoke &&
+            (TitleRequested || !SkipIntro && !NewGame && !Load && !Preview);
         public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null || PlaytestDirectory != null;
         public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
         public bool NativeDungeonLaunch => !_sceneSpecified || Scene is "world" or "world-dungeon";
@@ -189,6 +194,7 @@ finally
                     case "--ui-report": o.UiReport = Path.GetFullPath(Value()); break;
                     case "--session-root": o.SessionRoot = Path.GetFullPath(Value()); break;
                     case "--no-recording": o.NoRecording = true; break;
+                    case "--title": o.TitleRequested = true; break;
                     case "--playtest-control": o.PlaytestDirectory = Path.GetFullPath(Value()); break;
                     case "--world-report": o.WorldReport = true; break;
                     case "--world-smoke": o.WorldSmoke = true; o.SmokeTest = true; break;

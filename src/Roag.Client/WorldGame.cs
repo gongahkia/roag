@@ -113,8 +113,9 @@ internal sealed partial class WorldGame : Game
         };
         IsMouseVisible = true; IsFixedTimeStep = false;
         InactiveSleepTime = TimeSpan.FromMilliseconds(20);
-        Exiting += (_, _) => { if (_autoSave) TrySave(); Capture(); RecordSnapshot(); if (_performance.Take(true) is { } performance) _recording?.Record("performance", performance); };
+        Exiting += (_, _) => { if (_autoSave && _titleBackdrop == null) TrySave(); Capture(); RecordSnapshot(); if (_performance.Take(true) is { } performance) _recording?.Record("performance", performance); };
         _nativeSeenEvent = _session.State.Tactics?.NextEvent - 1 ?? 0;
+        if (options.ShowTitleScreen) OpenTitleScreen();
         RecordSnapshot();
     }
     protected override void LoadContent()
@@ -126,7 +127,10 @@ internal sealed partial class WorldGame : Game
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
                 if (!_sprites.HasBinding(Materials.Sprite(material, biome, culture))) throw new InvalidDataException("Missing world material sprite.");
-        Layout(); WorldCameraScale.Apply(_camera, reset: true); UpdateMotions(TimeSpan.Zero); UpdateView(); _runtime.Start();
+        Layout(); WorldCameraScale.Apply(_camera, reset: true); UpdateMotions(TimeSpan.Zero);
+        if (_titleBackdrop == null) UpdateView();
+        else { _titleBackdrop.Resize(GraphicsDevice.Viewport.Bounds); _titleBackdrop.Update(0, true, _preferences.ReducedMotion); }
+        _runtime.Start();
     }
     private void Layout()
     {
@@ -152,7 +156,9 @@ internal sealed partial class WorldGame : Game
     {
         long started = Stopwatch.GetTimestamp();
         if (_recording != null) _frameAllocatedStart = GC.GetAllocatedBytesForCurrentThread();
-        Layout(); UpdateView();
+        Layout();
+        if (_titleBackdrop != null) { UpdateTitleScreen(gameTime); base.Update(gameTime); return; }
+        UpdateView();
         UpdateRoagKeyboard();
         MouseState mouse = default;
         if (_playtest != null)
@@ -275,6 +281,7 @@ internal sealed partial class WorldGame : Game
     }
     private void TrySave()
     {
+        if (_titleBackdrop != null) return;
         try { _session.Save(_options.Save); _autoSave = true; _notice = "World saved."; }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _notice = "Save failed: " + e.Message; Console.Error.WriteLine(_notice); _recording?.Record("save-failed", new { e.Message }); }
     }
@@ -353,18 +360,27 @@ internal sealed partial class WorldGame : Game
     protected override void Draw(GameTime gameTime)
     {
         long started = Stopwatch.GetTimestamp(), drawCallsBefore = GraphicsDevice.Metrics.DrawCount;
-        Layout(); UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
+        Layout(); if (_titleBackdrop == null) UpdateView(); int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
         if (_frame == null || _frame.Width != w || _frame.Height != h) { _frame?.Dispose(); _frame = new(GraphicsDevice, w, h); }
         long terrainStarted = Stopwatch.GetTimestamp();
-        if (!CombatStageVisible) PrepareTerrainLayer();
+        if (_titleBackdrop == null && !CombatStageVisible) PrepareTerrainLayer();
         double terrainPreparationMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
+        double terrainMs;
+        if (_titleBackdrop != null)
+        {
+            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            DrawTitleScreen(w, h); WriteUiReport(w, h); _batch.End();
+            terrainMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
+        }
+        else
+        {
         GraphicsDevice.ScissorRectangle = _map;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer,
             transformMatrix: Matrix.CreateTranslation(DungeonShake().X, DungeonShake().Y, 0));
         terrainStarted = Stopwatch.GetTimestamp();
         if (!CombatStageVisible) DrawTerrain(); _batch.End();
-        double terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
+        terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
         DrawHud(w, h);
         if (CombatStageVisible) DrawCombat();
@@ -375,7 +391,9 @@ internal sealed partial class WorldGame : Game
         DrawMouseControls(w, h);
         DrawHoverFeedback();
         WriteUiReport(w, h);
-        _batch.End(); GraphicsDevice.SetRenderTarget(null);
+        _batch.End();
+        }
+        GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();
         if (_lastDraw > 0)
         {
@@ -550,7 +568,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _dungeonAudio?.Dispose(); _voice?.Dispose(); _uiFonts?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _terrainLayer?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _titleBackdrop?.Dispose(); _session.Dispose(); _combatAudio?.Dispose(); _dungeonAudio?.Dispose(); _voice?.Dispose(); _uiFonts?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _terrainLayer?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

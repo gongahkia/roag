@@ -17,11 +17,14 @@ internal sealed partial class WorldGame
     {
         void Add(string id, string label, Rectangle bounds, bool enabled = true, bool selected = false, string reason = "", string tip = "", string? sprite = null, string detail = "")
             => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, sprite, detail, -1, null, false);
+        if (_titleBackdrop == null)
+        {
         Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
         Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
         Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
         Add("dungeon:map", "Map / Tab", new(w - 520, 16, 108, 34), selected: _nativeMapVisible);
         Add("dungeon:utility", "Utility / U", new(w - 404, 16, 110, 34));
+        }
         var box = PanelBox(w, h);
         if (_panel.StartsWith("dungeon-", StringComparison.Ordinal))
         {
@@ -94,8 +97,8 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "quit"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Save and quit"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit"];
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
             }
@@ -149,6 +152,7 @@ internal sealed partial class WorldGame
             case "map": ToggleDungeonMap(); break;
             case "guide": _panel = "dungeon-guide"; break;
             case "settings": _panel = "dungeon-settings"; break;
+            case "title": TrySave(); if (_notice == "World saved.") OpenTitleScreen(); break;
             case "setting": ChangeDungeonPreference(parts[2]); break;
             case "new-question": _panel = "dungeon-new-confirm"; break;
             case "new-cancel": ClosePanel(); break;
