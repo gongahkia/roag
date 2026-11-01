@@ -784,4 +784,39 @@ public sealed class WorldMouseTests
         Assert.Equal(0, session.Count("medicine")); Assert.Equal(0, target.Tactics.BleedTurns);
     }
 
+    [Fact]
+    public void PartyChestConfirmsThePhysicalReadyOpenerBeforeOffersAndAssignsOnlyTheirBuild()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); RecruitDungeonParty(session);
+        var actor = session.DungeonCombat.Active!;
+        var chest = session.State.Tactics!.Chests.Chests.First(c => c.Position.Floor == 1);
+        var adjacent = new[] { chest.Position.Offset(0, -1), chest.Position.Offset(1, 0), chest.Position.Offset(0, 1), chest.Position.Offset(-1, 0) }
+            .Where(p => session.CanEnter(p, actor.Id)).ToArray();
+        Assert.True(adjacent.Length >= 2);
+        actor.Position = adjacent[0];
+        var other = session.Party.First(a => a.Id != actor.Id); other.Position = adjacent[1];
+        session.State.Inventory["gold"] = 5; Assert.True(session.SelectDungeonMember(actor.Id).Success);
+        var client = Client(session); Field("_dungeonFeedback").SetValue(client, new DungeonFeedback());
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenDungeonChest", chest.Id);
+        Assert.Equal("dungeon-chest-recipient", Field("_panel").GetValue(client));
+        var controls = Controls(client, "dungeon-chest-recipient");
+        Assert.Single(controls, c => c.Id.StartsWith("dungeon:chest-recipient:") && c.Enabled);
+        Assert.Contains(controls, c => c.Id == "dungeon:chest-recipient:" + other.Id && !c.Enabled);
+        Assert.DoesNotContain(controls, c => c.Id.StartsWith("dungeon:claim:"));
+        Invoke(client, "ActivateDungeonControl", "dungeon:chest-recipient:" + other.Id);
+        Assert.Equal("dungeon-chest-recipient", Field("_panel").GetValue(client));
+        Invoke(client, "ActivateDungeonControl", "dungeon:chest-recipient:" + actor.Id);
+        Assert.Equal("dungeon-chest", Field("_panel").GetValue(client));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var offers = session.DungeonCombat.ChestOffers(chest.Id, actor.Id);
+        Assert.Equal(3, offers.Count);
+        Assert.All(offers, o => Assert.True(BoonCatalog.Default.Get(o.Boon).Allows(actor.Tactics!.Build!.Class)));
+        Invoke(client, "ActivateDungeonControl", "dungeon:claim:1");
+        Assert.Contains(offers[0].Boon, actor.Tactics!.Boons.Inventory.Stacks.Keys);
+        Assert.Empty(other.Tactics!.Boons.Inventory.Stacks);
+        Assert.Equal(actor.Id, session.State.Tactics.Chests.Chests.Single(c => c.Id == chest.Id).Recipient);
+        Assert.Equal(0, session.Count("gold"));
+    }
+
 }

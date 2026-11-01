@@ -62,6 +62,25 @@ internal sealed partial class WorldGame
             DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
     }
 
+    private void BuildDungeonChestRecipientControls(Rectangle box)
+    {
+        var chest = _session.State.Tactics!.Chests.Chests.Single(c => c.Id == _nativeChest);
+        var members = DungeonRoster;
+        for (int i = 0; i < members.Length; i++)
+        {
+            var member = members[i];
+            bool beside = member.Life == LifeState.Alive && member.Position.Distance(chest.Position) == 1;
+            bool ready = member.Id == _session.State.Tactics.ActiveActor;
+            bool selected = member.Id == _session.DungeonMember.Id;
+            AddDungeonPartyControl("dungeon:chest-recipient:" + member.Id,
+                member.Name + " / " + ClassCatalog.Get(member.Tactics!.Build!.Class).Name,
+                new(box.X + 24, box.Y + 140 + i * 76, box.Width - 48, 64),
+                beside && ready && selected, selected,
+                !beside ? "This member must stand beside the chest." : !ready ? "Wait for this member's scheduled turn." : "Select this member first.",
+                member.Sprite, "Opener receives the boon permanently / " + DungeonReadiness(member));
+        }
+    }
+
     private void DrawDungeonPartyPanel(Rectangle box, int x, int y)
     {
         Wrap($"View any member; only the ready member can act. Shared medicine: {_session.Count("medicine")}.", x, y, box.Width - 48, Muted);

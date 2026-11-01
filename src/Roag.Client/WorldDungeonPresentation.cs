@@ -32,6 +32,7 @@ internal sealed partial class WorldGame
             Add("dungeon:close", "Close", new(box.Right - 100, box.Top + 12, 80, 34));
             if (_panel == "dungeon-party") BuildDungeonPartyPanelControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
+            else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
             else if (_panel == "dungeon-class")
             {
                 foreach (var kind in Enum.GetValues<ClassKind>())
@@ -162,6 +163,12 @@ internal sealed partial class WorldGame
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
             case "recruit": CommitRoag(new("recruit", Target: _nativeRecruit)); ClosePanel(); break;
+            case "chest-recipient":
+                long recipient = long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                if (recipient == _session.DungeonMember.Id && DungeonSelectionReady
+                    && _session.DungeonCombat.ChestOffers(_nativeChest, recipient).Count == 3) _panel = "dungeon-chest";
+                else _notice = "The chosen recipient must physically open this chest on their own turn.";
+                break;
             case "utility-steps": _nativeUtilitySteps = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
             case "utility-use":
                 if (_session.DungeonMember.Tactics!.Supplies.Utility?.Kind == UtilityKind.EscapeScroll)
@@ -211,7 +218,7 @@ internal sealed partial class WorldGame
 
     private void OpenDungeonChest(long chest)
     {
-        _nativeChest = chest; _panel = "dungeon-chest";
+        _nativeChest = chest; _panel = DungeonRoster.Length > 1 ? "dungeon-chest-recipient" : "dungeon-chest";
         _dungeonFeedback.OpenChest(); PlayDungeonSound("chest-open");
     }
 
@@ -388,9 +395,15 @@ internal sealed partial class WorldGame
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
+        if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
+        if (_panel == "dungeon-chest-recipient")
+        {
+            Wrap("The member physically opening this chest receives its boon permanently. Bring your chosen member beside it on their own turn, then confirm them before seeing three eligible offers.", x, y, box.Width - 48, Muted);
+            return;
+        }
         if (_panel == "dungeon-new-confirm")
         {
             Text("START A NEW RUN?", x, y, Gold); y += 32;
@@ -409,7 +422,9 @@ internal sealed partial class WorldGame
             int pop = _preferences.CombatEffects && !_preferences.ReducedMotion && opening < .4
                 ? (int)(Math.Sin(Math.Clamp(opening / .4, 0, 1) * Math.PI) * 5) : 0;
             _sprites.Fit(_batch, "chest-open", new(x - pop, y - 6 - pop, 28 + pop * 2, 28 + pop * 2), Gold);
-            Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x + 40, y, Gold); y += 34;
+            Text($"{definition.Name} / {definition.Price} gold / purse {_session.Count("gold")}", x + 40, y, Gold);
+            if (DungeonRoster.Length > 1) Text("Recipient: " + Short(_session.DungeonMember.Name, 30), x, box.Bottom - 62, Muted);
+            y += 34;
             var offers = _session.DungeonCombat.ChestOffers(chest.Id, _session.DungeonMember.Id);
             for (int i = 0; i < offers.Count; i++)
             {
