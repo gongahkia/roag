@@ -586,6 +586,10 @@ internal sealed partial class WorldGame
                     .Select(v => new { v.Id, v.Position, keyHeld = v.KeyCollected && !v.Opened, v.Opened, outcome = v.Outcome?.ToString(), v.Clue }),
                 vaultKeys = _session.State.Tactics.Vaults.Nodes.Where(v => !v.KeyCollected && _session.Visible.Contains(v.KeyPosition))
                     .Select(v => new { v.Id, position = v.KeyPosition }),
+                presentation = new { _preferences.Master, _preferences.Music, _preferences.Effects, _preferences.Shake, _preferences.Flash,
+                    _preferences.CombatEffects, _preferences.DamageNumbers, font = _preferences.Font.ToString(), textSize = _preferences.TextSize.ToString(),
+                    _preferences.HighContrast, _preferences.ReducedMotion, _preferences.EffectsVolume, _preferences.MusicVolume,
+                    audioUnavailable = _dungeonAudio?.Unavailable ?? false, playedCues = _dungeonAudio?.PlayedCues ?? 0, musicScene = _dungeonAudio?.Scene ?? "" },
                 services = _session.State.Tactics.Services.Nodes.Where(n => _session.Visible.Contains(n.Position)).Select(n => new
                 {
                     n.Id, kind = n.Kind.ToString(), name = Roag.Core.Tactics.TacticalCombat.ServiceName(n.Kind), n.Position, n.UsedBy,

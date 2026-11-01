@@ -13,5 +13,6 @@
     <Content Include="../../assets/input-prompts/**/*.png" Link="assets/input-prompts/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../assets/ithica-expedition-sprites.json;../../assets/atlas-index.json" Link="assets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../assets/CREDITS.txt" Link="assets/CREDITS.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/fonts/ui-fonts.json;../../assets/fonts/ui-fonts.png;../../assets/fonts/LICENSE-*.md;../../assets/fonts/LICENSE-*.txt" Link="assets/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

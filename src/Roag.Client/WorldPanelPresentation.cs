@@ -21,8 +21,9 @@ internal sealed partial class WorldGame
         Color ink = !control.Enabled ? Muted * .65f : control.Selected ? Gold : control.Dimmed ? Muted : Ink;
         if (control.Sprite is not { } sprite)
         {
-            string label = Short(control.Label, Math.Max(1, (r.Width - 14) / 8));
-            Text(label, (int)(r.Center.X - SpriteLibrary.Measure(label) / 2), r.Center.Y - 6, ink);
+            int advance = _session.State.Dungeon != null ? _uiFonts?.Advance ?? 8 : 8;
+            string label = Short(control.Label, Math.Max(1, (r.Width - 14) / advance));
+            Text(label, (int)(r.Center.X - label.Length * advance / 2f), r.Center.Y - 6, ink);
             return;
         }
         var icon = ControlSpriteBox(control);

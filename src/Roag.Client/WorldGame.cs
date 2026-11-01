@@ -18,6 +18,7 @@ internal sealed partial class WorldGame : Game
     private WorldSession _session;
     private bool _autoSave;
     private SpriteLibrary _sprites = null!;
+    private UiFontAtlas? _uiFonts;
     private SpriteBatch _batch = null!;
     private Texture2D _pixel = null!;
     private readonly RasterizerState _mapRasterizer = new() { ScissorTestEnable = true };
@@ -61,7 +62,7 @@ internal sealed partial class WorldGame : Game
     {
         _recording = recording;
         _playtest = options.PlaytestDirectory == null ? null : new(options.PlaytestDirectory);
-        _options = options; _session = session; LoadConversationSettings(); _autoSave = !options.Preview;
+        _options = options; _session = session; LoadConversationSettings(); LoadDungeonPreferences(); _autoSave = !options.Preview;
         if (_autoSave) _session.SavePath = options.Save;
         if (!options.Load && options.Scene == "world-inspector") _panel = "inspector";
         if (!options.Load && options.Scene == "world-camp") { _campPosition = CampPreview.Prepare(_session); _campWorker = _session.State.Party[0]; _session.Paused = true; }
@@ -120,6 +121,7 @@ internal sealed partial class WorldGame : Game
     {
         _batch = new(GraphicsDevice); _pixel = new(GraphicsDevice, 1, 1); _pixel.SetData(new[] { Color.White });
         _sprites = new(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "assets"));
+        _uiFonts = new(GraphicsDevice, Path.Combine(AppContext.BaseDirectory, "assets")); ApplyDungeonPreferences();
         GraphicsDevice.DeviceReset += (_, _) => _terrainLayerDirty = true;
         foreach (Material material in Enum.GetValues<Material>()) foreach (Biome biome in Enum.GetValues<Biome>())
             foreach (var culture in SampleLibrary.Default.Cultures)
@@ -160,6 +162,7 @@ internal sealed partial class WorldGame : Game
         }
         if (_playtest is { StopRequested: true, Holding: true }) { Exit(); return; }
         UpdateCombatPlayback(gameTime.ElapsedGameTime.TotalSeconds);
+        UpdateDungeonPresentation();
         if (_playtest == null) mouse = Mouse.GetState();
         _session.Focused = WorldClockEnabled;
         BuildMouseControls(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
@@ -296,9 +299,16 @@ internal sealed partial class WorldGame : Game
             _recording?.Record("load-rejected", new { message = e.Message, type = e.GetType().Name });
         }
     }
-    private void Fill(Rectangle r, Color color) => _batch.Draw(_pixel, r, color);
-    private void Text(string text, int x, int y, Color? color = null, float scale = 1) => _sprites.Text(_batch, text, new(x, y), color ?? Ink, scale);
-    private int Wrap(string text, int x, int y, int width, Color? color = null) => (int)_sprites.Wrapped(_batch, text, new(x, y), width, color ?? Ink) + 6;
+    private void Fill(Rectangle r, Color color) => _batch.Draw(_pixel, r, NativeContrast(color));
+    private void Text(string text, int x, int y, Color? color = null, float scale = 1)
+    {
+        var tint = NativeContrast(color ?? Ink);
+        if (_session.State.Dungeon != null && _uiFonts != null) _uiFonts.Draw(_batch, text, new(x, y), tint, scale);
+        else _sprites.Text(_batch, text, new(x, y), tint, scale);
+    }
+    private int Wrap(string text, int x, int y, int width, Color? color = null) => (int)(_session.State.Dungeon != null && _uiFonts != null
+        ? _uiFonts.Wrapped(_batch, text, new(x, y), width, NativeContrast(color ?? Ink))
+        : _sprites.Wrapped(_batch, text, new(x, y), width, color ?? Ink)) + 6;
     private Rectangle TileRect(WorldPosition p)
     {
         var pos = _camera.WorldToScreen(new(p.X, p.Y));
@@ -349,7 +359,8 @@ internal sealed partial class WorldGame : Game
         double terrainPreparationMs = Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
         GraphicsDevice.SetRenderTarget(_frame); GraphicsDevice.Clear(new Color(16, 22, 27));
         GraphicsDevice.ScissorRectangle = _map;
-        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer);
+        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer,
+            transformMatrix: Matrix.CreateTranslation(DungeonShake().X, DungeonShake().Y, 0));
         terrainStarted = Stopwatch.GetTimestamp();
         if (!CombatStageVisible) DrawTerrain(); _batch.End();
         double terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
@@ -527,7 +538,7 @@ internal sealed partial class WorldGame : Game
     }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _voice?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _terrainLayer?.Dispose(); _mapRasterizer?.Dispose(); }
+        if (disposing) { _session.Dispose(); _combatAudio?.Dispose(); _dungeonAudio?.Dispose(); _voice?.Dispose(); _uiFonts?.Dispose(); _sprites?.Dispose(); _batch?.Dispose(); _pixel?.Dispose(); _frame?.Dispose(); _terrainLayer?.Dispose(); _mapRasterizer?.Dispose(); }
         base.Dispose(disposing);
     }
 }

@@ -92,9 +92,21 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "motion", "volume", "quit"];
-                string[] labels = ["Starting class", "Controls and help", _reducedMotion ? "Motion: Reduced" : "Motion: Full", $"Sound: {_combatVolume:P0}", "Save and quit"];
+                string[] ids = ["classes", "guide", "settings", "quit"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Save and quit"];
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40));
+            }
+            else if (_panel == "dungeon-settings")
+            {
+                static string On(bool value) => value ? "On" : "Off";
+                string[] ids = ["master", "music", "effects", "shake", "flash", "combat-effects", "numbers", "font", "text-size", "contrast", "motion"];
+                string[] labels = [$"Master: {_preferences.Master}%", $"Music: {_preferences.Music}%", $"Effects: {_preferences.Effects}%",
+                    "Screen shake: " + On(_preferences.Shake), "Hit flash: " + On(_preferences.Flash), "Combat effects: " + On(_preferences.CombatEffects),
+                    "Damage numbers: " + On(_preferences.DamageNumbers), "Font: " + _preferences.Font, "Text size: " + _preferences.TextSize,
+                    "High contrast: " + On(_preferences.HighContrast), "Reduced motion: " + On(_preferences.ReducedMotion)];
+                int width = (box.Width - 72) / 2;
+                for (int i = 0; i < ids.Length; i++) Add("dungeon:setting:" + ids[i], labels[i],
+                    new(box.X + 24 + i % 2 * (width + 24), box.Y + 86 + i / 2 * 56, width, 42));
             }
             return;
         }
@@ -115,6 +127,7 @@ internal sealed partial class WorldGame
     private bool ActivateDungeonControl(string id)
     {
         if (!id.StartsWith("dungeon:", StringComparison.Ordinal)) return false;
+        PlayDungeonSound("menu");
         var parts = id.Split(':');
         switch (parts[1])
         {
@@ -122,6 +135,8 @@ internal sealed partial class WorldGame
             case "close": ClosePanel(); break;
             case "menu": _panel = "dungeon-menu"; break;
             case "guide": _panel = "dungeon-guide"; break;
+            case "settings": _panel = "dungeon-settings"; break;
+            case "setting": ChangeDungeonPreference(parts[2]); break;
             case "boons": _panel = "dungeon-boons"; break;
             case "utility": _panel = "dungeon-utility"; break;
             case "utility-steps": _nativeUtilitySteps = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
@@ -156,8 +171,6 @@ internal sealed partial class WorldGame
                 CommitRoag(new("claim_chest", Target: _nativeChest, Choice: int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)));
                 ClosePanel(); break;
             case "new": NewWorld(); _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1; break;
-            case "motion": _reducedMotion = !_reducedMotion; SaveConversationSettings(); break;
-            case "volume": _combatVolume = _combatVolume >= .99f ? 0 : Math.Min(1, _combatVolume + .25f); SaveConversationSettings(); break;
             case "quit": TrySave(); if (_notice == "World saved.") Exit(); break;
         }
         return true;
@@ -220,6 +233,7 @@ internal sealed partial class WorldGame
     private void DrawDungeonTactics()
     {
         var combat = _session.DungeonCombat; var hero = _session.Party.Single(); var build = hero.Tactics!.Build!;
+        DrawDungeonFeedback();
         foreach (var warning in _session.RoagTelegraphs()) foreach (var cell in warning.Cells)
         {
             var r = TileRect(cell); var color = new Color(240, 112, 78);
@@ -303,8 +317,13 @@ internal sealed partial class WorldGame
     private void DrawDungeonPanel(int w, int h)
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
-        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", _ => "MENU" };
+        string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         Text(title, x, y, Gold, 1.3f); y += 48;
+        if (_panel == "dungeon-settings")
+        {
+            Text("Click a setting to cycle it. Changes save separately from your run.", x, y, Muted);
+            Wrap("Reduced motion suppresses shake, travel and floating movement. Disabling combat effects keeps tactical previews and enemy warnings visible.", x, box.Bottom - 78, box.Width - 48, Muted);
+        }
         if (_panel == "dungeon-chest")
         {
             var chest = _session.State.Tactics!.Chests.Chests.Single(c => c.Id == _nativeChest);
@@ -483,9 +502,6 @@ internal sealed partial class WorldGame
         _nativeSeenEvent = state.NextEvent - 1;
         if (events.Any(e => e.Kind == "EliteRewardDeferred")) _notice = "Elite defeated. Its chest waits for clear nearby ground.";
         else if (events.Any(e => e.Kind == "EliteRewardPlaced" && e.Action == 0)) _notice = "The elite chest appears on cleared nearby ground.";
-        if (events.Any(e => e.Kind == "DamageTaken") && _combatVolume > 0)
-        {
-            _combatAudio ??= new(); _combatAudio.Play("slash", _combatVolume);
-        }
+        foreach (var e in events) ShowDungeonEvent(e);
     }
 }

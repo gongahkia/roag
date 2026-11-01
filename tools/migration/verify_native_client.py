@@ -96,6 +96,20 @@ try:
     assert utility['nativeDungeon']['clock'] == clock
     evidence('03-empty-utility-inspection')
     request('control', control='dungeon:close')
+    request('control', control='dungeon:menu')
+    request('control', control='dungeon:settings')
+    evidence('04-default-presentation')
+    for setting in ['master','music','effects','shake','flash','combat-effects','numbers','font','text-size','contrast','motion']:
+        preferences = request('control', control='dungeon:setting:' + setting)
+        assert preferences['nativeDungeon']['clock'] == clock
+    appearance = preferences['nativeDungeon']['presentation']
+    assert appearance['font'] == 'Sans' and appearance['textSize'] == 'Large'
+    assert appearance['highContrast'] and appearance['reducedMotion']
+    assert appearance['effectsVolume'] == 0 and appearance['musicVolume'] == 0
+    assert not appearance['shake'] and not appearance['flash']
+    assert not appearance['combatEffects'] and not appearance['damageNumbers']
+    evidence('05-accessible-presentation')
+    request('control', control='dungeon:close')
     saved = request('control', control='dungeon:save'); assert slot.exists(), saved['notice']
     evidence('03-paid-keyboard-save')
     request('stop'); process.wait(timeout=10)
@@ -111,12 +125,15 @@ try:
     assert resumed['nativeDungeon']['clock'] == clock
     assert resumed['position'] == moved['position']
     assert resumed['nativeDungeon']['player'] == saved['nativeDungeon']['player']
+    for field in ['master','music','effects','font','textSize','highContrast','reducedMotion','shake','flash','combatEffects','damageNumbers']:
+        assert resumed['nativeDungeon']['presentation'][field] == appearance[field]
     assert resumed['panel'] == ''
     evidence('04-resumed-native-run')
     request('stop'); process.wait(timeout=10)
     (output / 'result.json').write_text(json.dumps(dict(passed=True, seed=42, classId='Tinkerer',
         clock=clock, checks=['native class selection', 'mouse-aimed sentry', 'paid physical keyboard movement',
-        'free inspection/rendering', 'free utility inspection', 'continuing save', 'rendered resume with exact class/resources/supplies/clock'], display=os.environ.get('DISPLAY')), indent=2) + '\n')
+        'free inspection/rendering', 'free utility inspection', 'all presentation controls consume no time', 'persisted sans/large/high-contrast/reduced-motion/mute preferences',
+        'continuing save', 'rendered resume with exact class/resources/supplies/clock'], audio=appearance, display=os.environ.get('DISPLAY')), indent=2) + '\n')
     print('Native rendered class, construct, keyboard, inspection, save and exact resume checkpoint passed.')
 finally:
     if process.poll() is None:
