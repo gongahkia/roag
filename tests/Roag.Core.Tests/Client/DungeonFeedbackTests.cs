@@ -50,13 +50,14 @@ public sealed class DungeonFeedbackTests
         feedback.Observe(new(2, 0, "BoonGranted", 1, 1, 1, p, Ability: "core:boon/storm_conductor"), null, Facing.East, p, false);
         feedback.Advance(.03, true, p.Floor);
         Assert.True(feedback.Time > feedback.ChestOpened); Assert.NotNull(feedback.Reward);
+        Assert.True(feedback.Celebration!.Claimed);
         Assert.Null(Assert.Single(feedback.Effects).From); // no invented offscreen source/tracer
         Assert.NotEqual(Vector2.Zero, feedback.Shake(new()));
         Assert.Equal(Vector2.Zero, feedback.Shake(new(ReducedMotion: true)));
         Assert.Equal(Vector2.Zero, feedback.Shake(new(Shake: false)));
         double stopped = feedback.Time; feedback.Advance(.1, false, p.Floor); Assert.Equal(stopped, feedback.Time);
         for (int i = 0; i < 25; i++) feedback.Advance(.1, true, p.Floor);
-        Assert.Empty(feedback.Effects); Assert.Null(feedback.Reward);
+        Assert.Empty(feedback.Effects); Assert.Null(feedback.Reward); Assert.Null(feedback.Celebration);
         Assert.Equal(before, JsonSerializer.Serialize(world.State));
     }
 

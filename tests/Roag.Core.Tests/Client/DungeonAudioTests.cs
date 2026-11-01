@@ -10,6 +10,7 @@ public sealed class DungeonAudioTests
     [Theory]
     [InlineData("attack")]
     [InlineData("chest")]
+    [InlineData("chest-open")]
     public void AdditionalActionCuesAreDeterministicBoundedPcmWithoutAnAudioDevice(string kind)
     {
         var pcm = DungeonSoundSynthesis.Sample(kind);

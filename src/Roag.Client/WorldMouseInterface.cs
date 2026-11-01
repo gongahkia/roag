@@ -537,7 +537,7 @@ internal sealed partial class WorldGame
             Fill(new(r.X, r.Bottom - 2, r.Width, 2), edge);
             DrawControlContents(control);
         }
-        if (_titleBackdrop != null) return;
+        if (_titleBackdrop != null || _session.State.Dungeon != null) return;
         int ny = h - 136;
         Fill(new(_map.X, ny, CombatStageVisible ? CombatArea.Width : _map.Width, 36), new(16, 22, 27));
         string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip
@@ -582,6 +582,7 @@ internal sealed partial class WorldGame
             {
                 native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
+                aim = _roagAim,
                 player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,
                     a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
@@ -600,7 +601,10 @@ internal sealed partial class WorldGame
                     effects = _dungeonFeedback.Effects.Where(e => _session.Visible.Contains(e.Position))
                         .Select(e => new { e.Kind, e.Position, e.Label, e.PlayerHit, age = _dungeonFeedback.Time - e.Born }),
                     reward = _panel.Length == 0 ? _dungeonFeedback.Reward?.Boon : null,
-                    chestOpeningAge = _panel == "dungeon-chest" ? (double?)(_dungeonFeedback.Time - _dungeonFeedback.ChestOpened) : null
+                    chestOpeningAge = _panel == "dungeon-chest" ? (double?)(_dungeonFeedback.Time - _dungeonFeedback.ChestOpened) : null,
+                    celebration = _dungeonFeedback.Celebration == null ? null : new
+                    { _dungeonFeedback.Celebration.Claimed, age = _dungeonFeedback.Time - _dungeonFeedback.Celebration.Born,
+                        coinBudget = !_preferences.CombatEffects ? 0 : _preferences.ReducedMotion ? 8 : _dungeonFeedback.Celebration.Claimed ? 80 : 48 }
                 },
                 secrets = _session.State.Tactics.Secrets.Nodes.Where(s => _session.Visible.Contains(s.Clue))
                     .Select(s => new { s.Id, kind = s.Kind.ToString(), position = s.Clue, s.Revealed }),

@@ -61,6 +61,19 @@ def evidence(name):
     shutil.copy2(control / 'frame.png', output / (name + '.png'))
     shutil.copy2(control / 'observation.json', output / (name + '.json'))
 
+def physical_key(key):
+    global sequence
+    sequence += 1
+    observation = read('observation.json')
+    spec = dict(schemaVersion=1, id='native-' + str(sequence), observation=observation['observation'], kind='wait', seconds=.4)
+    temporary = control / 'request.tmp'; temporary.write_text(json.dumps(spec)); temporary.replace(control / 'request.json')
+    until(lambda: not (control / 'request.json').exists())
+    subprocess.run(['xdotool', 'keydown', key], check=True)
+    try:
+        until(lambda: (r if (r := read('response.json')) and r['id'] == spec['id'] else None))
+        return read('observation.json')['ui']
+    finally: subprocess.run(['xdotool', 'keyup', key], check=True)
+
 try:
     initial = until(lambda: read('observation.json'))['ui']
     assert initial['panel'] == 'dungeon-class', initial['panel']
@@ -68,34 +81,18 @@ try:
     chosen = request('control', control='dungeon:class:12') # Tinkerer
     assert chosen['nativeDungeon']['player'][0]['classId'] == 'Tinkerer'
     assert chosen['nativeDungeon']['clock'] == 0
-    request('control', control='roag:sweeping_slash')
+    window = subprocess.check_output(['xdotool', 'search', '--all', '--onlyvisible', '--pid', str(process.pid), '--name', '^Roag$'], text=True).splitlines()[-1]
+    subprocess.run(['xdotool', 'windowfocus', window], check=True)
+    physical_key('r')
     position = chosen['position']
     placed = request('tile', x=position['x'] + 1, y=position['y'])
     assert placed['nativeDungeon']['player'][0]['resources']['sentry'] is not None, placed['notice']
     evidence('02-sentry')
-    # The bridge's explicit wait enables ordinary keyboard processing; it does
-    # not inject a native action, actor position, damage result or world tick.
-    window = subprocess.check_output(['xdotool', 'search', '--onlyvisible', '--name', '^Roag$'], text=True).splitlines()[0]
-    subprocess.run(['xdotool', 'windowfocus', window], check=True)
-    observation = read('observation.json')
-    sequence += 1
-    spec = dict(schemaVersion=1, id='native-' + str(sequence), observation=observation['observation'], kind='wait', seconds=1.5)
-    temporary = control / 'request.tmp'; temporary.write_text(json.dumps(spec)); temporary.replace(control / 'request.json')
-    time.sleep(.25)
-    subprocess.run(['xdotool', 'keydown', 's'], check=True); time.sleep(.15)
-    subprocess.run(['xdotool', 'keyup', 's'], check=True)
-    until(lambda: (r if (r := read('response.json')) and r['id'] == spec['id'] else None))
-    moved = read('observation.json')['ui']
+    moved = physical_key('s')
     assert moved['position'] == dict(x=position['x'], y=position['y'] + 1, floor=position['floor']), moved['notice']
     clock = moved['nativeDungeon']['clock']
     def keypress(key):
-        global sequence
-        observation = read('observation.json'); sequence += 1
-        spec = dict(schemaVersion=1,id='native-' + str(sequence),observation=observation['observation'],kind='wait',seconds=.6)
-        temporary=control/'request.tmp';temporary.write_text(json.dumps(spec));temporary.replace(control/'request.json')
-        time.sleep(.12);subprocess.run(['xdotool','keydown',key],check=True);time.sleep(.15);subprocess.run(['xdotool','keyup',key],check=True)
-        until(lambda:(r if(r:=read('response.json'))and r['id']==spec['id']else None))
-        ui=read('observation.json')['ui'];assert ui['nativeDungeon']['clock']==clock;return ui
+        ui = physical_key(key); assert ui['nativeDungeon']['clock'] == clock; return ui
     assert keypress('F1')['panel']=='dungeon-guide'
     evidence('03-keyboard-help')
     assert keypress('Escape')['panel']==''

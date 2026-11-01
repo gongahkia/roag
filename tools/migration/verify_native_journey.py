@@ -225,10 +225,13 @@ class Journey:
                     previous[q] = p; costs[q] = candidate; heapq.heappush(queue, (candidate, q))
         return None
 
+    def select_movement(self):
+        if self.client.ui['nativeDungeon']['aim'] != 'move': self.client.key('Escape')
+
     def move(self, p):
         dx, dy = p[0] - self.at[0], p[1] - self.at[1]
         key = next(k for x, y, k in DIRECTIONS if (x, y) == (dx, dy))
-        if not any(c['id'] == 'roag:move' and c['selected'] for c in self.client.ui['controls']): self.client.control_click('roag:move')
+        self.select_movement()
         before = self.state['clock']
         self.client.key(key)
         self.visits[p] += 1
@@ -336,7 +339,7 @@ class Journey:
             if service['kind'] == 'Camp' and self.player['health'] == self.player['maxHealth']: continue
             p = position(service['position'])
             if distance(p, self.at) <= 1 and p in self.visible and self.visible[p]['clickable']:
-                self.client.control_click('roag:move'); self.client.request('tile', x=p[0], y=p[1])
+                self.select_movement(); self.client.request('tile', x=p[0], y=p[1])
                 assert self.client.ui['panel'] == 'dungeon-service', self.client.ui['notice']
                 self.client.capture('service-' + str(service['id']) + '-offers')
                 offers = self.client.ui['nativeDungeon']['serviceOffers'] or []
@@ -362,13 +365,13 @@ class Journey:
             p = position(vault['position'])
             if vault['keyHeld'] and not vault['opened']:
                 if distance(p, self.at) == 1:
-                    self.client.control_click('roag:move'); self.client.request('tile', x=p[0], y=p[1]); self.receipts.add('vault'); return True
+                    self.select_movement(); self.client.request('tile', x=p[0], y=p[1]); self.receipts.add('vault'); return True
                 if self.approach(p, 1): return True
         for chest in self.state['chests']:
             if chest['claimed'] or chest['definition'] != 'core:chest/free_elite' and self.ui['inventory'].get('gold', 0) < 5: continue
             p = position(chest['position'])
             if distance(p, self.at) == 1 and p in self.visible and self.visible[p]['clickable']:
-                self.client.control_click('roag:move'); self.client.request('tile', x=p[0], y=p[1])
+                self.select_movement(); self.client.request('tile', x=p[0], y=p[1])
                 assert self.client.ui['panel'] == 'dungeon-chest', self.client.ui['notice']
                 self.client.capture('chest-' + str(chest['id']) + '-offers')
                 offers = self.client.ui['nativeDungeon']['chestOffers']
@@ -384,7 +387,7 @@ class Journey:
             if distance(ready_exit, self.at) > 1:
                 if self.go([ready_exit, *self.neighbors(ready_exit)]): return True
             else:
-                self.client.control_click('roag:move')
+                self.select_movement()
                 self.client.request('tile', x=ready_exit[0], y=ready_exit[1])
                 if self.client.ui['panel'] == 'dungeon-routes':
                     self.client.capture('stage-' + str(self.state['stage']) + '-routes')
@@ -432,7 +435,7 @@ class Journey:
         self.client.capture('gate-plate-opened')
         self.move(gate_position); self.observe(); assert self.at == gate_position
         while self.state['clock'] < close_at:
-            self.client.control_click('roag:wait'); self.observe()
+            self.client.key('space'); self.observe()
         assert next(g for g in self.state['gates'] if g['id'] == gate['id'])['open']
         self.client.capture('gate-occupied-at-closure')
         leaving = next(p for p in self.neighbors(self.at) if p != plate and self.open(p))
@@ -499,7 +502,7 @@ class Journey:
                 self.client.capture('progress-' + str(self.steps))
                 self.checkpoint()
             if lifecycle and self.fighters:
-                self.client.control_click('roag:wait'); continue
+                self.client.key('space'); continue
             if self.fight() or self.quiet_tasks() or self.explore(): continue
             self.client.capture('no-known-route'); return 'no-known-route'
         self.client.capture('action-budget'); return 'action-budget'

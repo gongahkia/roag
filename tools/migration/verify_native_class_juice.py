@@ -17,6 +17,7 @@ class FeedbackClient(Client):
     recording_start = None
     chest_seen = False
     defer_reload = False
+    check_chest_preferences = False
 
     def key(self, key, seconds=.16):
         return super().key(key, seconds)
@@ -46,6 +47,27 @@ class FeedbackClient(Client):
             shutil.copy2(self.control / 'frame.png', self.output / ('feedback-' + name + '.png'))
             shutil.copy2(self.control / 'observation.json', self.output / ('feedback-' + name + '.json'))
             print('feedback-' + name, self.ui['nativeDungeon']['clock'], flush=True)
+            if name in ('chest-opening', 'chest-claimed'):
+                self.collecting = True
+                try:
+                    clock = self.ui['nativeDungeon']['clock']
+                    self.request('wait', seconds=.4)
+                    assert self.ui['nativeDungeon']['clock'] == clock
+                    assert self.ui['nativeDungeon']['feedback']['celebration']['coinBudget'] > 0
+                    self.capture('chest-coin-spray' if name == 'chest-opening' else 'boon-coin-spray')
+                    if name == 'chest-opening' and self.check_chest_preferences:
+                        player = copy.deepcopy(self.ui['nativeDungeon']['player'])
+                        for mode, settings, budget in [('reduced-motion', ['motion'], 8),
+                            ('effects-off', ['combat-effects'], 0), ('restored', ['motion', 'combat-effects'], 48)]:
+                            self.control_click('dungeon:menu'); self.control_click('dungeon:settings')
+                            for setting in settings: self.control_click('dungeon:setting:' + setting)
+                            self.control_click('dungeon:close'); self.key('Return')
+                            assert self.ui['panel'] == 'dungeon-chest'
+                            assert self.ui['nativeDungeon']['feedback']['celebration']['coinBudget'] == budget
+                            self.capture('chest-coins-' + mode)
+                            assert self.ui['nativeDungeon']['clock'] == clock and self.ui['nativeDungeon']['player'] == player
+                        self.check_chest_preferences = False
+                finally: self.collecting = False
         return self.ui
 
 
@@ -56,11 +78,15 @@ parser.add_argument('--classes-only', action='store_true')
 parser.add_argument('--feedback-set', choices=['all', 'combat', 'chest'], default='all')
 parser.add_argument('--continue-from', type=Path)
 parser.add_argument('--window-size', default='1440x900')
+parser.add_argument('--chest-preferences', action='store_true')
 args = parser.parse_args()
 client = FeedbackClient(args.output.resolve(), 37, args.runtime.resolve() if args.runtime else None,
     continuation=args.continue_from.resolve() if args.continue_from else None, window_size=args.window_size)
+client.check_chest_preferences = args.chest_preferences
 video = None
 try:
+    assert not any(c['id'].startswith('roag:') for c in client.ui['controls'])
+    assert client.ui['map']['y'] + client.ui['map']['height'] == client.ui['height'] - 16
     before = copy.deepcopy(client.ui['nativeDungeon']['player'])
     cards = [c for c in client.ui['controls'] if c['id'].startswith('dungeon:class:')]
     if not args.continue_from:
@@ -107,6 +133,8 @@ try:
         client.request('wait', seconds=3)
         assert client.ui['nativeDungeon']['clock'] == clock and client.ui['nativeDungeon']['player'] == player
         assert not client.ui['nativeDungeon']['feedback']['effects'] and client.ui['nativeDungeon']['feedback']['reward'] is None
+        assert client.ui['nativeDungeon']['feedback']['celebration'] is None
+        assert not any(c['id'].startswith('roag:') for c in client.ui['controls'])
         client.capture('feedback-settled-without-an-action')
         client.control_click('dungeon:menu'); client.control_click('dungeon:settings')
         for setting in ['motion', 'shake', 'flash', 'combat-effects']: client.control_click('dungeon:setting:' + setting)

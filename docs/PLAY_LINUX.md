@@ -55,6 +55,10 @@ forces the menu when needed. The preview never advances your character's clock.
 
 ## Controls
 
+Gameplay uses the keyboard/controller shortcuts below. The persistent instruction
+strips and bottom action-button grid are removed; that space now shows more dungeon.
+F1 or Menu → Controls and help opens the control reference.
+
 - Choose your class before the first paid action; it is then fixed for the run.
   Each class card shows its character sprite and a short description.
 - WASD or arrows: one tile per press. Holding a direction does not repeat.
@@ -105,7 +109,9 @@ kept separately as `dungeon-presentation.json` beside the selected save.
 The menu offers separate master/music/effects volume, fonts, text size,
 contrast, reduced motion, shake, hit flashes, combat effects and damage numbers.
 Attacks and hits have brief directional accents, recoil, sparks and sound cues;
-chests reveal their illustrated choices and show the acquired boon. These
+chests spray gold coins from both sides when opened, with a larger burst and
+a metallic cha-ching on boon acquisition. The acquired-boon banner remains
+visible. Coins are decorative; rewards and chest prices follow the normal rules. These
 effects animate while you think and never advance the turn clock.
 The retained original audio consists of simple synthesized cues/loops.
 

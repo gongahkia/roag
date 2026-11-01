@@ -49,8 +49,8 @@ internal sealed partial class WorldGame
             "Moved" when _session.State.Party.Contains(e.Source) => "step", "TileEntered" when _session.State.Party.Contains(e.Source) => "terrain",
             "WindupStarted" or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" => "enemy", "DamageTaken" when _session.State.Party.Contains(e.Target) => "hit",
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
-            "DamageTaken" => "hit", "ChestClaimed" or "VaultOpened" => "chest",
-            "BoonActivated" or "BoonGranted" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
+            "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
+            "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
         };
@@ -204,5 +204,41 @@ internal sealed partial class WorldGame
         _sprites.Fit(_batch, NativeAppearance.ForBoon(reward.Boon), new(box.X + 12, box.Y + 13, 48, 48), Gold * alpha);
         Text("BOON CLAIMED", box.X + 76, box.Y + 13, Gold * alpha);
         Text(BoonCatalog.Default.Get(reward.Boon).Name, box.X + 76, box.Y + 37, Ink * alpha);
+    }
+
+    private void DrawDungeonCelebration(int width, int height)
+    {
+        if (_session.State.Dungeon == null || !_preferences.CombatEffects || _dungeonFeedback.Celebration is not { } burst) return;
+        double age = _dungeonFeedback.Time - burst.Born;
+        var area = _panel == "dungeon-chest" ? PanelBox(width, height) : _map;
+        int count = burst.Claimed ? 40 : 24;
+        for (int side = 0; side < 2; side++) for (int i = 0; i < count; i++)
+        {
+            float t = (float)(age - i * .012);
+            if (t is < 0 or > 1.65f) continue;
+            int seed = (i * 73 + side * 29) % 101, size = 14 + i % 3 * 4;
+            float direction = side == 0 ? 1 : -1;
+            float speed = Math.Min(area.Width * .52f, 220 + seed * 2);
+            float x = (side == 0 ? area.Left + 8 : area.Right - 8);
+            float y = area.Bottom - 28 - seed % 4 * 14;
+            if (_preferences.ReducedMotion)
+            {
+                if (i >= 4) continue;
+                x += direction * (18 + i % 2 * 24); y = area.Center.Y - 35 + i * 24;
+            }
+            else
+            {
+                x += direction * speed * t;
+                y += -(280 + seed * 1.5f) * t + 280 * t * t;
+            }
+            float alpha = Math.Clamp(t / .045f, 0, 1) * Math.Clamp((1.65f - t) / .45f, 0, 1);
+            float spin = _preferences.ReducedMotion ? 1 : .2f + .8f * MathF.Abs(MathF.Cos(t * 13 + i));
+            int coinWidth = Math.Max(3, (int)(size * spin));
+            var coin = new Rectangle((int)x - coinWidth / 2, (int)y - size / 2, coinWidth, size);
+            Fill(coin with { X = coin.X + 2, Y = coin.Y + 3 }, new Color(54, 32, 9) * alpha);
+            var tint = _preferences.Flash && !_preferences.ReducedMotion && MathF.Sin(t * 11 + i) > .85f
+                ? new Color(255, 245, 184) : new Color(255, 199, 62);
+            _sprites.Draw(_batch, "coin", coin, tint * alpha);
+        }
     }
 }

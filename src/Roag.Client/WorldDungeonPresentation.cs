@@ -130,12 +130,6 @@ internal sealed partial class WorldGame
         }
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
-        string[] kinds = ["move", "basic_attack", "sweeping_slash", "dash", "guard", "wait"];
-        var activeClass = ClassCatalog.Get(_session.Party.Single().Tactics!.Build!.Class);
-        string[] names = ["Move", activeClass.BasicName + " / F", activeClass.SpecialName + " / R", activeClass.DashName + " / X", "Guard / G", "Wait / Space"];
-        int buttonWidth = (_map.Width - 16) / 3;
-        for (int i = 0; i < kinds.Length; i++)
-            Add("roag:" + kinds[i], names[i], new(_map.X + i % 3 * (buttonWidth + 8), h - 94 + i / 3 * 44, buttonWidth, 36), selected: _roagAim == kinds[i]);
     }
 
     private bool ActivateDungeonControl(string id)
@@ -208,7 +202,7 @@ internal sealed partial class WorldGame
     private void OpenDungeonChest(long chest)
     {
         _nativeChest = chest; _panel = "dungeon-chest";
-        _dungeonFeedback.OpenChest(); PlayDungeonSound("chest");
+        _dungeonFeedback.OpenChest(); PlayDungeonSound("chest-open");
     }
 
     private bool TryOpenDungeonRoute(Point pointer)
@@ -265,9 +259,6 @@ internal sealed partial class WorldGame
         Text($"{combat.Clock / (double)combat.Tuning.UnitsPerSecond:0.00}s / your action", 160, 22, Muted);
         string identity = $"Stage {_session.State.Dungeon!.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}";
         Text(identity, 20, 57, Muted);
-        int advance = _uiFonts?.Advance ?? 8;
-        int noticeX = 20 + identity.Length * advance + 24;
-        if (noticeX < w - 120) Text(Short(_notice, (w - noticeX - 20) / advance), noticeX, 57, Ink);
         Fill(_side, Panel);
     }
 
@@ -310,6 +301,9 @@ internal sealed partial class WorldGame
             ClassKind.Duelist => resources.Riposte ? "Riposte ready" : resources.Parry != null ? "Parry raised" : "Parry available",
             ClassKind.Tinkerer when resources.Sentry is { } sentry => $"Sentry: {sentry.Charges} shots / {sentry.Phase}", _ => "" };
         if (resource.Length > 0) { Text(resource, x, y, Gold); y += 24; }
+        if (_notice.Length > 0 && !_notice.StartsWith("WASD /", StringComparison.Ordinal)
+            && _notice is not ("Action committed." or "Choose your fixed starting class."))
+        { y += Wrap(_notice, x, y, _side.Width - 28, Muted); y += 8; }
         Text("TURN TIMELINE", x, y, Gold); y += 24;
         Text(_session.State.AwaitingContinuation ? "Run ended" : "You: ready now", x, y); y += 22;
         foreach (var entry in combat.VisibleTimeline().Take(5))

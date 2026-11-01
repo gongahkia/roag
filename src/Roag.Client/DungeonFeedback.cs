@@ -7,6 +7,7 @@ namespace Roag.Client;
 internal sealed record DungeonEffect(WorldPosition Position, string Kind, string Label, double Born,
     long Source, long Target, Vector2 Direction, WorldPosition? From, bool PlayerHit, string Ability);
 internal sealed record DungeonReward(string Boon, double Born);
+internal sealed record DungeonCelebration(double Born, bool Claimed);
 
 /// <summary>Transient presentation state. Never enters the simulation or its save.</summary>
 internal sealed class DungeonFeedback
@@ -18,22 +19,25 @@ internal sealed class DungeonFeedback
     public float ShakeStrength { get; private set; }
     public double ChestOpened { get; private set; } = -10;
     public DungeonReward? Reward { get; private set; }
+    public DungeonCelebration? Celebration { get; private set; }
 
     public void Advance(double elapsed, bool focused, int floor)
     {
         if (focused) Time += Math.Clamp(elapsed, 0, .1);
         _effects.RemoveAll(e => Time - e.Born > 1.1 || e.Position.Floor != floor);
         if (Reward != null && Time - Reward.Born > 2) Reward = null;
+        if (Celebration != null && Time - Celebration.Born > 2.2) Celebration = null;
     }
 
-    public void OpenChest() => ChestOpened = Time;
+    public void OpenChest() { ChestOpened = Time; Celebration = new(Time, false); }
 
     public void Observe(TacticalEvent e, string? label, Facing facing, WorldPosition? visibleSource, bool playerHit)
     {
         if (e.Kind == "DamageTaken" && e.Amount > 0)
         { LastHit = Time; ShakeStrength = playerHit ? 4 : 1.7f; }
         if (e.Kind == "BoonGranted" && e.Ability.StartsWith("core:boon/", StringComparison.Ordinal))
-            Reward = new(e.Ability, Time);
+        { Reward = new(e.Ability, Time); Celebration = new(Time, true); }
+        if (e.Kind == "VaultOpened") Celebration = new(Time, true);
         if (label == null && e.Kind is not ("AttackPerformed" or "ChestClaimed" or "VaultOpened")) return;
         var (x, y) = AttackGeometry.Offset(facing);
         _effects.Add(new(e.Position, e.Kind, label ?? "", Time, e.Source, e.Target,
@@ -50,5 +54,5 @@ internal sealed class DungeonFeedback
     }
 
     public void Reset()
-    { _effects.Clear(); Reward = null; Time = 0; LastHit = ChestOpened = -10; ShakeStrength = 0; }
+    { _effects.Clear(); Reward = null; Celebration = null; Time = 0; LastHit = ChestOpened = -10; ShakeStrength = 0; }
 }

@@ -8,7 +8,7 @@ internal static class DungeonSoundSynthesis
     public const int SampleRate = 22050;
     public static byte[] Sample(string kind)
     {
-        if (kind is "attack" or "chest") return ActionSample(kind);
+        if (kind is "attack" or "chest" or "chest-open") return ActionSample(kind);
         (double duration, double frequency, double volume) = kind switch
         {
             "step" => (.085, 150, .2), "hit" => (.14, 85, .36), "boon" => (.28, 660, .26), "menu" => (.09, 480, .18),
@@ -31,7 +31,7 @@ internal static class DungeonSoundSynthesis
 
     private static byte[] ActionSample(string kind)
     {
-        double duration = kind == "attack" ? .11 : .48;
+        double duration = kind switch { "attack" => .11, "chest-open" => .48, _ => .85 };
         int count = (int)(SampleRate * duration);
         var pcm = new byte[count * 2]; uint noise = 0x524F4147;
         for (int i = 0; i < count; i++)
@@ -43,7 +43,7 @@ internal static class DungeonSoundSynthesis
                 wave = ((noise / (double)uint.MaxValue * 2 - 1) * .55 + Math.Sin(2 * Math.PI * (850 * t - 3000 * t * t)) * .45)
                     * Math.Pow(Math.Sin(Math.PI * t / duration), 2) * .23;
             }
-            else
+            else if (kind == "chest-open")
             {
                 wave = 0;
                 for (int note = 0; note < 4; note++)
@@ -52,6 +52,27 @@ internal static class DungeonSoundSynthesis
                     if (local >= 0) wave += Math.Sin(2 * Math.PI * frequency * local) * Math.Exp(-local * 9) * .12;
                 }
                 wave *= Math.Clamp((duration - t) / .04, 0, 1);
+            }
+            else
+            {
+                // A short metallic "cha", followed by a brighter ringing "ching"
+                // and a small coin echo. Local noise never consumes world RNG.
+                wave = 0;
+                for (int strike = 0; strike < 3; strike++)
+                {
+                    double local = t - (strike == 0 ? 0 : strike == 1 ? .16 : .27);
+                    if (local < 0) continue;
+                    double frequency = strike == 0 ? 1174.66 : strike == 1 ? 1760 : 2349.32;
+                    double envelope = (1 - Math.Exp(-local * 900)) * Math.Exp(-local * (strike == 0 ? 24 : 8));
+                    double bell = Math.Sin(2 * Math.PI * frequency * local) * .55
+                        + Math.Sin(2 * Math.PI * frequency * 2.756 * local) * .25
+                        + Math.Sin(2 * Math.PI * frequency * 4.07 * local) * .12
+                        + Math.Sin(2 * Math.PI * frequency * 6.2 * local) * .08;
+                    wave += bell * envelope * (strike == 2 ? .16 : .36);
+                }
+                noise = unchecked(noise * 1664525 + 1013904223);
+                wave += (noise / (double)uint.MaxValue * 2 - 1) * Math.Exp(-t * 105) * (1 - Math.Exp(-t * 1800)) * .09;
+                wave *= Math.Clamp((duration - t) / .06, 0, 1);
             }
             short sample = (short)Math.Clamp(Math.Round(wave * short.MaxValue), short.MinValue, short.MaxValue);
             pcm[i * 2] = (byte)(sample & 255); pcm[i * 2 + 1] = (byte)((sample >> 8) & 255);

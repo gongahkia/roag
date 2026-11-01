@@ -135,7 +135,7 @@ internal sealed partial class WorldGame : Game
     private void Layout()
     {
         int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
-        _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - 230));
+        _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - (_session.State.Dungeon != null ? 100 : 230)));
         _side = new(w - 318, 84, 302, h - 100);
         _camera.Viewport = _map; WorldCameraScale.Apply(_camera);
     }
@@ -390,6 +390,7 @@ internal sealed partial class WorldGame : Game
             DrawContext();
             DrawMouseControls(w, h);
             DrawHoverFeedback();
+            DrawDungeonCelebration(w, h);
             WriteUiReport(w, h);
             _batch.End();
         }
