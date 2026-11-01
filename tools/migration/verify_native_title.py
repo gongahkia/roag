@@ -64,7 +64,11 @@ try:
     for setting in ['font', 'text-size', 'motion']: client.control_click('dungeon:setting:' + setting)
     assert client.ui['nativeDungeon']['presentation']['reducedMotion']
     client.key('Escape'); assert client.ui['panel'] == 'title'
-    camera = client.ui['title']['camera']; client.request('wait', seconds=1)
+    camera = client.ui['title']['camera']; scene = client.ui['title']['scenes']
+    client.request('wait', seconds=1)
+    if client.ui['title']['scenes'] != scene:
+        # A new random world is a cut, not camera motion within that world.
+        camera = client.ui['title']['camera']; client.request('wait', seconds=.3)
     assert client.ui['title']['camera'] == camera
     client.capture('03-large-sans-reduced-motion-title')
     if video:
