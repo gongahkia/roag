@@ -71,6 +71,9 @@ internal sealed partial class WorldGame
             if (_autoSave) TrySave();
             if (_notice == "World saved." || !_autoSave) _notice = "Choose your fixed starting class.";
         }
+        // Title input can replace the session after this frame's motion update.
+        // Initialize the replacement actors before its first terrain draw.
+        UpdateMotions(TimeSpan.Zero); UpdateView();
     }
     private void FinishApproach()
     {
