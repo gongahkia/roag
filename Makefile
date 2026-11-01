@@ -1,4 +1,4 @@
-# ROAG gameplay. Authoring and publication live in the sibling Paint project.
+# Native Roag gameplay. Explicit reference-* targets retain the archived Lua checks.
 OS := $(shell uname -s)
 LUAJIT ?= luajit
 ifeq ($(OS),Darwin)
@@ -11,10 +11,13 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test enemy-review enemy-review-check review-test room-expansion room-expansion-check environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game package-linux reference-game reference-test reference-gui spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test enemy-review enemy-review-check review-test room-expansion room-expansion-check environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
-	 'make game             Play ROAG with fixed Kenney 1-Bit artwork' \
+	 'make game             Play the native C# dungeon game' \
+	 'make package-linux    Build a self-contained Linux x64 archive' \
+	 'make reference-game   Run the archived Lua/LÖVE game' \
+	 'make reference-test   Run archived Lua reference tests' \
 	 'make spectator        Inspect Kenney art without saves' \
 	 'make sprite-audit     Rebuild current coverage and unused-art catalogue' \
 	 'make sprite-audit-check Check saved catalogue freshness without writing' \
@@ -30,11 +33,15 @@ help:
 	 'make room-expansion-check Verify compiled layouts without writing' \
 	 'make environment-preview Rebuild offline source-pixel room previews (no LÖVE)' \
 	 'make environment-preview-check Check exact generated preview pixels' \
-	 'make test             Run gameplay and runtime headless tests' \
-	 'make gui              Run game GUI smoke groups' \
+	 'make test             Run native C# and archived prototype regression' \
+	 'make reference-gui    Run archived Lua/LÖVE GUI smoke groups' \
 	 'make gui-enemy-squads  Check approved squads with the fixed 1-Bit artwork' \
 	 'Title Settings or Esc -> 3       Sound, effects and accessibility'
 game:
+	./roag.sh
+package-linux:
+	python3 tools/package-linux.py
+reference-game:
 	$(LOVE_RUN) .
 sprite-audit:
 	python3 tools/sprite_audit.py
@@ -72,9 +79,11 @@ environment-preview-check:
 	python3 tools/environment_preview.py --check
 spectator:
 	env ROAG_SPECTATOR=1 $(LOVE_RUN) .
-test: sprite-audit-check
+test:
+	./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj
+reference-test: sprite-audit-check
 	$(LUAJIT) tests/run.lua
-gui: gui-game gui-expansion gui-enemy-squads
+reference-gui: gui-game gui-expansion gui-enemy-squads
 gui-enemy-squads:
 	@$(GUI_RUN) sh tests/enemy_squad_gui_smoke.sh
 gui-game:

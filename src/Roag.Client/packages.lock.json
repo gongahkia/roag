@@ -36,6 +36,18 @@
           "MonoGame.Framework.DesktopGL": "[3.8.6, )"
         }
       }
+    },
+    "net10.0/linux-x64": {
+      "MonoGame.Library.OpenAL": {
+        "type": "Transitive",
+        "resolved": "1.24.3.4",
+        "contentHash": "/FhE0hblY9owGPvIHnMbH+6kXtjfl+/t3Cm776RQiZnGyxGy2Qd9pTAzclLuMO8pvtjiGLYkkRwjRciUA4XFyQ=="
+      },
+      "MonoGame.Library.SDL": {
+        "type": "Transitive",
+        "resolved": "2.32.10.2",
+        "contentHash": "mtnmWr50KgH2Ui9fPscHPMI3sXgb5NBRnPS7igi4ViJ23ROdP+MLi/j9CmLWX47KuXvI3Bp5BElCDVwRUlswgg=="
+      }
     }
   }
 }

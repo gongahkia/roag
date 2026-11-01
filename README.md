@@ -1,32 +1,47 @@
 # Roag
 
-A standalone fantasy RPG in C# / .NET 10 and MonoGame. Begin alone in a seeded 4096×4096 world, recruit generated inhabitants, explore 24 towns and 48 adventure sites, tunnel, craft equipment and fight a seed-selected final threat from a pool of 48 boss archetypes. Turn-based party encounters, shared actor needs, timed work and a changing economy use one persistent world.
+Roag is a C# / MonoGame turn-based dungeon game. The current delivery tranche
+is a solo run: choose one of 15 classes, explore persistent physical floors,
+acquire boons and utilities, clear three paired stages and fight the Hollow
+Regent. It uses the imported Vagabonds world/chunk foundation and universal
+sprite mappings, with handwritten native combat and a shared action timeline.
 
-Extracted from Ithica’s retained RPG at `c87d480`. Selected generation, work and social mechanisms from Ithica’s replayed history are adapted into this fantasy game. This repository contains its own source, projects, tests, complete original artwork, catalog, mappings, atlas and authoring tools; it needs no sibling checkout, symlinks or submodules. [Project state](docs/PROJECT_STATE.md) · [Play guide](docs/RPG.md) · [Development](docs/DEVELOPMENT.md) · [Origin](docs/ORIGIN.md).
+**The migration tranche is still under verification; it is not yet signed off
+for the requested playtest.** Party, survival, living-world integration and the
+larger campaign remain approved later-tranche work. See the authoritative
+[scope](docs/MIGRATION_DECISIONS.md), [current evidence](docs/MIGRATION_PROGRESS.md)
+and [preservation checklist](docs/MIGRATION_PRESERVATION.md).
 
 ## Run locally
 
-Install the .NET 10 SDK, or use the optional per-user installer:
-
 ```sh
-./tools/setup-dotnet.sh
+./tools/setup-dotnet.sh  # only if a .NET 10 SDK is not already available
 ./roag.sh
-./roag.sh --load
-./roag.sh --new --seed 1337
+./roag.sh --new --seed 42 --save "$HOME/.roag/playtest.json"
+./roag.sh --load --save "$HOME/.roag/playtest.json"
 ```
 
-`roag.sh` is the game launcher. On Windows or with a system SDK, run `dotnet run --project src/Roag.Client --configuration Release`. The SDK wrapper can reuse an existing per-user SDK; those installations are tools, not dependencies on another repository.
+Normal launch resumes `~/.roag/campaign.json`, or starts a fresh native dungeon
+when the slot is absent. Choose your fixed class before the first paid action.
+WASD/arrows move one tile per press; F aims basic, R special, X movement skill,
+G Guard, Space Wait, Enter interacts, U opens utilities, Tab inspects boons,
+F1 opens help, Escape cancels/opens the menu and F5 saves. Menus and thinking
+consume no time. Mouse clicks inspect/interact/aim; they never plot walking.
 
-Normal launches resume `~/.vagabonds/campaign.json` when it exists, or start a new expedition when it does not. `--save PATH` selects another slot. `--new [--seed N]` explicitly starts over; saving or quitting then replaces the selected save. `--load` requires an existing save. Preview scenes and frame-limited captures do not autosave. To copy an existing fantasy RPG save into the new save slot without changing its source:
+[Linux play/build instructions](docs/PLAY_LINUX.md) describe the continuing save,
+settings, controller mappings and self-contained packaging command:
 
 ```sh
-./roag.sh --import-legacy ~/.regolith/lantern.json
-./roag.sh --load
+python3 tools/package-linux.py
 ```
 
-The import command validates and copies the campaign, then exits without a window. It accepts an explicit `--save PATH` destination. Lunar colony campaigns and field sessions are not RPG imports.
-
-Move with WASD or arrow keys, one tile per press. Holding a direction does not repeat movement. Hover to inspect a tile and click nearby people, caches or stairs to interact; clicks never plot or follow a walking route. Left-drag selects tiles; right-click opens relevant actions, including digging and building. Solid props and characters block movement. Play/Pause, Party, Work, Actions, Journal and World map are visible buttons; Menu opens the guide and procedural inspector. Click an ability and a fighter in combat. Right-click a panel to close it; Stop suspends party work. The world stays large, with a close RPG camera and bounded zoom. The compatibility client also uses keyboard movement. See the [play guide](docs/RPG.md).
+The native client needs no Lua/LÖVE runtime or sibling checkout. The generated
+migration prototype is preserved in [Roag.Reference](src/Roag.Reference/README.md)
+for tests and deferred-system references; it is excluded from the game.
+Retained world/legacy previews and their authoring tools are development
+capabilities, separate from the current bounded-dungeon release. Their earlier
+[world guide](docs/RPG.md), [architecture](docs/WORLD.md) and
+[origin](docs/ORIGIN.md) remain available as preservation references.
 
 ## Content authoring
 
@@ -71,4 +86,4 @@ python3 tools/build_game_catalog.py
 
 Open [assets/atlas.html](assets/atlas.html) directly for neutral searches, exact crop downloads and layered scene experiments. Historical `ithica-*` asset filenames and origin-specific catalog fields are deliberately preserved; the expedition aliases and `usage.rpg` provide the RPG mappings. [Asset ownership and authoring](docs/ASSETS.md) · [Original credits](assets/CREDITS.txt).
 
-The game now includes WFC/BSP/cavern/ring layouts, generated companions, boss variations, loot/equipment, timed work and shared hunger/fatigue/injury with bounded memories and trust. Long-form balance still needs playtesting. Background gathering/production remains coarse; tactical walking/range, directional animation and controller input are not implemented.
+The retained Vagabonds foundation includes WFC/BSP/cavern/ring generation, companions, equipment, work, needs and world simulation. Their integration into the later Roag campaign remains deferred; see the migration scope and evidence above.
