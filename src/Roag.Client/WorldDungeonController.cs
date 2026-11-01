@@ -7,7 +7,7 @@ internal sealed partial class WorldGame
     private GamePadState _dungeonPad;
     private string? _controllerFocus;
     private string _controllerPanel = "";
-    private string _menuFocusHint = "Controller: D-pad selects / A confirms / B closes.";
+    private string _menuFocusHint = "Arrows select / Enter confirms / Escape closes.";
 
     private WorldMouseControl[] DungeonMenuChoices() => _controls.Where(c => c.Enabled && c.Id.StartsWith("dungeon:", StringComparison.Ordinal)
         && (_session.State.AwaitingContinuation && _panel.Length == 0 ? c.Id is "dungeon:new" or "dungeon:death-save"

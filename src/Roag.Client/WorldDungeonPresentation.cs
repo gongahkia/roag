@@ -238,8 +238,11 @@ internal sealed partial class WorldGame
         var combat = _session.DungeonCombat;
         Text("ROAG", 20, 16, Gold, 2);
         Text($"{combat.Clock / (double)combat.Tuning.UnitsPerSecond:0.00}s / your action", 160, 22, Muted);
-        Text($"Stage {_session.State.Dungeon!.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}", 20, 57, Muted);
-        Text(Short(_notice, Math.Max(20, (w - 310) / 8)), 300, 57, Ink);
+        string identity = $"Stage {_session.State.Dungeon!.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}";
+        Text(identity, 20, 57, Muted);
+        int advance = _uiFonts?.Advance ?? 8;
+        int noticeX = 20 + identity.Length * advance + 24;
+        if (noticeX < w - 120) Text(Short(_notice, (w - noticeX - 20) / advance), noticeX, 57, Ink);
         Fill(_side, Panel);
     }
 
