@@ -323,10 +323,7 @@ internal sealed partial class WorldGame
         if (supplies.WardActions > 0) { Text($"One-hit ward / {supplies.WardActions} actions", x, y, Gold); y += 22; }
         if (hero.Tactics.Burning is { } burning)
         { Text($"Burning: {burning.Power} x {burning.Remaining} pulses", x, y, new Color(240, 112, 78)); y += 24; }
-        var resources = hero.Tactics.Resources;
-        string resource = build.Class switch { ClassKind.Stormcaller => $"Charge {resources.StormCharge}/3 / ward {(resources.StormWard ? "ready" : "spent")}",
-            ClassKind.Duelist => resources.Riposte ? "Riposte ready" : resources.Parry != null ? "Parry raised" : "Parry available",
-            ClassKind.Tinkerer when resources.Sentry is { } sentry => $"Sentry: {sentry.Charges} shots / {sentry.Phase}", _ => "" };
+        string resource = DungeonMemberResources.Summary(hero, combat.Clock);
         if (resource.Length > 0) { Text(resource, x, y, Gold); y += 24; }
         if (_notice.Length > 0 && !_notice.StartsWith("WASD /", StringComparison.Ordinal)
             && _notice is not ("Action committed." or "Choose your fixed starting class."))
@@ -610,17 +607,14 @@ internal sealed partial class WorldGame
         foreach (var ember in state.Embers) Icon(ember.Position, "hazard-fire", hostile);
         foreach (var mirror in state.Mirrors) Icon(mirror.Position, "crystal", new(210, 153, 224));
         foreach (var snare in state.EnemySnares) Icon(snare.Position, "trap", hostile);
-        foreach (var actor in _session.State.Actors)
+        var members = DungeonRoster;
+        foreach (var construct in DungeonMemberResources.Objects(_session))
         {
-            if (actor.Tactics is not { } tactics) continue;
-            var r = tactics.Resources;
-            if (tactics.Supplies.Utility?.Marker is { } marker) Icon(marker.Position, "banner", friendly);
-            if (r.Decoy is { } decoy) Icon(decoy, "resident", friendly * .6f);
-            if (r.Snare is { } snare) Icon(snare, "trap", friendly);
-            if (r.Spirit is { } spirit) Icon(spirit, "wisp", friendly);
-            if (r.Beacon is { } beacon) Icon(beacon.Position, "banner", friendly);
-            if (r.Bulwark is { } bulwark) Icon(bulwark.Position, "boulder", friendly);
-            if (r.Sentry is { } sentry) Icon(sentry.Position, "bow", sentry.Phase == SentryPhase.Spent ? Muted : friendly);
+            Icon(construct.Position, construct.Sprite, construct.Spent ? Muted : friendly);
+            if (members.Length <= 1 || !_session.Visible.Contains(construct.Position) || !_map.Intersects(TileRect(construct.Position))) continue;
+            int owner = Array.FindIndex(members, a => a.Id == construct.Owner);
+            var tile = TileRect(construct.Position);
+            Text(owner < 0 ? "X" : (owner + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), tile.Right - 12, tile.Y + 2, Gold);
         }
     }
 

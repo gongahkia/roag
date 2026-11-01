@@ -34,16 +34,27 @@ def route(ui, goals):
     return None
 
 
-def verify(client):
+def verify(client, class_index=1):
     assert client.ui['panel'] == 'dungeon-class'
-    client.control_click('dungeon:class:1')
+    client.control_click('dungeon:class:' + str(class_index))
     receipts = []
+    visited = {}
     for iteration in range(180):
         ui = client.ui; state = ui['nativeDungeon']
         assert not state.get('defeat', False)
         if len(state['player']) == 4: break
         at = position(ui['position'])
         recruits = sorted(state['recruits'], key=lambda r: distance(at, position(r['position'])))
+        key = state['activeActor'], at
+        visited[key] = visited.get(key, 0) + 1
+        if visited[key] >= 4 and len(state['player']) > 1:
+            others = [a for a in state['player'] if a['life'] == 'Alive' and a['id'] != state['activeActor']]
+            member = min(others, key=lambda a: min(distance(position(a['position']), position(r['position'])) for r in recruits))
+            client.control_click('dungeon:member:' + str(member['id']))
+            client.control_click('dungeon:party'); client.control_click('dungeon:lead-selected')
+            client.control_click('dungeon:close'); client.key('t'); client.key('space')
+            visited.clear()
+            continue
         assert recruits, 'No visible adventurer available in the starting room'
         adjacent = next((r for r in recruits if distance(at, position(r['position'])) == 1), None)
         if adjacent:
@@ -54,7 +65,10 @@ def verify(client):
             client.capture('recruit-' + str(len(receipts) + 1) + '-review')
             client.control_click('dungeon:recruit')
             member = next(a for a in client.ui['nativeDungeon']['player'] if a['id'] == adjacent['actor'])
-            assert member['classId'] == expected and member['position'] == location
+            assert member['classId'] == expected
+            # A faster recruit may already spend their own scheduled follow step
+            # before the recruiter next becomes ready; recruitment itself never relocates them.
+            assert distance(position(member['position']), position(location)) <= 1
             receipts.append(adjacent['actor'])
             continue
         goals = set()
@@ -67,12 +81,40 @@ def verify(client):
             key = next(k for dx, dy, k in DIRECTIONS if (at[0] + dx, at[1] + dy, at[2]) == step)
             client.key(key)
         else:
+            others = [a for a in state['player'] if a['life'] == 'Alive' and a['id'] != state['activeActor']]
+            if others:
+                member = min(others, key=lambda a: min(distance(position(a['position']), position(r['position'])) for r in recruits))
+                client.control_click('dungeon:member:' + str(member['id']))
+                client.control_click('dungeon:party'); client.control_click('dungeon:lead-selected')
+                client.control_click('dungeon:close'); client.key('t')
             client.key('space')
     else:
         raise AssertionError('Recruitment input budget exhausted')
     state = client.ui['nativeDungeon']
     assert len(state['player']) == 4 and len(set(receipts)) == 3
     client.capture('four-member-gameplay')
+    if class_index == 12:
+        owner = client.ui['nativeDungeon']['player'][0]['id']
+        client.control_click('dungeon:member:' + str(owner))
+        client.control_click('dungeon:party'); client.control_click('dungeon:lead-selected')
+        client.control_click('dungeon:close'); client.key('t')
+        for _ in range(12):
+            if client.ui['nativeDungeon']['activeActor'] == owner: break
+            client.key('space')
+        assert client.ui['nativeDungeon']['activeActor'] == owner
+        for _, _, key in DIRECTIONS:
+            client.key('r+' + key)
+            member = next(a for a in client.ui['nativeDungeon']['player'] if a['id'] == owner)
+            if member['resources']['sentry'] is not None: break
+        else: raise AssertionError('No legal adjacent sentry deployment in the starting room')
+        # Its first scheduled charge can already run during the owner's paid recovery.
+        assert 1 <= member['resources']['sentry']['charges'] <= 3
+        assert all(a['resources']['sentry'] is None for a in client.ui['nativeDungeon']['player'] if a['id'] != owner)
+        client.capture('owned-sentry-and-party')
+        client.resume()
+        assert next(a for a in client.ui['nativeDungeon']['player'] if a['id'] == owner)['resources']['sentry'] is not None
+        client.capture('owned-sentry-exact-reload')
+    state = client.ui['nativeDungeon']
     assert not any(c['id'].startswith('roag:') for c in client.ui['controls'])
     client.control_click('dungeon:party'); client.capture('four-member-party-panel')
     client.control_click('dungeon:close')
@@ -165,10 +207,11 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--runtime', type=Path)
     parser.add_argument('--seed', type=int, default=37)
+    parser.add_argument('--class-index', type=int, default=1)
     parser.add_argument('--window-size', default='1024x720')
     args = parser.parse_args()
     client = Client(args.output.resolve(), args.seed, args.runtime, window_size=args.window_size)
-    try: verify(client)
+    try: verify(client, args.class_index)
     finally: client.close()
 
 

@@ -63,6 +63,15 @@ internal static class WorldInspection
                     : "Inspect its intent; aim an attack while in range", hostile ? "enemy" : "person");
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
+        if (session.State.Dungeon != null && session.Visible.Contains(cell)
+            && DungeonMemberResources.Objects(session).FirstOrDefault(o => o.Position == cell) is { } construct)
+        {
+            var owner = session.ActorById(construct.Owner);
+            return new(construct.Name + " / " + owner.Name,
+                construct.Status + ". Owned by " + ClassCatalog.Get(owner.Tactics!.Build!.Class).Name + "."
+                    + (owner.Life == LifeState.Dead ? " Its owner is permanently dead." : ""),
+                "Select its owner in the party page", "", "object");
+        }
         if (session.State.Dungeon?.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == cell) is { } routeFloor
             && material != Material.StairsDown)
         {

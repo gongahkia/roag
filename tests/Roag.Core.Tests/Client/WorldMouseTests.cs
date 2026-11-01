@@ -819,4 +819,34 @@ public sealed class WorldMouseTests
         Assert.Equal(0, session.Count("gold"));
     }
 
+    [Fact]
+    public void DuplicateClassConstructInspectionNamesTheOwnerAndNeverLeaksAcrossPrivateFloors()
+    {
+        using var session = WorldSession.CreateDungeonRun(42, ClassKind.Tinkerer);
+        var first = session.Party.Single();
+        var second = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Tinkerer, 2);
+        foreach (var member in new[] { first, second })
+        {
+            Assert.Equal(member.Id, session.State.Tactics!.ActiveActor);
+            var facing = new[] { Facing.North, Facing.East, Facing.South, Facing.West }
+                .First(f => session.DungeonCombat.Preview(new(TacticalAction.Special, f)).Valid);
+            Assert.True(session.DungeonCombat.Commit(new(TacticalAction.Special, facing)).Success);
+            if (member.Id == first.Id) session.DungeonCombat.AdvanceToPartyDecision();
+        }
+        var firstSentry = first.Tactics!.Resources.Sentry!; var secondSentry = second.Tactics!.Resources.Sentry!;
+        Assert.NotEqual(firstSentry.Position, secondSentry.Position);
+        string firstState = JsonSerializer.Serialize(first.Tactics), secondState = JsonSerializer.Serialize(second.Tactics);
+        Assert.True(session.SelectDungeonMember(second.Id).Success);
+        var own = WorldInspection.Inspect(session, secondSentry.Position);
+        Assert.Contains(second.Name, own.Title); Assert.Contains("3 shots", own.Detail);
+        var hidden = WorldInspection.Inspect(session, firstSentry.Position);
+        Assert.DoesNotContain(first.Name, hidden.Title + hidden.Detail);
+        Assert.Contains("F2", DungeonMemberResources.Summary(second, session.DungeonCombat.Clock));
+        Assert.True(session.SelectDungeonMember(first.Id).Success);
+        Assert.Contains(first.Name, WorldInspection.Inspect(session, firstSentry.Position).Title);
+        Assert.Contains("F1", DungeonMemberResources.Summary(first, session.DungeonCombat.Clock));
+        Assert.Equal(firstState, JsonSerializer.Serialize(first.Tactics)); Assert.Equal(secondState, JsonSerializer.Serialize(second.Tactics));
+        Assert.Equal(2, DungeonMemberResources.Objects(session).Count(o => o.Name == "Sentry"));
+    }
+
 }
