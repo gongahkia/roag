@@ -108,11 +108,13 @@ class Client:
 
     def key(self, key):
         spec = self.send('wait', seconds=.32)
-        time.sleep(.07)
+        # Wait for the game to accept the interval before pressing. Keep the
+        # key held through the observation, then release it before the next
+        # request. Both edges go through SDL's ordinary keyboard state.
+        self.until(lambda: not (self.control / 'request.json').exists())
         subprocess.run(['xdotool', 'keydown', key], check=True)
-        time.sleep(.15)
-        subprocess.run(['xdotool', 'keyup', key], check=True)
-        return self.finish(spec, key)
+        try: return self.finish(spec, key)
+        finally: subprocess.run(['xdotool', 'keyup', key], check=True)
 
     def control_click(self, name):
         return self.request('control', control=name)
@@ -153,10 +155,12 @@ class Journey:
         self.exits = {}
         self.inspected_services = set()
         self.destination = None
+        self.ready_routes = {}
         if client.continuation and (client.continuation / 'knowledge.json').exists():
             memory = json.loads((client.continuation / 'knowledge.json').read_text())
             self.known = {position(c): c for c in memory['cells']}
             self.exits = {int(k): tuple(v) for k, v in memory['exits'].items()}
+            self.ready_routes = {int(k): tuple(v) for k, v in memory.get('readyRoutes', {}).items()}
             self.receipts.update(memory['receipts'])
             self.inspected_services.update(memory['inspectedServices'])
             if memory.get('destination'): self.destination = (tuple(memory['destination'][0]), memory['destination'][1])
@@ -171,7 +175,9 @@ class Journey:
         self.visible = {position(c): c for c in self.ui['cells']}
         self.fighters = [f for f in self.state['fighters'] if not f['friendly'] and f['health'] > 0]
         self.occupied = {position(f['position']) for f in self.fighters}
-        for gate in self.state.get('routeGates', []): self.exits[self.at[2]] = position(gate['position'])
+        for gate in self.state.get('routeGates', []):
+            self.exits[self.at[2]] = position(gate['position'])
+            if gate['available']: self.ready_routes[self.at[2]] = position(gate['position'])
         for enemy in self.fighters:
             if self.enemies.get(enemy['class'], {}).get('ai') in ['warden', 'biome_elite', 'hollow_regent']:
                 self.exits.setdefault(self.at[2], position(enemy['position']))
@@ -345,6 +351,18 @@ class Journey:
         return False
 
     def explore(self):
+        ready_exit = self.ready_routes.get(self.at[2])
+        if ready_exit:
+            if distance(ready_exit, self.at) > 1:
+                if self.go([ready_exit, *self.neighbors(ready_exit)]): return True
+            else:
+                self.client.control_click('roag:move')
+                self.client.request('tile', x=ready_exit[0], y=ready_exit[1])
+                if self.client.ui['panel'] == 'dungeon-routes':
+                    self.client.capture('stage-' + str(self.state['stage']) + '-routes')
+                    self.client.control_click('dungeon:route:1')
+                    self.receipts.add('stage-route'); del self.ready_routes[self.at[2]]
+                    self.destination = (ready_exit, 0); return True
         # Only currently or previously visible terrain participates in pathfinding.
         frontier = [p for p in self.known if p[2] == self.at[2] and self.open(p)
             and any(n not in self.known for n in self.neighbors(p)) and self.failed[p] < 2]
@@ -396,7 +414,7 @@ class Journey:
     def checkpoint(self):
         self.client.control_click('dungeon:save')
         (self.client.output / 'knowledge.json').write_text(json.dumps(dict(cells=list(self.known.values()),
-            exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services), destination=self.destination)) + '\n')
+            exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services), destination=self.destination, readyRoutes=self.ready_routes)) + '\n')
 
     def run(self, budget, lifecycle):
         if not self.client.continuation:

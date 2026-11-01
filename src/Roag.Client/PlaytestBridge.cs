@@ -32,7 +32,8 @@ internal sealed class PlaytestBridge
     private readonly Queue<MouseState> _mouse = [];
     private readonly Queue<string> _ids = [];
     private PlaytestRequest? _active;
-    private double _wait, _poll;
+    private double _wait, _waitUntil, _poll;
+    private readonly Func<double> _elapsedSeconds;
     private MouseState _last;
     private bool _initial = true;
     private readonly System.Diagnostics.Stopwatch _idle = System.Diagnostics.Stopwatch.StartNew();
@@ -45,8 +46,9 @@ internal sealed class PlaytestBridge
     public bool NeedsObservation => _initial || _active != null && _mouse.Count == 0 && _wait <= 0;
     public bool StopRequested { get; private set; }
 
-    public PlaytestBridge(string folder)
+    public PlaytestBridge(string folder, Func<double>? elapsedSeconds = null)
     {
+        _elapsedSeconds = elapsedSeconds ?? (() => System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency);
         _folder = Path.GetFullPath(folder); Directory.CreateDirectory(_folder);
         if (File.Exists(Path.Combine(_folder, "observation.json"))) throw new ArgumentException("Playtest control directory must be fresh.");
     }
@@ -55,7 +57,9 @@ internal sealed class PlaytestBridge
     {
         if (_active != null)
         {
-            if (_wait > 0) _wait = Math.Max(0, _wait - Math.Clamp(elapsed, 0, .2));
+            // Waits bound real input delivery. MonoGame catch-up updates must not
+            // consume the interval before an X11 key press can reach the window.
+            if (_wait > 0) _wait = Math.Max(0, _waitUntil - _elapsedSeconds());
             if (_mouse.TryDequeue(out var mouse)) _last = mouse;
             return _last;
         }
@@ -83,7 +87,7 @@ internal sealed class PlaytestBridge
             {
                 case "wait":
                     if (!double.IsFinite(request.Seconds) || request.Seconds is < .05 or > 30) throw new ArgumentException("Wait 0.05..30 real seconds.");
-                    _wait = request.Seconds; break;
+                    _wait = request.Seconds; _waitUntil = _elapsedSeconds() + _wait; break;
                 case "mark": mark(request.Label ?? "Agent marked this moment"); break;
                 case "stop": StopRequested = true; break;
                 case "capture": break;
