@@ -13,6 +13,7 @@ public sealed class DungeonPopulationTests
     {
         var kinds = new HashSet<DungeonServiceKind>();
         int timedGates = 0;
+        var vaultOutcomes = new HashSet<DungeonVaultOutcome>();
         for (int seed = 0; seed < 24; seed++)
         {
             using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
@@ -22,6 +23,18 @@ public sealed class DungeonPopulationTests
             {
                 var secret = Assert.Single(state.Secrets.Nodes, n => n.Position.Floor == floor.Origin.Floor);
                 var gates = state.Gates.Nodes.Where(g => g.Position.Floor == floor.Origin.Floor).ToArray();
+                var vaults = state.Vaults.Nodes.Where(v => v.Position.Floor == floor.Origin.Floor).ToArray();
+                Assert.InRange(vaults.Length, 0, 1);
+                foreach (var vault in vaults)
+                {
+                    vaultOutcomes.Add((DungeonVaultOutcome)(vault.Seed % 4));
+                    Assert.False(vault.Opened); Assert.False(vault.KeyCollected); Assert.True(vault.Position.Distance(vault.KeyPosition) >= 8);
+                    Assert.Contains(Assert.Single(floor.Rooms, r => r.Contains(vault.Position)).Role, new[] { "treasure", "landmark" });
+                    Assert.Equal("dungeon-vault", world.ObjectAt(vault.Position)!.Kind); Assert.False(world.CanEnter(vault.Position));
+                    Assert.Equal("dungeon-vault-key", world.ObjectAt(vault.KeyPosition)!.Kind); Assert.True(world.CanEnter(vault.KeyPosition));
+                    Assert.Equal(Material.Floor, world.Chunks.At(vault.Position)); Assert.Equal(Material.Floor, world.Chunks.At(vault.KeyPosition));
+                    Assert.DoesNotContain(state.RoomFeatures.Nodes, n => n.Position == vault.Position || n.Position == vault.KeyPosition);
+                }
                 Assert.InRange(gates.Length, 0, 1); timedGates += gates.Length;
                 foreach (var gate in gates)
                 {
@@ -74,6 +87,7 @@ public sealed class DungeonPopulationTests
         }
         Assert.Equal(Enum.GetValues<DungeonServiceKind>().Order(), kinds.Order());
         Assert.True(timedGates > 0);
+        Assert.Equal(Enum.GetValues<DungeonVaultOutcome>().Order(), vaultOutcomes.Order());
     }
 
     [Fact]

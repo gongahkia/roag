@@ -93,6 +93,9 @@ internal static class WorldInspection
             if (key && !vault.KeyCollected) return new("Vault key", "Cross to collect the key for this floor's vault. Walking and Dash work.", "Move with the keyboard", "", "object");
             if (!key)
             {
+                if (vault.Chest > 0 && session.State.Tactics.Chests.Chests.Any(c => c.Id == vault.Chest && !c.Claimed))
+                    return new("Free boon chest", "Choose one of three class-eligible boons. Claiming costs recovery and no gold.",
+                        "Click while adjacent, or press Enter beside the chest", "", "object");
                 string detail = !vault.Opened ? vault.KeyCollected ? "Key held. Opening spends one movement-cost action and the key; you remain in place."
                     : "Find this floor's key. The locked vault blocks movement; sight and projectiles pass through."
                     : "Opened once: " + vault.Outcome + "." + (vault.Clue is { } clue ? " A secret lies " + clue.ToString().ToLowerInvariant() + "." : "");

@@ -1,4 +1,5 @@
 using Roag.Core.Content;
+using Roag.Core.Dungeons;
 using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
@@ -19,10 +20,17 @@ public sealed class DungeonVaultState
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count
             || Nodes.Select(n => n.Position.Floor).Distinct().Count() != Nodes.Count)
             throw new InvalidDataException("Invalid keyed vault registry.");
+        var dropReceipts = Nodes.SelectMany(v => new[] { v.CurrencyDrop, v.HealthDrop }).Where(id => id > 0).ToArray();
+        var ambushReceipts = Nodes.Where(v => v.Ambush > 0).Select(v => v.Ambush).ToArray();
+        if (dropReceipts.Distinct().Count() != dropReceipts.Length || ambushReceipts.Distinct().Count() != ambushReceipts.Length)
+            throw new InvalidDataException("Vault rewards cannot share historical receipts.");
         using var chunks = Nodes.Count == 0 ? null : new ChunkCache(plan, world, content ?? ContentCatalog.Default);
         var state = world.Tactics!; long previous = 0;
         foreach (var vault in Nodes)
         {
+            var ambush = world.Actors.FirstOrDefault(a => a.Id == vault.Ambush);
+            var biome = world.Dungeon?.Floors.FirstOrDefault(f => f.Contains(vault.Position))?.Biome;
+            string enemy = DungeonCatalog.Default.Biomes.FirstOrDefault(b => b.Id == biome)?.EnemyIds[0] ?? "core:enemy/mossbound_guard";
             if (vault.Id <= previous || vault.Id >= NextVault || string.IsNullOrWhiteSpace(vault.Marker)
                 || !plan.Contains(vault.Position) || !plan.Contains(vault.KeyPosition) || vault.Position.Floor != vault.KeyPosition.Floor
                 || vault.Position.Distance(vault.KeyPosition) < 8 || world.Dungeon != null && (!world.Dungeon.Contains(vault.Position) || !world.Dungeon.Contains(vault.KeyPosition))
@@ -35,11 +43,12 @@ public sealed class DungeonVaultState
                 || (vault.HealthDrop > 0) != (vault.Outcome == DungeonVaultOutcome.Cache)
                 || (vault.Chest > 0) != (vault.Outcome == DungeonVaultOutcome.Boon)
                 || vault.Ambush > 0 && (vault.Outcome != DungeonVaultOutcome.Ambush || vault.Ambush >= world.NextActorId)
+                || ambush != null && (ambush.Tactics?.Enemy == null || ambush.Tactics.DefinitionId != enemy)
                 || vault.CurrencyDrop >= state.Loot.NextDrop || vault.HealthDrop >= state.Loot.NextDrop
                 || vault.CurrencyDrop > 0 && vault.CurrencyDrop == vault.HealthDrop
                 || vault.CurrencyDrop > 0 && state.Loot.Drops.Any(d => d.Id == vault.CurrencyDrop
-                    && (d.Kind != GroundLootKind.Currency || d.Amount != (vault.Outcome == DungeonVaultOutcome.Cache ? 5 : 4)))
-                || vault.HealthDrop > 0 && state.Loot.Drops.Any(d => d.Id == vault.HealthDrop && (d.Kind != GroundLootKind.Health || d.Amount != 10))
+                    && (d.Kind != GroundLootKind.Currency || d.Amount != (vault.Outcome == DungeonVaultOutcome.Cache ? 5 : 4) || d.DefeatedActor != 0))
+                || vault.HealthDrop > 0 && state.Loot.Drops.Any(d => d.Id == vault.HealthDrop && (d.Kind != GroundLootKind.Health || d.Amount != 10 || d.DefeatedActor != 0))
                 || vault.Chest > 0 && !state.Chests.Chests.Any(c => c.Id == vault.Chest && c.Position == vault.Position
                     && c.Marker == "review:vault:" + vault.Marker && c.Definition == "core:chest/free_elite"))
                 throw new InvalidDataException("Invalid vault key, seeded outcome, physical tile or one-time reward receipt.");
@@ -53,7 +62,7 @@ public sealed partial class TacticalCombat
     public bool CanPlaceVault(string marker, WorldPosition position, WorldPosition key)
         => _world.State.Dungeon != null && !string.IsNullOrWhiteSpace(marker) && position.Floor == key.Floor && position.Distance(key) >= 8
             && !State.Vaults.Nodes.Any(v => v.Marker == marker || v.Position.Floor == position.Floor)
-            && VaultGroundOpen(position) && VaultGroundOpen(key) && TerrainRemovalPreservesRoutes(position);
+            && VaultGroundOpen(position) && VaultGroundOpen(key) && TerrainRemovalPreservesRoutes(position, includeTimedGates: false);
 
     private bool VaultGroundOpen(WorldPosition p) => _world.CanEnter(p) && _world.Chunks.At(p) == Material.Floor
         && _world.DungeonTerrainAt(p) == null && _world.ObjectAt(p) == null && !ProtectedForcedLanding(p)

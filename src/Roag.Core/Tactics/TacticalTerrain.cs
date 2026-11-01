@@ -43,9 +43,10 @@ public sealed partial class TacticalCombat
     /// </summary>
     private bool BulwarkPreservesRoutes(Actor owner, WorldPosition candidate) => TerrainRemovalPreservesRoutes(candidate, owner.Id);
 
-    private bool TerrainRemovalPreservesRoutes(WorldPosition candidate, long ignoredOwner = 0)
+    private bool TerrainRemovalPreservesRoutes(WorldPosition candidate, long ignoredOwner = 0, bool includeTimedGates = true)
     {
-        bool Open(WorldPosition p) => p != candidate && (_world.GroundOpen(p, ignoredOwner)
+        var timedGates = includeTimedGates ? null : State.Gates.Nodes.Select(g => g.Position).ToHashSet();
+        bool Open(WorldPosition p) => p != candidate && timedGates?.Contains(p) != true && (_world.GroundOpen(p, ignoredOwner)
             || _world.Plan.Contains(p) && _world.Chunks.At(p) == Material.ClosedDoor
                 && (_world.DungeonDoorAt(p) != null || State.Gates.Nodes.Any(g => g.Position == p)));
         var starts = Neighbors(candidate).Where(Open).ToArray();
