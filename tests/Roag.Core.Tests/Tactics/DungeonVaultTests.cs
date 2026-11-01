@@ -131,4 +131,53 @@ public sealed partial class DungeonTerrainTests
         Assert.Contains("projectiles pass", WorldInspection.Inspect(world, vault.Position).Detail);
         TacticalValidation.Validate(world.Plan, world.State);
     }
+
+    [Fact]
+    public void VaultPlacementCannotConsumeTheOnlyAlternateRouteAroundATimedGate()
+    {
+        using var world = Floor(); var origin = world.Party.Single().Position; var combat = world.DungeonCombat;
+        for (int y = -4; y <= 4; y++) for (int x = -4; x <= 4; x++) world.Chunks.Edit(origin.Offset(x, y), Material.Wall);
+        for (int x = 0; x <= 4; x++)
+        { world.Chunks.Edit(origin.Offset(x, 0), Material.Floor); world.Chunks.Edit(origin.Offset(x, 2), Material.Floor); }
+        world.Chunks.Edit(origin.Offset(0, 1), Material.Floor); world.Chunks.Edit(origin.Offset(4, 1), Material.Floor);
+        var key = origin.Offset(-4, -4); world.Chunks.Edit(key, Material.Floor);
+        combat.SpawnTimedGate("test:vault-loop-gate", origin.Offset(2, 2), origin.Offset(1, 2));
+        string before = JsonSerializer.Serialize(world.State);
+        Assert.False(combat.CanPlaceVault("test:sealing-vault", origin.Offset(2, 0), key));
+        Assert.Equal(before, JsonSerializer.Serialize(world.State));
+    }
+
+    [Fact]
+    public void ABlockedAmbushConsumesTheVaultOnceWithoutInventingALandingOrActor()
+    {
+        using var world = Floor(); var hero = world.Party.Single(); var combat = world.DungeonCombat;
+        var vault = PreparedVault(world, DungeonVaultOutcome.Ambush);
+        var blockers = world.State.Actors.Where(a => a.Tactics?.Enemy is { Squad: null, OathPartner: 0, Dormant: false }).Take(3).ToArray();
+        int index = 0;
+        foreach (var (dx, dy) in new[] { (0, -1), (1, 0), (0, 1) })
+        {
+            var p = vault.Position.Offset(dx, dy); if (!world.GroundOpen(p)) continue;
+            var actor = blockers[index++]; actor.Position = p;
+            combat.State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); combat.State.Queue.Schedule(ScheduledKind.ActorReady, 100000, actor.Id);
+        }
+        int actors = world.State.Actors.Count;
+        Assert.True(world.SubmitDungeon(new(TacticalAction.OpenVault, Target: vault.Id)).Success);
+        Assert.Equal(actors, world.State.Actors.Count); Assert.Equal(0, combat.State.Vaults.Nodes.Single(v => v.Id == vault.Id).Ambush);
+        Assert.False(world.SubmitDungeon(new(TacticalAction.OpenVault, Target: vault.Id)).Success);
+        TacticalValidation.Validate(world.Plan, world.State);
+    }
+
+    [Fact]
+    public void VaultValidationRejectsSpentKeysAndForgedSeededRewardReceipts()
+    {
+        using var world = Floor(); var combat = world.DungeonCombat; var vault = PreparedVault(world, DungeonVaultOutcome.Boon);
+        Assert.True(world.SubmitDungeon(new(TacticalAction.OpenVault, Target: vault.Id)).Success);
+        int index = combat.State.Vaults.Nodes.FindIndex(v => v.Id == vault.Id); var opened = combat.State.Vaults.Nodes[index];
+        foreach (var invalid in new[] { opened with { KeyCollected = false }, opened with { Chest = 99999 }, opened with { Seed = opened.Seed + 1 } })
+        {
+            combat.State.Vaults.Nodes[index] = invalid;
+            Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(world.Plan, world.State));
+        }
+        combat.State.Vaults.Nodes[index] = opened; TacticalValidation.Validate(world.Plan, world.State);
+    }
 }

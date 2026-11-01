@@ -35,11 +35,23 @@ public sealed partial class WorldSession
             && !combat.State.Doors.Nodes.Any(d => d.Position.Distance(p) < 2)
             && !combat.State.Secrets.Nodes.Any(s => s.Position.Distance(p) < 2 || s.Clue == p)
             && !combat.State.OptionalTerrain.Nodes.Any(n => n.Position == p);
+        // A distant key must be attainable before opening the vault. Basic doors and
+        // destructible barricades are paid routes; timed gates must have an alternative.
+        var reachable = new HashSet<WorldPosition> { floor.Entry }; var queue = new Queue<WorldPosition>(); queue.Enqueue(floor.Entry);
+        while (queue.TryDequeue(out var point))
+            foreach (var (dx, dy) in EncounterDirections)
+            {
+                var next = point.Offset(dx, dy);
+                if (!floor.Contains(next) || reachable.Contains(next) || DungeonGateAt(next) != null
+                    || !(GroundOpen(next) || DungeonDoorAt(next) != null || Chunks.At(next) == Material.Barricade)) continue;
+                reachable.Add(next); queue.Enqueue(next);
+            }
         var keys = new List<WorldPosition>();
         for (int y = 1; y < layout.Height - 1; y++) for (int x = 1; x < layout.Width - 1; x++)
         {
             var position = origin.Offset(x, y);
-            if (Safe(position) && EncounterDirections.Count(d => Materials.Walkable(Chunks.At(position.Offset(d.X, d.Y)))) >= 2) keys.Add(position);
+            if (reachable.Contains(position) && Safe(position)
+                && EncounterDirections.Count(d => Materials.Walkable(Chunks.At(position.Offset(d.X, d.Y)))) >= 2) keys.Add(position);
         }
         keys.Sort((a, b) => RoagRandom.Derive(seed, "key:" + a.X + "," + a.Y).CompareTo(RoagRandom.Derive(seed, "key:" + b.X + "," + b.Y)));
         foreach (string role in new[] { "treasure", "landmark" })
