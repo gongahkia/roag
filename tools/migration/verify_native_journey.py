@@ -48,6 +48,14 @@ class Client:
         self.launches = 0
         self.process = None
         self.start(['--load'] if continuation else ['--new', '--seed', str(seed)])
+        if continuation and (continuation / 'handoff.json').exists():
+            handoff = json.loads((continuation / 'handoff.json').read_text())
+            assert self.ui['position'] == handoff['position']
+            assert self.ui['nativeDungeon']['clock'] == handoff['clock']
+            assert self.ui['nativeDungeon']['player'] == handoff['player']
+        metadata['seed'] = self.ui['seed']
+        metadata['initialClock'] = self.ui['nativeDungeon']['clock']
+        (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
 
     def start(self, flags):
         self.launches += 1
@@ -141,12 +149,14 @@ class Journey:
         self.last_floor = 1
         self.exits = {}
         self.inspected_services = set()
+        self.destination = None
         if client.continuation and (client.continuation / 'knowledge.json').exists():
             memory = json.loads((client.continuation / 'knowledge.json').read_text())
             self.known = {position(c): c for c in memory['cells']}
             self.exits = {int(k): tuple(v) for k, v in memory['exits'].items()}
             self.receipts.update(memory['receipts'])
             self.inspected_services.update(memory['inspectedServices'])
+            if memory.get('destination'): self.destination = (tuple(memory['destination'][0]), memory['destination'][1])
         self.enemies = {d['id']: d for d in json.loads((ROOT / 'assets/tactics/enemies.json').read_text())['definitions']}
 
     def observe(self):
@@ -243,7 +253,18 @@ class Journey:
         # A visible threat behind occluding terrain is approached through actual known tiles.
         return self.go([p for f in enemies for p in self.neighbors(position(f['position']))], True)
 
+    def approach(self, target, radius=0):
+        self.destination = (target, radius)
+        return self.go([target, *self.neighbors(target)] if radius else [target])
+
     def quiet_tasks(self):
+        # A seen object remains a navigation goal after it leaves live vision.
+        # Its current receipt is rechecked only when it comes back into sight.
+        if self.destination:
+            target, radius = self.destination
+            if distance(self.at, target) > radius:
+                if self.go([target, *self.neighbors(target)] if radius else [target]): return True
+            self.destination = None
         for service in self.state['services']:
             if service['usedBy'] or service['id'] in self.inspected_services: continue
             if service['kind'] not in ['Camp', 'CleanseFlask', 'EscapeScroll', 'ReturnToken', 'CharmWell', 'OfferingFont', 'TravellingTrader']: continue
@@ -262,22 +283,22 @@ class Journey:
                     self.receipts.add('service-' + service['kind'])
                 else: self.client.control_click('dungeon:close')
                 self.inspected_services.add(service['id']); return True
-            if self.go([p, *self.neighbors(p)]): return True
+            if self.approach(p, 1): return True
         for drop in self.state['loot']:
             p = position(drop['position'])
             if drop['kind'] == 0 or self.player['health'] < self.player['maxHealth']:
-                if self.go([p]): return True
+                if self.approach(p): return True
         for key in self.state['vaultKeys']:
-            if self.go([position(key['position'])]): return True
+            if self.approach(position(key['position'])): return True
         for q in self.state['questNodes']:
             if not q['activated'] and (q['node'] in ['Clue','Key','Plate','Brazier'] or q['node'] == 'Reward' and q['ready']):
-                if self.go([position(q['position'])]): return True
+                if self.approach(position(q['position'])): return True
         for vault in self.state['vaults']:
             p = position(vault['position'])
             if vault['keyHeld'] and not vault['opened']:
                 if distance(p, self.at) == 1:
                     self.client.control_click('roag:move'); self.client.request('tile', x=p[0], y=p[1]); self.receipts.add('vault'); return True
-                if self.go(self.neighbors(p)): return True
+                if self.approach(p, 1): return True
         for chest in self.state['chests']:
             if chest['claimed'] or chest['definition'] != 'core:chest/free_elite' and self.ui['inventory'].get('gold', 0) < 5: continue
             p = position(chest['position'])
@@ -289,7 +310,7 @@ class Journey:
                 priorities = ['vampiric','lifesteal','mending','regeneration','funeral_coin','second_wind','heart','damage']
                 choice = min(range(len(offers)), key=lambda i: next((n for n, s in enumerate(priorities) if s in offers[i]['boon']), len(priorities)))
                 self.client.control_click('dungeon:claim:' + str(choice + 1)); self.receipts.add('boon-chest'); return True
-            if self.go(self.neighbors(p)): return True
+            if self.approach(p, 1): return True
         return False
 
     def explore(self):
@@ -316,7 +337,7 @@ class Journey:
     def checkpoint(self):
         self.client.control_click('dungeon:save')
         (self.client.output / 'knowledge.json').write_text(json.dumps(dict(cells=list(self.known.values()),
-            exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services))) + '\n')
+            exits=self.exits, receipts=sorted(self.receipts), inspectedServices=sorted(self.inspected_services), destination=self.destination)) + '\n')
 
     def run(self, budget, lifecycle):
         if not self.client.continuation:
@@ -372,7 +393,7 @@ if __name__ == '__main__':
     journey = Journey(client)
     try:
         outcome = journey.run(args.budget, args.lifecycle)
-        journey.checkpoint()
+        if not args.lifecycle: journey.checkpoint()
         result = dict(outcome=outcome, actions=journey.steps, receipts=sorted(journey.receipts),
             lifecycleVerified=args.lifecycle and outcome == 'defeat', fullRunVerified=not args.lifecycle and outcome == 'victory')
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
