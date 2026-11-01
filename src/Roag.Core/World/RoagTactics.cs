@@ -58,7 +58,7 @@ public sealed partial class WorldSession
         : State.RoagCombat ? PrototypeCombat.RoagTelegraphs() : [];
 
     public IReadOnlyList<WorldPosition> RoagPreview(RoagAim aim) => State.Dungeon != null
-        ? TryDungeonAim(aim, out var intent) ? DungeonCombat.Preview(intent).Cells : []
+        ? PreviewDungeonAim(aim).Cells
         : State.RoagCombat ? PrototypeCombat.RoagPreview(aim) : [];
 
     public ActionResult SubmitRoag(RoagAim aim) => State.Dungeon != null

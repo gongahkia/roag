@@ -50,7 +50,8 @@ public sealed partial class WorldSession
 
     public ActionResult ChooseDungeonClass(ClassKind kind)
     {
-        if (State.Dungeon == null || !Enum.IsDefined(kind) || State.Tactics is not { NextAction: 1 } tactics || tactics.Queue.Clock != 0)
+        if (State.Dungeon == null || !Enum.IsDefined(kind) || State.Party.Count != 1
+            || State.Tactics is not { NextAction: 1 } tactics || tactics.Queue.Clock != 0)
             return new(false, "Choose a fixed starting class before the first paid action.");
         var hero = Party.Single();
         hero.Tactics!.Build = CharacterBuild.Create(kind, DungeonSeed);
@@ -62,6 +63,7 @@ public sealed partial class WorldSession
     public ActionResult SubmitDungeon(TacticalIntent intent)
     {
         if (State.Dungeon == null || State.AwaitingContinuation) return new(false, "This run has ended. Begin a fresh run.");
+        if (!SelectedDungeonMemberReady) return new(false, "Select the ready member to act; inspecting another member does not change turn order.");
         var combat = DungeonCombat;
         var result = combat.Commit(intent);
         if (result.Success) combat.AdvanceToPartyDecision();
@@ -79,7 +81,8 @@ public sealed partial class WorldSession
         return result.Success && State.AwaitingContinuation ? new(true, "You have fallen. Begin a fresh run.") : result;
     }
 
-    public TacticalPreview PreviewDungeonAim(RoagAim aim) => TryDungeonAim(aim, out var intent)
+    public TacticalPreview PreviewDungeonAim(RoagAim aim) => !SelectedDungeonMemberReady
+        ? new(false, "Select the ready member to act.", 0, []) : TryDungeonAim(aim, out var intent)
         ? DungeonCombat.Preview(intent) : new(false, "Choose an available native action.", 0, []);
 
     private bool TryDungeonAim(RoagAim aim, out TacticalIntent intent)

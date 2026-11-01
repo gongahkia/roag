@@ -16,7 +16,7 @@ public sealed record DungeonFloorState(int Stage, string Biome, WorldPosition Or
         && p.Y >= Origin.Y && p.Y < Origin.Y + Height;
 }
 
-/// <summary>Bounded solo expedition metadata. Chunks and persistent actors own terrain and combat state.</summary>
+/// <summary>Bounded expedition metadata. Chunks and persistent actors own terrain and combat state.</summary>
 public sealed class DungeonRunState
 {
     public const string FinaleBiome = "core:biome/final_sanctum";
@@ -46,8 +46,8 @@ public sealed class DungeonRunState
         if (Stage is < 1 or > 4 || RouteHistory == null || RouteHistory.Count != Stage - 1 || Floors == null || Floors.Count != (Stage == 4 ? 7 : Stage * 2)
             || Floors.Any(f => f == null) || Floors.Select(f => f.Origin.Floor).Distinct().Count() != Floors.Count
             || Terrain == null || Terrain.Count > 100000 || BossExitReceipts == null || PendingEliteRewards == null
-            || world.Tactics is not { DrivesWorldClock: true } || world.Party.Count != 1 || world.RoagCombat || world.RoagCombatState.Length != 0)
-            throw new InvalidDataException("Invalid native solo expedition state.");
+            || world.Tactics is not { DrivesWorldClock: true } || world.Party.Count is < 1 or > 4 || world.RoagCombat || world.RoagCombatState.Length != 0)
+            throw new InvalidDataException("Invalid native expedition state.");
         for (int i = 0; i < RouteHistory.Count; i++)
             if (!DungeonRoutes.ForStage(i + 1, RouteHistory.Take(i).ToArray()).Any(r => r.Id == RouteHistory[i]))
                 throw new InvalidDataException("Invalid selected biome route.");
