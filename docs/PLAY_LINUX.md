@@ -39,6 +39,20 @@ archive under `dist/` and preserves existing archives. Published files contain
 no generated combat reference project. Run `./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj` for the native/reference regression;
 reference checks do not establish completed native gameplay acceptance.
 
+## Title menu
+
+A normal launch opens the title menu over a separately generated, unsaved dungeon.
+Its camera pans while native enemies move, attack and produce damage numbers.
+Continue (or Begin Run for a new slot) enters your selected character; New Run
+asks before replacing an existing run. Settings applies the same presentation
+preferences as gameplay. Quit leaves the selected save untouched.
+
+Use the mouse or arrows/Enter; controller D-pad/A also selects and confirms.
+Reduced motion holds the background camera still and removes actor interpolation.
+The in-game menu's Return to title saves your actual run before opening the preview.
+Explicit `--new`, `--load` and `--skip-intro` enter gameplay directly; `--title`
+forces the menu when needed. The preview never advances your character's clock.
+
 ## Controls
 
 - Choose your class before the first paid action; it is then fixed for the run.
@@ -70,7 +84,7 @@ the new stairs. The marker remains at the exit even if the elite moved.
 ## Saves, settings and defeat
 
 The default slot is `~/.roag/campaign.json`, with its companion `.chunks`
-directory. Keep both together when moving a save. Normal launch resumes it;
+directory. Keep both together when moving a save. Normal launch offers Continue for it;
 `--load` requires it to exist. Use `--save PATH` for an independent slot.
 An earlier prototype/content-version save cannot resume this dungeon game.
 It is preserved, and the startup error prints commands for an unused separate

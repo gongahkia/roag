@@ -568,7 +568,8 @@ internal sealed partial class WorldGame
             title = _titleBackdrop == null ? null : new
             {
                 seed = _titleBackdrop.World.Seed, clock = _titleBackdrop.World.DungeonCombat.Clock,
-                _titleBackdrop.Scenes, _titleBackdrop.Actions, _titleBackdrop.Hits, camera = _titleBackdrop.Camera,
+                _titleBackdrop.Scenes, _titleBackdrop.Actions, _titleBackdrop.Hits,
+                camera = new { x = _titleBackdrop.Camera.X, y = _titleBackdrop.Camera.Y },
                 effects = _titleBackdrop.Effects.Select(e => new { e.Kind, e.Label, e.Position }),
                 actors = _titleBackdrop.World.State.Actors.Where(a => a.Life != LifeState.Dead && a.Position.Floor == _titleBackdrop.World.State.Position.Floor)
                     .Select(a => new { a.Id, a.Position, a.Health, a.Sprite })

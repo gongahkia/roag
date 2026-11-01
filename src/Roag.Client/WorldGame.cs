@@ -375,23 +375,23 @@ internal sealed partial class WorldGame : Game
         }
         else
         {
-        GraphicsDevice.ScissorRectangle = _map;
-        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer,
-            transformMatrix: Matrix.CreateTranslation(DungeonShake().X, DungeonShake().Y, 0));
-        terrainStarted = Stopwatch.GetTimestamp();
-        if (!CombatStageVisible) DrawTerrain(); _batch.End();
-        terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
-        _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-        DrawHud(w, h);
-        if (CombatStageVisible) DrawCombat();
-        if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
-        if (_session.State.Dungeon != null) { DrawDungeonMap(); DrawDungeonReward(); }
-        if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
-        DrawContext();
-        DrawMouseControls(w, h);
-        DrawHoverFeedback();
-        WriteUiReport(w, h);
-        _batch.End();
+            GraphicsDevice.ScissorRectangle = _map;
+            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: _mapRasterizer,
+                transformMatrix: Matrix.CreateTranslation(DungeonShake().X, DungeonShake().Y, 0));
+            terrainStarted = Stopwatch.GetTimestamp();
+            if (!CombatStageVisible) DrawTerrain(); _batch.End();
+            terrainMs = terrainPreparationMs + Stopwatch.GetElapsedTime(terrainStarted).TotalMilliseconds;
+            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            DrawHud(w, h);
+            if (CombatStageVisible) DrawCombat();
+            if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
+            if (_session.State.Dungeon != null) { DrawDungeonMap(); DrawDungeonReward(); }
+            if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
+            DrawContext();
+            DrawMouseControls(w, h);
+            DrawHoverFeedback();
+            WriteUiReport(w, h);
+            _batch.End();
         }
         GraphicsDevice.SetRenderTarget(null);
         _batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp); _batch.Draw(_frame, new Rectangle(0, 0, w, h), Color.White); _batch.End();

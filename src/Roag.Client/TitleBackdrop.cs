@@ -14,6 +14,7 @@ internal sealed class TitleBackdrop : IDisposable
     private readonly DungeonFeedback _feedback = new();
     private readonly MapCamera _camera = new();
     private double _age, _step, _time;
+    private double? _ended;
     private long _seen;
     private bool _cameraReady;
     public WorldSession World { get; private set; } = null!;
@@ -52,14 +53,15 @@ internal sealed class TitleBackdrop : IDisposable
         catch { next.Dispose(); throw; }
         World?.Dispose(); World = next;
         _motions.Clear(); _feedback.Reset(); _age = _step = 0; _seen = World.State.Tactics!.NextEvent - 1;
-        _cameraReady = false; Scenes++;
+        _cameraReady = false; _ended = null; Scenes++;
     }
 
     public void Update(double elapsed, bool running, bool reducedMotion)
     {
         if (!running) return;
         double dt = Math.Clamp(elapsed, 0, .1); _time += dt; _age += dt; _step += dt;
-        if (_age > 26 || World.State.AwaitingContinuation && _age > 3)
+        if (World.State.AwaitingContinuation) _ended ??= _time;
+        if (_age > 26 || _ended is { } ended && _time - ended > 1.6)
             Generate();
         _feedback.Advance(dt, true, World.State.Position.Floor);
         if (_step >= .48 && !World.State.AwaitingContinuation)
@@ -173,6 +175,7 @@ internal sealed class TitleBackdrop : IDisposable
             Fill(new(r.X + 3, r.Bottom - 2, 26, 2), new(17, 22, 26));
             Fill(new(r.X + 3, r.Bottom - 2, 26 * actor.Health / actor.MaxHealth, 2), tint);
         }
+        var rows = new Dictionary<WorldPosition, int>();
         foreach (var effect in _feedback.Effects)
         {
             double age = _feedback.Time - effect.Born; var r = Cell(effect.Position);
@@ -184,8 +187,11 @@ internal sealed class TitleBackdrop : IDisposable
                     Fill(new((int)(r.Center.X + MathF.Cos(a) * travel), (int)(r.Center.Y + MathF.Sin(a) * travel), 3, 3), new Color(255, 155, 94) * alpha);
                 }
             if (!preferences.DamageNumbers || effect.Label.Length == 0) continue;
+            int row = rows.GetValueOrDefault(effect.Position);
+            if (row >= 3) continue;
+            rows[effect.Position] = row + 1;
             int x = r.Center.X - effect.Label.Length * fonts.Advance / 2;
-            int y = r.Y - 18 - (preferences.ReducedMotion ? 0 : (int)(age * 16));
+            int y = r.Y - 18 - row * 18 - (preferences.ReducedMotion ? 0 : (int)(age * 16));
             Fill(new(x - 3, y - 2, effect.Label.Length * fonts.Advance + 6, 18), new Color(14, 19, 24) * alpha);
             fonts.Draw(batch, effect.Label, new(x, y), new Color(255, 167, 122) * alpha);
         }

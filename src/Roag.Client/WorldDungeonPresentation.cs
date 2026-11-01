@@ -19,11 +19,11 @@ internal sealed partial class WorldGame
             => ControlCache.Add(id, label, bounds, enabled, selected, tip, reason, sprite, detail, -1, null, false);
         if (_titleBackdrop == null)
         {
-        Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
-        Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
-        Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
-        Add("dungeon:map", "Map / Tab", new(w - 520, 16, 108, 34), selected: _nativeMapVisible);
-        Add("dungeon:utility", "Utility / U", new(w - 404, 16, 110, 34));
+            Add("dungeon:save", "Save", new(w - 286, 16, 82, 34));
+            Add("dungeon:boons", "Boons", new(w - 196, 16, 82, 34));
+            Add("dungeon:menu", "Menu", new(w - 106, 16, 90, 34));
+            Add("dungeon:map", "Map / Tab", new(w - 520, 16, 108, 34), selected: _nativeMapVisible);
+            Add("dungeon:utility", "Utility / U", new(w - 404, 16, 110, 34));
         }
         var box = PanelBox(w, h);
         if (_panel.StartsWith("dungeon-", StringComparison.Ordinal))
