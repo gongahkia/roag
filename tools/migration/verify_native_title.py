@@ -42,10 +42,14 @@ try:
             '-vf', 'scale=960:-2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '20', '-pix_fmt', 'yuv420p',
             '-an', str(client.output / 'title.mp4')], stdout=video_log, stderr=subprocess.STDOUT)
     camera = copy.deepcopy(client.ui['title']['camera']); moved = False; hit_frame = False
-    actor_positions = None; previous_scene = None; enemies_moved = False
-    for i in range(32):
+    actor_positions = None; previous_scene = client.ui['title']['scenes']; enemies_moved = False; native_hits = False
+    # Random scenes may start with stationary ranged enemies, and each new scene
+    # resets its hit counter. Observe up to three scenes and retain actual evidence.
+    for i in range(96):
         client.request('wait', seconds=.65)
-        title = client.ui['title']; moved |= title['camera'] != camera
+        title = client.ui['title']
+        moved |= previous_scene == title['scenes'] and title['camera'] != camera
+        camera = copy.deepcopy(title['camera']); native_hits |= title['hits'] > 0
         positions = {a['id']: a['position'] for a in title['actors'] if a['sprite'].startswith('roag-enemy-')}
         if previous_scene == title['scenes'] and actor_positions:
             enemies_moved |= any(actor_positions[k] != p for k, p in positions.items() if k in actor_positions)
@@ -55,7 +59,10 @@ try:
         assert client.ui['position'] == original['position']
         for field in ['clock', 'player', 'stage', 'victory']:
             assert client.ui['nativeDungeon'][field] == original['nativeDungeon'][field]
-    assert moved and enemies_moved and hit_frame and client.ui['title']['hits'] > 0
+        if moved and enemies_moved and hit_frame and native_hits: break
+    evidence = dict(cameraMoved=moved, enemiesMoved=enemies_moved, damageFrame=hit_frame, nativeHits=native_hits, observations=i + 1)
+    (client.output / 'title-behavior.json').write_text(json.dumps(evidence, indent=2) + '\n')
+    assert moved and enemies_moved and hit_frame and native_hits, evidence
     assert snapshots() == saved, 'Watching the title must not write the continuing save.'
     client.key('d'); client.key('F5')
     assert client.ui['nativeDungeon']['clock'] == original['nativeDungeon']['clock'] and snapshots() == saved
