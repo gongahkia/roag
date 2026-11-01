@@ -412,6 +412,10 @@ internal sealed partial class WorldGame : Game
         Directory.CreateDirectory(Path.GetDirectoryName(path)!); using var file = File.Create(path); _frame.SaveAsPng(file, _frame.Width, _frame.Height);
     }
     private static double Percentile(List<double> values) => values.Count == 0 ? 0 : values.Order().ElementAt((int)((values.Count - 1) * .95));
+    private static SpriteEffects ActorSpriteEffects(string sprite, bool facingLeft)
+        // Hookrunner's atlas crop needs the opposite horizontal flip.
+        => facingLeft ^ (sprite == "roag-class-hookrunner") ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
     private void DrawTerrain()
     {
         DrawCachedTerrain();
@@ -429,7 +433,7 @@ internal sealed partial class WorldGame : Game
             bool cache = _session.State.Dungeon != null && actor.Tactics?.DefinitionId == "core:enemy/haunted_cache";
             bool concealedCache = cache && actor.Tactics!.Enemy is { Alerted: false } && actor.Health == actor.MaxHealth;
             _sprites.Draw(_batch, cache && !concealedCache ? "chest-open" : actor.Sprite, rect,
-                DungeonActorTint(actor.Id, concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176)), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+                DungeonActorTint(actor.Id, concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176)), effects: ActorSpriteEffects(actor.Sprite, motion.FacingLeft));
         }
         foreach (var order in _session.State.Work.Where(o => _session.Visible.Contains(o.Target)))
         {
@@ -455,7 +459,7 @@ internal sealed partial class WorldGame : Game
             var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)));
             if (_session.State.Dungeon != null)
                 FillClipped(new(rect.X + 3, rect.Y + 3, rect.Width - 6, rect.Height - 6), new Color(9, 14, 19) * .9f);
-            _sprites.Draw(_batch, actor.Sprite, rect, DungeonActorTint(actor.Id, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink), effects: motion.FacingLeft ? SpriteEffects.FlipHorizontally : SpriteEffects.None);
+            _sprites.Draw(_batch, actor.Sprite, rect, DungeonActorTint(actor.Id, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink), effects: ActorSpriteEffects(actor.Sprite, motion.FacingLeft));
             if (_session.State.Dungeon != null && actor.Id == _session.RoagActiveActor)
                 foreach (var corner in new[] { new Point(rect.Left + 1, rect.Top + 1), new Point(rect.Right - 8, rect.Top + 1),
                     new Point(rect.Left + 1, rect.Bottom - 3), new Point(rect.Right - 8, rect.Bottom - 3) })
