@@ -66,7 +66,11 @@ internal sealed partial class WorldGame
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Move with WASD or arrow keys, one tile per press.";
         if (_session.State.Dungeon != null)
-        { _panel = "dungeon-class"; _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1; _notice = "Choose your fixed starting class."; }
+        {
+            _panel = "dungeon-class"; _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1;
+            if (_autoSave) TrySave();
+            if (_notice == "World saved." || !_autoSave) _notice = "Choose your fixed starting class.";
+        }
     }
     private void FinishApproach()
     {

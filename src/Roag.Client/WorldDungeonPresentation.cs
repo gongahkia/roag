@@ -92,9 +92,15 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "quit"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Save and quit"];
-                for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40));
+                string[] ids = ["classes", "guide", "settings", "new-question", "quit"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Save and quit"];
+                for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28, box.Y + 80 + i * 54, 300, 40),
+                    ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
+            }
+            else if (_panel == "dungeon-new-confirm")
+            {
+                Add("dungeon:new-go", "Begin a fresh run", new(box.X + 28, box.Y + 190, 280, 42), !_session.DeathPending, reason: "Save the recorded death first.");
+                Add("dungeon:new-cancel", "Keep this run", new(box.X + 328, box.Y + 190, 240, 42));
             }
             else if (_panel == "dungeon-settings")
             {
@@ -113,7 +119,9 @@ internal sealed partial class WorldGame
         if (_session.State.AwaitingContinuation)
         {
             Add("dungeon:new", "Begin a fresh run", new(_map.Center.X - 140, _map.Center.Y + 36, 280, 42), !_session.DeathPending,
-                reason: "Save the recorded death before starting a fresh run."); return;
+                reason: "Save the recorded death before starting a fresh run.");
+            if (_session.DeathPending) Add("dungeon:death-save", "Retry saving the death", new(_map.Center.X - 140, _map.Center.Y + 84, 280, 34));
+            return;
         }
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
@@ -132,12 +140,15 @@ internal sealed partial class WorldGame
         var parts = id.Split(':');
         switch (parts[1])
         {
-            case "save": TrySave(); break;
+            case "save":
+            case "death-save": TrySave(); break;
             case "close": ClosePanel(); break;
             case "menu": _panel = "dungeon-menu"; break;
             case "guide": _panel = "dungeon-guide"; break;
             case "settings": _panel = "dungeon-settings"; break;
             case "setting": ChangeDungeonPreference(parts[2]); break;
+            case "new-question": _panel = "dungeon-new-confirm"; break;
+            case "new-cancel": ClosePanel(); break;
             case "boons": _panel = "dungeon-boons"; break;
             case "utility": _panel = "dungeon-utility"; break;
             case "utility-steps": _nativeUtilitySteps = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
@@ -171,6 +182,7 @@ internal sealed partial class WorldGame
             case "claim":
                 CommitRoag(new("claim_chest", Target: _nativeChest, Choice: int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)));
                 ClosePanel(); break;
+            case "new-go":
             case "new": NewWorld(); _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1; break;
             case "quit": TrySave(); if (_notice == "World saved.") Exit(); break;
         }
@@ -286,7 +298,7 @@ internal sealed partial class WorldGame
         }
         if (_session.State.AwaitingContinuation)
         {
-            Fill(new(_map.Center.X - 210, _map.Center.Y - 56, 420, 130), Panel);
+            Fill(new(_map.Center.X - 210, _map.Center.Y - 80, 420, _session.DeathPending ? 204 : 160), Panel);
             Text("YOU HAVE FALLEN", _map.Center.X - 170, _map.Center.Y - 30, new Color(240, 112, 78), 2);
             Text(_session.DeathPending ? "Use Save to record this death first." : "This run is over. Begin a fresh run.", _map.Center.X - 170, _map.Center.Y + 6, Muted);
             return;
@@ -321,6 +333,11 @@ internal sealed partial class WorldGame
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         Text(title, x, y, Gold, 1.3f); y += 48;
+        if (_panel == "dungeon-new-confirm")
+        {
+            Text("START A NEW RUN?", x, y, Gold); y += 32;
+            Wrap("Your current character, build and dungeon will be replaced in the continuing save slot. Presentation settings are kept.", x, y, box.Width - 48, Muted);
+        }
         if (_panel == "dungeon-settings")
         {
             Text("Click a setting to cycle it. Changes save separately from your run.", x, y, Muted);

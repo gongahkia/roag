@@ -86,6 +86,16 @@ public sealed class WorldClientTests : IDisposable
         Assert.True((bool)Field("_autoSave").GetValue(client)!); Assert.Equal("", Field("_panel").GetValue(client));
     }
     [Fact]
+    public void NativeClientCannotReloadAnEarlierSlotInsideTheContinuingRun()
+    {
+        using var world = WorldSession.CreateDungeonRun(42); world.Save(Slot);
+        Assert.True(world.SubmitDungeon(new(Roag.Core.Tactics.TacticalAction.Wait)).Success);
+        var client = Client(world); string current = JsonSerializer.Serialize(world.State); long clock = world.DungeonCombat.Clock;
+        Reload(client);
+        Assert.Same(world, Field("_session").GetValue(client)); Assert.Equal(current, JsonSerializer.Serialize(world.State));
+        Assert.Equal(clock, world.DungeonCombat.Clock); Assert.Contains("continuing run", (string)Field("_notice").GetValue(client)!);
+    }
+    [Fact]
     public void InvalidExistingWorldNeverSilentlyStartsOver()
     {
         Directory.CreateDirectory(_root); File.WriteAllText(Slot, "{}");
