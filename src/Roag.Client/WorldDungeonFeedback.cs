@@ -51,6 +51,7 @@ internal sealed partial class WorldGame
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
+            "Revived" => "boon", "Recruited" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
         };
@@ -59,6 +60,7 @@ internal sealed partial class WorldGame
         {
             "DamageTaken" => "-" + e.Amount, "Healed" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
+            "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED",
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };
@@ -91,7 +93,7 @@ internal sealed partial class WorldGame
             {
                 double age = _dungeonFeedback.Time - e.Born; float alpha = (float)Math.Clamp((1.1 - age) * 3, 0, 1);
                 bool damage = e.Kind == "DamageTaken";
-                Color tint = damage ? new(255, 132, 108) : e.Kind == "Healed" ? new(133, 236, 162) : Gold;
+                Color tint = damage ? new(255, 132, 108) : e.Kind is "Healed" or "Revived" ? new(133, 236, 162) : Gold;
                 if (_preferences.CombatEffects) DrawDungeonImpact(e, rect, age, tint);
                 if (!_preferences.DamageNumbers || e.Label.Length == 0 || row >= 3) continue;
                 int width = e.Label.Length * (_uiFonts?.Advance ?? 8), y = rect.Top - 16 - row++ * 18 - (_preferences.ReducedMotion ? 0 : (int)(age * 14));

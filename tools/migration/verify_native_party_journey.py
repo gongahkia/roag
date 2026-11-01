@@ -168,6 +168,14 @@ class PartyJourney(Journey):
         self.last_reverse = self.steps; self.receipts.add('paid-corridor-reversal')
         return True
 
+    def ownership_verified(self):
+        members = self.state['player']
+        classes = {a['classId'] for a in members}
+        for kind in classes:
+            owners = [a for a in members if a['classId'] == kind and a['boons'] and a['id'] in self.claimed]
+            if len(owners) >= 2 and len(classes) >= 2: return True
+        return False
+
     def run_party(self, budget):
         if self.client.ui['nativeDungeon']['mapVisible']: self.client.key('Tab')
         self.client.capture('party-journey-start')
@@ -177,7 +185,7 @@ class PartyJourney(Journey):
                 self.checkpoint(); self.client.capture('party-continuation-boundary'); return 'paused'
             if not any(a['life'] == 'Alive' for a in self.state['player']):
                 self.client.capture('party-terminal'); self.checkpoint(); return 'defeat'
-            if self.boss_defeated and self.rescued and self.seen_split and self.claimed:
+            if self.boss_defeated and self.rescued and self.seen_split and self.ownership_verified():
                 self.client.capture('party-boss-rescue-split-chest'); self.checkpoint(); self.client.resume(); return 'journey-verified'
             if self.client.sequence > 820: self.checkpoint(); self.client.resume(); self.observe()
             if self.steps % 50 == 0:
@@ -204,8 +212,8 @@ def main():
         outcome = journey.run_party(args.budget)
         result = dict(outcome=outcome, partyJourneyVerified=outcome == 'journey-verified', steps=journey.steps,
             rescued=journey.rescued, splitFloors=journey.seen_split, bossDefeated=journey.boss_defeated,
-            chestOwners=sorted(journey.claimed), clock=client.ui['nativeDungeon']['clock'],
-            limits='Distinct/duplicate nonempty boon ownership and final packaged verification still require separate auditing.')
+            chestOwners=sorted(journey.claimed), duplicateAndDistinctOwnership=journey.ownership_verified(), clock=client.ui['nativeDungeon']['clock'],
+            limits='A successful journey still requires evidence inspection, final regression review and packaged verification.')
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)
     finally: client.close()

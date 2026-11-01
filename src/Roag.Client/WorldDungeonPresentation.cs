@@ -347,7 +347,7 @@ internal sealed partial class WorldGame
         y += 14;
         if (y + 44 < _side.Bottom) { Text("RECENT EVENTS", x, y, Gold); y += 22; }
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "Revived" or "Recruited" or "BleedOut" or "BleedShortened" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
                      or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" or "EliteDefeated" or "Victory").TakeLast(4))
         {
             if (y + 20 >= _side.Bottom) break;
