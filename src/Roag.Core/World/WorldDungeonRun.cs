@@ -65,6 +65,17 @@ public sealed partial class WorldSession
         var combat = DungeonCombat;
         var result = combat.Commit(intent);
         if (result.Success) combat.AdvanceToPartyDecision();
+        if (result.Success && State.AwaitingContinuation)
+        {
+            // Persist only after the complete action/effect transaction settles.
+            // A failed terminal save stays in memory and blocks fresh-run creation.
+            try { CommitDeaths(); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Diagnose("death-save-failed", new { e.Message });
+                return new(true, "You have fallen. Death could not be saved. Use Save to retry before starting a fresh run.");
+            }
+        }
         return result.Success && State.AwaitingContinuation ? new(true, "You have fallen. Begin a fresh run.") : result;
     }
 

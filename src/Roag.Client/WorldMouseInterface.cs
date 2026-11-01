@@ -513,7 +513,7 @@ internal sealed partial class WorldGame
     private void DrawMouseControls(int w, int h)
     {
         BuildMouseControls(w, h);
-        if (!Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
+        if (_session.State.Dungeon == null && !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
         {
             var box = new Rectangle(60, h / 2 - 110, w - 120, 220); Fill(box, _session.State.Endgame.Victory ? Panel : new Color(44, 27, 31));
             Text(_session.State.Endgame.Victory ? "EXPEDITION COMPLETE" : "THE EXPEDITION HAS ENDED", box.X + 24, box.Y + 24, Gold, 2);

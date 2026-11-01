@@ -280,6 +280,7 @@ internal sealed partial class WorldGame : Game
     }
     private void TryLoad()
     {
+        if (_session.State.Dungeon != null) { _notice = "This is one continuing run. Close and relaunch to resume it."; return; }
         try
         {
             var replacement = WorldSession.Load(_options.Save, diagnostics: _session.DiagnosticSink);

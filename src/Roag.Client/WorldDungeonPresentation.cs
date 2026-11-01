@@ -112,7 +112,8 @@ internal sealed partial class WorldGame
         }
         if (_session.State.AwaitingContinuation)
         {
-            Add("dungeon:new", "Begin a fresh run", new(_map.Center.X - 140, _map.Center.Y + 36, 280, 42)); return;
+            Add("dungeon:new", "Begin a fresh run", new(_map.Center.X - 140, _map.Center.Y + 36, 280, 42), !_session.DeathPending,
+                reason: "Save the recorded death before starting a fresh run."); return;
         }
         if (_session.State.Tactics!.NextAction == 1)
             Add("dungeon:classes", "Choose class", new(_side.X + 12, _side.Bottom - 54, _side.Width - 24, 36));
@@ -287,6 +288,7 @@ internal sealed partial class WorldGame
         {
             Fill(new(_map.Center.X - 210, _map.Center.Y - 56, 420, 130), Panel);
             Text("YOU HAVE FALLEN", _map.Center.X - 170, _map.Center.Y - 30, new Color(240, 112, 78), 2);
+            Text(_session.DeathPending ? "Use Save to record this death first." : "This run is over. Begin a fresh run.", _map.Center.X - 170, _map.Center.Y + 6, Muted);
             return;
         }
         if (_panel.Length > 0 || _roagAim == "move") return;
