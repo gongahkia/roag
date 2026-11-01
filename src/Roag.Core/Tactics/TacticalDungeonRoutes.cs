@@ -68,11 +68,12 @@ public sealed partial class TacticalCombat
 
     private void SettleDungeonVictory()
     {
-        if (_world.State.Dungeon is not { Victory: false, Stage: 4 } run
-            || !_world.Party.Any(a => a.Life == LifeState.Alive && a.Health > 0)) return;
+        if (_world.State.Dungeon is not { Victory: false, Stage: 4 } run) return;
+        var victor = _world.Party.FirstOrDefault(a => a.Life == LifeState.Alive && a.Health > 0);
+        if (victor == null) return;
         var finale = run.Floors.Single(f => f.Stage == 4);
         if (!run.BossExitReceipts.Contains(finale.Boss)) return;
         run.Victory = true;
-        Emit("Victory", _world.State.Party[0], finale.Boss, 0, finale.Exit);
+        Emit("Victory", victor.Id, finale.Boss, 0, finale.Exit);
     }
 }

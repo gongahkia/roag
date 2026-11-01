@@ -122,8 +122,10 @@ internal sealed partial class WorldGame
             }
             else
             {
-                var hero = _session.Party.Single();
-                string detail = HasTitleContinuation ? $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / stage {_session.State.Dungeon!.Stage}"
+                var hero = _session.DungeonMember;
+                int members = _session.Party.Count(a => a.Life != LifeState.Dead);
+                string detail = HasTitleContinuation ? members > 1 ? $"{members} members / stage {_session.State.Dungeon!.Stage}"
+                    : $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / stage {_session.State.Dungeon!.Stage}"
                     : "Fifteen classes. Find your next build.";
                 Text(Short(detail, (card.Width - 68) / (_uiFonts?.Advance ?? 8)), card.X + 34, card.Y + 450, Muted);
             }

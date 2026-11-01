@@ -42,7 +42,7 @@ public sealed class DungeonRouteTests
     private static void DefeatBoss(WorldSession world)
     {
         var combat = world.DungeonCombat; var boss = world.State.Actors.Single(a => a.Id == world.State.Dungeon!.Floors.Last().Boss);
-        combat.ResolveAttack(new(combat.State.NextAction++, world.State.Party[0], world.Party.Single().Position, [boss.Position], "test:boss-receipt",
+        combat.ResolveAttack(new(combat.State.NextAction++, world.DungeonMember.Id, world.DungeonMember.Position, [boss.Position], "test:boss-receipt",
             AttackDelivery.Area, DamageElement.Physical, 10000, combat.Clock, IgnoresTerrain: true));
     }
 
@@ -118,4 +118,40 @@ public sealed class DungeonRouteTests
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
+    [Fact]
+    public void ARecruitedSurvivorCanWinSaveAndContinueAfterTheFoundersPermanentDeath()
+    {
+        using var world = WorldSession.CreateDungeonRun(42);
+        var founder = world.Party.Single();
+        for (int stage = 1; stage <= 3; stage++)
+        {
+            DefeatBoss(world);
+            founder.Position = world.State.Position = world.State.Dungeon!.Floors.Last().Exit; world.Reveal();
+            Assert.True(world.SubmitDungeon(new(TacticalAction.DungeonRoute, Choice: 1)).Success);
+            Assert.True(world.SubmitDungeon(new(TacticalAction.UseStairs)).Success);
+        }
+        var survivor = DungeonPartyTests.AddMember(world, ClassKind.Ranger, 7);
+        var regent = world.ActorById(world.State.Dungeon!.Floors.Last().Boss);
+        void Hit(int damage) => world.DungeonCombat.ResolveAttack(new(world.State.Tactics!.NextAction++, regent.Id, regent.Position,
+            [founder.Position], "test:founder-death", AttackDelivery.Area, DamageElement.Physical, damage, world.DungeonCombat.Clock));
+        Hit(10000); for (int i = 0; i < 5; i++) Hit(10);
+        Assert.Equal(LifeState.Dead, founder.Life); Assert.False(world.State.AwaitingContinuation);
+        world.DungeonCombat.AdvanceToPartyDecision();
+        Assert.Equal(survivor.Id, world.DungeonMember.Id);
+        DefeatBoss(world);
+        Assert.True(world.State.Dungeon.Victory);
+        Assert.Equal(survivor.Id, Assert.Single(world.State.Tactics!.Events, e => e.Kind == "Victory").Source);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-survivor-victory-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            world.Save(directory);
+            using var loaded = WorldSession.Load(directory);
+            Assert.True(loaded.State.Dungeon!.Victory); Assert.False(loaded.State.AwaitingContinuation);
+            Assert.Equal(survivor.Id, loaded.DungeonMember.Id);
+            Assert.Equal(LifeState.Dead, loaded.ActorById(founder.Id).Life);
+            Assert.True(loaded.SubmitDungeon(new(TacticalAction.Wait)).Success);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
 }
