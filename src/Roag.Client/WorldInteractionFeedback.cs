@@ -46,6 +46,8 @@ internal static class WorldInspection
                     detail += $" Shield faces {memory.ShieldFacing}; " + (memory.ShieldLowered
                         ? "lowered during attack/recovery." : "raised. Flank it; attacking lowers its shield.");
             }
+            if (actor.Tactics?.Burning is { } burning)
+                detail += $" Burning: {burning.Remaining} pulses of {burning.Power}, next in {Math.Max(0, burning.Due - session.State.Tactics!.Queue.Clock) / 100.0:0.00}s.";
             detail += targeting;
             if (session.State.Dungeon != null && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
             if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
@@ -105,7 +107,7 @@ internal static class WorldInspection
                 DungeonRoomFeatureKind.Ore => "Any performed attack footprint breaks it once, leaving three gold on this tile.",
                 DungeonRoomFeatureKind.Ward => "Cross to gain a ward that blocks one positive hit and lasts three own actions. Existing focus is retained.",
                 DungeonRoomFeatureKind.Brazier => "Cross to clear sight-blocking mist within two tiles for three seconds. "
-                    + (feature.LitUntil > session.DungeonCombat.Clock ? $"Lit for {(feature.LitUntil - session.DungeonCombat.Clock) / 100.0:0.00}s." : "Currently unlit."),
+                    + (feature.LitUntil > session.DungeonCombat.Clock ? $"Lit for {(feature.LitUntil - session.State.Tactics!.Queue.Clock) / 100.0:0.00}s." : "Currently unlit."),
                 DungeonRoomFeatureKind.Pillar => "A permanent pillar blocking movement, vision and projectiles. It has no health and cannot be attacked apart.",
                 _ => "Room scenery. It does not block movement or projectiles."
             };
@@ -116,7 +118,7 @@ internal static class WorldInspection
             if (!session.Visible.Contains(cell)) return new("Timed gate (remembered)", "Observe this gate again to inspect its current state.", "Move with the keyboard", "", "object");
             return new("Timed gate", gate.CloseAt == 0 ? "Closed. Cross its adjacent pressure plate to open it; walking into the gate cannot open it."
                 : gate.CloseAt <= session.DungeonCombat.Clock ? "Closure is due. It stays open until its tile is unoccupied."
-                : $"Closes in {(gate.CloseAt - session.DungeonCombat.Clock) / 100.0:0.00}s. It waits for anyone occupying the gate tile.", "Move with the keyboard", "", "object");
+                : $"Closes in {(gate.CloseAt - session.State.Tactics!.Queue.Clock) / 100.0:0.00}s. It waits for anyone occupying the gate tile.", "Move with the keyboard", "", "object");
         }
         if (session.DungeonDoorAt(cell) != null)
         {

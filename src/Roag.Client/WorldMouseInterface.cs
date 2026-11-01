@@ -573,6 +573,9 @@ internal sealed partial class WorldGame
                 player = _session.Party.Select(a => new { a.Id, a.Health, maxHealth = a.MaxHealth,
                     classId = a.Tactics!.Build!.Class.ToString(), a.Tactics.Build.Level, a.Tactics.Build.Experience, stats = a.Tactics.Build.Stats,
                     a.Tactics.Resources, a.Tactics.Supplies, boons = a.Tactics.Boons.Inventory.Stacks }),
+                conditions = _session.Party.Where(a => a.Id == _session.State.Tactics.ControlledActor)
+                    .Select(a => new { a.Id, burning = a.Tactics!.Burning == null ? null : new
+                    { a.Tactics.Burning.Power, a.Tactics.Burning.Remaining, a.Tactics.Burning.Due } }),
                 timeline = _session.DungeonCombat.VisibleTimeline(),
                 fighters = _session.RoagFighters(),
                 telegraphs = _session.RoagTelegraphs(),

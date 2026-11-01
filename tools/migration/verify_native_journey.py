@@ -257,11 +257,30 @@ class Journey:
         return True
 
     def fight(self):
+        if self.player['supplies']['utility'] and self.player['supplies']['utility']['kind'] == 0 \
+            and any(c['burning'] for c in self.state.get('conditions', [])):
+            self.client.control_click('dungeon:utility')
+            self.client.control_click('dungeon:utility-use')
+            self.receipts.add('cleanse-utility'); return True
         if not self.fighters: return False
         if self.at in self.danger:
             safe = [p for p in self.neighbors(self.at) if self.open(p, True)]
             if safe:
                 return self.move(max(safe, key=lambda p: min(distance(p, position(f['position'])) for f in self.fighters)))
+            escapes = []
+            for dx, dy, key in DIRECTIONS:
+                lane = []
+                for n in range(1, 4 if self.player['classId'] == 'Ranger' else 3):
+                    cell = self.at[0] + dx * n, self.at[1] + dy * n, self.at[2]
+                    if cell not in self.visible or not self.open(cell) or self.known[cell]['material'].startswith('Stairs'): break
+                    lane.append(cell)
+                if lane and lane[-1] not in self.danger:
+                    escapes.append((min(distance(lane[-1], position(f['position'])) for f in self.fighters), key))
+            for _, key in sorted(escapes, reverse=True):
+                self.client.key('x+' + key)
+                if position(self.client.ui['position']) != self.at:
+                    self.receipts.add('movement-skill-evasion'); return True
+
         enemies = sorted(self.fighters, key=lambda f: (0 if any(k in f['class'] for k in ['weaver','cantor','conjurer']) else 1, f['health'], distance(self.at, position(f['position']))))
         for enemy in enemies:
             target = position(enemy['position'])
@@ -363,6 +382,8 @@ class Journey:
                     self.client.control_click('dungeon:route:1')
                     self.receipts.add('stage-route'); del self.ready_routes[self.at[2]]
                     self.destination = (ready_exit, 0); return True
+        stairs = [p for p, c in self.known.items() if p[2] == self.at[2] and c['material'] == 'StairsDown']
+        if self.go(stairs): return True
         # Only currently or previously visible terrain participates in pathfinding.
         frontier = [p for p in self.known if p[2] == self.at[2] and self.open(p)
             and any(n not in self.known for n in self.neighbors(p)) and self.failed[p] < 2]
@@ -454,7 +475,14 @@ class Journey:
                 return 'defeat'
             if self.features and 'secret' in self.receipts: return 'features-verified'
             if self.state['victory']:
-                self.client.capture('victory'); self.client.resume(); self.client.capture('victory-resumed'); return 'victory'
+                self.client.capture('victory'); self.client.resume(); self.observe()
+                before = self.state['clock']
+                neighbor = next(p for p in self.neighbors(self.at) if self.open(p, True))
+                self.move(neighbor); self.observe()
+                assert self.state['clock'] > before and self.state['victory']
+                self.client.capture('victory-paid-movement'); self.client.resume()
+                assert self.client.ui['nativeDungeon']['victory']
+                self.client.capture('victory-resumed'); return 'victory'
             if self.client.sequence > 880: self.client.resume()
             if self.steps % 50 == 0:
                 self.client.capture('progress-' + str(self.steps))

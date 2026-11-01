@@ -290,6 +290,8 @@ internal sealed partial class WorldGame
         if (supplies.Utility != null) { Text(UtilityName(supplies.Utility.Kind) + " / U", x, y, Gold); y += 22; }
         if (supplies.FocusActions > 0) { Text($"Focus +2 / {supplies.FocusActions} actions", x, y, Gold); y += 22; }
         if (supplies.WardActions > 0) { Text($"One-hit ward / {supplies.WardActions} actions", x, y, Gold); y += 22; }
+        if (hero.Tactics.Burning is { } burning)
+        { Text($"Burning: {burning.Power} x {burning.Remaining} pulses", x, y, new Color(240, 112, 78)); y += 24; }
         var resources = hero.Tactics.Resources;
         string resource = build.Class switch { ClassKind.Stormcaller => $"Charge {resources.StormCharge}/3 / ward {(resources.StormWard ? "ready" : "spent")}",
             ClassKind.Duelist => resources.Riposte ? "Riposte ready" : resources.Parry != null ? "Parry raised" : "Parry available",
