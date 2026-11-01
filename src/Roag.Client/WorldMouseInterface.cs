@@ -525,14 +525,16 @@ internal sealed partial class WorldGame
         foreach (var control in _controls)
         {
             var r = control.Bounds;
-            Fill(r, control.Selected ? new(69, 62, 42) : ReferenceEquals(control, hot) && control.Enabled ? new(53, 65, 69) : new(35, 43, 48));
-            Color edge = control.Selected ? Gold : control.Enabled ? new(78, 91, 94) : new(47, 54, 58);
+            bool focused = control.Id == _controllerFocus;
+            Fill(r, control.Selected || focused ? new(69, 62, 42) : ReferenceEquals(control, hot) && control.Enabled ? new(53, 65, 69) : new(35, 43, 48));
+            Color edge = control.Selected || focused ? Gold : control.Enabled ? new(78, 91, 94) : new(47, 54, 58);
             Fill(new(r.X, r.Bottom - 2, r.Width, 2), edge);
             DrawControlContents(control);
         }
         int ny = h - 136;
         Fill(new(_map.X, ny, CombatStageVisible ? CombatArea.Width : _map.Width, 36), new(16, 22, 27));
-        string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip : _notice;
+        string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip
+            : _controllerFocus != null ? _menuFocusHint + " " + _notice : _notice;
         if (hot == null && _waypoint is { } destination) notice = "Waypoint: " + WorldSession.Direction(_session.State.Position, destination) + ", " + destination.Distance(_session.State.Position with { Floor = 0 }) + " surface tiles. " + notice;
         Wrap(Short(notice, 150), _map.X + 4, ny + 2, _map.Width - 8, hot != null ? Gold : Ink);
     }

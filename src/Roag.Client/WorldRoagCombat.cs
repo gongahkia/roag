@@ -64,6 +64,8 @@ internal sealed partial class WorldGame
     private void UpdateRoagKeyboard()
     {
         var keyboard=Keyboard.GetState();
+        var controller = DungeonControllerKeys(GamePad.GetState(PlayerIndex.One), InputFocused);
+        if (controller.Length > 0) keyboard = new KeyboardState(keyboard.GetPressedKeys().Concat(controller).Distinct().ToArray());
         HandleRoagKeyboard(keyboard, InputFocused);
     }
     private void HandleRoagKeyboard(KeyboardState keyboard, bool focused)
@@ -71,10 +73,13 @@ internal sealed partial class WorldGame
         bool Press(Keys key)=>keyboard.IsKeyDown(key)&&_roagKeyboard.IsKeyUp(key);
         if (_session.State.Dungeon != null && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
         { ClosePanel(); _roagKeyboard = keyboard; return; }
+        if (focused && HandleDungeonMenuKeyboard(keyboard)) { _roagKeyboard = keyboard; return; }
         if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.State.Endgame.Victory&&!_session.State.AwaitingContinuation)
         {
             if(_session.State.RoagCombat || _session.State.Dungeon != null)
             {
+                if (_session.State.Dungeon != null && (Press(Keys.F1) || Press(Keys.Tab) || Press(Keys.Escape) && _roagAim == "move"))
+                { _panel = Press(Keys.F1) ? "dungeon-guide" : Press(Keys.Tab) ? "dungeon-boons" : "dungeon-menu"; _roagKeyboard = keyboard; return; }
                 if (Press(Keys.U) && _session.State.Dungeon != null)
                 { _panel = "dungeon-utility"; _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";

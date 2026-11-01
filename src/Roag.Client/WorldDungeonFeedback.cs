@@ -15,7 +15,7 @@ internal sealed partial class WorldGame
 
     private void PlayDungeonSound(string kind)
     {
-        if (_session.State.Dungeon == null || _preferences.EffectsVolume <= 0) return;
+        if (_session.State.Dungeon == null || _uiFonts == null || _preferences.EffectsVolume <= 0) return;
         _dungeonAudio ??= new(); _dungeonAudio.Play(kind, _preferences.EffectsVolume);
     }
 
@@ -38,6 +38,7 @@ internal sealed partial class WorldGame
 
     private void ShowDungeonEvent(TacticalEvent e)
     {
+        if (_uiFonts == null) return; // Input-only clients have no loaded presentation resources.
         string? sample = e.Kind switch
         {
             "Moved" when _session.State.Party.Contains(e.Source) => "step", "TileEntered" when _session.State.Party.Contains(e.Source) => "terrain",
