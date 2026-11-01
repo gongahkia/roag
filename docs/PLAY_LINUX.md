@@ -1,10 +1,11 @@
 # Play Roag on Linux
 
-This release is a solo, turn-based dungeon run: choose one of 15 classes, find
-boons and utilities, clear three paired stages and confront the Hollow Regent.
-There are seven dungeon floors. Cleared floors persist and you can walk back.
-Defeating the Regent leaves the run playable. Party, survival, living-world,
-profile unlocks and the additional campaign bosses are later-tranche work.
+This release is a turn-based dungeon run: start with one of 15 fixed classes,
+recruit up to four adventurers, find boons and utilities, clear three paired
+stages and confront the Hollow Regent. There are seven dungeon floors. Cleared
+floors persist and you can walk back. Defeating the Regent leaves the run playable.
+Equipment/cooperation, NPC rescue, survival, living-world systems, profile unlocks
+and the additional campaign bosses remain later-tranche work.
 
 ## Packaged game
 
@@ -120,6 +121,8 @@ For diagnostics, local recordings normally live under `~/.roag/sessions`.
 class, floor and action that caused the issue when reporting it.
 
 
-Party tranche controls (under integration): start alone and inspect the fixed-class adventurers in safe rooms. Joining costs one action and no gold, up to four surviving members. B/menu opens portraits, HP, readiness, floor and group/rescue controls. 1–4 changes the viewed member; T returns to the ready member. Viewing someone else grants no action. Only the actual opener receives a chest boon; bring that member beside it on their turn, confirm the recipient, then choose an offer. Gold and medicine are shared, including across floors; builds/boons/utilities remain individual.
+Party controls: start alone and inspect the fixed-class adventurers in safe rooms. Joining costs one action and no gold, up to four surviving members. B/menu opens portraits, HP, readiness, floor and group/rescue controls. 1–4 changes the viewed member; T returns to the ready member. Viewing someone else grants no action. Only the actual opener receives a chest boon; bring that member beside it on their turn, confirm the recipient, then choose an offer. Gold and medicine are shared, including across floors; builds/boons/utilities remain individual.
 
-Outside local combat, grouped followers spend their own turns moving or waiting. In the party page, Lead group changes the selected member's group leader, Regroup nearby gathers eligible companions within six tiles, and Split selected restores individual commands (splitting a leader also detaches their followers). These policy controls consume no time and move nobody. Stairs move only the actor and separate their group; companions remain on their tiles. H aims adjacent medicine rescue, or use the party page's Revive button: one medicine/action, 25% max HP, five own scheduled turns to bleed out; damaging hits shorten the timer. These source features are being verified; the earlier packaged solo playtest release does not include them yet.
+Outside local combat, grouped followers spend their own turns moving or waiting. In the party page, Lead group changes the selected member's group leader, Regroup nearby gathers eligible companions within six tiles, and Split selected restores individual commands (splitting a leader also detaches their followers). These policy controls consume no time and move nobody. Stairs move only the actor and separate their group; companions remain on their tiles. H aims adjacent medicine rescue, or use the party page's Revive button: one medicine/action, 25% max HP, five own scheduled turns to bleed out; damaging hits shorten the timer. Party positions, builds, recovery, groups, placed class resources and bleed timers continue through the same save. Permanently dead members retain their identities and assigned boons; their slot becomes available for a later recruit.
+
+Followers respect occupied bodies. If your group blocks a narrow turn or reversal, select the front/rear member and use Lead group, or Split selected to command them individually. Follow steps are paid on each member's own turn; stairs never pull companions along. The sidebar shows the controlled member's class resources; visible placed objects carry their owner's roster number and hover details. The timeline may be ready for a different member: press T to return to them before acting.

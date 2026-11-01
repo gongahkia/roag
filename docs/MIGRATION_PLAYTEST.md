@@ -1,10 +1,24 @@
-# First playable tranche: verification and handoff
+# Playable tranche verification and handoff
 
-Scope is items **1–6** in [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md): a solo bounded dungeon game, followed by the user's playtest. Items 7–20 remain deferred; full authoring parity and Windows are outside the current todo. This is not completion of the full migration or its eight original gates.
+Current scope: the bounded-dungeon party tranche extends completed solo items **1–6** with recruitment/control, split groups and player-directed combat rescue. See [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md). Party release verification is active; later deferred systems and all eight full-migration gates remain incomplete.
 
-Status (2026-11-01): **items 1–6 complete and ready for the requested Linux playtest. Implementation is stopped pending the user's feedback.** Full gameplay regression baseline: **1,718 passed, zero failures/skips (12m55s)**; subsequent presentation follow-ups have focused and rendered checks below. Full migration remains incomplete.
+## Party tranche — release verification in progress
 
-## Linux build
+The active goal extends the bounded dungeon with four-member recruitment/control, split parties and player-directed combat rescue. The earlier solo stop instruction below is historical; party implementation is authorized. Equipment/cooperation, NPC rescue and other deferred systems remain outside this tranche. The party Linux delivery is not yet final.
+
+Implemented: persistent fixed-class safe-room adventurers, at most four surviving members, own stats/progression/boons/utilities/resources, free private member inspection without borrowed readiness, party portraits/readiness/floors, shared gold/medicine, contribution XP, physical-opener recipient review before three eligible boon offers, paid following and deliberate split groups, individual stairs, adjacent medicine rescue, five-own-turn bleed-out and permanent death, exact continuing multi-member saves. Visible constructs expose their owner and status. Narrow corridors retain body blocking and may require a front/rear leader change or a deliberate split.
+
+A continuous **real-input seed-37 journey** recruits four members (Ranger/Ranger/Arcanist/Berserker), rescues naturally downed members twice, splits across physical floors, assigns chest boons independently to duplicate and distinct classes, and defeats Thorn Warden after phase two. The founder later dies permanently; the other three continue and reload exactly at **139811**. No HP, inventory, positions or outcomes were injected, and no save rollback occurred. Evidence chain under `artifacts/migration/verification/native-party/`: `rendered-following` → `rendered-party-journey` → `rendered-party-journey-continued` → `rendered-party-journey-boss`. `result.json` / read-only `save-audit.json` in the final checkpoint record the positive result and actual dead phase-two boss. Screens and ordinary saves record the intermediate rescue/ownership/split results. The action-budget checkpoint is preserved as incomplete and was continued honestly.
+
+The journey runtime predates the later resource/formation presentation changes. `rendered-party-resources-source/` separately verifies an actual Tinkerer founder's sentry, three recruits, independent views and exact continuation through **2163**, at 1024×720 in normal and large sans settings. **75 affected checks pass**, zero failures/skips. The earlier full party baseline has **1,753 passes**, zero failures/skips, from clean `baa46c5c` (before title/victory/resource/formation follow-ups). A fresh immutable full runner from clean `de461ce4` is running under `party-final-regression.{trx,log}` / `party-final-build.json`; no final pass is claimed yet.
+
+The current checkpoint archive is `dist/roag-linux-x64-de461ce4.tar.gz`; extracted file hashes and direct apphost `--help` pass. Actual packaged resource and boss-save title/lifecycle checks are in progress. Final delivery will be named here after all required review and the pending abandonment-locality clarification. Reproduce party checks with `verify_native_party.py --class-index 12 --runtime /absolute/extracted/roag-linux-x64`; use `verify_native_party_journey.py --help` for the continuous journey and ordinary continuation driver. All probe runs force OpenAL null/SDL dummy audio.
+
+Linux verification uses actual MonoGame under Xvfb/software OpenGL and real X11 keyboard/mouse input. Physical gamepad and audible sound quality remain unverified. This is bounded party acceptance, not full migration completion.
+
+## Historical solo Linux build
+
+Solo items 1–6 were completed and stopped for playtest before the user authorized the party tranche. That release's full regression passed **1,718 checks**, zero failures/skips (12m55s). The following solo archive and evidence are retained as history.
 
 - Archive: `dist/roag-linux-x64-9274c28f.tar.gz` (40,873,774 bytes).
 - SHA-256: `8cfd7f05dd49e5fe273afd8ed86538947617ace37a25f31b664dd557c07dd54b`.
