@@ -14,6 +14,8 @@ Implementation is authorized by the active goal. The approved decisions in [MIGR
 
 The original-source families below track the **full migration**, including future party, survival, living-world and campaign integrations. Their partial statuses and historical pending notes do not erase the narrower completed checkpoints above. Conversely, completing the solo tranche does not check off those future requirements. Physical controller and audible quality remain unverified; current rendered evidence uses Xvfb/software OpenGL and silent audio.
 
+Post-playtest presentation follow-up (2026-11-01): all 15 class choices now have their stored Vagabonds portrait and a short role description, verified at minimum/desktop sizes and large text. Native attacks/hits/chests gain transient, preference-controlled accents/recoil/sparks/reveals, plus two synthesized cues; the original eight PCM samples remain unchanged. No new sprites, game RNG, paid-action costs, content identity or save schema changes are introduced. 82 affected checks and an overlapping 7-check final-source subset pass. Actual muted combat/incoming-hit and existing-save paid-chest probes pass, including presentation-only expiry and exact preference/build/clock continuation. [MIGRATION_PLAYTEST.md](MIGRATION_PLAYTEST.md) identifies the refreshed Linux archive and detailed evidence. This addresses requested feedback within items 1–6 and does not begin later-tranche features.
+
 ## Full migration source-family coverage
 
 Statuses: **reference** = retained original; **imported** = retained Vagabonds code, integration pending; **partial** = handwritten implementation exists with limited evidence; **verified** requires native gameplay integration and appropriate checks. No family is fully verified yet.
