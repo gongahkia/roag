@@ -104,6 +104,8 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid owned enemy traps.");
         if (state.Rewards is null) throw new InvalidDataException("Missing tactical rewards.");
         state.Rewards.Validate(actors);
+        if (state.Cooperation == null) throw new InvalidDataException("Missing cooperation tuning.");
+        state.Cooperation.Validate();
         if (state.Loot is null) throw new InvalidDataException("Missing physical loot.");
         state.Loot.Validate(plan, actors);
         if (state.Vaults == null) throw new InvalidDataException("Missing keyed vault registry.");

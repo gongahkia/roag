@@ -14,6 +14,31 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void NativeCooperationControlsExplainRecoveryAndFreeAimingBeforePaidAid()
+    {
+        using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move");
+        var member = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        var far = Controls(client, "dungeon-cooperate").Where(c => c.Id.StartsWith("dungeon:cooperate-choice:", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(2, far.Length); Assert.All(far, c => { Assert.False(c.Enabled); Assert.NotNull(c.Sprite); });
+        var hero = session.Party.First(); member.Position = hero.Position.Offset(1, 0); session.Chunks.Edit(member.Position, Material.Floor);
+        session.Reveal();
+        var choices = Controls(client, "dungeon-cooperate").Where(c => c.Id.StartsWith("dungeon:cooperate-choice:", StringComparison.Ordinal)).ToArray();
+        Assert.All(choices, c => Assert.True(c.Enabled));
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", $"dungeon:cooperate-choice:{member.Id}:1");
+        Assert.Equal("", Field("_panel").GetValue(client)); Assert.Equal("cooperate", Field("_roagAim").GetValue(client));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        var aim = Assert.IsType<RoagAim>(Invoke(client, "SelectedRoagAim", 1, 0));
+        Assert.Equal(member.Id, aim.Target); Assert.Equal(1, aim.Choice);
+        Invoke(client, "ActivateDungeonControl", $"dungeon:cooperate-choice:{member.Id}:2");
+        Assert.Contains(session.State.Tactics!.Events, e => e.Kind == "CooperationAssisted" && e.Source == member.Id);
+        Assert.True(session.DungeonCombat.Clock > 0);
+        Assert.Equal("", Field("_panel").GetValue(client));
+        Assert.False(session.Party.First().Tactics!.CooperationCommitted);
+    }
+
+    [Fact]
     public void NativeGearBrowsingUsesAtlasSpritesAndComparisonsBeforeOnePaidConfirmation()
     {
         using var session = WorldSession.CreateDungeonRun(37); var client = Client(session);

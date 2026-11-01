@@ -235,7 +235,8 @@ public sealed partial class TacticalCombat
         }
     }
 
-    private bool Strike(Actor actor, long action, AttackFootprint footprint, int damage, WorldPosition origin, BoonVowPayment? vow, bool bump = false)
+    private bool Strike(Actor actor, long action, AttackFootprint footprint, int damage, WorldPosition origin, BoonVowPayment? vow, bool bump = false,
+        AttackAssistance? assistance = null)
     {
         var random = new RoagRandom(State.RandomState);
         var fate = actor.Tactics!.Boons.RollDice(random, action);
@@ -266,7 +267,7 @@ public sealed partial class TacticalCombat
                     FateFace = fate?.Face, FateMiss = miss, Bump = bump },
             webCuts: CaptureWebCuts(actor.Id, footprint.Cells, footprint.Delivery, damage));
         ResolveAttack(new(action, actor.Id, origin, footprint.Cells.ToArray(), footprint.AbilityId,
-            footprint.Delivery, footprint.Element, damage, Clock, Critical: critical, FateFace: fate?.Face));
+            footprint.Delivery, footprint.Element, damage, Clock, Critical: critical, FateFace: fate?.Face), assistance);
         return !miss;
     }
 

@@ -163,6 +163,7 @@ public sealed partial class TacticalCombat
                 continue;
             }
             actor.Tactics!.Guarding = false;
+            actor.Tactics.CooperationCommitted = false;
             actor.Tactics.Resources.Parry = null;
             if (actor.Tactics.SnaredBy != 0)
             {
@@ -208,6 +209,8 @@ public sealed partial class TacticalCombat
             case TacticalAction.Equip:
             case TacticalAction.Unequip:
                 return PreviewEquipment(actor, intent);
+            case TacticalAction.Cooperate:
+                return PreviewCooperation(actor, intent);
             case TacticalAction.ClaimChest:
                 return PreviewChest(actor, intent);
             case TacticalAction.DungeonRoute:
@@ -285,6 +288,8 @@ public sealed partial class TacticalCombat
                 case TacticalAction.Equip:
                 case TacticalAction.Unequip:
                     CommitEquipment(actor, executed, action); break;
+                case TacticalAction.Cooperate:
+                    CommitCooperation(actor, executed, preview, action); break;
                 case TacticalAction.ClaimChest:
                     ClaimChest(actor, intent, action); break;
                 case TacticalAction.UseUtility:
@@ -323,17 +328,8 @@ public sealed partial class TacticalCombat
             }
             if (Friendly(actor)) QueueContractCompletion(actor, action);
         });
-        if (Friendly(actor))
-        {
-            var supplies = actor.Tactics.Supplies;
-            supplies.FocusActions = Math.Max(0, supplies.FocusActions - 1);
-            if (supplies.WardRefreshAction != action)
-            {
-                supplies.WardThroughRecovery = actor.Life != LifeState.Dead && supplies.WardActions == 1;
-                supplies.WardActions = Math.Max(0, supplies.WardActions - 1);
-            }
-            supplies.WardRefreshAction = 0;
-        }
+        FinishMemberAction(actor, action);
+        if (executed.Action == TacticalAction.Cooperate) FinishMemberAction(Actor(executed.Target), action);
         if (State.ControlledActor == actor.Id && _world.State.Position != actor.Position)
         {
             _world.State.Position = actor.Position;
@@ -341,6 +337,19 @@ public sealed partial class TacticalCombat
         }
         ObserveEnemyAwareness();
         return new(true, "Action committed.");
+    }
+
+    private void FinishMemberAction(Actor actor, long action)
+    {
+        if (!Friendly(actor)) return;
+        var supplies = actor.Tactics!.Supplies;
+        supplies.FocusActions = Math.Max(0, supplies.FocusActions - 1);
+        if (supplies.WardRefreshAction != action)
+        {
+            supplies.WardThroughRecovery = actor.Life != LifeState.Dead && supplies.WardActions == 1;
+            supplies.WardActions = Math.Max(0, supplies.WardActions - 1);
+        }
+        supplies.WardRefreshAction = 0;
     }
 
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
@@ -444,7 +453,7 @@ public sealed partial class TacticalCombat
             .ThenBy(e => e.Sequence ?? long.MaxValue).ThenBy(e => e.ActorId).ToArray();
     }
 
-    internal void ResolveAttack(LockedAttack attack)
+    internal void ResolveAttack(LockedAttack attack, AttackAssistance? assistance = null)
     {
         var cause = attack.Causality ?? _cause ?? RootCause(attack.Id);
         cause = cause with { ClassGenerated = attack.ClassGenerated,
@@ -460,7 +469,7 @@ public sealed partial class TacticalCombat
                             with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = !attack.ClassGenerated,
                                 WindupId = attack.RecoveryCost != null ? attack.Id : null },
                         webCuts: CaptureWebCuts(attack.Source, attack.Cells, attack.Delivery, attack.Damage));
-                ResolveDamageBatch(attack);
+                ResolveDamageBatch(attack, assistance);
             }
             if (attack.EmberLanding != null && !_world.State.AwaitingContinuation) ResolveMothLanding(Actor(attack.Source), attack);
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
@@ -476,7 +485,7 @@ public sealed partial class TacticalCombat
 
     private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable, EnemyProtection? Protection);
 
-    private void ResolveDamageBatch(LockedAttack attack)
+    private void ResolveDamageBatch(LockedAttack attack, AttackAssistance? assistance = null)
     {
         var source = attack.Source == 0 ? null : Actor(attack.Source);
         if (source != null && !attack.PersistsWithoutOwner && source.Life != LifeState.Alive) return;
@@ -537,7 +546,7 @@ public sealed partial class TacticalCombat
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
         if (source != null)
             foreach (var hit in hits)
-                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value);
+                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value, assistance);
         foreach (var hit in hits)
         {
             var target = hit.Target;
@@ -605,7 +614,7 @@ public sealed partial class TacticalCombat
         State.EnemySnares.RemoveAll(s => s.Source == actor.Id);
         State.Webs.RemoveAll(w => w.Source == actor.Id);
         if (actor.Tactics != null) { actor.Tactics.EnemySnareDelay = 0; actor.Tactics.WebRecoveryDelay = 0; }
-        if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; if (tactics.Enemy != null) tactics.Enemy.Dormant = false; }
+        if (actor.Tactics is { } tactics) { tactics.BleedTurns = 0; tactics.Guarding = false; tactics.CooperationCommitted = false; tactics.Resources.Parry = null; tactics.SnaredBy = 0; if (tactics.Enemy != null) tactics.Enemy.Dormant = false; }
         State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady); CancelAttacks(actor.Id, source, action, "death");
         if (State.ActiveActor == actor.Id) State.ActiveActor = 0;
         Emit("Died", source, actor.Id, action, actor.Position);

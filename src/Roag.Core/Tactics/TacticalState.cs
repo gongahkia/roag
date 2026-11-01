@@ -32,6 +32,7 @@ public sealed class ActorTactics
     public bool AutoEat { get; set; } = true;
     public bool AutoEatInCombat { get; set; }
     public long StunnedUntil { get; set; }
+    public bool CooperationCommitted { get; set; }
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
     public ActorBoons Boons { get; set; } = new();
@@ -42,7 +43,7 @@ public sealed class ActorTactics
         if ((Build is null) == (InnateStats is null) || InnateStats?.Speed is <= 0 || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
             || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
             || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
-            || StunnedUntil < 0 || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
+            || StunnedUntil < 0 || CooperationCommitted && Build == null || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
@@ -136,6 +137,7 @@ public sealed class TacticalWorldState
     public List<EnemyMirror> Mirrors { get; set; } = [];
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
+    public CooperationTuning Cooperation { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();
     public DungeonServiceState Services { get; set; } = new();

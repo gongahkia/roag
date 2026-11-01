@@ -41,6 +41,8 @@ internal sealed partial class WorldGame
         : _session.State.Dungeon != null && _roagAim == "revive"
             ? new("revive", Target: _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed
                 && a.Position == _session.DungeonMember.Position.Offset(dx, dy))?.Id ?? 0)
+        : _session.State.Dungeon != null && _roagAim == "cooperate"
+            ? new("cooperate", dx, dy, Target: _nativeCooperationHelper, Choice: 1)
         : new(_roagAim, dx, dy, Choice: _roagAim == "use_utility" ? _nativeUtilitySteps : 0,
             Vow: _roagVow && (_session.State.Dungeon == null || _roagAim is "basic_attack" or "sweeping_slash"));
     private void RoagClick(Point pointer)
@@ -88,6 +90,7 @@ internal sealed partial class WorldGame
                 {
                     if (Press(Keys.B)) { _panel = "dungeon-party"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.K)) { _panel = "dungeon-gear"; _roagKeyboard = keyboard; return; }
+                    if (Press(Keys.O)) { _panel = "dungeon-cooperate"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.T)) { SelectDungeonMember(_session.State.Tactics!.ActiveActor); _roagKeyboard = keyboard; return; }
                     var members = DungeonRoster;
                     for (int i = 0; i < members.Length; i++)

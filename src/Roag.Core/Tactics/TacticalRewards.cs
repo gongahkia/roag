@@ -23,12 +23,16 @@ public sealed partial class TacticalCombat
         return contribution;
     }
 
-    private void RecordCombatDamage(Actor source, Actor target, int loss, int prevented, int healthBefore)
+    private void RecordCombatDamage(Actor source, Actor target, int loss, int prevented, int healthBefore, AttackAssistance? assistance = null)
     {
         if (loss > 0 && Contributor(source) && RewardEnemy(target))
         {
-            var contribution = Contribution(Ledger(target), source.Id);
-            contribution.Damage = checked(contribution.Damage + loss);
+            foreach (var (member, amount) in AssistanceShares(source.Id, loss, assistance))
+            {
+                if (amount == 0) continue;
+                var contribution = Contribution(Ledger(target), member);
+                contribution.Damage = checked(contribution.Damage + amount);
+            }
         }
         if (!Contributor(target) || !RewardEnemy(source) || healthBefore <= 0) return;
         int protection = Math.Min(prevented, healthBefore - loss);
@@ -44,7 +48,7 @@ public sealed partial class TacticalCombat
         }
     }
 
-    internal void RecordCombatHealing(long source, long recipient, int actualGain)
+    internal void RecordCombatHealing(long source, long recipient, int actualGain, AttackAssistance? assistance = null)
     {
         if (actualGain <= 0) return;
         var debts = State.Rewards.Enemies.Where(p => p.Value.UnhealedDamage.ContainsKey(recipient)).ToArray();
@@ -60,8 +64,12 @@ public sealed partial class TacticalCombat
             ledger.UnhealedDamage[recipient] -= amount;
             if (ledger.UnhealedDamage[recipient] == 0) ledger.UnhealedDamage.Remove(recipient);
             if (!credit) continue;
-            var contribution = Contribution(ledger, source);
-            contribution.Healing = checked(contribution.Healing + amount);
+            foreach (var (member, share) in AssistanceShares(source, checked((int)amount), assistance))
+            {
+                if (share == 0) continue;
+                var contribution = Contribution(ledger, member);
+                contribution.Healing = checked(contribution.Healing + share);
+            }
         }
     }
 
