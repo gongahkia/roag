@@ -42,12 +42,12 @@ public sealed partial class WorldSession
     private void AdvanceBody(Actor actor)
     {
         var settings = Simulation;
-        var body = actor.Body; bool fighting = UsesTacticalTurns(actor.Id) || State.Battle?.ActorIds.Contains(actor.Id) == true;
-        if (!actor.Recruited && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
+        var body = actor.Body; bool native = UsesTacticalTurns(actor.Id), fighting = IsActorInCombat(actor.Id);
+        if (!actor.Recruited && !native && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
         bool resting = !fighting && body.RestUntil > State.Tick;
         if (!UsesTacticalTurns(actor.Id) && body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
         // Wild forage shares the finite habitat stock with other actors and the party.
-        if (!actor.Recruited && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
+        if (!actor.Recruited && !native && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)
         {
             double forage = HabitatAt(actor.Position).Food >= 2 ? WorkRate(actor) * ClimateGathering(actor.Position) : 0; body.ForageProgress += forage; body.WorkDone += forage;
             if (forage == 0) body.ForageProgress = 0;
@@ -61,7 +61,7 @@ public sealed partial class WorldSession
         for (int i = actor.Memories.Count - 1; i >= 0; i--) if (actor.Memories[i].Until <= State.Tick) actor.Memories.RemoveAt(i);
         for (int i = actor.Preparations.Count - 1; i >= 0; i--) if (actor.Preparations[i].Until <= State.Tick) actor.Preparations.RemoveAt(i);
         if (State.Tick % 50 != 0 || fighting) return;
-        if (body.Hunger >= settings.StarveAt)
+        if (!native && body.Hunger >= settings.StarveAt)
         {
             actor.Health = Math.Max(1, actor.Health - 1);
             Remember(actor, "hungry", "There was not enough to eat.", -8);
@@ -70,8 +70,11 @@ public sealed partial class WorldSession
         if (resting && body.Hunger < settings.StarveAt)
         {
             bool camp = NearbyCamp(actor.Position);
-            actor.Health = Math.Min(actor.MaxHealth, actor.Health + (camp ? 8 : 2));
-            actor.Mana = Math.Min(actor.MaxMana, actor.Mana + (camp ? 4 : 1));
+            if (!native)
+            {
+                actor.Health = Math.Min(actor.MaxHealth, actor.Health + (camp ? 8 : 2));
+                actor.Mana = Math.Min(actor.MaxMana, actor.Mana + (camp ? 4 : 1));
+            }
             if (State.Tick % TicksPerHour == 0) body.Wounds = Math.Max(0, body.Wounds - 1);
         }
         if (actor.Position.Floor > 0 && Disposition(actor)?.Aversion == "confinement") Remember(actor, "confined", "The deep walls press close.", -3);

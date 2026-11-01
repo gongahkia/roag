@@ -25,6 +25,7 @@ public static class NativeAppearance
     public static string ForService(DungeonServiceKind kind) => kind switch
     {
         DungeonServiceKind.OfferingFont => "shrine", DungeonServiceKind.CharmWell => "well",
+        DungeonServiceKind.RationCache => "ration",
         DungeonServiceKind.AttunementForge => "anvil", DungeonServiceKind.TravellingTrader => "merchant",
         DungeonServiceKind.Memorial => "grave", DungeonServiceKind.Camp => "campfire",
         DungeonServiceKind.CleanseFlask => "potion", DungeonServiceKind.EscapeScroll or DungeonServiceKind.ArchiveContract => "book",

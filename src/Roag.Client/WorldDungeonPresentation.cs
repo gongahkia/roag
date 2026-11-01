@@ -35,6 +35,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
+            else if (_panel == "dungeon-needs") BuildDungeonNeedsControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
             else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
@@ -106,8 +107,8 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party", "gear", "cooperate"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue", "Equipment / K", "Cooperation / O"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party", "gear", "cooperate", "needs"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue", "Equipment / K", "Cooperation / O", "Survival / N"];
                 int columns = (box.Width - 80) / 2;
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
@@ -177,6 +178,11 @@ internal sealed partial class WorldGame
             case "cooperate-choice": ChooseDungeonCooperation(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture),
                 int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "recover-equipment": CommitRoag(new("recover_equipment", Target: _nativeCorpse)); ClosePanel(); break;
+            case "needs": _panel = "dungeon-needs"; break;
+            case "eat": CommitRoag(new("eat")); ClosePanel(); break;
+            case "medicine": CommitRoag(new("use_medicine", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
+            case "auto-eat": ToggleDungeonEating(combat: false); break;
+            case "auto-eat-combat": ToggleDungeonEating(combat: true); break;
             case "member": SelectDungeonMember(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
@@ -339,6 +345,12 @@ internal sealed partial class WorldGame
         Text($"HP {hero.Health}/{hero.MaxHealth} / level {build.Level}", x, y); y += 24;
         Text($"XP {build.Experience}/{CharacterBuild.NextThreshold(build.Level)}", x, y, Muted); y += 24;
         Text($"Gold {_session.Count("gold")} / medicine {_session.Count("medicine")}", x, y, Gold); y += 30;
+        if (combat.Tuning.EnableSurvival)
+        {
+            Text($"Food {_session.Count("food")} / hunger {hero.Body.Hunger:0.0} / N", x, y,
+                hero.Body.Hunger >= _session.Simulation.StarveAt ? new Color(240, 112, 78) : Muted);
+            y += 22;
+        }
         if (_session.State.Dungeon!.Victory) { Text("REGENT DEFEATED", x, y, Gold); y += 24; }
         Text("Aim: " + _roagAim.Replace('_', ' '), x, y, Muted); y += 24;
         var supplies = hero.Tactics.Supplies;
@@ -421,6 +433,7 @@ internal sealed partial class WorldGame
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
+        if (_panel == "dungeon-needs") title = "SURVIVAL AND PROVISIONS";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
@@ -430,6 +443,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
+        if (_panel == "dungeon-needs") { DrawDungeonNeedsPanel(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-chest-recipient")
@@ -477,7 +491,7 @@ internal sealed partial class WorldGame
         }
         else if (_panel == "dungeon-guide")
         {
-            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. K opens equipment; equipping/removing costs one action. O opens cooperation. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. K opens equipment; equipping/removing costs one action. O opens cooperation. N opens survival, eating and medicine. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
             Wrap("Controller: D-pad / left stick moves one tile per press. X aims basic, Y special, right shoulder movement. Left shoulder aims Guard, or toggles Vow during attack aim. Right trigger waits. A interacts; left-stick press also interacts. Right-stick press opens utilities. Start opens the menu / cancels aim; Back toggles the map; left trigger opens boons. In menus, D-pad selects, A confirms, B closes. Keyboard menus use arrows, number keys and Enter. F1 opens help, I/V inspect boons, Tab toggles the explored map, Escape opens the menu.", x, y + 16, box.Width - 48, Muted);
         }
         else if (_panel == "dungeon-utility")

@@ -27,17 +27,18 @@ public sealed partial class TacticalCombat
         // Joining pays its own full recovery too; recruitment never manufactures an immediate extra turn.
         long recovery = ActionTiming.Recovery(100, ClassCatalog.Get(recruit.Class).Speed);
         if (candidate.Tactics == null)
-            Register(candidate, new() { Build = CharacterBuild.Create(recruit.Class, seed), AutoEat = false }, checked(Clock + recovery));
+            Register(candidate, new() { Build = CharacterBuild.Create(recruit.Class, seed), AutoEat = Tuning.EnableSurvival }, checked(Clock + recovery));
         else
         {
             // An already acting rescuer retains their build and previously paid
             // recovery, then pays the joining recovery as a new party member.
             long due = State.Queue.Snapshot().Pending.Single(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == candidate.Id).Due;
             candidate.Tactics.Resident = null;
+            candidate.Tactics.AutoEat = Tuning.EnableSurvival;
             State.Queue.CancelActor(candidate.Id, ScheduledKind.ActorReady);
             State.Queue.Schedule(ScheduledKind.ActorReady, checked(due + recovery), candidate.Id, playerControlled: true);
         }
-        _world.ShareRecruitMedicine(candidate);
+        _world.ShareRecruitSupplies(candidate);
         _world.FollowDungeonRecruit(candidate, actor);
         Emit("Recruited", actor.Id, candidate.Id, action, candidate.Position);
     }

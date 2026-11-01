@@ -56,7 +56,7 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        var replacement = _session.State.Dungeon != null ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed())
+        var replacement = _session.State.Dungeon != null ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
             : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
         _session.Dispose(); _session = replacement; _streamPosition = null; _streamDx = _streamDy = 0; ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         _session.Paused = _options.Preview;
@@ -590,6 +590,8 @@ internal sealed partial class WorldGame
                 equipment = _session.Party.Select(a => new { a.Id, slots = a.Equipment, a.Tactics!.EquipmentCoverUsed }),
                 packEquipment = DungeonPackGear.Select(i => new { i.Id, i.Name, i.Sprite, i.Slot, count = _session.Count(i.Stack) }),
                 cooperation = _session.Party.Select(a => new { a.Id, a.Tactics!.CooperationCommitted }),
+                needs = _session.Party.Select(a => new { a.Id, a.Body.Hunger, a.Body.Fatigue, a.Body.Wounds, a.Tactics!.AutoEat, a.Tactics.AutoEatInCombat }),
+                survivalEnabled = _session.State.Tactics.Tuning.EnableSurvival,
                 gearedCorpses = _session.Party.Where(a => a.Life == LifeState.Dead && a.Equipment.Count > 0 && _session.Visible.Contains(a.Position))
                     .Select(a => new { a.Id, a.Name, a.Position, slots = a.Equipment }),
                 aim = _roagAim,

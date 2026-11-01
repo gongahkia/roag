@@ -27,7 +27,14 @@ public sealed partial class TacticalCombat
             health |= definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
                 || definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer)
                     && RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
-        return definition.CreateTactics(health, exempt);
+        var tactics = definition.CreateTactics(health, exempt);
+        if (_world.State.Dungeon != null && Tuning.EnableSurvival && !exempt && !health
+            && definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer))
+        {
+            int roll = RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100;
+            tactics.FoodDrop = roll is >= 5 and < 27;
+        }
+        return tactics;
     }
 
     internal void ReplaceUnactedEnemy(Actor actor, string definition)

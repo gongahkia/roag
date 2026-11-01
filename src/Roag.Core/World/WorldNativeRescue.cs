@@ -25,10 +25,10 @@ public sealed partial class WorldSession
         if (!rescuer.Recruited) Remember(rescuer, "rescued", "I helped " + casualty.Name + " survive.", 4, casualty.Id);
     }
 
-    internal void ShareRecruitMedicine(Actor recruit)
+    internal void ShareRecruitSupplies(Actor recruit)
     {
-        int medicine = recruit.Cargo.GetValueOrDefault("medicine");
-        if (medicine == 0) return;
-        Add("medicine", medicine); recruit.Cargo.Remove("medicine");
+        foreach (var (stack, count) in recruit.Cargo)
+            if (count > 0) Add(stack, count);
+        recruit.Cargo.Clear();
     }
 }

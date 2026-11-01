@@ -11,16 +11,16 @@ public sealed partial class WorldSession
         ? run.RoomAt(position) : Chunks.Generator.RoomAt(position);
 
     /// <summary>Create the bounded solo run on persistent world chunks and actors.</summary>
-    public static WorldSession CreateDungeonRun(int seed, ClassKind kind = ClassKind.Adventurer)
+    public static WorldSession CreateDungeonRun(int seed, ClassKind kind = ClassKind.Adventurer, bool survival = false)
     {
         var world = CreateWorld(seed, null, null, roagNative: false, floorCount: 8, populateWorld: false);
         try
         {
             world.State.Dungeon = new();
             world.State.Inventory["gold"] = 0;
-            var combat = world.CreateTacticalSimulation(new(EnableSurvival: false));
+            var combat = world.CreateTacticalSimulation(new(EnableSurvival: survival));
             combat.State.Chests.AvailableBoons = BoonCatalog.Default.NormalPool
-                .Where(id => id is not ("core:boon/road_flask" or "core:boon/ration_reserve")).ToArray();
+                .Where(id => survival || id is not ("core:boon/road_flask" or "core:boon/ration_reserve")).ToArray();
             var first = DungeonLayoutGenerator.Generate(seed, DungeonCatalog.Default.Biomes[0].Id);
             var second = DungeonLayoutGenerator.Generate(unchecked(seed + 1), first.Biome);
             var origin = new WorldPosition(128, 128, 1);
@@ -31,7 +31,7 @@ public sealed partial class WorldSession
             hero.Body.Hunger = 0; hero.Body.Fatigue = 0; hero.Body.Wounds = 0;
             hero.CombatTrait = "";
             hero.Talents.Clear();
-            combat.Register(hero, new() { Build = CharacterBuild.Create(kind, world.DungeonSeed), AutoEat = false });
+            combat.Register(hero, new() { Build = CharacterBuild.Create(kind, world.DungeonSeed), AutoEat = survival });
             hero.SpriteId = NativeAppearance.ForClass(kind);
             world.PaintDungeonFloor(first, origin, combat, boss: false);
             world.PaintDungeonFloor(second, nextOrigin, combat, boss: true);
@@ -106,6 +106,8 @@ public sealed partial class WorldSession
             "abandon" => TacticalAction.Abandon,
             "cooperate" => TacticalAction.Cooperate,
             "recover_equipment" => TacticalAction.RecoverEquipment,
+            "eat" => TacticalAction.Eat,
+            "use_medicine" => TacticalAction.UseMedicine,
             _ => null
         };
         intent = new(action ?? TacticalAction.Wait, facing, aim.Target, aim.Vow, aim.Choice, aim.ReplaceUtility);

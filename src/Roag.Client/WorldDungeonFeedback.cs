@@ -53,20 +53,24 @@ internal sealed partial class WorldGame
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
             "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
+            "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
         };
         if (sample != null) PlayDungeonSound(sample);
         string? label = e.Kind switch
         {
-            "DamageTaken" => "-" + e.Amount, "Healed" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
+            "DamageTaken" or "StarvationDamage" => "-" + e.Amount, "Healed" or "WellFedHealing" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
+            "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
             "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount, "RescueNoticed" => "AID",
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
+            "SupplyCollected" when e.Ability == "ability.medicine" || _session.State.Tactics!.Events.Any(p => p.Kind == "FoodEaten" && p.Action == e.Action && p.Source == e.Source) => null,
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };
         var source = _session.State.Actors.FirstOrDefault(a => a.Id == e.Source);
         WorldPosition? visibleSource = source != null && _session.Visible.Contains(source.Position) ? source.Position : null;
-        _dungeonFeedback.Observe(e, label, visibleSource != null ? source!.Tactics?.Facing ?? Facing.South : Facing.South,
+        var visual = e.Kind == "StarvationDamage" ? e with { Kind = "DamageTaken" } : e.Kind == "WellFedHealing" ? e with { Kind = "Healed" } : e;
+        _dungeonFeedback.Observe(visual, label, visibleSource != null ? source!.Tactics?.Facing ?? Facing.South : Facing.South,
             visibleSource, _session.State.Party.Contains(e.Target));
     }
 

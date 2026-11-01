@@ -17,7 +17,7 @@ public sealed class DungeonPopulationTests
         var branches = new HashSet<DungeonBranchKind>();
         for (int seed = 0; seed < 24; seed++)
         {
-            using var world = WorldSession.CreateDungeonRun(seed); var state = world.State.Tactics!;
+            using var world = WorldSession.CreateDungeonRun(seed, survival: true); var state = world.State.Tactics!;
             Assert.Equal(0, state.Queue.Clock); Assert.Equal(1, state.NextAction);
             kinds.UnionWith(state.Services.Nodes.Select(n => n.Kind));
             foreach (var floor in world.State.Dungeon!.Floors)
@@ -84,7 +84,8 @@ public sealed class DungeonPopulationTests
                 var door = Assert.Single(state.Doors.Nodes, d => d.Position.Floor == floor.Origin.Floor);
                 Assert.Equal(Material.ClosedDoor, world.Chunks.At(door.Position));
                 Assert.False(world.CanEnter(door.Position));
-                var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor && n.Kind <= DungeonServiceKind.ArchiveContract).ToArray();
+                var services = state.Services.Nodes.Where(n => n.Position.Floor == floor.Origin.Floor
+                    && (n.Kind <= DungeonServiceKind.ArchiveContract || n.Kind == DungeonServiceKind.RationCache)).ToArray();
                 Assert.InRange(services.Length, 1, 2);
                 Assert.Equal(services.Length, services.Select(n => world.RoomAt(n.Position)).Distinct().Count());
                 foreach (var node in services)

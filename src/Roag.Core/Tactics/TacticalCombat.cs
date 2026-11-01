@@ -207,6 +207,8 @@ public sealed partial class TacticalCombat
                 return PreviewStairs(actor, definition);
             case TacticalAction.Eat:
                 return PreviewEating(actor);
+            case TacticalAction.UseMedicine:
+                return PreviewMedicine(actor, intent.Target);
             case TacticalAction.Equip:
             case TacticalAction.Unequip:
                 return PreviewEquipment(actor, intent);
@@ -288,6 +290,8 @@ public sealed partial class TacticalCombat
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
                 case TacticalAction.Eat:
                     Eat(actor, action); break;
+                case TacticalAction.UseMedicine:
+                    UseMedicine(actor, intent.Target, action); break;
                 case TacticalAction.Equip:
                 case TacticalAction.Unequip:
                     CommitEquipment(actor, executed, action); break;
@@ -561,6 +565,12 @@ public sealed partial class TacticalCombat
         foreach (var hit in hits)
         {
             var target = hit.Target;
+            if (State.DrivesWorldClock && Tuning.EnableSurvival && hit.Damage >= Math.Max(8, target.MaxHealth / 3))
+            {
+                int before = target.Body.Wounds;
+                target.Body.Wounds = Math.Min(10, before + 1);
+                if (target.Body.Wounds != before) Emit("InjurySustained", attack.Source, target.Id, attack.Id, target.Position, 1);
+            }
             if (hit.Cover is { } cover)
                 Emit("AllyCovered", cover.Source, target.Id, attack.Id, target.Position, cover.Amount, ability: "equipment:protect");
             Emit(hit.Damage > 0 ? "DamageTaken" : "DamageBlocked", attack.Source, target.Id, attack.Id,
@@ -604,6 +614,7 @@ public sealed partial class TacticalCombat
 
     private void Down(Actor actor, long source, long action)
     {
+        if (State.DrivesWorldClock && Tuning.EnableSurvival) actor.Body.Wounds = Math.Min(10, actor.Body.Wounds + 1);
         actor.Life = LifeState.Downed; actor.Health = 0;
         actor.Tactics!.BleedTurns = 5; actor.Tactics.Guarding = false; actor.Tactics.Resources.Parry = null;
         CancelAttacks(actor.Id);

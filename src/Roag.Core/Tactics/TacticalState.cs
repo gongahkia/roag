@@ -25,6 +25,7 @@ public sealed class ActorTactics
     public string DefinitionId { get; set; } = "";
     public int CurrencyDrop { get; set; }
     public bool HealthDrop { get; set; }
+    public bool FoodDrop { get; set; }
     public EnemyMemory? Enemy { get; set; }
     public int ExperienceReward { get; set; }
     public bool RewardsClaimed { get; set; }
@@ -86,6 +87,8 @@ public sealed class ActorTactics
                 throw new InvalidDataException("Enemy squad role/state mismatch.");
         }
         Resources.Validate(Build?.Class);
+        if (FoodDrop && (Enemy == null || RewardExempt || HealthDrop))
+            throw new InvalidDataException("Food drops require one eligible native enemy supply receipt.");
         Supplies.Validate();
         if (Build == null && (Supplies.Utility != null || Supplies.FocusActions != 0 || Supplies.WardActions != 0))
             throw new InvalidDataException("Only a party build can carry utilities or prepared supplies.");

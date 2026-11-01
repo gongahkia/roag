@@ -26,7 +26,8 @@ public sealed partial class WorldSession
     private bool UsesTacticalTurns(long actorId) => State.Tactics?.Participants.Contains(actorId) == true;
     public bool IsActorInCombat(long actorId) => State.Battle?.ActorIds.Contains(actorId) == true
         || State.RoagCombat && RoagCombatActor(actorId)
-        || State.Tactics != null && new TacticalCombat(this, AdvanceTacticalWorld).IsLocallyEngaged(actorId);
+        || State.Tactics is { } tactics && tactics.Participants.Contains(actorId)
+            && new TacticalCombat(this, AdvanceTacticalWorld).IsLocallyEngaged(actorId);
     private bool NativePartyInCombat => State.Tactics != null && Party.Any(a => IsActorInCombat(a.Id));
     internal void MoveTacticalActor(Actor actor, WorldPosition destination) => CommitClimateMove(actor, destination);
 

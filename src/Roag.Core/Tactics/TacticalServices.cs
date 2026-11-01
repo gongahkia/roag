@@ -3,13 +3,13 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp, ArchiveContract, Bell, BellClue, FallingFixture, RouteSign }
+public enum DungeonServiceKind { OfferingFont, CleanseFlask, EscapeScroll, ReturnToken, CharmWell, AttunementForge, TravellingTrader, Memorial, Camp, ArchiveContract, Bell, BellClue, FallingFixture, RouteSign, RationCache }
 public sealed record DungeonService(long Id, string Marker, DungeonServiceKind Kind, WorldPosition Position, int Seed, long UsedBy = 0,
     DungeonContract? Contract = null, BellPiece? Bell = null, FallingFixture? Fixture = null, DungeonRouteHint? Sign = null);
 public sealed record RetiredBoon(string Id, BoonRarity Rarity);
 public sealed record DungeonServiceChoice(int Choice, string Label, string Detail, bool Enabled = true, string Reason = "",
     int Price = 0, int HealthCost = 0, int Healing = 0, bool Cleanse = false, bool Ward = false, bool Focus = false,
-    UtilityKind? Utility = null, bool Replacement = false, BoonOffer? Offer = null, RetiredBoon? Retire = null);
+    UtilityKind? Utility = null, bool Replacement = false, BoonOffer? Offer = null, RetiredBoon? Retire = null, int Provisions = 0);
 
 public sealed partial class DungeonServiceState
 {
@@ -116,10 +116,16 @@ public sealed partial class TacticalCombat
             case DungeonServiceKind.CleanseFlask: Add(Utility(UtilityKind.CleanseFlask)); break;
             case DungeonServiceKind.EscapeScroll: Add(Utility(UtilityKind.EscapeScroll)); break;
             case DungeonServiceKind.ReturnToken: Add(Utility(UtilityKind.ReturnToken)); break;
+            case DungeonServiceKind.RationCache:
+                Add(new(0, "Take four provisions", "Stock the shared pack. Eating is a separate paid action and restores hunger, not instant HP.", Provisions: 4));
+                Add(new(0, "Brace / one-hit ward", "One positive hit within three paid actions; replaces the prepared supply condition.", Ward: true));
+                break;
             case DungeonServiceKind.TravellingTrader:
+                if (Tuning.EnableSurvival)
+                    Add(new(0, "Four provisions / 2 gold", "Food enters the shared pack; no instant healing or food-boon activation until paid eating.", Price: 2, Provisions: 4));
                 var stock = node.Seed % 2 == 0 ? UtilityKind.CleanseFlask : UtilityKind.EscapeScroll;
                 Add(Utility(stock, stock == UtilityKind.CleanseFlask ? 2 : 3));
-                break; // Original food offer is deferred with survival by explicit user choice.
+                break;
             case DungeonServiceKind.CharmWell:
                 Add(new(0, "Focus / +2 to next attack", "One immediate attack batch within three paid actions. Replaces the prepared supply condition.", Focus: true));
                 Add(new(0, "Brace / one-hit ward", "One positive hit within three paid actions. Replaces the prepared supply condition.", Ward: true));
@@ -218,6 +224,11 @@ public sealed partial class TacticalCombat
         var boons = actor.Tactics!.Boons;
         _world.State.Inventory["gold"] = _world.Count("gold") - option.Price;
         if (option.Price > 0) Emit("CurrencySpent", actor.Id, 0, action, node.Position, option.Price);
+        if (option.Provisions > 0)
+        {
+            _world.State.Inventory["food"] = checked(_world.Count("food") + option.Provisions);
+            Emit("ProvisionsCollected", actor.Id, actor.Id, action, actor.Position, option.Provisions);
+        }
         if (option.HealthCost > 0)
         { actor.Health -= option.HealthCost; Emit("FontOfferingPaid", actor.Id, actor.Id, action, node.Position, option.HealthCost); }
         if (option.Retire is { } retired)
@@ -256,6 +267,7 @@ public sealed partial class TacticalCombat
         DungeonServiceKind.OfferingFont => "Offering font", DungeonServiceKind.CharmWell => "Charm well",
         DungeonServiceKind.AttunementForge => "Attunement forge", DungeonServiceKind.TravellingTrader => "Travelling trader",
         DungeonServiceKind.Memorial => "Memorial", DungeonServiceKind.Camp => "Camp",
+        DungeonServiceKind.RationCache => "Ration cache",
         DungeonServiceKind.ArchiveContract => "Archive contract",
         DungeonServiceKind.Bell => "Bell", DungeonServiceKind.BellClue => "Bell plaque",
         DungeonServiceKind.FallingFixture => "Falling fixture", DungeonServiceKind.RouteSign => "Route sign",

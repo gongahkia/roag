@@ -1,9 +1,41 @@
 using Roag.Core.World;
+using Roag.Core.Content;
 
 namespace Roag.Core.Tactics;
 
 public sealed partial class TacticalCombat
 {
+    private Actor? MedicineRecipient(Actor actor, long target) => target == 0 ? actor
+        : _world.Party.FirstOrDefault(a => a.Id == target);
+
+    private TacticalPreview PreviewMedicine(Actor actor, long target)
+    {
+        var recipient = MedicineRecipient(actor, target);
+        if (!Friendly(actor) || recipient is not { Life: LifeState.Alive, Health: > 0, Tactics.Build: not null }
+            || recipient.Health >= recipient.MaxHealth || _world.Count("medicine") < 1)
+            return Invalid("Choose an injured conscious member and one shared medicine. Revival is a separate action.");
+        if (actor.Position.Distance(recipient.Position) > 1 || !_world.GroundOpen(recipient.Position)
+            || !_world.VisionFrom(actor.Position).Contains(recipient.Position))
+            return Invalid("Stand on or beside the conscious member to administer medicine.");
+        return new(true, "", ActionTiming.Recovery(Tuning.ReviveCost, EffectiveSpeed(actor)), [recipient.Position]);
+    }
+
+    private void UseMedicine(Actor actor, long target, long action)
+    {
+        var recipient = MedicineRecipient(actor, target)!;
+        int amount = checked(_world.Content.Get<AbilityDefinition>("ability.medicine").Power + _world.EquipmentEffectPower(actor, "healing"));
+        int before = recipient.Health, gain = Math.Min(amount, recipient.MaxHealth - before);
+        _world.State.Inventory["medicine"]--; _world.State.ResourcesConsumed++;
+        recipient.Health += gain;
+        RecordCombatHealing(actor.Id, recipient.Id, gain);
+        Emit("Healed", actor.Id, recipient.Id, action, recipient.Position, gain, ability: "ability.medicine");
+        // As with a picked-up healing supply, the recipient owns any excess-heal
+        // ward. The administering member separately earns actual healing credit.
+        var snapshot = CaptureBoonEvent(BoonTrigger.SupplyCollected, recipient.Id, recipient.Id, action, recipient.Position, "ability.medicine") with
+        { SupplyKind = "health", Amount = amount, ActualGain = gain, HpBefore = before, TargetMaxHp = recipient.MaxHealth };
+        Emit("SupplyCollected", recipient.Id, recipient.Id, action, recipient.Position, amount, ability: "ability.medicine", snapshot: snapshot);
+    }
+
     private TacticalPreview PreviewEating(Actor actor)
         => !Friendly(actor) || actor.Body.Hunger <= 0 || _world.State.Inventory.GetValueOrDefault("food") <= 0
             ? Invalid("This member needs hunger and one shared food provision to eat.")

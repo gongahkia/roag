@@ -30,6 +30,15 @@ public sealed partial class WorldSession
     private bool SelectedDungeonMemberReady => State.Tactics is { ActiveActor: > 0 } tactics
         && tactics.ControlledActor == tactics.ActiveActor;
 
+    public ActionResult ConfigureDungeonEating(long memberId, bool automatic, bool duringCombat)
+    {
+        var member = Party.FirstOrDefault(a => a.Id == memberId && a.Life != LifeState.Dead && a.Tactics?.Build != null);
+        if (State.Dungeon == null || State.AwaitingContinuation || member == null)
+            return new(false, "Choose a surviving member's eating policy.");
+        member.Tactics!.AutoEat = automatic; member.Tactics.AutoEatInCombat = duringCombat;
+        return new(true, "Eating policy saved. Automatic meals spend this member's scheduled turns.");
+    }
+
     private void PopulateDungeonRecruits(DungeonFloorState floor)
     {
         var room = floor.Rooms.Single(r => r.Role == "start");

@@ -14,6 +14,28 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void SurvivalControlsUseMemberOwnedFreePoliciesAndGatePaidEatingByActualReadiness()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var hero = session.Party.Single(); hero.Body.Hunger = 40;
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2); friend.Body.Hunger = 40;
+        string before = JsonSerializer.Serialize(session.State), timeline = JsonSerializer.Serialize(session.State.Tactics!.Timeline);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.N), true);
+        Assert.Equal("dungeon-needs", Field("_panel").GetValue(client));
+        Assert.Contains(Controls(client, "dungeon-needs"), c => c.Id == "dungeon:eat" && c.Enabled && c.Sprite == "ration");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:auto-eat");
+        Invoke(client, "ActivateDungeonControl", "dungeon:auto-eat-combat");
+        Assert.False(hero.Tactics!.AutoEat); Assert.True(hero.Tactics.AutoEatInCombat);
+        Assert.Equal(timeline, JsonSerializer.Serialize(session.State.Tactics.Timeline)); Assert.Equal(40, hero.Body.Hunger);
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Assert.Contains(Controls(client, "dungeon-needs"), c => c.Id == "dungeon:eat" && !c.Enabled);
+        string selected = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:eat");
+        Assert.Equal(selected, JsonSerializer.Serialize(session.State));
+    }
+
+    [Fact]
     public void CorpseEquipmentIsPrivatelyInspectedAndPhysicallyRecoveredForOnePaidAction()
     {
         using var session = WorldSession.CreateDungeonRun(37);

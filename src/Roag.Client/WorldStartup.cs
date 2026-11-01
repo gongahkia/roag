@@ -10,7 +10,7 @@ internal static class WorldStartup
         bool native = options.NativeDungeonLaunch && !options.WorldSmoke;
         int seed = options.SeedSpecified || options.Preview ? options.Seed : FreshSeed();
         var session = resume ? Resume(options, native, diagnostics) : native
-            ? WorldSession.CreateDungeonRun(seed) : WorldSession.Create(seed, diagnostics: diagnostics);
+            ? WorldSession.CreateDungeonRun(seed, survival: true) : WorldSession.Create(seed, diagnostics: diagnostics);
         if (session is WorldSession nativeWorld && native) nativeWorld.DiagnosticSink = diagnostics;
         if (session is WorldSession world) world.Paused = options.Preview;
         return (session, resume);

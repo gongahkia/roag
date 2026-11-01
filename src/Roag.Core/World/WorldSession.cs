@@ -127,7 +127,15 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     }
     private void AdvanceWorldTick()
     {
-        if (State.Dungeon != null) { State.Tick++; return; } // Later living-world systems are outside this tranche.
+        if (State.Dungeon != null)
+        {
+            // Bounded structures still share the imported body/calendar model.
+            // Outdoor ecology/economy joins this clock with continuous-world generation.
+            if (State.Tactics!.Tuning.EnableSurvival) PrepareBodyClock();
+            State.Tick++;
+            if (State.Tactics.Tuning.EnableSurvival) AdvanceBodies();
+            return;
+        }
         PrepareBodyClock();
         State.Tick++;
         Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceOccupations(); AdvanceIncidents();

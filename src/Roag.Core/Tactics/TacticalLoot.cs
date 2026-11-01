@@ -88,6 +88,8 @@ public sealed partial class TacticalCombat
             SpawnLoot(GroundLootKind.Currency, tactics.CurrencyDrop, enemy.Position, e.SourceId ?? 0, e.RootActionId ?? 0, enemy.Id);
         if (tactics.HealthDrop)
             SpawnLoot(GroundLootKind.Health, 10, enemy.Position, e.SourceId ?? 0, e.RootActionId ?? 0, enemy.Id);
+        else if (tactics.FoodDrop)
+            SpawnLoot(GroundLootKind.Food, 4, enemy.Position, e.SourceId ?? 0, e.RootActionId ?? 0, enemy.Id);
     }
 
     private bool CollectLootAt(Actor owner, WorldPosition position, long action)

@@ -5,8 +5,8 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
-    // Preserve original draw positions: a deferred ration cache leaves its slot empty.
-    private static readonly DungeonServiceKind?[] DungeonServiceOrder = [DungeonServiceKind.OfferingFont, null,
+    // Preserve original draw positions for older saved/test configurations too.
+    private static readonly DungeonServiceKind[] DungeonServiceOrder = [DungeonServiceKind.OfferingFont, DungeonServiceKind.RationCache,
         DungeonServiceKind.CleanseFlask, DungeonServiceKind.EscapeScroll, DungeonServiceKind.ReturnToken,
         DungeonServiceKind.CharmWell, DungeonServiceKind.AttunementForge, DungeonServiceKind.TravellingTrader,
         DungeonServiceKind.Memorial, DungeonServiceKind.Camp, DungeonServiceKind.ArchiveContract];
@@ -35,12 +35,12 @@ public sealed partial class WorldSession
         for (int slot = 0; slot < 2; slot++)
         {
             var kind = DungeonServiceOrder[(seed % DungeonServiceOrder.Length + slot) % DungeonServiceOrder.Length];
-            if (kind == null) continue;
+            if (kind == DungeonServiceKind.RationCache && !combat.Tuning.EnableSurvival) continue;
             foreach (var candidate in candidates)
             {
                 if (used.Contains(candidate.Room) || !Available(candidate.Cell)
                     || kind == DungeonServiceKind.ArchiveContract && !combat.HasDungeonContractTargets(RoomAt(candidate.Cell)!.Value)) continue;
-                combat.SpawnDungeonService(kind.Value, $"floor:{origin.Floor}/service:{kind}/{candidate.Cell.X},{candidate.Cell.Y}", candidate.Cell);
+                combat.SpawnDungeonService(kind, $"floor:{origin.Floor}/service:{kind}/{candidate.Cell.X},{candidate.Cell.Y}", candidate.Cell);
                 used.Add(candidate.Room); break;
             }
         }
