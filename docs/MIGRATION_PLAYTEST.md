@@ -6,11 +6,13 @@ Status (2026-11-01): **items 1–6 complete and ready for the requested Linux pl
 
 ## Linux build
 
-- Archive: `dist/roag-linux-x64-181c9c8c.tar.gz` (40,847,337 bytes).
-- SHA-256: `8b5b7c1463ad72d6f1ba51eca2250560034e85df5e1bc59c8a77216cb9bfdcfd`.
-- Source: clean `181c9c8cb5919ab3ea086d676f6ce86983f15c57`; later verification/documentation commits do not change the shipped game.
+- Archive: `dist/roag-linux-x64-34e73fa8.tar.gz` (40,847,528 bytes).
+- SHA-256: `f39c3d92aa8fd541de3805410f130a59b3b5c09090915b88bc8f7816aee66104`.
+- Source: clean `34e73fa83f981857af024972d84631569ec3ef8a`, adding safe startup-recovery guidance. The original fully regressed package `181c9c8c` remains preserved. Its game-source hashes differ only in `WorldStartup.cs`; simulation, content and gameplay rendering are unchanged. The final 17-check startup/lifecycle regression passes; the 1,718-test full baseline predates this diagnostic-only follow-up.
 - Extract, enter `roag-linux-x64`, run `./roag`. The package bundles its runtime and needs no SDK, Lua/LÖVE or sibling checkout. See [PLAY_LINUX.md](PLAY_LINUX.md) for source builds, controls and save locations.
 - `BUILD.json`, `SHA256SUMS`, the adjacent archive checksum and bundled dependency/artwork/font notices identify and check the delivered files.
+
+If the default `~/.roag/campaign.json` is an earlier prototype/content-version save, it is preserved and cannot resume this game. The error now gives new/resume commands for an unused separate native slot. For example, use `./roag.sh --new --save "$HOME/.roag/native-playtest.json"` once with an unused filename, then `./roag.sh --load --save "$HOME/.roag/native-playtest.json"`. Packaged commands use `./roag`. Keep selecting that path; a bare launch still selects the old default. This does not convert or overwrite the old save.
 
 ## Current-tranche coverage
 
@@ -40,6 +42,7 @@ Evidence paths below are relative to `artifacts/migration/verification/`. Artifa
 | Final-code settings/resource integration | `native-production/release-settings-resource/`: actual Debug client from the same final game source; Tinkerer selection/aimed sentry, paid physical keyboard step, free help/menu/utility/inspection, every presentation control, exact resource/build/settings/save reload at clock 273. Sans/large/high-contrast/reduced-motion/mute preferences persist. Its OpenAL null backend initializes successfully, with no audible output. Earlier evidence remains in `native-presentation/interactive-navigation/`. |
 | Boss visual inspection | `native-production/boss-frames/` and `muted-boss-frames/`: read-only coherent frames, including Canal/Regent locked attacks and phase two. Victory, terminal and fresh-run package frames also inspected. |
 | Package checks | `native-production/release-package.log`, `release-checksums.log`, `release-help.log`, extracted package `release-extracted/`. |
+| Post-handoff incompatible-save recovery | 17 startup/lifecycle checks pass, zero failures/skips, 10s; `native-production/startup-recovery-final.{trx,log}`. The user's real old manifest was copied into `startup-rejection/`; both original and copy remain byte-identical. The refreshed package passes file hashes and prints correct absolute packaged-launcher new/resume commands in `startup-package-rejection.log`. Its rendered fresh-launch/input/save/reload check passes under `startup-package-map/`. |
 
 The full seed-37 journey is **one continuously saved run across versioned clients and checkpoints**, rather than one uninterrupted invocation. Its chain is `packaged-journey` → `packaged-journey-continued` → `continued-hazard-routing` → `continued-real-input` → `packaged-final-journey` → `muted-final-journey` → `muted-regent-finish`. Each transfer used the latest ordinary saved slot, preserved its chunk snapshots and observed map, and checked handoff position, clock and complete player build. Driver-only navigation/input loops were corrected without editing game positions, damage, inventory or campaign saves. The last two package checks use the final shipped binary.
 
