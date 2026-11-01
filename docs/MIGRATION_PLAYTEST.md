@@ -6,9 +6,9 @@ Status (2026-11-01): **items 1–6 complete and ready for the requested Linux pl
 
 ## Linux build
 
-- Archive: `dist/roag-linux-x64-34e73fa8.tar.gz` (40,847,528 bytes).
-- SHA-256: `f39c3d92aa8fd541de3805410f130a59b3b5c09090915b88bc8f7816aee66104`.
-- Source: clean `34e73fa83f981857af024972d84631569ec3ef8a`, adding safe startup-recovery guidance. The original fully regressed package `181c9c8c` remains preserved. Its game-source hashes differ only in `WorldStartup.cs`; simulation, content and gameplay rendering are unchanged. The final 17-check startup/lifecycle regression passes; the 1,718-test full baseline predates this diagnostic-only follow-up.
+- Archive: `dist/roag-linux-x64-d48bfd62.tar.gz` (40,853,072 bytes).
+- SHA-256: `f43fb0c72ca98d087f7408f82714a46270bc22c91ad7255c7216cf9b0de56861`.
+- Source: clean `d48bfd62`, adding the requested boon/chest illustrations to the earlier startup-recovery fix. The original fully regressed `181c9c8c` and recovery `34e73fa8` packages remain preserved. **29 affected C# checks and 38 catalog checks pass** for the illustration change; the 1,718-test full baseline predates these presentation/diagnostic follow-ups. Native content identity/save schema/gameplay rules are unchanged, and actual existing native saves reload correctly.
 - Extract, enter `roag-linux-x64`, run `./roag`. The package bundles its runtime and needs no SDK, Lua/LÖVE or sibling checkout. See [PLAY_LINUX.md](PLAY_LINUX.md) for source builds, controls and save locations.
 - `BUILD.json`, `SHA256SUMS`, the adjacent archive checksum and bundled dependency/artwork/font notices identify and check the delivered files.
 
@@ -43,6 +43,7 @@ Evidence paths below are relative to `artifacts/migration/verification/`. Artifa
 | Boss visual inspection | `native-production/boss-frames/` and `muted-boss-frames/`: read-only coherent frames, including Canal/Regent locked attacks and phase two. Victory, terminal and fresh-run package frames also inspected. |
 | Package checks | `native-production/release-package.log`, `release-checksums.log`, `release-help.log`, extracted package `release-extracted/`. |
 | Post-handoff incompatible-save recovery | 17 startup/lifecycle checks pass, zero failures/skips, 10s; `native-production/startup-recovery-final.{trx,log}`. The user's real old manifest was copied into `startup-rejection/`; both original and copy remain byte-identical. The refreshed package passes file hashes and prints correct absolute packaged-launcher new/resume commands in `startup-package-rejection.log`. Its rendered fresh-launch/input/save/reload check passes under `startup-package-map/`. |
+| Requested boon/chest illustrations | All 103 boons have stored imported-atlas icon bindings. `boon-sprites.{trx,log}` passes 29 affected checks; `boon-catalog-tests-final.log` passes 38 catalog checks and `boon-catalog-check.log` verifies regeneration. `rendered-boon-sprites/` naturally reaches a paid chest, checks three illustrated choices at 1024×720 with normal/large text, claims one and reloads the same illustrated build. `rendered-owned-boon-sprites/` checks all 13 owned icons across five pages from an existing completed save, free font/paging changes and exact continuation. Choice/owned screens were inspected. Updated archive file hashes pass under `boon-package-checksums.log`; actual packaged illustrated paging/save checks are under `packaged-owned-boon-sprites/`. |
 
 The full seed-37 journey is **one continuously saved run across versioned clients and checkpoints**, rather than one uninterrupted invocation. Its chain is `packaged-journey` → `packaged-journey-continued` → `continued-hazard-routing` → `continued-real-input` → `packaged-final-journey` → `muted-final-journey` → `muted-regent-finish`. Each transfer used the latest ordinary saved slot, preserved its chunk snapshots and observed map, and checked handoff position, clock and complete player build. Driver-only navigation/input loops were corrected without editing game positions, damage, inventory or campaign saves. The last two package checks use the final shipped binary.
 
