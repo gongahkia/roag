@@ -226,6 +226,8 @@ public sealed partial class TacticalCombat
                     || _world.State.Inventory.GetValueOrDefault("medicine") < 1)
                     return Invalid("Stand beside a downed companion with one medicine.");
                 cost = Tuning.ReviveCost; cells = [target.Position]; break;
+            case TacticalAction.Recruit:
+                return PreviewRecruit(actor, intent.Target);
             case TacticalAction.BasicAttack:
             case TacticalAction.Special:
                 if (definition is null) return Invalid("Use an authored enemy intent.");
@@ -297,6 +299,8 @@ public sealed partial class TacticalCombat
                     State.Queue.CancelActor(target.Id, ScheduledKind.ActorReady);
                     ScheduleReady(target, Tuning.WaitCost);
                     Emit("Revived", actor.Id, target.Id, action, target.Position, target.Health); break;
+                case TacticalAction.Recruit:
+                    RecruitDungeonMember(actor, intent.Target, action); break;
                 case TacticalAction.BasicAttack:
                 case TacticalAction.Special:
                     CommitClassAttack(actor, executed, preview, action);

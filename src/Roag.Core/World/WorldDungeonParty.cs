@@ -1,4 +1,7 @@
 using Roag.Core.Expeditions;
+using Roag.Core.Content;
+using Roag.Core.Dungeons;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -26,4 +29,30 @@ public sealed partial class WorldSession
 
     private bool SelectedDungeonMemberReady => State.Tactics is { ActiveActor: > 0 } tactics
         && tactics.ControlledActor == tactics.ActiveActor;
+
+    private void PopulateDungeonRecruits(DungeonFloorState floor)
+    {
+        var room = floor.Rooms.Single(r => r.Role == "start");
+        int count = floor.Origin.Floor == 1 ? 3 : 1;
+        var occupied = new List<WorldPosition>();
+        var sites = Enumerable.Range(1, room.Width - 2)
+            .SelectMany(x => Enumerable.Range(1, room.Height - 2).Select(y => room.Origin.Offset(x, y)))
+            .Where(p => p != floor.Entry && p != floor.Exit && CanEnter(p) && ObjectAt(p) == null
+                && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
+                && EncounterDirections.Count(d => GroundOpen(p.Offset(d.X, d.Y))) >= 3)
+            .OrderBy(p => RoagRandom.Derive(DungeonSeed, $"recruit-cell:{floor.Origin.Floor}:{p.X},{p.Y}"));
+        foreach (var p in sites)
+        {
+            if (occupied.Any(other => p.Distance(other) < 2)) continue;
+            var actor = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, p, 0);
+            var kind = (ClassKind)(RoagRandom.Derive(DungeonSeed, "recruit-class:" + actor.Id) % Enum.GetValues<ClassKind>().Length);
+            actor.Job = "adventurer"; actor.CombatTrait = ""; actor.Equipment.Clear(); actor.Talents.Clear();
+            actor.Body.Hunger = actor.Body.Fatigue = 0; actor.Body.Wounds = 0;
+            actor.SpriteId = NativeAppearance.ForClass(kind);
+            State.Actors.Add(actor); State.Dungeon!.Recruits.Add(new(actor.Id, kind));
+            occupied.Add(p);
+            if (occupied.Count == count) return;
+        }
+        throw new InvalidDataException("The start room lacks clear ground for its adventurers.");
+    }
 }

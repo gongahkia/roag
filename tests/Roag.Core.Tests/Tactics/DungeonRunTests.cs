@@ -16,7 +16,7 @@ public sealed class DungeonRunTests
         // Seed 5 previously placed an unscheduled imported road raider inside
         // the first native floor; it blocked tiles and received native attacks.
         using var world = WorldSession.CreateDungeonRun(seed);
-        Assert.All(world.State.Actors, actor => Assert.NotNull(actor.Tactics));
+        Assert.All(world.State.Actors, actor => Assert.True(actor.Tactics != null || world.State.Dungeon!.Recruits.Any(r => r.Actor == actor.Id)));
         Assert.Empty(world.State.Loot);
         Assert.Empty(world.State.Discoveries);
         Assert.Empty(world.State.EncounterPopulations);
@@ -28,7 +28,7 @@ public sealed class DungeonRunTests
             Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
             world.Save(slot);
             using var loaded = WorldSession.Load(slot);
-            Assert.All(loaded.State.Actors, actor => Assert.NotNull(actor.Tactics));
+            Assert.All(loaded.State.Actors, actor => Assert.True(actor.Tactics != null || loaded.State.Dungeon!.Recruits.Any(r => r.Actor == actor.Id)));
             Assert.Empty(loaded.State.Loot);
             Assert.Equal(world.DungeonCombat.Clock, loaded.DungeonCombat.Clock);
             Assert.Equal(world.State.Position, loaded.State.Position);

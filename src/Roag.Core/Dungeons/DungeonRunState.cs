@@ -16,6 +16,8 @@ public sealed record DungeonFloorState(int Stage, string Biome, WorldPosition Or
         && p.Y >= Origin.Y && p.Y < Origin.Y + Height;
 }
 
+public sealed record DungeonRecruit(long Actor, ClassKind Class);
+
 /// <summary>Bounded expedition metadata. Chunks and persistent actors own terrain and combat state.</summary>
 public sealed class DungeonRunState
 {
@@ -27,6 +29,7 @@ public sealed class DungeonRunState
     public HashSet<long> PendingEliteRewards { get; set; } = [];
     public Dictionary<long, char> Terrain { get; set; } = [];
     public bool Victory { get; set; }
+    public List<DungeonRecruit> Recruits { get; set; } = [];
 
     public bool Contains(WorldPosition p)
     {
@@ -46,8 +49,19 @@ public sealed class DungeonRunState
         if (Stage is < 1 or > 4 || RouteHistory == null || RouteHistory.Count != Stage - 1 || Floors == null || Floors.Count != (Stage == 4 ? 7 : Stage * 2)
             || Floors.Any(f => f == null) || Floors.Select(f => f.Origin.Floor).Distinct().Count() != Floors.Count
             || Terrain == null || Terrain.Count > 100000 || BossExitReceipts == null || PendingEliteRewards == null
-            || world.Tactics is not { DrivesWorldClock: true } || world.Party.Count is < 1 or > 4 || world.RoagCombat || world.RoagCombatState.Length != 0)
+            || world.Tactics is not { DrivesWorldClock: true } || world.Party.Count < 1
+            || world.Party.Count(id => actors.TryGetValue(id, out var member) && member.Life != LifeState.Dead) > 4
+            || world.Party.Any(id => !actors.TryGetValue(id, out var member) || member.Tactics?.Build == null || !world.Tactics.Participants.Contains(id))
+            || world.RoagCombat || world.RoagCombatState.Length != 0)
             throw new InvalidDataException("Invalid native expedition state.");
+        if (Recruits == null || Recruits.Count > 8 || Recruits.Any(r => r == null)
+            || Recruits.Select(r => r.Actor).Distinct().Count() != Recruits.Count
+            || Recruits.Any(r => !Enum.IsDefined(r.Class) || !actors.TryGetValue(r.Actor, out var actor)
+                || actor.Kind != ActorKind.Person || !Contains(actor.Position)
+                || actor.Recruited != world.Party.Contains(actor.Id)
+                || (actor.Tactics != null) != actor.Recruited
+                || actor.Tactics?.Build is { } build && build.Class != r.Class))
+            throw new InvalidDataException("Invalid fixed-class dungeon recruit.");
         for (int i = 0; i < RouteHistory.Count; i++)
             if (!DungeonRoutes.ForStage(i + 1, RouteHistory.Take(i).ToArray()).Any(r => r.Id == RouteHistory[i]))
                 throw new InvalidDataException("Invalid selected biome route.");
