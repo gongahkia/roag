@@ -820,6 +820,36 @@ public sealed class WorldMouseTests
     }
 
     [Fact]
+    public void RemoteAbandonmentRequiresExplicitConfirmationAndDefaultsToKeepingTheCompanion()
+    {
+        using var session = WorldSession.CreateDungeonRun(37);
+        var hero = session.Party.Single();
+        var member = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        Roag.Core.Tests.Tactics.DungeonAbandonmentTests.Down(session, member);
+        var client = Client(session); Field("_roagAim").SetValue(client, "move");
+        var party = Controls(client, "dungeon-party");
+        Assert.Contains(party, c => c.Id == "dungeon:abandon:" + member.Id && c.Enabled);
+        Assert.Contains(party, c => c.Id == "dungeon:revive:" + member.Id && !c.Enabled);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:abandon-confirm");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:abandon:" + member.Id);
+        Assert.Equal("dungeon-abandon-confirm", Field("_panel").GetValue(client));
+        var confirmation = Controls(client, "dungeon-abandon-confirm");
+        Assert.Contains(confirmation, c => c.Id == "dungeon:abandon-confirm" && c.Enabled);
+        Assert.All(confirmation.Where(c => c.Id.StartsWith("dungeon:abandon-")), c => Assert.InRange(c.Bounds.Right, 0, 1024));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "HandleDungeonMenuKeyboard", new KeyboardState(Keys.Enter));
+        Assert.Equal("dungeon-party", Field("_panel").GetValue(client));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:abandon:" + member.Id);
+        Invoke(client, "ActivateDungeonControl", "dungeon:abandon-confirm");
+        Assert.Equal(LifeState.Dead, member.Life); Assert.Equal(100, session.DungeonCombat.Clock);
+        Assert.Equal(hero.Id, session.DungeonMember.Id); Assert.Equal("", Field("_panel").GetValue(client));
+        Assert.DoesNotContain(Controls(client, "dungeon-party"), c => c.Id == "dungeon:abandon:" + member.Id);
+    }
+
+    [Fact]
     public void DuplicateClassConstructInspectionNamesTheOwnerAndNeverLeaksAcrossPrivateFloors()
     {
         using var session = WorldSession.CreateDungeonRun(42, ClassKind.Tinkerer);

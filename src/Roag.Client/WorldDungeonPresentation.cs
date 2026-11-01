@@ -31,6 +31,7 @@ internal sealed partial class WorldGame
         {
             Add("dungeon:close", "Close", new(box.Right - 100, box.Top + 12, 80, 34));
             if (_panel == "dungeon-party") BuildDungeonPartyPanelControls(box);
+            else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
             else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
             else if (_panel == "dungeon-class")
@@ -162,6 +163,9 @@ internal sealed partial class WorldGame
             case "member": SelectDungeonMember(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "ready": SelectDungeonMember(_session.State.Tactics!.ActiveActor); break;
             case "revive": CommitRoag(new("revive", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
+            case "abandon": OpenDungeonAbandon(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); break;
+            case "abandon-cancel": _panel = "dungeon-party"; break;
+            case "abandon-confirm": ConfirmDungeonAbandon(); break;
             case "recruit": CommitRoag(new("recruit", Target: _nativeRecruit)); ClosePanel(); break;
             case "lead-selected": _notice = _session.ChooseDungeonLeader(_session.DungeonMember.Id).Message; break;
             case "regroup": _notice = _session.RegroupDungeonParty(_session.DungeonMember.Id).Message; break;
@@ -344,7 +348,7 @@ internal sealed partial class WorldGame
         y += 14;
         if (y + 44 < _side.Bottom) { Text("RECENT EVENTS", x, y, Gold); y += 22; }
         foreach (var e in combat.State.Events.Where(e => _session.Visible.Contains(e.Position)
-                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "Revived" or "Recruited" or "BleedOut" or "BleedShortened" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
+                     && e.Kind is "DamageTaken" or "Downed" or "Died" or "Abandoned" or "Revived" or "Recruited" or "BleedOut" or "BleedShortened" or "BoonGranted" or "CurrencyCollected" or "FloorChanged" or "GuardRaised" or "DoorOpened" or "SecretDiscovered" or "VaultOpened" or "VaultKeyCollected"
                      or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" or "EliteDefeated" or "Victory").TakeLast(4))
         {
             if (y + 20 >= _side.Bottom) break;
@@ -394,10 +398,12 @@ internal sealed partial class WorldGame
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
+        if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
+        if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-chest-recipient")
         {

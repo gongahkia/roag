@@ -7,6 +7,7 @@ namespace Roag.Client;
 internal sealed partial class WorldGame
 {
     private long _nativeRecruit;
+    private long _nativeAbandon, _nativeAbandonActor;
     private Actor[] DungeonRoster => _session.Party.Where(a => a.Life != LifeState.Dead).ToArray();
     private bool DungeonSelectionReady => _session.State.Tactics!.ActiveActor == _session.DungeonMember.Id;
 
@@ -48,8 +49,11 @@ internal sealed partial class WorldGame
                 sprite: member.Sprite, detail: $"HP {member.Health}/{member.MaxHealth} / F{member.Position.Floor} / {DungeonReadiness(member)} / {DungeonGroupLabel(member)}");
             if (member.Life != LifeState.Downed) continue;
             var preview = _session.DungeonCombat.Preview(new(TacticalAction.Revive, Target: member.Id));
-            AddDungeonPartyControl("dungeon:revive:" + member.Id, "Revive", new(box.Right - 184, y + 14, 156, 42),
+            AddDungeonPartyControl("dungeon:revive:" + member.Id, "Revive", new(box.Right - 184, y + 2, 156, 28),
                 DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
+            var abandon = _session.DungeonCombat.Preview(new(TacticalAction.Abandon, Target: member.Id));
+            AddDungeonPartyControl("dungeon:abandon:" + member.Id, "Abandon...", new(box.Right - 184, y + 34, 156, 28),
+                DungeonSelectionReady && abandon.Valid, reason: DungeonSelectionReady ? abandon.Reason : "Select the ready member first.");
         }
         int width = (box.Width - 72) / 4;
         AddDungeonPartyControl("dungeon:ready", "View ready", new(box.X + 24, box.Bottom - 62, width, 40),
@@ -59,6 +63,44 @@ internal sealed partial class WorldGame
         AddDungeonPartyControl("dungeon:regroup", "Regroup nearby", new(box.X + 40 + width * 2, box.Bottom - 62, width, 40),
             _session.DungeonMember.Life == LifeState.Alive);
         AddDungeonPartyControl("dungeon:split", "Split selected", new(box.X + 48 + width * 3, box.Bottom - 62, width, 40));
+    }
+
+    private void BuildDungeonAbandonControls(Rectangle box)
+    {
+        var preview = _session.DungeonCombat.Preview(new(TacticalAction.Abandon, Target: _nativeAbandon));
+        AddDungeonPartyControl("dungeon:abandon-cancel", "Keep this companion", new(box.X + 28, box.Y + 294, 300, 42));
+        AddDungeonPartyControl("dungeon:abandon-confirm", "Abandon permanently", new(box.X + 348, box.Y + 294, 300, 42),
+            DungeonSelectionReady && _session.DungeonMember.Id == _nativeAbandonActor && preview.Valid,
+            reason: !DungeonSelectionReady || _session.DungeonMember.Id != _nativeAbandonActor
+                ? "The original ready member must confirm this action." : preview.Reason);
+    }
+
+    private void OpenDungeonAbandon(long memberId)
+    {
+        var preview = _session.DungeonCombat.Preview(new(TacticalAction.Abandon, Target: memberId));
+        if (!DungeonSelectionReady || !preview.Valid)
+        { _notice = DungeonSelectionReady ? preview.Reason : "Select the ready member first."; return; }
+        _nativeAbandon = memberId; _nativeAbandonActor = _session.DungeonMember.Id;
+        _panel = "dungeon-abandon-confirm";
+    }
+
+    private void ConfirmDungeonAbandon()
+    {
+        if (_panel != "dungeon-abandon-confirm" || !DungeonSelectionReady || _session.DungeonMember.Id != _nativeAbandonActor) return;
+        var preview = _session.DungeonCombat.Preview(new(TacticalAction.Abandon, Target: _nativeAbandon));
+        if (!preview.Valid) { _notice = preview.Reason; return; }
+        CommitRoag(new("abandon", Target: _nativeAbandon)); ClosePanel();
+    }
+
+    private void DrawDungeonAbandonPanel(Rectangle box, int x, int y)
+    {
+        var member = _session.ActorById(_nativeAbandon);
+        _sprites.Fit(_batch, member.Sprite, new(x, y, 72, 72), new Color(240, 112, 78));
+        Text(member.Name, x + 92, y + 4, Gold);
+        Text(ClassCatalog.Get(member.Tactics!.Build!.Class).Name + " / floor " + member.Position.Floor, x + 92, y + 30);
+        Wrap("This companion will die permanently. Their assigned boons remain with them. This cannot be undone in the continuing run.", x, y + 92, box.Width - 48, Muted);
+        Wrap(_session.ActorById(_nativeAbandonActor).Name + " spends one action to abandon them. No medicine or gold is spent; distance does not restrict this action.",
+            x, y + 148, box.Width - 48, Muted);
     }
 
     private void BuildDungeonRecruitControls(Rectangle box)
