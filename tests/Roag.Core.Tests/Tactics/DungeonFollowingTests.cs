@@ -9,11 +9,12 @@ public sealed class DungeonFollowingTests
 {
     private sealed class Group : IDisposable
     {
-        public WorldSession World { get; } = WorldSession.CreateDungeonRun(42);
+        public WorldSession World { get; }
         public Actor[] Members { get; }
         public WorldPosition Origin { get; }
-        public Group()
+        public Group(ClassKind leaderKind = ClassKind.Adventurer, ClassKind followerKind = ClassKind.Adventurer)
         {
+            World = WorldSession.CreateDungeonRun(42, leaderKind);
             var floor = World.State.Dungeon!.Floors[0];
             var lowerFloor = World.State.Dungeon.Floors[1];
             Origin = (from x in Enumerable.Range(1, floor.Width - 14) from y in Enumerable.Range(1, floor.Height - 10)
@@ -32,13 +33,34 @@ public sealed class DungeonFollowingTests
                 World.State.Dungeon.Terrain.Remove(Roag.Core.Dungeons.DungeonRunState.CellKey(p));
             }
             var hero = World.Party.Single();
-            Members = [hero, DungeonPartyTests.AddMember(World, ClassKind.Adventurer, 1),
-                DungeonPartyTests.AddMember(World, ClassKind.Adventurer, 1), DungeonPartyTests.AddMember(World, ClassKind.Adventurer, 1)];
+            Members = [hero, DungeonPartyTests.AddMember(World, followerKind, 1),
+                DungeonPartyTests.AddMember(World, followerKind, 1), DungeonPartyTests.AddMember(World, followerKind, 1)];
             for (int i = 0; i < Members.Length; i++) Members[i].Position = Origin.Offset(5 - i, 4);
             Assert.True(World.SelectDungeonMember(hero.Id).Success);
             Assert.True(World.RegroupDungeonParty(hero.Id).Success);
         }
         public void Dispose() => World.Dispose();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FasterFollowersClearTheFrontOfASlowerLeaderOnTheirOwnPaidTurns(bool farAhead)
+    {
+        using var group = new Group(ClassKind.Tinkerer, ClassKind.Ranger); var world = group.World;
+        var leader = group.Members[0];
+        group.Members[1].Position = group.Origin.Offset(farAhead ? 8 : 6, farAhead ? 2 : 4);
+        group.Members[2].Position = group.Origin.Offset(farAhead ? 7 : 5, 2);
+        group.Members[3].Position = group.Origin.Offset(4, 4);
+        Assert.True(world.SubmitDungeon(new(TacticalAction.Move, Facing.North)).Success);
+        Assert.Equal(group.Origin.Offset(5, 3), leader.Position);
+        if (farAhead) Assert.Contains(world.State.Tactics!.Events, e => e.Kind == "Moved" && e.Source == group.Members[1].Id);
+        Assert.DoesNotContain(group.Members.Skip(1), a => a.Position == leader.Position.Offset(0, -1));
+        Assert.True(world.SubmitDungeon(new(TacticalAction.Move, Facing.North)).Success);
+        Assert.Equal(group.Origin.Offset(5, 2), leader.Position);
+        Assert.Equal(4, group.Members.Select(a => a.Position).Distinct().Count());
+        Assert.Contains(world.State.Tactics!.Timeline.Pending, e => e.ActorId == group.Members[2].Id && e.Kind == ScheduledKind.ActorReady);
+        TacticalValidation.Validate(world.Plan, world.State);
     }
 
     [Fact]
