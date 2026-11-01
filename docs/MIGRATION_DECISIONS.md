@@ -2,7 +2,16 @@
 
 Consolidated from the migration discussion on 2026-10-26. The subsequent active implementation goal explicitly authorizes resuming gameplay work and supersedes the earlier pause. This document records approved direction and acceptance requirements; implementation evidence belongs in [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md).
 
-## Current delivery scope — 2026-11-01 party tranche
+## Current delivery scope — remaining migration, Tranches A and B (2026-11-01)
+
+The user has explicitly activated the goal in the attached `goal-objective.md`: complete remaining items **9–20**, including the unfinished portions of 10, in two dependency-ordered tranches. This supersedes the delivered party playtest stop for this scope. Continue existing implementation; verify A, then continue directly to B without another milestone approval. Stop only after both are complete for the user's playtest.
+
+- **A — World/expedition integration (9–16):** equipment/cooperation; NPC rescue and corpse gear; survival/food/auto-eating; camping/watch/alarms/interrupted sustained activities; excavation/building/crafting/gathering/work; society/relationships/trade/economy; calendar/weather/seasons/ecology; continuous physical outdoors/underground complexes and split-party scheduling across their boundaries. Restore food/Road Flask/Ration Reserve with approved Overflow Chalice behavior.
+- **B — Campaign completion (17–20):** deliberately activated special-site deadlines/pursuers/lethal or nonlethal persistent aftermath; all four approved new bosses and final-role variations; open campaign/final-boss generation/early access/victory continuation; permanent achievements/unlocks; complete preservation, exact saves, regression, actual rendered journeys and reproducible Linux delivery.
+
+Maintain solo/four-member play and the delivered native combat, builds, resources, ownership, private sight, shared timeline, title, clean HUD, sprites and feedback. Regular atomic commits and muted gameplay tests remain required. Windows, full original authoring-tool parity, politics/disasters/titans remain excluded. No approval is required between A and B. All eight applicable full-game acceptance gates require actual evidence before final completion; previous bounded-tranche acceptance does not close them. The original references and detailed approved mechanics below remain authoritative.
+
+## Completed delivery scope — 2026-11-01 party tranche
 
 The active user goal authorizes **items 7–8 and player-controlled combat rescue from item 10**, superseding the completed solo tranche's pause for this scope only. Implement four fixed-class members recruited from an initial solo start, direct selection/readiness/resources/targeting UI, shared supplies and contribution XP, recipient-first permanently assigned boon offers, split-floor movement and sight, paid following/regrouping, player rescue and exact continuing saves. Preserve the bounded dungeon, title, artwork, effects and clean HUD. Do not restore the instruction strips or bottom action grid.
 
