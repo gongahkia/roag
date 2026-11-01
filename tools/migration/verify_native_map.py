@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify the rendered native minimap, original keys and free inspection.
 
-Run under xvfb-run with SDL_AUDIODRIVER=dummy and LIBGL_ALWAYS_SOFTWARE=1.
+Run under xvfb-run with LIBGL_ALWAYS_SOFTWARE=1; the shared Client mutes audio.
 This focused checkpoint never injects game state and is not full-run acceptance.
 """
 import argparse

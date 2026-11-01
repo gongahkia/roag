@@ -2,8 +2,9 @@
 """Exercise native rendered controls using real mouse states and X11 key presses.
 
 Run after building the client:
-  SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a \
+  LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a \
     python3 tools/migration/verify_native_client.py artifacts/migration/verification/native-client/interactive
+OpenAL null/SDL dummy keep initial and resumed test clients muted.
 This is a focused rendered checkpoint, not full-tranche end-to-end acceptance.
 """
 import json
@@ -24,9 +25,10 @@ control.mkdir()
 slot = control / 'campaign.json'
 dll = ROOT / 'src/Roag.Client/bin/Debug/net10.0/Roag.Client.dll'
 log = (output / 'client.log').open('wb')
+environment = {**os.environ, 'ALSOFT_DRIVERS': 'null', 'SDL_AUDIODRIVER': 'dummy'}
 process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(dll), '--new', '--seed', '42',
     '--save', str(slot), '--playtest-control', str(control), '--window-size', '1024x720', '--no-recording'],
-    cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
 
 def until(check, seconds=30):
     deadline = time.monotonic() + seconds
@@ -135,7 +137,7 @@ try:
     log = (output / 'resume-client.log').open('wb')
     process = subprocess.Popen([str(ROOT / 'tools/dotnet.sh'), str(dll), '--load', '--save', str(slot),
         '--playtest-control', str(control), '--window-size', '1024x720', '--no-recording'],
-        cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
     resumed = until(lambda: read('observation.json'))['ui']
     assert resumed['nativeDungeon']['clock'] == clock
     assert resumed['position'] == moved['position']
