@@ -15,9 +15,19 @@ public sealed partial class WorldSession
             var existing = State.Work.FirstOrDefault(w => w.Id == command.WorkId);
             if (existing == null || existing.Worker != 0 && !State.Party.Contains(existing.Worker) || State.Work.Any(w => w.Id != existing.Id && w.Worker == worker.Id))
                 return "Choose unfinished party work and a member without another order.";
+            if (!CampWorkerEligible(existing, worker)) return "This member has already shared a story; let two game hours pass.";
             return "";
         }
         if (State.Work.Any(w => w.Worker == worker.Id)) return "Finish or cancel this member's existing order first.";
+        if (command.Kind == WorldCommandKind.CampActivity)
+        {
+            if (!VisionFrom(worker.Position).Contains(command.Target)) return "Choose a camp in this member's current sight.";
+            if (Content.Entries.GetValueOrDefault(command.Item) is Content.CampDefinition { Role: "cook" }
+                && State.Tactics!.PreparedMeals.GetValueOrDefault(command.Item)
+                    + State.Work.Count(w => w.Kind == WorkKind.Camp && w.Definition == command.Item) * 4 > 996)
+                return "Eat some prepared servings before cooking more of this meal.";
+            return CampActivityReason(command.Target, command.Item, worker.Id);
+        }
         if (command.Kind is WorldCommandKind.Dig or WorldCommandKind.Build or WorldCommandKind.Repair or WorldCommandKind.Harvest)
         {
             if (!VisionFrom(worker.Position).Contains(command.Target)) return "Choose terrain in this member's current sight.";
@@ -58,6 +68,7 @@ public sealed partial class WorldSession
             WorldCommandKind.Repair => QueueRepair(command.Target, designated: true),
             WorldCommandKind.Harvest => QueueHarvest(command.Target, designated: true),
             WorldCommandKind.Craft => QueueCraft(command.Item),
+            WorldCommandKind.CampActivity => QueueCampActivity(command.Target, command.Item, worker.Id),
             WorldCommandKind.Forage => QueueWork(new() { Kind = WorkKind.Forage, Target = worker.Position, Before = Chunks.At(worker.Position),
                 After = Chunks.At(worker.Position), Required = Simulation.ForageWork, Yield = new() { ["food"] = 2 } }),
             _ => new ActionResult(false, "Unsupported native work.")
@@ -81,6 +92,9 @@ public sealed partial class WorldSession
         if (worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
         { order.Status = "Worker needs food, rest or treatment"; return null; }
         var sight = VisionFrom(worker.Position);
+        if (order.Kind == WorkKind.Camp && (!CampWorkerEligible(order, worker)
+            || order.Station is { } camp && sight.Contains(camp) && !ServiceableCamp(camp)))
+        { CancelWork(id, deliberate: false); return null; }
         bool observedSupplyChange = order.Supplies?.Any(s => s.Phase == SupplyPhase.Waiting && s.Storage is { } p && sight.Contains(p) && Chunks.At(p) != Material.Storage) == true;
         if (order.Output == null && (observedSupplyChange || sight.Contains(order.Target) && (Chunks.At(order.Target) != order.Before
             || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition)
@@ -113,7 +127,7 @@ public sealed partial class WorldSession
         return new(step.Action, step.Facing);
     }
 
-    internal bool PerformNativeWork(Actor worker, long id, long recovery)
+    internal bool PerformNativeWork(Actor worker, long id, long recovery, TacticalCombat combat, long action)
     {
         var order = State.Work.Single(w => w.Id == id);
         if (order.Output != null) { AdvanceWorkOutput(order, worker); return State.Work.Contains(order); }
@@ -121,7 +135,7 @@ public sealed partial class WorldSession
         if (order.Kind == WorkKind.Forage && (worker.Body.ForageAfter > State.Tick || WildFoodUnavailable(order.Target).Length > 0)) return false;
         if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp)
             && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target)) return false;
-        PerformWork(order, worker, WorkRate(worker) * WorkMultiplier(worker, order) * recovery / State.Tactics!.Tuning.UnitsPerWorldTick);
+        PerformWork(order, worker, WorkRate(worker) * WorkMultiplier(worker, order) * recovery / State.Tactics!.Tuning.UnitsPerWorldTick, combat, action);
         return State.Work.Contains(order);
     }
 

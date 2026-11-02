@@ -13,6 +13,8 @@ Maintain solo/four-member play and the delivered native combat, builds, resource
 
 Equipment timing decision (2026-11-01): equipping and unequipping each cost **one paid action both inside and outside local combat**. Browsing and comparisons are free. The acting ready member changes their own gear; unequipped gear remains globally shared. Calculate recovery using the member's speed before the change, preserving already scheduled recovery/work for everyone.
 
+Camp cooking decision (2026-11-02): cooking creates **shared prepared servings**. Each member spends their own paid Eat action to restore hunger and receive the original meal's timed buff. Completing cooking does not remotely feed or buff companions. Keep the original recipes, work and ingredient costs; serving yield is delegated numerical tuning. Prepared servings join globally shared supplies. Watch preparation retains its initiative benefit, while Guard follows the approved deliberate paid facing action rather than the imported automatic guard.
+
 ## Completed delivery scope — 2026-11-01 party tranche
 
 The active user goal authorizes **items 7–8 and player-controlled combat rescue from item 10**, superseding the completed solo tranche's pause for this scope only. Implement four fixed-class members recruited from an initial solo start, direct selection/readiness/resources/targeting UI, shared supplies and contribution XP, recipient-first permanently assigned boon offers, split-floor movement and sight, paid following/regrouping, player rescue and exact continuing saves. Preserve the bounded dungeon, title, artwork, effects and clean HUD. Do not restore the instruction strips or bottom action grid.

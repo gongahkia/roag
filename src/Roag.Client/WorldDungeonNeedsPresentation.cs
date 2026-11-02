@@ -10,7 +10,7 @@ internal sealed partial class WorldGame
     {
         var member = _session.DungeonMember;
         int width = (box.Width - 72) / 2, right = box.X + 48 + width;
-        var eating = _session.DungeonCombat.Preview(new(TacticalAction.Eat));
+        var eating = _session.DungeonCombat.Preview(new(TacticalAction.Eat, Item: "food"));
         var medicine = _session.DungeonCombat.Preview(new(TacticalAction.UseMedicine));
         AddDungeonPartyControl("dungeon:eat", "Eat / one provision", new(box.X + 24, box.Y + 236, width, 64),
             DungeonSelectionReady && eating.Valid, reason: DungeonSelectionReady ? eating.Reason : "Select the ready member first.",
@@ -23,6 +23,7 @@ internal sealed partial class WorldGame
         AddDungeonPartyControl("dungeon:auto-eat-combat", "Auto-eat during combat: " + (member.Tactics.AutoEatInCombat ? "On" : "Off"),
             new(box.X + 24, box.Y + 378, width, 44));
         AddDungeonPartyControl("dungeon:camp", "Rest / watch", new(box.X + 24, box.Bottom - 94, width, 44));
+        AddDungeonPartyControl("dungeon:work-meals", "Prepared meals / choose serving", new(right, box.Bottom - 94, width, 44), sprite: "ration");
         var others = DungeonRoster.Where(a => a.Id != member.Id).ToArray();
         for (int i = 0; i < others.Length; i++)
         {
@@ -41,7 +42,7 @@ internal sealed partial class WorldGame
         Text(member.Name + " / " + DungeonReadiness(member), x, y, Gold); y += 32;
         Text($"Hunger {member.Body.Hunger:0.00}/100 / 0 is fed; 100 is empty", x, y); y += 26;
         Text($"Fatigue {member.Body.Fatigue:0.00}/100 / wounds {member.Body.Wounds}/10", x, y); y += 26;
-        Text($"Shared provisions {_session.Count("food")} / medicine {_session.Count("medicine")}", x, y, Gold); y += 28;
+        Text($"Shared provisions {_session.Count("food")} / prepared servings {_session.State.Tactics!.PreparedMeals.Values.Sum()} / medicine {_session.Count("medicine")}", x, y, Gold); y += 28;
         Wrap($"Food restores {_session.Simulation.MealReduction} hunger. Well-fed members gradually recover HP; starvation can kill. Automatic meals spend this member's own scheduled turns at {_session.Simulation.MealAt} hunger or above.", x, y, box.Width - 48, Muted);
         Text("Policy changes and inspection are free; eating and medicine spend actions.", x, box.Bottom - 28, Muted);
     }

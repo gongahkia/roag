@@ -53,7 +53,8 @@ public sealed partial class TacticalCombat
         ?? throw new InvalidDataException("Tactical actor is missing from the world.");
     private bool Friendly(Actor actor) => _world.State.Party.Contains(actor.Id);
     private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
-        : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0));
+        : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0) + _world.PreparationPower(actor, "watch"));
+    private int EffectiveArmor(Actor actor) => checked(actor.Armor + _world.PreparationPower(actor, "armor"));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
         && (_world.State.Dungeon == null || _world.State.Dungeon.Contains(p))
         && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true, Kind: not "dungeon-vault" };
@@ -218,7 +219,7 @@ public sealed partial class TacticalCombat
             case TacticalAction.ContinueActivity:
                 return PreviewActivity(actor, intent);
             case TacticalAction.Eat:
-                return PreviewEating(actor);
+                return PreviewEating(actor, intent.Item);
             case TacticalAction.UseMedicine:
                 return PreviewMedicine(actor, intent.Target);
             case TacticalAction.Equip:
@@ -313,7 +314,7 @@ public sealed partial class TacticalCombat
                 case TacticalAction.ContinueActivity:
                     ContinueActivity(actor, preview.Recovery, action); break;
                 case TacticalAction.Eat:
-                    Eat(actor, action); break;
+                    Eat(actor, action, executed.Item); break;
                 case TacticalAction.UseMedicine:
                     UseMedicine(actor, intent.Target, action); break;
                 case TacticalAction.Equip:
@@ -541,7 +542,7 @@ public sealed partial class TacticalCombat
             var target = _world.State.Actors.FirstOrDefault(a => (a.Id != attack.Source || attack.HitsOwner) && a.Position == cell && a.Life != LifeState.Dead);
             if (target is null || !hitIds.Add(target.Id)) continue;
             bool skull = attack.FateFace == 7 && RegularBoonTarget(target);
-            int attempted = skull ? Math.Max(attack.Damage, checked(target.Health + target.Armor)) : attack.Damage;
+            int attempted = skull ? Math.Max(attack.Damage, checked(target.Health + EffectiveArmor(target))) : attack.Damage;
             if (direct && source?.Tactics?.Boons is { ReversalTarget: { } reversed } boons && reversed == target.Id)
             {
                 int bonus = checked((int)boons.Inventory.Magnitude("core:boon/ring_of_reversal").Power);
@@ -550,7 +551,7 @@ public sealed partial class TacticalCombat
             }
             bool invulnerable = target.Tactics?.Invulnerable == true;
             var protection = SquadProtection(target, source, direct);
-            int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - target.Armor);
+            int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - EffectiveArmor(target));
             int prevented = ClassProtection(target, source, attack, afterDefense);
             if (Guards(target, attack)) prevented += (int)((long)(afterDefense - prevented) * Tuning.GuardReductionPercent / 100);
             if (target.Tactics?.Supplies is { } supply && (supply.WardActions > 0 || supply.WardThroughRecovery) && afterDefense > prevented)

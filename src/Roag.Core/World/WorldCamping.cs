@@ -34,9 +34,10 @@ public sealed partial class WorldSession
     private WorldPosition? CampWorkCell(WorldPosition camp, long workerId)
     {
         var origin = State.Actors.FirstOrDefault(a => a.Id == workerId)?.Position ?? State.Position;
+        var sight = UsesTacticalTurns(workerId) ? VisionFrom(origin) : null;
         return (from y in Enumerable.Range(-2, 5) from x in Enumerable.Range(-2, 5)
             let p = camp.Offset(x, y)
-            where Math.Abs(x) + Math.Abs(y) is >= 1 and <= 2 && Chunks.Seen(p) && GroundOpen(p)
+            where Math.Abs(x) + Math.Abs(y) is >= 1 and <= 2 && Chunks.Seen(p) && (sight == null || sight.Contains(p)) && GroundOpen(p)
                 && !State.Work.Any(w => w.Target == p) && OccupantAt(p) is not { Recruited: false }
             orderby p.Distance(origin), p.Y, p.X select (WorldPosition?)p).FirstOrDefault();
     }
@@ -52,15 +53,27 @@ public sealed partial class WorldSession
     }
     private bool CampWorkerEligible(WorkOrder order, Actor actor) => order.Kind != WorkKind.Camp
         || Content.Get<CampDefinition>(order.Definition).Role != "stories" || !actor.Memories.Any(m => m.Key == "camp-story" && m.Until > State.Tick);
-    private void CompleteCampActivity(WorkOrder order, Actor worker)
+    private void CompleteCampActivity(WorkOrder order, Actor worker, Tactics.TacticalCombat? native = null, long action = 0)
     {
         var definition = Content.Get<CampDefinition>(order.Definition); var camp = order.Station!.Value;
-        var companions = Party.Where(a => a.Life == LifeState.Alive && a.Position.Distance(camp) <= 6).ToArray();
-        if (definition.Role == "stories") { ShareCampStory(worker, camp, definition); return; }
+        var companions = Party.Where(a => a.Life == LifeState.Alive && a.Position.Distance(camp) <= 6
+            && (native == null || native.CanReachCampCompanion(camp, a.Position))).ToArray();
+        if (definition.Role == "stories") { ShareCampStory(worker, camp, definition, companions); return; }
+        if (native != null && definition.Role == "cook")
+        {
+            int servings = Math.Clamp(companions.Length, 1, 4);
+            State.Tactics!.PreparedMeals[definition.Id] = State.Tactics.PreparedMeals.GetValueOrDefault(definition.Id) + servings;
+            Log(worker.Name + ": " + servings + " shared serving(s) of " + definition.Name + " ready. Eat individually to receive the meal's benefit.");
+            return;
+        }
         foreach (var actor in companions)
         {
             if (definition.Role == "treat")
-            { actor.Health = Math.Min(actor.MaxHealth, actor.Health + definition.Power * 6); actor.Body.Wounds = Math.Max(0, actor.Body.Wounds - definition.Power); }
+            {
+                if (native != null) native.HealCampCompanion(worker, actor, definition.Power * 6, action, definition.Id);
+                else actor.Health = Math.Min(actor.MaxHealth, actor.Health + definition.Power * 6);
+                actor.Body.Wounds = Math.Max(0, actor.Body.Wounds - definition.Power);
+            }
             else
             {
                 actor.Preparations.RemoveAll(p => p.Effect == definition.Effect || p.Until <= State.Tick);
@@ -69,9 +82,10 @@ public sealed partial class WorldSession
             }
             Remember(actor, "camp-" + definition.Role, worker.Name + " prepared " + definition.Name + " for us.", 3, actor.Id == worker.Id ? 0 : worker.Id);
         }
-        Log(worker.Name + ": " + definition.Name + " ready for " + companions.Length + " nearby companion(s). " + definition.Description);
+        string description = native != null && definition.Role == "watch" ? "+2 speed for three game hours. Guard costs its own facing action." : definition.Description;
+        Log(worker.Name + ": " + definition.Name + " ready for " + companions.Length + " nearby companion(s). " + description);
     }
-    private void ShareCampStory(Actor speaker, WorldPosition camp, CampDefinition definition)
+    private void ShareCampStory(Actor speaker, WorldPosition camp, CampDefinition definition, Actor[] companions)
     {
         if (speaker.Memories.Any(m => m.Key == "camp-story" && m.Until > State.Tick)) return;
         var memory = speaker.Memories.Where(m => m.Key is "fallen-friend" or "finished-work" or "hungry" or "helped-party").OrderByDescending(m => m.Tick).FirstOrDefault();
@@ -88,7 +102,7 @@ public sealed partial class WorldSession
         Remember(speaker, "camp-story", text, 4);
         var recorded = speaker.Memories.FindIndex(m => m.Key == "camp-story");
         if (recorded >= 0) speaker.Memories[recorded] = speaker.Memories[recorded] with { Until = State.Tick + definition.Duration };
-        foreach (var other in Party.Where(a => a.Id != speaker.Id && a.Life == LifeState.Alive && a.Position.Distance(camp) <= 6)) ChangeTrust(speaker, other, 2);
+        foreach (var other in companions.Where(a => a.Id != speaker.Id)) ChangeTrust(speaker, other, 2);
         State.LastCampStory = new(speaker.Id, text, State.Tick, camp); Log(speaker.Name + ": " + text);
     }
 }

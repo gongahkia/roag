@@ -11,6 +11,23 @@ internal sealed partial class WorldGame
     private string _nativeWorkView = "actions";
     private int _nativeWorkPage;
 
+    private WorldPosition NativeDutyCamp()
+    {
+        var member = _session.DungeonMember;
+        return _session.ServiceableCamp(_nativeWorkTarget) ? _nativeWorkTarget : _session.Visible
+            .Where(p => p.Distance(member.Position) <= 4 && _session.ServiceableCamp(p)).OrderBy(p => p.Distance(member.Position))
+            .ThenBy(p => p.Y).ThenBy(p => p.X).Select(p => (WorldPosition?)p).FirstOrDefault() ?? _nativeWorkTarget;
+    }
+
+    private static string NativeMealBenefit(CampDefinition meal) => meal.Effect switch
+    {
+        "burn-resist" => "Burn damage -" + meal.Power,
+        "bleed-resist" => "Bleed damage -" + meal.Power,
+        "armor" => "Armor +" + meal.Power,
+        "focus" => "Dread stress -" + meal.Power * 3,
+        _ => meal.Name
+    };
+
     private void OpenDungeonWork(WorldPosition? target = null)
     {
         var actor = _session.DungeonMember;
@@ -49,6 +66,37 @@ internal sealed partial class WorldGame
             AddDungeonPartyControl("dungeon:work-view:build", "Construction recipes", Card(4), sprite: "ruin-wall");
             AddDungeonPartyControl("dungeon:work-view:craft", "Crafting recipes / camp", Card(5), sprite: "anvil");
             AddDungeonPartyControl("dungeon:work-view:orders", "Assigned work / progress", Card(6), sprite: "book");
+            AddDungeonPartyControl("dungeon:work-view:camp", "Camp duties / prepared meals", Card(7), sprite: "campfire");
+        }
+        else if (_nativeWorkView == "camp")
+        {
+            var camp = NativeDutyCamp();
+            for (int i = 0; i < _session.Content.Game.CampActivities.Length; i++)
+            {
+                var duty = _session.Content.Get<CampDefinition>(_session.Content.Game.CampActivities[i]);
+                string cost = string.Join(" / ", duty.Cost.Select(p => p.Value + " " + _session.Content.Get<ItemDefinition>(p.Key).Name));
+                string benefit = duty.Role switch
+                {
+                    "cook" => "Shared servings / eat individually",
+                    "watch" => "+2 speed / alerts while preparing",
+                    "treat" => "12 HP / removes 2 wounds nearby",
+                    _ => "Share memories / reveal a site"
+                };
+                AddNativeWorkChoice("dungeon:work-duty:" + i, duty.Name, Card(i),
+                    new(WorldCommandKind.CampActivity, camp, Item: duty.Id), duty.Sprite, benefit + (cost == "" ? "" : " / " + cost));
+            }
+            AddDungeonPartyControl("dungeon:work-view:meals", "Shared prepared servings", Card(7), sprite: "ration");
+        }
+        else if (_nativeWorkView == "meals")
+        {
+            var meals = _session.Content.Game.CampActivities.Select(_session.Content.Get<CampDefinition>).Where(d => d.Role == "cook").ToArray();
+            for (int i = 0; i < meals.Length; i++)
+            {
+                var meal = meals[i]; var preview = _session.DungeonCombat.Preview(new(TacticalAction.Eat, Item: meal.Id));
+                AddDungeonPartyControl("dungeon:work-eat:" + meal.Id, meal.Name + " / " + _session.State.Tactics!.PreparedMeals.GetValueOrDefault(meal.Id), Card(i),
+                    DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.",
+                    sprite: meal.Sprite, detail: $"One paid Eat / {NativeMealBenefit(meal)} / {meal.Duration / WorldSession.TicksPerHour}h");
+            }
         }
         else if (_nativeWorkView is "build" or "craft")
         {
@@ -94,12 +142,16 @@ internal sealed partial class WorldGame
         var member = _session.DungeonMember;
         Text(member.Name + " / " + DungeonReadiness(member), x, y, Gold); y += 30;
         string location = _nativeWorkView == "craft" ? "Equipment crafting requires an adjacent constructed camp."
+            : _nativeWorkView == "camp" ? "Choose a serviceable camp in this member's sight, within four tiles. Each member can perform a different duty."
+            : _nativeWorkView == "meals" ? "Shared servings restore hunger and give their timed buff only to the member spending an Eat action."
             : _nativeWorkView == "orders" ? "Resuming or taking over costs one action. Cancelling returns unspent supplies."
             : $"Target {_nativeWorkTarget.X}, {_nativeWorkTarget.Y}, floor {_nativeWorkTarget.Floor} / {WorldInspection.Inspect(_session, _nativeWorkTarget).Title}";
         Wrap(location, x, y, box.Width - 48, Muted);
         if (_nativeWorkView == "orders" && !_session.State.Work.Any(w => _session.State.Party.Contains(w.Worker)))
             Text("No unfinished party work.", x, box.Y + 190, Muted);
-        Wrap("Workers spend their own turns walking and working. Danger or an alarm can interrupt them. Close this page to continue; open a menu to inspect or cancel freely.", x, box.Bottom - 92, box.Width - 48, Muted);
+        Wrap(_nativeWorkView == "meals"
+            ? "Automatic eating uses provisions first, then broth, eggs, tea and stew when available. Your individual eating and combat policies still apply. Browsing is free."
+            : "Workers spend their own turns walking and working. Danger or an alarm can interrupt them. Close this page to continue; open a menu to inspect or cancel freely.", x, box.Bottom - 92, box.Width - 48, Muted);
     }
 
     private void CommitDungeonWork(WorldCommand command)
@@ -114,12 +166,20 @@ internal sealed partial class WorldGame
         switch (parts[1])
         {
             case "work": OpenDungeonWork(); break;
+            case "work-meals": OpenDungeonWork(); _nativeWorkView = "meals"; break;
             case "work-target":
                 var (dx, dy) = AttackGeometry.Offset(Enum.Parse<Facing>(parts[2]));
                 _nativeWorkTarget = _session.DungeonMember.Position.Offset(dx, dy); break;
             case "work-view": _nativeWorkView = parts[2]; _nativeWorkPage = 0; break;
             case "work-page": _nativeWorkPage += int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture); break;
             case "work-action": CommitDungeonWork(new(Enum.Parse<WorldCommandKind>(parts[2]), _nativeWorkTarget)); break;
+            case "work-duty":
+                var duty = _session.Content.Get<CampDefinition>(_session.Content.Game.CampActivities[int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)]);
+                CommitDungeonWork(new(WorldCommandKind.CampActivity, NativeDutyCamp(), Item: duty.Id)); break;
+            case "work-eat":
+                var result = _session.SubmitDungeon(new(TacticalAction.Eat, Item: parts[2])); _notice = result.Message;
+                if (result.Success) { CollectDungeonFeedback(); ClosePanel(); }
+                break;
             case "work-recipe":
                 var recipe = _session.Content.Get<RecipeDefinition>(_session.Content.Game.Recipes[int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)]);
                 CommitDungeonWork(recipe.Output == null ? new(WorldCommandKind.Build, _nativeWorkTarget, Material: recipe.Material) : new(WorldCommandKind.Craft, Item: recipe.Id)); break;

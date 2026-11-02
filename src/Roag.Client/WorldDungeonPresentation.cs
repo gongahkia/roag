@@ -188,7 +188,9 @@ internal sealed partial class WorldGame
             case "activity": CommitRoag(new(parts[2], Choice: int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
             case "activity-cancel": _notice = _session.CancelDungeonActivity(_session.DungeonMember.Id).Message; break;
             case "needs": _panel = "dungeon-needs"; break;
-            case "eat": CommitRoag(new("eat")); ClosePanel(); break;
+            case "eat":
+                _notice = _session.SubmitDungeon(new(TacticalAction.Eat, Item: "food")).Message;
+                CollectDungeonFeedback(); ClosePanel(); break;
             case "medicine": CommitRoag(new("use_medicine", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
             case "auto-eat": ToggleDungeonEating(combat: false); break;
             case "auto-eat-combat": ToggleDungeonEating(combat: true); break;

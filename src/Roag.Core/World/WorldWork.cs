@@ -125,7 +125,7 @@ public sealed partial class WorldSession
         ReturnIdleParty();
         foreach (var structure in State.Structures) structure.Condition = Math.Max(0, structure.Condition - Simulation.StructureWearPerTick);
     }
-    private void PerformWork(WorkOrder order, Actor worker, double amount)
+    private void PerformWork(WorkOrder order, Actor worker, double amount, Tactics.TacticalCombat? native = null, long action = 0)
     {
         if (order.Kind is WorkKind.Harvest or WorkKind.Dig) DisturbWildlife(order.Target);
         order.Status = "Working: " + worker.Name;
@@ -146,7 +146,7 @@ public sealed partial class WorldSession
                 State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
             case WorkKind.Harvest: HarvestResource(order.Target); break;
             case WorkKind.Discovery: CompleteSituationWork(order); break;
-            case WorkKind.Camp: CompleteCampActivity(order, worker); break;
+            case WorkKind.Camp: CompleteCampActivity(order, worker, native, action); break;
             case WorkKind.Forage:
                 if (!TakeWildFood(order.Target, 2)) throw new InvalidOperationException("Forage stock changed during sequential completion.");
                 worker.Body.ForageAfter = State.Tick + TicksPerHour; break;

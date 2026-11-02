@@ -25,6 +25,9 @@ public static class TacticalValidation
             throw new InvalidDataException("Tactical and world clocks disagree.");
         if (state.Camp == null) throw new InvalidDataException("Missing camp tuning.");
         state.Camp.Validate();
+        if (state.PreparedMeals == null || state.PreparedMeals.Count > 4 || state.PreparedMeals.Any(p => p.Value is < 1 or > 1000
+            || !(content ?? ContentCatalog.Default).Entries.TryGetValue(p.Key, out var entry) || entry is not CampDefinition { Role: "cook" }))
+            throw new InvalidDataException("Invalid shared prepared servings.");
         if (state.CampFires == null || state.CampFires.Count > 8 || state.CampFires.Select(f => f.Position).Distinct().Count() != state.CampFires.Count
             || state.CampFires.Any(f => f.Owner <= 0 || !world.Party.Contains(f.Owner) || !plan.Contains(f.Position) || world.Dungeon != null && !world.Dungeon.Contains(f.Position) || f.Until <= 0
                 || f.Until > queue.Clock + (long)state.Camp.FireMinutes * 60 * state.Tuning.UnitsPerSecond))

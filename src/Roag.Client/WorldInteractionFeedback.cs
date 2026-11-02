@@ -41,6 +41,7 @@ internal static class WorldInspection
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = actor.Tactics?.Build is { } build ? ClassCatalog.Get(build.Class).Name + " L" + build.Level + ". " + stats
                 : wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
+            if (session.PreparationDescription(actor) is { Length: > 0 } preparation) detail += " Prepared: " + preparation + ".";
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);

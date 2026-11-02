@@ -125,7 +125,8 @@ public sealed partial class WorldSession
         if (state.Work.Any(session.SupplySourceChanged)) throw new InvalidDataException("Reserved storage no longer exists.");
         foreach (var order in state.Work.Where(w => w.Kind == WorkKind.Camp))
         {
-            if (order.Station is not { } station || !session.ServiceableCamp(station) || order.Target.Distance(station) > 2
+            bool nativeDuty = session.State.Party.Contains(order.Worker) && session.UsesTacticalTurns(order.Worker);
+            if (order.Station is not { } station || !session.ServiceableCamp(station) && !nativeDuty || order.Target.Distance(station) > 2
                 || !catalog.Entries.TryGetValue(order.Definition, out var entry) || entry is not CampDefinition duty
                 || order.Required != duty.Work || order.Before != order.After || order.Yield.Count != 0 || order.Reserved.Count != duty.Cost.Count
                 || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))

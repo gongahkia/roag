@@ -36,7 +36,7 @@ public sealed partial class TacticalCombat
     private void ContinueActivity(Actor actor, long recovery, long action)
     {
         var activity = actor.Tactics!.Activity!;
-        if (activity.Kind == SustainedActivityKind.Work && !_world.PerformNativeWork(actor, activity.Work, recovery))
+        if (activity.Kind == SustainedActivityKind.Work && !_world.PerformNativeWork(actor, activity.Work, recovery, this, action))
             StopActivity(actor, _world.State.Work.Any(w => w.Id == activity.Work) ? "work-stopped" : "completed");
         Emit("ActivityContinued", actor.Id, actor.Id, action, actor.Position);
     }

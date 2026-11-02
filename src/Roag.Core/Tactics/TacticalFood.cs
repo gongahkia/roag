@@ -5,6 +5,8 @@ namespace Roag.Core.Tactics;
 
 public sealed partial class TacticalCombat
 {
+    internal bool CanReachCampCompanion(WorldPosition camp, WorldPosition member) => EnemySquads.Clear(camp, member, SupportOpen);
+
     private Actor? MedicineRecipient(Actor actor, long target) => target == 0 ? actor
         : _world.Party.FirstOrDefault(a => a.Id == target);
 
@@ -24,37 +26,57 @@ public sealed partial class TacticalCombat
     {
         var recipient = MedicineRecipient(actor, target)!;
         int amount = checked(_world.Content.Get<AbilityDefinition>("ability.medicine").Power + _world.EquipmentEffectPower(actor, "healing"));
-        int before = recipient.Health, gain = Math.Min(amount, recipient.MaxHealth - before);
         _world.State.Inventory["medicine"]--; _world.State.ResourcesConsumed++;
-        recipient.Health += gain;
-        RecordCombatHealing(actor.Id, recipient.Id, gain);
-        Emit("Healed", actor.Id, recipient.Id, action, recipient.Position, gain, ability: "ability.medicine");
-        // As with a picked-up healing supply, the recipient owns any excess-heal
-        // ward. The administering member separately earns actual healing credit.
-        var snapshot = CaptureBoonEvent(BoonTrigger.SupplyCollected, recipient.Id, recipient.Id, action, recipient.Position, "ability.medicine") with
-        { SupplyKind = "health", Amount = amount, ActualGain = gain, HpBefore = before, TargetMaxHp = recipient.MaxHealth };
-        Emit("SupplyCollected", recipient.Id, recipient.Id, action, recipient.Position, amount, ability: "ability.medicine", snapshot: snapshot);
+        HealCampCompanion(actor, recipient, amount, action, "ability.medicine");
     }
 
-    private TacticalPreview PreviewEating(Actor actor)
-        => !Friendly(actor) || actor.Body.Hunger <= 0 || _world.State.Inventory.GetValueOrDefault("food") <= 0
-            ? Invalid("This member needs hunger and one shared food provision to eat.")
+    internal void HealCampCompanion(Actor actor, Actor recipient, int amount, long action, string ability)
+    {
+        int before = recipient.Health, gain = Math.Min(amount, recipient.MaxHealth - before);
+        recipient.Health += gain;
+        RecordCombatHealing(actor.Id, recipient.Id, gain);
+        Emit("Healed", actor.Id, recipient.Id, action, recipient.Position, gain, ability: ability);
+        // As with a picked-up healing supply, the recipient owns any excess-heal
+        // ward. The administering member separately earns actual healing credit.
+        var snapshot = CaptureBoonEvent(BoonTrigger.SupplyCollected, recipient.Id, recipient.Id, action, recipient.Position, ability) with
+        { SupplyKind = "health", Amount = amount, ActualGain = gain, HpBefore = before, TargetMaxHp = recipient.MaxHealth };
+        Emit("SupplyCollected", recipient.Id, recipient.Id, action, recipient.Position, amount, ability: ability, snapshot: snapshot);
+    }
+
+    // Automatic eating preserves ordinary provision use first, then consumes the
+    // first available recipe by stable ID. A player can explicitly choose a meal.
+    private string? EatingSource(string item) => item == ""
+        ? _world.Count("food") > 0 ? "food" : State.PreparedMeals.OrderBy(p => p.Key, StringComparer.Ordinal).FirstOrDefault(p => p.Value > 0).Key
+        : item == "food" ? _world.Count("food") > 0 ? "food" : null
+        : State.PreparedMeals.GetValueOrDefault(item) > 0 ? item : null;
+
+    private TacticalPreview PreviewEating(Actor actor, string item = "")
+        => !Friendly(actor) || actor.Body.Hunger <= 0 || EatingSource(item) == null
+            ? Invalid("This member needs hunger and one available shared provision or prepared serving to eat.")
             : new(true, "", ActionTiming.Recovery(Tuning.EatCost, EffectiveSpeed(actor)), []);
 
-    private void Eat(Actor actor, long action)
+    private void Eat(Actor actor, long action, string item)
     {
         // Hunger is the imported authoritative need (zero fed, one hundred empty).
         // No saturation reserve or instant HP healing is introduced.
         int amount = _world.Simulation.MealReduction;
         double before = actor.Body.Hunger, gain = Math.Min(amount, before);
-        _world.State.Inventory["food"]--;
+        string source = EatingSource(item)!;
+        if (source == "food") _world.State.Inventory["food"]--;
+        else
+        {
+            if (--State.PreparedMeals[source] == 0) State.PreparedMeals.Remove(source);
+            var meal = _world.Content.Get<CampDefinition>(source);
+            actor.Preparations.RemoveAll(p => p.Effect == meal.Effect || p.Until <= _world.State.Tick);
+            actor.Preparations.Add(new(meal.Id, meal.Effect, meal.Power, checked(_world.State.Tick + meal.Duration)));
+        }
         _world.State.ResourcesConsumed++;
         actor.Body.Hunger = Math.Max(0, before - amount);
         var snapshot = CaptureBoonEvent(BoonTrigger.SupplyCollected, actor.Id, 0, action, actor.Position) with
         { SupplyKind = "food", Amount = amount, ActualGain = gain, HpBefore = actor.Health, TargetMaxHp = actor.MaxHealth };
         // Existing food boons now respond to actual paid eating, not stocking the
         // globally shared pack. The event preserves their original causal trigger.
-        Emit("FoodEaten", actor.Id, actor.Id, action, actor.Position, amount);
+        Emit("FoodEaten", actor.Id, actor.Id, action, actor.Position, amount, ability: source);
         Emit("SupplyCollected", actor.Id, 0, action, actor.Position, amount, snapshot: snapshot);
     }
 

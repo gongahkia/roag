@@ -215,7 +215,7 @@ public sealed partial class TacticalCombat
         {
             Emit("StatusTick", burn.Activation.OwnerId, target.Id, burn.Activation.RootActionId ?? 0, target.Position, burn.Power, ability: burn.Activation.BoonId);
             ApplyBoonDamage(burn.Activation, new() { Kind = BoonEffectKind.DamageTarget, DamageType = DamageElement.Fire },
-                [target.Position], burn.Power, DamageCause.OngoingEffect);
+                [target.Position], burn.Power == 0 ? 0 : Math.Max(1, burn.Power - _world.PreparationPower(target, "burn-resist")), DamageCause.OngoingEffect);
             if (target.Life != LifeState.Dead && burn.Remaining > 1)
             {
                 long due = checked(Clock + burn.Interval);

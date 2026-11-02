@@ -103,8 +103,11 @@ public sealed partial class TacticalCombat
             var threats = _world.State.Actors.Where(a => a.Life != LifeState.Dead && a.Tactics?.Enemy is { Dormant: false }
                 && _world.IsHostile(a) && a.Position.Distance(member.Position) <= range).ToArray();
             if (threats.Length == 0 || !threats.Any(a => _world.VisionFrom(member.Position).Contains(a.Position))) continue;
+            bool lookout = activity.Kind == SustainedActivityKind.Watch || activity.Kind == SustainedActivityKind.Work
+                && _world.State.Work.FirstOrDefault(w => w.Id == activity.Work) is { Kind: WorkKind.Camp } duty
+                && _world.Content.Get<Content.CampDefinition>(duty.Definition).Role == "watch";
             StopActivity(member, "danger");
-            if (activity.Kind == SustainedActivityKind.Watch) SoundAlarm(member);
+            if (lookout) SoundAlarm(member);
         }
     }
 

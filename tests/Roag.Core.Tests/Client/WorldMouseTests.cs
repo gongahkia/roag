@@ -14,6 +14,34 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void CampRecipesAndSharedMealsBrowseFreelyAndOnlyTheReadyEaterReceivesTheChosenBuff()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        var hero = session.Party.Single(); hero.Body.Hunger = 40; hero.Tactics!.AutoEat = false;
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        session.State.Tactics!.PreparedMeals["camp.apple-broth"] = 2;
+        var camp = hero.Position.Offset(0, -1); session.Chunks.Edit(camp, Material.Camp); session.Reveal();
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenDungeonWork", (WorldPosition?)camp);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:camp");
+        var duties = Controls(client, "dungeon-work").Where(c => c.Id.StartsWith("dungeon:work-duty:")).ToArray();
+        Assert.Equal(7, duties.Length); Assert.All(duties, c => Assert.False(string.IsNullOrEmpty(c.Sprite)));
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:meals");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-eat:camp.apple-broth" && c.Enabled && c.Sprite == "apple");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Assert.DoesNotContain(Controls(client, "dungeon-work"), c => c.Id.StartsWith("dungeon:work-eat:") && c.Enabled);
+        string selected = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-eat:camp.apple-broth");
+        Assert.Equal(selected, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-eat:camp.apple-broth");
+        Assert.Equal(1, session.State.Tactics.PreparedMeals["camp.apple-broth"]);
+        Assert.Equal(2, session.PreparationPower(hero, "burn-resist")); Assert.Empty(friend.Preparations);
+        Assert.Equal(100, session.State.Tactics.Timeline.Pending.Single(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == hero.Id).Due);
+    }
+
+    [Fact]
     public void WorkToolsAndRecipeBrowsingAreFreeAndCannotSpendTheInspectedMembersRecovery()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);

@@ -148,6 +148,7 @@ public sealed class TacticalWorldState
     public ContributionRewards Rewards { get; set; } = new();
     public CooperationTuning Cooperation { get; set; } = new();
     public List<NativeCampFire> CampFires { get; set; } = [];
+    public Dictionary<string, int> PreparedMeals { get; set; } = [];
     public CampTuning Camp { get; set; } = new();
     public RescueTuning Rescue { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
