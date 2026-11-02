@@ -61,6 +61,14 @@ public sealed partial class TacticalCombat
 
     internal static void ValidateNativeConditions(WorldState world, IReadOnlyDictionary<long, Actor> actors)
     {
+        static bool SourceMatches(NativeCondition c) => ContentCatalog.Default.Entries.GetValueOrDefault(c.Ability) is AbilityDefinition ability
+            && c.Turns <= ability.Duration && (c.Kind switch
+            {
+                NativeConditionKind.Bleed => ability.Effect == "bleed",
+                NativeConditionKind.Mark => ability.Effect == "mark",
+                NativeConditionKind.Brace => ability.Effect == "rally",
+                _ => false
+            });
         foreach (var actor in actors.Values)
         {
             if (actor.Tactics is not { } tactics) continue;
@@ -69,7 +77,7 @@ public sealed partial class TacticalCombat
                 || tactics.Conditions.Any(c => c == null || !Enum.IsDefined(c.Kind) || c.Turns is < 1 or > 12 || c.Power is < 1 or > 100
                     || c.Action < 1 || c.Action >= world.Tactics!.NextAction || !actors.ContainsKey(c.Source)
                     || !world.Tactics.Participants.Contains(c.Source) || !world.Tactics.Participants.Contains(actor.Id)
-                    || ContentCatalog.Default.Entries.GetValueOrDefault(c.Ability) is not AbilityDefinition
+                    || !SourceMatches(c)
                     || actor.Life == LifeState.Dead))
                 throw new InvalidDataException("Invalid native ability condition or owner.");
         }

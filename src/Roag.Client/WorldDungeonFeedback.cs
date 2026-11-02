@@ -53,7 +53,7 @@ internal sealed partial class WorldGame
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
             "CampFireLit" or "CampFireExtinguished" => "terrain", "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
-            "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit",
+            "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit", "RetainedSkillUsed" => "boon",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
         };
         if (sample != null) PlayDungeonSound(sample);
@@ -62,6 +62,9 @@ internal sealed partial class WorldGame
             "DamageTaken" or "StarvationDamage" => "-" + e.Amount, "Healed" or "WellFedHealing" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "CampAlarm" => "ALARM", "ActivityStopped" => e.Ability.StartsWith("completed", StringComparison.Ordinal) ? "DONE" : "AWAKE",
             "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD",
+            "RetainedSkillUsed" => "SKILL", "Stunned" => "STUN",
+            "ConditionApplied" => e.Ability == "ability.hunters-mark" ? "MARK" : e.Ability == "ability.stand-fast" ? "BRACE" : "BLEED",
+            "StressChanged" => e.Ability == "ability.dread" ? "DREAD +" + e.Amount : "CALM " + e.Amount,
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
             "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount, "RescueNoticed" => "AID",
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",

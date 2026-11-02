@@ -595,6 +595,9 @@ internal sealed partial class WorldGame
                 workOrders = _session.State.Work.Where(w => _session.State.Party.Contains(w.Worker)),
                 preparedMeals = _session.State.Tactics.PreparedMeals,
                 preparations = _session.Party.Select(a => new { a.Id, effects = a.Preparations }),
+                retainedSkills = _session.Party.Select(a => new { a.Id, skills = _session.DungeonCombat.RetainedSkills(a.Id) }),
+                abilityConditions = _session.State.Actors.Where(a => a.Tactics != null && _session.Visible.Contains(a.Position) && a.Tactics.Conditions.Count > 0)
+                    .Select(a => new { a.Id, effects = a.Tactics!.Conditions }),
                 workTarget = _panel == "dungeon-work" ? (WorldPosition?)_nativeWorkTarget : null,
                 activities = _session.Party.Select(a => new { a.Id, a.Tactics!.Activity }),
                 survivalEnabled = _session.State.Tactics.Tuning.EnableSurvival,

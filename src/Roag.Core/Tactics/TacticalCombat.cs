@@ -55,6 +55,8 @@ public sealed partial class TacticalCombat
     private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
         : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0) + _world.PreparationPower(actor, "watch") + RetainedTalentPower(actor, "initiative"));
     private int EffectiveArmor(Actor actor) => checked(actor.Armor + _world.PreparationPower(actor, "armor"));
+    public int CurrentActionSpeed(long actorId) => EffectiveSpeed(Actor(actorId));
+    public int CurrentArmor(long actorId) => EffectiveArmor(Actor(actorId));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
         && (_world.State.Dungeon == null || _world.State.Dungeon.Contains(p))
         && !Materials.Opaque(_world.Chunks.At(p)) && _world.ObjectAt(p) is not { Solid: true, Kind: not "dungeon-vault" };

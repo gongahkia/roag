@@ -13,8 +13,15 @@ public sealed partial class TacticalCombat
     {
         var member = _world.Party.FirstOrDefault(a => a.Id == memberId);
         if (member?.Tactics?.Build == null) return [];
-        return RetainedBoons.All.Where(e => e.Active && member.Tactics.Boons.Inventory.Stacks.ContainsKey(e.Id))
-            .Select(e => new RetainedSkillOption(e.Id, e.Source, _world.Content.Entries[e.Source].Name, e.Sprite, RetainedSkillDescription(e.Source))).ToArray();
+        return RetainedBoons.All.Where(e => e.Active && member.Tactics.Boons.Inventory.Stacks.ContainsKey(e.Id)).Select(e =>
+        {
+            var skill = _world.Content.Get<AbilityDefinition>(e.Source);
+            string strength = skill.Effect == "heal" ? $" Restores {RetainedSkillPower(member, e, skill)} HP."
+                : skill.Effect == "calm" ? $" Removes {skill.Power + RetainedTalentPower(member, "calm")} stress."
+                : skill.Effect == "rally" ? $" Wards {1 + Math.Min(20, member.Tactics.Boons.Inventory.Magnitude(e.Id).Power)} damage."
+                : $" Base power {RetainedSkillPower(member, e, skill)}.";
+            return new RetainedSkillOption(e.Id, e.Source, skill.Name, e.Sprite, RetainedSkillDescription(e.Source) + strength);
+        }).ToArray();
     }
 
     private static int RetainedSkillRange(string ability) => ability switch
@@ -47,7 +54,8 @@ public sealed partial class TacticalCombat
         var sight = _world.VisionFrom(actor.Position);
         return candidates.Where(a => a is { Life: LifeState.Alive, Health: > 0, Tactics: not null }
             && (friendly ? Friendly(a) : HostileTo(actor, a)) && a.Position.Distance(actor.Position) <= range
-            && sight.Contains(a.Position) && EnemySquads.Clear(actor.Position, a.Position, SupportOpen)).OrderBy(a => a.Id);
+            && sight.Contains(a.Position) && EnemySquads.Clear(actor.Position, a.Position, p => SupportOpen(p)
+                && (friendly || skill.Id == "ability.chain-arc" || p == a.Position || BodyAt(p, actor.Id) == null))).OrderBy(a => a.Id);
     }
 
     private int RetainedSkillPower(Actor actor, RetainedBoon entry, AbilityDefinition skill)

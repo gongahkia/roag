@@ -34,6 +34,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear") BuildDungeonGearControls(box);
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
+            else if (_panel == "dungeon-skills") BuildDungeonSkillControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
             else if (_panel == "dungeon-work") BuildDungeonWorkControls(box);
             else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
@@ -115,6 +116,7 @@ internal sealed partial class WorldGame
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
                 Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, box.Width - 56, 44));
+                Add("dungeon:skills", "Unlocked skills / L", new(box.X + 28, box.Y + 446, box.Width - 56, 44));
             }
             else if (_panel == "dungeon-new-confirm")
             {
@@ -155,6 +157,8 @@ internal sealed partial class WorldGame
         var parts = id.Split(':');
         if (parts[1] == "work" || parts[1].StartsWith("work-", StringComparison.Ordinal))
         { ActivateDungeonWorkControl(parts); return true; }
+        if (parts[1] == "skills" || parts[1].StartsWith("skill-", StringComparison.Ordinal))
+        { ActivateDungeonSkillControl(parts); return true; }
         switch (parts[1])
         {
             case "save":
@@ -443,6 +447,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
+        if (_panel == "dungeon-skills") title = "UNLOCKED SKILLS";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
         if (_panel == "dungeon-work") title = "WORK AND CRAFTING";
         if (_panel == "dungeon-camp") title = "REST AND WATCH";
@@ -455,6 +460,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear") { DrawDungeonGearPanel(box, x, y); return; }
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
+        if (_panel == "dungeon-skills") { DrawDungeonSkillsPanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
         if (_panel == "dungeon-work") { DrawDungeonWorkPanel(box, x, y); return; }
         if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }
@@ -558,7 +564,10 @@ internal sealed partial class WorldGame
                 DrawDungeonBoonIcon(boon.Id, BoonCatalog.Rarities.Last(r => pair.Value[r] > 0), new(x, y, 64, 64));
                 Text(boon.Name + " / " + BoonCatalog.Rarities.Sum(r => pair.Value[r]) + " stacks", x + 76, y, Gold); y += 24;
                 Text(string.Join(" / ", BoonCatalog.Rarities.Where(r => pair.Value[r] > 0).Select(r => r + " " + pair.Value[r])), x + 76, y, Muted); y += 22;
-                y += Wrap(boon.Description, x + 76, y, box.Width - 124, Muted) + 10;
+                var retained = RetainedBoons.Find(boon.Id);
+                string description = retained == null ? boon.Description : retained.Active ? boon.Description + " Open Skills / L to use it."
+                    : "Strength " + _session.DungeonMember.Tactics!.Boons.Inventory.Magnitude(boon.Id).Power + ". " + boon.Description;
+                y += Wrap(description, x + 76, y, box.Width - 124, Muted) + 10;
                 y = Math.Max(y, top + 80);
             }
             Text($"Page {_nativeBoonPage + 1}/{Math.Max(1, (owned.Count + 2) / 3)}", box.Center.X - 50, box.Bottom - 42, Muted);

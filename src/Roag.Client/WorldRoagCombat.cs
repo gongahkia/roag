@@ -92,6 +92,7 @@ internal sealed partial class WorldGame
                     if (Press(Keys.K)) { _panel = "dungeon-gear"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.O)) { _panel = "dungeon-cooperate"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.J)) { OpenDungeonWork(); _roagKeyboard = keyboard; return; }
+                    if (Press(Keys.L)) { OpenDungeonSkills(); _roagKeyboard = keyboard; return; }
                     if (Press(Keys.N)) { _panel = "dungeon-needs"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.T)) { SelectDungeonMember(_session.State.Tactics!.ActiveActor); _roagKeyboard = keyboard; return; }
                     var members = DungeonRoster;

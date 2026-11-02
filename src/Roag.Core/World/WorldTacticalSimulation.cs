@@ -31,6 +31,14 @@ public sealed partial class WorldSession
     private bool NativePartyInCombat => State.Tactics != null && Party.Any(a => IsActorInCombat(a.Id));
     internal void MoveTacticalActor(Actor actor, WorldPosition destination) => CommitClimateMove(actor, destination);
 
+    public (int Armor, int Speed) CurrentTacticalStats(long actorId)
+    {
+        var actor = ActorById(actorId);
+        if (State.Tactics == null || actor.Tactics == null) return (actor.Armor, actor.Speed);
+        var combat = new TacticalCombat(this, AdvanceTacticalWorld);
+        return (combat.CurrentArmor(actorId), combat.CurrentActionSpeed(actorId));
+    }
+
     public EnemyInspection? InspectTacticalEnemy(long enemyId) => State.Tactics is { ControlledActor: > 0 } tactics
         ? new TacticalCombat(this, AdvanceTacticalWorld).InspectEnemy(tactics.ControlledActor, enemyId) : null;
 }

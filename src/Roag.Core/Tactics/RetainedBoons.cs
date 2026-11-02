@@ -54,7 +54,8 @@ public static class RetainedBoons
             var source = ContentCatalog.Default.Entries[entry.Source];
             string description = entry.Active
                 ? "Unlock " + source.Name + ". Uses your class recovery; existing moves remain available. Stronger copies increase its power."
-                : source is TalentDefinition talent ? Describe(talent) : throw new InvalidDataException("Invalid retained boon source.");
+                : source is TalentDefinition talent ? "Per strength: " + Describe(talent) + " Each bonus is capped at 20."
+                    : throw new InvalidDataException("Invalid retained boon source.");
             yield return new()
             {
                 Id = entry.Id, Name = source.Name, Description = description, Tags = ["expedition", entry.Active ? "active-skill" : "development"],

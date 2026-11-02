@@ -37,11 +37,14 @@ internal static class WorldInspection
             }
             if (session.SituationForActor(actor) is { } situation)
                 return WithAccess(actor.Name, session.SituationDescription(situation) + " " + session.EncounterDescription(actor.Id) + targeting, "Click to inspect the place and choose an approach", session.IsHostile(actor) ? "enemy" : "discovery");
-            string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {actor.Armor} / Speed {actor.Speed}.";
+            var (armor, speed) = session.CurrentTacticalStats(actor.Id);
+            string stats = $"HP {actor.Health}/{actor.MaxHealth} / Power {actor.Power} / Armour {armor} / Speed {speed}.";
             bool hostile = session.IsHostile(actor), wildlife = session.Ecology(actor) != null;
             string detail = actor.Tactics?.Build is { } build ? ClassCatalog.Get(build.Class).Name + " L" + build.Level + ". " + stats
                 : wildlife ? session.WildlifeDescription(actor) + " " + stats : hostile ? Threat(session, actor) + ". " + stats : actor.Kind == ActorKind.Person ? session.Class(actor).Name + " L" + actor.Level + "; " + actor.Job + ". " + stats : actor.Kind + " from " + session.Plan.Towns[actor.HomeTown].Name + ". " + stats;
             if (session.PreparationDescription(actor) is { Length: > 0 } preparation) detail += " Prepared: " + preparation + ".";
+            if (actor.Tactics is { Conditions.Count: > 0 } tactics)
+                detail += " Conditions: " + string.Join("; ", tactics.Conditions.Select(c => $"{c.Kind} {c.Power} / {c.Turns} own turns")) + ".";
             if (session.Content.Entries[actor.Archetype] is BossDefinition boss) detail += " " + boss.Weakness;
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);

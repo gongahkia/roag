@@ -14,6 +14,33 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void UnlockedSkillsBrowseFreelyAndCannotCastFromARecoveringMembersPage()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, ClassKind.Spiritbinder, survival: true); var client = Client(session);
+        var hero = session.Party.Single(); hero.Health -= 10; hero.Tactics!.AutoEat = false;
+        string boon = RetainedBoons.Id("ability.mend");
+        hero.Tactics.Boons.Inventory = hero.Tactics.Boons.Inventory.Grant(boon, BoonRarity.Common, ClassKind.Spiritbinder);
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Spiritbinder, 2);
+        friend.Tactics!.Boons.Inventory = friend.Tactics.Boons.Inventory.Grant(boon, BoonRarity.Common, ClassKind.Spiritbinder);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:skills");
+        var open = Assert.Single(Controls(client, "dungeon-skills"), c => c.Id.StartsWith("dungeon:skill-open:"));
+        Assert.Equal("potion", open.Sprite); Invoke(client, "ActivateDungeonControl", open.Id);
+        Assert.Contains(Controls(client, "dungeon-skills"), c => c.Id == "dungeon:skill-cast:" + hero.Id && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Assert.DoesNotContain(Controls(client, "dungeon-skills"), c => c.Id.StartsWith("dungeon:skill-cast:") && c.Enabled);
+        before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:skill-cast:" + hero.Id);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        int health = hero.Health;
+        Invoke(client, "ActivateDungeonControl", "dungeon:skill-cast:" + hero.Id);
+        Assert.Equal(health + 6, hero.Health); Assert.Equal("", Field("_panel").GetValue(client));
+        Assert.Contains(session.State.Tactics!.Timeline.Pending, w => w.ActorId == hero.Id && w.Kind == ScheduledKind.ActorReady && w.Due > 0);
+    }
+
+    [Fact]
     public void CampRecipesAndSharedMealsBrowseFreelyAndOnlyTheReadyEaterReceivesTheChosenBuff()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
