@@ -53,7 +53,7 @@ public sealed class ActorTactics
             || ExperienceReward < 0 || ExperienceFraction is < 0 or >= ContributionRewards.UnitsPerExperience
             || Build is null && ExperienceFraction != 0
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
-                || burning.Due < 0 || burning.Schedule <= 0 || burning.Activation is null))
+                || burning.Due < 0 || burning.Schedule <= 0 || (burning.Activation is null) == (burning.Native is null)))
             throw new InvalidDataException("Invalid actor tactics.");
         if (Activity is { } activity && (Build == null || !Enum.IsDefined(activity.Kind) || activity.Until < 0
             || (activity.Kind == SustainedActivityKind.Work ? activity.Work <= 0 || activity.Until != 0 : activity.Work != 0)))
@@ -61,7 +61,8 @@ public sealed class ActorTactics
         Build?.Validate();
         if (Enemy != null)
         {
-            if (Build != null || !EnemyCatalog.Default.Contains(DefinitionId)) throw new InvalidDataException("Invalid enemy identity.");
+            if (Build != null || (Enemy.Retained != null ? !RetainedEnemyCatalog.Contains(DefinitionId) : !EnemyCatalog.Default.Contains(DefinitionId)))
+                throw new InvalidDataException("Invalid enemy identity.");
             Enemy.Validate();
             if (Enemy.PhaseTwo && (!EnemyPhases.Supported(DefinitionId) || InnateStats!.Speed > int.MaxValue - EnemyPhases.SpeedBonus))
                 throw new InvalidDataException("Invalid enemy phase role or speed.");
@@ -112,7 +113,8 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     DamageCause Cause = DamageCause.DirectAttack, bool Critical = false, bool ClassGenerated = false,
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
     int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
-    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null, WorldPosition? EmberLanding = null, MirrorReflection? Reflection = null);
+    EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null, WorldPosition? EmberLanding = null, MirrorReflection? Reflection = null,
+    bool RetainedAbility = false);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,

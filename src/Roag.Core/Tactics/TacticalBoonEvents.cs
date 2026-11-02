@@ -158,7 +158,8 @@ public sealed partial class TacticalCombat
         PruneMirrors();
         PruneOaths();
         var retained = State.BoonEffects.Echoes.Values.Select(e => e.Activation.ChainId)
-            .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning != null).Select(a => a.Tactics!.Burning!.Activation.ChainId))
+            .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Activation != null).Select(a => a.Tactics!.Burning!.Activation!.ChainId))
+            .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Native != null).Select(a => a.Tactics!.Burning!.Native!.Action))
             .Concat(_world.State.Actors.Where(a => a.Tactics != null).SelectMany(a => a.Tactics!.Conditions.Select(c => c.Action)))
             .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
         State.BoonEffects.Dispatch.Prune(retained);

@@ -47,6 +47,7 @@ public sealed partial class TacticalCombat
         if (enemy is not { Life: LifeState.Alive, Tactics.Enemy: not null } || Friendly(enemy))
             throw new InvalidOperationException("Target selection requires a living native enemy.");
         if (!_world.IsHostile(enemy) || enemy.Tactics.Enemy.Dormant) return null;
+        if (enemy.Tactics.Enemy.Retained != null) return SelectRetainedEnemyTarget(enemy, mistBlocks);
         var priority = EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority;
         var ecology = _world.Ecology(enemy);
         bool InTerritory(Actor p) => ecology == null || enemy.Habitat is not { } home
@@ -102,8 +103,14 @@ public sealed partial class TacticalCombat
         long? targetId = attack == null ? SelectEnemyTarget(enemyId, mistBlocks)
             : attack.Support is { } support ? support.Target > 0 ? support.Target : null : attack.IntendedTarget > 0 ? attack.IntendedTarget : null;
         var target = targetId is { } id ? _world.State.Actors.FirstOrDefault(a => a.Id == id && sight.Contains(a.Position)) : null;
-        return new(enemyId, EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority) + " " + CampFireResponses.Description(enemy.Tactics.DefinitionId),
-            target?.Id, target?.Name, attack != null, attack?.Support != null,
+        if (attack == null && enemy.Tactics.Enemy.Retained != null)
+        {
+            var planned = PlanRetainedEnemyTurn(enemy, (_, _) => null, mistBlocks);
+            target = planned.Retained is { } cast ? _world.State.Actors.FirstOrDefault(a => a.Id == cast.Target && sight.Contains(a.Position)) : null;
+        }
+        return new(enemyId, enemy.Tactics.Enemy.Retained != null ? RetainedEnemyTendency(enemy)
+                : EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority) + " " + CampFireResponses.Description(enemy.Tactics.DefinitionId),
+            target?.Id, target?.Name, attack != null, attack?.Support != null || attack is { RetainedAbility: true } && RetainedSupport(_world.Content.Get<Roag.Core.Content.AbilityDefinition>(attack.Ability)),
             attack?.Cells.Where(sight.Contains).ToArray() ?? [], attack?.Due);
     }
 }

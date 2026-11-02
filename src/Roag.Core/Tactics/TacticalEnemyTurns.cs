@@ -74,6 +74,7 @@ public sealed partial class TacticalCombat
     private EnemyIntent PlanEnemyTurn(Actor actor, Actor? target,
         Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
     {
+        if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks);
         var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
         var intent = EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (p => _world.DungeonMistBlocks(p)),
@@ -104,8 +105,8 @@ public sealed partial class TacticalCombat
 
     private EnemyIntent CommitEnemyIntent(Actor actor, EnemyIntent intent, long targetId)
     {
-        var definition = EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId);
-        var memory = actor.Tactics.Enemy!;
+        var definition = EnemyDefinitionFor(actor);
+        var memory = actor.Tactics!.Enemy!;
         if (intent.ShieldFacing is { } shield)
         {
             memory.ShieldFacing = shield;
@@ -116,6 +117,11 @@ public sealed partial class TacticalCombat
             // Validate before changing the pattern counter or committing recovery.
             if (intent.Cells.IsDefault || intent.Cells.Any(p => !_world.Plan.Contains(p)))
                 throw new InvalidOperationException("Enemy controller produced invalid world cells.");
+            if (memory.Retained != null)
+            {
+                CommitRetainedEnemyCast(actor, intent);
+                return intent;
+            }
             if (definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.HollowRegent or EnemyBrainKind.BiomeElite)
                 memory.Attacks = checked(memory.Attacks + 1);
             if (intent.ClearRetaliation) memory.Retaliate = false;

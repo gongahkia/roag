@@ -403,11 +403,12 @@ public sealed partial class TacticalCombat
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
         DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0,
-        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null, WorldPosition? emberLanding = null)
+        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null, WorldPosition? emberLanding = null, bool retainedAbility = false)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
         if (intendedTarget != 0) _ = Actor(intendedTarget);
+        ValidateRetainedWindup(actor, ability, retainedAbility);
         if (actor.Life != LifeState.Alive || damage < 0 || string.IsNullOrWhiteSpace(ability)
             || cells.Count == 0 && (actor.Tactics?.Enemy == null || delivery != AttackDelivery.Area) || cells.Distinct().Count() != cells.Count
             || cells.Any(p => p.Floor != actor.Position.Floor || !_world.Plan.Contains(p))
@@ -451,7 +452,7 @@ public sealed partial class TacticalCombat
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
         var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
             Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null,
-            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing, EmberLanding: emberLanding, Reflection: routed.Reflection);
+            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing, EmberLanding: emberLanding, Reflection: routed.Reflection, RetainedAbility: retainedAbility);
         ResolveAtomically(cause, () =>
         {
             ConsumeMirror(actor, action, routed.Reflection, cells);
@@ -517,7 +518,8 @@ public sealed partial class TacticalCombat
                             with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = !attack.ClassGenerated,
                                 WindupId = attack.RecoveryCost != null ? attack.Id : null },
                         webCuts: CaptureWebCuts(attack.Source, attack.Cells, attack.Delivery, attack.Damage));
-                ResolveDamageBatch(attack, assistance);
+                if (attack.RetainedAbility) ResolveRetainedEnemyAbility(attack);
+                else ResolveDamageBatch(attack, assistance);
             }
             if (attack.EmberLanding != null && !_world.State.AwaitingContinuation) ResolveMothLanding(Actor(attack.Source), attack);
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);

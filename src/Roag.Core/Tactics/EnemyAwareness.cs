@@ -48,7 +48,7 @@ public sealed partial class TacticalCombat
     {
         if (!_world.Plan.Contains(p)) return false;
         var memory = enemy.Tactics!.Enemy!;
-        if (EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).Ai == EnemyBrainKind.Pursuer
+        if (EnemyDefinitionFor(enemy).Ai == EnemyBrainKind.Pursuer
             && (memory.PursuitBoundary is not { } boundary || !boundary.Contains(p))) return false;
         return _world.Ecology(enemy) is not { } ecology || enemy.Habitat is not { } home
             || p.Distance(home) <= (enemy.ProvokedUntil > _world.State.Tick ? ecology.Leash : ecology.Notice);

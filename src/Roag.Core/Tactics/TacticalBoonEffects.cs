@@ -178,7 +178,7 @@ public sealed partial class TacticalCombat
     {
         var existing = target.Tactics!.Burning;
         if (existing != null)
-            target.Tactics.Burning = existing with { Power = Math.Max(existing.Power, power), Remaining = ticks, Activation = activation };
+            target.Tactics.Burning = existing with { Power = Math.Max(existing.Power, power), Remaining = ticks, Activation = activation, Native = null };
         else
         {
             long due = checked(Clock + interval);
@@ -187,6 +187,21 @@ public sealed partial class TacticalCombat
         }
         Emit("StatusApplied", activation.OwnerId, target.Id, activation.RootActionId ?? 0, target.Position,
             target.Tactics.Burning.Power, ability: activation.BoonId);
+    }
+
+    private void ApplyNativeBurning(Actor source, Actor target, long action, string ability, int power, int ticks)
+    {
+        var provenance = new NativeBurnSource(source.Id, action, ability);
+        if (target.Tactics!.Burning is { } existing)
+            target.Tactics.Burning = existing with { Power = Math.Max(existing.Power, power), Remaining = ticks, Activation = null, Native = provenance };
+        else
+        {
+            int interval = Tuning.UnitsPerSecond;
+            long due = checked(Clock + interval);
+            var work = State.Queue.Schedule(ScheduledKind.Effect, due, target.Id);
+            target.Tactics.Burning = new(power, ticks, interval, due, work.Sequence, null, provenance);
+        }
+        Emit("StatusApplied", source.Id, target.Id, action, target.Position, power, ability: ability);
     }
 
     private void RemoveBurning(Actor target, BoonActivation? activation = null)
@@ -211,11 +226,22 @@ public sealed partial class TacticalCombat
         }
         var target = Actor(work.ActorId);
         if (target.Tactics?.Burning is not { } burn || burn.Schedule != work.Sequence) return false;
-        ResolveAtomically(BoonCause.From(burn.Activation), () =>
+        var cause = burn.Activation is { } activation ? BoonCause.From(activation) : RootCause(burn.Native!.Action);
+        ResolveAtomically(cause, () =>
         {
-            Emit("StatusTick", burn.Activation.OwnerId, target.Id, burn.Activation.RootActionId ?? 0, target.Position, burn.Power, ability: burn.Activation.BoonId);
-            ApplyBoonDamage(burn.Activation, new() { Kind = BoonEffectKind.DamageTarget, DamageType = DamageElement.Fire },
-                [target.Position], burn.Power == 0 ? 0 : Math.Max(1, burn.Power - _world.PreparationPower(target, "burn-resist")), DamageCause.OngoingEffect);
+            int power = burn.Power == 0 ? 0 : Math.Max(1, burn.Power - _world.PreparationPower(target, "burn-resist"));
+            if (burn.Activation is { } boon)
+            {
+                Emit("StatusTick", boon.OwnerId, target.Id, boon.RootActionId ?? 0, target.Position, burn.Power, ability: boon.BoonId);
+                ApplyBoonDamage(boon, new() { Kind = BoonEffectKind.DamageTarget, DamageType = DamageElement.Fire }, [target.Position], power, DamageCause.OngoingEffect);
+            }
+            else
+            {
+                var native = burn.Native!; var owner = Actor(native.Actor);
+                Emit("StatusTick", owner.Id, target.Id, native.Action, target.Position, burn.Power, ability: native.Ability);
+                ResolveDamageBatch(new(native.Action, owner.Id, owner.Position, [target.Position], native.Ability,
+                    AttackDelivery.Area, DamageElement.Fire, power, Clock, DamageCause.OngoingEffect, PersistsWithoutOwner: true, IgnoresTerrain: true));
+            }
             if (target.Life != LifeState.Dead && burn.Remaining > 1)
             {
                 long due = checked(Clock + burn.Interval);

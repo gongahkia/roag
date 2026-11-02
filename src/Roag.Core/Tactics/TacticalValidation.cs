@@ -74,7 +74,7 @@ public static class TacticalValidation
             if (memory.PursuitBoundary is { } boundary)
             {
                 boundary.Validate(plan);
-                if (EnemyCatalog.Default.Get(actor.Tactics.DefinitionId).Ai != EnemyBrainKind.Pursuer
+                if (memory.Retained != null || EnemyCatalog.Default.Get(actor.Tactics.DefinitionId).Ai != EnemyBrainKind.Pursuer
                     || !boundary.Contains(actor.Position))
                     throw new InvalidDataException("Pursuer is outside its owning dungeon or has an invalid role.");
             }
@@ -84,6 +84,7 @@ public static class TacticalValidation
                 || memory.PursuitBoundary is { } limits && !limits.Contains(awareness.LastKnown)))
                 throw new InvalidDataException("Invalid enemy observation or target identity.");
         }
+        TacticalCombat.ValidateRetainedEnemies(world, content ?? ContentCatalog.Default);
         EnemyRevivalRules.Validate(state, actors);
         EnemyAlarmRules.Validate(state, actors);
         EnemyWebRules.Validate(plan, world, actors, content);
@@ -374,7 +375,13 @@ public static class TacticalValidation
                 || queue.Pending.Count(w => w.Kind == ScheduledKind.Effect && w.ActorId == actor.Id && w.Sequence == burn.Schedule
                     && w.Due == burn.Due && w.ReferenceId == 0) != 1)
                 throw new InvalidDataException("Invalid or unscheduled burning status.");
-            Activation(burn.Activation);
+            if ((burn.Activation is null) == (burn.Native is null)) throw new InvalidDataException("Burning requires exactly one provenance.");
+            if (burn.Activation is { } activation) Activation(activation);
+            else if (burn.Native is not { } native || !actors.TryGetValue(native.Actor, out var source) || source.Tactics?.Enemy?.Retained == null
+                || !state.Participants.Contains(native.Actor) || native.Action < 1 || native.Action >= state.NextAction
+                || ContentCatalog.Default.Entries.GetValueOrDefault(native.Ability) is not AbilityDefinition { Effect: "burn" } ability
+                || burn.Remaining > ability.Duration)
+                throw new InvalidDataException("Invalid native burning provenance.");
         }
     }
 }

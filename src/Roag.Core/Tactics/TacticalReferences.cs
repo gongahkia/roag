@@ -37,7 +37,7 @@ public static class TacticalReferences
             if (tactics.Enemy is { OathBroken: false } oath && oath.OathPartner == id) return true;
             if (tactics.Enemy?.RevivalOf == id || tactics.Enemy?.RevivedBy == id) return true;
             if (actor.Id != id && tactics.Enemy?.Squad?.Leader == id) return true;
-            if (tactics.SnaredBy == id || tactics.Burning is { } burn && Activation(burn.Activation)) return true;
+            if (tactics.SnaredBy == id || tactics.Burning is { } burn && (burn.Activation is { } activation && Activation(activation) || burn.Native?.Actor == id)) return true;
             var resources = tactics.Resources;
             if (actor.Id == id && (resources.Snare != null || resources.Decoy != null || resources.Spirit != null
                 || resources.Beacon != null || resources.Bulwark != null || resources.Sentry is { Phase: not SentryPhase.Spent })) return true;

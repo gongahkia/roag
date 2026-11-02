@@ -72,7 +72,7 @@ public sealed partial class ClassActionTests
         string boon = UnlockRetained(a.Hero, "ability.ember");
         Assert.True(a.Combat.Commit(new(TacticalAction.RetainedSkill, Item: boon, Target: a.Enemy.Id)).Success);
         var burn = a.Enemy.Tactics!.Burning!; Assert.NotNull(burn);
-        Assert.Equal(boon, burn.Activation.BoonId); Assert.Equal("ability.ember", burn.Activation.Event.AbilityId);
+        Assert.Equal(boon, burn.Activation!.BoonId); Assert.Equal("ability.ember", burn.Activation.Event.AbilityId);
         Assert.Equal(a.Hero.Id, burn.Activation.OwnerId); Assert.Equal(3, burn.Power);
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }

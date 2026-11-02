@@ -39,6 +39,7 @@ public sealed partial class TacticalCombat
     private long[] DungeonContractTargets(WorldRoomId room) => _world.State.Actors.Where(a => a is { Life: LifeState.Alive, Health: > 0,
             Tactics: { Enemy: not null, RewardExempt: false } } && _world.RoomAt(a.Position) == room
             && a.Tactics.DefinitionId != EnemySentinel.Definition
+            && a.Tactics.Enemy.Retained == null
             && EnemyCatalog.Default.Get(a.Tactics.DefinitionId).Ai is not (EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
                 or EnemyBrainKind.Pursuer or EnemyBrainKind.HollowRegent)).Select(a => a.Id).Order().ToArray();
 

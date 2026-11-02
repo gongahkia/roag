@@ -37,6 +37,7 @@ public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, 
 /// <summary>Persistent tactical decision memory; no duplicate health, location or scheduled work.</summary>
 public sealed class EnemyMemory
 {
+    public RetainedEnemyMemory? Retained { get; set; }
     public EnemyAwareness? Awareness { get; set; }
     public EnemyPursuitBoundary? PursuitBoundary { get; set; }
     public bool Dormant { get; set; }
@@ -69,6 +70,7 @@ public sealed class EnemyMemory
 
     internal void Validate()
     {
+        Retained?.Validate();
         Squad?.Validate();
         EnemySentinel.ValidateMemory(this);
         if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0 || FragmentOf < 0 || RevivalOf < 0 || RevivedBy < 0 || CalledBy < 0
