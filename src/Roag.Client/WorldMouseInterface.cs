@@ -56,7 +56,8 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        var replacement = _session.State.Dungeon != null ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
+        var replacement = _session.State.NativeCampaign != null ? WorldSession.CreateNativeCampaign(WorldStartup.FreshSeed())
+            : _session.HasNativeParty ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
             : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
         _session.Dispose(); _session = replacement; _streamPosition = null; _streamDx = _streamDy = 0; ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         _session.Paused = _options.Preview;
@@ -65,7 +66,7 @@ internal sealed partial class WorldGame
         _skill = 0; _cooperativePartner = _combatTarget = -1;
         _waypoint = null; _selectedWorkId = _selectedWorkerId = 0;
         _notice = "A fresh world begins. Move with WASD or arrow keys, one tile per press.";
-        if (_session.State.Dungeon != null)
+        if (_session.HasNativeParty)
         {
             _panel = "dungeon-class"; _nativeSeenEvent = _session.State.Tactics!.NextEvent - 1;
             if (_autoSave) TrySave();
@@ -114,7 +115,7 @@ internal sealed partial class WorldGame
     {
         ControlCache.Begin();
         if (_titleBackdrop != null && _panel != "dungeon-settings") { BuildTitleControls(w, h); return; }
-        if (_session.State.Dungeon != null) { BuildDungeonControls(w, h); return; }
+        if (_session.HasNativeParty) { BuildDungeonControls(w, h); return; }
         void Add(string id, string label, int x, int y, int width, int height = 34, bool enabled = true, bool selected = false, string tip = "", string reason = "", string? sprite = null, string detail = "", float progress = -1, string? badge = null, bool dimmed = false)
             => ControlCache.Add(id, label, new(x, y, width, height), enabled, selected, tip, enabled ? "" : reason.Length > 0 ? reason : DisabledControlReason(id), sprite, detail, progress, badge, dimmed);
         bool ended = !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation);
@@ -408,7 +409,7 @@ internal sealed partial class WorldGame
     private void ActivateControl(string id)
     {
         if (ActivateTitleControl(id)) return;
-        if (_session.State.Dungeon != null && ActivateDungeonControl(id)) return;
+        if (_session.HasNativeParty && ActivateDungeonControl(id)) return;
         if (ActivateRoagControl(id)) return;
         _recording?.Record("ui-control", new { id, panel = _panel }, _session.State.Tick);
         string argument = id.Contains(':', StringComparison.Ordinal) ? id[(id.IndexOf(':') + 1)..] : "";
@@ -522,7 +523,7 @@ internal sealed partial class WorldGame
     private void DrawMouseControls(int w, int h)
     {
         BuildMouseControls(w, h);
-        if (_session.State.Dungeon == null && !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
+        if (!_session.HasNativeParty && !Playback.Busy && (_session.State.Endgame.Victory || _session.State.AwaitingContinuation) && _panel != "game")
         {
             var box = new Rectangle(60, h / 2 - 110, w - 120, 220); Fill(box, _session.State.Endgame.Victory ? Panel : new Color(44, 27, 31));
             Text(_session.State.Endgame.Victory ? "EXPEDITION COMPLETE" : "THE EXPEDITION HAS ENDED", box.X + 24, box.Y + 24, Gold, 2);
@@ -540,7 +541,7 @@ internal sealed partial class WorldGame
             Fill(new(r.X, r.Bottom - 2, r.Width, 2), edge);
             DrawControlContents(control);
         }
-        if (_titleBackdrop != null || _session.State.Dungeon != null) return;
+        if (_titleBackdrop != null || _session.HasNativeParty) return;
         int ny = h - 136;
         Fill(new(_map.X, ny, CombatStageVisible ? CombatArea.Width : _map.Width, 36), new(16, 22, 27));
         string notice = hot is { Enabled: false } ? hot.DisabledReason : hot is { Tip.Length: > 0 } ? hot.Tip
@@ -562,7 +563,7 @@ internal sealed partial class WorldGame
         static object Rect(Rectangle r) => new { x = r.X, y = r.Y, width = r.Width, height = r.Height };
         bool playing = playerView && Playback.Busy;
         var reportedBattle = playerView ? DisplayBattle : _session.State.Battle;
-        var skills = playing || _session.State.Dungeon != null ? Array.Empty<Skill>() : _session.ActiveSkills();
+        var skills = playing || _session.HasNativeParty ? Array.Empty<Skill>() : _session.ActiveSkills();
         CombatUnit? Presented(Actor actor) => playerView && reportedBattle is { } b && b.ActorIds.IndexOf(actor.Id) is var index && index >= 0 ? b.Units[index] : null;
         return JsonSerializer.Serialize(new
         {
@@ -581,12 +582,13 @@ internal sealed partial class WorldGame
             mouseInput = new { pressSequence = _lastMousePress?.Sequence ?? 0, lastPress = _lastMousePress,
                 leftPressed = _mouse.LeftButton == ButtonState.Pressed, rightPressed = _mouse.RightButton == ButtonState.Pressed },
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
-            nativeDungeon = _session.State.Dungeon is not { } native ? null : new
+            nativeDungeon = !_session.HasNativeParty ? null : new
             {
-                native.Stage, native.Victory, clock = _session.DungeonCombat.Clock,
+                stage = _session.State.Dungeon?.Stage ?? 0, victory = _session.State.Dungeon?.Victory ?? _session.State.Endgame.Victory,
+                campaign = _session.State.NativeCampaign != null, calendar = _session.CalendarDescription, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
                 controlledActor = _session.State.Tactics.ControlledActor,
-                following = native.Following,
+                following = _session.DungeonFollowing,
                 equipment = _session.Party.Select(a => new { a.Id, slots = a.Equipment, a.Tactics!.EquipmentCoverUsed }),
                 packEquipment = DungeonPackGear.Select(i => new { i.Id, i.Name, i.Sprite, i.Slot, count = _session.Count(i.Stack) }),
                 cooperation = _session.Party.Select(a => new { a.Id, a.Tactics!.CooperationCommitted }),
@@ -614,7 +616,7 @@ internal sealed partial class WorldGame
                 fighters = _session.RoagFighters(),
                 telegraphs = _session.RoagTelegraphs(),
                 chests = _session.State.Tactics.Chests.Chests.Where(c => _session.Visible.Contains(c.Position)),
-                recruits = native.Recruits.Where(r => _session.State.Actors.Any(a => a.Id == r.Actor && !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)))
+                recruits = _session.NativeAdventurers.Where(r => _session.State.Actors.Any(a => a.Id == r.Actor && !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)))
                     .Select(r => new { r.Actor, classId = r.Class.ToString(), position = _session.State.Actors.Single(a => a.Id == r.Actor).Position,
                         medicine = _session.ActorById(r.Actor).Cargo.GetValueOrDefault("medicine") }),
                 rescuers = _session.State.Actors.Where(a => a.Tactics?.Resident != null && _session.Visible.Contains(a.Position))
@@ -701,7 +703,7 @@ internal sealed partial class WorldGame
                 material = _session.Chunks.At(p).ToString(), terrain = _session.DungeonTerrainAt(p)?.ToString(),
                 groundOpen = _session.GroundOpen(p), occupied = _session.OccupantAt(p) != null,
                 clickable = WorldMouseControl.Hit(_controls, TileRect(p).Center) == null
-                    && !(_session.State.Dungeon != null && _nativeMapVisible && _panel.Length == 0 && !_session.State.AwaitingContinuation && DungeonMapBounds().Contains(TileRect(p).Center)),
+                    && !(_session.HasNativeParty && _nativeMapVisible && _panel.Length == 0 && !_session.State.AwaitingContinuation && DungeonMapBounds().Contains(TileRect(p).Center)),
                 prop = _session.ObjectAt(p)?.Name, resource = _session.ResourceAt(p) is { } resource ? new { id = resource.Definition.Id, available = resource.Available, sprite = resource.Sprite, recovery = resource.RecoveryDescription } : null }),
             work = _session.State.Work.Select(o => new { id = o.Id, kind = o.Kind.ToString(), x = o.Target.X, y = o.Target.Y, progress = o.Progress, partyApproach = o.PartyApproach, worker = o.Worker, status = o.Status, priority = o.Priority, suspended = o.Suspended, pinnedWorker = o.PinnedWorker,
                 supplies = o.Supplies?.Select(s => new { s.Stack, s.Count, phase = s.Phase.ToString(), s.Carrier, s.Storage }), supplyDescription = _session.WorkSupplyDescription(o),

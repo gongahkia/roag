@@ -32,6 +32,7 @@ public sealed partial class WorldSession
 {
     public bool HasNativeParty => State.Dungeon != null || State.NativeCampaign != null;
     internal Dictionary<long, long>? PartyFollowing => State.NativeCampaign?.Following ?? State.Dungeon?.Following;
+    public IReadOnlyDictionary<long, long> DungeonFollowing => PartyFollowing ?? [];
     public IReadOnlyList<DungeonRecruit> NativeAdventurers => State.NativeCampaign?.Recruits ?? State.Dungeon?.Recruits ?? [];
 
     /// <summary>Persistent living world with native party actions; bounded runs remain independently loadable.</summary>

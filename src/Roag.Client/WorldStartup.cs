@@ -10,7 +10,7 @@ internal static class WorldStartup
         bool native = options.NativeDungeonLaunch && !options.WorldSmoke;
         int seed = options.SeedSpecified || options.Preview ? options.Seed : FreshSeed();
         var session = resume ? Resume(options, native, diagnostics) : native
-            ? WorldSession.CreateDungeonRun(seed, survival: true) : WorldSession.Create(seed, diagnostics: diagnostics);
+            ? options.NativeCampaignLaunch ? WorldSession.CreateNativeCampaign(seed) : WorldSession.CreateDungeonRun(seed, survival: true) : WorldSession.Create(seed, diagnostics: diagnostics);
         if (session is WorldSession nativeWorld && native) nativeWorld.DiagnosticSink = diagnostics;
         if (session is WorldSession world) world.Paused = options.Preview;
         return (session, resume);
@@ -21,10 +21,10 @@ internal static class WorldStartup
         try
         {
             var session = SessionStore.Load(options.Save, diagnostics);
-            if (native && session is not WorldSession { State.Dungeon: not null })
+            if (native && session is not WorldSession { HasNativeParty: true })
             {
                 (session as IDisposable)?.Dispose();
-                throw new InvalidDataException("This save belongs to an earlier prototype and cannot resume a native dungeon run.");
+                throw new InvalidDataException("This save belongs to an earlier prototype and cannot resume a native run.");
             }
             return session;
         }

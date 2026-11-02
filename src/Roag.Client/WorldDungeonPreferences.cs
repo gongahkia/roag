@@ -8,12 +8,12 @@ internal sealed partial class WorldGame
     private string DungeonPreferencesPath => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(_options.Save))!, "dungeon-presentation.json");
     private void LoadDungeonPreferences()
     {
-        if (_session.State.Dungeon == null) return;
+        if (!_session.HasNativeParty) return;
         _preferences = PresentationPreferences.Load(DungeonPreferencesPath); ApplyDungeonPreferences();
     }
     private void ApplyDungeonPreferences()
     {
-        if (_session.State.Dungeon == null) return;
+        if (!_session.HasNativeParty) return;
         _reducedMotion = _preferences.ReducedMotion; _combatVolume = _preferences.EffectsVolume;
         _uiFonts?.Select(_preferences.Font.ToString(), _preferences.TextSize.ToString());
         if (_combatVolume == 0) _combatAudio?.Stop();
@@ -29,7 +29,7 @@ internal sealed partial class WorldGame
     }
     private Color NativeContrast(Color color)
     {
-        if (_session.State.Dungeon == null || !_preferences.HighContrast) return color;
+        if (!_session.HasNativeParty || !_preferences.HighContrast) return color;
         return color == Ink ? Color.White : color == Muted ? new(204, 214, 228) : color == Gold ? new(255, 231, 103)
             : color == Panel ? new(8, 12, 18) : color;
     }

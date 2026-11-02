@@ -26,7 +26,7 @@ internal sealed partial class WorldGame
         Color ink = !control.Enabled ? Muted * .65f : control.Selected ? Gold : control.Dimmed ? Muted : Ink;
         if (control.Sprite is not { } sprite)
         {
-            int advance = _session.State.Dungeon != null ? _uiFonts?.Advance ?? 8 : 8;
+            int advance = _session.HasNativeParty ? _uiFonts?.Advance ?? 8 : 8;
             string label = Short(control.Label, Math.Max(1, (r.Width - 14) / advance));
             Text(label, (int)(r.Center.X - label.Length * advance / 2f), r.Center.Y - 6, ink);
             return;
@@ -41,7 +41,7 @@ internal sealed partial class WorldGame
             return;
         }
         int tx = icon.Right + 10, right = r.Right - (control.BadgeSprite == null ? 8 : 42);
-        int columnAdvance = _session.State.Dungeon != null ? _uiFonts?.Advance ?? 8 : 8;
+        int columnAdvance = _session.HasNativeParty ? _uiFonts?.Advance ?? 8 : 8;
         int columns = Math.Max(1, (right - tx) / columnAdvance);
         Text(Short(control.Label, columns), tx, r.Center.Y - 14, ink);
         Text(Short(control.Detail, columns), tx, r.Center.Y + 1, Muted);

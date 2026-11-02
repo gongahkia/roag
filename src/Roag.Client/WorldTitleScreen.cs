@@ -124,8 +124,9 @@ internal sealed partial class WorldGame
             {
                 var hero = _session.DungeonMember;
                 int members = _session.Party.Count(a => a.Life != LifeState.Dead);
-                string detail = HasTitleContinuation ? members > 1 ? $"{members} members / stage {_session.State.Dungeon!.Stage}"
-                    : $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / stage {_session.State.Dungeon!.Stage}"
+                string place = _session.State.Dungeon is { } run ? "stage " + run.Stage : "day " + (_session.State.Tick / WorldSession.TicksPerDay + 1);
+                string detail = HasTitleContinuation ? members > 1 ? $"{members} members / {place}"
+                    : $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / {place}"
                     : "Fifteen classes. Find your next build.";
                 Text(Short(detail, (card.Width - 68) / (_uiFonts?.Advance ?? 8)), card.X + 34, card.Y + 450, Muted);
             }

@@ -45,7 +45,7 @@ public sealed partial class WorldSession
 
     public IReadOnlyList<RoagFighter> RoagFighters()
     {
-        if (State.Dungeon != null && State.Tactics is { } native)
+        if (HasNativeParty && State.Tactics is { } native)
             return State.Actors.Where(a => native.Participants.Contains(a.Id) && a.Life != LifeState.Dead
                 && (State.Party.Contains(a.Id) || Visible.Contains(a.Position)))
                 .Select(a => new RoagFighter(a.Id, a.Name, a.Tactics!.Build is { } build ? ClassCatalog.Get(build.Class).Id : a.Tactics.DefinitionId,
@@ -53,15 +53,15 @@ public sealed partial class WorldSession
         return State.RoagCombat ? PrototypeCombat.RoagFighters() : [];
     }
 
-    public IReadOnlyList<RoagTelegraph> RoagTelegraphs() => State.Dungeon != null
+    public IReadOnlyList<RoagTelegraph> RoagTelegraphs() => HasNativeParty
         ? DungeonCombat.VisibleAttacks(Visible).Select(a => new RoagTelegraph(a.Source, a.Due, a.Cells)).ToArray()
         : State.RoagCombat ? PrototypeCombat.RoagTelegraphs() : [];
 
-    public IReadOnlyList<WorldPosition> RoagPreview(RoagAim aim) => State.Dungeon != null
+    public IReadOnlyList<WorldPosition> RoagPreview(RoagAim aim) => HasNativeParty
         ? PreviewDungeonAim(aim).Cells
         : State.RoagCombat ? PrototypeCombat.RoagPreview(aim) : [];
 
-    public ActionResult SubmitRoag(RoagAim aim) => State.Dungeon != null
+    public ActionResult SubmitRoag(RoagAim aim) => HasNativeParty
         ? TryDungeonAim(aim, out var intent) ? SubmitDungeon(intent) : new(false, "Choose a valid action and direction.")
         : State.RoagCombat && !State.AwaitingContinuation ? PrototypeCombat.SubmitRoag(aim) : new(false, "No active tile combat.");
 

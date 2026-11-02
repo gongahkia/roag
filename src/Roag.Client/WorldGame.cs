@@ -98,7 +98,7 @@ internal sealed partial class WorldGame : Game
             _session.StartBattle(_session.FinalBoss.Id);
         }
         if (_session.IsInCombat) _notice = "Choose an ability, then a fighter. Read enemy intentions before committing.";
-        if (_session.State.Dungeon != null)
+        if (_session.HasNativeParty)
         {
             _notice = "WASD / arrows move one tile. F attacks, R special, X movement. Enter interacts.";
             if (_session.State.Tactics!.NextAction == 1) _panel = "dungeon-class";
@@ -142,7 +142,7 @@ internal sealed partial class WorldGame : Game
     private void Layout()
     {
         int w = GraphicsDevice.Viewport.Width, h = GraphicsDevice.Viewport.Height;
-        _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - (_session.State.Dungeon != null ? 100 : 230)));
+        _map = new(16, 84, Math.Max(300, w - 350), Math.Max(260, h - (_session.HasNativeParty ? 100 : 230)));
         _side = new(w - 318, 84, 302, h - 100);
         _camera.Viewport = _map; WorldCameraScale.Apply(_camera);
     }
@@ -191,7 +191,7 @@ internal sealed partial class WorldGame : Game
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {
-                    if (_session.State.RoagCombat || _session.State.Dungeon != null) RoagClick(mouse.Position);
+                    if (_session.State.RoagCombat || _session.HasNativeParty) RoagClick(mouse.Position);
                     else if (CombatStageVisible) CombatClick(mouse.Position);
                     else if (_map.Contains(mouse.Position)) BeginSelection(mouse.Position);
                 }
@@ -202,7 +202,7 @@ internal sealed partial class WorldGame : Game
                 _lastMousePress = new((_lastMousePress?.Sequence ?? 0) + 1, 3, mouse.X, mouse.Y, WorldMouseControl.Hit(_controls, mouse.Position)?.Id);
                 if (CombatStageVisible && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
                 if (_panel.Length > 0 || CombatStageVisible || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
-                else if (_session.State.Dungeon != null)
+                else if (_session.HasNativeParty)
                 {
                     if (_roagAim == "move" && (!_nativeMapVisible || !DungeonMapBounds().Contains(mouse.Position))) OpenDungeonWorkAtPointer(mouse.Position);
                     else { _roagAim = "move"; _notice = "Action selection cancelled."; }
@@ -218,14 +218,14 @@ internal sealed partial class WorldGame : Game
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.PartyTravelling = false;
-        if (_session.State.Dungeon != null && _panel.Length == 0 && !PointerModal && !Playback.Busy && InputFocused
+        if (_session.HasNativeParty && _panel.Length == 0 && !PointerModal && !Playback.Busy && InputFocused
             && _session.ContinueDungeonActivities())
         { _terrainLayerDirty = true; CollectDungeonFeedback(); }
         bool wasInCombat = _session.IsInCombat;
         // Long stalls discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);
         if (!_session.Frozen) _workVisualTime += Math.Clamp(gameTime.ElapsedGameTime.TotalSeconds, 0, .2);
-        if (_session.IsInCombat && !_session.State.RoagCombat && _session.State.Dungeon == null)
+        if (_session.IsInCombat && !_session.State.RoagCombat && !_session.HasNativeParty)
         {
             if (!wasInCombat && _panel is "work" or "inventory" or "camp") ClosePanel();
             StopTravel();
@@ -301,7 +301,7 @@ internal sealed partial class WorldGame : Game
     }
     private void TryLoad()
     {
-        if (_session.State.Dungeon != null) { _notice = "This is one continuing run. Close and relaunch to resume it."; return; }
+        if (_session.HasNativeParty) { _notice = "This is one continuing run. Close and relaunch to resume it."; return; }
         try
         {
             var replacement = WorldSession.Load(_options.Save, diagnostics: _session.DiagnosticSink);
@@ -325,10 +325,10 @@ internal sealed partial class WorldGame : Game
     private void Text(string text, int x, int y, Color? color = null, float scale = 1)
     {
         var tint = NativeContrast(color ?? Ink);
-        if (_session.State.Dungeon != null && _uiFonts != null) _uiFonts.Draw(_batch, text, new(x, y), tint, scale);
+        if (_session.HasNativeParty && _uiFonts != null) _uiFonts.Draw(_batch, text, new(x, y), tint, scale);
         else _sprites.Text(_batch, text, new(x, y), tint, scale);
     }
-    private int Wrap(string text, int x, int y, int width, Color? color = null) => (int)(_session.State.Dungeon != null && _uiFonts != null
+    private int Wrap(string text, int x, int y, int width, Color? color = null) => (int)(_session.HasNativeParty && _uiFonts != null
         ? _uiFonts.Wrapped(_batch, text, new(x, y), width, NativeContrast(color ?? Ink))
         : _sprites.Wrapped(_batch, text, new(x, y), width, color ?? Ink)) + 6;
     private Rectangle TileRect(WorldPosition p)
@@ -338,13 +338,13 @@ internal sealed partial class WorldGame : Game
     }
     private void UpdateMotions(TimeSpan elapsed)
     {
-        long leader = _session.State.Dungeon != null ? _session.DungeonMember.Id : _session.State.Party[0];
+        long leader = _session.HasNativeParty ? _session.DungeonMember.Id : _session.State.Party[0];
         if (!ReferenceEquals(_visualSession, _session) || _visualLeader != leader)
         {
             _visualSession = _session; _visualLeader = leader; _actorMotions.Clear();
             _partyMotion.Reset(_session.State.Position, resetFacing: true);
         }
-        if (_session.State.Dungeon != null && _reducedMotion) _partyMotion.Reset(_session.State.Position);
+        if (_session.HasNativeParty && _reducedMotion) _partyMotion.Reset(_session.State.Position);
         _partyMotion.Observe(_session.State.Position, MoveDuration);
         _partyMotion.Advance(elapsed);
         _camera.Center = _partyMotion.Position;
@@ -352,7 +352,7 @@ internal sealed partial class WorldGame : Game
         {
             if (actor.Life == LifeState.Dead) { _actorMotions.Remove(actor.Id); continue; }
             if (!_actorMotions.TryGetValue(actor.Id, out var motion)) _actorMotions[actor.Id] = motion = new();
-            if (_session.State.Dungeon != null && _reducedMotion) motion.Reset(actor.Position);
+            if (_session.HasNativeParty && _reducedMotion) motion.Reset(actor.Position);
             motion.Observe(actor.Position, actor.Tactics != null || actor.Recruited || actor.Kind == ActorKind.Caravan ? MoveDuration : 1); motion.Advance(elapsed);
         }
     }
@@ -368,7 +368,7 @@ internal sealed partial class WorldGame : Game
             && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
             && ActorRect(motion.Position).Contains(point));
         _pointer.Update(_session, _camera, point,
-            enabled: _panel.Length == 0 && !PointerModal && (_session.State.Dungeon != null || !_session.IsInCombat) && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
+            enabled: _panel.Length == 0 && !PointerModal && (_session.HasNativeParty || !_session.IsInCombat) && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
             interactionCell: actor?.Position);
     }
     protected override void Draw(GameTime gameTime)
@@ -398,9 +398,9 @@ internal sealed partial class WorldGame : Game
             _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
             DrawHud(w, h);
             if (CombatStageVisible) DrawCombat();
-            if (_session.State.RoagCombat || _session.State.Dungeon != null) DrawRoagCombat();
-            if (_session.State.Dungeon != null) { DrawDungeonMap(); DrawDungeonReward(); }
-            if (_panel.Length > 0) { if (_session.State.Dungeon != null) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
+            if (_session.State.RoagCombat || _session.HasNativeParty) DrawRoagCombat();
+            if (_session.HasNativeParty) { DrawDungeonMap(); DrawDungeonReward(); }
+            if (_panel.Length > 0) { if (_session.HasNativeParty) DrawDungeonPanel(w, h); else DrawPanel(w, h); }
             DrawContext();
             DrawMouseControls(w, h);
             DrawHoverFeedback();
@@ -452,7 +452,7 @@ internal sealed partial class WorldGame : Game
     private void DrawTerrain()
     {
         DrawCachedTerrain();
-        if (_session.State.Dungeon != null) DrawDungeonObjects();
+        if (_session.HasNativeParty) DrawDungeonObjects();
         UpdatePointer(_mouse.Position);
         foreach (var d in _session.State.Discoveries.Where(d => _session.Visible.Contains(d.Position)))
             _sprites.Draw(_batch, _session.DiscoverySprite(d), TileRect(d.Position), _session.DiscoveryComplete(d) ? Muted : d.Outcome.Length > 0 ? new Color(129, 200, 204) : Gold);
@@ -463,7 +463,7 @@ internal sealed partial class WorldGame : Game
             var motion = _actorMotions[actor.Id];
             if (!_session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), actor.Position.Floor))) continue;
             var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion))); if (!_map.Intersects(rect)) continue;
-            bool cache = _session.State.Dungeon != null && actor.Tactics?.DefinitionId == "core:enemy/haunted_cache";
+            bool cache = _session.HasNativeParty && actor.Tactics?.DefinitionId == "core:enemy/haunted_cache";
             bool concealedCache = cache && actor.Tactics!.Enemy is { Alerted: false } && actor.Health == actor.MaxHealth;
             _sprites.Draw(_batch, cache && !concealedCache ? "chest-open" : actor.Sprite, rect,
                 DungeonActorTint(actor.Id, concealedCache ? Gold : _session.IsHostile(actor) ? new(224, 119, 103) : _session.Ecology(actor) != null ? new(164, 200, 144) : new(212, 204, 176)), effects: ActorSpriteEffects(actor.Sprite, motion.FacingLeft));
@@ -487,14 +487,14 @@ internal sealed partial class WorldGame : Game
             _sprites.Fit(_batch, "banner", banner, Gold);
         }
         foreach (var actor in _session.Party.Where(a => a.Life != LifeState.Dead
-            && (_session.State.Dungeon == null || _session.Visible.Contains(a.Position))))
+            && (!_session.HasNativeParty || _session.Visible.Contains(a.Position))))
         {
             var motion = _actorMotions[actor.Id];
             var rect = DungeonActorPose(actor, ActorRect(motion.Position + WorldWorkMotion.Offset(_session, actor, motion.Moving, _workVisualTime, _reducedMotion)));
-            if (_session.State.Dungeon != null)
+            if (_session.HasNativeParty)
                 FillClipped(new(rect.X + 3, rect.Y + 3, rect.Width - 6, rect.Height - 6), new Color(9, 14, 19) * .9f);
             _sprites.Draw(_batch, actor.Sprite, rect, DungeonActorTint(actor.Id, actor.Life == LifeState.Downed ? new(139, 100, 100) : Ink), effects: ActorSpriteEffects(actor.Sprite, motion.FacingLeft));
-            if (_session.State.Dungeon != null && actor.Id == _session.RoagActiveActor)
+            if (_session.HasNativeParty && actor.Id == _session.RoagActiveActor)
                 foreach (var corner in new[] { new Point(rect.Left + 1, rect.Top + 1), new Point(rect.Right - 8, rect.Top + 1),
                     new Point(rect.Left + 1, rect.Bottom - 3), new Point(rect.Right - 8, rect.Bottom - 3) })
                     FillClipped(new(corner.X, corner.Y, 7, 2), Gold);
@@ -534,7 +534,7 @@ internal sealed partial class WorldGame : Game
     }
     private void DrawHud(int w, int h)
     {
-        if (_session.State.Dungeon != null) { DrawDungeonHud(w, h); return; }
+        if (_session.HasNativeParty) { DrawDungeonHud(w, h); return; }
         Text("VAGABONDS", 20, 16, Gold, 2);
         long tick = _session.State.Tick;
         Text($"Day {tick / 7200 + 1}  {tick / 300 % 24:00}:{tick / 5 % 60:00}    {(_session.Frozen ? "PAUSED" : "LIVING WORLD")}", 300, 22);

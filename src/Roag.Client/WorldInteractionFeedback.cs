@@ -62,20 +62,20 @@ internal static class WorldInspection
             if (actor.Tactics?.Burning is { } burning)
                 detail += $" Burning: {burning.Remaining} pulses of {burning.Power}, next in {Math.Max(0, burning.Due - session.State.Tactics!.Queue.Clock) / 100.0:0.00}s.";
             detail += targeting;
-            if (session.State.Dungeon != null && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
+            if (session.HasNativeParty && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
             if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
-            if (session.State.Dungeon != null)
+            if (session.HasNativeParty)
                 return WithAccess(actor.Name, detail, actor.Recruited ? "F basic / R special / X movement / G Guard"
                     : "Inspect its intent; aim an attack while in range", hostile ? "enemy" : "person");
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }
-        if (session.State.Dungeon != null && session.Visible.Contains(cell)
+        if (session.HasNativeParty && session.Visible.Contains(cell)
             && session.Party.FirstOrDefault(a => a.Life == LifeState.Dead && a.Position == cell) is { } corpse)
             return new(corpse.Name + " / fallen equipment", (corpse.Equipment.Count > 0 ? "Equipment remains on this body." : "No equipment remains.")
                 + " Assigned boons and permanent death remain with the fallen member.",
                 "Click to inspect; Enter beside the body. Recovery costs one action.",
                 session.DungeonMember.Position.Distance(cell) <= 1 ? "" : "Stand on or beside the body", "corpse");
-        if (session.State.Dungeon != null && session.Visible.Contains(cell)
+        if (session.HasNativeParty && session.Visible.Contains(cell)
             && DungeonMemberResources.Objects(session).FirstOrDefault(o => o.Position == cell) is { } construct)
         {
             var owner = session.ActorById(construct.Owner);
@@ -115,7 +115,7 @@ internal static class WorldInspection
         {
             string title = TacticalCombat.ServiceName(service.Kind) + (service.Bell is { Number: > 0 } bell ? " " + bell.Number : "");
             if (!session.Visible.Contains(cell)) return new(title + " (remembered)", "Observe this service again to inspect its current state.", "Move with the keyboard", "", "object");
-            string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.State.Dungeon != null ? session.DungeonMember.Id : session.State.Party[0]);
+            string detail = session.DungeonCombat.DungeonServiceDescription(service.Id, session.HasNativeParty ? session.DungeonMember.Id : session.State.Party[0]);
             return new(title, detail, "Click while adjacent, or press Enter beside it", session.State.Position.Distance(cell) <= 1 ? "" : "Stand beside this service", "object");
         }
         if (session.State.Tactics?.Secrets.Nodes.FirstOrDefault(n => n.Clue == cell) is { } secret)
@@ -216,19 +216,19 @@ internal static class WorldInspection
         if (session.ObjectAt(cell) is { Kind: "decoration", Solid: true } prop) return WithAccess(prop.Name, "A solid object occupies this tile.", "Right-click to dismantle", "object");
         if (session.SituationAtWall(cell) is { Known: true, Outcome.Length: 0 } place)
             return new("Side wall / " + place.Name, "Excavating this wall opens a physical bypass to the supplies.", "Right-click and choose Dig; companions can do the work.", session.TargetBlockReason(WorldCommandKind.Dig, cell, requireAdjacent: false), "discovery");
-        if (session.State.Dungeon == null && session.ResourceAt(cell) is { } resource)
+        if (!session.HasNativeParty && session.ResourceAt(cell) is { } resource)
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Walk beside the camp; right-click to rest or craft", _ => "Move with WASD or arrow keys" };
         string placeName = session.State.Dungeon is { } run && run.Floors.FirstOrDefault(f => f.Contains(cell)) is { } floor
             ? floor.Stage == 4 ? "Final Sanctum" : DungeonCatalog.Default.Biomes.Single(b => b.Id == floor.Biome).Name
             : session.Plan.BiomeAt(cell.X, cell.Y).ToString();
-        if (session.State.Dungeon != null && material is Material.StairsDown or Material.StairsUp) action = "Step onto the stair, or press Enter while standing on it";
+        if (session.HasNativeParty && material is Material.StairsDown or Material.StairsUp) action = "Step onto the stair, or press Enter while standing on it";
         return WithAccess(material + (session.Visible.Contains(cell) ? "" : " (remembered)"), "Tile " + cell.X + ", " + cell.Y + ". " + placeName + ".", action, "terrain");
         WorldHoverInfo WithAccess(string title, string detail, string action, string kind)
         {
             string reason = WorldMouseNavigation.HoverBlockReason(session, cell);
-            if (session.State.Dungeon != null)
+            if (session.HasNativeParty)
             {
                 int deferredHint = reason.IndexOf("Right-click", StringComparison.Ordinal);
                 if (deferredHint >= 0) reason = reason[..deferredHint].TrimEnd();

@@ -141,7 +141,7 @@ internal sealed partial class WorldGame
 
     private string DungeonGroupLabel(Actor member)
     {
-        var following = _session.State.Dungeon!.Following;
+        var following = _session.DungeonFollowing;
         if (following.TryGetValue(member.Id, out long leader))
             return "follows #" + (Array.FindIndex(DungeonRoster, a => a.Id == leader) + 1);
         return following.Values.Contains(member.Id) ? "group leader" : "individual";

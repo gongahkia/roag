@@ -44,7 +44,7 @@ internal sealed partial class WorldGame
                     'm' => new(163, 160, 195), 'c' => new(151, 224, 227), _ => tint };
                 ground = false;
             }
-            if (_session.State.Dungeon != null && _session.DungeonDoorAt(p) != null)
+            if (_session.HasNativeParty && _session.DungeonDoorAt(p) != null)
             { sprite = material == Material.ClosedDoor ? "gate" : "gate-open"; tint = Gold; ground = false; }
             if (_session.DungeonGateAt(p) != null)
             { sprite = _session.Visible.Contains(p) && material == Material.Door ? "gate-open" : "gate"; tint = Gold; ground = false; }

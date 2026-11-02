@@ -20,10 +20,10 @@ internal sealed partial class WorldGame
     }
     private bool ActivateRoagControl(string id)
     {
-        if(!_session.Plan.RoagNative && _session.State.Dungeon == null)return false;
+        if(!_session.Plan.RoagNative && !_session.HasNativeParty)return false;
         if(id=="pause")
         {
-            if(_session.State.RoagCombat || _session.State.Dungeon != null)CommitRoag(new("wait"));
+            if(_session.State.RoagCombat || _session.HasNativeParty)CommitRoag(new("wait"));
             else { _session.Paused=false;Execute(new(WorldCommandKind.Wait,Amount:5)); }
             return true;
         }
@@ -32,26 +32,26 @@ internal sealed partial class WorldGame
     }
     private void CommitRoag(RoagAim aim)
     {
-        if (_session.State.Dungeon != null && aim.Kind is not ("basic_attack" or "sweeping_slash")) aim = aim with { Vow = false };
+        if (_session.HasNativeParty && aim.Kind is not ("basic_attack" or "sweeping_slash")) aim = aim with { Vow = false };
         var result=_session.SubmitRoag(aim);_notice=result.Message;
-        if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;if(_session.State.Dungeon != null)CollectDungeonFeedback();}
+        if(result.Success){StopTravel();_roagAim="move";_terrainLayerDirty=true;if(_session.HasNativeParty)CollectDungeonFeedback();}
     }
-    private RoagAim SelectedRoagAim(int dx, int dy) => _session.State.Dungeon != null && _roagAim == "fixture"
+    private RoagAim SelectedRoagAim(int dx, int dy) => _session.HasNativeParty && _roagAim == "fixture"
         ? new("interact", Target: _nativeService, Choice: 1)
-        : _session.State.Dungeon != null && _roagAim == "revive"
+        : _session.HasNativeParty && _roagAim == "revive"
             ? new("revive", Target: _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed
                 && a.Position == _session.DungeonMember.Position.Offset(dx, dy))?.Id ?? 0)
-        : _session.State.Dungeon != null && _roagAim == "cooperate"
+        : _session.HasNativeParty && _roagAim == "cooperate"
             ? new("cooperate", dx, dy, Target: _nativeCooperationHelper, Choice: 1)
         : new(_roagAim, dx, dy, Choice: _roagAim == "use_utility" ? _nativeUtilitySteps : 0,
-            Vow: _roagVow && (_session.State.Dungeon == null || _roagAim is "basic_attack" or "sweeping_slash"));
+            Vow: _roagVow && (!_session.HasNativeParty || _roagAim is "basic_attack" or "sweeping_slash"));
     private void RoagClick(Point pointer)
     {
         if(!_map.Contains(pointer))return;
-        if (_session.State.Dungeon != null && _nativeMapVisible && DungeonMapBounds().Contains(pointer))
+        if (_session.HasNativeParty && _nativeMapVisible && DungeonMapBounds().Contains(pointer))
         { _notice = "The explored map is informational. Tab hides it; movement uses the keyboard."; return; }
-        if (_session.State.Dungeon != null && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
-        if(_session.State.Dungeon != null && _roagAim == "move" && (TryOpenDungeonCorpse(pointer) || TryOpenDungeonPerson(pointer) || TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
+        if (_session.HasNativeParty && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
+        if(_session.HasNativeParty && _roagAim == "move" && (TryOpenDungeonCorpse(pointer) || TryOpenDungeonPerson(pointer) || TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);
@@ -78,15 +78,15 @@ internal sealed partial class WorldGame
     private void HandleRoagKeyboard(KeyboardState keyboard, bool focused)
     {
         bool Press(Keys key)=>keyboard.IsKeyDown(key)&&_roagKeyboard.IsKeyUp(key);
-        if (_session.State.Dungeon != null && focused && Press(Keys.F5)) { TrySave(); _roagKeyboard = keyboard; return; }
-        if (_session.State.Dungeon != null && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
+        if (_session.HasNativeParty && focused && Press(Keys.F5)) { TrySave(); _roagKeyboard = keyboard; return; }
+        if (_session.HasNativeParty && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
         { ClosePanel(); _roagKeyboard = keyboard; return; }
         if (focused && HandleDungeonMenuKeyboard(keyboard)) { _roagKeyboard = keyboard; return; }
         if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.State.Endgame.Victory&&!_session.State.AwaitingContinuation)
         {
-            if(_session.State.RoagCombat || _session.State.Dungeon != null)
+            if(_session.State.RoagCombat || _session.HasNativeParty)
             {
-                if (_session.State.Dungeon != null)
+                if (_session.HasNativeParty)
                 {
                     if (Press(Keys.B)) { _panel = "dungeon-party"; _roagKeyboard = keyboard; return; }
                     if (Press(Keys.K)) { _panel = "dungeon-gear"; _roagKeyboard = keyboard; return; }
@@ -101,20 +101,20 @@ internal sealed partial class WorldGame
                         { SelectDungeonMember(members[i].Id); _roagKeyboard = keyboard; return; }
                     if (Press(Keys.H)) _roagAim = "revive";
                 }
-                if (_session.State.Dungeon != null && Press(Keys.Tab))
+                if (_session.HasNativeParty && Press(Keys.Tab))
                 { ToggleDungeonMap(); _roagKeyboard = keyboard; return; }
-                if (_session.State.Dungeon != null && (Press(Keys.F1) || Press(Keys.I) || Press(Keys.V) || Press(Keys.Escape) && _roagAim == "move"))
+                if (_session.HasNativeParty && (Press(Keys.F1) || Press(Keys.I) || Press(Keys.V) || Press(Keys.Escape) && _roagAim == "move"))
                 { _panel = Press(Keys.F1) ? "dungeon-guide" : Press(Keys.I) || Press(Keys.V) ? "dungeon-boons" : "dungeon-menu"; _roagKeyboard = keyboard; return; }
-                if (Press(Keys.U) && _session.State.Dungeon != null)
+                if (Press(Keys.U) && _session.HasNativeParty)
                 { _panel = "dungeon-utility"; _roagKeyboard = keyboard; return; }
                 if(Press(Keys.F))_roagAim="basic_attack";if(Press(Keys.R))_roagAim="sweeping_slash";if(Press(Keys.X))_roagAim="dash";
                 if(Press(Keys.G))_roagAim="guard";
-                if(Press(Keys.Enter) && _session.State.Dungeon != null)
+                if(Press(Keys.Enter) && _session.HasNativeParty)
                 { if (_roagAim == "fixture") CommitRoag(SelectedRoagAim(0, 0)); else DungeonInteract(); _roagKeyboard = keyboard; return; }
-                if(Press(Keys.F5) && _session.State.Dungeon != null) TrySave();
+                if(Press(Keys.F5) && _session.HasNativeParty) TrySave();
                 if(Press(Keys.P))
                 {
-                    if (_session.State.Dungeon != null && _session.DungeonCombat.Active?.Tactics?.Boons.Vow() == null)
+                    if (_session.HasNativeParty && _session.DungeonCombat.Active?.Tactics?.Boons.Vow() == null)
                         _notice = "Acquire Pilgrim's Vow before enabling its HP payment.";
                     else _roagVow=!_roagVow;
                 }
@@ -141,7 +141,7 @@ internal sealed partial class WorldGame
     }
     private void DrawRoagCombat()
     {
-        if (_session.State.Dungeon != null) { DrawDungeonTactics(); return; }
+        if (_session.HasNativeParty) { DrawDungeonTactics(); return; }
         foreach(var warning in _session.RoagTelegraphs())foreach(var cell in warning.Cells)
         {
             if(!_session.Visible.Contains(cell))continue;

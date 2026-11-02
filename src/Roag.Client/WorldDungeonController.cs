@@ -29,7 +29,7 @@ internal sealed partial class WorldGame
 
     private bool HandleDungeonMenuKeyboard(KeyboardState keyboard)
     {
-        if (_session.State.Dungeon == null) return false;
+        if (!_session.HasNativeParty) return false;
         if (!_panel.StartsWith("dungeon-", StringComparison.Ordinal) && !_session.State.AwaitingContinuation)
         { _controllerFocus = null; _controllerPanel = ""; return false; }
         bool Press(Keys key) => keyboard.IsKeyDown(key) && _roagKeyboard.IsKeyUp(key);
@@ -48,7 +48,7 @@ internal sealed partial class WorldGame
     private Keys[] DungeonControllerKeys(GamePadState pad, bool focused)
     {
         var previous = _dungeonPad; _dungeonPad = pad;
-        if (_session.State.Dungeon == null) { _controllerFocus = null; return []; }
+        if (!_session.HasNativeParty) { _controllerFocus = null; return []; }
         if (!focused) return [];
         if (!pad.IsConnected) return [];
         bool Press(Buttons button) => DungeonController.Press(pad, previous, button);

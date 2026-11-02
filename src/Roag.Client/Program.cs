@@ -26,7 +26,7 @@ try
               --new (start over; normal saving/quitting replaces the selected slot)
               --load (require and resume the selected slot)
               --import-legacy PATH (validate/copy an old RPG save and exit)
-              --scene world|world-streaming|world-site|world-output|world-supplies|world-occupations|world-habitat|world-migration|world-recovery|world-memories|world-weather|world-routines|world-resources|world-wildlife|world-situation|world-camp|world-discovery|world-battle|world-cooperation|world-boss|world-progression|world-encounters|world-inspector (preview without autosaving)
+              --scene world|world-campaign|world-streaming|world-site|world-output|world-supplies|world-occupations|world-habitat|world-migration|world-recovery|world-memories|world-weather|world-routines|world-resources|world-wildlife|world-situation|world-camp|world-discovery|world-battle|world-cooperation|world-boss|world-progression|world-encounters|world-inspector (preview without autosaving)
               --scene town|forest|crypt|battle|victory|atlas (legacy previews)
               --world-headless (recruit, construct, trade and verify simulation)
               --world-report (macro plan and all town/site WFC diagnostics)
@@ -142,7 +142,8 @@ finally
             (TitleRequested || !SkipIntro && !NewGame && !Load && !Preview);
         public bool Preview => _sceneSpecified || Frames > 0 || SmokeTest || UiReport != null || PlaytestDirectory != null;
         public bool LegacyScene => _sceneSpecified && !Scene.StartsWith("world", StringComparison.Ordinal);
-        public bool NativeDungeonLaunch => !_sceneSpecified || Scene is "world" or "world-dungeon";
+        public bool NativeDungeonLaunch => !_sceneSpecified || Scene is "world" or "world-dungeon" or "world-campaign";
+        public bool NativeCampaignLaunch => Scene == "world-campaign";
         public bool WorldSmoke { get; private set; }
         private bool _sceneSpecified;
         public bool SkipIntro

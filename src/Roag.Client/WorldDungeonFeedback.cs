@@ -16,7 +16,7 @@ internal sealed partial class WorldGame
 
     private void PlayDungeonSound(string kind)
     {
-        if (_session.State.Dungeon == null || _uiFonts == null || _preferences.EffectsVolume <= 0) return;
+        if (!_session.HasNativeParty || _uiFonts == null || _preferences.EffectsVolume <= 0) return;
         _dungeonAudio ??= new(); _dungeonAudio.Play(kind, _preferences.EffectsVolume);
     }
 
@@ -78,7 +78,7 @@ internal sealed partial class WorldGame
             visibleSource, _session.State.Party.Contains(e.Target));
     }
 
-    private Vector2 DungeonShake() => _session.State.Dungeon == null ? Vector2.Zero : _dungeonFeedback.Shake(_preferences);
+    private Vector2 DungeonShake() => !_session.HasNativeParty ? Vector2.Zero : _dungeonFeedback.Shake(_preferences);
 
     private void DrawDungeonFeedback()
     {
@@ -175,7 +175,7 @@ internal sealed partial class WorldGame
 
     private Rectangle DungeonActorPose(Actor actor, Rectangle bounds)
     {
-        if (_session.State.Dungeon == null || !_preferences.CombatEffects || _preferences.ReducedMotion) return bounds;
+        if (!_session.HasNativeParty || !_preferences.CombatEffects || _preferences.ReducedMotion) return bounds;
         var hit = _dungeonFeedback.Effects.LastOrDefault(e => e.Kind == "DamageTaken" && e.Target == actor.Id && e.Position == actor.Position && _dungeonFeedback.Time - e.Born < .24);
         if (hit != null)
         {
@@ -197,14 +197,14 @@ internal sealed partial class WorldGame
 
     private Color DungeonActorTint(long actor, Color normal)
     {
-        if (_session.State.Dungeon == null || !_preferences.Flash) return normal;
+        if (!_session.HasNativeParty || !_preferences.Flash) return normal;
         var hit = _dungeonFeedback.Effects.LastOrDefault(e => e.Kind == "DamageTaken" && e.Target == actor && _dungeonFeedback.Time - e.Born < .12);
         return hit == null ? normal : Color.Lerp(normal, Color.White, (float)(1 - (_dungeonFeedback.Time - hit.Born) / .12));
     }
 
     private void DrawDungeonReward()
     {
-        if (_session.State.Dungeon == null || _panel.Length > 0 || _dungeonFeedback.Reward is not { } reward) return;
+        if (!_session.HasNativeParty || _panel.Length > 0 || _dungeonFeedback.Reward is not { } reward) return;
         double age = _dungeonFeedback.Time - reward.Born;
         float alpha = (float)Math.Clamp(Math.Min(age / .08, (2 - age) / .4), 0, 1);
         int width = Math.Min(480, _map.Width - 24), slide = _preferences.ReducedMotion || !_preferences.CombatEffects ? 0 : (int)(10 * Math.Exp(-age * 16));
@@ -218,7 +218,7 @@ internal sealed partial class WorldGame
 
     private void DrawDungeonCelebration(int width, int height)
     {
-        if (_session.State.Dungeon == null || !_preferences.CombatEffects || _dungeonFeedback.Celebration is not { } burst) return;
+        if (!_session.HasNativeParty || !_preferences.CombatEffects || _dungeonFeedback.Celebration is not { } burst) return;
         double age = _dungeonFeedback.Time - burst.Born;
         var area = _panel == "dungeon-chest" ? PanelBox(width, height) : _map;
         int count = burst.Claimed ? 40 : 24;
