@@ -14,6 +14,7 @@ public sealed class ActorTactics
     public Facing Facing { get; set; } = Facing.South;
     public bool Guarding { get; set; }
     public int BleedTurns { get; set; }
+    public List<NativeCondition> Conditions { get; set; } = [];
     public int MoveCost { get; set; } = 100;
     public long SnaredBy { get; set; }
     public int EnemySnareDelay { get; set; }

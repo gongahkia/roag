@@ -19,7 +19,7 @@ public sealed class TacticalChestState
 {
     public long NextChest { get; set; } = 1;
     // Profile unlocks are a later tranche. Preserve this run's pool in its save.
-    public string[] AvailableBoons { get; set; } = BoonCatalog.Default.NormalPool.ToArray();
+    public string[] AvailableBoons { get; set; } = BoonCatalog.Original.NormalPool.ToArray();
     public List<BoonChest> Chests { get; set; } = [];
 
     internal IReadOnlyList<BoonOffer> Offers(BoonChest chest, ClassKind recipient)

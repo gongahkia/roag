@@ -13,7 +13,8 @@ public sealed class NativeAppearanceTests
         using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
         var bindings = manifest.RootElement.GetProperty("bindings");
         var sprites = manifest.RootElement.GetProperty("sprites");
-        Assert.Equal(103, BoonCatalog.Default.Definitions.Length);
+        Assert.Equal(103, BoonCatalog.Original.Definitions.Length);
+        Assert.Equal(133, BoonCatalog.Default.Definitions.Length);
         foreach (var boon in BoonCatalog.Default.Definitions)
         {
             string sprite = bindings.GetProperty(NativeAppearance.ForBoon(boon.Id)).GetString()!;

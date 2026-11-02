@@ -24,11 +24,18 @@ public sealed partial class TacticalCombat
     }
 
     private void RecordCombatDamage(Actor source, Actor target, int loss, int prevented, int healthBefore, AttackAssistance? assistance = null,
-        EquipmentCover? cover = null)
+        EquipmentCover? cover = null, EquipmentCover? brace = null, MarkAssistance? mark = null, int requested = 0)
     {
         if (loss > 0 && Contributor(source) && RewardEnemy(target))
         {
-            foreach (var (member, amount) in AssistanceShares(source.Id, loss, assistance))
+            var shares = AssistanceShares(source.Id, loss, assistance);
+            if (mark != null && Contributor(Actor(mark.Source)))
+            {
+                var weights = AssistanceShares(source.Id, Math.Max(0, requested - mark.Power), assistance);
+                weights[mark.Source] = weights.GetValueOrDefault(mark.Source) + mark.Power;
+                shares = ContributionRewards.Allocate(loss, weights.Select(p => (p.Key, (BigInteger)p.Value)));
+            }
+            foreach (var (member, amount) in shares)
             {
                 if (amount == 0) continue;
                 var contribution = Contribution(Ledger(target), member);
@@ -42,8 +49,11 @@ public sealed partial class TacticalCombat
         if (loss > 0) ledger.UnhealedDamage[target.Id] = checked(ledger.UnhealedDamage.GetValueOrDefault(target.Id) + loss);
         if (protection > 0)
         {
-            var ownership = cover == null ? null : new AttackAssistance(cover.Source, prevented - cover.Amount, cover.Amount);
-            foreach (var (member, amount) in AssistanceShares(target.Id, protection, ownership))
+            var weights = new Dictionary<long, long> { [target.Id] = Math.Max(0, prevented - (cover?.Amount ?? 0) - (brace?.Amount ?? 0)) };
+            foreach (var support in new[] { cover, brace })
+                if (support != null) weights[support.Source] = weights.GetValueOrDefault(support.Source) + support.Amount;
+            var shares = ContributionRewards.Allocate(protection, weights.Select(p => (p.Key, (BigInteger)p.Value)));
+            foreach (var (member, amount) in shares)
             {
                 if (amount == 0) continue;
                 var contribution = Contribution(ledger, member);

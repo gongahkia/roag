@@ -52,7 +52,7 @@ public sealed partial class TacticalCombat
     {
         var definition = ClassCatalog.Get(member.Tactics!.Build!.Class);
         int basis = helper || ability.Effect == "damage" ? definition.Costs.BasicAttack : definition.Costs.Special;
-        int formerMana = helper ? ability.Cooperation!.PartnerMana : ability.Mana;
+        int formerMana = helper ? ability.Cooperation!.PartnerMana : RetainedManaEquivalent(member, ability.Mana);
         return ActionTiming.Recovery(checked(basis + formerMana * State.Cooperation.RecoveryPerMana), EffectiveSpeed(member));
     }
 
@@ -85,7 +85,7 @@ public sealed partial class TacticalCombat
             var target = footprint.Cells.TakeWhile(ProjectileOpen).Select(p => BodyAt(p, actor.Id)).FirstOrDefault(a => a != null);
             if (target is not { Life: LifeState.Alive, Tactics: not null } || !HostileTo(actor, target)
                 || !_world.VisionFrom(actor.Position).Contains(target.Position)) return Invalid("Aim at a visible enemy in this class's basic range.");
-            int power = checked(actor.Power + State.Cooperation.TwinPower + helper.Power * ability.Cooperation!.PartnerPowerPercent / 100);
+            int power = checked(actor.Power + State.Cooperation.TwinPower + RetainedTalentPower(actor, "cooperative-damage") + helper.Power * ability.Cooperation!.PartnerPowerPercent / 100);
             return new(true, "", CooperationRecovery(actor, ability, false), [target.Position])
             { Damage = checked(power + (actor.Tactics!.Supplies.FocusActions > 0 ? 2 : 0)) };
         }
@@ -110,12 +110,12 @@ public sealed partial class TacticalCombat
         {
             var basic = ClassFootprint(actor, new(TacticalAction.BasicAttack, intent.Facing));
             var footprint = basic with { AbilityId = ability.Id, Cells = preview.Cells };
-            int leaderPower = checked(actor.Power + State.Cooperation.TwinPower);
+            int leaderPower = checked(actor.Power + State.Cooperation.TwinPower + RetainedTalentPower(actor, "cooperative-damage"));
             Strike(actor, action, footprint, checked(leaderPower + helperPower), actor.Position, null,
                 assistance: new(helper.Id, leaderPower, helperPower));
             return;
         }
-        int healingPower = checked(State.Cooperation.AidPower + (actor.Power + 1) / 2 + _world.EquipmentEffectPower(actor, "healing"));
+        int healingPower = checked(State.Cooperation.AidPower + (actor.Power + 1) / 2 + _world.EquipmentEffectPower(actor, "healing") + RetainedTalentPower(actor, "healing"));
         foreach (var recipient in AidRecipients(actor).ToArray())
         {
             int gain = Math.Min(checked(healingPower + helperPower), recipient.MaxHealth - recipient.Health);
@@ -123,12 +123,13 @@ public sealed partial class TacticalCombat
             RecordCombatHealing(actor.Id, recipient.Id, gain, new(helper.Id, healingPower, helperPower));
             bool burning = recipient.Tactics!.Burning != null;
             RemoveBurning(recipient);
+            CleanseNativeConditions(recipient, complete: true);
             if (burning) Emit("StatusCleansed", actor.Id, recipient.Id, action, recipient.Position, ability: ability.Id);
             // Curing a status never refunds already committed recovery, including
             // the two costs just paid. Downed bleed-out is not a curable status.
             recipient.Tactics.StunnedUntil = 0; recipient.Tactics.SnaredBy = 0;
             recipient.Tactics.EnemySnareDelay = 0; recipient.Tactics.WebRecoveryDelay = 0;
-            recipient.Stress = Math.Max(0, recipient.Stress - 10);
+            recipient.Stress = Math.Max(0, recipient.Stress - 10 - RetainedTalentPower(actor, "calm"));
             Emit("Healed", actor.Id, recipient.Id, action, recipient.Position, gain, ability: ability.Id);
             Emit("CooperativeAid", helper.Id, recipient.Id, action, recipient.Position, gain, ability: ability.Id);
         }

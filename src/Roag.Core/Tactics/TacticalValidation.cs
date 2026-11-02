@@ -42,6 +42,7 @@ public static class TacticalValidation
                 && w.Target == member.Tactics.Activity.Anchor))
                 throw new InvalidDataException("Native work activity has no matching owned active order.");
         var actors = world.Actors.ToDictionary(a => a.Id);
+        TacticalCombat.ValidateNativeConditions(world, actors);
         if (world.Actors.Any(a => a.Tactics?.Supplies is { } s && (s.WardRefreshAction >= state.NextAction
             || s.WardThroughRecovery && (a.Life == LifeState.Dead || a.Id == state.ActiveActor || !world.Party.Contains(a.Id)))))
             throw new InvalidDataException("Invalid member ward recovery or refresh action.");

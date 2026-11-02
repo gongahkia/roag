@@ -53,7 +53,7 @@ public sealed partial class TacticalCombat
         ?? throw new InvalidDataException("Tactical actor is missing from the world.");
     private bool Friendly(Actor actor) => _world.State.Party.Contains(actor.Id);
     private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
-        : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0) + _world.PreparationPower(actor, "watch"));
+        : checked(actor.Speed + (actor.Tactics?.Boons.SpeedBonus(Clock) ?? 0) + _world.PreparationPower(actor, "watch") + RetainedTalentPower(actor, "initiative"));
     private int EffectiveArmor(Actor actor) => checked(actor.Armor + _world.PreparationPower(actor, "armor"));
     private bool ProjectileOpen(WorldPosition p) => _world.Plan.Contains(p)
         && (_world.State.Dungeon == null || _world.State.Dungeon.Contains(p))
@@ -151,6 +151,11 @@ public sealed partial class TacticalCombat
                 int delay = checked(actor.Tactics.EnemySnareDelay + actor.Tactics.WebRecoveryDelay);
                 actor.Tactics.EnemySnareDelay = 0; actor.Tactics.WebRecoveryDelay = 0;
                 State.Queue.Schedule(ScheduledKind.ActorReady, checked(Clock + delay), actor.Id);
+                continue;
+            }
+            if (!ResolveNativeConditions(actor))
+            {
+                if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
             if (actor.Life == LifeState.Downed)
@@ -521,7 +526,7 @@ public sealed partial class TacticalCombat
     }
 
     private sealed record DamageOutcome(Actor Target, int Damage, int Prevented, BoonEvent Snapshot, bool Invulnerable, EnemyProtection? Protection,
-        EquipmentCover? Cover = null);
+        EquipmentCover? Cover = null, EquipmentCover? Brace = null, MarkAssistance? Mark = null);
 
     private void ResolveDamageBatch(LockedAttack attack, AttackAssistance? assistance = null)
     {
@@ -543,6 +548,13 @@ public sealed partial class TacticalCombat
             if (target is null || !hitIds.Add(target.Id)) continue;
             bool skull = attack.FateFace == 7 && RegularBoonTarget(target);
             int attempted = skull ? Math.Max(attack.Damage, checked(target.Health + EffectiveArmor(target))) : attack.Damage;
+            MarkAssistance? mark = null;
+            if (direct && source != null && HostileTo(source, target))
+            {
+                attempted = checked(attempted + RetainedAttackBonus(source, target, attack.Element, attack.Delivery == AttackDelivery.Area));
+                if (target.Tactics?.Conditions.FirstOrDefault(c => c.Kind == NativeConditionKind.Mark) is { } marked)
+                { attempted = checked(attempted + marked.Power); mark = new(marked.Source, marked.Power); }
+            }
             if (direct && source?.Tactics?.Boons is { ReversalTarget: { } reversed } boons && reversed == target.Id)
             {
                 int bonus = checked((int)boons.Inventory.Magnitude("core:boon/ring_of_reversal").Power);
@@ -562,6 +574,8 @@ public sealed partial class TacticalCombat
             }
             if (target.Tactics is { } targetTactics)
                 prevented += targetTactics.Boons.ConsumeWards(afterDefense - prevented, Clock).Sum(ward => ward.Amount);
+            var brace = ConsumeNativeBrace(target, afterDefense - prevented);
+            prevented += brace?.Amount ?? 0;
             var cover = EquipmentCoverFor(target, source, afterDefense - prevented, direct);
             prevented += cover?.Amount ?? 0;
             int damage = afterDefense - prevented;
@@ -579,14 +593,14 @@ public sealed partial class TacticalCombat
                 AdjacentHostileCount = neighbors.Count(a => source == null || BoonFaction(a) != BoonFaction(source)),
                 AdjacentBurningCount = neighbors.Count(a => BoonFaction(a) == BoonFaction(target) && a.Tactics?.Burning != null)
             };
-            hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection, cover));
+            hits.Add(new(target, damage, prevented, snapshot, invulnerable, protection, cover, brace, mark));
             if (attack.Delivery == AttackDelivery.Projectile) break;
         }
         RedistributeOathDamage(hits, attack);
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
         if (source != null)
             foreach (var hit in hits)
-                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value, assistance, hit.Cover);
+                RecordCombatDamage(source, hit.Target, hit.Snapshot.ActualLoss!.Value, hit.Prevented, hit.Snapshot.HpBefore!.Value, assistance, hit.Cover, hit.Brace, hit.Mark, hit.Snapshot.Amount!.Value);
         foreach (var hit in hits)
         {
             var target = hit.Target;
@@ -656,6 +670,7 @@ public sealed partial class TacticalCombat
     {
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
+        actor.Tactics!.Conditions.Clear();
         StopActivity(actor, "death");
         actor.Life = LifeState.Dead; actor.Health = 0;
         if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);

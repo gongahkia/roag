@@ -33,7 +33,7 @@ public sealed partial class TacticalCombat
                 Tactics: { Build: not null, EquipmentCoverUsed: false } } && a.Tactics.StunnedUntil <= Clock
                 && a.Position.Distance(target.Position) <= Tuning.AllyCoverRange
                 && EnemySquads.Clear(a.Position, target.Position, SupportOpen))
-            .Select(a => (Actor: a, Power: _world.EquipmentEffectPower(a, "protect"))).Where(p => p.Power > 0)
+            .Select(a => (Actor: a, Power: _world.EquipmentEffectPower(a, "protect") + RetainedTalentPower(a, "protect"))).Where(p => p.Power > 0)
             .OrderByDescending(p => p.Power).ThenBy(p => p.Actor.Id).FirstOrDefault();
         if (protector.Actor == null) return null;
         protector.Actor.Tactics!.EquipmentCoverUsed = true;

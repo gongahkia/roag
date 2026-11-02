@@ -15,7 +15,10 @@ public sealed class BoonCatalog
     public static ImmutableArray<BoonRarity> Rarities { get; } = [BoonRarity.Common, BoonRarity.Uncommon, BoonRarity.Rare, BoonRarity.Legendary];
     public static JsonSerializerOptions Json { get; } = CreateJsonOptions();
     private static readonly Lazy<BoonCatalog> BuiltIn = new(LoadBuiltIn);
-    public static BoonCatalog Default => BuiltIn.Value;
+    private static readonly Lazy<BoonCatalog> Integrated = new(() => new(BuiltIn.Value.Definitions.Concat(RetainedBoons.Definitions()),
+        BuiltIn.Value.StarterPool, BuiltIn.Value.NormalPool.Concat(RetainedBoons.All.Select(e => e.Id))));
+    public static BoonCatalog Original => BuiltIn.Value;
+    public static BoonCatalog Default => Integrated.Value;
     public ImmutableArray<BoonDefinition> Definitions { get; }
     public ImmutableArray<string> Ids { get; }
     public ImmutableArray<string> StarterPool { get; }

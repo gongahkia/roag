@@ -19,7 +19,7 @@ public sealed partial class WorldSession
             world.State.Dungeon = new();
             world.State.Inventory["gold"] = 0;
             var combat = world.CreateTacticalSimulation(new(EnableSurvival: survival));
-            combat.State.Chests.AvailableBoons = BoonCatalog.Default.NormalPool
+            combat.State.Chests.AvailableBoons = (survival ? BoonCatalog.Default : BoonCatalog.Original).NormalPool
                 .Where(id => survival || id is not ("core:boon/road_flask" or "core:boon/ration_reserve")).ToArray();
             var first = DungeonLayoutGenerator.Generate(seed, DungeonCatalog.Default.Biomes[0].Id);
             var second = DungeonLayoutGenerator.Generate(unchecked(seed + 1), first.Biome);

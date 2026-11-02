@@ -15,7 +15,7 @@ public sealed class BoonCatalogTests
     public void EveryRegisteredOriginalDefinitionAndPoolSurvivesTypedLoadingWithoutOldSpriteBindings()
     {
         using var original = Original();
-        var catalog = BoonCatalog.Default;
+        var catalog = BoonCatalog.Original;
         var definitions = original.RootElement.GetProperty("definitions").EnumerateArray().ToArray();
         Assert.Equal(103, catalog.Definitions.Length);
         Assert.Equal(definitions.Select(d => d.GetProperty("id").GetString()), catalog.Ids);

@@ -25,8 +25,9 @@ public sealed partial class TacticalCombat
     private void UseMedicine(Actor actor, long target, long action)
     {
         var recipient = MedicineRecipient(actor, target)!;
-        int amount = checked(_world.Content.Get<AbilityDefinition>("ability.medicine").Power + _world.EquipmentEffectPower(actor, "healing"));
+        int amount = checked(_world.Content.Get<AbilityDefinition>("ability.medicine").Power + _world.EquipmentEffectPower(actor, "healing") + RetainedTalentPower(actor, "healing"));
         _world.State.Inventory["medicine"]--; _world.State.ResourcesConsumed++;
+        CleanseNativeConditions(recipient, complete: false);
         HealCampCompanion(actor, recipient, amount, action, "ability.medicine");
     }
 
