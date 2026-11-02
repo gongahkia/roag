@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Full controller integration baseline (2026-11-02): clean **82c47312 / 2,014 passed**, zero failures/skips (9m43s), `native-retained-enemies/integration*`; exit/source and independently rechecked runner hashes all match. It includes the retained controllers, original mirror cases and corrected fixture/save checks. It predates the paid town-trade follow-up. All full-game gates remain open.
+
+
 Native town trade (2026-11-02): original town stocks, proximity, price/sale formulas and resource-flow accounting now share pure quoting/atomic application between retained and paid native actions. Native costs are member-owned; local danger, actual trader position, global shared stock, invalid-action rejection and exact continuation have backend checks. Illustrated/free quantity UI has control coverage. 95 affected checks pass under `native-retained-enemies/trade-affected`; ordinary rendered underground review/save passes in `rendered-trade-review`, inspected normal/large-sans frames. **Actual paid outdoor trade and broader society/economy production journeys remain open.** This does not replace the campaign/world integration gates.
 
 
