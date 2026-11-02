@@ -25,9 +25,14 @@ public static class TacticalValidation
             throw new InvalidDataException("Tactical and world clocks disagree.");
         if (state.Camp == null) throw new InvalidDataException("Missing camp tuning.");
         state.Camp.Validate();
+        if (state.CampFires == null || state.CampFires.Count > 8 || state.CampFires.Select(f => f.Position).Distinct().Count() != state.CampFires.Count
+            || state.CampFires.Any(f => f.Owner <= 0 || !world.Party.Contains(f.Owner) || !plan.Contains(f.Position) || world.Dungeon != null && !world.Dungeon.Contains(f.Position) || f.Until <= 0
+                || f.Until > queue.Clock + (long)state.Camp.FireMinutes * 60 * state.Tuning.UnitsPerSecond))
+            throw new InvalidDataException("Invalid finite campfire state.");
         foreach (var member in world.Actors.Where(a => a.Tactics?.Activity != null))
             if (member.Life != LifeState.Alive || !world.Party.Contains(member.Id) || !state.Participants.Contains(member.Id)
-                || !plan.Contains(member.Tactics!.Activity!.Anchor) || !state.Tuning.EnableSurvival)
+                || !plan.Contains(member.Tactics!.Activity!.Anchor) || member.Tactics.Activity.Until > queue.Clock + 240L * 60 * state.Tuning.UnitsPerSecond
+                || !state.Tuning.EnableSurvival)
                 throw new InvalidDataException("Invalid activity owner or anchor.");
         var actors = world.Actors.ToDictionary(a => a.Id);
         if (world.Actors.Any(a => a.Tactics?.Supplies is { } s && (s.WardRefreshAction >= state.NextAction

@@ -51,7 +51,7 @@ internal sealed partial class WorldGame
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
-            "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
+            "CampFireLit" or "CampFireExtinguished" => "terrain", "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null

@@ -179,6 +179,7 @@ internal sealed partial class WorldGame
             case "cooperate-choice": ChooseDungeonCooperation(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture),
                 int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "recover-equipment": CommitRoag(new("recover_equipment", Target: _nativeCorpse)); ClosePanel(); break;
+            case "campfire": CommitRoag(new(parts[2])); ClosePanel(); break;
             case "camp": _panel = "dungeon-camp"; break;
             case "activity": CommitRoag(new(parts[2], Choice: int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
             case "activity-cancel": _notice = _session.CancelDungeonActivity(_session.DungeonMember.Id).Message; break;
@@ -577,6 +578,8 @@ internal sealed partial class WorldGame
         var state = _session.State.Tactics!;
         void Icon(WorldPosition p, string sprite, Color tint)
         { if (_session.Visible.Contains(p) && _map.Intersects(TileRect(p))) _sprites.Fit(_batch, sprite, TileRect(p), tint); }
+        foreach (var fire in state.CampFires.Where(f => f.Until > state.Queue.Clock))
+            Icon(fire.Position, "campfire", new Color(255, 190, 112));
         foreach (var corpse in _session.Party.Where(a => a.Life == LifeState.Dead))
             Icon(corpse.Position, "bones", Gold);
         foreach (var floor in _session.State.Dungeon!.Floors.Where(f => f.Stage < 4 && f.Boss > 0))

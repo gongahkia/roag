@@ -14,6 +14,7 @@ public sealed partial class WorldSession
     private static readonly WorldObject Shrub = new("Shrub", "shrub", "decoration", false),
         Bones = new("Scattered bones", "bones", "decoration", false), Barrel = new("Barrel", "barrel", "decoration", true, true);
 
+    private static readonly WorldObject LitCampFire = new("Lit campfire", "campfire", "campfire", false);
     private static readonly WorldObject Bulwark = new("Geomancer bulwark", "boulder", "geomancer-bulwark", true);
     private static readonly WorldObject StandardBoonChest = new("Boon Chest", "chest", "boon-chest", true),
         EliteBoonChest = new("Elite Boon Chest", "chest", "boon-chest", true);
@@ -54,6 +55,7 @@ public sealed partial class WorldSession
         if (!Plan.Contains(p)) return null;
         if (State.Tactics is { } tactics)
         {
+            if (tactics.CampFires.Any(f => f.Position == p && f.Until > tactics.Queue.Clock)) return LitCampFire;
             for (int i = 0; i < tactics.Chests.Chests.Count; i++)
             {
                 var chest = tactics.Chests.Chests[i];

@@ -14,6 +14,27 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void CampFireControlsUsePaidMemberOwnershipAndPrivateInspection()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        var hero = session.Party.Single();
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        int wood = session.Count("wood");
+        Assert.Contains(Controls(client, "dungeon-camp"), c => c.Id == "dungeon:campfire:light_fire" && c.Enabled && c.Sprite == "campfire");
+        Invoke(client, "ActivateDungeonControl", "dungeon:campfire:light_fire");
+        Assert.Equal(wood - 1, session.Count("wood")); Assert.Single(session.State.Tactics!.CampFires);
+        var firePosition = hero.Position; hero.Position = firePosition.Offset(1, 0); session.Chunks.Edit(hero.Position, Material.Floor);
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        Assert.Equal("Lit campfire", WorldInspection.Inspect(session, firePosition).Title);
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Assert.NotEqual("Lit campfire", WorldInspection.Inspect(session, firePosition).Title);
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:campfire:light_fire");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+
+    [Fact]
     public void CampInspectionIsFreeAndOnlyTheSelectedReadyMemberCanStartDuties()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);

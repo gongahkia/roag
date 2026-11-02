@@ -196,6 +196,9 @@ internal static class WorldInspection
             };
             return new(title, detail, "Inspect freely; step onto it with the keyboard", "", "terrain");
         }
+        if (session.Visible.Contains(cell) && session.State.Tactics?.CampFires.FirstOrDefault(f => f.Position == cell && f.Until > session.State.Tactics.Queue.Clock) is { } fire)
+            return new("Lit campfire", $"Burns for {Math.Max(0, fire.Until - session.State.Tactics.Queue.Clock) / 100.0:0} more seconds. Nearby warmth improves exposed rest; some creatures avoid fire and others approach it. Inspect enemies for their response.",
+                "N → Rest / watch; stand on the fire to extinguish it for one action", "", "object");
         if (session.ObjectAt(cell) is { Kind: "boon-chest" } chest)
             return new(chest.Name, "Choose one of three class-eligible boons. Opening the offers is free; claiming spends gold and recovery.",
                 "Click while adjacent, or press Enter beside the chest", session.State.Position.Distance(cell) <= 1 && session.Visible.Contains(cell) ? "" : "Stand beside a visible chest", "object");

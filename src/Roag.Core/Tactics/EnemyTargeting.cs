@@ -102,7 +102,7 @@ public sealed partial class TacticalCombat
         long? targetId = attack == null ? SelectEnemyTarget(enemyId, mistBlocks)
             : attack.Support is { } support ? support.Target > 0 ? support.Target : null : attack.IntendedTarget > 0 ? attack.IntendedTarget : null;
         var target = targetId is { } id ? _world.State.Actors.FirstOrDefault(a => a.Id == id && sight.Contains(a.Position)) : null;
-        return new(enemyId, EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority),
+        return new(enemyId, EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority) + " " + CampFireResponses.Description(enemy.Tactics.DefinitionId),
             target?.Id, target?.Name, attack != null, attack?.Support != null,
             attack?.Cells.Where(sight.Contains).ToArray() ?? [], attack?.Due);
     }

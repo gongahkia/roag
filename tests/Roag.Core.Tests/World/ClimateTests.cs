@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Roag.Core.World;
+using Roag.Core.Tactics;
 using Xunit;
 
 namespace Roag.Core.Tests.World;
@@ -169,6 +170,33 @@ public sealed class ClimateTests : IDisposable
         Assert.Equal(before + expected - 6, town.Stocks["food"]); Assert.Equal(expected, world.State.RegionalResourcesProduced - regional);
         Assert.Equal(balance + world.RegionalResourceFlow - flow, world.AccountedResources());
     }
+    [Theory]
+    [InlineData(false, .8)]
+    [InlineData(true, .85)]
+    public void NativeFireWarmthImprovesExposedRestWithoutGrantingBuildingCover(bool fire, double rate)
+    {
+        using var world = WorldCollisionTests.Arena(); var hero = world.Party.Single();
+        world.State.Tick = Find(world, hero.Position, c => c.Weather == WeatherKind.Wind);
+        long start = world.State.Tick * 1200;
+        world.State.Tactics = new() { DrivesWorldClock = true, Timeline = new(start, 1, []) };
+        var combat = world.CreateTacticalSimulation();
+        hero.CombatTrait = ""; hero.Talents.Clear();
+        combat.Register(hero, new() { Build = CharacterBuild.Create(ClassKind.Adventurer, 42), AutoEat = false }, start);
+        hero.Body.Fatigue = 60; hero.Body.Hunger = 40;
+        combat.AdvanceToPartyDecision();
+        if (fire)
+        {
+            Assert.True(combat.Commit(new(TacticalAction.LightCampFire)).Success);
+            combat.AdvanceToPartyDecision();
+        }
+        Assert.False(world.Sheltered(hero));
+        Assert.True(combat.Commit(new(TacticalAction.Rest, Choice: 10)).Success);
+        combat.AdvanceToPartyDecision();
+        while (combat.Clock < start + 1200) combat.AdvanceToPartyDecision(1);
+        Assert.Equal(60 - world.Simulation.RestPerTick * rate, hero.Body.Fatigue, 6);
+        Assert.False(world.Sheltered(hero));
+    }
+
     [Fact]
     public void ActualCampCoverRestoresTheFullRestRate()
     {

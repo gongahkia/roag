@@ -15,6 +15,10 @@ public sealed partial class WorldSession
         return combat.State.NextAction != before;
     }
 
+    public bool WarmedByCampFire(WorldPosition position) => State.Tactics is { } state
+        && state.CampFires.Any(f => f.Until > state.Queue.Clock && f.Position.Distance(position) <= state.Camp.FireWarmthRange
+            && VisionFrom(position).Contains(f.Position));
+
     public ActionResult CancelDungeonActivity(long memberId) => State.Dungeon != null && DungeonCombat.CancelActivity(memberId)
         ? new(true, "Activity cancelled; already committed recovery is unchanged.")
         : new(false, "This member has no continuing activity.");

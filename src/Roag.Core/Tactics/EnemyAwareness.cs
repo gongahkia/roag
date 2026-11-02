@@ -76,6 +76,7 @@ public sealed partial class TacticalCombat
         var enemy = Active;
         if (_world.State.AwaitingContinuation || enemy is not { Life: LifeState.Alive, Tactics.Enemy: not null } || Friendly(enemy))
             throw new InvalidOperationException("A living native enemy must be ready.");
+        if (CampFireIntent(enemy) is { } fireIntent) return fireIntent;
         var observed = ObservedEnemyTarget(enemy);
         var awareness = observed ?? RememberedEnemyTarget(enemy);
         if (awareness == null) return PlanEnemyTurn(enemy, null, (_, _) => null, null);

@@ -108,6 +108,8 @@ public sealed partial class WorldSession
             "recover_equipment" => TacticalAction.RecoverEquipment,
             "eat" => TacticalAction.Eat,
             "rest" => TacticalAction.Rest,
+            "light_fire" => TacticalAction.LightCampFire,
+            "extinguish_fire" => TacticalAction.ExtinguishCampFire,
             "watch" => TacticalAction.Watch,
             "use_medicine" => TacticalAction.UseMedicine,
             _ => null

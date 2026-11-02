@@ -7,11 +7,13 @@ public enum SustainedActivityKind { Rest, Watch }
 /// <summary>An explicit continuing order, paid one native turn at a time.</summary>
 public sealed record SustainedActivity(SustainedActivityKind Kind, long Until, WorldPosition Anchor);
 
-public sealed record CampTuning(int RestNoticeRange = 2, int WatchNoticeRange = 11, int AlarmHearing = 16, int WallSoundCost = 5)
+public sealed record CampTuning(int RestNoticeRange = 2, int WatchNoticeRange = 11, int AlarmHearing = 16, int WallSoundCost = 5, int FireMinutes = 10, int FireWarmthRange = 3, int FireDeterrenceRange = 3, int FireAttractionRange = 11, int FireWarmthPercent = 85)
 {
     internal void Validate()
     {
-        if (RestNoticeRange is < 0 or > 11 || WatchNoticeRange is < 1 or > 11 || AlarmHearing is < 1 or > 64 || WallSoundCost is < 1 or > 64)
+        if (RestNoticeRange is < 0 or > 11 || WatchNoticeRange is < 1 or > 11 || AlarmHearing is < 1 or > 64 || WallSoundCost is < 1 or > 64
+            || FireMinutes is < 1 or > 240 || FireWarmthRange is < 1 or > 11 || FireDeterrenceRange is < 1 or > 11
+            || FireAttractionRange is < 1 or > 11 || FireWarmthPercent is < 0 or > 100)
             throw new InvalidDataException("Invalid native camp tuning.");
     }
 }

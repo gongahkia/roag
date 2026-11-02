@@ -146,6 +146,7 @@ public sealed class TacticalWorldState
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public CooperationTuning Cooperation { get; set; } = new();
+    public List<NativeCampFire> CampFires { get; set; } = [];
     public CampTuning Camp { get; set; } = new();
     public RescueTuning Rescue { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();

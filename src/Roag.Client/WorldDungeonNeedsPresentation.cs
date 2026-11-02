@@ -55,11 +55,18 @@ internal sealed partial class WorldGame
                 var action = kind == "rest" ? TacticalAction.Rest : TacticalAction.Watch;
                 var preview = _session.DungeonCombat.Preview(new(action, Choice: minutes));
                 AddDungeonPartyControl($"dungeon:activity:{kind}:{minutes}", $"{kind} / {minutes} minutes",
-                    new(box.X + 24 + column * (width + 24), box.Y + 220 + row * 72, width, 56),
+                    new(box.X + 24 + column * (width + 24), box.Y + 210 + row * 64, width, 52),
                     DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
             }
         AddDungeonPartyControl("dungeon:activity-cancel", "Wake / cancel this member's activity",
-            new(box.X + 24, box.Y + 374, box.Width - 48, 48), _session.DungeonMember.Tactics!.Activity != null);
+            new(box.X + 24, box.Y + 340, box.Width - 48, 44), _session.DungeonMember.Tactics!.Activity != null);
+        var light = _session.DungeonCombat.Preview(new(TacticalAction.LightCampFire));
+        var extinguish = _session.DungeonCombat.Preview(new(TacticalAction.ExtinguishCampFire));
+        AddDungeonPartyControl("dungeon:campfire:light_fire", "Light fire / one wood", new(box.X + 24, box.Y + 398, width, 48),
+            DungeonSelectionReady && light.Valid, reason: DungeonSelectionReady ? light.Reason : "Select the ready member first.", sprite: "campfire",
+            detail: $"{_session.State.Tactics!.Camp.FireMinutes} minutes / warmth / may lure creatures");
+        AddDungeonPartyControl("dungeon:campfire:extinguish_fire", "Extinguish underfoot fire", new(box.X + 48 + width, box.Y + 398, width, 48),
+            DungeonSelectionReady && extinguish.Valid, reason: DungeonSelectionReady ? extinguish.Reason : "Select the ready member first.");
     }
 
     private void DrawDungeonCampPanel(Rectangle box, int x, int y)

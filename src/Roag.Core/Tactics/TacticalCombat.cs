@@ -86,6 +86,7 @@ public sealed partial class TacticalCombat
         while (State.Queue.TakeNext() is { } work)
         {
             _advanceWorld(Clock);
+            State.CampFires.RemoveAll(f => f.Until <= Clock);
             ObserveActivities();
             PruneWebs();
             PruneSilt();
@@ -206,6 +207,9 @@ public sealed partial class TacticalCombat
                 return PreviewMovement(actor, definition, intent);
             case TacticalAction.UseStairs:
                 return PreviewStairs(actor, definition);
+            case TacticalAction.LightCampFire:
+            case TacticalAction.ExtinguishCampFire:
+                return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
             case TacticalAction.Rest:
             case TacticalAction.Watch:
             case TacticalAction.ContinueActivity:
@@ -295,6 +299,9 @@ public sealed partial class TacticalCombat
                     CommitMovement(actor, executed, preview, action); break;
                 case TacticalAction.UseStairs:
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
+                case TacticalAction.LightCampFire:
+                case TacticalAction.ExtinguishCampFire:
+                    CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;
                 case TacticalAction.Rest:
                 case TacticalAction.Watch:
                     BeginActivity(actor, executed, action); break;

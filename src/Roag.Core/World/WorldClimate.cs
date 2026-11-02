@@ -72,7 +72,9 @@ public sealed partial class WorldSession
             { double exposure = WeatherAt(next).TravelFatigue; if (exposure > 0) actor.Body.Fatigue = Math.Min(100, actor.Body.Fatigue + exposure); }
         actor.Position = next;
     }
-    private double ClimateRest(Actor actor, long tick) => Sheltered(actor) ? 1 : WeatherAt(actor.Position, tick).ExposedRestPercent / 100.0;
+    private double ClimateRest(Actor actor, long tick) => Sheltered(actor) ? 1
+        : Math.Max(WeatherAt(actor.Position, tick).ExposedRestPercent / 100.0,
+            WarmedByCampFire(actor.Position) ? State.Tactics!.Camp.FireWarmthPercent / 100.0 : 0);
     public string WeatherDescription(WorldPosition position)
     {
         var view = WeatherAt(position);
