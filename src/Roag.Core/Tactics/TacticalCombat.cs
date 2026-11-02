@@ -69,6 +69,7 @@ public sealed partial class TacticalCombat
         if (actor.Life != LifeState.Alive || actor.Health <= 0) throw new InvalidOperationException("Register a living actor.");
         int oldMaximum = actor.MaxHealth;
         actor.Tactics = tactics;
+        if (tactics.Build != null) { actor.CombatTrait = ""; actor.Talents.Clear(); }
         actor.Health = Math.Clamp((int)Math.Ceiling((double)actor.Health * actor.MaxHealth / oldMaximum), 1, actor.MaxHealth);
         State.Participants.Add(actor.Id);
         State.Queue.Schedule(ScheduledKind.ActorReady, due, actor.Id, Friendly(actor));

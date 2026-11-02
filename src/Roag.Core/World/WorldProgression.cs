@@ -16,6 +16,7 @@ public sealed partial class WorldSession
     }
     public IEnumerable<TalentDefinition> CombatTalents(Actor actor)
     {
+        if (actor.Tactics?.Build != null) yield break;
         if (actor.CombatTrait.Length > 0) yield return Content.Get<TalentDefinition>(actor.CombatTrait);
         foreach (string id in actor.Talents) yield return Content.Get<TalentDefinition>(id);
     }
@@ -44,7 +45,7 @@ public sealed partial class WorldSession
     public IReadOnlyList<TalentDefinition> ProgressionChoices(long actorId)
     {
         var actor = State.Actors.FirstOrDefault(a => a.Id == actorId && a.Kind == ActorKind.Person);
-        if (actor == null) return [];
+        if (actor == null || actor.Tactics?.Build != null) return [];
         string classId = Class(actor).Id;
         return Content.All<TalentDefinition>().Where(t => t.Acquisition == "choice" && t.Class == classId)
             .OrderBy(t => t.Level).ThenBy(t => t.Id, StringComparer.Ordinal).ToArray();
@@ -55,6 +56,7 @@ public sealed partial class WorldSession
         if (IsInCombat) return "Choose a development between encounters.";
         var actor = Party.FirstOrDefault(a => a.Id == actorId && a.Kind == ActorKind.Person);
         if (actor == null) return "Choose a traveller in the active party.";
+        if (actor.Tactics?.Build != null) return "This fixed-class member develops through owned boons and equipment.";
         if (actor.Life != LifeState.Alive) return "Revive this traveller before choosing a development.";
         if (string.IsNullOrWhiteSpace(id) || !Content.Entries.TryGetValue(id, out var entry) || entry is not TalentDefinition { Acquisition: "choice" } talent)
             return "Choose an authored class development.";
@@ -80,10 +82,10 @@ public sealed partial class WorldSession
         {
             if (actor.CombatTrait == null || actor.Talents == null || actor.Talents.Count > 2 || actor.Talents.Distinct().Count() != actor.Talents.Count)
                 throw new InvalidDataException("Invalid companion developments.");
-            if (actor.Tactics?.Resident != null || state.Dungeon != null && (actor.Tactics != null || state.Dungeon.Recruits.Any(r => r.Actor == actor.Id)))
+            if (actor.Tactics?.Build != null || actor.Tactics?.Resident != null || state.Dungeon != null && (actor.Tactics != null || state.Dungeon.Recruits.Any(r => r.Actor == actor.Id)))
             {
                 if (actor.CombatTrait.Length > 0 || actor.Talents.Count > 0)
-                    throw new InvalidDataException("Native dungeon builds use owned boons, not a separate innate talent layer.");
+                    throw new InvalidDataException("Native builds use owned boons, not a separate innate talent layer.");
                 continue;
             }
             if (actor.Kind != ActorKind.Person)
