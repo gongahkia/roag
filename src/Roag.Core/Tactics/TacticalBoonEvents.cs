@@ -120,8 +120,13 @@ public sealed partial class TacticalCombat
                         {
                             ResolveWebEvent(e, queued.WebCuts); ResolveKillRewards(e); ResolveEnemyPhase(e); ResolveRoomFeatureEvent(e); ResolveVaultEvent(e); ResolveCorridorQuestEvent(e); ResolveSecretEvent(e); ResolveTerrainEvent(e); return;
                         }
+                        // A world's idle creatures also emit real Waited events.
+                        // Avoid constructing/sorting every world body when none
+                        // of the owned wait subscriptions can observe this one.
+                        bool dispatch = _world.State.NativeCampaign == null || e.Kind != BoonTrigger.Waited || HasWaitSubscriber(e);
                         var random = new RoagRandom(State.RandomState);
-                        BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
+                        if (!dispatch) e.Validate(BoonCatalog.Default);
+                        else BoonDispatch.OnEvent(State.BoonEffects.Dispatch, BoonWorld(), e, random, activation =>
                         {
                             WithBoonCause(BoonCause.From(activation), () =>
                             {
@@ -163,6 +168,25 @@ public sealed partial class TacticalCombat
             .Concat(_world.State.Actors.Where(a => a.Tactics != null).SelectMany(a => a.Tactics!.Conditions.Select(c => c.Action)))
             .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
         State.BoonEffects.Dispatch.Prune(retained);
+    }
+
+    private bool HasWaitSubscriber(BoonEvent e)
+    {
+        var subscriptions = BoonCatalog.Default.Subscribers(BoonTrigger.Waited);
+        if (subscriptions.All(d => d.Scope.Kind == BoonScopeKind.Owner))
+        {
+            foreach (long id in new[] { e.SourceId ?? 0, e.TargetId ?? 0 }.Distinct().Where(id => id > 0))
+                if (Actor(id) is { Life: not LifeState.Dead, Tactics.Boons.Inventory: { } inventory }
+                    && subscriptions.Any(d => inventory.Stacks.ContainsKey(d.Id))) return true;
+            return false;
+        }
+        foreach (var actor in _world.State.Actors)
+        {
+            if (!State.Participants.Contains(actor.Id) || actor.Life == LifeState.Dead || actor.Tactics?.Boons.Inventory is not { Stacks.Count: > 0 } inventory) continue;
+            var owner = new BoonActorView(actor, BoonFaction(actor), RegularBoonTarget(actor));
+            if (subscriptions.Any(d => inventory.Stacks.ContainsKey(d.Id) && BoonConditions.Observes(owner, d.Scope, e))) return true;
+        }
+        return false;
     }
 
     private void BeforeBoonEvent(BoonEvent e)

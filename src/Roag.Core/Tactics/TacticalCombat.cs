@@ -49,7 +49,7 @@ public sealed partial class TacticalCombat
         if (tuning is not null && tuning != Tuning) throw new ArgumentException("Saved tactical tuning differs from the requested tuning.", nameof(tuning));
     }
 
-    private Actor Actor(long id) => _world.State.Actors.FirstOrDefault(a => a.Id == id)
+    private Actor Actor(long id) => _world.State.NativeCampaign != null ? _world.ActorById(id) : _world.State.Actors.FirstOrDefault(a => a.Id == id)
         ?? throw new InvalidDataException("Tactical actor is missing from the world.");
     private bool Friendly(Actor actor) => _world.State.Party.Contains(actor.Id);
     private int EffectiveSpeed(Actor actor) => actor.Tactics?.Enemy != null ? actor.Speed
@@ -109,6 +109,7 @@ public sealed partial class TacticalCombat
                 State.Attacks.Remove(attack);
                 // A killed source's explicitly committed attack is cancelled on death.
                 ResolveAttack(attack);
+                if (_world.State.NativeCampaign != null) ObserveEnemyAwareness();
                 if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
@@ -194,7 +195,7 @@ public sealed partial class TacticalCombat
                 _world.Reveal();
                 if (Clock > 0) StartOptionalTerrain(0);
             }
-            ObserveEnemyAwareness();
+            ObserveActorDecision(actor);
             return actor;
         }
         return null;
@@ -285,7 +286,7 @@ public sealed partial class TacticalCombat
         var preview = Preview(intent);
         if (!preview.Valid) return new(false, preview.Reason);
         var actor = Active!;
-        ObserveEnemyAwareness();
+        ObserveActorDecision(actor);
         long action = State.NextAction++;
         actor.Tactics!.Facing = intent.Facing;
         var executed = preview.Door is { } door ? intent with { Action = TacticalAction.OpenDoor, Target = door }
@@ -387,7 +388,7 @@ public sealed partial class TacticalCombat
             _world.State.Position = actor.Position;
             _world.Reveal();
         }
-        ObserveEnemyAwareness();
+        ObserveActorDecision(actor);
         return new(true, "Action committed.");
     }
 
@@ -728,7 +729,15 @@ public sealed partial class TacticalCombat
             ? new OathDamage(snapshot.OathGiven, snapshot.OathReceived, snapshot.OathSharedOnly) : null;
         var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection, oath, reflection);
         State.Events.Add(entry);
-        if (State.Events.Count > 512) State.Events.RemoveRange(0, State.Events.Count - 512);
+        if (State.Events.Count > 512)
+        {
+            // Background waits still dispatch normally, but cannot crowd a
+            // whole world's combat/reward feedback out of its bounded display log.
+            int routine = _world.State.NativeCampaign == null ? -1
+                : State.Events.FindIndex(e => e.Kind == "Waited" && !_world.State.Party.Contains(e.Source));
+            if (routine >= 0) State.Events.RemoveAt(routine);
+            else State.Events.RemoveRange(0, State.Events.Count - 512);
+        }
         QueueCombatEvent(entry, snapshot, webCuts);
     }
     private static TacticalPreview Invalid(string reason) => new(false, reason, 0, []);

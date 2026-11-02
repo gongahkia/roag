@@ -142,11 +142,14 @@ public sealed partial class TacticalCombat
         return null;
     }
 
-    private void ObserveEnemyAwareness()
+    private void ObserveEnemyAwareness(Actor? focused = null)
     {
-        foreach (var enemy in _world.State.Actors.Where(a => a is { Life: LifeState.Alive, Tactics.Enemy: not null } && !Friendly(a)))
+        IEnumerable<Actor> candidates = focused == null ? _world.State.Actors : new[] { focused };
+        foreach (var enemy in candidates.Where(a => a is { Life: LifeState.Alive, Tactics.Enemy: not null } && !Friendly(a)))
             enemy.Tactics!.Enemy!.Awareness = enemy.Tactics.Enemy.Dormant ? null : ObservedEnemyTarget(enemy) ?? RememberedEnemyTarget(enemy);
     }
+
+    private void ObserveActorDecision(Actor actor) => ObserveEnemyAwareness(_world.State.NativeCampaign != null && !Friendly(actor) ? actor : null);
 
     private void ObserveStairDeparture(Actor member, WorldPosition from, WorldPosition landing)
     {

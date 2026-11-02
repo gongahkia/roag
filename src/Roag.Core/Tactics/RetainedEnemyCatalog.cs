@@ -62,6 +62,7 @@ public sealed partial class TacticalCombat
         if (Friendly(actor)) throw new ArgumentException("Party members use their own class controller.", nameof(actor));
         var definition = RetainedEnemyCatalog.Definition(_world.Content, actor);
         var tactics = definition.CreateTactics();
+        tactics.ImmuneToPull = definition.SpecialEncounter;
         tactics.Enemy!.Retained = new() { RandomState = RoagRandom.Derive(State.RandomState, "retained-enemy:" + actor.Id) };
         Register(actor, tactics, readyAt);
         // Source sprites already name stored universal-atlas mappings.

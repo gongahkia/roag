@@ -6,7 +6,7 @@ public sealed partial class TacticalCombat
 {
     private TacticalPreview PreviewRecruit(Actor actor, long targetId)
     {
-        var recruit = _world.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == targetId);
+        var recruit = _world.NativeAdventurers.FirstOrDefault(r => r.Actor == targetId);
         var candidate = _world.State.Actors.FirstOrDefault(a => a.Id == targetId);
         if (!Friendly(actor) || recruit == null || candidate is not { Life: LifeState.Alive, Recruited: false }
             || candidate.Tactics != null && candidate.Tactics.Resident == null
@@ -19,7 +19,7 @@ public sealed partial class TacticalCombat
 
     private void RecruitDungeonMember(Actor actor, long targetId, long action)
     {
-        var recruit = _world.State.Dungeon!.Recruits.Single(r => r.Actor == targetId);
+        var recruit = _world.NativeAdventurers.Single(r => r.Actor == targetId);
         var candidate = Actor(targetId);
         candidate.Recruited = true;
         _world.State.Party.Add(candidate.Id);

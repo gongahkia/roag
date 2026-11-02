@@ -149,7 +149,7 @@ internal sealed partial class WorldGame
 
     private void DrawDungeonRecruitPanel(Rectangle box, int x, int y)
     {
-        var recruit = _session.State.Dungeon!.Recruits.Single(r => r.Actor == _nativeRecruit);
+        var recruit = _session.NativeAdventurers.Single(r => r.Actor == _nativeRecruit);
         var actor = _session.State.Actors.Single(a => a.Id == recruit.Actor);
         var definition = ClassCatalog.Get(recruit.Class);
         _sprites.Fit(_batch, actor.Sprite, new(x, y + 4, 96, 96), Ink);
@@ -182,7 +182,7 @@ internal sealed partial class WorldGame
             else SelectDungeonMember(actor.Id);
             return true;
         }
-        if (!_session.State.Dungeon!.Recruits.Any(r => r.Actor == actor.Id)) return false;
+        if (!_session.NativeAdventurers.Any(r => r.Actor == actor.Id)) return false;
         _nativeRecruit = actor.Id; _panel = "dungeon-recruit";
         return true;
     }

@@ -11,7 +11,7 @@ public sealed partial class WorldSession
     /// <summary>Coordinate-only habitat sampling; inspection consumes no random stream or saved state.</summary>
     public WildlifeHabitat? WildlifeHabitatAt(ChunkKey key)
     {
-        if (key.X is < 0 or >= 64 || key.Y is < 0 or >= 64 || key.Floor is < 0 or >= WorldPlan.Floors) return null;
+        if (key.X is < 0 or >= 64 || key.Y is < 0 or >= 64 || key.Floor < 0 || key.Floor >= Plan.FloorCount) return null;
         var chunk = Chunks.Get(key);
         var random = WorldRandom.Stream(Seed, key.X, key.Y, 11300 + key.Floor);
         var species = Content.Game.Wildlife.OrderBy(id => id, StringComparer.Ordinal).ToList();

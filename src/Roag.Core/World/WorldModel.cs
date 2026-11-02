@@ -569,6 +569,7 @@ public sealed class ChunkDelta
 }
 public sealed class WorldState
 {
+    public NativeCampaignState? NativeCampaign { get; set; }
     public Roag.Core.Dungeons.DungeonRunState? Dungeon { get; set; }
     public TacticalWorldState? Tactics { get; set; }
     public bool RoagCombat { get; set; }

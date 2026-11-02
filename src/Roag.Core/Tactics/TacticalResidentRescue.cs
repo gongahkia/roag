@@ -38,7 +38,7 @@ public sealed partial class TacticalCombat
                 || !_world.WillingToRescue(resident, casualty, State.Rescue.DangerRange)) continue;
             if (resident.Tactics == null)
             {
-                var recruit = _world.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == resident.Id);
+                var recruit = _world.NativeAdventurers.FirstOrDefault(r => r.Actor == resident.Id);
                 var kind = recruit?.Class ?? resident.Role switch
                 { 0 => ClassKind.Sentinel, 1 => ClassKind.Ranger, 2 => ClassKind.Arcanist, _ => ClassKind.Spiritbinder };
                 int seed = recruit == null ? RoagRandom.Derive(_world.Seed, "resident-build:" + resident.Id)

@@ -38,7 +38,7 @@ public sealed partial class WorldSession
             refs.Add(new(delta.Key, hash));
         }
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
-        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest(Plan.RoagNative || State.Dungeon != null ? "roag-world" : "vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
+        WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest(Plan.RoagNative || HasNativeParty ? "roag-world" : "vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
         PruneSaveSnapshots(directory, refs);
         SavePath = path; DeathPending = false;
         Diagnose("save", new { path, chunks = refs.Count });
@@ -154,7 +154,7 @@ public sealed partial class WorldSession
                 || routine.Kind == RoutineKind.Shelter && routine.Target.Distance((plan.Towns[actor.HomeTown].Center with { Floor = routine.Target.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18)) > 6
                 || routine.Since < 0 || routine.Since > s.Tick || string.IsNullOrWhiteSpace(routine.Reason) || routine.Reason.Length > 256
                 || routine.Other != 0 && !actorIds.Contains(routine.Other))) throw new InvalidDataException("Invalid resident routine.");
-        if (s.EcologyChunks == null || s.EcologyChunks.Count > 16384 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor is < 0 or >= WorldPlan.Floors)) throw new InvalidDataException("Invalid observed ecology chunks.");
+        if (s.EcologyChunks == null || s.EcologyChunks.Count > plan.FloorCount * 4096 || s.EcologyChunks.Any(k => k.X is < 0 or >= 64 || k.Y is < 0 or >= 64 || k.Floor < 0 || k.Floor >= plan.FloorCount)) throw new InvalidDataException("Invalid observed ecology chunks.");
         ValidateHabitats(plan, s);
         foreach (var actor in s.Actors)
         {

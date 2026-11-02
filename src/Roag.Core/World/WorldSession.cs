@@ -139,7 +139,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         PrepareBodyClock();
         State.Tick++;
         Contact(); AdvanceRoutines(); AdvanceBodies(); AdvanceWork(); AdvanceOccupations(); AdvanceIncidents();
-        AdvanceWildlifePopulations();
+        AdvanceWildlifePopulations(); EnrollCampaignCreatures();
         if (State.Tick % 5 == 0) MoveActors();
         AdvanceCaravans();
         if (State.Tick % TicksPerHour == 0) AdvanceEconomy();
@@ -314,7 +314,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 if (remember || Chunks.Seen(p)) Visible.Add(p);
                 if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
             }
-            if (remember) { ObserveDiscoveries(); ObserveWildlife(); } return;
+            if (remember) { ObserveDiscoveries(); ObserveWildlife(); EnrollCampaignCreatures(); ObserveCampaignAdventurers(); } return;
         }
         _surfaceView = null;
         foreach (var p in VisionFrom(origin))
@@ -322,7 +322,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             if (remember || Chunks.Seen(p)) Visible.Add(p);
             if (remember) Chunks.Delta(p.Chunk).Discovered.Add(p.LocalIndex);
         }
-        if (remember) { ObserveDiscoveries(); ObserveWildlife(); }
+        if (remember) { ObserveDiscoveries(); ObserveWildlife(); EnrollCampaignCreatures(); ObserveCampaignAdventurers(); }
     }
 
     /// <summary>Private actor sight query; does not reveal terrain or change the controlled viewpoint.</summary>

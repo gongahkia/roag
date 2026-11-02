@@ -19,7 +19,7 @@ internal static class WorldInspection
         var actor = session.State.Actors.LastOrDefault(a => a.Life != LifeState.Dead && a.Position == cell && session.Visible.Contains(cell));
         if (actor != null)
         {
-            if (!actor.Recruited && session.State.Dungeon?.Recruits.FirstOrDefault(r => r.Actor == actor.Id) is { } recruit)
+            if (!actor.Recruited && session.NativeAdventurers.FirstOrDefault(r => r.Actor == actor.Id) is { } recruit)
                 return new(actor.Name + " / " + ClassCatalog.Get(recruit.Class).Name,
                     "Fixed-class adventurer. Joining costs one action and no gold; builds and assigned boons stay individual."
                         + $" Carries {actor.Cargo.GetValueOrDefault("medicine")} medicine."

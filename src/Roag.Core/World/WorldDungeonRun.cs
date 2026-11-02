@@ -45,12 +45,12 @@ public sealed partial class WorldSession
     }
 
     internal int DungeonSeed => (int)(WorldRandom.Hash(Seed, 0, salt: 9401) % (RoagRandom.Modulus - 1)) + 1;
-    public TacticalCombat DungeonCombat => State.Dungeon == null
+    public TacticalCombat DungeonCombat => !HasNativeParty
         ? throw new InvalidOperationException("No native dungeon run is loaded.") : new(this, AdvanceTacticalWorld);
 
     public ActionResult ChooseDungeonClass(ClassKind kind)
     {
-        if (State.Dungeon == null || !Enum.IsDefined(kind) || State.Party.Count != 1
+        if (!HasNativeParty || !Enum.IsDefined(kind) || State.Party.Count != 1
             || State.Tactics is not { NextAction: 1 } tactics || tactics.Queue.Clock != 0)
             return new(false, "Choose a fixed starting class before the first paid action.");
         var hero = Party.Single();
@@ -62,7 +62,7 @@ public sealed partial class WorldSession
 
     public ActionResult SubmitDungeon(TacticalIntent intent)
     {
-        if (State.Dungeon == null || State.AwaitingContinuation) return new(false, "This run has ended. Begin a fresh run.");
+        if (!HasNativeParty || State.AwaitingContinuation) return new(false, "This run has ended. Begin a fresh run.");
         if (!SelectedDungeonMemberReady) return new(false, "Select the ready member to act; inspecting another member does not change turn order.");
         var combat = DungeonCombat;
         var result = combat.Commit(intent);

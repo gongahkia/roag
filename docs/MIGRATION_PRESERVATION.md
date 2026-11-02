@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Native living-world foundation (2026-11-03): a separate saved campaign party policy now drives native actors across retained outdoors and genuinely paired eight-floor generic sites, reusing the delivered individual recruitment/groups/needs/work APIs. Town adventurers retain fixed classes/stable IDs and draw carried medicine from finite town stock. Idle ecology/pursuit uses physical paid steps, and native migration cannot also receive legacy movement. Four-floor references/IDs remain preserved; extended depth plumbing covers terrain, prefetch, habitat/ecology limits, caches and distinct encounter identities. 109 affected controller/group/encounter checks and an earlier 68-case depth/ecology run pass (`native-retained-enemies/campaign-*`, overlapping). **Original multi-stage Roag complexes are still bounded, and native-world client/rendered acceptance, NPC society/routines completion, ecological needs/hunting/remains and retained rewards remain open.** Backend turn profiles are not performance acceptance. Full A/B and all eight gates remain unfinished.
+
+
 Unregistered civilian friendly fire (2026-11-03): lethal physical native damage no longer assumes the victim already has combat metadata. Actual civilian death/no invented timeline participation is checked; 37 affected death/rescue/corpse/daylight tests pass in `native-retained-enemies/civilian-death`. Native living-world fallen-friend memories, ecological remains/reward enrollment and society consequences remain integration work.
 
 

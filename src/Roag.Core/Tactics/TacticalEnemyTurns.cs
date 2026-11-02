@@ -74,7 +74,8 @@ public sealed partial class TacticalCombat
     private EnemyIntent PlanEnemyTurn(Actor actor, Actor? target,
         Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
     {
-        if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks);
+        if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks,
+            combatSupport: target != null || _world.State.NativeCampaign == null);
         var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
         var intent = EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (p => _world.DungeonMistBlocks(p)),

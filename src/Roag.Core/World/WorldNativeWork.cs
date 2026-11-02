@@ -141,7 +141,7 @@ public sealed partial class WorldSession
 
     public ActionResult CancelDungeonWork(long id)
     {
-        if (State.Dungeon == null || State.Work.FirstOrDefault(w => w.Id == id && State.Party.Contains(w.Worker)) is not { } order)
+        if (!HasNativeParty || State.Work.FirstOrDefault(w => w.Id == id && State.Party.Contains(w.Worker)) is not { } order)
             return new(false, "Choose an unfinished party order.");
         DungeonCombat.CancelActivity(order.Worker);
         return CancelWork(id);

@@ -82,7 +82,8 @@ public sealed partial class WorldSession
         {
             if (actor.CombatTrait == null || actor.Talents == null || actor.Talents.Count > 2 || actor.Talents.Distinct().Count() != actor.Talents.Count)
                 throw new InvalidDataException("Invalid companion developments.");
-            if (actor.Tactics?.Build != null || actor.Tactics?.Resident != null || state.Dungeon != null && (actor.Tactics != null || state.Dungeon.Recruits.Any(r => r.Actor == actor.Id)))
+            if (actor.Tactics?.Build != null || actor.Tactics?.Resident != null || state.NativeCampaign?.Recruits.Any(r => r.Actor == actor.Id) == true
+                || state.Dungeon != null && (actor.Tactics != null || state.Dungeon.Recruits.Any(r => r.Actor == actor.Id)))
             {
                 if (actor.CombatTrait.Length > 0 || actor.Talents.Count > 0)
                     throw new InvalidDataException("Native builds use owned boons, not a separate innate talent layer.");

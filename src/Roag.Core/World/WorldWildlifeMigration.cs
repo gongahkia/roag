@@ -132,6 +132,7 @@ public sealed partial class WorldSession
                 NoteWildlifeHome(actor);
                 Diagnose("wildlife-migration-arrived", new { actor = actor.Id, home = target }); continue;
             }
+            if (UsesTacticalTurns(actor.Id)) continue; // Native readiness owns each physical migration step.
             var next = ResidentStep(actor, target);
             if (next != actor.Position) CommitResidentStep(actor, next);
         }

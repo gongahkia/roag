@@ -31,13 +31,13 @@ public sealed partial class WorldSession
                 minion.EncounterLeader = id; State.Actors.Add(minion);
             }
             if (site.Id == finalSite) State.Endgame = new() { ActorId = id, SiteId = site.Id };
-            for (int depth = 0; depth < WorldPlan.Floors; depth++)
+            for (int depth = 0; depth < Plan.FloorCount; depth++)
             {
                 var lootRandom = WorldRandom.Stream(Seed, site.Id, depth, 4200);
                 var contents = new Dictionary<string, int> { ["gold"] = 8 + lootRandom.Next(16), ["food"] = 2 + lootRandom.Next(4), ["medicine"] = 1 };
                 if (depth == 0 && siteGear.Length > 0) contents[siteGear[lootRandom.Next(siteGear.Length)].Stack] = 1;
                 State.Loot.Add(new() { Id = $"site-{site.Id}-{depth}", Position = site.Center.Offset(0, 2) with { Floor = depth }, Contents = contents,
-                    Choices = depth == 0 ? [] : RewardChoices(siteGear.Select(g => g.Id), site.Id * 4 + depth, 4201) });
+                    Choices = depth == 0 ? [] : RewardChoices(siteGear.Select(g => g.Id), site.Id * Plan.FloorCount + depth, 4201) });
             }
         }
         Log(FinalObjective);

@@ -38,13 +38,15 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
     public int CachedFootprints => _footprints.Count;
     public Footprint GenerateFootprint(bool town, int id, int floor = 0, bool forceFallback = false)
     {
-        if (floor is < 0 or >= WorldPlan.Floors || town && floor != 0) throw new ArgumentException("Invalid footprint floor.");
+        if ((floor < 0 || floor >= plan.FloorCount) || town && floor != 0) throw new ArgumentException("Invalid footprint floor.");
         var key = (town, id, floor);
         if (!forceFallback && _footprints.TryGetValue(key, out var cached)) return cached;
         int culture = town ? plan.Towns[id].Culture : plan.Sites[id].Culture;
         string purpose = town ? "town" : plan.Sites[id].Purpose;
         var model = SampleLibrary.Default.Model(culture);
-        string layout = town ? "overlapping-wfc-town" : _profile.Layouts[purpose][floor];
+        var layouts = town ? null : _profile.Layouts[purpose];
+        int band = floor == 0 || town ? 0 : 1 + (floor - 1) % (layouts!.Length - 1);
+        string layout = town ? "overlapping-wfc-town" : layouts![band];
         var shapeRandom = WorldRandom.Stream(plan.Seed, id, floor, town ? 1010 : 2010);
         const int size = 64;
         var tiles = Enumerable.Repeat(town ? Material.Grass : Material.Floor, size * size).ToArray();
@@ -95,7 +97,7 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
         if (!town)
         {
             if (floor > 0) tiles[32 * size + 30] = Material.StairsUp;
-            if (floor < WorldPlan.Floors - 1) tiles[32 * size + 34] = Material.StairsDown;
+            if (floor < plan.FloorCount - 1) tiles[32 * size + 34] = Material.StairsDown;
         }
         var trace = new GenerationTrace(purpose, layout.StartsWith("overlapping-wfc", StringComparison.Ordinal) || forceFallback ? SampleLibrary.Default.Cultures[culture].Sample : layout, attempts > 0 ? model.PatternCount : 0, attempts, observations, propagations, fallbacks, repairs, rawHash, Hash(tiles), forceFallback ? "constructive-fallback" : layout);
         var footprint = new Footprint(tiles, rawCells, size, size, trace, roomCells);
@@ -129,7 +131,7 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
             tiles[i] = NaturalAt(p, biome);
         }
         if (key.Floor == 0) foreach (var town in plan.Towns) Paint(true, town.Id, town.Center);
-        if (key.Floor < WorldPlan.Floors) foreach (var site in plan.Sites) Paint(false, site.Id, site.Center);
+        if (key.Floor < plan.FloorCount) foreach (var site in plan.Sites) Paint(false, site.Id, site.Center);
         // Public roads override surface terrain and become bridges over rivers.
         if (key.Floor == 0) foreach (var road in plan.Roads)
         {
@@ -259,7 +261,7 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
         {
             var local = site.Center with { Floor = center.Floor };
             if (center.Distance(local) > 12) continue;
-            if (center.Floor + 1 < WorldPlan.Floors) keys.Add((local.Offset(2, 0) with { Floor = center.Floor + 1 }).Chunk);
+            if (center.Floor + 1 < plan.FloorCount) keys.Add((local.Offset(2, 0) with { Floor = center.Floor + 1 }).Chunk);
             if (center.Floor > 0) keys.Add((local.Offset(-2, 0) with { Floor = center.Floor - 1 }).Chunk);
         }
         if (_preparation == null)

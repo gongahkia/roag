@@ -14,7 +14,7 @@ public sealed class RetainedEnemyTests
         public TacticalCombat Combat { get; }
         public Actor Hero { get; }
         public Actor Enemy { get; }
-        public Field(string source, string variant = "")
+        public Field(string source, string variant = "", ClassKind kind = ClassKind.Sentinel)
         {
             Hero = World.Party.Single(); Hero.Position = World.State.Position = new(100, 100);
             for (int floor = 0; floor < 2; floor++) for (int y = 90; y < 112; y++) for (int x = 90; x < 112; x++)
@@ -25,7 +25,7 @@ public sealed class RetainedEnemyTests
                 : ActorFactory.Create(World.Content, source, 42, id, new(101, 100), 0);
             World.State.Actors.Add(Enemy);
             Combat = new(World, _ => { });
-            Combat.Register(Hero, new() { Build = CharacterBuild.Create(ClassKind.Sentinel, 42) });
+            Combat.Register(Hero, new() { Build = CharacterBuild.Create(kind, 42) });
             Combat.RegisterRetainedEnemy(Enemy);
             Assert.Same(Hero, Combat.AdvanceToDecision());
         }
@@ -129,6 +129,19 @@ public sealed class RetainedEnemyTests
         Assert.Equal(hp, f.Enemy.MaxHealth); Assert.Equal(power, f.Enemy.Power);
         Assert.True(RetainedEnemyCatalog.Contains(f.Enemy.Tactics!.DefinitionId));
         Assert.False(EnemyCatalog.Default.Contains(f.Enemy.Tactics.DefinitionId));
+    }
+
+    [Fact]
+    public void RetainedBossRolePreservesTheNativeClassBossPullRestriction()
+    {
+        using var f = new Field("boss.red-huntsman", "variant.emberborne", ClassKind.Hookrunner);
+        f.Enemy.Position = new(103, 100);
+        Assert.True(f.Enemy.Tactics!.ImmuneToPull); Assert.False(f.Enemy.Tactics.RegularEnemy);
+        var position = f.Enemy.Position;
+        Assert.True(f.Combat.Commit(new(TacticalAction.Special, Facing.East, f.Enemy.Id)).Success);
+        Assert.Equal(position, f.Enemy.Position);
+        Assert.DoesNotContain(f.Combat.State.Events, e => e.Kind == "Displaced" && e.Target == f.Enemy.Id);
+        Assert.Contains(f.Combat.State.Timeline.Pending, w => w.ActorId == f.Hero.Id && w.Due > 0);
     }
 
     [Theory]

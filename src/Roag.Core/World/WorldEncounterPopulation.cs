@@ -11,15 +11,17 @@ public sealed partial class WorldSession
 {
     public IReadOnlyList<EncounterPopulationSelection> EncounterPopulationPlan(int siteId) => PlanEncounterPopulation(Plan, Content, siteId);
 
+    private static int PopulationBase(WorldPlan plan) => plan.FloorCount == WorldPlan.Floors ? 70000 : 72000;
+
     public static IReadOnlyList<EncounterPopulationSelection> PlanEncounterPopulation(WorldPlan plan, ContentCatalog catalog, int siteId)
     {
         if (siteId < 0 || siteId >= plan.Sites.Count) throw new ArgumentOutOfRangeException(nameof(siteId));
         var site = plan.Sites[siteId]; var biome = plan.BiomeAt(site.Center.X, site.Center.Y);
         var definitions = catalog.Game.Encounters.Select(catalog.Get<EncounterDefinition>).OrderBy(d => d.Id, StringComparer.Ordinal).ToArray();
         var result = new List<EncounterPopulationSelection>(); var used = new HashSet<string>(); string previous = "";
-        for (int floor = 1; floor < WorldPlan.Floors; floor++)
+        for (int floor = 1; floor < plan.FloorCount; floor++)
         {
-            var eligible = definitions.Where(d => d.Fits(site.Purpose, biome, floor)).ToArray();
+            var eligible = definitions.Where(d => d.Fits(site.Purpose, biome, Math.Min(floor, WorldPlan.Floors - 1))).ToArray();
             if (eligible.Length == 0) throw new InvalidDataException("No encounter population for " + site.Purpose + "/" + biome + "/" + floor + ".");
             var candidates = eligible.Where(d => !used.Contains(d.Id)).ToArray();
             if (candidates.Length == 0) candidates = eligible.Where(d => d.Id != previous).ToArray();
@@ -27,7 +29,7 @@ public sealed partial class WorldSession
             var random = WorldRandom.Stream(plan.Seed, siteId, floor, 7100); int pick = random.Next(candidates.Sum(d => d.Weight));
             var chosen = candidates[0];
             foreach (var candidate in candidates) { pick -= candidate.Weight; if (pick < 0) { chosen = candidate; break; } }
-            result.Add(new(siteId, floor, chosen.Id, chosen.Tier, site.Purpose, biome, 70000 + siteId * 16 + floor * 4,
+            result.Add(new(siteId, floor, chosen.Id, chosen.Tier, site.Purpose, biome, PopulationBase(plan) + siteId * plan.FloorCount * 4 + floor * 4,
                 eligible.Select(d => d.Id).ToArray(), used.Contains(chosen.Id)));
             used.Add(chosen.Id); previous = chosen.Id;
         }
@@ -45,7 +47,7 @@ public sealed partial class WorldSession
     /// <summary>Materializes one planned floor once, without terrain edits or simulation/combat random draws.</summary>
     public EncounterPopulationResult EnsureEncounterPopulation(int siteId, int floor)
     {
-        if (floor is < 1 or >= WorldPlan.Floors) throw new ArgumentOutOfRangeException(nameof(floor));
+        if (floor < 1 || floor >= Plan.FloorCount) throw new ArgumentOutOfRangeException(nameof(floor));
         var selected = EncounterPopulationPlan(siteId).Single(p => p.Floor == floor);
         var existing = State.EncounterPopulations.FirstOrDefault(p => p.SiteId == siteId && p.Floor == floor);
         if (existing != null) return Result(existing, false);
@@ -124,8 +126,8 @@ public sealed partial class WorldSession
 
     private static void ValidateEncounterPopulations(WorldPlan plan, WorldState state, ContentCatalog catalog)
     {
-        if (state.EncounterPopulations == null || state.EncounterPopulations.Count > plan.Sites.Count * 3
-            || state.EncounterPopulations.Any(p => p == null || p.SiteId < 0 || p.SiteId >= plan.Sites.Count || p.Floor is < 1 or >= WorldPlan.Floors
+        if (state.EncounterPopulations == null || state.EncounterPopulations.Count > plan.Sites.Count * (plan.FloorCount - 1)
+            || state.EncounterPopulations.Any(p => p == null || p.SiteId < 0 || p.SiteId >= plan.Sites.Count || p.Floor < 1 || p.Floor >= plan.FloorCount
                 || p.EncounterId == null || p.Failure == null || p.Failure.Length > 200 || p.Spawned != (p.Failure.Length == 0))
             || state.EncounterPopulations.Select(p => (p.SiteId, p.Floor)).Distinct().Count() != state.EncounterPopulations.Count)
             throw new InvalidDataException("Invalid encounter population records.");
@@ -145,7 +147,7 @@ public sealed partial class WorldSession
                 if (expected) accounted.Add(id);
             }
         }
-        if (state.Actors.Any(a => a.Id >= 70000 && a.Id < 70000 + plan.Sites.Count * 16 && !accounted.Contains(a.Id)))
+        if (state.Actors.Any(a => a.Id >= PopulationBase(plan) && a.Id < PopulationBase(plan) + plan.Sites.Count * plan.FloorCount * 4 && !accounted.Contains(a.Id)))
             throw new InvalidDataException("An encounter population actor is missing its generation record.");
     }
 }

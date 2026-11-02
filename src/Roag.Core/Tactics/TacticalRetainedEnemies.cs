@@ -25,29 +25,33 @@ public sealed partial class TacticalCombat
     private Actor[] RetainedCandidates(Actor actor, AbilityDefinition ability, BehaviorRule rule, Func<WorldPosition, bool>? mistBlocks)
     {
         bool support = RetainedSupport(ability);
-        var sight = _world.VisionFrom(actor.Position);
         var candidates = ability.Target == TargetKind.Self ? new[] { actor }
-            : _world.State.Actors.Where(a => State.Participants.Contains(a.Id)
+            : (support ? _world.State.Actors : _world.Party).Where(a => State.Participants.Contains(a.Id)
                 && (support ? a.Tactics?.Enemy != null && !HostileTo(actor, a)
                     && (actor.EncounterLeader == 0 || actor.EncounterLeader == a.EncounterLeader) : HostileTo(actor, a)));
-        return candidates.Where(a => a is { Life: LifeState.Alive, Health: > 0, Tactics: not null }
-                && a.Position.Distance(actor.Position) <= 11 && sight.Contains(a.Position)
+        var nearby = candidates.Where(a => a is { Life: LifeState.Alive, Health: > 0, Tactics: not null }
+                && a.Position.Distance(actor.Position) <= 11
                 && (mistBlocks == null || !mistBlocks(a.Position))
                 && (rule.Condition != "ally-wounded" || a.Health < a.MaxHealth)
                 && (rule.Condition != "self-wounded" || a.Id == actor.Id && a.Health < a.MaxHealth)
                 && (rule.Condition != "target-marked" || a.Tactics.Conditions.Any(c => c.Kind == NativeConditionKind.Mark)))
             .OrderBy(a => a.Id).ToArray();
+        if (nearby.Length == 0) return [];
+        if (nearby.All(a => a.Id == actor.Id)) return nearby;
+        var sight = _world.VisionFrom(actor.Position);
+        return nearby.Where(a => sight.Contains(a.Position)).ToArray();
     }
 
     private EnemyIntent PlanRetainedEnemyTurn(Actor actor, Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep,
-        Func<WorldPosition, bool>? mistBlocks)
+        Func<WorldPosition, bool>? mistBlocks, bool combatSupport = true)
     {
         var memory = actor.Tactics!.Enemy!.Retained!;
-        if (!_world.IsHostile(actor)) return new(EnemyIntentKind.Wait);
+        if (!_world.IsHostile(actor)) return RetainedIdleTurn(actor);
         var random = new RoagRandom(memory.RandomState);
         long action = checked(memory.Actions + 1);
         var rules = RetainedEnemyRules(actor).Where(r => action >= r.FromRound && action % r.Every == 0
             && (long)actor.Health * 100 <= (long)actor.MaxHealth * r.BelowHealthPercent
+            && (combatSupport || _world.Content.Get<AbilityDefinition>(r.Ability).Effect is not ("guard" or "rally" or "calm"))
             && (!r.NoRepeat || memory.LastAbility != r.Ability)
             && RetainedCandidates(actor, _world.Content.Get<AbilityDefinition>(r.Ability), r, mistBlocks).Length > 0).ToArray();
         var rule = new BehaviorRule { Ability = _world.Content.Game.EnemyFallback };
@@ -58,7 +62,7 @@ public sealed partial class TacticalCombat
         }
         var ability = _world.Content.Get<AbilityDefinition>(rule.Ability);
         var candidates = RetainedCandidates(actor, ability, rule, mistBlocks);
-        if (candidates.Length == 0) return new(EnemyIntentKind.Wait);
+        if (candidates.Length == 0) return RetainedIdleTurn(actor);
         var target = rule.Target switch
         {
             "weakest" => candidates.MinBy(a => (a.Health, a.Id))!,
@@ -100,11 +104,15 @@ public sealed partial class TacticalCombat
 
     private long? SelectRetainedEnemyTarget(Actor actor, Func<WorldPosition, bool>? mistBlocks)
     {
+        // Awareness names party observations, not support targets or idle
+        // movement. Distant creatures need no terrain query to establish that
+        // no party member can currently be seen.
+        var nearby = _world.Party.Where(a => a.Life == LifeState.Alive && a.Position.Distance(actor.Position) <= 11 && PursuitAllowed(actor, a.Position)).ToArray();
+        if (nearby.Length == 0) return null;
         var intent = PlanRetainedEnemyTurn(actor, (_, _) => null, mistBlocks);
         if (intent.Retained is { } cast && Friendly(Actor(cast.Target))) return cast.Target;
         var sight = _world.VisionFrom(actor.Position);
-        return _world.Party.Where(a => a.Life == LifeState.Alive && a.Position.Distance(actor.Position) <= 11
-                && sight.Contains(a.Position) && PursuitAllowed(actor, a.Position))
+        return nearby.Where(a => sight.Contains(a.Position))
             .OrderBy(a => a.Position.Distance(actor.Position)).ThenBy(a => a.Id).Select(a => (long?)a.Id).FirstOrDefault();
     }
 
@@ -126,6 +134,7 @@ public sealed partial class TacticalCombat
             + (r.BelowHealthPercent < 100 ? $", below {r.BelowHealthPercent}% HP" : "")
             + (r.Condition != "always" ? ", " + r.Condition.Replace('-', ' ') : "") + (r.NoRepeat ? ", never repeats its last released ability" : "")));
         return phase + rules + ". Only physically visible targets qualify. Movement does not advance the cast pattern."
+            + (_world.State.NativeCampaign == null ? "" : " Without detected prey, it follows its world routine; wounded allies can still receive healing.")
             + " " + _world.WildlifeDescription(actor);
     }
 

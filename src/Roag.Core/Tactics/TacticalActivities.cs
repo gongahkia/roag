@@ -40,7 +40,7 @@ public sealed partial class TacticalCombat
         // Rest is physical and personal. Watch never grants a rest interval.
         actor.Body.RestUntil = kind == SustainedActivityKind.Rest
             ? actor.Tactics.Activity.Until / Tuning.UnitsPerWorldTick + 1 : 0;
-        _world.State.Dungeon?.Following.Remove(actor.Id);
+        _world.PartyFollowing?.Remove(actor.Id);
         Emit("ActivityStarted", actor.Id, actor.Id, action, actor.Position, intent.Choice, ability: kind.ToString());
     }
 

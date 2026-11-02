@@ -8,14 +8,14 @@ namespace Roag.Core.World;
 public sealed partial class WorldSession
 {
     /// <summary>The inspected member; readiness remains owned by the shared tactical timeline.</summary>
-    public Actor DungeonMember => State.Dungeon != null && State.Tactics is { } tactics
+    public Actor DungeonMember => HasNativeParty && State.Tactics is { } tactics
         ? Party.FirstOrDefault(a => a.Id == tactics.ControlledActor)
             ?? throw new InvalidOperationException("No dungeon party member is selected.")
         : throw new InvalidOperationException("No native dungeon run is loaded.");
 
     public ActionResult SelectDungeonMember(long memberId)
     {
-        if (State.Dungeon == null || State.Tactics == null || State.AwaitingContinuation)
+        if (!HasNativeParty || State.Tactics == null || State.AwaitingContinuation)
             return new(false, "This run has ended or no dungeon is loaded.");
         var member = Party.FirstOrDefault(a => a.Id == memberId);
         if (member is not { Life: not LifeState.Dead, Tactics.Build: not null })
@@ -33,7 +33,7 @@ public sealed partial class WorldSession
     public ActionResult ConfigureDungeonEating(long memberId, bool automatic, bool duringCombat)
     {
         var member = Party.FirstOrDefault(a => a.Id == memberId && a.Life != LifeState.Dead && a.Tactics?.Build != null);
-        if (State.Dungeon == null || State.AwaitingContinuation || member == null)
+        if (!HasNativeParty || State.AwaitingContinuation || member == null)
             return new(false, "Choose a surviving member's eating policy.");
         member.Tactics!.AutoEat = automatic; member.Tactics.AutoEatInCombat = duringCombat;
         return new(true, "Eating policy saved. Automatic meals spend this member's scheduled turns.");

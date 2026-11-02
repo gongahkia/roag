@@ -9,7 +9,7 @@ public sealed partial class WorldSession
     public bool ContinueDungeonActivities(int actionBudget = 16)
     {
         if (actionBudget is < 1 or > 256) throw new ArgumentOutOfRangeException(nameof(actionBudget));
-        if (State.Dungeon == null || State.AwaitingContinuation || DungeonCombat.Active?.Tactics?.Activity == null) return false;
+        if (!HasNativeParty || State.AwaitingContinuation || DungeonCombat.Active?.Tactics?.Activity == null) return false;
         var combat = DungeonCombat; long before = combat.State.NextAction, events = combat.State.NextEvent;
         combat.AdvanceToPartyDecision(actionBudget);
         return combat.State.NextAction != before || combat.State.NextEvent != events;
@@ -27,7 +27,7 @@ public sealed partial class WorldSession
         return false;
     }
 
-    public ActionResult CancelDungeonActivity(long memberId) => State.Dungeon != null && DungeonCombat.CancelActivity(memberId)
+    public ActionResult CancelDungeonActivity(long memberId) => HasNativeParty && DungeonCombat.CancelActivity(memberId)
         ? new(true, "Activity cancelled; already committed recovery is unchanged.")
         : new(false, "This member has no continuing activity.");
 }

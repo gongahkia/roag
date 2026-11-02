@@ -26,7 +26,7 @@ public sealed partial class WorldSession
     }
     public const int HabitatPressureLimit = 1000, HabitatPressureRecovery = 20;
     public static int HabitatIndex(ChunkKey key) => key.Floor * 4096 + key.Y * 64 + key.X;
-    private static bool HabitatKeyValid(ChunkKey key) => key.X is >= 0 and < 64 && key.Y is >= 0 and < 64 && key.Floor is >= 0 and < WorldPlan.Floors;
+    private static bool HabitatKeyValid(WorldPlan plan, ChunkKey key) => key.X is >= 0 and < 64 && key.Y is >= 0 and < 64 && key.Floor >= 0 && key.Floor < plan.FloorCount;
     private static int HabitatBaseCapacity(WorldPlan plan, ChunkKey key) => key.Floor > 0 ? 8 : plan.BiomeAt(key.X * 64 + 32, key.Y * 64 + 32) switch
     { Biome.Forest => 64, Biome.Marsh => 40, Biome.Highland => 24, Biome.Badland => 12, Biome.Snow => 16, _ => 48 };
     private static int HabitatCapacity(WorldPlan plan, ChunkKey key, HabitatState? state)
@@ -121,11 +121,11 @@ public sealed partial class WorldSession
     }
     private static void ValidateHabitats(WorldPlan plan, WorldState state)
     {
-        if (state.Habitats == null || state.Habitats.Count > 16384) throw new InvalidDataException("Invalid habitat registry.");
+        if (state.Habitats == null || state.Habitats.Count > plan.FloorCount * 4096) throw new InvalidDataException("Invalid habitat registry.");
         foreach (var (index, habitat) in state.Habitats)
         {
             var key = new ChunkKey(index % 64, index / 64 % 64, index / 4096);
-            if (index is < 0 or >= 16384 || !HabitatKeyValid(key) || habitat == null || habitat.LandLoss == null
+            if (index < 0 || index >= plan.FloorCount * 4096 || !HabitatKeyValid(plan, key) || habitat == null || habitat.LandLoss == null
                 || habitat.LandLoss.Count > 4096 || habitat.LandLoss.Any(p => p.Key is < 0 or >= 4096 || p.Value is < 1 or > 8)
                 || habitat.RecoveryVersion is < 0 or > 1 || habitat.Epoch < 0 || habitat.Epoch > state.Tick / TicksPerHour || habitat.Pressure is < 0 or > HabitatPressureLimit
                 || habitat.Food < 0 || habitat.Food > HabitatCapacity(plan, key, habitat)) throw new InvalidDataException("Invalid habitat stock, pressure or land use.");

@@ -15,7 +15,7 @@ public sealed partial class TacticalCombat
     {
         var order = _world.BeginNativeWork(actor, command);
         actor.Tactics!.Activity = new(SustainedActivityKind.Work, 0, order.Target, order.Id);
-        actor.Body.RestUntil = 0; _world.State.Dungeon?.Following.Remove(actor.Id);
+        actor.Body.RestUntil = 0; _world.PartyFollowing?.Remove(actor.Id);
         Emit("ActivityStarted", actor.Id, actor.Id, action, actor.Position, ability: "Work:" + order.Kind);
     }
 

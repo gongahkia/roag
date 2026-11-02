@@ -6,7 +6,7 @@ public sealed partial class TacticalCombat
 {
     private bool TryFollowerTurn(Actor actor)
     {
-        if (_world.State.Dungeon is not { } run || !run.Following.TryGetValue(actor.Id, out long leaderId)) return false;
+        if (_world.PartyFollowing is not { } following || !following.TryGetValue(actor.Id, out long leaderId)) return false;
         var leader = Actor(leaderId);
         if (leader.Life != LifeState.Alive || leader.Position.Floor != actor.Position.Floor || IsLocallyEngaged(actor.Id)) return false;
 
@@ -15,7 +15,7 @@ public sealed partial class TacticalCombat
         int distance = actor.Position.Distance(leader.Position);
         var (forwardX, forwardY) = AttackGeometry.Offset(leader.Tactics!.Facing);
         bool Ahead(WorldPosition p) => (p.X - leader.Position.X) * forwardX + (p.Y - leader.Position.Y) * forwardY > 0;
-        var anchor = _world.Party.Where(a => a.Id == leader.Id || run.Following.GetValueOrDefault(a.Id) == leader.Id)
+        var anchor = _world.Party.Where(a => a.Id == leader.Id || following.GetValueOrDefault(a.Id) == leader.Id)
             .Where(a => a.Life == LifeState.Alive && a.Position.Distance(leader.Position) < distance)
             .OrderBy(a => actor.Position.Distance(a.Position)).ThenBy(a => a.Position.Distance(leader.Position)).ThenBy(a => a.Id)
             .FirstOrDefault() ?? leader;

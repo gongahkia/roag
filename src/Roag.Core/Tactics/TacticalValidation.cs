@@ -10,7 +10,7 @@ public static class TacticalValidation
         foreach (var actor in world.Actors) actor.Tactics?.Validate();
         if (world.Tactics is not { } state)
         {
-            if (world.Dungeon != null) throw new InvalidDataException("A native dungeon requires its saved action timeline.");
+            if (world.Dungeon != null || world.NativeCampaign != null) throw new InvalidDataException("A native run requires its saved action timeline.");
             if (world.Actors.Any(a => a.Tactics != null)) throw new InvalidDataException("Tactical actors lack a world timeline.");
             return;
         }
@@ -18,6 +18,7 @@ public static class TacticalValidation
             || state.Participants is null || state.Attacks is null || state.Events is null || state.Events.Count > 512)
             throw new InvalidDataException("Invalid tactical world header.");
         var queue = ActionTimeline.Restore(state.Timeline).Snapshot();
+        world.NativeCampaign?.Validate(plan, world, world.Actors.ToDictionary(a => a.Id));
         if (state.Tuning is null) throw new InvalidDataException("Missing tactical tuning.");
         try { state.Tuning.Validate(); }
         catch (ArgumentException e) { throw new InvalidDataException("Invalid saved tactical tuning.", e); }
