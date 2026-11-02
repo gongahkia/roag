@@ -34,6 +34,10 @@ public static class TacticalValidation
                 || !plan.Contains(member.Tactics!.Activity!.Anchor) || member.Tactics.Activity.Until > queue.Clock + 240L * 60 * state.Tuning.UnitsPerSecond
                 || !state.Tuning.EnableSurvival)
                 throw new InvalidDataException("Invalid activity owner or anchor.");
+        foreach (var member in world.Actors.Where(a => a.Tactics?.Activity?.Kind == SustainedActivityKind.Work))
+            if (!world.Work.Any(w => w.Id == member.Tactics!.Activity!.Work && w.Worker == member.Id && !w.Suspended
+                && w.Target == member.Tactics.Activity.Anchor))
+                throw new InvalidDataException("Native work activity has no matching owned active order.");
         var actors = world.Actors.ToDictionary(a => a.Id);
         if (world.Actors.Any(a => a.Tactics?.Supplies is { } s && (s.WardRefreshAction >= state.NextAction
             || s.WardThroughRecovery && (a.Life == LifeState.Dead || a.Id == state.ActiveActor || !world.Party.Contains(a.Id)))))

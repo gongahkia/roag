@@ -42,7 +42,8 @@ public sealed partial class WorldSession
         if (output.Carrier != worker.Id)
         {
             var previous = ActorById(output.Carrier);
-            if (!ApproachWorkStop(order, worker, previous.Position, "Recovering work output")) return;
+            if (!(worker.Recruited && UsesTacticalTurns(worker.Id) && State.Party.Contains(previous.Id))
+                && !ApproachWorkStop(order, worker, previous.Position, "Recovering work output")) return;
             foreach (var (stack, count) in output.Remaining)
             {
                 previous.Cargo[stack] -= count; worker.Cargo[stack] = worker.Cargo.GetValueOrDefault(stack) + count;
@@ -81,7 +82,7 @@ public sealed partial class WorldSession
     {
         var output = order.Output!; var carrier = ActorById(output.Carrier); var remaining = new Dictionary<string, int>();
         Dictionary<string, int>? storage = null;
-        bool nearbyPack = order.DeliveryStorage == null && carrier.Position.Distance(State.Position) <= 1;
+        bool nearbyPack = order.DeliveryStorage == null && (carrier.Recruited && UsesTacticalTurns(carrier.Id) || carrier.Position.Distance(State.Position) <= 1);
         if (order.DeliveryStorage is { } p && carrier.Position.Distance(p) <= 1 && Chunks.At(p) == Material.Storage)
         {
             var delta = Chunks.Delta(p.Chunk);

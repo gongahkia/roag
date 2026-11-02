@@ -24,12 +24,13 @@ public sealed partial class WorldSession
         if (!Plan.Contains(p) || State.Position.Distance(p) > (designated ? 100 : 1) || !Chunks.Seen(p)) return new(false, "Choose observed adjacent terrain.");
         var before = Chunks.At(p); var owned = State.Structures.FirstOrDefault(s => s.Position == p);
         bool prop = ObjectAt(p) is { Removable: true };
-        if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Barricade or Material.Tree or Material.Door or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
+        if (!prop && owned == null && before is not (Material.Rock or Material.Wall or Material.Barricade or Material.Tree or Material.Door or Material.ClosedDoor or Material.Storage or Material.Camp)) return new(false, "Choose rock, walls, trees or an owned structure.");
         if (before == Material.Storage && (StorageReservedForWork(p) || State.Chunks.FirstOrDefault(c => c.Key == p.Chunk)?.Storage.GetValueOrDefault(p.LocalIndex)?.Values.Any(v => v > 0) == true)) return new(false, "Empty the storage and release its reserved work supplies first.");
-        int hardness = prop ? 1 : Materials.Hardness(before);
+        var digMaterial = before == Material.ClosedDoor ? Material.Door : before;
+        int hardness = prop ? 1 : Materials.Hardness(digMaterial);
         return QueueWork(new() { Kind = WorkKind.Dig, PartyApproach = designated, Target = p, Before = before, After = prop ? before : owned?.Foundation ?? (p.Floor == 0 ? Material.Earth : Material.Floor),
             Required = hardness * 5, Reserved = [],
-            Yield = owned != null ? new(owned.Cost) : new() { [prop ? "wood" : Materials.Yield(before)] = prop ? 1 : hardness + 1 } });
+            Yield = owned != null ? new(owned.Cost) : new() { [prop ? "wood" : Materials.Yield(digMaterial)] = prop ? 1 : hardness + 1 } });
     }
     private ActionResult QueueCraft(string id)
     {
@@ -88,12 +89,12 @@ public sealed partial class WorldSession
         DispatchPartyWork();
         foreach (var order in State.Work.OrderByDescending(o => o.Priority).ThenBy(o => o.Id).ToArray())
         {
+            if (UsesTacticalTurns(order.Worker)) continue; // Native orders inspect and act on their own paid turns.
             if (order.Output == null && (SupplySourceChanged(order) || order.Kind == WorkKind.Discovery && !SituationWorkValid(order) || order.Kind == WorkKind.Camp && (order.Station is not { } station || !ServiceableCamp(station)) || Chunks.At(order.Target) != order.Before || order.Kind == WorkKind.Harvest && (ResourceAt(order.Target) is not { Available: > 0 } node || node.Definition.Id != order.Definition) || order.Kind == WorkKind.Repair && !State.Structures.Any(s => s.Position == order.Target)))
             { CancelWork(order.Id, deliberate: false); Log("A changed work target released its reserved supplies."); continue; }
             if (order.Suspended) { order.Status = "Suspended"; continue; }
             var worker = State.Actors.FirstOrDefault(a => a.Id == order.Worker && a.Life == LifeState.Alive);
             if (worker == null) { order.Worker = 0; continue; }
-            if (UsesTacticalTurns(worker.Id)) { order.Status = "Awaiting the worker's paid timeline action"; continue; }
             if (worker.Recruited && (PartyTravelling || order.Output == null && (!order.PartyApproach && worker.Position.Distance(order.Target) > 1 || !InWorkRally(order.Target)))) { order.Status = PartyTravelling ? "Travelling with the party" : "Outside rally area or work stopped"; continue; }
             if (State.Battle?.ActorIds.Contains(worker.Id) == true) { order.Status = "Worker in combat"; continue; }
             if (RoutineInterruptsWork(worker)) { order.Status = "Interrupted: " + RoutineDescription(worker); continue; }
@@ -119,42 +120,49 @@ public sealed partial class WorldSession
             }
             if (order.Kind is WorkKind.Build or WorkKind.Dig && (!Materials.Walkable(order.After) || order.After == Material.Camp) && State.Actors.Any(a => a.Life != LifeState.Dead && a.Position == order.Target))
             { order.Status = "Clear the target cell"; continue; }
-            if (order.Kind is WorkKind.Harvest or WorkKind.Dig) DisturbWildlife(order.Target);
-            order.Status = "Working: " + worker.Name; double amount = WorkRate(worker) * WorkMultiplier(worker, order);
-            order.Progress += amount; worker.Body.WorkDone += amount;
-            if (order.Progress < order.Required) continue;
-            switch (order.Kind)
-            {
-                case WorkKind.Build:
-                    RecordHabitatClearing(order.Target, order.Before, order.After);
-                    Chunks.Edit(order.Target, order.After);
-                    State.Structures.Add(new() { Position = order.Target, Material = order.After, Foundation = order.Before, Cost = new(order.Reserved) }); break;
-                case WorkKind.Dig:
-                    RecordHabitatClearing(order.Target, order.Before, order.After);
-                    Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target); CheckExcavatedBypass(order); break;
-                case WorkKind.Repair:
-                    State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
-                case WorkKind.Harvest: HarvestResource(order.Target); break;
-                case WorkKind.Discovery: CompleteSituationWork(order); break;
-                case WorkKind.Camp: CompleteCampActivity(order, worker); break;
-                case WorkKind.Forage:
-                    if (!TakeWildFood(order.Target, 2)) throw new InvalidOperationException("Forage stock changed during sequential completion.");
-                    worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
-            }
-            NoteLivelihoodDamage(order);
-            if (order.OutputVersion == 1)
-            {
-                order.Progress = order.Required;
-                order.Output = new() { Carrier = worker.Id, ProducedTick = State.Tick, Remaining = order.Yield.Where(p => p.Value > 0).ToDictionary() };
-                foreach (var (stack, count) in order.Output.Remaining) worker.Cargo[stack] = worker.Cargo.GetValueOrDefault(stack) + count;
-                Diagnose("work-output-produced", new { order.Id, worker = worker.Id, order.Target, output = new Dictionary<string, int>(order.Yield) });
-                AdvanceWorkOutput(order, worker);
-            }
-            else { foreach (var (item, count) in order.Yield) Add(item, count); FinishWork(order, worker); }
+            PerformWork(order, worker, WorkRate(worker) * WorkMultiplier(worker, order));
         }
         ReturnIdleParty();
         foreach (var structure in State.Structures) structure.Condition = Math.Max(0, structure.Condition - Simulation.StructureWearPerTick);
     }
+    private void PerformWork(WorkOrder order, Actor worker, double amount)
+    {
+        if (order.Kind is WorkKind.Harvest or WorkKind.Dig) DisturbWildlife(order.Target);
+        order.Status = "Working: " + worker.Name;
+        order.Progress += amount; worker.Body.WorkDone += amount;
+        if (order.Progress < order.Required) return;
+        switch (order.Kind)
+        {
+            case WorkKind.Build:
+                RecordHabitatClearing(order.Target, order.Before, order.After);
+                Chunks.Edit(order.Target, order.After);
+                State.Structures.Add(new() { Position = order.Target, Material = order.After, Foundation = order.Before, Cost = new(order.Reserved) }); break;
+            case WorkKind.Dig:
+                RecordHabitatClearing(order.Target, order.Before, order.After);
+                Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target);
+                State.Tactics?.Doors.Nodes.RemoveAll(d => d.Position == order.Target);
+                CheckExcavatedBypass(order); break;
+            case WorkKind.Repair:
+                State.Structures.Single(s => s.Position == order.Target).Condition = 100; break;
+            case WorkKind.Harvest: HarvestResource(order.Target); break;
+            case WorkKind.Discovery: CompleteSituationWork(order); break;
+            case WorkKind.Camp: CompleteCampActivity(order, worker); break;
+            case WorkKind.Forage:
+                if (!TakeWildFood(order.Target, 2)) throw new InvalidOperationException("Forage stock changed during sequential completion.");
+                worker.Body.ForageAfter = State.Tick + TicksPerHour; break;
+        }
+        NoteLivelihoodDamage(order);
+        if (order.OutputVersion == 1)
+        {
+            order.Progress = order.Required;
+            order.Output = new() { Carrier = worker.Id, ProducedTick = State.Tick, Remaining = order.Yield.Where(p => p.Value > 0).ToDictionary() };
+            foreach (var (stack, count) in order.Output.Remaining) worker.Cargo[stack] = worker.Cargo.GetValueOrDefault(stack) + count;
+            Diagnose("work-output-produced", new { order.Id, worker = worker.Id, order.Target, output = new Dictionary<string, int>(order.Yield) });
+            AdvanceWorkOutput(order, worker);
+        }
+        else { foreach (var (item, count) in order.Yield) Add(item, count); FinishWork(order, worker); }
+    }
+
     private void FinishWork(WorkOrder order, Actor worker)
     {
         Remember(worker, "finished-work", "My work made a difference.", Disposition(worker)?.Value == "craft" ? 8 : 4);

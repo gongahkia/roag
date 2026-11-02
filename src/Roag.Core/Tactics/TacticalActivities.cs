@@ -2,10 +2,10 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public enum SustainedActivityKind { Rest, Watch }
+public enum SustainedActivityKind { Rest, Watch, Work }
 
 /// <summary>An explicit continuing order, paid one native turn at a time.</summary>
-public sealed record SustainedActivity(SustainedActivityKind Kind, long Until, WorldPosition Anchor);
+public sealed record SustainedActivity(SustainedActivityKind Kind, long Until, WorldPosition Anchor, long Work = 0);
 
 public sealed record CampTuning(int RestNoticeRange = 2, int WatchNoticeRange = 11, int AlarmHearing = 16, int WallSoundCost = 5, int FireMinutes = 10, int FireWarmthRange = 3, int FireDeterrenceRange = 3, int FireAttractionRange = 11, int FireWarmthPercent = 85)
 {
@@ -20,6 +20,8 @@ public sealed record CampTuning(int RestNoticeRange = 2, int WatchNoticeRange = 
 
 public sealed partial class TacticalCombat
 {
+    private bool _continuingActivity;
+
     private TacticalPreview PreviewActivity(Actor actor, TacticalIntent intent)
     {
         if (!Friendly(actor) || !Tuning.EnableSurvival) return Invalid("Survival activities require a living party member.");
@@ -52,6 +54,7 @@ public sealed partial class TacticalCombat
     private void StopActivity(Actor actor, string reason)
     {
         if (actor.Tactics?.Activity is not { } activity) return;
+        if (activity.Kind == SustainedActivityKind.Work) _world.SuspendNativeWork(activity.Work);
         actor.Tactics.Activity = null; actor.Body.RestUntil = 0;
         Emit("ActivityStopped", actor.Id, actor.Id, 0, actor.Position, ability: reason + ":" + activity.Kind);
     }
@@ -59,6 +62,7 @@ public sealed partial class TacticalCombat
     private bool ActivityTurn(Actor actor)
     {
         if (actor.Tactics!.Activity is not { } activity) return false;
+        if (activity.Kind == SustainedActivityKind.Work) return WorkActivityTurn(actor, activity);
         if (Clock >= activity.Until) { StopActivity(actor, "completed"); return false; }
         if (actor.Position != activity.Anchor) { StopActivity(actor, "displaced"); return false; }
         var result = Commit(new(TacticalAction.ContinueActivity));
@@ -94,8 +98,8 @@ public sealed partial class TacticalCombat
         foreach (var member in busy)
         {
             if (member.Tactics!.Activity is not { } activity) continue;
-            if (member.Position != activity.Anchor) { StopActivity(member, "displaced"); continue; }
-            int range = activity.Kind == SustainedActivityKind.Watch ? State.Camp.WatchNoticeRange : State.Camp.RestNoticeRange;
+            if (activity.Kind != SustainedActivityKind.Work && member.Position != activity.Anchor) { StopActivity(member, "displaced"); continue; }
+            int range = activity.Kind == SustainedActivityKind.Rest ? State.Camp.RestNoticeRange : State.Camp.WatchNoticeRange;
             var threats = _world.State.Actors.Where(a => a.Life != LifeState.Dead && a.Tactics?.Enemy is { Dormant: false }
                 && _world.IsHostile(a) && a.Position.Distance(member.Position) <= range).ToArray();
             if (threats.Length == 0 || !threats.Any(a => _world.VisionFrom(member.Position).Contains(a.Position))) continue;

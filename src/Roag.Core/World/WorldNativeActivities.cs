@@ -10,9 +10,9 @@ public sealed partial class WorldSession
     {
         if (actionBudget is < 1 or > 256) throw new ArgumentOutOfRangeException(nameof(actionBudget));
         if (State.Dungeon == null || State.AwaitingContinuation || DungeonCombat.Active?.Tactics?.Activity == null) return false;
-        var combat = DungeonCombat; long before = combat.State.NextAction;
+        var combat = DungeonCombat; long before = combat.State.NextAction, events = combat.State.NextEvent;
         combat.AdvanceToPartyDecision(actionBudget);
-        return combat.State.NextAction != before;
+        return combat.State.NextAction != before || combat.State.NextEvent != events;
     }
 
     public bool WarmedByCampFire(WorldPosition position) => State.Tactics is { } state

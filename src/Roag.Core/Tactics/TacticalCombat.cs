@@ -4,7 +4,7 @@ using Roag.Core.World;
 
 namespace Roag.Core.Tactics;
 
-public sealed record TacticalIntent(TacticalAction Action, Facing Facing = Facing.South, long Target = 0, bool Vow = false, int Choice = 0, bool ReplaceUtility = false, string Item = "");
+public sealed record TacticalIntent(TacticalAction Action, Facing Facing = Facing.South, long Target = 0, bool Vow = false, int Choice = 0, bool ReplaceUtility = false, string Item = "", WorldCommand? Work = null);
 public sealed record TacticalPreview(bool Valid, string Reason, long Recovery, IReadOnlyList<WorldPosition> Cells,
     bool Bump = false, bool Swap = false, int? ReturnDistance = null)
 {
@@ -207,6 +207,8 @@ public sealed partial class TacticalCombat
                 return PreviewMovement(actor, definition, intent);
             case TacticalAction.UseStairs:
                 return PreviewStairs(actor, definition);
+            case TacticalAction.StartWork:
+                return PreviewNativeWork(actor, intent.Work);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -284,7 +286,7 @@ public sealed partial class TacticalCombat
             actor.Tactics.EnemySnareDelay = 0;
             actor.Tactics.WebRecoveryDelay = 0;
             State.ActiveActor = 0;
-            if (executed.Action is not (TacticalAction.Rest or TacticalAction.Watch or TacticalAction.ContinueActivity or TacticalAction.Eat))
+            if (!_continuingActivity && executed.Action is not (TacticalAction.Rest or TacticalAction.Watch or TacticalAction.ContinueActivity or TacticalAction.Eat))
                 StopActivity(actor, "command");
             BeforeContractAction(actor, executed, preview, action);
             if (preview.Vow is { } vow)
@@ -299,6 +301,8 @@ public sealed partial class TacticalCombat
                     CommitMovement(actor, executed, preview, action); break;
                 case TacticalAction.UseStairs:
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
+                case TacticalAction.StartWork:
+                    BeginNativeWork(actor, executed.Work!, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;
@@ -306,7 +310,7 @@ public sealed partial class TacticalCombat
                 case TacticalAction.Watch:
                     BeginActivity(actor, executed, action); break;
                 case TacticalAction.ContinueActivity:
-                    Emit("ActivityContinued", actor.Id, actor.Id, action, actor.Position); break;
+                    ContinueActivity(actor, preview.Recovery, action); break;
                 case TacticalAction.Eat:
                     Eat(actor, action); break;
                 case TacticalAction.UseMedicine:

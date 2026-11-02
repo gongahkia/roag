@@ -53,7 +53,8 @@ public sealed class ActorTactics
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
                 || burning.Due < 0 || burning.Schedule <= 0 || burning.Activation is null))
             throw new InvalidDataException("Invalid actor tactics.");
-        if (Activity is { } activity && (Build == null || !Enum.IsDefined(activity.Kind) || activity.Until < 0))
+        if (Activity is { } activity && (Build == null || !Enum.IsDefined(activity.Kind) || activity.Until < 0
+            || (activity.Kind == SustainedActivityKind.Work ? activity.Work <= 0 || activity.Until != 0 : activity.Work != 0)))
             throw new InvalidDataException("Invalid native sustained activity.");
         Build?.Validate();
         if (Enemy != null)

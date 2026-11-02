@@ -22,8 +22,8 @@ public sealed partial class WorldSession
         OpenDungeonDoor = new("Open door", "gate-open", "dungeon-door", false);
     private static readonly WorldObject CrackedSecretWall = new("Cracked moss wall", "cracked-wall", "dungeon-secret", true),
         MossSecretSigil = new("Moss sigil", "mark", "dungeon-secret", false);
-    private static readonly WorldObject ClosedTimedGate = new("Timed gate", "gate", "dungeon-gate", true),
-        OpenTimedGate = new("Open timed gate", "gate-open", "dungeon-gate", false);
+    private static readonly WorldObject ClosedTimedGate = new("Reinforced timed gate", "gate", "dungeon-gate", true),
+        OpenTimedGate = new("Open reinforced timed gate", "gate-open", "dungeon-gate", false);
     private static readonly WorldObject ClosedVault = new("Locked vault", "chest", "dungeon-vault", true),
         OpenVault = new("Opened vault", "chest-open", "dungeon-vault", false),
         VaultKey = new("Vault key", "key", "dungeon-vault-key", false);
@@ -34,7 +34,7 @@ public sealed partial class WorldSession
     private static readonly WorldObject QuestClue = new("Branch clue", "book", "dungeon-quest", false),
         QuestKey = new("Branch key", "key", "dungeon-quest", false), QuestPlate = new("Branch switch", "mark", "dungeon-quest", false),
         QuestBrazier = new("Signal brazier", "brazier", "dungeon-quest", false), QuestReward = new("Branch reward", "coin", "dungeon-quest", false),
-        QuestGateClosed = new("Branch gate", "gate", "dungeon-quest", true), QuestGateOpen = new("Open branch gate", "gate-open", "dungeon-quest", false);
+        QuestGateClosed = new("Reinforced branch gate", "gate", "dungeon-quest", true), QuestGateOpen = new("Open reinforced branch gate", "gate-open", "dungeon-quest", false);
     public WorldObject? ObjectAt(WorldPosition p) => TacticalBlockAt(p) ? Bulwark : ObjectAt(p, null);
     internal bool TacticalBlockAt(WorldPosition p, long exceptOwner = 0)
     {

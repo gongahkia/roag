@@ -97,9 +97,12 @@ public sealed partial class WorldSession
     }
     private WorldPosition WorkStop(WorkOrder order, long worker)
     {
-        if (order.Output is { } output) return output.Carrier != worker ? ActorById(output.Carrier).Position : order.DeliveryStorage ?? State.Position;
+        if (order.Output is { } output) return output.Carrier != worker && !(UsesTacticalTurns(worker) && State.Party.Contains(output.Carrier))
+            ? ActorById(output.Carrier).Position : order.DeliveryStorage ?? State.Position;
         var supply = NextSupply(order, worker);
-        return supply == null ? order.Target : supply.Phase == SupplyPhase.Carrying ? ActorById(supply.Carrier).Position : supply.Storage ?? State.Position;
+        return supply == null ? order.Target : supply.Phase == SupplyPhase.Carrying
+            ? UsesTacticalTurns(worker) && State.Party.Contains(supply.Carrier) ? ActorById(worker).Position : ActorById(supply.Carrier).Position
+            : supply.Storage ?? State.Position;
     }
     private bool SupplySourceChanged(WorkOrder order)
     {
@@ -143,6 +146,7 @@ public sealed partial class WorldSession
     {
         if (worker.Position.Distance(target) <= 1) { MarkResidentBlocked(worker, false); return true; }
         order.Status = activity + ": " + worker.Name;
+        if (UsesTacticalTurns(worker.Id)) return false; // Native activity supplies its own paid navigation step.
         if (worker.Recruited)
         {
             var path = WorkPath(worker, target);
@@ -184,7 +188,7 @@ public sealed partial class WorldSession
                 returned = Math.Min(supply.Count, Math.Max(0, 9999 - contents.GetValueOrDefault(supply.Stack)));
                 contents[supply.Stack] = contents.GetValueOrDefault(supply.Stack) + returned;
             }
-            else if (supply.Storage == null && location.Distance(State.Position) <= 1)
+            else if (supply.Storage == null && (State.Party.Contains(order.Worker) && UsesTacticalTurns(order.Worker) || location.Distance(State.Position) <= 1))
             { returned = Math.Min(supply.Count, Math.Max(0, 9999 - Count(supply.Stack))); Add(supply.Stack, returned); }
             if (returned < supply.Count)
             {
