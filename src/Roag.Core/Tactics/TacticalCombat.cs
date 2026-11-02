@@ -216,6 +216,8 @@ public sealed partial class TacticalCombat
                 return PreviewStairs(actor, definition);
             case TacticalAction.StartWork:
                 return PreviewNativeWork(actor, intent.Work);
+            case TacticalAction.RetainedSkill:
+                return PreviewRetainedSkill(actor, intent);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -310,6 +312,8 @@ public sealed partial class TacticalCombat
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
                 case TacticalAction.StartWork:
                     BeginNativeWork(actor, executed.Work!, action); break;
+                case TacticalAction.RetainedSkill:
+                    CommitRetainedSkill(actor, executed, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;

@@ -46,6 +46,7 @@ public sealed class ActorTactics
     public void Validate()
     {
         if ((Build is null) == (InnateStats is null) || InnateStats?.Speed is <= 0 || !Enum.IsDefined(Facing) || BleedTurns is < 0 or > 5
+            || Conditions == null || Conditions.Count > 3 || Conditions.Any(c => c == null || !Enum.IsDefined(c.Kind) || c.Power is < 1 or > 100 || c.Turns is < 1 or > 12)
             || MoveCost <= 0 || SnaredBy < 0 || EnemySnareDelay is not (0 or EnemySquads.SnareDelay)
             || WebRecoveryDelay < 0 || WebRecoveryDelay % EnemyWebRules.Delay != 0
             || StunnedUntil < 0 || (CooperationCommitted || EquipmentCoverUsed) && Build == null || DefinitionId is null || CurrencyDrop < 0 || Resources is null || Boons is null || Supplies is null
