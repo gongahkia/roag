@@ -114,17 +114,23 @@ public sealed partial class TacticalCombat
     }
 
     /// <summary>Runs scheduled hostile decisions until a living party member needs input. No real-time pumping.</summary>
-    public Actor? AdvanceToPartyDecision()
+    public Actor? AdvanceToPartyDecision(int activityBudget = 0)
     {
         while (AdvanceToDecision() is { } actor)
         {
             if (Friendly(actor))
             {
+                ObserveActivities();
                 if (ShouldEatAutomatically(actor))
                 {
                     var result = Commit(new(TacticalAction.Eat));
                     if (!result.Success) throw new InvalidOperationException(result.Message);
                     continue;
+                }
+                if (actor.Tactics!.Activity != null)
+                {
+                    if (activityBudget-- <= 0) return actor;
+                    if (ActivityTurn(actor)) continue;
                 }
                 if (TryFollowerTurn(actor)) continue;
                 return actor;

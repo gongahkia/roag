@@ -51,7 +51,7 @@ internal sealed partial class WorldGame
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
-            "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
+            "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit",
             "TerrainTriggered" => "terrain", "Died" or "Downed" => "hit", _ => null
@@ -60,6 +60,7 @@ internal sealed partial class WorldGame
         string? label = e.Kind switch
         {
             "DamageTaken" or "StarvationDamage" => "-" + e.Amount, "Healed" or "WellFedHealing" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
+            "CampAlarm" => "ALARM", "ActivityStopped" => e.Ability.StartsWith("completed", StringComparison.Ordinal) ? "DONE" : "AWAKE",
             "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD",
             "Downed" => "DOWN", "Died" => "FALLEN", "GuardRaised" => "GUARD", "LevelUp" => "LEVEL " + e.Amount,
             "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount, "RescueNoticed" => "AID",

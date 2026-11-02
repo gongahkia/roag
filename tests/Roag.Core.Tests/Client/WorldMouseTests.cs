@@ -14,6 +14,26 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void CampInspectionIsFreeAndOnlyTheSelectedReadyMemberCanStartDuties()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        var hero = session.Party.Single();
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:camp");
+        Assert.Contains(Controls(client, "dungeon-camp"), c => c.Id == "dungeon:activity:rest:10" && c.Enabled);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Assert.All(Controls(client, "dungeon-camp").Where(c => c.Id.StartsWith("dungeon:activity:")), c => Assert.False(c.Enabled));
+        string selected = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:activity:rest:10");
+        Assert.Equal(selected, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        Invoke(client, "ActivateDungeonControl", "dungeon:activity:rest:10");
+        Assert.NotNull(hero.Tactics!.Activity); Assert.Null(friend.Tactics!.Activity);
+    }
+
+    [Fact]
     public void SurvivalControlsUseMemberOwnedFreePoliciesAndGatePaidEatingByActualReadiness()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);

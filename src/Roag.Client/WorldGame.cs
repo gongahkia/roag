@@ -102,6 +102,8 @@ internal sealed partial class WorldGame : Game
         {
             _notice = "WASD / arrows move one tile. F attacks, R special, X movement. Enter interacts.";
             if (_session.State.Tactics!.NextAction == 1) _panel = "dungeon-class";
+            else if (options.Load && _session.Party.Any(a => a.Tactics?.Activity != null))
+            { _panel = "dungeon-camp"; _notice = "Continuing duties are preserved. Close this page to resume, or cancel a member's activity."; }
         }
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Roag"; Window.AllowUserResizing = true;
@@ -207,6 +209,9 @@ internal sealed partial class WorldGame : Game
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.PartyTravelling = false;
+        if (_session.State.Dungeon != null && _panel.Length == 0 && !PointerModal && !Playback.Busy && InputFocused
+            && _session.ContinueDungeonActivities())
+        { _terrainLayerDirty = true; CollectDungeonFeedback(); }
         bool wasInCombat = _session.IsInCombat;
         // Long stalls discard elapsed time rather than simulating an offline catch-up.
         _session.AdvanceFrame(gameTime.ElapsedGameTime <= TimeSpan.FromSeconds(5) ? gameTime.ElapsedGameTime : TimeSpan.Zero);

@@ -23,6 +23,12 @@ public static class TacticalValidation
         catch (ArgumentException e) { throw new InvalidDataException("Invalid saved tactical tuning.", e); }
         if (state.DrivesWorldClock && world.Tick != queue.Clock / state.Tuning.UnitsPerWorldTick)
             throw new InvalidDataException("Tactical and world clocks disagree.");
+        if (state.Camp == null) throw new InvalidDataException("Missing camp tuning.");
+        state.Camp.Validate();
+        foreach (var member in world.Actors.Where(a => a.Tactics?.Activity != null))
+            if (member.Life != LifeState.Alive || !world.Party.Contains(member.Id) || !state.Participants.Contains(member.Id)
+                || !plan.Contains(member.Tactics!.Activity!.Anchor) || !state.Tuning.EnableSurvival)
+                throw new InvalidDataException("Invalid activity owner or anchor.");
         var actors = world.Actors.ToDictionary(a => a.Id);
         if (world.Actors.Any(a => a.Tactics?.Supplies is { } s && (s.WardRefreshAction >= state.NextAction
             || s.WardThroughRecovery && (a.Life == LifeState.Dead || a.Id == state.ActiveActor || !world.Party.Contains(a.Id)))))

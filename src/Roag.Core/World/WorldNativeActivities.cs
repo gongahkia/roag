@@ -1,0 +1,21 @@
+using Roag.Core.Tactics;
+using Roag.Core.Expeditions;
+
+namespace Roag.Core.World;
+
+public sealed partial class WorldSession
+{
+    /// <summary>Advance only explicitly ordered sustained activity; idle rendering never calls this for an unassigned member.</summary>
+    public bool ContinueDungeonActivities(int actionBudget = 16)
+    {
+        if (actionBudget is < 1 or > 256) throw new ArgumentOutOfRangeException(nameof(actionBudget));
+        if (State.Dungeon == null || State.AwaitingContinuation || DungeonCombat.Active?.Tactics?.Activity == null) return false;
+        var combat = DungeonCombat; long before = combat.State.NextAction;
+        combat.AdvanceToPartyDecision(actionBudget);
+        return combat.State.NextAction != before;
+    }
+
+    public ActionResult CancelDungeonActivity(long memberId) => State.Dungeon != null && DungeonCombat.CancelActivity(memberId)
+        ? new(true, "Activity cancelled; already committed recovery is unchanged.")
+        : new(false, "This member has no continuing activity.");
+}

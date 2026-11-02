@@ -80,6 +80,7 @@ public sealed partial class TacticalCombat
             {
                 if (member.Body.Hunger >= _world.Simulation.StarveAt)
                 {
+                    StopActivity(member, "starvation");
                     if (member.Life == LifeState.Downed)
                     {
                         member.Tactics!.BleedTurns--;

@@ -35,6 +35,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
+            else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
             else if (_panel == "dungeon-needs") BuildDungeonNeedsControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
@@ -178,6 +179,9 @@ internal sealed partial class WorldGame
             case "cooperate-choice": ChooseDungeonCooperation(long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture),
                 int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture)); break;
             case "recover-equipment": CommitRoag(new("recover_equipment", Target: _nativeCorpse)); ClosePanel(); break;
+            case "camp": _panel = "dungeon-camp"; break;
+            case "activity": CommitRoag(new(parts[2], Choice: int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
+            case "activity-cancel": _notice = _session.CancelDungeonActivity(_session.DungeonMember.Id).Message; break;
             case "needs": _panel = "dungeon-needs"; break;
             case "eat": CommitRoag(new("eat")); ClosePanel(); break;
             case "medicine": CommitRoag(new("use_medicine", Target: long.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture))); ClosePanel(); break;
@@ -433,6 +437,7 @@ internal sealed partial class WorldGame
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
+        if (_panel == "dungeon-camp") title = "REST AND WATCH";
         if (_panel == "dungeon-needs") title = "SURVIVAL AND PROVISIONS";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
@@ -443,6 +448,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
+        if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }
         if (_panel == "dungeon-needs") { DrawDungeonNeedsPanel(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }

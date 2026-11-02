@@ -86,6 +86,7 @@ public sealed partial class TacticalCombat
         while (State.Queue.TakeNext() is { } work)
         {
             _advanceWorld(Clock);
+            ObserveActivities();
             PruneWebs();
             PruneSilt();
             PruneEmbers();
@@ -205,6 +206,10 @@ public sealed partial class TacticalCombat
                 return PreviewMovement(actor, definition, intent);
             case TacticalAction.UseStairs:
                 return PreviewStairs(actor, definition);
+            case TacticalAction.Rest:
+            case TacticalAction.Watch:
+            case TacticalAction.ContinueActivity:
+                return PreviewActivity(actor, intent);
             case TacticalAction.Eat:
                 return PreviewEating(actor);
             case TacticalAction.UseMedicine:
@@ -275,6 +280,8 @@ public sealed partial class TacticalCombat
             actor.Tactics.EnemySnareDelay = 0;
             actor.Tactics.WebRecoveryDelay = 0;
             State.ActiveActor = 0;
+            if (executed.Action is not (TacticalAction.Rest or TacticalAction.Watch or TacticalAction.ContinueActivity or TacticalAction.Eat))
+                StopActivity(actor, "command");
             BeforeContractAction(actor, executed, preview, action);
             if (preview.Vow is { } vow)
             {
@@ -288,6 +295,11 @@ public sealed partial class TacticalCombat
                     CommitMovement(actor, executed, preview, action); break;
                 case TacticalAction.UseStairs:
                     CommitStairs(actor, preview.StairLanding!.Value, action); break;
+                case TacticalAction.Rest:
+                case TacticalAction.Watch:
+                    BeginActivity(actor, executed, action); break;
+                case TacticalAction.ContinueActivity:
+                    Emit("ActivityContinued", actor.Id, actor.Id, action, actor.Position); break;
                 case TacticalAction.Eat:
                     Eat(actor, action); break;
                 case TacticalAction.UseMedicine:
@@ -565,6 +577,7 @@ public sealed partial class TacticalCombat
         foreach (var hit in hits)
         {
             var target = hit.Target;
+            if (hit.Damage > 0) StopActivity(target, "damage");
             if (State.DrivesWorldClock && Tuning.EnableSurvival && hit.Damage >= Math.Max(8, target.MaxHealth / 3))
             {
                 int before = target.Body.Wounds;
@@ -615,6 +628,7 @@ public sealed partial class TacticalCombat
     private void Down(Actor actor, long source, long action)
     {
         if (State.DrivesWorldClock && Tuning.EnableSurvival) actor.Body.Wounds = Math.Min(10, actor.Body.Wounds + 1);
+        StopActivity(actor, "downed");
         actor.Life = LifeState.Downed; actor.Health = 0;
         actor.Tactics!.BleedTurns = 5; actor.Tactics.Guarding = false; actor.Tactics.Resources.Parry = null;
         CancelAttacks(actor.Id);
@@ -629,6 +643,7 @@ public sealed partial class TacticalCombat
     {
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
+        StopActivity(actor, "death");
         actor.Life = LifeState.Dead; actor.Health = 0;
         if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);
         if (actor.Tactics != null) { actor.Tactics.Supplies.WardThroughRecovery = false; actor.Tactics.Supplies.WardRefreshAction = 0; }

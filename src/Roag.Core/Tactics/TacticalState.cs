@@ -35,6 +35,7 @@ public sealed class ActorTactics
     public long StunnedUntil { get; set; }
     public bool CooperationCommitted { get; set; }
     public bool EquipmentCoverUsed { get; set; }
+    public SustainedActivity? Activity { get; set; }
     public ResidentRescue? Resident { get; set; }
     public BoonBurning? Burning { get; set; }
     public ClassResources Resources { get; set; } = new();
@@ -52,6 +53,8 @@ public sealed class ActorTactics
             || Burning is { } burning && (burning.Power < 0 || burning.Remaining <= 0 || burning.Interval <= 0
                 || burning.Due < 0 || burning.Schedule <= 0 || burning.Activation is null))
             throw new InvalidDataException("Invalid actor tactics.");
+        if (Activity is { } activity && (Build == null || !Enum.IsDefined(activity.Kind) || activity.Until < 0))
+            throw new InvalidDataException("Invalid native sustained activity.");
         Build?.Validate();
         if (Enemy != null)
         {
@@ -143,6 +146,7 @@ public sealed class TacticalWorldState
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public CooperationTuning Cooperation { get; set; } = new();
+    public CampTuning Camp { get; set; } = new();
     public RescueTuning Rescue { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
     public TacticalChestState Chests { get; set; } = new();

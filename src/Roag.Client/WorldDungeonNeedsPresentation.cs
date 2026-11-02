@@ -22,6 +22,7 @@ internal sealed partial class WorldGame
             new(box.X + 24, box.Y + 318, width, 44));
         AddDungeonPartyControl("dungeon:auto-eat-combat", "Auto-eat during combat: " + (member.Tactics.AutoEatInCombat ? "On" : "Off"),
             new(box.X + 24, box.Y + 378, width, 44));
+        AddDungeonPartyControl("dungeon:camp", "Rest / watch", new(box.X + 24, box.Bottom - 94, width, 44));
         var others = DungeonRoster.Where(a => a.Id != member.Id).ToArray();
         for (int i = 0; i < others.Length; i++)
         {
@@ -43,6 +44,32 @@ internal sealed partial class WorldGame
         Text($"Shared provisions {_session.Count("food")} / medicine {_session.Count("medicine")}", x, y, Gold); y += 28;
         Wrap($"Food restores {_session.Simulation.MealReduction} hunger. Well-fed members gradually recover HP; starvation can kill. Automatic meals spend this member's own scheduled turns at {_session.Simulation.MealAt} hunger or above.", x, y, box.Width - 48, Muted);
         Text("Policy changes and inspection are free; eating and medicine spend actions.", x, box.Bottom - 28, Muted);
+    }
+
+    private void BuildDungeonCampControls(Rectangle box)
+    {
+        int width = (box.Width - 72) / 2;
+        foreach (var (kind, row) in new[] { ("rest", 0), ("watch", 1) })
+            foreach (var (minutes, column) in new[] { (10, 0), (60, 1) })
+            {
+                var action = kind == "rest" ? TacticalAction.Rest : TacticalAction.Watch;
+                var preview = _session.DungeonCombat.Preview(new(action, Choice: minutes));
+                AddDungeonPartyControl($"dungeon:activity:{kind}:{minutes}", $"{kind} / {minutes} minutes",
+                    new(box.X + 24 + column * (width + 24), box.Y + 220 + row * 72, width, 56),
+                    DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
+            }
+        AddDungeonPartyControl("dungeon:activity-cancel", "Wake / cancel this member's activity",
+            new(box.X + 24, box.Y + 374, box.Width - 48, 48), _session.DungeonMember.Tactics!.Activity != null);
+    }
+
+    private void DrawDungeonCampPanel(Rectangle box, int x, int y)
+    {
+        var member = _session.DungeonMember;
+        Text(member.Name + " / " + DungeonReadiness(member), x, y, Gold); y += 32;
+        var activity = member.Tactics!.Activity;
+        Text(activity == null ? "No continuing activity" : $"{activity.Kind} / {Math.Max(0, activity.Until - _session.DungeonCombat.Clock) / 100.0:0} seconds left", x, y); y += 32;
+        Wrap("Rest recovers fatigue and rested injuries. Watch keeps this member awake and alerts companions who can hear. Walls muffle alarms; enemies can hear them too. Unaware companions continue their own duties.", x, y, box.Width - 48, Muted);
+        Wrap("Close the page to continue assigned duties. Open any menu to inspect or cancel freely. Previously paid recovery remains committed when interrupted.", x, box.Bottom - 70, box.Width - 48, Muted);
     }
 
     private void ToggleDungeonEating(bool combat)
