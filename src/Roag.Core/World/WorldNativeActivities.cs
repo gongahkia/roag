@@ -15,9 +15,17 @@ public sealed partial class WorldSession
         return combat.State.NextAction != before || combat.State.NextEvent != events;
     }
 
-    public bool WarmedByCampFire(WorldPosition position) => State.Tactics is { } state
-        && state.CampFires.Any(f => f.Until > state.Queue.Clock && f.Position.Distance(position) <= state.Camp.FireWarmthRange
-            && VisionFrom(position).Contains(f.Position));
+    public bool WarmedByCampFire(WorldPosition position)
+    {
+        if (State.Tactics is not { } state) return false;
+        for (int i = 0; i < state.CampFires.Count; i++)
+        {
+            var fire = state.CampFires[i];
+            if (fire.Until > state.Queue.Clock && fire.Position.Distance(position) <= state.Camp.FireWarmthRange
+                && VisionFrom(position).Contains(fire.Position)) return true;
+        }
+        return false;
+    }
 
     public ActionResult CancelDungeonActivity(long memberId) => State.Dungeon != null && DungeonCombat.CancelActivity(memberId)
         ? new(true, "Activity cancelled; already committed recovery is unchanged.")

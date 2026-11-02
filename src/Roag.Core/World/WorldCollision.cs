@@ -55,7 +55,11 @@ public sealed partial class WorldSession
         if (!Plan.Contains(p)) return null;
         if (State.Tactics is { } tactics)
         {
-            if (tactics.CampFires.Any(f => f.Position == p && f.Until > tactics.Queue.Clock)) return LitCampFire;
+            for (int i = 0; i < tactics.CampFires.Count; i++)
+            {
+                var fire = tactics.CampFires[i];
+                if (fire.Position == p && fire.Until > tactics.Queue.Clock) return LitCampFire;
+            }
             for (int i = 0; i < tactics.Chests.Chests.Count; i++)
             {
                 var chest = tactics.Chests.Chests[i];
