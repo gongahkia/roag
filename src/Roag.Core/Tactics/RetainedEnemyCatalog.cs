@@ -43,6 +43,7 @@ public sealed class RetainedEnemyMemory
     internal void Validate()
     {
         if (RandomState is <= 0 or >= RoagRandom.Modulus || Actions < 0 || LastAbility == null
+            || Actions == 0 && LastAbility.Length > 0
             || LastAbility.Length > 0 && ContentCatalog.Default.Entries.GetValueOrDefault(LastAbility) is not AbilityDefinition)
             throw new InvalidDataException("Invalid imported enemy decision history.");
     }

@@ -69,9 +69,16 @@ public sealed partial class TacticalCombat
         var cast = new RetainedEnemyCast(target.Id, random.State);
         int range = RetainedEnemyRange(ability);
         bool support = RetainedSupport(ability);
-        bool Clear(WorldPosition from, WorldPosition to) => EnemySquads.Clear(from, to,
-            p => ProjectileOpen(p) && !_world.DungeonMistBlocks(p) && !(mistBlocks?.Invoke(p) ?? false)
-                && (support || ability.Target == TargetKind.AllEnemies || p == to || BodyAt(p, actor.Id) == null));
+        bool Open(WorldPosition p) => ProjectileOpen(p) && !_world.DungeonMistBlocks(p) && !(mistBlocks?.Invoke(p) ?? false);
+        bool Clear(WorldPosition from, WorldPosition to)
+        {
+            if (!EnemySquads.Clear(from, to, Open)) return false;
+            if (support || ability.Target == TargetKind.AllEnemies) return true;
+            // A mirror can turn the shot before a body on its original line.
+            // Commitment still consumes the actual marker through CommitWindup.
+            if (range > 1 && RouteMirrors(actor, from, RetainedRay(from, to).ToArray(), AttackDelivery.Projectile, knownOnly: true).Reflection != null) return true;
+            return EnemySquads.Clear(from, to, p => Open(p) && (p == to || BodyAt(p, actor.Id) == null));
+        }
         if (target.Position.Distance(actor.Position) <= range && Clear(actor.Position, target.Position))
         {
             var cells = ability.Target is TargetKind.AllEnemies or TargetKind.AllAllies
@@ -127,8 +134,15 @@ public sealed partial class TacticalCombat
         var ability = _world.Content.Get<AbilityDefinition>(intent.Ability);
         var cast = intent.Retained ?? throw new InvalidOperationException("Missing imported cast decision.");
         int power = RetainedSupport(ability) ? (ability.Power + 2) / 3 : Math.Max(1, actor.Power + (int)Math.Ceiling((ability.Power - 6) / 3d));
+        var guardFacing = actor.Tactics!.Facing;
+        if (ability.Effect == "guard" && SelectRetainedEnemyTarget(actor, null) is { } threat)
+        {
+            var p = Actor(threat).Position; int dx = p.X - actor.Position.X, dy = p.Y - actor.Position.Y;
+            guardFacing = Math.Abs(dx) > Math.Abs(dy) ? dx > 0 ? Facing.East : Facing.West : dy > 0 ? Facing.South : Facing.North;
+        }
         CommitWindup(ability.Id, intent.Cells, intent.Delivery, ability.Effect == "burn" ? DamageElement.Fire : DamageElement.Physical,
             power, checked(100 * (1 + ability.PreparationTurns)), checked(100 + ability.Mana * State.Cooperation.RecoveryPerMana), cast.Target, retainedAbility: true);
+        if (ability.Effect == "guard") actor.Tactics.Facing = guardFacing;
         actor.Tactics!.Enemy!.Retained!.RandomState = cast.RandomState;
         actor.Tactics.Enemy.Retained.Actions++;
     }
@@ -142,6 +156,7 @@ public sealed partial class TacticalCombat
         if (RetainedSupport(ability))
         {
             foreach (var target in _world.State.Actors.Where(a => a is { Life: LifeState.Alive, Tactics.Enemy: not null }
+                         && (ability.Target != TargetKind.Self || a.Id == source.Id)
                          && attack.Cells.Contains(a.Position) && !HostileTo(source, a) && SupportOpen(a.Position)
                          && EnemySquads.Clear(attack.Origin, a.Position, SupportOpen)).ToArray())
             {
@@ -154,12 +169,7 @@ public sealed partial class TacticalCombat
                 }
                 if (ability.Effect == "guard")
                 {
-                    // A deliberate facing commitment, never omnidirectional guarding.
-                    if (SelectRetainedEnemyTarget(source, null) is { } threat)
-                    {
-                        var p = Actor(threat).Position; int dx = p.X - source.Position.X, dy = p.Y - source.Position.Y;
-                        target.Tactics!.Facing = Math.Abs(dx) > Math.Abs(dy) ? dx > 0 ? Facing.East : Facing.West : dy > 0 ? Facing.South : Facing.North;
-                    }
+                    // Facing was committed with the windup; moving prey cannot rotate it.
                     target.Tactics!.Guarding = true;
                     Emit("Guarded", source.Id, target.Id, attack.Id, target.Position, ability: ability.Id);
                 }
@@ -173,7 +183,7 @@ public sealed partial class TacticalCombat
             return;
         }
         long firstEvent = State.NextEvent;
-        ResolveDamageBatch(attack with { Cells = attack.Cells.Where(p => EnemySquads.Clear(attack.Origin, p, SupportOpen)).ToArray() });
+        ResolveDamageBatch(attack with { Cells = RetainedImpactCells(attack).ToArray() });
         var hits = State.Events.Where(e => e.Sequence >= firstEvent && e.Kind == "HitConfirmed" && e.Action == attack.Id
             && e.Source == source.Id && e.Ability == ability.Id).ToArray();
         foreach (var hit in hits)
@@ -194,6 +204,22 @@ public sealed partial class TacticalCombat
                 case "burn": ApplyNativeBurning(source, target, attack.Id, ability.Id, 3, ability.Duration); break;
             }
         }
+    }
+
+    private IEnumerable<WorldPosition> RetainedImpactCells(LockedAttack attack)
+    {
+        if (attack.Delivery != AttackDelivery.Projectile)
+            return attack.Cells.Where(p => EnemySquads.Clear(attack.Origin, p, SupportOpen));
+        // Follow the committed path, including any mirror turn. A newly built
+        // wall or blocked diagonal stops travel; it cannot remove one cell and
+        // allow the projectile to resume behind that obstruction.
+        var cells = new List<WorldPosition>(); var previous = attack.Origin;
+        foreach (var cell in attack.Cells)
+        {
+            if (!EnemySquads.Clear(previous, cell, p => SupportOpen(p) && (p == cell || BodyAt(p, attack.Source) == null))) break;
+            cells.Add(cell); previous = cell;
+        }
+        return cells;
     }
 
     private static IEnumerable<WorldPosition> RetainedRay(WorldPosition from, WorldPosition to)

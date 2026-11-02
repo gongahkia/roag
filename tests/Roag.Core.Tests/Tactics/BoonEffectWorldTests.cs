@@ -37,7 +37,7 @@ public sealed partial class ClassActionTests
         a.Combat.ExecuteBoonEffect(second, Effect(second.BoonId, BoonEffectKind.ApplyStatus) with { Interval = 400, Ticks = 2 });
         var after = a.Enemy.Tactics.Burning!;
         Assert.Equal(before.Schedule, after.Schedule); Assert.Equal(100, after.Due); Assert.Equal(100, after.Interval);
-        Assert.Equal(3, after.Power); Assert.Equal(2, after.Remaining); Assert.Equal(a.Friend.Id, after.Activation.OwnerId);
+        Assert.Equal(3, after.Power); Assert.Equal(2, after.Remaining); Assert.Equal(a.Friend.Id, after.Activation!.OwnerId);
         int hp = a.Enemy.Health;
         a.Enemy.Position = a.Enemy.Position with { Floor = 1 };
         a.Act(TacticalAction.Wait); a.Next();
