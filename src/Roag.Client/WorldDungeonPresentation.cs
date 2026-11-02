@@ -35,6 +35,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
             else if (_panel == "dungeon-skills") BuildDungeonSkillControls(box);
+            else if (_panel == "dungeon-trade") BuildDungeonTradeControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
             else if (_panel == "dungeon-work") BuildDungeonWorkControls(box);
             else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
@@ -116,7 +117,8 @@ internal sealed partial class WorldGame
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
                 Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, box.Width - 56, 44));
-                Add("dungeon:skills", "Unlocked skills / L", new(box.X + 28, box.Y + 446, box.Width - 56, 44));
+                Add("dungeon:skills", "Unlocked skills / L", new(box.X + 28, box.Y + 446, columns, 44));
+                Add("dungeon:trade", "Town trade", new(box.X + 52 + columns, box.Y + 446, columns, 44));
             }
             else if (_panel == "dungeon-new-confirm")
             {
@@ -159,6 +161,8 @@ internal sealed partial class WorldGame
         { ActivateDungeonWorkControl(parts); return true; }
         if (parts[1] == "skills" || parts[1].StartsWith("skill-", StringComparison.Ordinal))
         { ActivateDungeonSkillControl(parts); return true; }
+        if (parts[1] == "trade" || parts[1].StartsWith("trade-", StringComparison.Ordinal))
+        { ActivateDungeonTradeControl(parts); return true; }
         switch (parts[1])
         {
             case "save":
@@ -448,6 +452,7 @@ internal sealed partial class WorldGame
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
         if (_panel == "dungeon-skills") title = "UNLOCKED SKILLS";
+        if (_panel == "dungeon-trade") title = "TOWN TRADE";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
         if (_panel == "dungeon-work") title = "WORK AND CRAFTING";
         if (_panel == "dungeon-camp") title = "REST AND WATCH";
@@ -461,6 +466,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
         if (_panel == "dungeon-skills") { DrawDungeonSkillsPanel(box, x, y); return; }
+        if (_panel == "dungeon-trade") { DrawDungeonTradePanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
         if (_panel == "dungeon-work") { DrawDungeonWorkPanel(box, x, y); return; }
         if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }

@@ -14,6 +14,23 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void TownTradeShowsIllustratedOffersAndFreeQuantitiesWithoutRemoteUndergroundPurchases()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        string before = JsonSerializer.Serialize(session.State);
+        var menu = Controls(client, "dungeon-menu");
+        Assert.Contains(menu, c => c.Id == "dungeon:trade");
+        Invoke(client, "ActivateDungeonControl", "dungeon:trade");
+        var offers = Controls(client, "dungeon-trade").Where(c => c.Id.StartsWith("dungeon:trade-do:")).ToArray();
+        Assert.Equal(8, offers.Length);
+        Assert.All(offers, c => { Assert.False(c.Enabled); Assert.False(string.IsNullOrEmpty(c.Sprite)); Assert.InRange(c.Bounds.Bottom, 0, 720); });
+        Invoke(client, "ActivateDungeonControl", "dungeon:trade-amount:10");
+        Assert.All(Controls(client, "dungeon-trade").Where(c => c.Id.StartsWith("dungeon:trade-do:")), c => Assert.Contains("10 units", c.Detail));
+        Invoke(client, "ActivateDungeonControl", "dungeon:trade-do:Buy:food");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+    }
+
+    [Fact]
     public void UnlockedSkillsBrowseFreelyAndCannotCastFromARecoveringMembersPage()
     {
         using var session = WorldSession.CreateDungeonRun(37, ClassKind.Spiritbinder, survival: true); var client = Client(session);

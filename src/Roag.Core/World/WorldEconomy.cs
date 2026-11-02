@@ -142,22 +142,10 @@ public sealed partial class WorldSession
     }
     private ActionResult Trade(WorldCommand command)
     {
-        var townPlan = Plan.Towns.FirstOrDefault(t => State.Position.Distance(t.Center) <= 28);
-        if (townPlan == null || command.Amount is < 1 or > 999 || command.Item is not ("food" or "wood" or "stone" or "medicine")) return new(false, "Trade near a town; choose food, wood, stone or medicine.");
-        var town = State.Towns[townPlan.Id]; int price = town.Price(command.Item), amount = command.Amount;
-        if (command.Kind == WorldCommandKind.Buy)
-        {
-            if (town.Stocks[command.Item] < amount || Count("gold") < (long)price * amount) return new(false, "The stock or your gold is insufficient.");
-            town.Stocks[command.Item] -= amount; Add("gold", -price * amount); Add(command.Item, amount);
-            State.ResourcesExported += amount;
-        }
-        else
-        {
-            if (Count(command.Item) < amount) return new(false, "You do not have that stack.");
-            Add(command.Item, -amount); town.Stocks[command.Item] += amount; Add("gold", Math.Max(1, price / 2) * amount);
-            State.ResourcesImported += amount;
-        }
-        return new(true, $"Traded {amount} {command.Item} in {townPlan.Name}.");
+        var quote = QuoteTradeAt(State.Position, command);
+        if (!quote.Valid) return new(false, quote.Reason);
+        ApplyTrade(command, quote);
+        return new(true, $"Traded {command.Amount} {command.Item} in {Plan.Towns[quote.Town].Name}.");
     }
     public long AccountedResources() => State.Towns.Sum(t => t.Stocks.Values.Sum(v => (long)v))
         + State.Actors.Sum(a => a.Cargo.Values.Sum(v => (long)v))

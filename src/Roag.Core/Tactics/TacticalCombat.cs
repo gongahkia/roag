@@ -220,6 +220,8 @@ public sealed partial class TacticalCombat
                 return PreviewNativeWork(actor, intent.Work);
             case TacticalAction.RetainedSkill:
                 return PreviewRetainedSkill(actor, intent);
+            case TacticalAction.Trade:
+                return PreviewTrade(actor, intent.Work);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -316,6 +318,8 @@ public sealed partial class TacticalCombat
                     BeginNativeWork(actor, executed.Work!, action); break;
                 case TacticalAction.RetainedSkill:
                     CommitRetainedSkill(actor, executed, action); break;
+                case TacticalAction.Trade:
+                    CommitTrade(actor, executed.Work!, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;

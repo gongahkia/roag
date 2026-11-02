@@ -1,5 +1,8 @@
 # Native migration tuning
 
+Native trade timing (2026-11-02): one confirmed exchange costs 100 recovery at the acting member's current speed, for one finite batch of 1–999 units; free UI quantities are 1/5/10/50. Existing surface-town proximity (28 tiles), stock-based buy prices and `max(1, price / 2)` sale prices remain unchanged. Trade uses shared inventory and real finite town stocks, including existing exported/imported resource counters. Only the trader's local engagement blocks an exchange. Currency received by selling uses their currency-collected boon event; buying emits currency-spent. Food purchases do not trigger eating or health-supply behavior. Quotes reject integer capacity overflow before any side effect. Physical market journeys remain required after world cutover.
+
+
 ## Retained hostile ability conversion (2026-11-02)
 
 The separate retained controller reads imported character/boss/variant behavior declarations; the original 50-enemy Roag catalog, placement pools and controllers remain unchanged. Imported stats use fixed world roles: ceiling(authored variant HP / 3), ceiling(power / 2), ceiling(armor / 2), speed `10 + 15 × authored speed`. Variant health/power/armor/speed modifiers apply before conversion. Registration preserves actual health ratio, persistent identity, equipment and source atlas sprite. Neither party level nor party size scales stats. Reward/site/population wiring remains separate pending integration work; the initial controller's 4/24 XP values are provisional and do not establish preserved imported rewards.
