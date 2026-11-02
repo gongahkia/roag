@@ -8,6 +8,20 @@ namespace Roag.Core.Tests.Tactics;
 
 public sealed partial class ClassActionTests
 {
+    [Fact]
+    public void NativePhysicalFriendlyFireCanKillAnUnregisteredCivilianWithoutInventingCombatState()
+    {
+        using var a = new Arena(ClassKind.Ranger);
+        Assert.Null(a.Friend.Tactics); int hp = a.Friend.Health;
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, a.Hero.Id, a.Hero.Position, [a.Friend.Position],
+            "core:ability/ranger_shot", AttackDelivery.Projectile, DamageElement.Physical, hp + a.Friend.Armor, a.Combat.Clock));
+        Assert.Equal(LifeState.Dead, a.Friend.Life); Assert.Equal(0, a.Friend.Health); Assert.Null(a.Friend.Tactics);
+        Assert.DoesNotContain(a.Friend.Id, a.Combat.State.Participants);
+        Assert.DoesNotContain(a.Combat.State.Timeline.Pending, w => w.ActorId == a.Friend.Id);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "EntityKilled" && e.Source == a.Hero.Id && e.Target == a.Friend.Id);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
     private static string UnlockRetained(Actor member, string ability)
     {
         string id = RetainedBoons.Id(ability);

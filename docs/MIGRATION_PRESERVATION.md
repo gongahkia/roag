@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Unregistered civilian friendly fire (2026-11-03): lethal physical native damage no longer assumes the victim already has combat metadata. Actual civilian death/no invented timeline participation is checked; 37 affected death/rescue/corpse/daylight tests pass in `native-retained-enemies/civilian-death`. Native living-world fallen-friend memories, ecological remains/reward enrollment and society consequences remain integration work.
+
+
 Native daylight/private perception (2026-11-03): production survival surface sight now uses the actual saved world calendar and observer's regional weather; party and retained enemies share the query. Underground and standalone caller-clock combat retain original geometry. Real paid dawn crossing, native hostile acquisition/local combat, pure queries and exact continuing sight have backend evidence: `native-retained-enemies/daylight-final`, 74 passes. The intermediate 31/33 run exposed the missing world-clock attachment guard and is preserved as failed evidence. **Rendered outdoor calendar/weather/season/ecology and continuous-world integration remain open.** Full 2,014-test baseline predates this and town trade.
 
 

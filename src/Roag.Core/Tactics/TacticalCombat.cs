@@ -682,7 +682,7 @@ public sealed partial class TacticalCombat
     {
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
-        actor.Tactics!.Conditions.Clear();
+        actor.Tactics?.Conditions.Clear();
         StopActivity(actor, "death");
         actor.Life = LifeState.Dead; actor.Health = 0;
         if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);
