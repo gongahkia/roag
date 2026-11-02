@@ -1,5 +1,8 @@
 # Native migration tuning
 
+Outdoor perception (2026-11-03): daylight is 06:00 inclusive to 20:00 exclusive on the existing 300-tick hour/7,200-tick day. Base surface radius is 11 by day and six at night; rain reduces it by one, storm/snow by three, floor four. Underground remains 11. These apply only when the attached native world clock drives survival; standalone combat clocks preserve static geometry. Both party and enemy private sight/target acquisition/local engagement use `VisionFrom` → `SightRadiusAt` and the same saved world tick/regional weather. No independent wall clock or visibility RNG is added. `CalendarDescription` derives day/hour/minute from that same tick; twelve ordinary 100-cost/100-speed waits advance one 1,200-unit world tick across dawn, verified with exact continuing save. Natural rendered outdoor transitions, lighting/presentation and ecological activity remain required.
+
+
 Native trade timing (2026-11-02): one confirmed exchange costs 100 recovery at the acting member's current speed, for one finite batch of 1–999 units; free UI quantities are 1/5/10/50. Existing surface-town proximity (28 tiles), stock-based buy prices and `max(1, price / 2)` sale prices remain unchanged. Trade uses shared inventory and real finite town stocks, including existing exported/imported resource counters. Only the trader's local engagement blocks an exchange. Currency received by selling uses their currency-collected boon event; buying emits currency-spent. Food purchases do not trigger eating or health-supply behavior. Quotes reject integer capacity overflow before any side effect. Physical market journeys remain required after world cutover.
 
 

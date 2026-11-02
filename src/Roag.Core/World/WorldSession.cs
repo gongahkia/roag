@@ -329,7 +329,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     internal HashSet<WorldPosition> VisionFrom(WorldPosition origin)
     {
         var vision = new HashSet<WorldPosition>();
-        const int radius = 11;
+        int radius = SightRadiusAt(origin);
         for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
         {
             if (dx * dx + dy * dy > radius * radius) continue;

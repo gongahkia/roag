@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Native daylight/private perception (2026-11-03): production survival surface sight now uses the actual saved world calendar and observer's regional weather; party and retained enemies share the query. Underground and standalone caller-clock combat retain original geometry. Real paid dawn crossing, native hostile acquisition/local combat, pure queries and exact continuing sight have backend evidence: `native-retained-enemies/daylight-final`, 74 passes. The intermediate 31/33 run exposed the missing world-clock attachment guard and is preserved as failed evidence. **Rendered outdoor calendar/weather/season/ecology and continuous-world integration remain open.** Full 2,014-test baseline predates this and town trade.
+
+
 Full controller integration baseline (2026-11-02): clean **82c47312 / 2,014 passed**, zero failures/skips (9m43s), `native-retained-enemies/integration*`; exit/source and independently rechecked runner hashes all match. It includes the retained controllers, original mirror cases and corrected fixture/save checks. It predates the paid town-trade follow-up. All full-game gates remain open.
 
 
