@@ -103,7 +103,12 @@ internal sealed partial class WorldGame : Game
             _notice = "WASD / arrows move one tile. F attacks, R special, X movement. Enter interacts.";
             if (_session.State.Tactics!.NextAction == 1) _panel = "dungeon-class";
             else if (options.Load && _session.Party.Any(a => a.Tactics?.Activity != null))
-            { _panel = "dungeon-camp"; _notice = "Continuing duties are preserved. Close this page to resume, or cancel a member's activity."; }
+            {
+                if (_session.Party.Any(a => a.Tactics?.Activity?.Kind == Roag.Core.Tactics.SustainedActivityKind.Work))
+                { OpenDungeonWork(); _nativeWorkView = "orders"; }
+                else _panel = "dungeon-camp";
+                _notice = "Continuing duties are preserved. Close this page to resume, or cancel a member's activity.";
+            }
         }
         _graphics = new(this) { PreferredBackBufferWidth = options.Width, PreferredBackBufferHeight = options.Height, SynchronizeWithVerticalRetrace = true };
         Window.Title = "Roag"; Window.AllowUserResizing = true;
@@ -197,7 +202,11 @@ internal sealed partial class WorldGame : Game
                 _lastMousePress = new((_lastMousePress?.Sequence ?? 0) + 1, 3, mouse.X, mouse.Y, WorldMouseControl.Hit(_controls, mouse.Position)?.Id);
                 if (CombatStageVisible && _panel.Length == 0) { _skill = 0; _cooperativePartner = _combatTarget = -1; _notice = "Ability selection cancelled."; }
                 if (_panel.Length > 0 || CombatStageVisible || !_map.Contains(mouse.Position)) { ClosePanel(); ClearWorldSelection(); }
-                else if (_session.State.Dungeon != null) { _roagAim = "move"; _notice = "Action selection cancelled."; }
+                else if (_session.State.Dungeon != null)
+                {
+                    if (_roagAim == "move" && (!_nativeMapVisible || !DungeonMapBounds().Contains(mouse.Position))) OpenDungeonWorkAtPointer(mouse.Position);
+                    else { _roagAim = "move"; _notice = "Action selection cancelled."; }
+                }
                 else OpenContext(mouse.Position);
             }
             if (mouse.ScrollWheelValue != _mouse.ScrollWheelValue && _panel.Length == 0 && !PointerModal && !CombatStageVisible && _map.Contains(mouse.Position))

@@ -14,6 +14,52 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void WorkToolsAndRecipeBrowsingAreFreeAndCannotSpendTheInspectedMembersRecovery()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var hero = session.Party.Single();
+        var friend = Roag.Core.Tests.Tactics.DungeonPartyTests.AddMember(session, ClassKind.Ranger, 2);
+        var target = hero.Position.Offset(1, 0); session.Chunks.Edit(target, Material.Wall); session.Reveal();
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.J), true);
+        Assert.Equal("dungeon-work", Field("_panel").GetValue(client));
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-target:East");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-action:Dig" && c.Enabled);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:build");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id.StartsWith("dungeon:work-recipe:"));
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:orders");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(friend.Id).Success);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:actions");
+        Assert.DoesNotContain(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-action:Dig" && c.Enabled);
+        string selected = JsonSerializer.Serialize(session.State);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-action:Dig");
+        Assert.Equal(selected, JsonSerializer.Serialize(session.State));
+        Assert.True(session.SelectDungeonMember(hero.Id).Success);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-action:Dig");
+        Assert.NotNull(hero.Tactics!.Activity); Assert.Null(friend.Tactics!.Activity);
+        Assert.Single(session.State.Work); Assert.Equal(hero.Id, session.State.Work[0].Worker);
+        Assert.Equal("", Field("_panel").GetValue(client));
+    }
+
+    [Fact]
+    public void WorkOrderCancellationReturnsUnspentSharedStockThroughTheFreeOrderPage()
+    {
+        using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var hero = session.Party.Single();
+        var target = hero.Position.Offset(1, 0); session.Chunks.Edit(target, Material.Floor); session.Reveal();
+        int wood = session.Count("wood"), stone = session.Count("stone");
+        Assert.True(session.SubmitDungeon(new(TacticalAction.StartWork, Work: new(WorldCommandKind.Build, target, Material: Material.Wall))).Success);
+        var order = Assert.Single(session.State.Work); long clock = session.DungeonCombat.Clock;
+        Invoke(client, "OpenDungeonWork", (WorldPosition?)target);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:orders");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-cancel:" + order.Id && c.Enabled);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-cancel:" + order.Id);
+        Assert.Empty(session.State.Work); Assert.Null(hero.Tactics!.Activity);
+        Assert.Equal(wood, session.Count("wood")); Assert.Equal(stone, session.Count("stone")); Assert.Equal(clock, session.DungeonCombat.Clock);
+    }
+
+    [Fact]
     public void CampFireControlsUsePaidMemberOwnershipAndPrivateInspection()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);

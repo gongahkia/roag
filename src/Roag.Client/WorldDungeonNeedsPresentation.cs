@@ -74,7 +74,10 @@ internal sealed partial class WorldGame
         var member = _session.DungeonMember;
         Text(member.Name + " / " + DungeonReadiness(member), x, y, Gold); y += 32;
         var activity = member.Tactics!.Activity;
-        Text(activity == null ? "No continuing activity" : $"{activity.Kind} / {Math.Max(0, activity.Until - _session.DungeonCombat.Clock) / 100.0:0} seconds left", x, y); y += 32;
+        string activityText = activity == null ? "No continuing activity" : activity.Kind == SustainedActivityKind.Work
+            ? _session.State.Work.FirstOrDefault(w => w.Id == activity.Work) is { } order ? $"{order.Kind} / {order.Progress:0.0} of {order.Required:0.0} work" : "Work interrupted"
+            : $"{activity.Kind} / {Math.Max(0, activity.Until - _session.DungeonCombat.Clock) / (double)_session.State.Tactics!.Tuning.UnitsPerSecond:0} seconds left";
+        Text(activityText, x, y); y += 32;
         Wrap("Rest recovers fatigue and rested injuries. Watch keeps this member awake and alerts companions who can hear. Walls muffle alarms; enemies can hear them too. Unaware companions continue their own duties.", x, y, box.Width - 48, Muted);
         Wrap("Close the page to continue assigned duties. Open any menu to inspect or cancel freely. Previously paid recovery remains committed when interrupted.", x, box.Bottom - 70, box.Width - 48, Muted);
     }

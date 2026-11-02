@@ -35,6 +35,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-gear-detail") BuildDungeonGearDetailControls(box);
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
+            else if (_panel == "dungeon-work") BuildDungeonWorkControls(box);
             else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
             else if (_panel == "dungeon-needs") BuildDungeonNeedsControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
@@ -113,6 +114,7 @@ internal sealed partial class WorldGame
                 int columns = (box.Width - 80) / 2;
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
+                Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, box.Width - 56, 44));
             }
             else if (_panel == "dungeon-new-confirm")
             {
@@ -151,6 +153,8 @@ internal sealed partial class WorldGame
         if (!id.StartsWith("dungeon:", StringComparison.Ordinal)) return false;
         PlayDungeonSound("menu");
         var parts = id.Split(':');
+        if (parts[1] == "work" || parts[1].StartsWith("work-", StringComparison.Ordinal))
+        { ActivateDungeonWorkControl(parts); return true; }
         switch (parts[1])
         {
             case "save":
@@ -438,6 +442,7 @@ internal sealed partial class WorldGame
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
+        if (_panel == "dungeon-work") title = "WORK AND CRAFTING";
         if (_panel == "dungeon-camp") title = "REST AND WATCH";
         if (_panel == "dungeon-needs") title = "SURVIVAL AND PROVISIONS";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
@@ -449,6 +454,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
+        if (_panel == "dungeon-work") { DrawDungeonWorkPanel(box, x, y); return; }
         if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }
         if (_panel == "dungeon-needs") { DrawDungeonNeedsPanel(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
@@ -498,7 +504,7 @@ internal sealed partial class WorldGame
         }
         else if (_panel == "dungeon-guide")
         {
-            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. K opens equipment; equipping/removing costs one action. O opens cooperation. N opens survival, eating and medicine. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
+            y += Wrap("WASD / arrows: one tile per press. F: aim basic attack. R: aim special. X: movement ability. G: directional Guard. U: carried utility. Choose a direction with the keyboard, or click a target for attacks. Q/E/Z/C give diagonal aim. Space or period waits. Enter inspects an adjacent chest/service or uses the stair beneath you. Escape cancels aim. P toggles Pilgrim's Vow. B opens the party. K opens equipment; equipping/removing costs one action. O opens cooperation. J opens work and crafting; right-click a visible tile to choose a work site. N opens survival, eating and medicine. 1–4 select a member; T returns to the ready member. H aims adjacent medicine rescue. F5 saves. Menus and inspection consume no game time. Close and relaunch to resume the continuing run.", x, y, box.Width - 48);
             Wrap("Controller: D-pad / left stick moves one tile per press. X aims basic, Y special, right shoulder movement. Left shoulder aims Guard, or toggles Vow during attack aim. Right trigger waits. A interacts; left-stick press also interacts. Right-stick press opens utilities. Start opens the menu / cancels aim; Back toggles the map; left trigger opens boons. In menus, D-pad selects, A confirms, B closes. Keyboard menus use arrows, number keys and Enter. F1 opens help, I/V inspect boons, Tab toggles the explored map, Escape opens the menu.", x, y + 16, box.Width - 48, Muted);
         }
         else if (_panel == "dungeon-utility")
