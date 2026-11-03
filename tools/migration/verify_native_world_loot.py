@@ -20,6 +20,8 @@ def main():
     if memory.exists():
         known = {tuple(c['position']): c['open'] for c in json.loads(memory.read_text())['known']}
     tried = set()
+    visits = {}
+    destination = None
     try:
         if client.ui['nativeDungeon']['mapVisible']:
             client.key('Tab')
@@ -30,6 +32,7 @@ def main():
                 client.control_click('dungeon:ready')
                 ui = client.ui
             origin = position(ui['position'])
+            visits[origin] = visits.get(origin, 0) + 1
             for cell in ui['cells']:
                 known[position(cell)] = cell['groundOpen']
             caches = [c for c in ui['nativeDungeon']['worldCaches'] if c['id'] not in tried]
@@ -85,7 +88,19 @@ def main():
                 if goals:
                     goal = min(goals, key=lambda cell: distance(origin, cell))
                     break
+            # A spoken landmark is legitimate navigation knowledge, not a map
+            # of unseen ground. Walk observed frontiers toward it, keeping a
+            # destination until arrival rather than oscillating each step.
+            if goal is None and destination in parents and destination != origin:
+                goal = destination
+            if goal is None and targets:
+                frontiers = [cell for cell in parents if cell != origin and not visits.get(cell)
+                    and any((cell[0] + dx, cell[1] + dy, cell[2]) not in known for dx, dy, _ in DIRECTIONS)]
+                if frontiers:
+                    goal = min(frontiers, key=lambda cell: min(distance(cell, p) for _, p in targets)
+                        + distance(origin, cell) * .2)
             assert goal is not None, 'No observed reachable cache/discovery route; no pass claimed'
+            destination = goal
             cursor = goal
             while parents[cursor][0] != origin:
                 cursor = parents[cursor][0]

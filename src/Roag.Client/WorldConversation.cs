@@ -18,6 +18,7 @@ internal sealed partial class WorldGame
 
     private void EnsureConversation()
     {
+        if (_panel == "dungeon-social") { EnsureNativeSocialDialogue(); return; }
         if (_dialogue != null || _person == 0) return;
         ShowDialogue(WorldDialogue.Lines(_session, _person));
     }
@@ -39,7 +40,8 @@ internal sealed partial class WorldGame
     }
     private void UpdateConversation(double elapsed)
     {
-        if (_panel is not ("person" or "camp-story") || !InputFocused) { _voice?.Stop(); return; }
+        if (_panel is not ("person" or "camp-story" or "dungeon-social") || !InputFocused) { _voice?.Stop(); return; }
+        if (_panel == "dungeon-social") _voiceVolume = _preferences.EffectsVolume;
         EnsureConversation();
         _dialogue?.Update(elapsed, (actor, c) => (_voice ??= new()).Play(actor, c, _voiceVolume));
     }

@@ -60,8 +60,6 @@ public sealed partial class TacticalCombat
     {
         // Hunger is the imported authoritative need (zero fed, one hundred empty).
         // No saturation reserve or instant HP healing is introduced.
-        int amount = _world.Simulation.MealReduction;
-        double before = actor.Body.Hunger, gain = Math.Min(amount, before);
         string source = EatingSource(item)!;
         if (source == "food") _world.State.Inventory["food"]--;
         else
@@ -72,6 +70,12 @@ public sealed partial class TacticalCombat
             actor.Preparations.Add(new(meal.Id, meal.Effect, meal.Power, checked(_world.State.Tick + meal.Duration)));
         }
         _world.State.ResourcesConsumed++;
+        RestoreFoodHunger(actor, action, _world.Simulation.MealReduction, source);
+    }
+
+    private void RestoreFoodHunger(Actor actor, long action, int amount, string source)
+    {
+        double before = actor.Body.Hunger, gain = Math.Min(amount, before);
         actor.Body.Hunger = Math.Max(0, before - amount);
         var snapshot = CaptureBoonEvent(BoonTrigger.SupplyCollected, actor.Id, 0, action, actor.Position) with
         { SupplyKind = "food", Amount = amount, ActualGain = gain, HpBefore = actor.Health, TargetMaxHp = actor.MaxHealth };

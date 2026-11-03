@@ -629,6 +629,12 @@ internal sealed partial class WorldGame
                     worldCache.Id, worldCache.Position, worldCache.Contents,
                     choices = worldCache.Choices.Select(id => new { id, _session.Item(id).Name, _session.Item(id).Sprite })
                 } : null,
+                social = _panel == "dungeon-social" ? new
+                {
+                    person = _person, listener = _nativeSocialSpeaker, finished = _dialogue?.Finished ?? false,
+                    speaking = _dialogue?.Speaking ?? false, text = _dialogue?.Text,
+                    speaker = _dialogue?.Line?.Speaker, name = _dialogue?.Line?.Name
+                } : null,
                 menuFocus = _controllerFocus,
                 mapVisible = _nativeMapVisible,
                 feedback = _dungeonFeedback == null ? null : new

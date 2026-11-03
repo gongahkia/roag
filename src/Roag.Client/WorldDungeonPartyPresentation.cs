@@ -108,6 +108,7 @@ internal sealed partial class WorldGame
         var preview = _session.DungeonCombat.Preview(new(TacticalAction.Recruit, Target: _nativeRecruit));
         AddDungeonPartyControl("dungeon:recruit", "Recruit / one action", new(box.X + 28, box.Y + 330, 300, 42),
             DungeonSelectionReady && preview.Valid, reason: DungeonSelectionReady ? preview.Reason : "Select the ready member first.");
+        AddDungeonPartyControl("dungeon:social-open", "Speak", new(box.X + 348, box.Y + 330, 240, 42));
     }
 
     private void BuildDungeonChestRecipientControls(Rectangle box)
@@ -182,7 +183,11 @@ internal sealed partial class WorldGame
             else SelectDungeonMember(actor.Id);
             return true;
         }
-        if (!_session.NativeAdventurers.Any(r => r.Actor == actor.Id)) return false;
+        if (!_session.NativeAdventurers.Any(r => r.Actor == actor.Id))
+        {
+            if (_session.Interactions(actor.Id).Count == 0) return false;
+            OpenNativeSocial(actor.Id); return true;
+        }
         _nativeRecruit = actor.Id; _panel = "dungeon-recruit";
         return true;
     }

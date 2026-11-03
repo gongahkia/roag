@@ -60,6 +60,7 @@ internal sealed partial class WorldGame
             "DamageTaken" or "StarvationDamage" => "-" + e.Amount, "Healed" or "WellFedHealing" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "CampAlarm" => "ALARM", "ActivityStopped" => e.Ability.StartsWith("completed", StringComparison.Ordinal) ? "DONE" : "AWAKE",
             "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD", "WorldLootClaimed" => "RECOVERED",
+            "SocialInteractionCompleted" => "TALK",
             "RetainedSkillUsed" => "SKILL", "Stunned" => "STUN",
             "ConditionApplied" => e.Ability == "ability.hunters-mark" ? "MARK" : e.Ability == "ability.stand-fast" ? "BRACE" : "BLEED",
             "StressChanged" => e.Ability == "ability.dread" ? "DREAD +" + e.Amount : "CALM " + e.Amount,

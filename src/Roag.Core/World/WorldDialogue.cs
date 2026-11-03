@@ -9,10 +9,11 @@ public sealed record DialogueLine(long Speaker, string Name, string Sprite, stri
 public static class WorldDialogue
 {
     public static readonly string[] Tokens = ["name", "player", "background", "motivation", "job", "friend", "town", "faction", "result"];
-    public static IReadOnlyList<DialogueLine> Lines(WorldSession world, long person, string? interaction = null, string result = "")
+    public static IReadOnlyList<DialogueLine> Lines(WorldSession world, long person, string? interaction = null, string result = "", long? listener = null)
     {
         var actor = world.State.Actors.Single(a => a.Id == person);
-        var player = world.Party.First(a => a.Life == LifeState.Alive);
+        var player = listener is { } id ? world.Party.Single(a => a.Id == id)
+            : world.HasNativeParty ? world.DungeonMember : world.Party.First(a => a.Life == LifeState.Alive);
         string consequence = world.ConsequenceDialogue(actor, player);
         if (interaction == null && consequence.Length > 0) return [new(actor.Id, actor.Name, actor.Sprite, consequence)];
         var definition = world.Content.All<DialogueDefinition>().FirstOrDefault(d => d.Interaction == interaction);

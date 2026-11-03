@@ -16,6 +16,7 @@ public sealed partial class WorldSession
     }
     public ActionResult PerformInteraction(long actorId, string interactionId)
     {
+        if (HasNativeParty) return PerformNativeInteraction(actorId, interactionId);
         string blocked = InteractionBlockReason(actorId, interactionId); if (blocked.Length > 0) return new(false, blocked);
         if (State.Endgame.Victory || IsInCombat || State.AwaitingContinuation || DeathPending) return new(false, "Finish the encounter or expedition first.");
         var interaction = Interactions(actorId).FirstOrDefault(i => i.Id == interactionId);

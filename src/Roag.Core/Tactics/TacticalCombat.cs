@@ -225,6 +225,8 @@ public sealed partial class TacticalCombat
                 return PreviewTrade(actor, intent.Work);
             case TacticalAction.CollectCache:
                 return PreviewWorldLoot(actor, intent);
+            case TacticalAction.SocialInteraction:
+                return PreviewSocialInteraction(actor, intent);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -325,6 +327,8 @@ public sealed partial class TacticalCombat
                     CommitTrade(actor, executed.Work!, action); break;
                 case TacticalAction.CollectCache:
                     CommitWorldLoot(actor, executed, action); break;
+                case TacticalAction.SocialInteraction:
+                    CommitSocialInteraction(actor, executed, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;

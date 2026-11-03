@@ -188,6 +188,7 @@ internal sealed partial class WorldGame : Game
                 var control = WorldMouseControl.Hit(_controls, mouse.Position);
                 if (control != null) { if (control.Enabled) ActivateControl(control.Id); else { _notice = control.DisabledReason; _recording?.Record("ui-rejected", new { control.Id, reason = _notice }, _session.State.Tick); } }
                 else if (_panel == "person" && SpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
+                else if (_panel == "dungeon-social" && NativeSocialSpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
                 else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
                 {

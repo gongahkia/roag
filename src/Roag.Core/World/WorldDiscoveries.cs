@@ -214,12 +214,13 @@ public sealed partial class WorldSession
         foreach (var d in State.Discoveries.Where(d => !d.Known && Visible.Contains(d.Position))) d.Known = true;
         foreach (var s in Plan.Sites.Where(s => Visible.Contains(s.Center))) State.KnownSites.Add(s.Id);
     }
-    private ActionResult LocalRumour(Actor actor)
+    private ActionResult LocalRumour(Actor actor, WorldPosition? listener = null)
     {
         var candidates = State.Discoveries.Where(d => d.TownId == actor.HomeTown).OrderBy(d => d.Known).ThenBy(d => d.Position.Distance(Plan.Towns[actor.HomeTown].Center)).ThenBy(d => d.Id).ToArray();
         if (candidates.Length == 0) return new(false, "No local places are recorded here.");
         var d = candidates.FirstOrDefault(d => d.WitnessId == actor.Id && !d.Known) ?? candidates[0]; d.Known = true;
-        string text = $"{actor.Name}: {d.Name} lies {d.Position.Distance(State.Position)} tiles {Direction(State.Position, d.Position)} ({d.Position.X}, {d.Position.Y}). {DiscoveryText(d)}";
+        var origin = listener ?? State.Position;
+        string text = $"{actor.Name}: {d.Name} lies {d.Position.Distance(origin)} tiles {Direction(origin, d.Position)} ({d.Position.X}, {d.Position.Y}). {DiscoveryText(d)}";
         Log(text); return new(true, text);
     }
 }

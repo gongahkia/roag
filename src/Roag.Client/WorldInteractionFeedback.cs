@@ -66,6 +66,7 @@ internal static class WorldInspection
             if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
             if (session.HasNativeParty)
                 return WithAccess(actor.Name, detail, actor.Recruited ? "F basic / R special / X movement / G Guard"
+                    : actor.Kind == ActorKind.Person && !hostile ? "Click to speak; confirm an interaction on your own turn"
                     : "Inspect its intent; aim an attack while in range", hostile ? "enemy" : "person");
             return WithAccess(actor.Name, detail, actor.Recruited ? "Manage companion; right-click to change leader" : wildlife ? "Click to hunt / start a turn-based encounter" : hostile ? "Approach and fight" : actor.Kind == ActorKind.Person ? "Approach and speak" : "Approach and interact", hostile ? "enemy" : wildlife ? "wildlife" : "person");
         }

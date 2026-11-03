@@ -14,6 +14,30 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void NativeConversationHasFreeVoicedPagesAndPaidIllustratedRumourChoices()
+    {
+        using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);
+        var person = session.ActorById(1000); var hero = session.DungeonMember;
+        person.Position = hero.Position.Offset(0, -1); session.Chunks.Edit(person.Position, Material.Floor); session.Reveal();
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenNativeSocial", person.Id);
+        var initial = Controls(client, "dungeon-social");
+        Assert.Contains(initial, c => c.Id == "dungeon:social-next" && c.Enabled);
+        Assert.All(initial.Where(c => c.Id.StartsWith("dungeon:social:")), c => Assert.False(c.Enabled));
+        for (int i = 0; i < 30 && !((DialoguePlayback)Field("_dialogue").GetValue(client)!).Finished; i++)
+            Invoke(client, "ActivateDungeonControl", "dungeon:social-next");
+        var choices = Controls(client, "dungeon-social").Where(c => c.Id.StartsWith("dungeon:social:")).ToArray();
+        Assert.Equal(4, choices.Length);
+        Assert.All(choices, c => { Assert.True(c.Enabled); Assert.False(string.IsNullOrEmpty(c.Sprite)); Assert.InRange(c.Bounds.Bottom, 0, 602); });
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:social:interaction.rumours");
+        Assert.True(session.DungeonCombat.Clock > 0); Assert.Contains(session.State.Discoveries, d => d.Known);
+        Assert.Equal("dungeon-social", Field("_panel").GetValue(client));
+        Assert.False(((DialoguePlayback)Field("_dialogue").GetValue(client)!).Finished);
+        Assert.False(session.State.RoagCombat);
+    }
+
+    [Fact]
     public void WorldTreasureOffersIllustratedChoicesAndOnlyConfirmationSpendsAnAction()
     {
         using var session = WorldSession.CreateDungeonRun(42, survival: true); var client = Client(session);
