@@ -109,7 +109,8 @@ public sealed partial class WorldSession
     }
     private void AdvanceCommunity()
     {
-        var people = State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive && !UsesTacticalTurns(a.Id) && !HasWork(a) && a.Body.RestUntil <= State.Tick).ToArray();
+        var people = State.Actors.Where(a => a.Kind == ActorKind.Person && a.Life == LifeState.Alive
+            && (!UsesTacticalTurns(a.Id) || ResumingNativeResident(a)) && !HasWork(a) && a.Body.RestUntil <= State.Tick).ToArray();
         foreach (var actor in people)
         {
             var other = people.FirstOrDefault(b => b.Id > actor.Id && b.Recruited == actor.Recruited && b.Position.Distance(actor.Position) <= 4);
@@ -122,7 +123,8 @@ public sealed partial class WorldSession
     {
         if (State.Tick % TicksPerHour != 0 || State.Tactics == null && IsInCombat) return;
         var candidates = Content.Game.Incidents.Select(Content.Get<IncidentDefinition>).Where(i => State.IncidentAfter.GetValueOrDefault(i.Id) <= State.Tick)
-            .SelectMany(i => State.Actors.Where(a => a.Life == LifeState.Alive && a.Kind == ActorKind.Person && !UsesTacticalTurns(a.Id) && a.Position.Distance(State.Position) <= 100 && IncidentEligible(i, a)).Select(a => (Definition: i, Actor: a))).ToArray();
+            .SelectMany(i => State.Actors.Where(a => a.Life == LifeState.Alive && a.Kind == ActorKind.Person
+                && (!UsesTacticalTurns(a.Id) || ResumingNativeResident(a)) && a.Position.Distance(State.Position) <= 100 && IncidentEligible(i, a)).Select(a => (Definition: i, Actor: a))).ToArray();
         if (candidates.Length == 0) return;
         var rng = new RandomStream(State.IncidentRandom); var choice = candidates[rng.Next(candidates.Length)]; State.IncidentRandom = rng.State;
         var d = choice.Definition; var actor = choice.Actor;

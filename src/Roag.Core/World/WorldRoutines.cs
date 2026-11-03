@@ -5,17 +5,23 @@ public sealed partial class WorldSession
     private WorldPosition ResidentHomeAnchor(Actor actor) => (State.NativeCampaign != null ? Plan.Towns[actor.HomeTown].Center
         : Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18);
     private readonly List<Actor> _routineActors = [], _routineThreats = [];
-    // Activation is local; activated people keep the same decisions and journeys
-    // when the player leaves. No second regional copy of the actor is created.
+    // Campaign residents activate everywhere. Retained previews keep local
+    // activation; activated people in either mode continue their real journeys.
     private void AdvanceRoutines()
     {
         if (State.Tactics == null && IsInCombat) return;
         _residentForagePlanTick = -1; _residentForageClaims.Clear(); _residentForageRequests.Clear(); _residentForageTurnCount = 0;
-        _routineActors.Clear(); ActorIndex.AddNearTo(State.Position, 100, _routineActors);
-        if (State.Tick % 5 == 0)
-            foreach (var actor in State.Actors)
-                if (actor.Routine != null && actor.Kind == ActorKind.Person && !actor.Recruited && actor.Life == LifeState.Alive && actor.Position.Distance(State.Position) > 100)
-                    _routineActors.Add(actor);
+        _routineActors.Clear();
+        if (State.NativeCampaign != null)
+            _routineActors.AddRange(State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited && a.Life == LifeState.Alive));
+        else
+        {
+            ActorIndex.AddNearTo(State.Position, 100, _routineActors);
+            if (State.Tick % 5 == 0)
+                foreach (var actor in State.Actors)
+                    if (actor.Routine != null && actor.Kind == ActorKind.Person && !actor.Recruited && actor.Life == LifeState.Alive && actor.Position.Distance(State.Position) > 100)
+                        _routineActors.Add(actor);
+        }
         _routineActors.Sort(static (a, b) => a.Id.CompareTo(b.Id));
         foreach (var actor in _routineActors)
         {
@@ -28,11 +34,12 @@ public sealed partial class WorldSession
     {
         ActivateOccupation(actor);
         Actor? danger = null; int distance = 7;
+        HashSet<WorldPosition>? sight = null;
         _routineThreats.Clear(); ActorIndex.AddNearTo(actor.Position, 6, _routineThreats);
         foreach (var other in _routineThreats)
         {
             int next = actor.Position.Distance(other.Position);
-            if (IsHostile(other) && (State.NativeCampaign == null || VisionFrom(actor.Position).Contains(other.Position))
+            if (IsHostile(other) && (State.NativeCampaign == null || (sight ??= VisionFrom(actor.Position)).Contains(other.Position))
                 && (next < distance || next == distance && other.Id < danger!.Id)) { danger = other; distance = next; }
         }
         if (danger != null)
@@ -71,7 +78,11 @@ public sealed partial class WorldSession
         {
             // Answer a friend's invitation before starting another one; a chain
             // of equally fast people chasing moving friends never meets.
-            var friend = _routineActors.Where(a => a.Life == LifeState.Alive && a.Routine is { Kind: RoutineKind.Social } r && r.Other == actor.Id
+            // Native rescuers can decide between world ticks, including just
+            // after loading. Invitation ownership must not depend on a warm cache.
+            IEnumerable<Actor> invitations = State.NativeCampaign != null
+                ? State.Actors.Where(a => a.Kind == ActorKind.Person && !a.Recruited) : _routineActors;
+            var friend = invitations.Where(a => a.Life == LifeState.Alive && a.Routine is { Kind: RoutineKind.Social } r && r.Other == actor.Id
                 && a.Position.Distance(actor.Position) <= 28 && actor.Trust.GetValueOrDefault(a.Id) > -20 && !HasGrievanceToward(actor, a.Id)).MinBy(a => a.Id)
                 ?? State.Actors.FirstOrDefault(a => a.Id == actor.FriendId && a.Life == LifeState.Alive);
             if (friend != null && friend.Position.Distance(actor.Position) <= 28 && actor.Trust.GetValueOrDefault(friend.Id) > -20
