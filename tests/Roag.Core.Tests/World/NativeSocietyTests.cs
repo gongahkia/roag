@@ -9,7 +9,7 @@ public sealed class NativeSocietyTests
 {
     // An explicit calendar-boundary fixture, with real retained people/towns and
     // native combat. Distant creature turns are deferred to isolate society.
-    private static WorldSession AtTick(long tick)
+    internal static WorldSession AtTick(long tick)
     {
         var world = WorldSession.Create(42);
         world.State.Tick = tick; world.State.NativeCampaign = new();

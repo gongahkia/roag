@@ -8,16 +8,12 @@ public sealed partial class TacticalCombat
     {
         if (_world.State.NativeCampaign == null) return new(EnemyIntentKind.Wait);
         var ecology = _world.Ecology(actor);
-        if (ecology == null && actor.EncounterLeader > 0) return new(EnemyIntentKind.Wait);
         (Facing Facing, WorldPosition Cell)[] Neighbours() => new[] { Facing.North, Facing.East, Facing.South, Facing.West }
             .Select(f => { var (x, y) = AttackGeometry.Offset(f); return (Facing: f, Cell: actor.Position.Offset(x, y)); })
             .Where(p => _world.CanEnter(p.Cell, actor.Id)).ToArray();
         if (ecology?.Behavior == "flee")
         {
-            var nearby = _world.Party.Where(p => p.Life == LifeState.Alive && p.Position.Distance(actor.Position) <= ecology.Notice).ToArray();
-            var sight = nearby.Length == 0 ? null : _world.VisionFrom(actor.Position);
-            var threat = nearby.Where(p => sight!.Contains(p.Position))
-                .OrderBy(p => p.Position.Distance(actor.Position)).ThenBy(p => p.Id).FirstOrDefault();
+            var threat = _world.NativeFleeThreat(actor);
             if (threat != null)
             {
                 var escapes = Neighbours().Where(p => p.Cell.Distance(threat.Position) > actor.Position.Distance(threat.Position))
@@ -25,6 +21,10 @@ public sealed partial class TacticalCombat
                 return escapes.Length == 0 ? new(EnemyIntentKind.Wait) : new(EnemyIntentKind.Move, escapes[0].Facing);
             }
         }
+        if (_world.NativeCreatureHasFood(actor)) return new(EnemyIntentKind.Eat);
+        if (actor.Body.RestUntil > _world.State.Tick || actor.Body.ForageProgress > 0)
+            return new(EnemyIntentKind.Wait);
+        if (ecology == null && actor.EncounterLeader > 0) return new(EnemyIntentKind.Wait);
         if (actor.Migration?.Target != null || actor.Habitat is { } && actor.Position.Distance(actor.Habitat.Value) > 2)
         {
             var home = actor.Migration?.Target ?? actor.Habitat!.Value;

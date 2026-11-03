@@ -129,11 +129,23 @@ public sealed partial class TacticalCombat
             CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
                 checked(actor.Power + intent.DamageBonus + (SquadRallySource(actor) != null ? 1 : 0)), definition.Windup, definition.Recovery, targetId, intent.Support, intent.Advance, intent.Shove, intent.SentinelFacing, intent.EmberLanding);
         }
+        else if (intent.Kind == EnemyIntentKind.Eat)
+        {
+            if (!_world.NativeCreatureHasFood(actor)) throw new InvalidOperationException("A creature meal needs its actual food.");
+            long action = State.NextAction++;
+            ResolveAtomically(RootCause(action), () =>
+            {
+                ScheduleReady(actor, Tuning.EatCost); State.ActiveActor = 0;
+                if (!_world.FeedNativeCreature(actor)) throw new InvalidOperationException("Creature food changed after preview.");
+                Emit("FoodEaten", actor.Id, actor.Id, action, actor.Position, _world.Simulation.MealReduction, ability: "creature-meal");
+            });
+        }
         else if (intent.Kind is EnemyIntentKind.Move or EnemyIntentKind.UseStairs)
         {
             var move = new TacticalIntent(intent.Kind == EnemyIntentKind.UseStairs ? TacticalAction.UseStairs : TacticalAction.Move, intent.Facing);
             var preview = Preview(move);
             if (!preview.Valid) throw new InvalidOperationException("Navigation selected a blocked enemy step: " + preview.Reason);
+            if (_world.NativeCreatureNeeds(actor)) { actor.Body.RestUntil = 0; actor.Body.ForageProgress = 0; }
             memory.LastMovement = intent.Facing;
             var result = Commit(move);
             if (!result.Success) throw new InvalidOperationException(result.Message);

@@ -119,13 +119,14 @@ public sealed partial class WorldSession
         _bodyClockTick = State.Tick;
     }
     private static int CompareBodySlots(BodySlot a, BodySlot b) => a.Order.CompareTo(b.Order);
-    private bool BodyFighting(Actor actor) => IsActorInCombat(actor.Id);
+    private bool BodyFighting(Actor actor) => IsActorInCombat(actor.Id)
+        || NativeCreatureNeeds(actor) && NativeFleeThreat(actor) != null;
     private void ConfigureBodyRates(Actor actor, long at, long next)
     {
         var body = actor.Body;
         if (actor.Life != LifeState.Alive) { body.RatesAt(at, 0, 0); return; }
         bool fighting = BodyFighting(actor);
-        bool automaticRest = !actor.Recruited && !UsesTacticalTurns(actor.Id) && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
+        bool automaticRest = !actor.Recruited && (!UsesTacticalTurns(actor.Id) || NativeCreatureNeeds(actor)) && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
         bool resting = !fighting && (body.RestUntil > next || automaticRest);
         double fatigue = Simulation.FatiguePerTick * (Disposition(actor)?.FatiguePercent ?? 100) / 100.0 / Math.Min(2, 1 + (actor.Level - 1) * .02);
         body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick * ClimateRest(actor, next) : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 && CanResidentForage(actor) ? 2 : 1));
