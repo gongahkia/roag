@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Full native-world foundation baseline (2026-11-03): immutable clean **48e32af0 / 2,041 passing tests**, zero failures/skips, under `native-campaign-world/integration`. Independent source/runner rehashes match all 2,290/838 recorded files. This covers the backend foundation, trade/daylight/civilian-death follow-ups; subsequent client campaign routing and initial private-sight fixes are outside this snapshot. Full A/B, rendered world journeys, delivery and all eight gates remain open.
+
+
 Native living-world foundation (2026-11-03): a separate saved campaign party policy now drives native actors across retained outdoors and genuinely paired eight-floor generic sites, reusing the delivered individual recruitment/groups/needs/work APIs. Town adventurers retain fixed classes/stable IDs and draw carried medicine from finite town stock. Idle ecology/pursuit uses physical paid steps, and native migration cannot also receive legacy movement. Four-floor references/IDs remain preserved; extended depth plumbing covers terrain, prefetch, habitat/ecology limits, caches and distinct encounter identities. 109 affected controller/group/encounter checks and an earlier 68-case depth/ecology run pass (`native-retained-enemies/campaign-*`, overlapping). **Original multi-stage Roag complexes are still bounded, and native-world client/rendered acceptance, NPC society/routines completion, ecological needs/hunting/remains and retained rewards remain open.** Backend turn profiles are not performance acceptance. Full A/B and all eight gates remain unfinished.
 
 
