@@ -66,12 +66,18 @@ public sealed partial class WorldSession
         State.Work.Add(order);
         return new(true, $"{order.Kind} queued; supplies reserved. Play or Wait advances work; Work assigns workers or cancels orders.");
     }
+    private string WorkAssignmentReason(WorkOrder? order, Actor? actor)
+    {
+        if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person || State.Work.Any(w => w.Id != order.Id && w.Worker == actor.Id)
+            || actor.Position.Distance(order.Output == null ? order.Target : WorkStop(order, actor.Id)) > 100)
+            return "Choose a living nearby person without another work order.";
+        return ResidentGrievance(actor);
+    }
     private ActionResult AssignWork(long workId, long actorId)
     {
         var order = State.Work.FirstOrDefault(w => w.Id == workId); var actor = State.Actors.FirstOrDefault(a => a.Id == actorId);
-        if (order == null || actor == null || actor.Life != LifeState.Alive || actor.Kind != ActorKind.Person || State.Work.Any(w => w.Id != workId && w.Worker == actorId)
-            || actor.Position.Distance(order.Output == null ? order.Target : WorkStop(order, actor.Id)) > 100) return new(false, "Choose a living nearby person without another work order.");
-        string grievance = ResidentGrievance(actor); if (grievance.Length > 0) return new(false, grievance);
+        string reason = WorkAssignmentReason(order, actor); if (reason.Length > 0) return new(false, reason);
+        if (order == null || actor == null) throw new InvalidOperationException("A valid assignment needs its order and worker.");
         if (order.Worker != actor.Id && order.Worker > 0 && order.Progress > 0) NoteInterruptedWork(ActorById(order.Worker), "work:" + order.Id);
         if (actor.Occupation is { Progress: > 0 } occupation && order.Worker != actor.Id) NoteInterruptedWork(actor, "occupation:" + occupation.Id);
         order.Worker = actor.Id; order.PinnedWorker = true; order.PartyApproach = actor.Recruited; order.Suspended = false; order.Status = "Assigned to " + actor.Name; return new(true, order.Status + ". Their usual job pauses until this is finished.");

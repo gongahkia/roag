@@ -7,13 +7,15 @@ public sealed partial class WorldSession
 {
     internal string NativeWorkReason(Actor worker, WorldCommand? command)
     {
+        if (command is { Kind: WorldCommandKind.AssignWork, ActorId: > 0 } && command.ActorId != worker.Id)
+            return NativeResidentAssignmentReason(worker, command);
         if (command == null || command.ActorId != 0 && command.ActorId != worker.Id) return "Assign this member their own work.";
         if (worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
             return "This member needs food, rest or treatment before working.";
         if (command.Kind == WorldCommandKind.AssignWork)
         {
             var existing = State.Work.FirstOrDefault(w => w.Id == command.WorkId);
-            if (existing == null || existing.Worker != 0 && !State.Party.Contains(existing.Worker) || State.Work.Any(w => w.Id != existing.Id && w.Worker == worker.Id))
+            if (existing == null || !IsNativePartyWork(existing) || State.Work.Any(w => w.Id != existing.Id && w.Worker == worker.Id))
                 return "Choose unfinished party work and a member without another order.";
             if (!CampWorkerEligible(existing, worker)) return "This member has already shared a story; let two game hours pass.";
             return "";
@@ -142,9 +144,37 @@ public sealed partial class WorldSession
 
     public ActionResult CancelDungeonWork(long id)
     {
-        if (!HasNativeParty || State.Work.FirstOrDefault(w => w.Id == id && State.Party.Contains(w.Worker)) is not { } order)
+        if (!HasNativeParty || State.Work.FirstOrDefault(w => w.Id == id && IsNativePartyWork(w)) is not { } order)
             return new(false, "Choose an unfinished party order.");
         DungeonCombat.CancelActivity(order.Worker);
         return CancelWork(id);
+    }
+
+    private bool IsNativePartyWork(WorkOrder order) => State.Party.Contains(order.Worker) || State.Party.Contains(order.RequestedBy);
+    public IReadOnlyList<WorkOrder> DungeonWorkOrders => State.Work.Where(IsNativePartyWork).OrderBy(w => w.Id).ToArray();
+
+    private string NativeResidentAssignmentReason(Actor member, WorldCommand command)
+    {
+        if (State.NativeCampaign == null) return "Resident work is available in the living world.";
+        var resident = State.Actors.FirstOrDefault(a => a.Id == command.ActorId);
+        if (resident is not { Kind: ActorKind.Person, Life: LifeState.Alive, Recruited: false }
+            || resident.Tactics is { Resident: null } || resident.Tactics?.Resident?.Target > 0)
+            return "Choose an available resident who is not currently rescuing someone.";
+        if (member.Position.Distance(resident.Position) > 2 || !VisionFrom(member.Position).Contains(resident.Position))
+            return "Speak to the resident within two visible tiles to assign work.";
+        var order = State.Work.FirstOrDefault(w => w.Id == command.WorkId && IsNativePartyWork(w));
+        if (order == null) return "Choose an unfinished expedition order.";
+        if (order.Worker == resident.Id) return "This resident already has that order.";
+        return WorkAssignmentReason(order, resident);
+    }
+
+    internal void AssignNativeResidentWork(Actor member, WorldCommand command)
+    {
+        string reason = NativeResidentAssignmentReason(member, command);
+        if (reason.Length > 0) throw new InvalidOperationException("Resident assignment changed after preview: " + reason);
+        var order = State.Work.Single(w => w.Id == command.WorkId);
+        if (State.Party.Contains(order.Worker)) DungeonCombat.CancelActivity(order.Worker);
+        var result = AssignWork(order.Id, command.ActorId);
+        if (!result.Success) throw new InvalidOperationException(result.Message);
     }
 }

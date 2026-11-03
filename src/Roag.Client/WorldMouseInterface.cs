@@ -594,7 +594,7 @@ internal sealed partial class WorldGame
                 cooperation = _session.Party.Select(a => new { a.Id, a.Tactics!.CooperationCommitted }),
                 needs = _session.Party.Select(a => new { a.Id, a.Body.Hunger, a.Body.Fatigue, a.Body.Wounds, a.Tactics!.AutoEat, a.Tactics.AutoEatInCombat }),
                 campFires = _session.State.Tactics.CampFires.Where(f => _session.Visible.Contains(f.Position)),
-                workOrders = _session.State.Work.Where(w => _session.State.Party.Contains(w.Worker)),
+                workOrders = _session.DungeonWorkOrders,
                 preparedMeals = _session.State.Tactics.PreparedMeals,
                 preparations = _session.Party.Select(a => new { a.Id, effects = a.Preparations }),
                 retainedSkills = _session.Party.Select(a => new { a.Id, skills = _session.DungeonCombat.RetainedSkills(a.Id) }),

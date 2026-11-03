@@ -13,6 +13,12 @@ public sealed partial class TacticalCombat
 
     private void BeginNativeWork(Actor actor, WorldCommand command, long action)
     {
+        if (command is { Kind: WorldCommandKind.AssignWork, ActorId: > 0 } && command.ActorId != actor.Id)
+        {
+            _world.AssignNativeResidentWork(actor, command);
+            Emit("WorkAssigned", actor.Id, command.ActorId, action, actor.Position, ability: command.WorkId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
         var order = _world.BeginNativeWork(actor, command);
         actor.Tactics!.Activity = new(SustainedActivityKind.Work, 0, order.Target, order.Id);
         actor.Body.RestUntil = 0; _world.PartyFollowing?.Remove(actor.Id);

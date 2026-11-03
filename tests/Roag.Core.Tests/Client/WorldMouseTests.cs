@@ -14,6 +14,30 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void NativeWorkDelegationUsesFreeIllustratedResidentChoicesAndAConfirmedPaidAssignment()
+    {
+        using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); var member = session.DungeonMember; var resident = session.ActorById(1004);
+        resident.Position = member.Position.Offset(0, -1); session.Chunks.Edit(resident.Position, Material.Floor);
+        var target = resident.Position.Offset(1, 0); session.Chunks.Edit(target, Material.Floor); session.Reveal();
+        Assert.True(session.SubmitDungeon(new(TacticalAction.StartWork, Work: new(WorldCommandKind.Build, target, Material: Material.Wall))).Success);
+        var order = Assert.Single(session.DungeonWorkOrders); string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenDungeonWork", (WorldPosition?)target);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:orders");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-delegate:" + order.Id && c.Enabled);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-delegate:" + order.Id);
+        var choice = Assert.Single(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-resident:" + resident.Id);
+        Assert.True(choice.Enabled); Assert.False(string.IsNullOrEmpty(choice.Sprite));
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-resident:" + resident.Id);
+        Assert.Equal(resident.Id, order.Worker); Assert.Null(member.Tactics!.Activity);
+        Assert.Equal("", Field("_panel").GetValue(client));
+        Invoke(client, "OpenDungeonWork", (WorldPosition?)target);
+        Invoke(client, "ActivateDungeonControl", "dungeon:work-view:orders");
+        Assert.Contains(Controls(client, "dungeon-work"), c => c.Id == "dungeon:work-cancel:" + order.Id && c.Enabled);
+    }
+
+    [Fact]
     public void NativeConversationHasFreeVoicedPagesAndPaidIllustratedRumourChoices()
     {
         using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);
