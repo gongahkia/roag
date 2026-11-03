@@ -44,6 +44,7 @@ public sealed partial class TacticalCombat
                 int seed = recruit == null ? RoagRandom.Derive(_world.Seed, "resident-build:" + resident.Id)
                     : RoagRandom.Derive(_world.DungeonSeed, "recruit-build:" + resident.Id);
                 resident.CombatTrait = ""; resident.Talents.Clear(); resident.SpriteId = NativeAppearance.ForClass(kind);
+                resident.Journey = null; // The native timeline now owns every physical step.
                 Register(resident, new() { Build = CharacterBuild.Create(kind, seed), AutoEat = false,
                     Resident = new() { Home = resident.Position, Target = casualty.Id, LastKnown = casualty.Position } });
                 var readiness = State.Queue.Snapshot().Pending.Single(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == resident.Id);
@@ -84,6 +85,11 @@ public sealed partial class TacticalCombat
                     return;
                 }
             }
+        }
+        if (memory.Target == 0 && _world.State.NativeCampaign != null)
+        {
+            CommitResidentRoutineTurn(resident);
+            return;
         }
         WorldPosition destination = memory.Target > 0 ? memory.LastKnown : memory.Home;
         var goals = new HashSet<WorldPosition>();

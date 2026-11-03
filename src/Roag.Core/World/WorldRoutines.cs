@@ -2,7 +2,8 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
-    private WorldPosition ResidentHomeAnchor(Actor actor) => (Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18);
+    private WorldPosition ResidentHomeAnchor(Actor actor) => (State.NativeCampaign != null ? Plan.Towns[actor.HomeTown].Center
+        : Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor }).Offset((int)(actor.Id % 5) * 3 - 6, -18);
     private readonly List<Actor> _routineActors = [], _routineThreats = [];
     // Activation is local; activated people keep the same decisions and journeys
     // when the player leaves. No second regional copy of the actor is created.
@@ -31,7 +32,8 @@ public sealed partial class WorldSession
         foreach (var other in _routineThreats)
         {
             int next = actor.Position.Distance(other.Position);
-            if (IsHostile(other) && (next < distance || next == distance && other.Id < danger!.Id)) { danger = other; distance = next; }
+            if (IsHostile(other) && (State.NativeCampaign == null || VisionFrom(actor.Position).Contains(other.Position))
+                && (next < distance || next == distance && other.Id < danger!.Id)) { danger = other; distance = next; }
         }
         if (danger != null)
         {
@@ -41,7 +43,7 @@ public sealed partial class WorldSession
             if (actor.Body.RestUntil > State.Tick) actor.Body.RestUntil = State.Tick;
             return;
         }
-        var home = Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor };
+        var home = State.NativeCampaign != null ? Plan.Towns[actor.HomeTown].Center : Plan.Towns[actor.HomeTown].Center with { Floor = actor.Position.Floor };
         if (actor.Body.Hunger >= Simulation.MealAt)
         {
             bool supplies = ResidentTownFood(actor);

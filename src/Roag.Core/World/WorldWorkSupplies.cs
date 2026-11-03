@@ -117,7 +117,7 @@ public sealed partial class WorldSession
         var supply = NextSupply(order, worker.Id);
         while (supply != null)
         {
-            if (supply.Phase == SupplyPhase.Waiting && supply.Storage == null && State.Position.Distance(order.Target) > 100)
+            if ((!HasNativeParty || !worker.Recruited) && supply.Phase == SupplyPhase.Waiting && supply.Storage == null && State.Position.Distance(order.Target) > 100)
             { order.Status = "Shared pack is away; waiting for supplies to return to the work area"; return false; }
             var stop = WorkStop(order, worker.Id);
             if (!ApproachWorkStop(order, worker, stop, "Collecting supplies")) return false;

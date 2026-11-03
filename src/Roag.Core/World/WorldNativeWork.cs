@@ -92,6 +92,7 @@ public sealed partial class WorldSession
         if (worker.Body.Fatigue >= 75 || worker.Body.Hunger >= Simulation.StarveAt || worker.Health < worker.MaxHealth / 4)
         { order.Status = "Worker needs food, rest or treatment"; return null; }
         var sight = VisionFrom(worker.Position);
+        bool KnownByWorker(WorldPosition p) => !worker.Recruited && ResumingNativeResident(worker) ? Plan.Contains(p) : Chunks.Seen(p);
         if (order.Kind == WorkKind.Camp && (!CampWorkerEligible(order, worker)
             || order.Station is { } camp && sight.Contains(camp) && !ServiceableCamp(camp)))
         { CancelWork(id, deliberate: false); return null; }
@@ -109,7 +110,7 @@ public sealed partial class WorldSession
                 foreach (var direction in new[] { Facing.North, Facing.East, Facing.South, Facing.West })
                 {
                     var (dx, dy) = AttackGeometry.Offset(direction); var next = worker.Position.Offset(dx, dy);
-                    if (CanEnter(next, worker.Id) && Chunks.Seen(next) && Chunks.At(next) is not (Material.StairsDown or Material.StairsUp))
+                    if (CanEnter(next, worker.Id) && KnownByWorker(next) && Chunks.At(next) is not (Material.StairsDown or Material.StairsUp))
                         return new(TacticalAction.Move, direction);
                 }
                 order.Status = "No clear tile beside construction"; return null;
@@ -122,7 +123,7 @@ public sealed partial class WorldSession
             var (dx, dy) = AttackGeometry.Offset(direction); var p = target.Offset(dx, dy);
             if (CanEnter(p, worker.Id)) goals.Add(p);
         }
-        var step = Navigate(worker, goals, p => Chunks.Seen(p) && (State.Dungeon == null || State.Dungeon.Contains(p)));
+        var step = Navigate(worker, goals, p => KnownByWorker(p) && (State.Dungeon == null || State.Dungeon.Contains(p)));
         if (step == null) { order.Status = "No free observed approach; open access or move blockers"; return null; }
         return new(step.Action, step.Facing);
     }

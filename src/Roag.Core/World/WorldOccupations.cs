@@ -11,7 +11,8 @@ public sealed partial class WorldSession
     private WorldPosition OccupationStop(Actor actor, OccupationJob job) => job.Phase is OccupationPhase.Collecting or OccupationPhase.Delivering or OccupationPhase.Returning
         ? OccupationHome(actor) : job.Target;
     private bool OccupationActive(Actor actor) => !actor.Recruited && actor.Life == LifeState.Alive && actor.Occupation != null
-        && actor.Routine?.Kind == RoutineKind.Occupation && actor.Position.Floor == 0 && !HasWork(actor);
+        && actor.Routine?.Kind == RoutineKind.Occupation && actor.Tactics?.Resident?.Target is not > 0
+        && actor.Position.Floor == 0 && !HasWork(actor);
     private void ActivateOccupation(Actor actor)
     { if (actor.OccupationVersion == 0 && ProductiveOccupation(actor)) actor.OccupationVersion = 1; }
     private List<WorldPosition>[] OccupationSources(int town)
