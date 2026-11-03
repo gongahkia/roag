@@ -14,6 +14,29 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void TargetedSkillCardsOfferVisibleTimidWildlifeAsAnExplicitPaidHunt()
+    {
+        using var session = Roag.Core.Tests.World.NativeSocietyTests.AtTick(0);
+        Assert.True(session.ChooseDungeonClass(ClassKind.Ranger).Success);
+        var hero = session.DungeonMember; var habitat = WildlifePreview.Find(session, "character.rabbit");
+        hero.Position = session.State.Position = habitat.Home; session.Reveal();
+        var animal = session.State.Actors.Single(a => a.Habitat == habitat.Home);
+        string boon = RetainedBoons.Id("ability.hunters-mark");
+        hero.Tactics!.Boons.Inventory = hero.Tactics.Boons.Inventory.Grant(boon, BoonRarity.Common, ClassKind.Ranger);
+        var client = Client(session); Field("_roagAim").SetValue(client, "move");
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenDungeonSkills");
+        var skill = Assert.Single(Controls(client, "dungeon-skills"), c => c.Id.StartsWith("dungeon:skill-open:"));
+        Invoke(client, "ActivateDungeonControl", skill.Id);
+        var hunt = Assert.Single(Controls(client, "dungeon-skills"), c => c.Id == "dungeon:skill-cast:" + animal.Id);
+        Assert.True(hunt.Enabled); Assert.StartsWith("Hunt ", hunt.Label);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", hunt.Id);
+        Assert.True(session.DungeonCombat.Clock > 0); Assert.True(animal.ProvokedUntil > session.State.Tick);
+        Assert.Equal("", Field("_panel").GetValue(client));
+    }
+
+    [Fact]
     public void NativeWorkDelegationUsesFreeIllustratedResidentChoicesAndAConfirmedPaidAssignment()
     {
         using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);

@@ -70,7 +70,8 @@ public sealed partial class WorldSession
         if (actor.Life != LifeState.Alive || actor.Kind is not (ActorKind.Beast or ActorKind.Raider)) return false;
         if (SituationForActor(actor) is { } discovery) return discovery.Engaged && discovery.Outcome is "" or "tunnel";
         if (Ecology(actor) is not { } rules) return true;
-        if (rules.Behavior == "flee" || actor.Habitat is not { } home) return false;
+        if (rules.Behavior == "flee" && (State.NativeCampaign == null || actor.ProvokedUntil <= State.Tick)
+            || actor.Habitat is not { } home) return false;
         int distance = actor.ProvokedUntil > State.Tick ? rules.Leash : rules.Notice;
         foreach (var member in Party) if (member.Life != LifeState.Dead && member.Position.Distance(home) <= distance) return true;
         return false;
@@ -81,7 +82,9 @@ public sealed partial class WorldSession
         if (Ecology(actor) is not { } rules) return "";
         string movement = actor.Migration is not { } migration ? "" : migration.Target == null ? "Seeking a viable habitat after " + MigrationCause(migration.Reason) + ". "
             : "Migrating to a viable habitat after " + MigrationCause(migration.Reason) + (actor.Journey is { Steps.Count: 0 } ? "; route blocked, waiting for access. " : ". ");
-        if (rules.Behavior == "flee") return movement + "Timid; flees nearby travellers. Will fight only if hunted.";
+        if (rules.Behavior == "flee") return movement + (State.NativeCampaign != null && actor.ProvokedUntil > State.Tick
+            ? $"Provoked by hunting; defends itself within {rules.Leash} tiles of its home."
+            : "Timid; flees nearby travellers. Will fight only if hunted.");
         string place = rules.Resource is { } id ? Content.Get<ResourceDefinition>(id).Name.ToLowerInvariant() : "cave roost";
         return movement + (IsHostile(actor) ? "Defending its " : "Guards its ") + place +
             $". Keep {rules.Notice + 1} tiles away; pursuit stops beyond {rules.Leash} tiles.";

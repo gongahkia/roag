@@ -618,6 +618,11 @@ public sealed partial class TacticalCombat
             if (attack.Delivery == AttackDelivery.Projectile) break;
         }
         RedistributeOathDamage(hits, attack);
+        if (source != null)
+            foreach (var hit in hits)
+                if ((attack.Cause == DamageCause.DirectAttack || hit.Snapshot.ActualLoss > 0)
+                    && _world.ProvokeNativeCreature(source, hit.Target))
+                    Emit("HostilityProvoked", source.Id, hit.Target.Id, attack.Id, hit.Target.Position, ability: attack.Ability);
         foreach (var hit in hits) hit.Target.Health -= hit.Snapshot.ActualLoss!.Value;
         if (source != null)
             foreach (var hit in hits)

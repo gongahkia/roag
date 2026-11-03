@@ -36,7 +36,8 @@ internal sealed partial class WorldGame
         var definition = _session.Content.Get<AbilityDefinition>(selected.Ability);
         bool group = definition.Target is TargetKind.AllAllies or TargetKind.AllEnemies;
         Actor[] targets = group ? [_session.DungeonMember] : definition.Target == TargetKind.Ally
-            ? DungeonRoster : _session.State.Actors.Where(a => a.Life != LifeState.Dead && _session.IsHostile(a) && _session.Visible.Contains(a.Position))
+            ? DungeonRoster : _session.State.Actors.Where(a => a.Life != LifeState.Dead
+                && (_session.IsHostile(a) || _session.CanHuntNativeWildlife(a)) && _session.Visible.Contains(a.Position))
                 .OrderBy(a => a.Position.Distance(_session.DungeonMember.Position)).ThenBy(a => a.Id).ToArray();
         _nativeSkillPage = Math.Clamp(_nativeSkillPage, 0, Math.Max(0, (targets.Length - 1) / 6));
         for (int i = 0; i < 6 && _nativeSkillPage * 6 + i < targets.Length; i++)
@@ -44,7 +45,8 @@ internal sealed partial class WorldGame
             var target = targets[_nativeSkillPage * 6 + i]; long id = group ? 0 : target.Id;
             var preview = DungeonSelectionReady ? _session.DungeonCombat.Preview(new(TacticalAction.RetainedSkill, Item: selected.Boon, Target: id))
                 : new TacticalPreview(false, "Select the ready member first.", 0, []);
-            AddDungeonPartyControl("dungeon:skill-cast:" + id, group ? selected.Name + " / confirm" : target.Name, Card(i), preview.Valid,
+            string name = !_session.IsHostile(target) && _session.CanHuntNativeWildlife(target) ? "Hunt " + target.Name : target.Name;
+            AddDungeonPartyControl("dungeon:skill-cast:" + id, group ? selected.Name + " / confirm" : name, Card(i), preview.Valid,
                 reason: preview.Reason, sprite: group ? selected.Sprite : target.Sprite,
                 detail: preview.Valid ? $"{preview.Recovery / 100.0:0.00}s recovery / {preview.Cells.Count} targets" + (preview.Damage is { } damage ? $" / power {damage}" : "")
                     : group ? preview.Reason : target.Life == LifeState.Alive ? $"HP {target.Health}/{target.MaxHealth}" : target.Life.ToString());

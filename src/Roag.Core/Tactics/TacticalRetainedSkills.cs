@@ -53,7 +53,9 @@ public sealed partial class TacticalCombat
         bool friendly = skill.Target is TargetKind.Ally or TargetKind.AllAllies or TargetKind.Self;
         var sight = _world.VisionFrom(actor.Position);
         return candidates.Where(a => a is { Life: LifeState.Alive, Health: > 0, Tactics: not null }
-            && (friendly ? Friendly(a) : HostileTo(actor, a)) && a.Position.Distance(actor.Position) <= range
+            && (friendly ? Friendly(a) : HostileTo(actor, a)
+                || skill.Target == TargetKind.Enemy && a.Id == target && _world.CanHuntNativeWildlife(a))
+            && a.Position.Distance(actor.Position) <= range
             && sight.Contains(a.Position) && EnemySquads.Clear(actor.Position, a.Position, p => SupportOpen(p)
                 && (friendly || skill.Id == "ability.chain-arc" || p == a.Position || BodyAt(p, actor.Id) == null))).OrderBy(a => a.Id);
     }
