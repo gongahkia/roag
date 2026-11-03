@@ -232,7 +232,7 @@ public sealed partial class WorldSession
             {
                 a.Body.Wounds = Math.Min(10, a.Body.Wounds + 1);
                 if (!u.Friendly) LeaveWildlifeRemains(a);
-                foreach (var other in State.Actors.Where(p => p.Id != a.Id && p.Life == LifeState.Alive && (p.FriendId == a.Id || p.Trust.GetValueOrDefault(a.Id) > 0 || p.Recruited && a.Recruited))) Remember(other, "fallen-friend", a.Name + " fell in the fighting.", -8, a.Id);
+                RememberCombatFall(a);
             }
             a.Life = u.Alive ? LifeState.Alive : u.Friendly ? LifeState.Downed : LifeState.Dead;
         }

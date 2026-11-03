@@ -131,8 +131,13 @@ public sealed partial class WorldSession
     {
         if (Ecology(actor) is not { } rules || State.Loot.Any(c => c.SourceActor == actor.Id)) return;
         actor.Migration = null; actor.Journey = null; actor.WildlifeAfter = 0;
-        NoteWildlifeDeath(actor);
-        PressureHabitat(actor.Habitat!.Value, 120);
+        // Authored encounter animals have drops too, but do not necessarily
+        // belong to a naturally settled habitat/population.
+        if (actor.Habitat is { } home)
+        {
+            NoteWildlifeDeath(actor);
+            PressureHabitat(home, 120);
+        }
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });
     }

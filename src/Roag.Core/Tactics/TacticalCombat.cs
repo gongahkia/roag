@@ -670,6 +670,7 @@ public sealed partial class TacticalCombat
         if (State.DrivesWorldClock && Tuning.EnableSurvival) actor.Body.Wounds = Math.Min(10, actor.Body.Wounds + 1);
         StopActivity(actor, "downed");
         actor.Life = LifeState.Downed; actor.Health = 0;
+        _world.RecordNativeFall(actor);
         actor.Tactics!.BleedTurns = 5; actor.Tactics.Guarding = false; actor.Tactics.Resources.Parry = null;
         CancelAttacks(actor.Id);
         // Preserve the member's own pending readiness; downing cannot buy a fresh recovery period.
@@ -681,11 +682,13 @@ public sealed partial class TacticalCombat
 
     private void Die(Actor actor, long source, long action, BoonEvent? snapshot = null)
     {
+        bool wasAlive = actor.Life == LifeState.Alive;
         snapshot ??= CaptureBoonEvent(BoonTrigger.EntityKilled, source, actor.Id, action, actor.Position);
         RemoveBurning(actor);
         actor.Tactics?.Conditions.Clear();
         StopActivity(actor, "death");
         actor.Life = LifeState.Dead; actor.Health = 0;
+        _world.RecordNativeDeath(actor, wasAlive);
         if (Friendly(actor)) _world.DetachDungeonMember(actor.Id);
         if (actor.Tactics != null) { actor.Tactics.Supplies.WardThroughRecovery = false; actor.Tactics.Supplies.WardRefreshAction = 0; }
         PruneOaths();

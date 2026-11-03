@@ -1,5 +1,8 @@
 # Native migration tuning
 
+Native world fall consequences (2026-11-03): preserve the retained combat values: a party member becoming downed immediately adds ten stress to other conscious members; the existing fallen-friend memory adds eight stress (mood −8) to living friends, positive-trust contacts and companions. Its original memory lifetime/deduplication remain in `Remember`. Later bleedout death repeats neither shock nor memory. A direct living-to-dead fall adds one wound, capped at ten, in addition to the existing heavy-hit wound; death after downing adds no further fall wound. Authored ecological drops are unchanged, habitat death pressure remains 120 and the existing population receipt is saved. That legacy receipt does not enable the disabled timer replacement in native campaigns: required natural reproduction remains separate work.
+
+
 Campaign client map (2026-11-03): the development world scene uses a 128×96 local explored window, centered on the selected member and clamped to physical world bounds, at the existing 1.3-pixel map scale. Bounded layouts retain their actual original dimensions. No actors/loot/unseen terrain enter this map. Native creation defers remembered discovery until its real calendar/weather sight exists (seed-42 initial night radius six); it does not inherit the older unattached 11-tile exploration. Client camera viewport notifications do no native revealing or paid work. These are presentation/perception rules, not world-size compression or a change to physical travel.
 
 

@@ -1,6 +1,8 @@
 # Playable tranche verification and handoff
 
-Current scope: the bounded-dungeon party tranche extends completed solo items **1–6** with recruitment/control, split groups and player-directed combat rescue. See [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md). **Party release verification is complete and implementation is stopped for user playtest.** Later deferred systems and all eight full-migration gates remain incomplete.
+Active scope (2026-11-03): the user resumed the remaining migration in Tranches A and B; continue both before the next playtest stop. See [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md) and [MIGRATION_DECISIONS.md](MIGRATION_DECISIONS.md). The bounded party archive below is historical and remains playable; it does not contain the active world work. Full A/B and all eight migration gates remain incomplete.
+
+The source client now supports an explicit native world development scene. Muted `native-campaign-world/rendered-town-v4/` passes a natural paid market purchase, physical exploration, fixed-class Tinkerer recruitment, two-member controls, free thinking, exact ordinary save/reload at 49,938 and inspected 1024×720 normal/large-sans layouts. Reproduce with `ALSOFT_DRIVERS=null SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a python3 tools/migration/verify_native_world.py /fresh/evidence`. This is a town journey, not full world/campaign acceptance; no refreshed Linux archive is claimed.
 
 ## Delivered party build (2026-11-01)
 
@@ -10,7 +12,7 @@ Current archive: **`dist/roag-linux-x64-cd49a638.tar.gz`**, **40,903,918 bytes**
 
 Extract the archive, enter `roag-linux-x64`, run `./roag`. For the party playtest use a new run in an unused separate slot: `./roag --new --seed 37 --save "$HOME/.roag/party-playtest.json"`; resume with `./roag --load --save "$HOME/.roag/party-playtest.json"`. The package needs no SDK, Lua/LÖVE, network or sibling checkout. [PLAY_LINUX.md](PLAY_LINUX.md) documents source builds, controls, saves, settings and package reproduction with `python3 tools/package-linux.py`.
 
-The six-requirement audit below is retained; its pending-abandonment references are superseded by this implemented and rendered verification. The earlier continuous seed-37 boss/rescue/split/distinct-and-duplicate ownership journey remains acceptance evidence; this archive adds actual final-runtime continuations and abandonment. Physical gamepad and audible sound quality remain untested; rendering uses Linux x64/Xvfb/software OpenGL and real X11 input, with muted audio. **Implementation is stopped for the user's playtest.** The final audit proves the six bounded-party requirements; do not start deferred systems without new authorization.
+The six-requirement audit below is retained; its pending-abandonment references are superseded by this implemented and rendered verification. The earlier continuous seed-37 boss/rescue/split/distinct-and-duplicate ownership journey remains acceptance evidence; this archive adds actual final-runtime continuations and abandonment. Physical gamepad and audible sound quality remain untested; rendering uses Linux x64/Xvfb/software OpenGL and real X11 input, with muted audio. **Historical party playtest stop, superseded by the active A/B authorization above.** This audit proves the six bounded-party requirements only.
 
 ## Party verification history
 
