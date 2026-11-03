@@ -16,6 +16,29 @@ public sealed class WorldClientTests : IDisposable
     private string Slot => Path.Combine(_root, "campaign.json");
     public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
     [Fact]
+    public void NativeCampaignLaunchAndOrdinaryResumePreservePaidWorldContinuation()
+    {
+        var options = Options.Parse(["--scene", "world-campaign", "--new", "--seed", "42", "--save", Slot]);
+        Assert.True(options.NativeCampaignLaunch); Assert.True(options.NativeDungeonLaunch);
+        var opened = WorldStartup.Open(options);
+        using var world = Assert.IsType<WorldSession>(opened.Session);
+        Assert.False(opened.Resumed); Assert.False(File.Exists(Slot));
+        Assert.True(world.HasNativeParty); Assert.NotNull(world.State.NativeCampaign); Assert.Null(world.State.Dungeon);
+        Assert.True(world.ChooseDungeonClass(Roag.Core.Tactics.ClassKind.Hookrunner).Success);
+        Assert.True(world.SubmitRoag(new("wait")).Success);
+        world.Save(Slot); byte[] saved = File.ReadAllBytes(Slot);
+        var resumed = WorldStartup.Open(Options.Parse(["--load", "--save", Slot]));
+        using var loaded = Assert.IsType<WorldSession>(resumed.Session);
+        Assert.True(resumed.Resumed); Assert.NotNull(loaded.State.NativeCampaign);
+        Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+        Assert.True(world.SubmitRoag(new("wait")).Success); Assert.True(loaded.SubmitRoag(new("wait")).Success);
+        Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+        Assert.Equal(saved, File.ReadAllBytes(Slot));
+        var client = Client(world); Reload(client);
+        Assert.Same(world, Field("_session").GetValue(client));
+        Assert.Contains("continuing run", (string)Field("_notice").GetValue(client)!);
+    }
+    [Fact]
     public void OrdinaryLaunchResumesWorldAndMissingSlotStartsAloneWithoutWriting()
     {
         var fresh = WorldStartup.Open(Options.Parse(["--save", Slot, "--seed", "1337"]));

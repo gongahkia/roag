@@ -660,9 +660,9 @@ internal sealed partial class WorldGame
                     contract = n.Contract == null ? null : new { status = n.Contract.Status.ToString(), targets = n.Contract.Targets.Length, defeated = n.Contract.Defeated.Count, n.Contract.Failure }
                 }),
                 serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id) : null,
-                routeGates = native.Floors.Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
+                routeGates = (_session.State.Dungeon?.Floors ?? []).Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
                     && _session.Chunks.At(f.Exit) != Material.StairsDown)
-                    .Select(f => new { f.Stage, position = f.Exit, available = native.BossExitReceipts.Contains(f.Boss) }),
+                    .Select(f => new { f.Stage, position = f.Exit, available = _session.State.Dungeon!.BossExitReceipts.Contains(f.Boss) }),
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.DungeonMember.Id) : null,
                 chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.DungeonMember.Id) : null,
                 boonSprites = _panel == "dungeon-chest"

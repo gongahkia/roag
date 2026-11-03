@@ -11,7 +11,6 @@ internal sealed partial class WorldGame
     private readonly DungeonFeedback _dungeonFeedback = new();
     private long _dungeonPresentationStamp;
     private DungeonAudio? _dungeonAudio;
-    private (int Floor, bool Victory, bool Defeat, bool Boss)? _audioContext;
     private string _dungeonAudioScene = "";
 
     private void PlayDungeonSound(string kind)
@@ -22,21 +21,20 @@ internal sealed partial class WorldGame
 
     private void UpdateDungeonPresentation(double elapsed)
     {
-        if (_session.State.Dungeon is not { } run) return;
+        if (!_session.HasNativeParty) return;
+        var run = _session.State.Dungeon;
         long now = Stopwatch.GetTimestamp();
         double visualElapsed = _dungeonPresentationStamp == 0 ? 0 : Stopwatch.GetElapsedTime(_dungeonPresentationStamp, now).TotalSeconds;
         _dungeonPresentationStamp = now;
         // Native effects continue through menus, independently of paid game time.
         _dungeonFeedback.Advance(visualElapsed, InputFocused || _playtest != null, _session.State.Position.Floor);
-        var floor = run.Floors.Single(f => f.Contains(_session.State.Position));
-        bool boss = floor.Boss > 0 && _session.State.Actors.Any(a => a.Id == floor.Boss && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position));
-        var context = (_session.State.Position.Floor, run.Victory, _session.State.AwaitingContinuation, boss);
-        if (_audioContext != context)
-        {
-            _audioContext = context;
-            _dungeonAudioScene = run.Victory ? "victory" : _session.State.AwaitingContinuation ? "defeat"
-                : run.Stage == 4 ? "final_boss" : (boss ? "elite/" : "explore/") + floor.Biome;
-        }
+        var floor = run?.Floors.Single(f => f.Contains(_session.State.Position));
+        bool boss = _session.State.Actors.Any(a => a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
+            && (floor?.Boss == a.Id || a.Tactics?.Enemy?.Retained != null
+                && _session.Content.Entries.GetValueOrDefault(a.Archetype) is Roag.Core.Content.BossDefinition));
+        string biome = floor?.Biome ?? _session.Plan.BiomeAt(_session.State.Position.X, _session.State.Position.Y).ToString();
+        _dungeonAudioScene = run?.Victory == true || _session.State.Endgame.Victory ? "victory" : _session.State.AwaitingContinuation ? "defeat"
+            : run?.Stage == 4 ? "final_boss" : (boss ? "elite/" : "explore/") + biome;
         _dungeonAudio ??= new();
         _dungeonAudio.Update(_dungeonAudioScene, _preferences.MusicVolume, _preferences.EffectsVolume, !InputFocused, elapsed);
     }

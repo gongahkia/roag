@@ -28,7 +28,7 @@ def distance(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1]) if a[2] == b[2] else 100000
 
 class Client:
-    def __init__(self, output, seed, runtime_source=None, continuation=None, window_size='1280x800'):
+    def __init__(self, output, seed, runtime_source=None, continuation=None, window_size='1280x800', scene=None):
         self.output = output
         self.window_size = window_size
         output.mkdir(parents=True, exist_ok=False)
@@ -44,14 +44,15 @@ class Client:
         metadata = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             status=subprocess.check_output(['git', 'status', '--short'], cwd=ROOT, text=True),
             assemblies={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.runtime.glob('Roag*.dll')},
-            seed=seed, display=os.environ.get('DISPLAY'), audioBackend='OpenAL null / SDL dummy',
+            seed=seed, scene=scene, display=os.environ.get('DISPLAY'), audioBackend='OpenAL null / SDL dummy',
             continuation=str(continuation) if continuation else None)
         (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
         self.journal = (output / 'inputs.jsonl').open('w')
         self.sequence = 0
         self.launches = 0
         self.process = None
-        self.start(['--load'] if continuation else ['--new', '--seed', str(seed)])
+        flags = ['--load'] if continuation else ['--new', '--seed', str(seed)]
+        self.start([*flags, '--scene', scene] if scene else flags)
         if continuation and (continuation / 'handoff.json').exists():
             handoff = json.loads((continuation / 'handoff.json').read_text())
             assert self.ui['position'] == handoff['position']

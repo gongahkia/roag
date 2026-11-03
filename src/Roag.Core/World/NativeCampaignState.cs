@@ -38,7 +38,9 @@ public sealed partial class WorldSession
     /// <summary>Persistent living world with native party actions; bounded runs remain independently loadable.</summary>
     public static WorldSession CreateNativeCampaign(int seed, ClassKind kind = ClassKind.Adventurer)
     {
-        var world = CreateWorld(seed, null, null, roagNative: false, floorCount: 8, populateWorld: true);
+        // Initial exploration must use the native founder's actual night/weather
+        // sight after its timeline exists, without inheriting prototype sight.
+        var world = CreateWorld(seed, null, null, roagNative: false, floorCount: 8, populateWorld: true, observe: false);
         try
         {
             world.State.NativeCampaign = new();

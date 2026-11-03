@@ -8,6 +8,33 @@ namespace Roag.Tests.Client;
 public sealed class DungeonMapTests
 {
     [Fact]
+    public void CampaignMapShowsOnlyExploredLocalTerrainWithoutRevealingTheWorld()
+    {
+        using var world = WorldSession.CreateNativeCampaign(42);
+        Assert.Equal(world.Visible.Count, world.State.Chunks.Sum(c => c.Discovered.Count));
+        Assert.All(world.Visible, p => Assert.True(
+            Math.Pow(p.X - world.State.Position.X, 2) + Math.Pow(p.Y - world.State.Position.Y, 2)
+            <= Math.Pow(world.SightRadiusAt(world.State.Position), 2)));
+        string before = JsonSerializer.Serialize(world.State);
+        var map = DungeonMap.Build(world);
+        Assert.NotEmpty(map.Cells); Assert.Equal(128, map.Width); Assert.Equal(96, map.Height);
+        Assert.Equal(world.State.Position, map.Player);
+        Assert.All(map.Cells, c =>
+        {
+            Assert.Equal(map.Player.Floor, c.Position.Floor); Assert.True(world.Chunks.Seen(c.Position));
+            Assert.Equal(world.Visible.Contains(c.Position), c.Visible);
+            Assert.InRange(c.Position.X, map.Origin.X, map.Origin.X + map.Width - 1);
+            Assert.InRange(c.Position.Y, map.Origin.Y, map.Origin.Y + map.Height - 1);
+        });
+        Assert.Equal(before, JsonSerializer.Serialize(world.State));
+        var sight = world.Visible.ToHashSet();
+        world.RevealSurface(0, 0, WorldPlan.Size, WorldPlan.Size);
+        Assert.True(sight.SetEquals(world.Visible));
+        Assert.Equal(before, JsonSerializer.Serialize(world.State));
+        world.Visible.Clear();
+        Assert.All(DungeonMap.Build(world).Cells, c => Assert.False(c.Visible));
+    }
+    [Fact]
     public void MapContainsOnlyExploredCurrentFloorTerrainAndNeverAdvancesTheGame()
     {
         using var world = WorldSession.CreateDungeonRun(42);

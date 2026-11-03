@@ -14,6 +14,25 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void CampaignUsesNativeMenusAndPaidKeysWithoutThePrototypeAdapter()
+    {
+        using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);
+        Field("_roagAim").SetValue(client, "move"); Field("_nativeMapVisible").SetValue(client, true);
+        var hero = session.Party.Single(); string before = JsonSerializer.Serialize(session.State);
+        Assert.Contains(Controls(client, "dungeon-menu"), c => c.Id == "dungeon:trade");
+        Assert.Contains(Controls(client, "dungeon-class"), c => c.Id == "dungeon:class:7" && c.Sprite == "roag-class-hookrunner");
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Field("_panel").SetValue(client, "");
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Tab), true);
+        Assert.False((bool)Field("_nativeMapVisible").GetValue(client)!);
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(), true);
+        Invoke(client, "HandleRoagKeyboard", new KeyboardState(Keys.Space), true);
+        Assert.True(session.DungeonCombat.Clock > 0); Assert.True(hero.Health > 0);
+        Assert.False(session.State.RoagCombat); Assert.Empty(session.State.RoagCombatState);
+        Assert.Single(session.RoagFighters(), f => f.Id == hero.Id && f.Ready);
+    }
+    [Fact]
     public void TownTradeShowsIllustratedOffersAndFreeQuantitiesWithoutRemoteUndergroundPurchases()
     {
         using var session = WorldSession.CreateDungeonRun(37, survival: true); var client = Client(session);

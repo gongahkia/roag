@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Native campaign client (2026-11-03): delivered native controls, atlas/UI/feedback/settings/party selection now accept the actual campaign root through the explicit development scene; ordinary loading preserves both native run types. Initial campaign memory is populated only through the founder's native private sight, and camera viewport updates cannot expand it. Local maps expose explored current-floor terrain only. `native-campaign-world/client-reviewed` passes 111 affected checks; retained source inspection passes 2 scoped checks. Rendered town market/walking evidence exists, but v1–v3 exhausted recruitment budgets; v4 remains the live journey at this checkpoint. No natural recruitment/world boundary/full campaign acceptance or production fresh-run cutover is claimed.
+
+
 Full native-world foundation baseline (2026-11-03): immutable clean **48e32af0 / 2,041 passing tests**, zero failures/skips, under `native-campaign-world/integration`. Independent source/runner rehashes match all 2,290/838 recorded files. This covers the backend foundation, trade/daylight/civilian-death follow-ups; subsequent client campaign routing and initial private-sight fixes are outside this snapshot. Full A/B, rendered world journeys, delivery and all eight gates remain open.
 
 

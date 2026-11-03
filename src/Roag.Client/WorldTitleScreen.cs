@@ -16,7 +16,7 @@ internal sealed partial class WorldGame
         _titleBackdrop ??= new(WorldStartup.FreshSeed());
         _panel = "title"; _controllerPanel = ""; _controllerFocus = null;
         _session.ModalOpen = true; _session.Focused = false;
-        _dungeonAudio?.Stop(); _audioContext = null; ClearWorldSelection();
+        _dungeonAudio?.Stop(); _dungeonAudioScene = ""; ClearWorldSelection();
     }
 
     private void LeaveTitleScreen()
@@ -26,7 +26,7 @@ internal sealed partial class WorldGame
         _session.ModalOpen = false; _session.Focused = InputFocused;
         _panel = _session.State.Tactics!.NextAction == 1 ? "dungeon-class" : "";
         _notice = "WASD / arrows move one tile. F attacks, R special, X movement. Enter interacts.";
-        _dungeonAudio?.Stop(); _audioContext = null; _dungeonPresentationStamp = 0;
+        _dungeonAudio?.Stop(); _dungeonAudioScene = ""; _dungeonPresentationStamp = 0;
         UpdateMotions(TimeSpan.Zero); UpdateView();
     }
 

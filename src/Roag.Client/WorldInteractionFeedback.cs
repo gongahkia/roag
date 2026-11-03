@@ -49,7 +49,7 @@ internal static class WorldInspection
             if (actor.Kind == ActorKind.Person && !actor.Recruited && actor.Routine != null) detail += " " + session.RoutineDescription(actor);
             if (actor.EncounterId.Length > 0) detail += " " + session.EncounterDescription(actor.Id);
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
-            if (actor.Tactics?.Enemy is { } memory)
+            if (actor.Tactics?.Enemy is { Retained: null } memory)
             {
                 var definition = EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
                 detail = definition.Name + ". " + stats;

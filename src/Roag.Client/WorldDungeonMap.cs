@@ -17,15 +17,15 @@ internal sealed partial class WorldGame
 
     private Rectangle DungeonMapBounds()
     {
-        var floor = _session.State.Dungeon!.Floors.Single(f => f.Contains(_session.State.Position));
+        var floor = _session.State.Dungeon?.Floors.Single(f => f.Contains(_session.State.Position));
         int titleWidth = "MAP / Tab".Length * (_uiFonts?.Advance ?? 8);
-        return new(_map.X + 4, _map.Y + 4, Math.Max((int)Math.Ceiling(floor.Width * 1.3f), titleWidth) + 16,
-            (int)Math.Ceiling(floor.Height * 1.3f) + 32);
+        return new(_map.X + 4, _map.Y + 4, Math.Max((int)Math.Ceiling((floor?.Width ?? 128) * 1.3f), titleWidth) + 16,
+            (int)Math.Ceiling((floor?.Height ?? 96) * 1.3f) + 32);
     }
 
     private void DrawDungeonMap()
     {
-        if (!_nativeMapVisible || _session.State.Dungeon == null || _panel.Length > 0 || _session.State.AwaitingContinuation) return;
+        if (!_nativeMapVisible || !_session.HasNativeParty || _panel.Length > 0 || _session.State.AwaitingContinuation) return;
         var stamp = (_session, _session.State.Position, _session.State.Tactics!.NextEvent, _session.State.Tactics.ControlledActor);
         if (_nativeMap == null || _nativeMapStamp != stamp) { _nativeMap = DungeonMap.Build(_session); _nativeMapStamp = stamp; }
         var map = _nativeMap; var bounds = DungeonMapBounds();

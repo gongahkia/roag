@@ -155,7 +155,7 @@ public sealed partial class WorldSession
         if (state.LastEncounterReward is { } reward && (reward.Gold is < 0 or > 9999 || reward.Food is < 0 or > 9999 || reward.Experience is < 0 or > 9999
             || reward.LevelUps == null || reward.LevelUps.Length > 4 || reward.LevelUps.Any(n => string.IsNullOrWhiteSpace(n) || n.Length > 180))) throw new InvalidDataException("Invalid encounter reward.");
     }
-    private void PopulateDiscoveries()
+    private void PopulateDiscoveries(bool observe)
     {
         State.Discoveries = DiscoveryPlacement.Generate(Plan, Content);
         for (int index = 0; index < State.Discoveries.Count; index++)
@@ -174,7 +174,7 @@ public sealed partial class WorldSession
             if (definition.Supplies.Count > 0 || definition.Rewards.Length > 0)
                 State.Loot.Add(new() { Id = d.Id, Position = d.Position, Contents = definition.Supplies.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value), Choices = RewardChoices(definition.Rewards, index, 5200) });
         }
-        Reveal();
+        if (observe) Reveal();
     }
     private string[] RewardChoices(IEnumerable<string> pool, int id, int salt)
     {

@@ -37,7 +37,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         => CreateWorld(seed, content, diagnostics, roagNative, floorCount, populateWorld: true);
 
     private static WorldSession CreateWorld(int seed, ContentCatalog? content, Action<WorldDiagnosticEvent>? diagnostics,
-        bool roagNative, int floorCount, bool populateWorld)
+        bool roagNative, int floorCount, bool populateWorld, bool observe = true)
     {
         content ??= ContentCatalog.Default;
         if (content.Issues.Count > 0) throw new InvalidDataException("Invalid content catalog.");
@@ -72,8 +72,8 @@ public sealed partial class WorldSession : IGameSession, IDisposable
             for (int i = 0; i < 3; i++) s.Actors.Add(ActorFactory.Create(content, i == 0 ? content.Game.Beast : content.Game.Raider, seed, 30000 + site.Id * 4 + i,
                 (site.Center with { Floor = i == 2 ? 1 : 0 }).Offset(i * 3 - 4, 4), site.Id % 24, faction: site.Id % 6));
         }
-        var session = new WorldSession(plan, s, content, diagnostics);
-        session.NewLoneHero();
+        var session = new WorldSession(plan, s, content, diagnostics, observe);
+        session.NewLoneHero(observe);
         if (!populateWorld)
         {
             // Bounded runs share persistent terrain and actor infrastructure,
@@ -84,9 +84,10 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         }
         if (roagNative) { foreach (var site in plan.Sites.Where(site => WorldRandom.Hash(seed, site.Id, salt: 9301) % 4 == 0)) s.RoagChallengeSites.Add(site.Id); session.InitializeRoagParty(); }
         session.PopulateAdventures();
-        session.PopulateDiscoveries();
+        session.PopulateDiscoveries(observe);
         session.PopulateEncounterGroups();
-        session.PrepareLocalCollision(force: true); session.Reveal();
+        session.PrepareLocalCollision(force: true);
+        if (observe) session.Reveal();
         var rng = WorldRandom.Stream(seed, 200);
         int townId = rng.Next(24), siteId = rng.Next(48);
         s.Arc = new() { Kind = (ArcKind)rng.Next(3), TownId = townId, SiteId = siteId, PatronId = 1000 + townId * 16 + 7 };
@@ -95,7 +96,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         s.Journal.Add(plan.History[0]);
         return session;
     }
-    private void NewLoneHero()
+    private void NewLoneHero(bool observe = true)
     {
         State.Party.Clear(); State.PartyOrdinal++; State.WorkRally = null; PartyTravelling = false;
         var town = Plan.Towns.MinBy(t => t.Center.Distance(State.Position with { Floor = 0 }))!;
@@ -103,7 +104,8 @@ public sealed partial class WorldSession : IGameSession, IDisposable
         var hero = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, State.Position, town.Id, town.Culture, town.FactionId);
         hero.Job = "traveller"; hero.Position = State.Position; hero.Recruited = true;
         State.Actors.Add(hero); State.Party.Add(hero.Id); State.AwaitingContinuation = false;
-        PrepareLocalCollision(force: true); Reveal();
+        PrepareLocalCollision(force: true);
+        if (observe) Reveal();
     }
     public int AdvanceFrame(TimeSpan elapsed)
     {
@@ -347,7 +349,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     /// <summary>Observe the local surface view without occlusion; bounds are exclusive on the right/bottom.</summary>
     public void RevealSurface(int left, int top, int right, int bottom)
     {
-        if (State.Position.Floor != 0) return;
+        if (State.Tactics != null || State.Position.Floor != 0) return;
         if (right < left || bottom < top) throw new ArgumentException("Surface bounds must be ordered.");
         var view = (Math.Clamp(left, 0, WorldPlan.Size), Math.Clamp(top, 0, WorldPlan.Size),
             Math.Clamp(right, 0, WorldPlan.Size), Math.Clamp(bottom, 0, WorldPlan.Size));
