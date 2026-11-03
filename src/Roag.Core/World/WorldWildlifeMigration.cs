@@ -50,6 +50,8 @@ public sealed partial class WorldSession
     }
     private bool WildlifeThreatened(Actor actor, EcologyRules rules)
     {
+        if (State.NativeCampaign != null && UsesTacticalTurns(actor.Id))
+            return DungeonCombat.SelectEnemyTarget(actor.Id) != null || NativeFleeThreat(actor) != null;
         if (rules.Behavior != "flee") return IsHostile(actor);
         foreach (long id in State.Party)
         { var member = ActorById(id); if (member.Life != LifeState.Dead && member.Position.Distance(actor.Position) <= rules.Notice) return true; }
@@ -158,9 +160,17 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid wildlife migration search or target.");
         }
         var residents = state.Actors.Where(a => a.Life != LifeState.Dead && a.Habitat != null).ToArray();
-        if (residents.GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1)
+        if (residents.GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1 && !SharesNativeNest(state, g.ToArray()))
             || residents.Where(a => a.Migration?.Target != null).GroupBy(a => a.Migration!.Target!.Value.Chunk).Any(g => g.Count() > 1)
             || residents.Any(a => a.Migration?.Target is { } target && residents.Any(b => b.Id != a.Id && b.Habitat!.Value.Chunk == target.Chunk)))
             throw new InvalidDataException("Duplicate wildlife home or migration reservation.");
+    }
+
+    private static bool SharesNativeNest(WorldState state, Actor[] members)
+    {
+        if (state.NativeCampaign is not { } campaign || members.Length != 2
+            || members[0].Habitat != members[1].Habitat || members[0].Archetype != members[1].Archetype) return false;
+        return campaign.Breeding.Births.TryGetValue(members[0].Id, out var first) && first.Parent == members[1].Id
+            || campaign.Breeding.Births.TryGetValue(members[1].Id, out var second) && second.Parent == members[0].Id;
     }
 }

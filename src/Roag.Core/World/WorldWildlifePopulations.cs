@@ -36,10 +36,11 @@ public sealed partial class WorldSession
             Deaths = actor.Life == LifeState.Dead ? 1 : 0, LastDeath = actor.Life == LifeState.Dead ? State.Tick : 0,
             Recovery = actor.Life == LifeState.Dead ? WildlifeRecovery.Recovering : WildlifeRecovery.Alive,
             RecoverAt = actor.Life == LifeState.Dead ? State.Tick + WildlifeRecoveryTicks : 0 };
-        State.WildlifePopulations.Add(actor.Id, population); return population;
+        State.WildlifePopulations.Add(actor.Id, population); RegisterNativeBrood(actor); return population;
     }
     private void NoteWildlifeDeath(Actor actor)
     {
+        State.NativeCampaign?.Breeding.After.Remove(actor.Id);
         var population = RegisterWildlifePopulation(actor); if (population == null) return;
         population.Home = actor.Habitat!.Value; population.Deaths = population.Generation + 1; population.LastDeath = State.Tick;
         population.RecoverAt = State.Tick + WildlifeRecoveryTicks; population.Recovery = WildlifeRecovery.Recovering;
@@ -71,6 +72,7 @@ public sealed partial class WorldSession
                 // Any residual personal cargo decays with the old body and is accounted.
                 State.ResourcesLost += actor.Cargo.Values.Sum(v => (long)v);
                 State.Tactics?.Participants.Remove(id);
+                State.NativeCampaign?.Breeding.Births.Remove(id); State.NativeCampaign?.Breeding.After.Remove(id);
                 State.Loot.Remove(cache); State.RewardedEncounterIds.Remove(id); State.Actors.Remove(actor); population.History.Remove(id);
                 reclaimed = true; break;
             }
@@ -123,6 +125,13 @@ public sealed partial class WorldSession
     {
         var actor = ActorById(actorId);
         if (actor.WildlifePopulation == 0 || !State.WildlifePopulations.TryGetValue(actor.WildlifePopulation, out var population)) return "";
+        if (State.NativeCampaign is { } campaign)
+        {
+            string birth = campaign.Breeding.Births.TryGetValue(actorId, out var born)
+                ? $"Born on day {born.Tick / (TicksPerHour * 24) + 1} from a surviving nearby population. " : "";
+            return birth + (actor.Life == LifeState.Dead ? "Surviving neighbours can breed or migrate into viable habitat; this individual's remains persist."
+                : "Healthy, undisturbed wildlife can raise new inhabitants when local food and space allow.");
+        }
         if (population.Actor != actorId || population.Recovery == WildlifeRecovery.Alive) return "A later generation can return after hunting if the habitat stays viable.";
         return population.Recovery switch
         {
