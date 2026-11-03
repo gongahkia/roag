@@ -36,6 +36,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-cooperate") BuildDungeonCooperationControls(box);
             else if (_panel == "dungeon-skills") BuildDungeonSkillControls(box);
             else if (_panel == "dungeon-trade") BuildDungeonTradeControls(box);
+            else if (_panel == "dungeon-world-loot") BuildWorldCacheControls(box);
             else if (_panel == "dungeon-corpse") BuildDungeonCorpseControls(box);
             else if (_panel == "dungeon-work") BuildDungeonWorkControls(box);
             else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
@@ -157,6 +158,7 @@ internal sealed partial class WorldGame
         if (!id.StartsWith("dungeon:", StringComparison.Ordinal)) return false;
         PlayDungeonSound("menu");
         var parts = id.Split(':');
+        if (parts[1] == "world-loot") { ClaimWorldCache(int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture)); return true; }
         if (parts[1] == "work" || parts[1].StartsWith("work-", StringComparison.Ordinal))
         { ActivateDungeonWorkControl(parts); return true; }
         if (parts[1] == "skills" || parts[1].StartsWith("skill-", StringComparison.Ordinal))
@@ -323,6 +325,8 @@ internal sealed partial class WorldGame
         var door = _session.State.Tactics.Doors.Nodes.FirstOrDefault(d => d.Position.Distance(actor.Position) == 1
             && _session.Chunks.At(d.Position) == Material.ClosedDoor && _session.Visible.Contains(d.Position));
         if (door != null) { CommitRoag(new("open_door", Target: door.Id)); return; }
+        var worldCache = _session.State.Loot.FirstOrDefault(c => !c.Taken && c.Position.Distance(actor.Position) <= 1 && _session.Visible.Contains(c.Position));
+        if (worldCache != null) { OpenWorldCache(worldCache); return; }
         CommitRoag(new("use_stairs"));
     }
 
@@ -454,6 +458,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
         if (_panel == "dungeon-skills") title = "UNLOCKED SKILLS";
         if (_panel == "dungeon-trade") title = "TOWN TRADE";
+        if (_panel == "dungeon-world-loot") title = "SUPPLIES AND TREASURE";
         if (_panel == "dungeon-corpse") title = "RECOVER FALLEN EQUIPMENT";
         if (_panel == "dungeon-work") title = "WORK AND CRAFTING";
         if (_panel == "dungeon-camp") title = "REST AND WATCH";
@@ -468,6 +473,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-cooperate") { DrawDungeonCooperationPanel(box, x, y); return; }
         if (_panel == "dungeon-skills") { DrawDungeonSkillsPanel(box, x, y); return; }
         if (_panel == "dungeon-trade") { DrawDungeonTradePanel(box, x, y); return; }
+        if (_panel == "dungeon-world-loot") { DrawWorldCachePanel(box, x, y); return; }
         if (_panel == "dungeon-corpse") { DrawDungeonCorpsePanel(box, x, y); return; }
         if (_panel == "dungeon-work") { DrawDungeonWorkPanel(box, x, y); return; }
         if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }

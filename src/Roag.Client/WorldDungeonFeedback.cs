@@ -47,7 +47,7 @@ internal sealed partial class WorldGame
             "Moved" when _session.State.Party.Contains(e.Source) => "step", "TileEntered" when _session.State.Party.Contains(e.Source) => "terrain",
             "WindupStarted" or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" => "enemy", "DamageTaken" when _session.State.Party.Contains(e.Target) => "hit",
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
-            "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" => "chest",
+            "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" or "WorldLootClaimed" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
             "CampFireLit" or "CampFireExtinguished" => "terrain", "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
@@ -59,7 +59,7 @@ internal sealed partial class WorldGame
         {
             "DamageTaken" or "StarvationDamage" => "-" + e.Amount, "Healed" or "WellFedHealing" => "+" + e.Amount, "DamageBlocked" => "BLOCK",
             "CampAlarm" => "ALARM", "ActivityStopped" => e.Ability.StartsWith("completed", StringComparison.Ordinal) ? "DONE" : "AWAKE",
-            "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD",
+            "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD", "WorldLootClaimed" => "RECOVERED",
             "RetainedSkillUsed" => "SKILL", "Stunned" => "STUN",
             "ConditionApplied" => e.Ability == "ability.hunters-mark" ? "MARK" : e.Ability == "ability.stand-fast" ? "BRACE" : "BLEED",
             "StressChanged" => e.Ability == "ability.dread" ? "DREAD +" + e.Amount : "CALM " + e.Amount,
@@ -218,7 +218,7 @@ internal sealed partial class WorldGame
     {
         if (!_session.HasNativeParty || !_preferences.CombatEffects || _dungeonFeedback.Celebration is not { } burst) return;
         double age = _dungeonFeedback.Time - burst.Born;
-        var area = _panel == "dungeon-chest" ? PanelBox(width, height) : _map;
+        var area = _panel is "dungeon-chest" or "dungeon-world-loot" ? PanelBox(width, height) : _map;
         int count = burst.Claimed ? 40 : 24;
         for (int side = 0; side < 2; side++) for (int i = 0; i < count; i++)
         {

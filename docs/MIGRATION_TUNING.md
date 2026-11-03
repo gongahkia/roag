@@ -1,5 +1,8 @@
 # Native migration tuning
 
+World cache recovery (2026-11-03): one confirmed collection uses the common 100-cost recovery at the acting member's speed, on/beside the privately observed cache (Manhattan range one, same floor), outside that member's local combat. A source guarded discovery remains guarded. Existing fixed three-piece gear offers/contents/selected receipts are retained; native choice indices are one-based, with zero for supplies-only. Regular caches require all contents plus the chosen piece to fit the existing 9,999-per-stack shared inventory cap, and reject freely otherwise. Returned work bundles preserve their original partial collection rule and keep non-fitting stock. Collection emits normal owner currency events and provisions feedback; it does not restore hunger/HP or trigger meal effects.
+
+
 Native world fall consequences (2026-11-03): preserve the retained combat values: a party member becoming downed immediately adds ten stress to other conscious members; the existing fallen-friend memory adds eight stress (mood −8) to living friends, positive-trust contacts and companions. Its original memory lifetime/deduplication remain in `Remember`. Later bleedout death repeats neither shock nor memory. A direct living-to-dead fall adds one wound, capped at ten, in addition to the existing heavy-hit wound; death after downing adds no further fall wound. Authored ecological drops are unchanged, habitat death pressure remains 120 and the existing population receipt is saved. That legacy receipt does not enable the disabled timer replacement in native campaigns: required natural reproduction remains separate work.
 
 

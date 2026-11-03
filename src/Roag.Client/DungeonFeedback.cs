@@ -37,7 +37,7 @@ internal sealed class DungeonFeedback
         { LastHit = Time; ShakeStrength = playerHit ? 4 : 1.7f; }
         if (e.Kind == "BoonGranted" && e.Ability.StartsWith("core:boon/", StringComparison.Ordinal))
         { Reward = new(e.Ability, Time); Celebration = new(Time, true); }
-        if (e.Kind == "VaultOpened") Celebration = new(Time, true);
+        if (e.Kind is "VaultOpened" or "WorldLootClaimed") Celebration = new(Time, true);
         if (label == null && e.Kind is not ("AttackPerformed" or "ChestClaimed" or "VaultOpened")) return;
         var (x, y) = AttackGeometry.Offset(facing);
         _effects.Add(new(e.Position, e.Kind, label ?? "", Time, e.Source, e.Target,

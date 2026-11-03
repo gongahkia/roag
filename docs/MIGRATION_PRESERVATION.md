@@ -1,5 +1,8 @@
 # Migration preservation checklist
 
+Native world loot checkpoint (2026-11-03): source caches, ecological remains and returned work bundles now have member-owned paid native collection and illustrated client choices, with original receipts/gear alternatives, private physical access, source guard checks, shared pack accounting and currency event ownership. No food healing/eating occurs on collection. Checked normal capacity/partial work bundles preserve valid saves. 130 affected checks and a final overlapping 11-case private ownership/campaign/client subset pass (`native-campaign-world/loot-v2`, `loot-reviewed`). Natural `rendered-loot-v1` is incomplete: no cache or discovery route was yet observed from the continuing town save. Paid rumour/social access and natural collection/rendered acceptance remain required. Full A/B and all gates stay open.
+
+
 Native fall/death integration (2026-11-03): actual native campaigns now retain source relationship memories/party downing shock and habitat-owned wildlife remains/death-pressure receipts. Civilian death needs no invented controller; permanent death after downing repeats neither fall shock nor injury. 43 affected lifecycle/death/rescue/corpse/persistence checks pass (`native-campaign-world/life-party`), with exact paid continuation for valid saved worlds. Explicit unit fixtures are not rendered deaths/ecology. World remains pickup, broader ecology/reproduction, encounter/group rewards and society/routines still need integration.
 
 

@@ -11,6 +11,14 @@ namespace Roag.Core.Tests.Client;
 
 public sealed class DungeonFeedbackTests
 {
+    [Fact]
+    public void WorldLootUsesTheChestCelebrationWithoutInventingAnOwnedBoon()
+    {
+        var feedback = new DungeonFeedback();
+        feedback.Observe(new(1, 0, "WorldLootClaimed", 1, 0, 1, new(100, 100), 3), "RECOVERED", Facing.South, new(100, 100), false);
+        Assert.True(feedback.Celebration?.Claimed); Assert.Null(feedback.Reward);
+    }
+
     [Theory]
     [InlineData(1024, 720)]
     [InlineData(1440, 900)]

@@ -51,7 +51,7 @@ internal sealed partial class WorldGame
         if (_session.HasNativeParty && _nativeMapVisible && DungeonMapBounds().Contains(pointer))
         { _notice = "The explored map is informational. Tab hides it; movement uses the keyboard."; return; }
         if (_session.HasNativeParty && _roagAim == "fixture") { CommitRoag(SelectedRoagAim(0, 0)); return; }
-        if(_session.HasNativeParty && _roagAim == "move" && (TryOpenDungeonCorpse(pointer) || TryOpenDungeonPerson(pointer) || TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer))) return;
+        if(_session.HasNativeParty && _roagAim == "move" && (TryOpenDungeonCorpse(pointer) || TryOpenDungeonPerson(pointer) || TryOpenDungeonRoute(pointer) || TryOpenDungeonChest(pointer) || TryOpenDungeonService(pointer) || TryOpenDungeonVault(pointer) || TryOpenWorldCache(pointer))) return;
         if(_roagAim is "move" or "dash") { _notice="Choose a direction with the keyboard."; return; }
         var world=_camera.ScreenToWorld(new(pointer.X,pointer.Y));
         var p=new WorldPosition((int)Math.Floor(world.X),(int)Math.Floor(world.Y),_session.State.Position.Floor);

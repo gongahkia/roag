@@ -14,6 +14,27 @@ namespace Roag.Tests.Client;
 public sealed class WorldMouseTests
 {
     [Fact]
+    public void WorldTreasureOffersIllustratedChoicesAndOnlyConfirmationSpendsAnAction()
+    {
+        using var session = WorldSession.CreateDungeonRun(42, survival: true); var client = Client(session);
+        Field("_dungeonFeedback").SetValue(client, new DungeonFeedback());
+        var cell = session.DungeonMember.Position.Offset(1, 0); session.Chunks.Edit(cell, Material.Floor);
+        var cache = new LootCache { Id = "unit-world-treasure", Position = cell, Contents = new() { ["gold"] = 3 },
+            Choices = session.Content.All<Roag.Core.Content.ItemDefinition>().Where(i => i.Slot != "none" && !i.Tags.Contains("signature"))
+                .Take(3).Select(i => i.Id).ToArray() };
+        session.State.Loot.Add(cache); session.Reveal();
+        string before = JsonSerializer.Serialize(session.State);
+        Invoke(client, "OpenWorldCache", cache);
+        var offers = Controls(client, "dungeon-world-loot").Where(c => c.Id.StartsWith("dungeon:world-loot:")).ToArray();
+        Assert.Equal(3, offers.Length);
+        Assert.All(offers, c => { Assert.True(c.Enabled); Assert.False(string.IsNullOrEmpty(c.Sprite)); Assert.InRange(c.Bounds.Bottom, 0, 602); });
+        Assert.Equal(before, JsonSerializer.Serialize(session.State));
+        Invoke(client, "ActivateDungeonControl", "dungeon:world-loot:2");
+        Assert.True(cache.Taken); Assert.Equal(cache.Choices[1], cache.Selected);
+        Assert.Equal("", Field("_panel").GetValue(client)); Assert.True(session.DungeonCombat.Clock > 0);
+    }
+
+    [Fact]
     public void CampaignUsesNativeMenusAndPaidKeysWithoutThePrototypeAdapter()
     {
         using var session = WorldSession.CreateNativeCampaign(42); var client = Client(session);

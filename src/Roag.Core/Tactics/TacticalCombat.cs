@@ -223,6 +223,8 @@ public sealed partial class TacticalCombat
                 return PreviewRetainedSkill(actor, intent);
             case TacticalAction.Trade:
                 return PreviewTrade(actor, intent.Work);
+            case TacticalAction.CollectCache:
+                return PreviewWorldLoot(actor, intent);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -321,6 +323,8 @@ public sealed partial class TacticalCombat
                     CommitRetainedSkill(actor, executed, action); break;
                 case TacticalAction.Trade:
                     CommitTrade(actor, executed.Work!, action); break;
+                case TacticalAction.CollectCache:
+                    CommitWorldLoot(actor, executed, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;

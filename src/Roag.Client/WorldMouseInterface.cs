@@ -622,6 +622,13 @@ internal sealed partial class WorldGame
                 rescuers = _session.State.Actors.Where(a => a.Tactics?.Resident != null && _session.Visible.Contains(a.Position))
                     .Select(a => new { a.Id, a.Position, medicine = a.Cargo.GetValueOrDefault("medicine"), activity = a.Tactics!.Resident }),
                 loot = _session.State.Tactics.Loot.Drops.Where(d => d.CarriedBy == 0 && _session.Visible.Contains(d.Position)),
+                worldCaches = _session.State.Loot.Where(c => !c.Taken && _session.Visible.Contains(c.Position))
+                    .Select(c => new { c.Id, c.Position, name = _session.LootName(c), sprite = WorldSession.LootSprite(c) }),
+                worldLoot = _panel == "dungeon-world-loot" && SelectedWorldCache is { } worldCache ? new
+                {
+                    worldCache.Id, worldCache.Position, worldCache.Contents,
+                    choices = worldCache.Choices.Select(id => new { id, _session.Item(id).Name, _session.Item(id).Sprite })
+                } : null,
                 menuFocus = _controllerFocus,
                 mapVisible = _nativeMapVisible,
                 feedback = _dungeonFeedback == null ? null : new

@@ -46,27 +46,10 @@ public sealed partial class WorldSession
     {
         var cache = State.Loot.FirstOrDefault(c => c.Position == target && !c.Taken);
         if (cache == null || State.Position.Distance(target) > 1) return new(false, "Approach an unopened cache.");
-        var discovery = State.Discoveries.FirstOrDefault(d => d.Id == cache.Id);
-        if (discovery != null && DiscoveryGuarded(discovery)) return new(false, "Living foes still guard these supplies.");
-        if (IsWorkSupplyCache(cache))
-        {
-            int picked = 0;
-            foreach (var (stack, count) in cache.Contents.ToArray())
-            {
-                int amount = Math.Min(count, Math.Max(0, 9999 - Count(stack)));
-                Add(stack, amount); cache.Contents[stack] -= amount; picked += amount;
-            }
-            cache.Taken = cache.Contents.Values.All(v => v == 0);
-            return new(picked > 0, picked > 0 ? "Recovered " + picked + " supplies." + (cache.Taken ? "" : " The remaining bundle stays here.") : "Make room in the pack before recovering this supply bundle.");
-        }
-        if (cache.Choices.Length > 0 && !cache.Choices.Contains(choice)) return new(false, "Choose one of the three offered pieces of equipment.");
-        foreach (var (item, amount) in cache.Contents) Add(item, amount);
-        if (cache.Choices.Length > 0) { var item = Item(choice); Add(item.Stack, 1); cache.Selected = choice; }
-        cache.Taken = true;
-        string recovered = "Recovered " + string.Join(", ", cache.Contents.Select(p => p.Value + " " + (Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key)))
-            + (cache.Selected is { } selected ? "; chose " + Item(selected).Name : "") + ".";
-        Log(recovered); return new(true, recovered);
+        var quote = QuoteLootAt(State.Position, cache, choice);
+        return quote.Valid ? ApplyLoot(cache, quote) : new(false, quote.Reason);
     }
+
     private ActionResult Equip(long actorId, string itemId)
     {
         var actor = Party.FirstOrDefault(a => a.Id == actorId && a.Life == LifeState.Alive);
