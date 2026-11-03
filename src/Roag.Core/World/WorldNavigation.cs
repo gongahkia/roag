@@ -40,7 +40,7 @@ public sealed partial class WorldSession
                 Visit(new(TacticalAction.Move, facing, next));
             }
             if (StairLanding(current) is { } endpoint && allowed(endpoint) && CanEnter(endpoint, actor.Id))
-                Visit(new(TacticalAction.UseStairs, actor.Tactics!.Facing, endpoint));
+                Visit(new(TacticalAction.UseStairs, actor.Tactics?.Facing ?? Facing.North, endpoint));
 
             void Visit(WorldNavigationStep step)
             {

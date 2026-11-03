@@ -58,7 +58,8 @@ public sealed partial class WorldSession
         return false;
     }
     private bool WildlifeDestinationClaimed(Actor actor, ChunkKey key) => State.Actors.Any(a => a.Id != actor.Id
-        && a.Life != LifeState.Dead && (a.Habitat?.Chunk == key || a.Migration?.Target?.Chunk == key));
+        && a.Life != LifeState.Dead && (a.Habitat?.Chunk == key || a.Migration?.Target?.Chunk == key)
+        && !RelocatingNativeFamily(State, actor, a, key));
     private bool WildlifeDestinationSuitable(Actor actor, EcologyRules rules, WorldPosition home)
     {
         var view = HabitatAt(home);
@@ -160,17 +161,24 @@ public sealed partial class WorldSession
                 throw new InvalidDataException("Invalid wildlife migration search or target.");
         }
         var residents = state.Actors.Where(a => a.Life != LifeState.Dead && a.Habitat != null).ToArray();
-        if (residents.GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1 && !SharesNativeNest(state, g.ToArray()))
-            || residents.Where(a => a.Migration?.Target != null).GroupBy(a => a.Migration!.Target!.Value.Chunk).Any(g => g.Count() > 1)
-            || residents.Any(a => a.Migration?.Target is { } target && residents.Any(b => b.Id != a.Id && b.Habitat!.Value.Chunk == target.Chunk)))
+        if (residents.GroupBy(a => a.Habitat!.Value.Chunk).Any(g => g.Count() > 1 && !SharesNativeHabitat(state, g.ToArray()))
+            || residents.Where(a => a.Migration?.Target != null).GroupBy(a => a.Migration!.Target!.Value.Chunk)
+                .Any(g => g.Count() > 1 && (!SharesNativeHabitat(state, g.ToArray()) || g.Any(a => a.Habitat!.Value.Chunk != g.Key)))
+            || residents.Any(a => a.Migration?.Target is { } target && residents.Any(b => b.Id != a.Id && b.Habitat!.Value.Chunk == target.Chunk
+                && !RelocatingNativeFamily(state, a, b, target.Chunk))))
             throw new InvalidDataException("Duplicate wildlife home or migration reservation.");
     }
 
-    private static bool SharesNativeNest(WorldState state, Actor[] members)
+    private static bool RelocatingNativeFamily(WorldState state, Actor first, Actor second, ChunkKey key)
+        => first.Habitat?.Chunk == key && second.Habitat?.Chunk == key && RelatedNativeWildlife(state, first, second);
+
+    private static bool SharesNativeHabitat(WorldState state, Actor[] members)
+        => members.Length == 2 && RelatedNativeWildlife(state, members[0], members[1]);
+
+    private static bool RelatedNativeWildlife(WorldState state, Actor firstActor, Actor secondActor)
     {
-        if (state.NativeCampaign is not { } campaign || members.Length != 2
-            || members[0].Habitat != members[1].Habitat || members[0].Archetype != members[1].Archetype) return false;
-        return campaign.Breeding.Births.TryGetValue(members[0].Id, out var first) && first.Parent == members[1].Id
-            || campaign.Breeding.Births.TryGetValue(members[1].Id, out var second) && second.Parent == members[0].Id;
+        if (state.NativeCampaign is not { } campaign || firstActor.Archetype != secondActor.Archetype) return false;
+        return campaign.Breeding.Births.TryGetValue(firstActor.Id, out var first) && first.Parent == secondActor.Id
+            || campaign.Breeding.Births.TryGetValue(secondActor.Id, out var second) && second.Parent == firstActor.Id;
     }
 }

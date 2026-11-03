@@ -157,7 +157,7 @@ public sealed partial class WorldSession
             }
             else if (path.Count > 0) { MoveWorker(worker, path[0]); Contact(); }
         }
-        else if (State.Tick % 5 == 0 && worker.Position.Floor == target.Floor)
+        else if (State.Tick % 5 == 0 && (State.NativeCampaign != null || worker.Position.Floor == target.Floor))
         {
             var next = ResidentStep(worker, target); MarkResidentBlocked(worker, next == worker.Position);
             if (next == worker.Position) order.Status = "No free approach for " + activity.ToLowerInvariant() + "; waiting for access";

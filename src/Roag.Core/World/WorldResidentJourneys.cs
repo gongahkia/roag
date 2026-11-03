@@ -31,6 +31,16 @@ public sealed partial class WorldSession
     }
     private WorldPosition ResidentStep(Actor actor, WorldPosition target)
     {
+        if (State.NativeCampaign != null && target.Floor != actor.Position.Floor)
+        {
+            // Cross-floor residents use the same real stair edges as the party.
+            // A single-floor cached journey cannot represent this route, even
+            // when blocked: retaining its remote target made saves invalid.
+            actor.Journey = null;
+            var goals = Directions.Select(d => target.Offset(d.X, d.Y)).Append(target)
+                .Where(p => CanEnter(p, actor.Id)).ToHashSet();
+            return Navigate(actor, goals, Plan.Contains)?.Destination ?? actor.Position;
+        }
         var journey = actor.Journey;
         if (journey == null || journey.Target != target || journey.Next == journey.Steps.Count
             && (journey.Steps.Count > 0 || State.Tick >= journey.RetryAt || journey.Revision != State.NavigationRevision))

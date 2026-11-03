@@ -8,10 +8,10 @@ namespace Roag.Core.Tests.World;
 
 public sealed class NativeBreedingTests
 {
-    private static (WorldSession World, Actor Parent) Prepare()
+    internal static (WorldSession World, Actor Parent) Prepare(string species = "character.rabbit")
     {
         var world = NativeSocietyTests.AtTick(49); var hero = world.Party.Single();
-        var habitat = WildlifePreview.Find(world, "character.rabbit");
+        var habitat = WildlifePreview.Find(world, species);
         hero.Position = world.State.Position = habitat.Home; world.Reveal();
         var parent = world.State.Actors.Single(a => a.Habitat == habitat.Home);
         foreach (var (x, y) in WorldSession.Directions) world.Chunks.Edit(habitat.Home.Offset(x, y), Material.Floor);
@@ -22,7 +22,7 @@ public sealed class NativeBreedingTests
         return (world, parent);
     }
 
-    private static void CrossPhase(WorldSession world)
+    internal static void CrossPhase(WorldSession world)
     {
         for (int i = 0; i < 12; i++) Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
         Assert.Equal(50, world.State.Tick);

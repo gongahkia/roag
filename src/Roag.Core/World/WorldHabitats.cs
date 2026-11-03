@@ -100,6 +100,9 @@ public sealed partial class WorldSession
     private static int Vegetation(Material material) => material == Material.Tree ? 8 : material == Material.Grass ? 2 : 0;
     private void RecordHabitatClearing(WorldPosition position, Material before, Material after)
     {
+        // A changed cave roost has no vegetation weight, but its inhabitants
+        // still need to reconsider the physical home on their next world phase.
+        if (State.NativeCampaign != null && before != after) WakeHabitatWildlife(position);
         int change = Vegetation(before) - Vegetation(after); if (change == 0) return;
         var state = SettleHabitat(position); int index = position.LocalIndex;
         int loss = Math.Clamp(state.LandLoss.GetValueOrDefault(index) + change, 0, 8);
