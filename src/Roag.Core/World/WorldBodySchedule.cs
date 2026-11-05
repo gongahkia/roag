@@ -88,7 +88,12 @@ public sealed partial class WorldSession
         foreach (var work in State.Work) if (work.Worker > 0 && !work.Suspended && !RoutineInterruptsWork(ActorById(work.Worker))) _bodyWorkers.Add(work.Worker);
         foreach (var actor in State.Actors) if (OccupationActive(actor)) _bodyWorkers.Add(actor.Id);
         _bodyNear.Clear();
-        ActorIndex.AddNearTo(State.Position, 100, _bodyNear);
+        if (State.NativeCampaign != null)
+        {
+            foreach (var member in Party)
+                if (member.Life != LifeState.Dead) ActorIndex.AddNearTo(member.Position, 100, _bodyNear);
+        }
+        else ActorIndex.AddNearTo(State.Position, 100, _bodyNear);
         _bodyCandidates.Clear();
         if (_bodyClimateRevision != State.NavigationRevision || _bodyClimateLandmarks != State.Discoveries.Count)
         {

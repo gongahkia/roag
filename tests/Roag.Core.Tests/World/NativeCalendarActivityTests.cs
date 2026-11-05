@@ -20,6 +20,10 @@ public sealed class NativeCalendarActivityTests
         var animal = world.State.Actors.Single(a => a.Habitat == habitat.Home);
         hero.Position = world.State.Position = world.Plan.Towns[0].Center with { Floor = 1 };
         world.Chunks.Edit(hero.Position, Material.Floor); world.Reveal();
+        // The newly observed individual was not in the society fixture's
+        // initial roster. Defer its turns too, isolating calendar/body changes.
+        world.State.Tactics!.Queue.CancelActor(animal.Id, ScheduledKind.ActorReady);
+        world.State.Tactics.Queue.Schedule(ScheduledKind.ActorReady, world.DungeonCombat.Clock + 1000000, animal.Id);
         animal.Body.Fatigue = 20; animal.Body.Hunger = 0;
         return (world, animal);
     }
@@ -99,9 +103,12 @@ public sealed class NativeCalendarActivityTests
     public void DuskDoesNotEraseAnActualPrivateTargetObservationAndRestResumesAfterItsOrdinaryMemoryExpires()
     {
         var (world, animal) = AnimalAt("character.bee", 5999); using var dispose = world;
+        animal.Position = animal.Habitat!.Value.Offset(0, -1);
         var hero = world.Party.Single(); var home = animal.Position;
-        for (int y = -2; y <= 2; y++) for (int x = -2; x <= 3; x++) world.Chunks.Edit(home.Offset(x, y), Material.Floor);
+        for (int y = -2; y <= 2; y++) for (int x = -2; x <= 3; x++)
+            if (home.Offset(x, y) != animal.Habitat) world.Chunks.Edit(home.Offset(x, y), Material.Floor);
         hero.Position = world.State.Position = home.Offset(2, 0); world.Reveal();
+        Assert.True(world.IsHostile(animal)); Assert.Equal(hero.Id, world.DungeonCombat.SelectEnemyTarget(animal.Id));
         Wait(world, 1); Assert.Equal(hero.Id, animal.Tactics!.Enemy!.Awareness!.Target);
         // Keep the observed traveller within the real territory, hidden behind
         // a new wall. Leaving its leash would correctly retire the memory.
@@ -180,6 +187,30 @@ public sealed class NativeCalendarActivityTests
         Assert.False(world.CalendarResting(person, world.State.Tick));
         Assert.Single(world.State.Tactics!.Events, e => e.Kind == "RescueNoticed" && e.Source == person.Id);
         Assert.Equal(1, person.Cargo["medicine"]); Assert.False(person.Recruited);
+    }
+
+    [Fact]
+    public void ACorneredSleepingAnimalCannotRestThroughACompanionsPrivateThreatOnAnotherFloorFromTheSelectedMember()
+    {
+        var (world, animal) = AnimalAt("character.rabbit", 49); using var dispose = world;
+        var hero = world.Party.Single();
+        var friend = ActorFactory.Create(world.Content, world.Content.Game.Traveller, world.Seed,
+            world.State.NextActorId++, hero.Position.Offset(1, 0), 0);
+        friend.Recruited = true; friend.Equipment.Clear(); friend.Talents.Clear(); friend.CombatTrait = "";
+        world.State.Actors.Add(friend); world.State.Party.Add(friend.Id);
+        world.DungeonCombat.Register(friend, new() { Build = CharacterBuild.Create(ClassKind.Ranger, (int)friend.Id), AutoEat = false },
+            world.DungeonCombat.Clock + 1000000);
+        Wait(world); Assert.True(world.CalendarResting(animal, world.State.Tick));
+        double fatigue = animal.Body.Fatigue; var at = animal.Position;
+        friend.Position = at.Offset(1, 0); world.Chunks.Edit(friend.Position, Material.Floor);
+        foreach (var (x, y) in WorldSession.Directions)
+            if (at.Offset(x, y) != friend.Position) world.Chunks.Edit(at.Offset(x, y), Material.Wall);
+        Assert.Equal(friend.Id, world.NativeFleeThreat(animal)!.Id);
+        Assert.False(world.CalendarResting(animal, world.State.Tick));
+        Assert.NotEqual(hero.Position.Floor, animal.Position.Floor);
+        Wait(world);
+        Assert.True(animal.Body.Fatigue > fatigue, $"A privately threatened offscreen animal recovered fatigue: {fatigue} → {animal.Body.Fatigue}.");
+        Assert.DoesNotContain(at, world.Visible); Assert.Equal(at, animal.Position);
     }
 
     [Fact]
