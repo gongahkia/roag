@@ -88,4 +88,29 @@ public sealed class NativeBreedingMigrationTests
         NativeBreedingTests.CrossPhase(world);
         Assert.True(parent.Habitat != home || parent.Migration is { Cursor: > 0 });
     }
+
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public void RelatedAnimalsCannotShareAReservationOutsideTheirAlreadySharedHabitat(bool differentTargets)
+    {
+        var (world, parent) = NativeBreedingTests.Prepare(); using var dispose = world;
+        NativeBreedingTests.CrossPhase(world);
+        var child = world.ActorById(Assert.Single(world.State.NativeCampaign!.Breeding.Births).Key);
+        var home = parent.Habitat!.Value; var target = home.Offset(home.Chunk.X < 63 ? 64 : -64, 0);
+        world.State.EcologyChunks.Add(target.Chunk);
+        foreach (var animal in new[] { parent, child })
+        {
+            animal.NatalHabitat ??= home;
+            animal.Migration = new() { Origin = home, Center = animal.Position, Target = differentTargets && animal == child ? target.Offset(0, target.Y % 64 < 63 ? 1 : -1) : target,
+                Reason = MigrationReason.HomeUnavailable, Since = world.State.Tick, LastProgressTick = world.State.Tick, LastPosition = animal.Position };
+        }
+        string root = Path.Combine(Path.GetTempPath(), "roag-native-family-reservation-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            world.Save(root);
+            var error = Assert.Throws<InvalidDataException>(() => { using var invalid = WorldSession.Load(root); });
+            Assert.Contains("Duplicate wildlife home or migration reservation", error.Message);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
 }

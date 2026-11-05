@@ -38,7 +38,9 @@ public sealed class NativeResidentStairsTests
         Wait(world, 1); Assert.Equal(top, worker.Position); Assert.Null(worker.Journey);
         Assert.Equal(hero, world.Party.Single().Position); Assert.Null(worker.Tactics); Assert.False(worker.Recruited);
         Assert.Equal(stone, world.Count("stone")); Assert.False(world.Chunks.Seen(top));
-        Wait(world, 60); Assert.Equal(top.Offset(1, 0), worker.Position);
+        // Surface weather may now take priority over the assigned project.
+        // Either routine still takes exactly one ordinary physical step.
+        Wait(world, 60); Assert.Equal(1, top.Distance(worker.Position));
         Assert.Equal(0, Assert.Single(world.State.Work).Progress);
     }
 
