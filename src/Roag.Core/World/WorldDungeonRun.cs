@@ -51,7 +51,8 @@ public sealed partial class WorldSession
     public ActionResult ChooseDungeonClass(ClassKind kind)
     {
         if (!HasNativeParty || !Enum.IsDefined(kind) || State.Party.Count != 1
-            || State.Tactics is not { NextAction: 1 } tactics || tactics.Queue.Clock != 0)
+            || State.Tactics is not { NextAction: 1 } tactics
+            || tactics.Queue.Clock != (State.NativeCampaign?.StartedAt ?? 0) * tactics.Tuning.UnitsPerWorldTick)
             return new(false, "Choose a fixed starting class before the first paid action.");
         var hero = Party.Single();
         hero.Tactics!.Build = CharacterBuild.Create(kind, DungeonSeed);

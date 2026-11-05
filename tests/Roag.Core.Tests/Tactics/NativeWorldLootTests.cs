@@ -38,10 +38,11 @@ public sealed class NativeWorldLootTests
         Assert.True(f.World.QuoteWorldLoot(f.Hero.Id, f.Loot.Id).Valid);
         var preview = f.Combat.Preview(intent); Assert.True(preview.Valid);
         Assert.Equal(before, JsonSerializer.Serialize(f.World.State));
+        long clock = f.Combat.Clock;
         Assert.True(f.Combat.Commit(intent).Success);
         Assert.True(f.Loot.Taken); Assert.Equal(food + 3, f.World.Count("food")); Assert.Equal(gold + 7, f.World.Count("gold"));
         Assert.Equal(health, f.Hero.Health); Assert.Equal(30, f.Hero.Body.Hunger);
-        Assert.Equal(preview.Recovery, Assert.Single(f.Combat.State.Timeline.Pending, w => w.ActorId == f.Hero.Id).Due);
+        Assert.Equal(clock + preview.Recovery, Assert.Single(f.Combat.State.Timeline.Pending, w => w.ActorId == f.Hero.Id).Due);
         Assert.Contains(f.Combat.State.Events, e => e.Kind == "CurrencyCollected" && e.Source == f.Hero.Id && e.Amount == 7);
         Assert.Contains(f.Combat.State.Events, e => e.Kind == "ProvisionsCollected" && e.Source == f.Hero.Id && e.Amount == 3);
         f.Combat.AdvanceToPartyDecision(); before = JsonSerializer.Serialize(f.World.State);

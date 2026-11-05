@@ -86,6 +86,8 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--budget', type=int, default=700)
     parser.add_argument('--continue-from', type=Path)
+    parser.add_argument('--market-only', action='store_true')
+    parser.add_argument('--large-text', action='store_true')
     args = parser.parse_args()
     client = Client(args.output.resolve(), args.seed, continuation=args.continue_from.resolve() if args.continue_from else None,
         window_size='1024x720', scene='world-campaign')
@@ -98,6 +100,16 @@ def main():
         client.capture('02-native-outdoor-map')
         if client.ui['nativeDungeon']['mapVisible']:
             client.key('Tab')
+        if args.large_text:
+            client.control_click('dungeon:menu')
+            client.control_click('dungeon:settings')
+            if client.ui['nativeDungeon']['presentation']['font'] != 'Sans':
+                client.control_click('dungeon:setting:font')
+            for _ in range(3):
+                if client.ui['nativeDungeon']['presentation']['textSize'] == 'Large':
+                    break
+                client.control_click('dungeon:setting:text-size')
+            client.control_click('dungeon:close')
         client.control_click('dungeon:menu')
         client.control_click('dungeon:trade')
         buy = next(c for c in client.ui['controls'] if c['id'] == 'dungeon:trade-do:Buy:food')
@@ -111,6 +123,23 @@ def main():
         assert client.ui['inventory']['gold'] < gold
         assert client.ui['nativeDungeon']['clock'] > clock
         client.control_click('dungeon:save')
+        if args.market_only:
+            client.capture('04-paid-dawn-market')
+            before = client.ui['nativeDungeon']['clock']
+            client.request('wait', seconds=1)
+            assert client.ui['nativeDungeon']['clock'] == before
+            client.resume()
+            saved = json.loads(client.slot.read_text())
+            client.control_click('dungeon:save')
+            assert saved == json.loads(client.slot.read_text())
+            assert saved['state']['nativeCampaign']['startedAt'] == 6 * 300
+            assert client.ui['nativeDungeon']['calendar'].startswith('Day 1 / 06:00')
+            client.capture('05-exact-dawn-market-continuation')
+            (client.output / 'result.json').write_text(json.dumps(dict(passed=True, clock=before,
+                checks=['native dawn class choice and market', 'finite paid food purchase',
+                        'thinking consumes no time', 'exact ordinary continuing save'],
+                limits='One rendered morning market; night closing/calendar boundaries are backend evidence, not a full living-world journey.'), indent=2) + '\n')
+            return
         steps = explore_to_recruit(client, args.budget)
         client.capture('05-native-town-party')
         client.key('b')

@@ -6,6 +6,7 @@ namespace Roag.Core.World;
 /// <summary>World party policy; actors, terrain and the single timeline own live simulation state.</summary>
 public sealed class NativeCampaignState
 {
+    public long StartedAt { get; set; }
     public Dictionary<long, long> Following { get; set; } = [];
     public List<DungeonRecruit> Recruits { get; set; } = [];
     public HashSet<int> AdventurerTowns { get; set; } = [];
@@ -14,7 +15,7 @@ public sealed class NativeCampaignState
 
     internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors)
     {
-        if (world.Dungeon != null || world.Tactics is not { DrivesWorldClock: true }
+        if (StartedAt < 0 || StartedAt > world.Tick || world.Dungeon != null || world.Tactics is not { DrivesWorldClock: true }
             || world.RoagCombat || world.RoagCombatState.Length != 0 || plan.RoagNative
             || Following == null || Following.Any(p => p.Key == p.Value || !world.Party.Contains(p.Key) || !world.Party.Contains(p.Value)
                 || Following.ContainsKey(p.Value) || actors[p.Key].Life == LifeState.Dead || actors[p.Value].Life == LifeState.Dead)
@@ -36,6 +37,8 @@ public sealed class NativeCampaignState
 
 public sealed partial class WorldSession
 {
+    public long NativeElapsedTime => State.Tactics is { } tactics
+        ? tactics.Queue.Clock - (State.NativeCampaign?.StartedAt ?? 0) * tactics.Tuning.UnitsPerWorldTick : 0;
     public bool HasNativeParty => State.Dungeon != null || State.NativeCampaign != null;
     internal Dictionary<long, long>? PartyFollowing => State.NativeCampaign?.Following ?? State.Dungeon?.Following;
     public IReadOnlyDictionary<long, long> DungeonFollowing => PartyFollowing ?? [];
@@ -44,12 +47,15 @@ public sealed partial class WorldSession
     /// <summary>Persistent living world with native party actions; bounded runs remain independently loadable.</summary>
     public static WorldSession CreateNativeCampaign(int seed, ClassKind kind = ClassKind.Adventurer)
     {
-        // Initial exploration must use the native founder's actual night/weather
+        // Initial exploration must use the native founder's actual calendar/weather
         // sight after its timeline exists, without inheriting prototype sight.
         var world = CreateWorld(seed, null, null, roagNative: false, floorCount: 8, populateWorld: true, observe: false);
         try
         {
-            world.State.NativeCampaign = new();
+            // A fresh expedition begins at dawn, with the same absolute action
+            // clock driving calendar, routines and recovery from that instant.
+            world.State.Tick = 6 * TicksPerHour;
+            world.State.NativeCampaign = new() { StartedAt = world.State.Tick };
             var combat = world.CreateTacticalSimulation(new(EnableSurvival: true));
             combat.State.Chests.AvailableBoons = BoonCatalog.Default.NormalPool.ToArray();
             var hero = world.Party.Single();

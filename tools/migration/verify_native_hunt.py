@@ -17,6 +17,20 @@ class Hunt(Journey):
         self.target = None
         self.last_target = None
         self.start = position(client.ui['position'])
+        memory = client.continuation / 'hunt-knowledge.json' if client.continuation else None
+        if memory and memory.exists():
+            saved = json.loads(memory.read_text())
+            self.target = saved['target']
+            self.last_target = tuple(saved['lastTarget']) if saved['lastTarget'] else None
+            self.start = tuple(saved['start'])
+            self.known = {position(c): c for c in saved['cells']}
+            self.visits.update({tuple(v['position']): v['count'] for v in saved['visits']})
+
+    def checkpoint(self):
+        self.client.control_click('dungeon:save')
+        (self.client.output / 'hunt-knowledge.json').write_text(json.dumps(dict(
+            target=self.target, lastTarget=self.last_target, start=self.start, cells=list(self.known.values()),
+            visits=[dict(position=p, count=n) for p, n in self.visits.items()]), indent=2) + '\n')
 
     def observe(self):
         if self.client.ui['nativeDungeon']['activeActor'] != self.client.ui['nativeDungeon']['controlledActor']:
@@ -57,13 +71,36 @@ class Hunt(Journey):
             self.destination = None
         frontiers = [p for p in self.known if self.open(p, True) and p != self.at and not self.visits[p]
             and any((p[0] + dx, p[1] + dy, p[2]) not in self.known for dx, dy, _ in DIRECTIONS)]
-        # Explore east from the actual start. This is a direction of travel,
-        # not knowledge of a hidden animal, landmark or terrain route.
-        aim = self.start[0] + 100, self.start[1], self.start[2]
+        # Explore east through successive regions, rather than repeatedly
+        # searching a small neighbourhood of the town. This is a direction of
+        # travel, not knowledge of a hidden animal, landmark or terrain route.
+        aim = 4095, self.start[1], self.start[2]
         for target in sorted(frontiers, key=lambda p: distance(p, aim) + distance(self.at, p) * .2):
             if self.approach(target):
                 return True
         return False
+
+    def fight(self):
+        # A faster timid animal cannot be caught by repeatedly walking after
+        # it. Use the Ranger's actual gap closer and five-tile volley, with
+        # the same observed clear lanes and paid recovery as ordinary input.
+        animal = next((a for a in self.ui['actors'] if a['id'] == self.target and not a['hostile']), None)
+        if animal and self.at not in self.danger and self.player['classId'] == 'Ranger':
+            target = position(animal)
+            if self.at[0] == target[0] or self.at[1] == target[1]:
+                dx = (target[0] > self.at[0]) - (target[0] < self.at[0])
+                dy = (target[1] > self.at[1]) - (target[1] < self.at[1])
+                length = distance(self.at, target)
+                lane = [(self.at[0] + dx * n, self.at[1] + dy * n, self.at[2]) for n in range(1, length)]
+                if all(self.open(p, True) for p in lane):
+                    key = next(k for x, y, k in DIRECTIONS if (x, y) == (dx, dy))
+                    action = 'r' if length == 5 else 'x' if 6 <= length <= 8 else None
+                    if action:
+                        before = self.state['clock']
+                        self.client.key(action + '+' + key)
+                        if self.client.ui['nativeDungeon']['clock'] > before:
+                            return True
+        return super().fight()
 
 
 def main():
@@ -71,16 +108,25 @@ def main():
     parser.add_argument('output', type=Path)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--budget', type=int, default=1200)
+    parser.add_argument('--continue-from', type=Path)
     args = parser.parse_args()
-    client = Client(args.output.resolve(), args.seed, scene='world-campaign', window_size='1024x720')
+    client = Client(args.output.resolve(), args.seed, scene='world-campaign', window_size='1024x720',
+        continuation=args.continue_from.resolve() if args.continue_from else None)
+    hunt = None
     try:
-        client.control_click('dungeon:class:1')
+        if not args.continue_from:
+            client.control_click('dungeon:class:1')
         if client.ui['nativeDungeon']['mapVisible']:
             client.key('Tab')
         hunt = Hunt(client)
         initial_xp = client.ui['nativeDungeon']['player'][0]['experience']
         for step in range(args.budget):
+            if client.sequence >= 850:
+                hunt.checkpoint()
+                client.resume()
             hunt.observe()
+            if step % 25 == 0:
+                hunt.checkpoint()
             cache = next((c for c in hunt.state['worldCaches'] if c['id'] == 'wildlife-' + str(hunt.target)), None)
             if cache and hunt.player['experience'] > initial_xp:
                 target = position(cache['position'])
@@ -105,6 +151,8 @@ def main():
                 assert saved == json.loads(client.slot.read_text())
                 animal = next(a for a in saved['state']['actors'] if a['id'] == hunt.target)
                 assert animal['life'] == 2 and hunt.target in saved['state']['rewardedEncounterIds']
+                assert any(e['kind'] == 'ExperienceGained' and e['target'] == hunt.target and e['amount'] > 0
+                           for e in saved['state']['tactics']['events']), 'No actual owned XP receipt for the observed hunt'
                 assert sum(c['sourceActor'] == hunt.target and c['taken'] for c in saved['state']['loot']) == 1
                 client.capture('04-exact-hunt-continuation')
                 (client.output / 'result.json').write_text(json.dumps(dict(passed=True, target=hunt.target,
@@ -116,11 +164,13 @@ def main():
             if hunt.fight():
                 continue
             assert hunt.explore(), 'No reachable privately observed exploration frontier'
-            if step % 25 == 0:
-                client.control_click('dungeon:save')
         raise AssertionError('Natural hunt action budget exhausted; no pass claimed')
     finally:
-        client.close()
+        try:
+            if hunt and client.process.poll() is None:
+                hunt.checkpoint()
+        finally:
+            client.close()
 
 
 if __name__ == '__main__':

@@ -92,7 +92,7 @@ public sealed class NativeCampaignTests(ITestOutputHelper output)
         Assert.Contains(world.State.Actors, a => a.Kind == ActorKind.Person && !a.Recruited && a.Tactics == null);
         long time = world.DungeonCombat.Clock; var watch = Stopwatch.StartNew();
         Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success); watch.Stop();
-        Assert.True(world.DungeonCombat.Clock > time); Assert.Equal(0, world.State.Tick);
+        Assert.True(world.DungeonCombat.Clock > time); Assert.Equal(world.State.NativeCampaign!.StartedAt, world.State.Tick);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), "One ordinary party wait must remain practical with the real living-world population.");
         output.WriteLine($"Native world actors={world.State.Actors.Count}; participants={world.State.Tactics!.Participants.Count}; startup_ms={startup.Elapsed.TotalMilliseconds:F2}; first_wait_ms={watch.Elapsed.TotalMilliseconds:F2}");
         watch.Restart();
