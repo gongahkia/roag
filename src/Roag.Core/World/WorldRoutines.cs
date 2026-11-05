@@ -60,12 +60,15 @@ public sealed partial class WorldSession
                 supplies ? HomeFoodReason : ForageReason, ground: false);
             return;
         }
-        if (actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick || actor.Health < actor.MaxHealth / 4)
+        // Explicitly assigned sustained work keeps its source priority; ordinary
+        // occupations finish for the night. Fatigue/food/danger still interrupt.
+        bool overnight = State.NativeCampaign != null && IsNight && !HasWork(actor);
+        if (overnight || actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick || actor.Health < actor.MaxHealth / 4)
         {
-            SetResidentRoutine(actor, RoutineKind.Rest, home.Offset((int)(actor.Id % 5) * 3 - 6, -18), "Resting at home");
+            SetResidentRoutine(actor, RoutineKind.Rest, home.Offset((int)(actor.Id % 5) * 3 - 6, -18), overnight ? OvernightRestReason : "Resting at home");
             // A physically activated resident must reach home before resting.
             if (actor.Position.Distance(actor.Routine!.Target) > 1 && actor.Body.RestUntil > State.Tick) actor.Body.RestUntil = State.Tick;
-            if (actor.Position.Distance(actor.Routine!.Target) <= 1 && actor.Body.RestUntil <= State.Tick) actor.Body.RestUntil = State.Tick + 300;
+            if (!overnight && actor.Position.Distance(actor.Routine!.Target) <= 1 && actor.Body.RestUntil <= State.Tick) actor.Body.RestUntil = State.Tick + 300;
             return;
         }
         if (WeatherAt(actor.Position).Severe)

@@ -3,7 +3,8 @@ namespace Roag.Core.World;
 public sealed partial class WorldSession
 {
     public int HourOfDay => (int)(State.Tick / TicksPerHour % 24);
-    public bool IsNight => HourOfDay is < 6 or >= 20;
+    public bool IsNight => IsNightAt(State.Tick);
+    private static bool IsNightAt(long tick) => tick / TicksPerHour % 24 is < 6 or >= 20;
 
     /// <summary>One calendar and the observer's own weather region determine surface sight.</summary>
     public int SightRadiusAt(WorldPosition position)

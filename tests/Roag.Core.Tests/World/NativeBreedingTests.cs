@@ -10,7 +10,10 @@ public sealed class NativeBreedingTests
 {
     internal static (WorldSession World, Actor Parent) Prepare(string species = "character.rabbit")
     {
-        var world = NativeSocietyTests.AtTick(49); var hero = world.Party.Single();
+        // Isolate an awake, mature parent at the next brood phase. Species now
+        // have real day/night schedules, so surface prey needs a daytime fixture.
+        long tick = Roag.Core.Content.ContentCatalog.Default.Get<CharacterDefinition>(species).Ecology!.Activity == "day" ? 1849 : 49;
+        var world = NativeSocietyTests.AtTick(tick); var hero = world.Party.Single();
         var habitat = WildlifePreview.Find(world, species);
         hero.Position = world.State.Position = habitat.Home; world.Reveal();
         var parent = world.State.Actors.Single(a => a.Habitat == habitat.Home);
@@ -18,14 +21,15 @@ public sealed class NativeBreedingTests
         hero.Position = world.State.Position = world.Plan.Towns[0].Center with { Floor = 1 };
         world.Chunks.Edit(hero.Position, Material.Floor); world.Reveal();
         // Explicitly isolate a mature, due brood at the next paid world phase.
-        world.State.NativeCampaign!.Breeding.After[parent.Id] = 50;
+        world.State.NativeCampaign!.Breeding.After[parent.Id] = tick + 1;
         return (world, parent);
     }
 
     internal static void CrossPhase(WorldSession world)
     {
+        long next = world.State.Tick + 1;
         for (int i = 0; i < 12; i++) Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
-        Assert.Equal(50, world.State.Tick);
+        Assert.Equal(next, world.State.Tick);
     }
 
     private static Actor AddNeighbour(WorldSession world, Actor parent)
@@ -63,9 +67,9 @@ public sealed class NativeBreedingTests
         Assert.Equal(LifeState.Alive, child.Life); Assert.NotNull(child.Tactics?.Enemy?.Retained);
         Assert.True(child.Position.Distance(home) <= 1); Assert.NotEqual(parent.Position, child.Position);
         Assert.Equal(before, parent.Position); Assert.Equal(food - WorldSession.WildlifeBirthFood, world.HabitatAt(home).Food);
-        Assert.Equal(new NativeWildlifeBirth(parent.Id, 50), world.State.NativeCampaign!.Breeding.Births[child.Id]);
-        Assert.Equal(50 + WorldSession.NativeBroodTicks, world.State.NativeCampaign.Breeding.After[parent.Id]);
-        Assert.Equal(50 + WorldSession.NativeBroodTicks, world.State.NativeCampaign.Breeding.After[child.Id]);
+        Assert.Equal(new NativeWildlifeBirth(parent.Id, world.State.Tick), world.State.NativeCampaign!.Breeding.Births[child.Id]);
+        Assert.Equal(world.State.Tick + WorldSession.NativeBroodTicks, world.State.NativeCampaign.Breeding.After[parent.Id]);
+        Assert.Equal(world.State.Tick + WorldSession.NativeBroodTicks, world.State.NativeCampaign.Breeding.After[child.Id]);
         Assert.DoesNotContain(child.Position, world.Visible); Assert.Contains("Born on day", world.WildlifePopulationDescription(child.Id));
         TacticalValidation.Validate(world.Plan, world.State);
     }
@@ -96,7 +100,7 @@ public sealed class NativeBreedingTests
         CrossPhase(world);
         Assert.Equal(count, world.State.Actors.Count); Assert.Equal(next, world.State.NextActorId);
         Assert.Equal(food, world.HabitatAt(home).Food); Assert.Empty(world.State.NativeCampaign!.Breeding.Births);
-        Assert.Equal(50 + WorldSession.TicksPerHour, world.State.NativeCampaign.Breeding.After[parent.Id]);
+        Assert.Equal(world.State.Tick + WorldSession.TicksPerHour, world.State.NativeCampaign.Breeding.After[parent.Id]);
     }
 
     [Fact]

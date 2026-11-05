@@ -335,8 +335,10 @@ public sealed class ContentCatalog
                     {
                         if (c.ActorKind != World.ActorKind.Beast || c.Names != null || c.Classes?.Length != 0 || c.Interactions?.Length != 0) Error("ecology", "Ecology belongs to beasts without human classes, names or interactions.");
                         if (ecology.Behavior is not ("flee" or "defend" or "roost")) Error("ecology.behavior", "Use flee, defend or roost.");
+                        if (ecology.Activity is not ("always" or "day" or "night")) Error("ecology.activity", "Use always, day or night.");
                         if (ecology.Biomes == null || ecology.Biomes.Length == 0 || ecology.Biomes.Any(b => !Enum.IsDefined(b)) || ecology.Biomes.Distinct().Count() != ecology.Biomes.Length) Error("ecology.biomes", "Provide distinct known biomes.");
                         Range("ecology.notice", ecology.Notice, 1, 8); Range("ecology.leash", ecology.Leash, ecology.Notice + 1, 16);
+                        Range("ecology.sleepingNotice", ecology.SleepingNotice, 1, ecology.Notice);
                         Ref<ResourceDefinition>("ecology.resource", ecology.Resource, optional: ecology.Behavior != "defend");
                         if (ecology.Resource != null && _entries.TryGetValue(ecology.Resource, out var resourceEntry) && resourceEntry is ResourceDefinition { Biomes: not null } habitat
                             && (habitat.Underground != ecology.Underground || ecology.Biomes != null && !ecology.Biomes.Any(habitat.Biomes.Contains))) Error("ecology.resource", "The resource must share the species' floor and biome habitat.");

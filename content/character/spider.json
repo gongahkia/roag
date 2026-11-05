@@ -19,6 +19,7 @@
     }
   ],
   "ecology": {
+    "activity": "night",
     "behavior": "defend",
     "biomes": [
       "Forest",

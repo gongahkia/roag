@@ -22,7 +22,7 @@ public sealed partial class TacticalCombat
             }
         }
         if (_world.NativeCreatureHasFood(actor)) return new(EnemyIntentKind.Eat);
-        if (actor.Body.RestUntil > _world.State.Tick || actor.Body.ForageProgress > 0)
+        if (actor.Body.RestUntil > _world.State.Tick || actor.Body.ForageProgress > 0 || _world.CalendarResting(actor, _world.State.Tick))
             return new(EnemyIntentKind.Wait);
         if (ecology == null && actor.EncounterLeader > 0) return new(EnemyIntentKind.Wait);
         if (actor.Migration?.Target != null || actor.Habitat is { } && actor.Position.Distance(actor.Habitat.Value) > 2)

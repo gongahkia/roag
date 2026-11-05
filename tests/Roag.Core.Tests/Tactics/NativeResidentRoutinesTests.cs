@@ -45,7 +45,9 @@ public sealed class NativeResidentRoutinesTests
 
     private static WorkOrder AssignConstruction(WorldSession world, Actor resident)
     {
-        var target = resident.Position.Offset(10, 0);
+        // Fresh native campaigns now begin in daylight (11-tile private sight).
+        // Keep this supplied construction genuinely outside party knowledge.
+        var target = resident.Position.Offset(14, 0);
         world.Chunks.Edit(target, Material.Floor);
         var order = new WorkOrder { Id = world.State.NextWorkId++, Kind = WorkKind.Build, Definition = "recipe.wall",
             Target = target, Before = Material.Floor, After = Material.Wall, Required = 15, Progress = 14.9,
@@ -56,7 +58,7 @@ public sealed class NativeResidentRoutinesTests
     }
 
     [Fact]
-    public void RescuerReturnsToTheirActualHomeOnPaidTurnsWhileThePartyIsOnAnotherFloor()
+    public void RescuerResumesTheirActualDaytimeOccupationOnPaidTurnsWhileThePartyIsOnAnotherFloor()
     {
         var (world, hero, resident) = RescuedResident(); using var dispose = world;
         var oldHome = resident.Tactics!.Resident!.Home;
@@ -66,7 +68,7 @@ public sealed class NativeResidentRoutinesTests
         Assert.Same(build, resident.Tactics.Build);
         Assert.NotEqual(oldHome, resident.Position);
         Assert.Equal(0, resident.Position.Floor);
-        Assert.Equal(RoutineKind.Home, resident.Routine!.Kind);
+        Assert.Equal(RoutineKind.Occupation, resident.Routine!.Kind);
         Assert.True(resident.Position.Distance(resident.Routine.Target) <= 1);
         Assert.Contains(world.State.Tactics!.Events, e => e.Kind == "Moved" && e.Source == resident.Id && e.Time > 300);
         var scheduled = Assert.Single(world.State.Tactics.Timeline.Pending, e => e.Kind == ScheduledKind.ActorReady && e.ActorId == resident.Id);
@@ -133,7 +135,7 @@ public sealed class NativeResidentRoutinesTests
             Wait(world, 30); Wait(loaded, 30);
             Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
             Assert.Equal(0, loaded.ActorById(resident.Id).Cargo["food"]);
-            Assert.Equal(RoutineKind.Home, loaded.ActorById(resident.Id).Routine!.Kind);
+            Assert.Equal(RoutineKind.Occupation, loaded.ActorById(resident.Id).Routine!.Kind);
             if (order != null) Assert.Equal(Material.Wall, loaded.Chunks.At(order.Target));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }

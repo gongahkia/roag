@@ -44,7 +44,7 @@ public sealed partial class WorldSession
         var settings = Simulation;
         var body = actor.Body; bool native = UsesTacticalTurns(actor.Id), resident = ResumingNativeResident(actor), creature = NativeCreatureNeeds(actor), fighting = BodyFighting(actor);
         if (!actor.Recruited && (!native || creature) && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(State.Tick - 1) >= 75 && body.RestUntil <= State.Tick) body.RestUntil = State.Tick + 300;
-        bool resting = !fighting && body.RestUntil > State.Tick;
+        bool resting = !fighting && (body.RestUntil > State.Tick || CalendarResting(actor, State.Tick));
         if (!UsesTacticalTurns(actor.Id) && body.Hunger >= settings.MealAt && TryEat(actor)) body.Hunger = Math.Max(0, body.Hunger - settings.MealReduction);
         // Wild forage shares the finite habitat stock with other actors and the party.
         if (!actor.Recruited && (!native || resident || creature) && !fighting && !_bodyWorkers.Contains(actor.Id) && CanResidentForage(actor) && !resting && body.Hunger >= settings.MealAt && State.Tick >= body.ForageAfter)

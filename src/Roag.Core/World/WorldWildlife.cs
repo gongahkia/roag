@@ -70,6 +70,7 @@ public sealed partial class WorldSession
         if (actor.Life != LifeState.Alive || actor.Kind is not (ActorKind.Beast or ActorKind.Raider)) return false;
         if (SituationForActor(actor) is { } discovery) return discovery.Engaged && discovery.Outcome is "" or "tunnel";
         if (Ecology(actor) is not { } rules) return true;
+        if (State.NativeCampaign != null && !WildlifeAwake(actor, State.Tick)) return false;
         if (rules.Behavior == "flee" && (State.NativeCampaign == null || actor.ProvokedUntil <= State.Tick)
             || actor.Habitat is not { } home) return false;
         int distance = actor.ProvokedUntil > State.Tick ? rules.Leash : rules.Notice;
@@ -80,8 +81,8 @@ public sealed partial class WorldSession
     public string WildlifeDescription(Actor actor)
     {
         if (Ecology(actor) is not { } rules) return "";
-        string movement = actor.Migration is not { } migration ? "" : migration.Target == null ? "Seeking a viable habitat after " + MigrationCause(migration.Reason) + ". "
-            : "Migrating to a viable habitat after " + MigrationCause(migration.Reason) + (actor.Journey is { Steps.Count: 0 } ? "; route blocked, waiting for access. " : ". ");
+        string movement = WildlifeActivityDescription(actor) + (actor.Migration is not { } migration ? "" : migration.Target == null ? "Seeking a viable habitat after " + MigrationCause(migration.Reason) + ". "
+            : "Migrating to a viable habitat after " + MigrationCause(migration.Reason) + (actor.Journey is { Steps.Count: 0 } ? "; route blocked, waiting for access. " : ". "));
         if (rules.Behavior == "flee") return movement + (State.NativeCampaign != null && actor.ProvokedUntil > State.Tick
             ? $"Provoked by hunting; defends itself within {rules.Leash} tiles of its home."
             : "Timid; flees nearby travellers. Will fight only if hunted.");

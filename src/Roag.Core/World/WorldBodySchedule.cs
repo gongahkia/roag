@@ -127,7 +127,7 @@ public sealed partial class WorldSession
         if (actor.Life != LifeState.Alive) { body.RatesAt(at, 0, 0); return; }
         bool fighting = BodyFighting(actor);
         bool automaticRest = !actor.Recruited && (!UsesTacticalTurns(actor.Id) || NativeCreatureNeeds(actor)) && !fighting && CanBeginResidentRest(actor) && body.FatigueAt(at) >= 75 && body.RestUntil <= next;
-        bool resting = !fighting && (body.RestUntil > next || automaticRest);
+        bool resting = !fighting && (body.RestUntil > next || automaticRest || CalendarResting(actor, next));
         double fatigue = Simulation.FatiguePerTick * (Disposition(actor)?.FatiguePercent ?? 100) / 100.0 / Math.Min(2, 1 + (actor.Level - 1) * .02);
         body.RatesAt(at, Simulation.HungerPerTick, resting ? -Simulation.RestPerTick * ClimateRest(actor, next) : fatigue * (_bodyWorkers.Contains(actor.Id) || body.ForageProgress > 0 && CanResidentForage(actor) ? 2 : 1));
     }

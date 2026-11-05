@@ -201,6 +201,8 @@ public class CharacterDefinition : ContentDefinition
 public sealed class EcologyRules
 {
     public required string Behavior { get; set; }
+    public string Activity { get; set; } = "always";
+    public int SleepingNotice { get; set; } = 2;
     public required Biome[] Biomes { get; set; }
     public bool Underground { get; set; }
     public string? Resource { get; set; }

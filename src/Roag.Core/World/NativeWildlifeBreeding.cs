@@ -42,7 +42,7 @@ public sealed partial class WorldSession
         if (actor is not { Life: LifeState.Alive, Habitat: { } home, Migration: null }
             || !NativeCreatureNeeds(actor) || actor.Tactics is { RewardExempt: true } || Ecology(actor) is not { } rules
             || actor.Position.Distance(home) > 2 || (long)actor.Health * 4 < (long)actor.MaxHealth * 3
-            || actor.Body.Hunger >= Simulation.MealAt || actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick
+            || actor.Body.Hunger >= Simulation.MealAt || actor.Body.Fatigue >= 75 || actor.Body.RestUntil > State.Tick || CalendarResting(actor, State.Tick)
             || State.NativeCampaign!.Breeding.Births.TryGetValue(actor.Id, out var born) && State.Tick < born.Tick + NativeBroodTicks
             || IsActorInCombat(actor.Id) || NativeFleeThreat(actor) != null) return false;
         var habitat = HabitatAt(home);
