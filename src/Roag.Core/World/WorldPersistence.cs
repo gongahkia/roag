@@ -238,7 +238,8 @@ public sealed partial class WorldSession
                 || (c.Choices.Length > 0 && c.Taken ? c.Selected == null || !c.Choices.Contains(c.Selected) : c.Selected != null))
             || s.Loot.Select(c => c.Id).Distinct().Count() != s.Loot.Count) throw new InvalidDataException("Invalid adventure state.");
         if (s.Loot.Any(c => IsWorkSupplyCache(c) && (c.Choices.Length != 0 || c.Selected != null))) throw new InvalidDataException("Invalid returned supply bundle.");
-        foreach (var cache in s.Loot.Where(c => c.SourceActor != 0))
+        ValidateNativeEncounterCaches(plan, s, catalog);
+        foreach (var cache in s.Loot.Where(c => c.SourceActor != 0 && !IsEncounterRewardCache(c)))
         {
             var actor = s.Actors.FirstOrDefault(a => a.Id == cache.SourceActor);
             var ecology = actor == null ? null : (catalog.Entries[actor.Archetype] as CharacterDefinition)?.Ecology;

@@ -75,36 +75,44 @@ public sealed partial class WorldSession
         }
     }
 
-    private RewardDefinition RewardFor(Actor source)
+    private RewardDefinition RewardFor(Actor source) => RewardFor(Content, source);
+
+    private static RewardDefinition RewardFor(ContentCatalog content, Actor source)
     {
-        string id = source.EncounterId.Length > 0 ? Content.Get<EncounterDefinition>(source.EncounterId).Reward
-            : Content.Entries[source.Archetype] switch
+        string id = source.EncounterId.Length > 0 ? content.Get<EncounterDefinition>(source.EncounterId).Reward
+            : content.Entries[source.Archetype] switch
             {
                 BossDefinition { Reward.Length: > 0 } boss => boss.Reward,
                 CharacterDefinition { Reward.Length: > 0 } character => character.Reward,
-                _ => Content.Game.DefaultReward
+                _ => content.Game.DefaultReward
             };
-        return Content.Get<RewardDefinition>(id);
+        return content.Get<RewardDefinition>(id);
     }
 
     private string EncounterEquipment(string itemId, long source, int choice)
     {
-        var basis = Content.Get<ItemDefinition>(itemId);
-        if (basis.AffixPool.Length == 0) return itemId;
+        var rolled = RollEncounterEquipment(Content, Seed, itemId, source, choice);
+        if (rolled == null) return itemId;
         string id = $"gear.7200.{source}.{choice}";
         if (State.GeneratedEquipment.TryGetValue(id, out var previous))
         {
             if (previous.Base != itemId) throw new InvalidDataException("Encounter equipment identity conflicts with its source.");
             return id;
         }
-        var random = WorldRandom.Stream(Seed, unchecked((int)source), unchecked((int)(source >> 32)), 7210 + choice);
+        State.GeneratedEquipment.Add(id, rolled); return id;
+    }
+
+    private static GeneratedEquipment? RollEncounterEquipment(ContentCatalog content, int seed, string itemId, long source, int choice)
+    {
+        var basis = content.Get<ItemDefinition>(itemId);
+        var random = WorldRandom.Stream(seed, unchecked((int)source), unchecked((int)(source >> 32)), 7210 + choice);
         var pool = basis.AffixPool.Where(a => !basis.Effects.Contains(a)).Order(StringComparer.Ordinal).ToList();
-        if (pool.Count == 0) return itemId;
+        if (pool.Count == 0) return null;
         int count = Math.Min(pool.Count, 1 + random.Next(2)); var affixes = new List<string>();
         for (int i = 0; i < count; i++)
         {
             int index = random.Next(pool.Count); affixes.Add(pool[index]); pool.RemoveAt(index);
         }
-        State.GeneratedEquipment.Add(id, new(itemId, affixes.ToArray())); return id;
+        return new(itemId, affixes.ToArray());
     }
 }

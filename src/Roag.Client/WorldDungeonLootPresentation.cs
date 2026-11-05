@@ -50,7 +50,7 @@ internal sealed partial class WorldGame
         Wrap("Confirming spends the ready member's action. Supplies and the chosen equipment enter the shared pack.",
             x + 84, y + 30, box.Width - 156, Muted);
         string contents = string.Join(" / ", cache.Contents.Where(p => p.Value > 0).Select(p => p.Value + " "
-            + (_session.Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key)));
+            + (_session.TryItem(p.Key, out var item) ? item.Name : _session.Content.All<ItemDefinition>().FirstOrDefault(i => i.Stack == p.Key)?.Name ?? p.Key)));
         Wrap(contents.Length == 0 ? "Choose one item below." : contents, x, y + 92, box.Width - 48, Ink);
         Wrap("Immediate danger prevents recovery. Browsing and closing consume no time.", x, box.Bottom - 50, box.Width - 48, Muted);
     }

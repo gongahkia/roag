@@ -144,8 +144,9 @@ public sealed partial class WorldSession
         State.Loot.Add(new() { Id = "wildlife-" + actor.Id, SourceActor = actor.Id, Position = actor.Position,
             Contents = rules.Drops.ToDictionary(p => Content.Get<ItemDefinition>(p.Key).Stack, p => p.Value) });
     }
-    public string LootName(LootCache cache) => IsWorkSupplyCache(cache) ? "Returned supply bundle" : cache.SourceActor > 0 ? State.Actors.First(a => a.Id == cache.SourceActor).Name + " remains" : "Unopened cache";
-    public static string LootSprite(LootCache cache) => cache.SourceActor > 0 ? "animal-bones" : "chest";
+    public string LootName(LootCache cache) => IsWorkSupplyCache(cache) ? "Returned supply bundle" : cache.SourceActor > 0
+        ? State.Actors.First(a => a.Id == cache.SourceActor).Name + (IsEncounterRewardCache(cache) ? " spoils" : " remains") : "Unopened cache";
+    public static string LootSprite(LootCache cache) => cache.SourceActor > 0 && !IsEncounterRewardCache(cache) ? "animal-bones" : "chest";
     private static string MigrationCause(MigrationReason reason) => reason switch
     { MigrationReason.Food => "local food depletion", MigrationReason.Pressure => "habitat pressure", _ => "the old home was cleared or depleted" };
 }

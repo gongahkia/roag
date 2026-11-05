@@ -66,14 +66,14 @@ public sealed partial class WorldSession
             bool reclaimed = false;
             foreach (long id in population.History)
             {
-                var actor = ActorById(id); var cache = State.Loot.FirstOrDefault(c => c.SourceActor == id);
-                if (actor.Life != LifeState.Dead || cache is not { Taken: true } || WildlifeHistoryReferenced(id)) continue;
+                var actor = ActorById(id); var caches = State.Loot.Where(c => c.SourceActor == id).ToArray();
+                if (actor.Life != LifeState.Dead || caches.Length == 0 || caches.Any(c => !c.Taken) || WildlifeHistoryReferenced(id)) continue;
                 // Already collected drops remain in their actual inventories.
                 // Any residual personal cargo decays with the old body and is accounted.
                 State.ResourcesLost += actor.Cargo.Values.Sum(v => (long)v);
                 State.Tactics?.Participants.Remove(id);
                 State.NativeCampaign?.Breeding.Births.Remove(id); State.NativeCampaign?.Breeding.After.Remove(id);
-                State.Loot.Remove(cache); State.RewardedEncounterIds.Remove(id); State.Actors.Remove(actor); population.History.Remove(id);
+                State.Loot.RemoveAll(c => c.SourceActor == id); State.RewardedEncounterIds.Remove(id); State.Actors.Remove(actor); population.History.Remove(id);
                 reclaimed = true; break;
             }
             if (!reclaimed) return false;

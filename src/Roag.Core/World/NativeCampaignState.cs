@@ -10,6 +10,7 @@ public sealed class NativeCampaignState
     public List<DungeonRecruit> Recruits { get; set; } = [];
     public HashSet<int> AdventurerTowns { get; set; } = [];
     public NativeWildlifeBreeding Breeding { get; set; } = new();
+    public NativeEncounterRewards EncounterRewards { get; set; } = new();
 
     internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors)
     {
@@ -28,6 +29,8 @@ public sealed class NativeCampaignState
             throw new InvalidDataException("Invalid native world party policy or fixed adventurer.");
         if (Breeding == null) throw new InvalidDataException("Missing native breeding state.");
         Breeding.Validate(world, actors);
+        if (EncounterRewards == null) throw new InvalidDataException("Missing native encounter rewards.");
+        EncounterRewards.Validate(world, actors);
     }
 }
 

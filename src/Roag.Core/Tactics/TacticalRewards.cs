@@ -6,7 +6,9 @@ namespace Roag.Core.Tactics;
 public sealed partial class TacticalCombat
 {
     private bool RewardEnemy(Actor enemy) => !Friendly(enemy) && _world.IsHostile(enemy)
-        && enemy.Tactics is { RewardsClaimed: false, RewardExempt: false };
+        && enemy.Tactics is { RewardsClaimed: false, RewardExempt: false }
+        && !(_world.State.NativeCampaign != null && enemy.Tactics.Enemy?.Retained != null
+            && _world.State.RewardedEncounterIds.Contains(NativeEncounterRewards.Source(enemy)));
     private bool Contributor(Actor actor) => Friendly(actor) && actor.Tactics?.Build != null;
 
     private EnemyContributions Ledger(Actor enemy)
@@ -103,16 +105,26 @@ public sealed partial class TacticalCombat
         tactics.RewardsClaimed = true;
         State.Rewards.Enemies.Remove(id, out var ledger);
         if (!eligibleEnemy) return;
-        if (ledger != null && tactics.ExperienceReward > 0) AwardKillExperience(e, tactics, ledger, id);
+        if (_world.State.NativeCampaign != null && tactics.Enemy?.Retained != null)
+        {
+            if (_world.SettleNativeEncounterDeath(enemy, ledger) is { } settlement)
+            {
+                if (settlement.Experience > 0) AwardKillExperience(e, settlement.Experience, settlement.Contributions, settlement.Source);
+                Emit("EncounterRewarded", settlement.Source, settlement.Source, e.RootActionId ?? 0,
+                    Actor(settlement.Source).Position, settlement.Experience, ability: settlement.Reward);
+            }
+            return;
+        }
+        if (ledger != null && tactics.ExperienceReward > 0) AwardKillExperience(e, tactics.ExperienceReward, ledger, id);
         SpawnKillLoot(e, enemy);
         ResolveDungeonBossDeath(e);
     }
 
-    private void AwardKillExperience(BoonEvent e, ActorTactics tactics, EnemyContributions ledger, long id)
+    private void AwardKillExperience(BoonEvent e, int experience, EnemyContributions ledger, long id)
     {
         // Removing dead members before normalizing redistributes their entitlement.
         // Downed members remain eligible, including for level-up stat growth.
-        var shares = ContributionRewards.Allocate((long)tactics.ExperienceReward * ContributionRewards.UnitsPerExperience,
+        var shares = ContributionRewards.Allocate((long)experience * ContributionRewards.UnitsPerExperience,
             ledger.Members.Where(p => Actor(p.Key).Life != LifeState.Dead)
                 .Select(p => (p.Key, p.Value.Weight(State.Rewards.Tuning))));
         foreach (var (member, share) in shares)
