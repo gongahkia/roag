@@ -6,6 +6,7 @@ read to audit the already observed animal's death/reward identity, never to find
 animals or routes. No game state is injected.
 """
 import argparse
+import heapq
 import json
 from pathlib import Path
 from verify_native_journey import Client, Journey, DIRECTIONS, position, distance
@@ -17,19 +18,22 @@ class Hunt(Journey):
         self.target = None
         self.last_target = None
         self.start = position(client.ui['position'])
+        self.initial_xp = client.ui['nativeDungeon']['player'][0]['experience']
         memory = client.continuation / 'hunt-knowledge.json' if client.continuation else None
         if memory and memory.exists():
             saved = json.loads(memory.read_text())
             self.target = saved['target']
             self.last_target = tuple(saved['lastTarget']) if saved['lastTarget'] else None
             self.start = tuple(saved['start'])
+            self.initial_xp = saved.get('initialExperience', self.initial_xp)
             self.known = {position(c): c for c in saved['cells']}
             self.visits.update({tuple(v['position']): v['count'] for v in saved['visits']})
 
     def checkpoint(self):
         self.client.control_click('dungeon:save')
         (self.client.output / 'hunt-knowledge.json').write_text(json.dumps(dict(
-            target=self.target, lastTarget=self.last_target, start=self.start, cells=list(self.known.values()),
+            target=self.target, lastTarget=self.last_target, start=self.start, initialExperience=self.initial_xp,
+            cells=list(self.known.values()),
             visits=[dict(position=p, count=n) for p, n in self.visits.items()]), indent=2) + '\n')
 
     def observe(self):
@@ -64,21 +68,34 @@ class Hunt(Journey):
     def explore(self):
         if self.last_target and self.approach(self.last_target, 1):
             return True
-        if self.destination:
-            target, radius = self.destination
-            if self.at != target and self.go([target]):
-                return True
-            self.destination = None
-        frontiers = [p for p in self.known if self.open(p, True) and p != self.at and not self.visits[p]
-            and any((p[0] + dx, p[1] + dy, p[2]) not in self.known for dx, dy, _ in DIRECTIONS)]
-        # Explore east through successive regions, rather than repeatedly
-        # searching a small neighbourhood of the town. This is a direction of
-        # travel, not knowledge of a hidden animal, landmark or terrain route.
+        frontiers = {p for p in self.known if self.open(p, True) and p != self.at
+            and any((p[0] + dx, p[1] + dy, p[2]) not in self.known for dx, dy, _ in DIRECTIONS)}
+        # Find actual routes once. Manhattan estimates selected remote frontiers
+        # behind barriers repeatedly in the earlier exploration attempts.
+        costs, previous = {self.at: 0}, {self.at: None}
+        queue = [(0, self.at)]
+        while queue:
+            cost, cell = heapq.heappop(queue)
+            if costs[cell] != cost:
+                continue
+            for neighbor in self.neighbors(cell):
+                if not self.open(neighbor, True):
+                    continue
+                candidate = cost + 1 + self.failed[neighbor] * 40
+                if candidate < costs.get(neighbor, float('inf')):
+                    costs[neighbor], previous[neighbor] = candidate, cell
+                    heapq.heappush(queue, (candidate, neighbor))
+        reachable = frontiers.intersection(costs)
+        if not reachable:
+            return False
+        # East is an expedition direction, not hidden terrain/animal knowledge.
+        # Keep travel costs in the score so an east-facing barrier does not send
+        # the player back and forth between distant failed approaches.
         aim = 4095, self.start[1], self.start[2]
-        for target in sorted(frontiers, key=lambda p: distance(p, aim) + distance(self.at, p) * .2):
-            if self.approach(target):
-                return True
-        return False
+        target = min(reachable, key=lambda p: (distance(p, aim) + costs[p] * .4 + self.visits[p] * 3, p))
+        while previous[target] != self.at:
+            target = previous[target]
+        return self.move(target)
 
     def fight(self):
         # A faster timid animal cannot be caught by repeatedly walking after
@@ -109,9 +126,11 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--budget', type=int, default=1200)
     parser.add_argument('--continue-from', type=Path)
+    parser.add_argument('--runtime', type=Path)
     args = parser.parse_args()
     client = Client(args.output.resolve(), args.seed, scene='world-campaign', window_size='1024x720',
-        continuation=args.continue_from.resolve() if args.continue_from else None)
+        continuation=args.continue_from.resolve() if args.continue_from else None,
+        runtime_source=args.runtime.resolve() if args.runtime else None)
     hunt = None
     try:
         if not args.continue_from:
@@ -119,8 +138,9 @@ def main():
         if client.ui['nativeDungeon']['mapVisible']:
             client.key('Tab')
         hunt = Hunt(client)
-        initial_xp = client.ui['nativeDungeon']['player'][0]['experience']
         for step in range(args.budget):
+            if (client.output / 'stop-requested').exists():
+                raise SystemExit('Probe stopped at an observation boundary; preserving its ordinary continuing save')
             if client.sequence >= 850:
                 hunt.checkpoint()
                 client.resume()
@@ -128,7 +148,7 @@ def main():
             if step % 25 == 0:
                 hunt.checkpoint()
             cache = next((c for c in hunt.state['worldCaches'] if c['id'] == 'wildlife-' + str(hunt.target)), None)
-            if cache and hunt.player['experience'] > initial_xp:
+            if cache and hunt.player['experience'] > hunt.initial_xp:
                 target = position(cache['position'])
                 if distance(hunt.at, target) > 1:
                     assert hunt.approach(target, 1), 'No private route to the real remains'
@@ -168,6 +188,10 @@ def main():
     finally:
         try:
             if hunt and client.process.poll() is None:
+                if client.sequence:
+                    pending = 'journey-' + str(client.sequence)
+                    client.until(lambda: (r if (r := client.read('response.json')) and r['id'] == pending else None))
+                    client.ui = client.read('observation.json')['ui']
                 hunt.checkpoint()
         finally:
             client.close()
