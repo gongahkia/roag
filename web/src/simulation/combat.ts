@@ -43,7 +43,7 @@ function releaseOrder(w: World, order: BattleOrder): void {
 function setOrder(w: World,p: Person,mode: BattleOrder['mode'],target: Cell): void {
   const old=w.combat.orders.find(o=>o.actor===p.id),resume=old?old.resume:!p.job?p.body.routine?.resume??p.destination:null;
   if(p.body.routine?.kind==='watch')endRoutine(w,p);if(!p.body.routine)clearTravel(p);
-  const order:BattleOrder={actor:p.id,mode,target:{...target},resume:resume?{...resume}:null};
+  const order:BattleOrder={actor:p.id,mode,target:{x:target.x,y:target.y},resume:resume?{x:resume.x,y:resume.y}:null};
   if(old)w.combat.orders[w.combat.orders.indexOf(old)]=order;else w.combat.orders.push(order);
   w.combat.orders.sort((a,b)=>a.actor-b.actor);
 }

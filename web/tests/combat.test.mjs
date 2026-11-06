@@ -136,3 +136,9 @@ test('breachers pressure nearby towers with stable ties while ordinary raiders p
   w.structures.reverse();advanceCombat(w);assert.deepEqual(r.target,{kind:'structure',id:first.id});assert.equal(r.health,72,'No health inflation accompanies the targeting policy');
   const ordinary=fixture();building(ordinary,68,64,'tower',0);const other=raider(ordinary,70,64);advanceCombat(ordinary);assert.deepEqual(other.target,{kind:'heart',id:ordinary.heart.id});
 });
+
+test('automatic rally stores only coordinates when its destination is a guard post',()=>{
+ const w=fixture(),p=w.people[0];p.body.duties.guard=3;const post=building(w,62,62,'guardpost');
+ w.scenario='colony';w.tick=C.warningAt;advanceCombat(w);w.tick=C.spawnAt;advanceCombat(w);
+ const order=w.combat.orders.find(o=>o.actor===p.id);assert.equal(order.mode,'rally');assert.deepEqual(order.target,{x:post.x,y:post.y});assert.deepEqual(Object.keys(order.target).sort(),['x','y']);
+});
