@@ -1,8 +1,9 @@
+import type { Combat, CombatCommand } from './combat-model.ts';
 import type { Duty, Recipe } from './survival-content.ts';
 import type { Streams } from './random.ts';
 import type { Building, Material, Stock } from './work-content.ts';
 export const WIDTH = 128, HEIGHT = 128, TICK_MS = 100, MOVE_TICKS = 4, SEARCH_LIMIT = 4096;
-export const CONTENT_VERSION = 'colony-p04-1';
+export const CONTENT_VERSION = 'colony-p05-1';
 export type Cell = { x: number; y: number };
 export type Life = 'alive' | 'downed' | 'dead';
 export type Routine = { kind: 'eat' | 'rest' | 'treatment' | 'rescue' | 'watch'; facility: number | null; patient: number | null; reservation: Reservation | null; cargo: Stock; progress: number; status: string; resume: Cell | null };
@@ -14,11 +15,11 @@ export type Resource = Cell & { id: number; kind: Material; initial: number; rem
 export type Structure = Cell & { id: number; kind: Building | 'stockpile'; health: number; open: boolean; inventory: Stock; embodied: Stock };
 export type Pile = Cell & { id: number; inventory: Stock };
 export type Reservation = { source: number; kind: Material; count: number };
-export type Job = Cell & { id: number; kind: 'gather' | 'haul' | 'build' | 'repair' | 'dismantle' | 'farm' | 'produce'; ref: number | null;
+export type Job = Cell & { id: number; kind: 'gather' | 'haul' | 'build' | 'repair' | 'dismantle' | 'farm' | 'produce' | 'reload'; ref: number | null;
   building: Building | null; state: 'active' | 'suspended' | 'done' | 'cancelled'; priority: number; worker: number | null;
   requested: number | null; progress: number; site: Stock; reservation: Reservation | null; delivery: number | null;
   recipe:Recipe|null; stage:number; readyAt:number; cycles:number; status: string; completions: number; retryAt: number };
-export type CommandInput = { kind: 'move'; actor: number; target: Cell } | { kind: 'edit'; target: Cell; solid: boolean }
+export type CommandInput = CombatCommand | { kind: 'move'; actor: number; target: Cell } | { kind: 'edit'; target: Cell; solid: boolean }
   | { kind: 'gather'; source: number } | { kind: 'stockpile'; target: Cell } | { kind: 'build'; target: Cell; building: Building }
   | { kind: 'work'; job: number; action: 'cancel' | 'suspend' | 'resume' }
   | { kind: 'priority'; job: number; value: number } | { kind: 'assign'; job: number; worker: number | null }
@@ -26,7 +27,7 @@ export type CommandInput = { kind: 'move'; actor: number; target: Cell } | { kin
   | { kind:'produce'; structure:number; recipe:Recipe|'farm' } | { kind:'duty'; actor:number; duty:Duty; value:number }
   | { kind: 'dev'; action: 'damage' | 'kill' | 'deplete' | 'injure' | 'down' | 'hungry' | 'tired'; id: number };
 export type Command = { sequence: number; due: number; input: CommandInput };
-export type World = { seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
+export type World = { combat:Combat; seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
   width: number; height: number; terrain: number[]; terrainVersion: number; scenario: 'colony' | 'routing-lab' | 'work-lab';
   generation: { attempts: number; fallback: boolean }; heart: Cell & { id: number; health: number };
   people: Person[]; resources: Resource[]; pending: Command[]; terminal: 'heart-destroyed' | 'all-dead' | null;
@@ -40,13 +41,17 @@ export const active = (j: Job): boolean => j.state === 'active' || j.state === '
 export function walkable(world: World, p: Cell): boolean {
   return inside(p) && world.terrain[index(p.x,p.y)] !== 2 && !same(p,world.heart)
     && !world.jobs.some(j => j.kind === 'build' && active(j) && same(j,p))
-    && !world.structures.some(s => same(s,p) && s.kind !== 'stockpile' && !(s.kind === 'door' && s.open));
+    && !world.structures.some(s => same(s,p) && !['stockpile','trap','guardpost'].includes(s.kind) && !(s.kind === 'door' && s.open));
 }
 export function spatial(world: World): Map<number, number> {
   const result = new Map<number, number>();
   for (const person of world.people) if (person.life !== 'dead') {
     result.set(index(person.x,person.y), person.id);
     if (person.next) result.set(index(person.next.x,person.next.y), person.id);
+  }
+  for (const r of world.combat.raiders) {
+    result.set(index(r.x,r.y),r.id);
+    if(r.next)result.set(index(r.next.x,r.next.y),r.id);
   }
   return result;
 }

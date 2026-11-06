@@ -1,23 +1,26 @@
 // Colony balance is local content; legacy party recipes are references, not runtime input.
-export const MATERIALS = ['wood', 'stone', 'food', 'meal', 'ore', 'medicine', 'tool'] as const;
+export const MATERIALS = ['wood', 'stone', 'food', 'meal', 'ore', 'medicine', 'tool', 'ammo'] as const;
 export type Material = typeof MATERIALS[number];
 export type Stock = Record<Material, number>;
-export const emptyStock = (): Stock => ({ wood: 0, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 });
+export const emptyStock = (): Stock => ({ wood: 0, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 });
 export const total = (stock: Stock): number => MATERIALS.reduce((n, k) => n + stock[k], 0);
-export const BUILDINGS = ['wall', 'door', 'storage', 'workshop', 'farm', 'kitchen', 'bed', 'infirmary'] as const;
+export const BUILDINGS = ['wall', 'door', 'storage', 'workshop', 'farm', 'kitchen', 'bed', 'infirmary', 'tower', 'trap', 'guardpost'] as const;
 export type Building = typeof BUILDINGS[number];
 export const WORK_CONTENT = {
   cargoCapacity: 5, stockpileCapacity: 30, extractionTicks: 8, repairTicks: 12, dismantleTicks: 12,
   salvagePercent: 75,
   buildings: {
-    wall: { cost: { wood: 0, stone: 3, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'rock' },
-    door: { cost: { wood: 3, stone: 1, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'cottage' },
-    storage: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 24, capacity: 60, sprite: 'wood' },
-    workshop: { cost: { wood: 6, stone: 4, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
-    farm: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 20, capacity: 0, sprite: 'wheat' },
-    kitchen: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
-    bed: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'bed' },
-    infirmary: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'cottage' },
+    wall: { cost: { wood: 0, stone: 3, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 16, capacity: 0, sprite: 'rock' },
+    door: { cost: { wood: 3, stone: 1, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 16, capacity: 0, sprite: 'cottage' },
+    storage: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 24, capacity: 60, sprite: 'wood' },
+    workshop: { cost: { wood: 6, stone: 4, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
+    farm: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 20, capacity: 0, sprite: 'wheat' },
+    kitchen: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
+    bed: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 16, capacity: 0, sprite: 'bed' },
+    tower: { cost: { ...emptyStock(), wood: 4, stone: 4 }, ticks: 30, capacity: 12, sprite: 'cottage' },
+    trap: { cost: { ...emptyStock(), wood: 2, stone: 1 }, ticks: 16, capacity: 1, sprite: 'rock' },
+    guardpost: { cost: { ...emptyStock(), wood: 1 }, ticks: 12, capacity: 0, sprite: 'wood' },
+    infirmary: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0, ammo: 0 }, ticks: 30, capacity: 0, sprite: 'cottage' },
   },
 } as const;
 export function validateWorkContent(content: typeof WORK_CONTENT = WORK_CONTENT): void {

@@ -1,3 +1,4 @@
+import { combatCommandReason } from '../simulation/combat.ts';
 import { createWorld } from '../simulation/world.ts';
 import { enqueue, step } from '../simulation/step.ts';
 import type { Cell, World, CommandInput } from '../simulation/model.ts';
@@ -46,7 +47,7 @@ export class ColonyController {
   }
   work(input:CommandInput):boolean {
     if(this.busy)return false;
-    const reason=workCommandReason(this.world,input);const ok=reason===null&&enqueue(this.world,input);
+    const reason=(input.kind==='battle'?combatCommandReason(this.world,input):workCommandReason(this.world,input));const ok=reason===null&&enqueue(this.world,input);
     this.message=ok?`Work command queued for tick ${this.world.tick+1}.`:reason??'Work command rejected';this.notify();return ok;
   }
   editGate():void{

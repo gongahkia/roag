@@ -1,3 +1,4 @@
+import { initialCombat } from './combat.ts';
 import { defaultDuties } from './survival-content.ts';
 import { emptyStock } from './work-content.ts';
 import { streams, roll, validSeed } from './random.ts';
@@ -23,9 +24,9 @@ export function generationIssues(world: World): string[] {
 }
 export function createWorld(seed: number, options: { forceFallback?: boolean; scenario?: World['scenario'] } = {}): World {
   if(!validSeed(seed)) throw new Error('Seed must be an integer from 1 to 2147483646');
-  const world:World={seed,tick:0,nextId:8,nextSequence:1,rng:streams(seed),width:WIDTH,height:HEIGHT,terrain:[],terrainVersion:0,
+  const world:World={combat:initialCombat(),seed,tick:0,nextId:8,nextSequence:1,rng:streams(seed),width:WIDTH,height:HEIGHT,terrain:[],terrainVersion:0,
     scenario:options.scenario??'colony',generation:{attempts:0,fallback:false},heart:{id:1,x:64,y:64,health:100},
-    people:SPAWNS.map(([x,y],i)=>({id:i+2,founder:i,x,y,life:'alive',destination:null,next:null,progress:0,route:[],routeVersion:0,retryAt:0,blocked:null,job:null,cargo:emptyStock(),yieldTo:null,yieldUntil:0,failures:0,body:{hunger:0,fatigue:0,health:100,mood:100,deathAt:0,recoverAt:0,meals:0,rests:0,duties:defaultDuties(),routine:null,status:'Ready'}})),resources:[],pending:[],terminal:null,jobs:[],structures:[],piles:[],spent:emptyStock(),lost:emptyStock(),sourceRemoved:emptyStock(),produced:emptyStock(),consumed:emptyStock(),recipeCounts:{meal:0,ore:0,medicine:0,tool:0},statistics:{eatenFood:0,eatenMeals:0,harvests:0,recipes:0,rescues:0,treatments:0,deaths:0,workTicks:0}};
+    people:SPAWNS.map(([x,y],i)=>({id:i+2,founder:i,x,y,life:'alive',destination:null,next:null,progress:0,route:[],routeVersion:0,retryAt:0,blocked:null,job:null,cargo:emptyStock(),yieldTo:null,yieldUntil:0,failures:0,body:{hunger:0,fatigue:0,health:100,mood:100,deathAt:0,recoverAt:0,meals:0,rests:0,duties:defaultDuties(),routine:null,status:'Ready'}})),resources:[],pending:[],terminal:null,jobs:[],structures:[],piles:[],spent:emptyStock(),lost:emptyStock(),sourceRemoved:emptyStock(),produced:emptyStock(),consumed:emptyStock(),recipeCounts:{ammo:0,meal:0,ore:0,medicine:0,tool:0},statistics:{eatenFood:0,eatenMeals:0,harvests:0,recipes:0,rescues:0,treatments:0,deaths:0,workTicks:0}};
   const make = (fallback:boolean) => {
     world.terrain=[];world.resources=[];world.nextId=8;
     for(let y=0;y<HEIGHT;y++) for(let x=0;x<WIDTH;x++) {

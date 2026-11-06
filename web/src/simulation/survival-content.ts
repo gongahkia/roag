@@ -9,6 +9,7 @@ export const NEEDS = {dayTicks:3600, mealAt:1800, starveAt:3600, restAt:2400, ex
   plantingTicks:20, tendingTicks:20, growthTicks:240, harvestTicks:20, harvestYield:5, foodReserve:20} as const;
 const stock=(values:Partial<Stock>):Stock=>({...emptyStock(),...values});
 export const RECIPES = {
+  ammo:{reserve:36,facility:'workshop',duty:'builder',cost:stock({wood:1,stone:1}),output:stock({ammo:4}),ticks:24},
   meal:{reserve:24,facility:'kitchen',duty:'cook',cost:stock({food:1,wood:1}),output:stock({meal:4}),ticks:30},
   ore:{reserve:4,facility:'workshop',duty:'builder',cost:stock({stone:2}),output:stock({ore:1}),ticks:30},
   medicine:{reserve:4,facility:'infirmary',duty:'healer',cost:stock({food:2,ore:1}),output:stock({medicine:2}),ticks:40},

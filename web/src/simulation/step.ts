@@ -1,3 +1,4 @@
+import { combatCommandReason, applyCombatCommand, resolveCombatImpacts, prepareCombat, advanceCombat } from './combat.ts';
 import { advanceNeeds, endRoutine } from './needs.ts';
 import { index, inside, MOVE_TICKS, neighbors, same, spatial, walkable } from './model.ts';
 import type { Cell, CommandInput, Person, World } from './model.ts';
@@ -6,6 +7,7 @@ import { route } from './navigation.ts';
 export { route } from './navigation.ts';
 export function legalCommand(world: World, input: CommandInput): boolean {
   if (world.terminal || !input || typeof input !== 'object') return false;
+  if (input.kind === 'battle') return combatCommandReason(world,input) === null;
   if (input.kind === 'move') return inside(input.target) && world.people.some(p => p.id === input.actor && p.life === 'alive');
   if (input.kind === 'edit') return world.scenario === 'routing-lab' && inside(input.target) && typeof input.solid === 'boolean' && !same(input.target,world.heart) && !world.resources.some(r => same(r,input.target)) && !world.people.some(p => same(p,input.target) || p.next && same(p.next,input.target));
   return workCommandReason(world,input) === null;
@@ -36,6 +38,7 @@ export function step(world: World): void {
   for (const c of commands) {
     if (!legalCommand(world,c.input)) continue;
     if (c.input.kind==='edit') { world.terrain[index(c.input.target.x,c.input.target.y)]=c.input.solid?2:1;world.terrainVersion++; }
+    else if(c.input.kind==='battle') applyCombatCommand(world,c.input);
     else if (c.input.kind==='move') {
       const input=c.input,p=world.people.find(p=>p.id===input.actor)!;
       if(p.job){const j=world.jobs.find(j=>j.id===p.job)!;release(world,j);j.requested=null;j.retryAt=world.tick+20;}
@@ -44,7 +47,9 @@ export function step(world: World): void {
       clearTravel(p);p.destination={...input.target};p.retryAt=world.tick;
     } else applyWorkCommand(world,c.input);
   }
+  resolveCombatImpacts(world);
   advanceNeeds(world);
+  prepareCombat(world);
   advanceJobs(world);
   const occupied=spatial(world); let searches=0;
   for (const p of world.people) {
@@ -71,11 +76,12 @@ export function step(world: World): void {
     if (!walkable(world,next) || other!==undefined && other!==p.id) { p.route=[];p.failures++;p.retryAt=world.tick+10;p.blocked='Occupied; yielding';yieldBlocker(world,p,occupied);continue; }
     p.next=p.route.shift()!;p.progress=0;p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
   }
+  advanceCombat(world);
   // Removed targets can never become valid again: stable IDs are not reused.
   // Retire only these inert commands, keeping sequence counters and all live intent.
   world.pending=world.pending.filter(({input})=>{
     if(input.kind==='work'||input.kind==='priority'||input.kind==='assign')return world.jobs.some(j=>j.id===input.job);
-    if(input.kind==='repair'||input.kind==='dismantle'||input.kind==='door'||input.kind==='produce')return world.structures.some(s=>s.id===input.structure);
+    if(input.kind==='repair'||input.kind==='dismantle'||input.kind==='door'||input.kind==='produce'||input.kind==='reload')return world.structures.some(s=>s.id===input.structure);
     if(input.kind==='dev'&&input.action==='damage')return world.structures.some(s=>s.id===input.id);
     return true;
   });
