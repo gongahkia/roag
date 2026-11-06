@@ -3,13 +3,14 @@ import { CONTENT_VERSION, WIDTH, HEIGHT, MOVE_TICKS, index, same, distance, walk
 import type { World, Cell } from '../simulation/model.ts';
 import { STREAMS, validSeed } from '../simulation/random.ts';
 import { canonical } from '../simulation/canonical.ts';
-import { materialAudit, capacity, jobCost, jobTicks, available } from '../simulation/jobs.ts';
+import { materialAudit, capacity, isStore, jobCost, jobTicks, available } from '../simulation/jobs.ts';
 import { active } from '../simulation/model.ts';
 import { BUILDINGS, MATERIALS, total, WORK_CONTENT } from '../simulation/work-content.ts';
 import type { Stock } from '../simulation/work-content.ts';
 import { terminalReason } from '../simulation/step.ts';
+import { validateCombat } from './combat-schema.ts';
 export type Controls = { manualPaused:boolean; speed:1|2|4 };
-export type Save = { format:'roag-colony'; version:3; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
+export type Save = { format:'roag-colony'; version:4; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
 export const MAX_SAVE_BYTES=2_000_000;
 function assert(ok:unknown,message:string):asserts ok {if(!ok)throw new Error(`Invalid save: ${message}`);}
 function object(value:unknown,keys:string[]):asserts value is Record<string,unknown> {
@@ -20,9 +21,9 @@ const integer=(n:unknown,min=0,max=1e9):n is number=>Number.isSafeInteger(n)&&Nu
 function cell(value:unknown):asserts value is Cell {object(value,['x','y']);assert(integer(value.x,0,WIDTH-1)&&integer(value.y,0,HEIGHT-1),'cell outside world');}
 export function validateSave(value:unknown):Save {
   object(value,['format','version','contentVersion','world','controls']);
-  assert(value.format==='roag-colony'&&value.version===3&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
+  assert(value.format==='roag-colony'&&value.version===4&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
   object(value.controls,['manualPaused','speed']);assert(typeof value.controls.manualPaused==='boolean'&&[1,2,4].includes(Number(value.controls.speed))&&typeof value.controls.speed==='number','controls');
-  const v=value.world;object(v,['seed','tick','nextId','nextSequence','rng','width','height','terrain','terrainVersion','scenario','generation','heart','people','resources','pending','terminal','jobs','structures','piles','spent','lost','sourceRemoved','produced','consumed','statistics','recipeCounts']);
+  const v=value.world;object(v,['combat','seed','tick','nextId','nextSequence','rng','width','height','terrain','terrainVersion','scenario','generation','heart','people','resources','pending','terminal','jobs','structures','piles','spent','lost','sourceRemoved','produced','consumed','statistics','recipeCounts']);
   assert(validSeed(Number(v.seed))&&typeof v.seed==='number'&&integer(v.tick)&&integer(v.nextId,8)&&integer(v.nextSequence,1)&&integer(v.terrainVersion),'counters/seed');
   assert(v.width===WIDTH&&v.height===HEIGHT&&Array.isArray(v.terrain)&&v.terrain.length===WIDTH*HEIGHT&&v.terrain.every(n=>integer(n,0,2)),'terrain');
   assert(v.scenario==='colony'||v.scenario==='routing-lab'||v.scenario==='work-lab','scenario');
@@ -54,6 +55,7 @@ export function validateSave(value:unknown):Save {
   }
   const resourceCells=new Set<number>();
   for(const r of v.resources){object(r,['id','kind','x','y','initial','remaining']);assert(integer(r.id,8,world.nextId-1)&&!ids.has(r.id),'resource ID');ids.add(r.id as number);assert(typeof r.kind==='string'&&['wood','stone','food'].includes(r.kind)&&integer(r.x,1,126)&&integer(r.y,1,126)&&integer(r.initial,1,81)&&integer(r.remaining,0,r.initial as number),'resource');const key=index(r.x as number,r.y as number);assert(!resourceCells.has(key),'duplicate resource');resourceCells.add(key);if(r.kind!=='food'&&Number(r.remaining)>0)assert(world.terrain[key]===2,'solid resource');}
+  validateCombat(world,ids,occupied);
   validateBodies(world);
   validateWork(world,ids);
   assert(Math.max(...ids)<world.nextId,'next ID');
@@ -64,7 +66,7 @@ export function validateSave(value:unknown):Save {
   assert(world.terminal===terminalReason(world),'terminal consistency');
   return structuredClone(value) as unknown as Save;
 }
-export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:3,contentVersion:CONTENT_VERSION,world,controls});}
+export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:4,contentVersion:CONTENT_VERSION,world,controls});}
 export function encodeSave(save:Save):string {return canonical(validateSave(save));}
 export function parseSave(text:string):Save {
   if(text.length>MAX_SAVE_BYTES)throw new Error('Save file is too large');
@@ -78,6 +80,8 @@ function commandShape(world: World, value: unknown): void {
   assert(value!==null&&typeof value==='object','command');const v=value as Record<string,unknown>;
   const ref=(list:{id:number}[],id:unknown)=>list.some(p=>p.id===id);
   switch(v.kind) {
+    case 'battle': object(v,['kind','actor','mode','target']);cell(v.target);assert((v.actor===0||ref(world.people,v.actor))&&['rally','retreat','shelter','release'].includes(String(v.mode)),'battle command');break;
+    case 'reload': object(v,['kind','structure']);assert(world.structures.some(s=>s.id===v.structure&&(s.kind==='tower'||s.kind==='trap')),'reload reference');break;
     case 'move': object(v,['kind','actor','target']);cell(v.target);assert(ref(world.people,v.actor),'actor reference');break;
     case 'edit': object(v,['kind','target','solid']);cell(v.target);assert(world.scenario==='routing-lab'&&typeof v.solid==='boolean','edit command');break;
     case 'stockpile': object(v,['kind','target']);cell(v.target);break;
@@ -102,6 +106,7 @@ function validateWork(world: World, ids: Set<number>): void {
     object(s,['id','x','y','kind','health','open','inventory','embodied']);addId(s.id);cell({x:s.x,y:s.y});
     assert(['stockpile',...BUILDINGS].includes(s.kind)&&integer(s.health,1,100)&&typeof s.open==='boolean','structure definition');stock(s.inventory);stock(s.embodied);
     assert(total(s.inventory)<=capacity(s),'storage capacity');
+    if(s.kind==='tower'||s.kind==='trap')assert(MATERIALS.every(k=>k==='ammo'||s.inventory[k]===0),'defense magazine contains non-ammunition');
     for(const k of MATERIALS)assert(s.embodied[k]===(s.kind==='stockpile'?0:WORK_CONTENT.buildings[s.kind].cost[k]),'embodied recipe');
     const key=index(s.x,s.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(s,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,s)),'structure footprint');positions.add(key);
   }
@@ -111,9 +116,10 @@ function validateWork(world: World, ids: Set<number>): void {
   const workers=new Set<number>(),targets=new Set<string>();
   for(const j of world.jobs) {
     object(j,['id','kind','x','y','ref','building','state','priority','worker','requested','progress','site','reservation','delivery','status','completions','retryAt','recipe','stage','readyAt','cycles']);addId(j.id);assert(j.id>previousId,'job order');previousId=j.id;cell({x:j.x,y:j.y});
-    assert(['gather','haul','build','repair','dismantle','farm','produce'].includes(j.kind)&&['active','suspended','done','cancelled'].includes(j.state)&&integer(j.priority,1,3),'job definition');
+    assert(['gather','haul','build','repair','dismantle','farm','produce','reload'].includes(j.kind)&&['active','suspended','done','cancelled'].includes(j.state)&&integer(j.priority,1,3),'job definition');
     assert(j.kind==='produce'?Object.hasOwn(RECIPES,j.recipe??''):j.recipe===null,'recipe identity');assert(integer(j.stage,0,3)&&integer(j.readyAt)&&integer(j.cycles)&&(j.kind==='farm'||j.kind==='produce'||j.stage===0&&j.readyAt===0&&j.cycles===0),'production stage');
     assert(j.building===null||BUILDINGS.includes(j.building),'job building');assert((j.kind!=='build'&&j.kind!=='repair')||j.building!==null,'building required');
+    if(j.kind==='reload')assert(j.building==='tower'||j.building==='trap','reload building');
     assert(j.ref===null||integer(j.ref,8,world.nextId-1),'job target reference');assert(j.kind==='build'?j.ref===null:j.ref!==null,'job target identity');
     assert(integer(j.progress,0,jobTicks(j))&&integer(j.retryAt)&&typeof j.status==='string'&&j.status.length<300&&j.completions===(j.state==='done'?1:0),'work progress/completion');stock(j.site);
     assert(j.requested===null||world.people.some(p=>p.id===j.requested),'requested worker');
@@ -122,21 +128,22 @@ function validateWork(world: World, ids: Set<number>): void {
     if(!active(j))assert(j.worker===null&&j.reservation===null&&j.delivery===null&&total(j.site)===0,'settled job');
     if(j.state==='suspended')assert(j.worker===null&&j.reservation===null,'suspended claims');
     if(active(j)) {
-      const key=j.kind==='build'?`build:${j.x},${j.y}`:`${['repair','dismantle','farm','produce'].includes(j.kind)?'structure':j.kind}:${j.ref}`;assert(!targets.has(key),'duplicate work target');targets.add(key);
+      const key=j.kind==='build'?`build:${j.x},${j.y}`:`${['repair','dismantle','farm','produce','reload'].includes(j.kind)?'structure':j.kind}:${j.ref}`;assert(!targets.has(key),'duplicate work target');targets.add(key);
       if(j.kind==='gather')assert(world.resources.some(r=>r.id===j.ref&&same(r,j)),'gather reference');
       if(j.kind==='haul')assert(world.piles.some(b=>b.id===j.ref&&same(b,j)),'bundle reference');
       if(j.kind==='repair'||j.kind==='dismantle')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&(s.kind==='stockpile'?j.building===null:j.building===s.kind)),'structure work reference');
+      if(j.kind==='reload')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&s.kind===j.building&&capacity(s)-s.inventory.ammo>=jobCost(j).ammo),'reload target or magazine space');
       if(j.kind==='farm'||j.kind==='produce')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&s.kind===(j.kind==='farm'?'farm':RECIPES[j.recipe!].facility)),'production reference');
-      if(j.kind==='build') {const key=index(j.x,j.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>p.life!=='dead'&&(same(p,j)||p.next&&same(p.next,j))),'site footprint');positions.add(key);}
+      if(j.kind==='build') {const key=index(j.x,j.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>p.life!=='dead'&&(same(p,j)||p.next&&same(p.next,j)))&&!world.combat.raiders.some(r=>same(r,j)||r.next&&same(r.next,j)),'site footprint');positions.add(key);}
     }
     if(j.reservation) {
       const r=j.reservation;object(r,['source','kind','count']);assert(MATERIALS.includes(r.kind)&&integer(r.count,1,WORK_CONTENT.cargoCapacity)&&j.worker!==null&&j.state==='active','reservation');
-      assert(world.structures.some(s=>s.id===r.source&&capacity(s)>0)||world.piles.some(b=>b.id===r.source),'reservation source');assert(available(world,r.source,r.kind)>=0,'overclaimed material');
-      assert(j.kind==='build'||j.kind==='repair'||j.kind==='produce'||j.kind==='haul'&&j.ref===r.source,'reservation purpose');
+      assert(world.structures.some(s=>s.id===r.source&&isStore(s))||world.piles.some(b=>b.id===r.source),'reservation source');assert(available(world,r.source,r.kind)>=0,'overclaimed material');
+      assert(j.kind==='build'||j.kind==='repair'||j.kind==='produce'||j.kind==='reload'||j.kind==='haul'&&j.ref===r.source,'reservation purpose');
     }
-    assert(j.delivery===null||world.structures.some(s=>s.id===j.delivery&&capacity(s)>0),'delivery reference');
+    assert(j.delivery===null||world.structures.some(s=>s.id===j.delivery&&isStore(s)),'delivery reference');
     const cost=jobCost(j);
-    if(j.kind==='build'||j.kind==='repair'||j.kind==='produce'&&j.stage!==3)for(const k of MATERIALS) {
+    if(j.kind==='build'||j.kind==='repair'||j.kind==='reload'||j.kind==='produce'&&j.stage!==3)for(const k of MATERIALS) {
       const owned=j.site[k]+(p?.cargo[k]??0)+(j.reservation?.kind===k?j.reservation.count:0);assert(owned<=cost[k],'supplies exceed recipe');
       if(j.progress>0&&active(j))assert(j.site[k]===cost[k],'work before supplies delivered');
     } else assert(total(j.site)===0,'nonconstruction site supplies');
@@ -173,8 +180,8 @@ function validateBodies(w:World):void {
   assert(w.people.reduce((n,p)=>n+p.body.meals,0)===w.statistics.eatenFood+w.statistics.eatenMeals,'meal count');
   assert(w.people.filter(p=>p.life==='dead').length===w.statistics.deaths,'death count');
   for(const k of MATERIALS){
-    const generated=(k==='food'?w.statistics.harvests*NEEDS.harvestYield:0)+Object.entries(RECIPES).reduce((n,[name,r])=>n+w.recipeCounts[name as keyof typeof RECIPES]*r.output[k],0);
-    const consumed=(k==='food'?w.statistics.eatenFood:k==='meal'?w.statistics.eatenMeals:k==='medicine'?w.statistics.rescues+w.statistics.treatments:0)+Object.entries(RECIPES).reduce((n,[name,r])=>n+w.recipeCounts[name as keyof typeof RECIPES]*r.cost[k],0);
+    const generated=(k==='food'?w.statistics.harvests*NEEDS.harvestYield:k==='wood'?w.combat.lootWood:0)+Object.entries(RECIPES).reduce((n,[name,r])=>n+w.recipeCounts[name as keyof typeof RECIPES]*r.output[k],0);
+    const consumed=(k==='food'?w.statistics.eatenFood:k==='meal'?w.statistics.eatenMeals:k==='medicine'?w.statistics.rescues+w.statistics.treatments:k==='ammo'?w.combat.stats.shots+w.combat.stats.traps:0)+Object.entries(RECIPES).reduce((n,[name,r])=>n+w.recipeCounts[name as keyof typeof RECIPES]*r.cost[k],0);
     assert(w.produced[k]===generated&&w.consumed[k]===consumed,'production/consumption ledger');
   }
 }
