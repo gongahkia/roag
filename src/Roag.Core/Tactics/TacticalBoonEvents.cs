@@ -39,8 +39,8 @@ public sealed partial class TacticalCombat
     private BoonEvent CaptureBoonEvent(BoonTrigger kind, long source, long target, long action, WorldPosition? position,
         string ability = "", WorldPosition? from = null)
     {
-        var actor = _world.State.Actors.FirstOrDefault(a => a.Id == source);
-        var victim = _world.State.Actors.FirstOrDefault(a => a.Id == target);
+        var actor = _world.FindActor(source);
+        var victim = _world.FindActor(target);
         var cause = _cause ?? RootCause(action);
         return new()
         {

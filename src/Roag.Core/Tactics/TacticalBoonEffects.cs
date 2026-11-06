@@ -21,7 +21,7 @@ public sealed partial class TacticalCombat
         BoonDefinitionValidation.ValidateEffect(effect);
         var owner = Actor(activation.OwnerId);
         int power = checked((int)activation.Power);
-        var target = activation.Event.TargetId is { } targetId ? _world.State.Actors.FirstOrDefault(a => a.Id == targetId) : null;
+        var target = activation.Event.TargetId is { } targetId ? _world.FindActor(targetId) : null;
         bool livingOwner = owner.Life == LifeState.Alive && owner.Health > 0;
         switch (effect.Kind)
         {
