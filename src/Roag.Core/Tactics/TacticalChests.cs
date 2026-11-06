@@ -20,7 +20,7 @@ public sealed class TacticalChestState
     public long NextChest { get; set; } = 1;
     // Freeze this campaign's original pool plus its starting permanent unlocks.
     public string[] AvailableBoons { get; set; } = BoonCatalog.Original.NormalPool.ToArray();
-    public List<BoonChest> Chests { get; set; } = [];
+    public StateList<BoonChest> Chests { get; set; } = [];
 
     internal IReadOnlyList<BoonOffer> Offers(BoonChest chest, ClassKind recipient)
         => Offers(chest.Seed, chest.Definition, recipient);

@@ -9,7 +9,7 @@ public sealed record TacticalDoor(long Id, string Marker, WorldPosition Position
 public sealed class TacticalDoorState
 {
     public long NextDoor { get; set; } = 1;
-    public List<TacticalDoor> Nodes { get; set; } = [];
+    public StateList<TacticalDoor> Nodes { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {

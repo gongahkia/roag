@@ -13,7 +13,7 @@ public sealed record DungeonSecret(long Id, string Marker, DungeonSecretKind Kin
 public sealed class TacticalSecretState
 {
     public long NextSecret { get; set; } = 1;
-    public List<DungeonSecret> Nodes { get; set; } = [];
+    public StateList<DungeonSecret> Nodes { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {

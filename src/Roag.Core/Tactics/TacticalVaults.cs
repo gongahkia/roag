@@ -12,7 +12,7 @@ public sealed record DungeonVault(long Id, string Marker, WorldPosition Position
 public sealed class DungeonVaultState
 {
     public long NextVault { get; set; } = 1;
-    public List<DungeonVault> Nodes { get; set; } = [];
+    public StateList<DungeonVault> Nodes { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {

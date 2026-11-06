@@ -10,6 +10,13 @@ public sealed partial class WorldSession
     private int _objectCount = -1;
     private Dictionary<WorldPosition, WorldDiscovery> _discoveryObjects = [];
     private Dictionary<WorldPosition, LootCache> _cacheObjects = [];
+    private readonly StatePositionIndex<BoonChest> _chestObjects = new(static n => n.Position);
+    private readonly StatePositionIndex<DungeonService> _serviceObjects = new(static n => n.Position);
+    private readonly StatePositionIndex<TacticalDoor> _doorObjects = new(static n => n.Position);
+    private readonly StatePositionIndex<DungeonGate> _gateObjects = new(static n => n.Position);
+    private readonly StatePositionIndex<DungeonVault> _vaultObjects = new(static n => n.Position, static n => n.KeyPosition);
+    private readonly StatePositionIndex<DungeonSecret> _secretObjects = new(static n => n.Clue);
+    private readonly StatePositionIndex<DungeonRoomFeature> _featureObjects = new(static n => n.Position);
     private ChunkKey? _collisionChunk;
     private static readonly WorldObject Shrub = new("Shrub", "shrub", "decoration", false),
         Bones = new("Scattered bones", "bones", "decoration", false), Barrel = new("Barrel", "barrel", "decoration", true, true);
@@ -54,18 +61,18 @@ public sealed partial class WorldSession
                 var fire = tactics.CampFires[i];
                 if (fire.Position == p && fire.Until > tactics.Queue.Clock) return LitCampFire;
             }
-            for (int i = 0; i < tactics.Chests.Chests.Count; i++)
+            if (_chestObjects.At(tactics.Chests.Chests, p) is { } chests)
+            foreach (var chest in chests)
             {
-                var chest = tactics.Chests.Chests[i];
                 if (!chest.Claimed && chest.Position == p)
                     return chest.Definition == "core:chest/free_elite" ? EliteBoonChest : StandardBoonChest;
             }
-            for (int i = 0; i < tactics.Services.Nodes.Count; i++)
-                if (tactics.Services.Nodes[i].Position == p) return DungeonServiceObjects[(int)tactics.Services.Nodes[i].Kind];
-            for (int i = 0; i < tactics.Doors.Nodes.Count; i++)
-                if (tactics.Doors.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
-            for (int i = 0; i < tactics.Gates.Nodes.Count; i++)
-                if (tactics.Gates.Nodes[i].Position == p) return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedTimedGate : OpenTimedGate;
+            if (_serviceObjects.At(tactics.Services.Nodes, p) is { Count: > 0 } services)
+                return DungeonServiceObjects[(int)services[0].Kind];
+            if (_doorObjects.At(tactics.Doors.Nodes, p) is { Count: > 0 })
+                return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedDungeonDoor : OpenDungeonDoor;
+            if (_gateObjects.At(tactics.Gates.Nodes, p) is { Count: > 0 })
+                return (terrain ?? Chunks.At(p)) == Material.ClosedDoor ? ClosedTimedGate : OpenTimedGate;
             if (DungeonQuestNodeAt(p) is { } questSite)
             {
                 var (quest, node) = questSite;
@@ -78,21 +85,21 @@ public sealed partial class WorldSession
                 };
                 if (node.Kind == Roag.Core.Dungeons.DungeonBranchNodeKind.Brazier) return QuestBrazier;
             }
-            for (int i = 0; i < tactics.Vaults.Nodes.Count; i++)
+            if (_vaultObjects.At(tactics.Vaults.Nodes, p) is { } vaults)
+            foreach (var vault in vaults)
             {
-                var vault = tactics.Vaults.Nodes[i];
                 if (vault.Position == p) return vault.Opened ? OpenVault : ClosedVault;
                 if (!vault.KeyCollected && vault.KeyPosition == p) return VaultKey;
             }
-            for (int i = 0; i < tactics.Secrets.Nodes.Count; i++)
+            if (_secretObjects.At(tactics.Secrets.Nodes, p) is { } secrets)
+            foreach (var secret in secrets)
             {
-                var secret = tactics.Secrets.Nodes[i];
                 if (!secret.Revealed && secret.Clue == p)
                     return secret.Kind == DungeonSecretKind.CrackedCache ? CrackedSecretWall : MossSecretSigil;
             }
-            for (int i = 0; i < tactics.RoomFeatures.Nodes.Count; i++)
+            if (_featureObjects.At(tactics.RoomFeatures.Nodes, p) is { } features)
+            foreach (var feature in features)
             {
-                var feature = tactics.RoomFeatures.Nodes[i];
                 if (!feature.Used && feature.Position == p) return DungeonRoomObjects[(int)feature.Kind];
             }
         }

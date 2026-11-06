@@ -10,7 +10,7 @@ public sealed record DungeonRoomFeature(long Id, string Marker, DungeonRoomFeatu
 public sealed class DungeonRoomFeatureState
 {
     public long NextFeature { get; set; } = 1;
-    public List<DungeonRoomFeature> Nodes { get; set; } = [];
+    public StateList<DungeonRoomFeature> Nodes { get; set; } = [];
 
     public bool MistCleared(WorldPosition position, long clock)
     {

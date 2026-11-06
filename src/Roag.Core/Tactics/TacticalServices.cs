@@ -14,7 +14,7 @@ public sealed record DungeonServiceChoice(int Choice, string Label, string Detai
 public sealed partial class DungeonServiceState
 {
     public long NextService { get; set; } = 1;
-    public List<DungeonService> Nodes { get; set; } = [];
+    public StateList<DungeonService> Nodes { get; set; } = [];
     public List<BellPuzzle> Puzzles { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)

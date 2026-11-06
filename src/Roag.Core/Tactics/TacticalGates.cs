@@ -9,7 +9,7 @@ public sealed record DungeonGate(long Id, string Marker, WorldPosition Position,
 public sealed class DungeonGateState
 {
     public long NextGate { get; set; } = 1;
-    public List<DungeonGate> Nodes { get; set; } = [];
+    public StateList<DungeonGate> Nodes { get; set; } = [];
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {
