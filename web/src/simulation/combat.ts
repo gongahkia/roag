@@ -9,6 +9,7 @@ import { approach, clearTravel, destroyStructure, drop, finish } from './jobs.ts
 import { endRoutine, fall } from './needs.ts';
 import { appendRaidSummary, firstRaidDeadlines, nextRaidDeadlines, nextSpawn, planWave } from './raid-director.ts';
 import type { SpawnTicket } from './raid-model.ts';
+import { isBossKind, BOSS_NAMES } from './raid-model.ts';
 import { advanceEncounters, defendedDamage, encounterTurn, resolveEncounterImpact } from './encounters.ts';
 import type { EncounterApi } from './encounters.ts';
 import { ENCOUNTER_CONTENT as E } from './encounter-content.ts';
@@ -70,8 +71,8 @@ function damage(w: World,ref: CombatRef,amount: number,faction: Attack['faction'
       w.combat.attacks=w.combat.attacks.filter(a=>a.source.kind!=='raider'||a.source.id!==r.id);
       const owned=w.combat.barricades.filter(b=>b.owner===r.id);if(owned.length){w.combat.barricades=w.combat.barricades.filter(b=>b.owner!==r.id);w.terrainVersion++;}
       for(const other of w.combat.raiders)if(other.target?.kind==='raider'&&other.target.id===r.id){other.target=null;other.route=[];}
-      w.combat.stats.kills++;if(r.kind==='captain')w.combat.stats.bosses++;
-      const reward=r.kind==='captain'?5:1;w.combat.lootWood+=reward;w.produced.wood+=reward;const loot=emptyStock();loot.wood=reward;drop(w,r,loot);
+      w.combat.stats.kills++;if(isBossKind(r.kind))w.combat.stats.bosses++;
+      const reward=isBossKind(r.kind)?5:1;w.combat.lootWood+=reward;w.produced.wood+=reward;const loot=emptyStock();loot.wood=reward;drop(w,r,loot);
     }
     return;
   }
@@ -172,10 +173,10 @@ function automaticOrders(w: World): void {
 function raidSchedule(w: World): void {
   const c=w.combat;
   if(w.scenario==='colony'&&(c.phase==='peace'||c.phase==='recovery')&&w.tick>=c.warningAt){
-    const plan=planWave(c.completed+1,w.rng.raids,w.nextId);w.rng.raids=plan.nextRaidsRng;w.nextId=plan.nextId;
+    const plan=planWave(c.completed+1,w.rng.raids,w.nextId,w.seed);w.rng.raids=plan.nextRaidsRng;w.nextId=plan.nextId;
     c.phase='warning';c.wave=plan.wave;c.edge=plan.edge;c.pending=plan.tickets;c.budget=plan.budget;c.spent=plan.spent;
     c.waveStart={tick:w.tick,spawned:c.stats.spawned,kills:c.stats.kills,deaths:w.statistics.deaths,ammo:w.consumed.ammo,structuresLost:c.stats.structuresLost,repairs:c.stats.repairs};
-    c.status=`Wave ${c.wave} announced from the ${c.edge}${plan.captain?' — the Ossuary Captain approaches':''}. Arrival at tick ${c.spawnAt}. Budget ${c.spent}/${c.budget}; prepare and reload.`;
+    c.status=`Wave ${c.wave} announced from the ${c.edge}${plan.boss?` — the ${BOSS_NAMES[plan.boss]} approaches`:''}. Arrival at tick ${c.spawnAt}. Budget ${c.spent}/${c.budget}; prepare and reload.`;
   }
   if(c.phase==='warning'&&w.tick>=c.spawnAt){c.phase='combat';automaticOrders(w);c.status=`Wave ${c.wave} arriving from the ${c.edge}; civilians seek shelter, guards rally. Orders can be changed or released.`;}
   if(c.phase!=='combat'||!c.pending.length)return;

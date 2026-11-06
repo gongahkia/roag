@@ -14,7 +14,7 @@ export type EncounterApi = {
 };
 const cell = (c: Cell): Cell => ({ x: c.x, y: c.y });
 const ref = (r: Raider): CombatRef => ({ kind: 'raider', id: r.id });
-const maximum = (r: Raider): number => r.kind === 'raider' || r.kind === 'breacher' ? COMBAT_CONTENT[r.kind].health : E.profiles[r.kind].health;
+const maximum = (r: Raider): number => COMBAT_CONTENT[r.kind].health;
 function objective(w: World, r: Raider, notice: number): { ref: CombatRef; cell: Cell } {
   const person = w.people.filter(p => p.life === 'alive' && distance(r, p) <= notice).sort((a, b) => distance(r, a) - distance(r, b) || a.id - b.id)[0];
   return person ? { ref: { kind: 'person', id: person.id }, cell: person } : { ref: { kind: 'heart', id: w.heart.id }, cell: w.heart };

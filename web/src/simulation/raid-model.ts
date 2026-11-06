@@ -1,6 +1,10 @@
 /** P06 contracts are independent of World until the P05 acceptance merge. */
-export const RAID_KINDS = ['raider', 'breacher', 'shield', 'archer', 'healer', 'rusher', 'captain'] as const;
+export const RAID_KINDS = ['raider', 'breacher', 'shield', 'archer', 'healer', 'rusher', 'captain', 'bellkeeper', 'sluice', 'threadmother'] as const;
 export type RaidKind = typeof RAID_KINDS[number];
+export const BOSS_KINDS = ['captain', 'bellkeeper', 'sluice', 'threadmother'] as const;
+export type BossRaidKind = typeof BOSS_KINDS[number];
+export const isBossKind = (kind: RaidKind): kind is BossRaidKind => BOSS_KINDS.includes(kind as BossRaidKind);
+export const BOSS_NAMES: Record<BossRaidKind,string> = { captain:'Ossuary Captain', bellkeeper:'Bellkeeper', sluice:'Sluice-Maw', threadmother:'Threadmother' };
 export const RAID_EDGES = ['north', 'east', 'south', 'west'] as const;
 export type RaidEdge = typeof RAID_EDGES[number];
 export type SpawnCell = { x: number; y: number };
@@ -21,6 +25,7 @@ export type WavePlan = {
   spent: number;
   edge: RaidEdge;
   captain: boolean;
+  boss: BossRaidKind | null;
   tickets: SpawnTicket[];
   nextId: number;
   nextRaidsRng: number;

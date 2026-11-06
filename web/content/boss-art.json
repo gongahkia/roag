@@ -19,7 +19,10 @@
     "archer": "enemy-archer",
     "healer": "enemy-healer",
     "rusher": "enemy-rusher",
-    "captain": "boss-ossuary-captain"
+    "captain": "boss-ossuary-captain",
+    "bellkeeper": "boss-bellkeeper",
+    "sluice": "boss-sluice-maw",
+    "threadmother": "boss-threadmother"
   },
   "roles": {
     "boss-bellkeeper": {

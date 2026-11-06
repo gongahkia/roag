@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { streams, draw, validSeed } from '../src/simulation/random.ts';
-import { RAID_EDGES } from '../src/simulation/raid-model.ts';
-import { RAID_CONTENT, RAID_COST, planWave, waveBudget, firstRaidDeadlines, nextRaidDeadlines, spawnCandidates, nextSpawn, appendRaidSummary } from '../src/simulation/raid-director.ts';
+import { RAID_EDGES, isBossKind, BOSS_KINDS } from '../src/simulation/raid-model.ts';
+import { RAID_CONTENT, RAID_COST, planWave, bossForWave, waveBudget, firstRaidDeadlines, nextRaidDeadlines, spawnCandidates, nextSpawn, appendRaidSummary } from '../src/simulation/raid-director.ts';
 
 function freeze(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
@@ -28,7 +28,7 @@ test('first wave preserves the P05 roster, sole edge draw, seed-42 east entry an
   assert.equal(JSON.stringify(rng), before, 'all supplied stream states remain unchanged');
 });
 
-test('announced squads and every fourth Captain use finite cost and actor-owned group identities', () => {
+test('announced squads and every fourth seeded boss use finite cost and actor-owned group identities', () => {
   let rng = streams(42).raids, nextId = 26;
   for (let wave = 1; wave <= 1000; wave++) {
     const plan = planWave(wave, rng, nextId);
@@ -38,8 +38,9 @@ test('announced squads and every fourth Captain use finite cost and actor-owned 
     assert.ok(plan.tickets.length <= RAID_CONTENT.maxPending);
     assert.deepEqual(plan.tickets.map(t => t.id), Array.from({ length: plan.tickets.length }, (_, i) => nextId + i));
     assert.equal(plan.nextId, nextId + plan.tickets.length, 'group wrappers do not allocate extra actor IDs');
-    assert.equal(plan.tickets.filter(t => t.kind === 'captain').length, wave % 4 === 0 ? 1 : 0);
-    assert.equal(plan.captain, wave % 4 === 0);
+    assert.equal(plan.tickets.filter(t => isBossKind(t.kind)).length, wave % 4 === 0 ? 1 : 0);
+    assert.equal(plan.boss, bossForWave(42,wave));
+    assert.equal(plan.captain, plan.boss === 'captain');
     if (wave === 2) assert.deepEqual(plan.tickets.slice(0, 2).map(t => t.kind), ['shield', 'archer']);
     if (wave === 3) assert.deepEqual(plan.tickets.slice(0, 3).map(t => t.kind), ['healer', 'rusher', 'rusher']);
     if (wave === 4) {
@@ -52,7 +53,7 @@ test('announced squads and every fourth Captain use finite cost and actor-owned 
       else {
         assert.equal(ticket.squadId, ticket.leaderId);
         const leader = plan.tickets.find(t => t.id === ticket.leaderId);
-        assert.ok(leader && ['shield', 'healer', 'captain'].includes(leader.kind));
+        assert.ok(leader && ['shield', 'healer', ...BOSS_KINDS].includes(leader.kind));
         assert.ok(leader.id <= ticket.id);
         assert.ok(Math.abs(leader.entryOffset - ticket.entryOffset) <= 2, 'squad entries stay together');
       }

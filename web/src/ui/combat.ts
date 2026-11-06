@@ -8,7 +8,7 @@ import { founders } from '../content.ts';
 import { element } from './panels.ts';
 import type { UiCommand } from './panels.ts';
 
-const roles: Record<RaidKind, string> = { raider: 'Raider', breacher: 'Breacher', shield: 'Shield guard', archer: 'Archer', healer: 'Healer', rusher: 'Rusher', captain: 'Ossuary Captain' };
+const roles: Record<RaidKind, string> = { raider: 'Raider', breacher: 'Breacher', shield: 'Shield guard', archer: 'Archer', healer: 'Healer', rusher: 'Rusher', captain: 'Ossuary Captain', bellkeeper: 'Bellkeeper', sluice: 'Sluice-Maw', threadmother: 'Threadmother' };
 const duration = (ticks: number): string => `${Math.max(0, ticks)} ticks (${Math.ceil(Math.max(0, ticks) / 10)} simulation seconds)`;
 
 export function entryCell(edge: Combat['edge']): Cell {

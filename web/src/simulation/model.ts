@@ -1,5 +1,6 @@
 import type { Combat, CombatCommand } from './combat-model.ts';
 import type { Environment } from './biome.ts';
+import type { Bosses } from './boss-model.ts';
 import type { Duty, Recipe } from './survival-content.ts';
 import type { Streams } from './random.ts';
 import type { Building, Material, Stock } from './work-content.ts';
@@ -28,7 +29,7 @@ export type CommandInput = CombatCommand | { kind: 'move'; actor: number; target
   | { kind:'produce'; structure:number; recipe:Recipe|'farm' } | { kind:'duty'; actor:number; duty:Duty; value:number }
   | { kind: 'dev'; action: 'damage' | 'kill' | 'deplete' | 'injure' | 'down' | 'hungry' | 'tired'; id: number };
 export type Command = { sequence: number; due: number; input: CommandInput };
-export type World = { combat:Combat; environment:Environment; seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
+export type World = { combat:Combat; environment:Environment; bosses:Bosses; seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
   width: number; height: number; terrain: number[]; terrainVersion: number; scenario: 'colony' | 'routing-lab' | 'work-lab';
   generation: { attempts: number; fallback: boolean }; heart: Cell & { id: number; health: number };
   people: Person[]; resources: Resource[]; pending: Command[]; terminal: 'heart-destroyed' | 'all-dead' | null;
@@ -42,6 +43,7 @@ export const active = (j: Job): boolean => j.state === 'active' || j.state === '
 export function walkable(world: World, p: Cell): boolean {
   return inside(p) && world.terrain[index(p.x,p.y)] !== 2 && !same(p,world.heart)
     && !(Array.isArray(world.combat?.barricades) && world.combat.barricades.some(b => same(b,p)))
+    && !world.bosses.features.some(f => (f.kind === 'anchor' || f.kind === 'resonator') && same(f,p))
     && !world.jobs.some(j => j.kind === 'build' && active(j) && same(j,p))
     && !world.structures.some(s => same(s,p) && !['stockpile','trap','guardpost'].includes(s.kind) && !(s.kind === 'door' && s.open));
 }

@@ -1,5 +1,6 @@
 import { draw, validSeed } from './random.ts';
-import { RAID_EDGES, RAID_KINDS } from './raid-model.ts';
+import { RAID_EDGES, RAID_KINDS, BOSS_KINDS } from './raid-model.ts';
+import type { BossRaidKind } from './raid-model.ts';
 import type { RaidDeadlines, RaidKind, RaidSummary, SpawnCell, SpawnDecision, SpawnTicket, WavePlan } from './raid-model.ts';
 
 // New colony director, not an extraction-dungeon port. Retained references:
@@ -11,7 +12,7 @@ export const RAID_CONTENT = Object.freeze({
   maxBudget: 60, maxPending: 150, maxActive: 150, historyLimit: 16,
 } as const);
 export const RAID_COST = Object.freeze({
-  raider: 1, rusher: 1, archer: 2, breacher: 3, shield: 3, healer: 3, captain: 12,
+  raider: 1, rusher: 1, archer: 2, breacher: 3, shield: 3, healer: 3, captain: 12, bellkeeper:12, sluice:12, threadmother:12,
 } satisfies Record<RaidKind, number>);
 const LIMIT = 1_000_000_000;
 function bounded(value: number, minimum: number, maximum: number, label: string): void {
@@ -24,8 +25,14 @@ export function waveBudget(wave: number): number {
 }
 
 /** Planning consumes only the supplied raids stream; it never reads or mutates World. */
-export function planWave(wave: number, raidsRng: number, nextId: number): WavePlan {
+export function bossForWave(seed: number, wave: number): BossRaidKind | null {
+  if (!validSeed(seed)) throw new Error('Invalid raid seed');
+  bounded(wave, 1, LIMIT, 'wave');
+  return wave % 4 === 0 ? BOSS_KINDS[(Math.floor(wave / 4) - 1 + (seed + 2) % 4) % 4]! : null;
+}
+export function planWave(wave: number, raidsRng: number, nextId: number, seed = 42): WavePlan {
   const budget = waveBudget(wave);
+  const boss = bossForWave(seed, wave);
   if (!validSeed(raidsRng)) throw new Error('Invalid raid RNG');
   bounded(nextId, 8, LIMIT, 'next ID');
   let state = raidsRng, allocated = nextId, spent = 0;
@@ -53,7 +60,7 @@ export function planWave(wave: number, raidsRng: number, nextId: number): WavePl
     add(['raider', 'raider', 'breacher', 'raider', 'raider'], false, 0);
   } else {
     const offset = () => random(25) - 13;
-    if (wave % 4 === 0) add(['captain', 'raider', 'rusher', 'raider', 'rusher'], true, offset());
+    if (boss) add([boss, 'raider', 'rusher', 'raider', 'rusher'], true, offset());
     else if (wave === 2) add(['shield', 'archer'], true, offset());
     else if (wave === 3) add(['healer', 'rusher', 'rusher'], true, offset());
     const groups: readonly (readonly RaidKind[])[] = [
@@ -65,7 +72,7 @@ export function planWave(wave: number, raidsRng: number, nextId: number): WavePl
       add(group, group.length > 1, offset());
     }
   }
-  return { wave, budget, spent, edge, captain: wave % 4 === 0, tickets, nextId: allocated, nextRaidsRng: state };
+  return { wave, budget, spent, edge, captain: boss === 'captain', boss, tickets, nextId: allocated, nextRaidsRng: state };
 }
 
 export function firstRaidDeadlines(): RaidDeadlines {

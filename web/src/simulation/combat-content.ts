@@ -1,4 +1,5 @@
 import { ENCOUNTER_CONTENT } from './encounter-content.ts';
+import { BOSS_CONTENT } from './boss-content.ts';
 /** Colony timing; retained legacy rules are locked cells, bounded geometry and stable ties. */
 export const COMBAT_CONTENT = {
   warningAt: 10800, spawnAt: 12000, maxRaiders: 150, maxAttacks: 256,
@@ -9,6 +10,7 @@ export const COMBAT_CONTENT = {
   raider: { health: 36, damage: 12, windup: 5, cooldown: 14, notice: 6 },
   breacher: { health: 72, damage: 16, structureDamage: 25, windup: 8, cooldown: 18, notice: 1, defenseNotice: 3 },
   ...ENCOUNTER_CONTENT.profiles,
+  ...BOSS_CONTENT.profiles,
   wave: ['raider', 'raider', 'breacher', 'raider', 'raider'],
 } as const;
 export function validateCombatContent(): void {
