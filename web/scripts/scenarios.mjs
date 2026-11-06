@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {webRoot} from './export-assets.mjs';
+import {createWorld,generationIssues} from '../src/simulation/world.ts';
+import {enqueue,step} from '../src/simulation/step.ts';
+import {canonical} from '../src/simulation/canonical.ts';
+import {makeSave,encodeSave,parseSave} from '../src/persistence/schema.ts';
+import {FixedClock} from '../src/platform/clock.ts';
+import {draw,derive} from '../src/simulation/random.ts';
+const hash=value=>createHash('sha256').update(typeof value==='string'?value:canonical(value)).digest('hex');
+const advance=(w,n)=>{for(let i=0;i<n;i++)step(w);};
+const seeds=[...Array.from({length:100},(_,i)=>i+1),1337,123456789,2147483646];
+const sweep=seeds.map(seed=>{const w=createWorld(seed);assert.deepEqual(generationIssues(w),[]);return {seed,hash:hash(w),generation:w.generation,people:w.people.length,resources:w.resources.length};});
+const fallback=[1,42,2147483646].map(seed=>{const w=createWorld(seed,{forceFallback:true});assert.deepEqual(generationIssues(w),[]);return{seed,hash:hash(w),generation:w.generation};});
+const commands=[{kind:'move',actor:2,target:{x:72,y:64},due:2},{kind:'move',actor:3,target:{x:70,y:62},due:2},{kind:'move',actor:2,target:{x:58,y:66},due:120}];
+const run=cadence=>{const w=createWorld(42);for(const{due,...input}of commands)assert.ok(enqueue(w,input,due));const c=new FixedClock();c.setManual(false);let frame=0;const checkpoints=[];while(w.tick<300)c.frame(cadence[frame++%cadence.length],()=>{if(w.tick<300){step(w);if(w.tick%50===0)checkpoints.push({tick:w.tick,stateSha256:hash(w),rng:{...w.rng}});}});return{cadence,frames:frame,checkpoints};};
+const cadences=[run([10,17,33]),run([250,120,7,850])];assert.deepEqual(cadences[0].checkpoints,cadences[1].checkpoints);
+const uninterrupted=createWorld(1337);enqueue(uninterrupted,{kind:'move',actor:2,target:{x:75,y:64}});enqueue(uninterrupted,{kind:'move',actor:3,target:{x:73,y:62}},40);advance(uninterrupted,7);const text=encodeSave(makeSave(uninterrupted,{manualPaused:true,speed:2})),restored=parseSave(text).world;const before={tick:uninterrupted.tick,person:structuredClone(uninterrupted.people[0]),pending:structuredClone(uninterrupted.pending),stateSha256:hash(uninterrupted),saveBytes:Buffer.byteLength(text)};advance(uninterrupted,180);advance(restored,180);assert.equal(hash(restored),hash(uninterrupted));
+const fixturePath=resolve(webRoot,'../tests/Roag.Core.Tests/Tactics/Fixtures/original-foundation.json'),fixtureBytes=readFileSync(fixturePath),reference=JSON.parse(fixtureBytes);for(const row of reference.random){let state=row.seed;for(const expected of row.values){const result=draw(state,row.maximum);assert.equal(result.value,expected);state=result.state;}assert.equal(state,row.state);}for(const row of reference.derived)assert.equal(derive(row.seed,row.label),row.value);
+const lab=createWorld(42,{scenario:'routing-lab'}),labCommands=[],labStates=[];
+for(const [input,ticks]of [[{kind:'move',actor:2,target:{x:70,y:60}},0],[{kind:'edit',target:{x:64,y:60},solid:true},20],[{kind:'edit',target:{x:64,y:60},solid:false},70]]){labCommands.push({tick:lab.tick,input});assert.ok(enqueue(lab,input));advance(lab,ticks);labStates.push({tick:lab.tick,person:structuredClone(lab.people[0]),stateSha256:hash(lab)});}
+assert.equal(labStates[1].person.x,58);assert.match(labStates[1].person.blocked,/No route/);assert.equal(labStates[2].person.x,70);assert.equal(labStates[2].person.destination,null);
+const report={rng:{fixture:'tests/Roag.Core.Tests/Tactics/Fixtures/original-foundation.json',fixtureSha256:hash(fixtureBytes.toString()),referenceSource:'tools/migration/capture_native_foundation_reference.py; RoagRandom.cs; NativeFoundationTests.cs',randomCases:reference.random.length,draws:768,derived:reference.derived},generation:{sweep,fallback},replay:{seed:42,commands,cadences},saveContinuation:{seed:1337,before,continuedTicks:180,uninterruptedSha256:hash(uninterrupted),restoredSha256:hash(restored)},routingLab:{seed:42,commands:labCommands,states:labStates}};
+const evidence=resolve(webRoot,process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P03');mkdirSync(evidence,{recursive:true});writeFileSync(resolve(evidence,'scenarios.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({seeds:sweep.length,fallbacks:fallback.length,rngDraws:768,utf8Labels:9,replayCheckpoints:6,saveContinuationTicks:180,continuationHash:hash(restored),routingRecovered:true}));

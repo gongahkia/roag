@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "bindings": {
+    "grass": "urizen-onebit-r05-c015",
+    "grass-alt": "urizen-onebit-r05-c016",
+    "dirt": "urizen-onebit-r05-c001",
+    "path": "urizen-onebit-r05-c010",
+    "stones": "urizen-onebit-r05-c014",
+    "oak": "urizen-onebit-r08-c001",
+    "spruce": "urizen-onebit-r08-c003",
+    "flower": "urizen-onebit-r10-c001",
+    "wood": "urizen-onebit-r23-c000",
+    "wheat": "urizen-onebit-r24-c000",
+    "apple": "urizen-onebit-r17-c003",
+    "carrot": "urizen-onebit-r17-c002",
+    "heart": "urizen-onebit-r02-c028",
+    "cottage": "urizen-onebit-r01-c030",
+    "bed": "urizen-onebit-r36-c000",
+    "hearth": "urizen-onebit-r42-c002",
+    "person-builder": "urizen-onebit-r00-c105",
+    "person-gatherer": "urizen-onebit-r00-c117",
+    "person-miner": "urizen-onebit-r00-c106",
+    "person-cook": "urizen-onebit-r00-c112",
+    "person-healer": "urizen-onebit-r00-c104",
+    "person-guard": "urizen-onebit-r00-c108",
+    "icon-people": "godot-white-character",
+    "icon-heart": "godot-white-heart",
+    "icon-center": "godot-white-target",
+    "icon-zoom": "godot-white-magnifier",
+    "rock": "urizen-onebit-r02-c000"
+  }
+}

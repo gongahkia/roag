@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#17201c" />
+    <meta name="description" content="Roag — a colony at the edge of the wild. Explore the clearing and meet its six founders." />
+    <link rel="icon" href="data:," />
+    <title>Roag · The first clearing</title>
+  </head>
+  <body>
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Roag home">ROAG<span>COLONY & SURVIVAL</span></a>
+      <div class="chapter"><span class="status-dot"></span> THE FIRST CLEARING <span class="chapter-detail">/ A PLACE TO LIVE</span></div>
+      <button id="credits-open" class="quiet">Artwork & credits ↗</button>
+    </header>
+    <main class="workspace">
+      <section class="world-panel" aria-label="Colony map">
+        <div class="map-heading"><div><span class="eyebrow">A foothold in the wild</span><h1>The first clearing</h1></div><div class="map-marker">WOODLAND<br /><span>128 × 128 TILES</span></div></div>
+        <section class="run-controls" aria-label="Colony controls">
+          <div class="clock-controls"><button id="pause" aria-pressed="true">Resume</button><button data-speed="1" aria-pressed="true">1×</button><button data-speed="2" aria-pressed="false">2×</button><button data-speed="4" aria-pressed="false">4×</button><span id="clock-status">Paused</span><span>Tick <output id="tick">0</output></span></div>
+          <div class="save-controls"><label>Seed <input id="seed" type="number" value="42" min="1" max="2147483646" aria-label="New run seed" /></label><button id="new-run">New run</button><button id="save">Save</button><button id="export">Export JSON</button><button id="import">Import JSON</button><input id="import-file" type="file" accept=".json,application/json" aria-label="Import save file" hidden /></div>
+          <p id="storage-status" role="status"></p><p id="backlog" role="status"></p>
+        </section>
+        <div id="stage" tabindex="0" role="application" aria-label="Colony viewport. Arrow keys or WASD pan, plus and minus zoom, Home centers, Escape clears selection." aria-describedby="map-help">
+          <p id="loading" role="status">Preparing the clearing…</p>
+        </div>
+        <div class="map-caption"><span><i class="status-dot"></i> Six founders. One place to begin.</span><span>COLONY / 03</span></div>
+        <nav class="camera-controls" aria-label="Camera controls">
+          <div class="pan-controls"><button data-camera="left" aria-label="Pan left">←</button><button data-camera="up" aria-label="Pan up">↑</button><button data-camera="down" aria-label="Pan down">↓</button><button data-camera="right" aria-label="Pan right">→</button></div>
+          <button id="center"><span data-icon="icon-center"></span> Center</button>
+          <div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom" aria-live="polite">300%</output><button id="zoom-in" aria-label="Zoom in">+</button></div>
+        </nav>
+        <p id="map-help" class="map-help">Drag to pan · Scroll to zoom · Select a founder, right-click to move <span>WASD / arrows · + / − · Home</span></p>
+      </section>
+      <aside class="sidebar" aria-label="Colony information">
+        <section class="colony-summary"><p class="run-info">Seed <span id="run-seed">42</span> · 10 ticks / second</p><span class="eyebrow">Your settlement</span><h2>A small beginning</h2><p id="resource-summary" class="resource-summary"></p><div class="summary-stats"><span><i data-icon="icon-people"></i> <strong>06</strong> founders</span><span><i data-icon="icon-heart"></i> Colony heart</span></div><p>A seeded home for six founders. Designate wood and stone, establish a stockpile, then place a blueprint. Founders carry every building material to its site.</p></section>
+        <section class="inspector" aria-labelledby="inspector-heading"><div class="section-heading"><h2 id="inspector-heading">Inspector</h2><span id="selection-state">NO SELECTION</span></div><div id="inspection" aria-live="polite"></div><form id="destination-order" hidden><p>Move to tile</p><label>X <input id="destination-x" type="number" min="0" max="127" required /></label><label>Y <input id="destination-y" type="number" min="0" max="127" required /></label><button type="submit">Go to tile</button></form></section>
+        <section class="roster" aria-labelledby="roster-heading"><div class="section-heading"><h2 id="roster-heading">The founders</h2><span>06</span></div><div id="roster"></div><p class="roster-hint">Choose a name to find them in the clearing.</p></section>
+      </aside>
+      <section class="workbench" aria-labelledby="work-heading">
+        <div class="section-heading"><h2 id="work-heading">Work & materials</h2><span id="work-count"></span></div>
+        <p class="muted">1. Designate sources. 2. Establish an empty stockpile. 3. Place a blueprint. Resume to let workers gather and build. Costs are delivered physically. Doors start open; closed doors block everyone.</p>
+        <div class="work-forms">
+          <form id="gather-form"><h3>Gather a finite source</h3><label>Source <select id="work-source"></select></label><div><button type="button" id="source-find">Find on map</button><button type="submit">Designate gathering</button></div></form>
+          <form id="build-form"><h3>Stockpile or blueprint</h3><label>Type <select id="building"><option value="stockpile">Stockpile zone · capacity 30</option><option value="wall">Wall</option><option value="door">Door</option><option value="storage">Storage · capacity 60</option><option value="workshop">Workshop</option><option value="farm">Farm plot</option><option value="kitchen">Kitchen</option><option value="bed">Bed / rest area</option><option value="infirmary">Infirmary</option></select></label><label>X <input id="build-x" type="number" min="1" max="126" value="63" required /></label><label>Y <input id="build-y" type="number" min="1" max="126" value="66" required /></label><p id="build-cost"></p><button type="submit">Place designation</button></form>
+        </div>
+        <p id="material-ledger" class="resource-summary"></p><div class="work-columns"><section><h3>Jobs</h3><section id="survival"><h3>Colony wellbeing</h3><p id="survival-summary"></p><p class="muted">Farm plots need a planting order. Start recipes from each completed facility. Meal: 1 food + 1 wood → 4 meals. Ore: 2 stone → 1 ore. Medicine: 2 food + 1 ore → 2 doses. A bed supports one resting person; an infirmary admits one patient. Duties: 0 off, 1 normal, 2 preferred, 3 first. Farming and hauling use gatherer duty.</p><div id="duties"></div></section><div id="jobs"></div></section><section><h3>Structures & storage</h3><div id="structures"></div></section></div>
+        <p class="muted">Suspending or reassigning a carrier leaves a recoverable bundle. Free workers haul bundles automatically. Cancellation keeps delivered supplies locally. Dismantling returns 75% of each building material, rounded down; the remainder is recorded as spent. Workshop production arrives in a later phase.</p>
+      </section>
+      <details class="development-info"><summary>Run diagnostics</summary><p>Observed visibility transitions (state, tick, manual pause):</p><output id="visibility-evidence"></output><section id="lab-controls" hidden><h2>Routing development scenario</h2><p>Ada starts at 58,60. Order 70,60, close the gate at 64,60 to obstruct, then open it to restore access. This edits test terrain only.</p><button id="lab-gate">Toggle lab gate</button> <span id="lab-gate-state"></span></section></details>
+    </main>
+    <footer><span>ROAG <span class="footer-muted">/ A colony worth keeping</span></span><span>Preserved pixels. A new beginning.</span></footer>
+    <dialog id="credits" aria-labelledby="credits-title"><form method="dialog"><button class="dialog-close" aria-label="Close credits">×</button></form><span class="eyebrow">The people behind the pixels</span><h2 id="credits-title">Artwork & credits</h2><p>Urizen 1Bit Tileset v2.0 by <strong>vurmux</strong> · CC0</p><a href="https://vurmux.itch.io/urizen-onebit-tileset" target="_blank" rel="noreferrer">Original tileset ↗</a><p>Godot node icons by <strong>pixel-boy</strong> · CC0</p><a href="https://pixel-boy.itch.io/icon-godot-node" target="_blank" rel="noreferrer">Original icon collection ↗</a><p class="credit-note">Only selected crops are included. Dark background pixels are transparent in the derived sheet; source files are preserved. Founder names and duties are local assignments. No animations or identities are inferred from neighboring sprites. Interface text uses your system fonts.</p><a id="credits-file" href="./game-assets/CREDITS.txt">Download artwork credits</a></dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
