@@ -53,3 +53,15 @@ Corrected `followup-v2.{log,trx}` **passes all 13 cases**, zero failures/skips, 
 The long duration includes actual full-population paid crafting; this is **not performance acceptance**. One coordinator-approved read-only stack capture confirms `AssertContinuedCrafting → ContinueDungeonActivities → AdvanceToPartyDecision → CommitEnemyIntent → DrainBoons → PruneOaths → OathPartner → EnemySquads.Clear → ObjectAt`. The existing per-pass oath cache was present. `followup-v2-stack.txt` preserves this evidence; no source/runtime was altered or restarted. Test session 49560 and diagnostic session 79105 are terminal. No worker process remains live at this checkpoint.
 
 Appropriate affected original-controller/client/reward regression remains pending a coordinator slot; it should reuse this immutable compiled runner and avoid needlessly repeating the already completed long craft case. Coordinator main now has later entrance/journal/special-site code absent from this baseline, so worker passes cannot establish combined-current acceptance. Actual natural placed solo/four-member boss/victory journeys and Linux delivery remain open.
+
+## Affected immutable-runner checkpoint
+
+Coordinator-approved `affected-v1.{log,trx}` reuses the exact `runner-v3` binaries with `--no-build --no-restore`, Release, `-m:2` and the same muted/two-processor environment. It **passes all 1,373 tests**, zero failures/skips, **2m21s** (TRX start-to-finish 143.018 seconds). The filter is:
+
+```text
+FullyQualifiedName~Roag.Core.Tests.Tactics|FullyQualifiedName~Roag.Core.Tests.Client|FullyQualifiedName~Roag.Tests.Client|FullyQualifiedName~NativeEncounterRewardTests|FullyQualifiedName~WorldEncounterRewardTests|FullyQualifiedName~NativeCampaignTests|FullyQualifiedName~PersistenceTests|FullyQualifiedName~SaveSnapshotTests|FullyQualifiedName~CampaignBossRoomIntegrationTests
+```
+
+This covers the original/new enemy controllers and combat callbacks, party/activity/gear/boon/profile rules, both client namespaces, native and legacy reward ownership, saves and arena room integration. It excludes the completed long `GeneratedCampaignTests`/`OpenCampaignConstructionTests` snapshot and other world calendar/ecology/streaming journeys. `affected-v1-inputs.json` pins HEAD `cc58be35`, **2,376 inputs / 1,556 runner files**; `affected-v1-audit.json` verifies all hashes unchanged and 1,373 executed/passed counters. The only source-input difference since compilation was the worker evidence document, explicitly recorded in that manifest; production and test bytes match the compiled follow-up snapshot.
+
+The slowest case was ordinary native campaign launch/resume (32.963 seconds); included resident paid-work/routine cases reached 6.780 seconds. These timings are observations, not latency or performance acceptance. Test session 96784 is terminal with exit 0; no worker build/test/client remains live. No additional failed attempt occurred. Coordinator merged-current regression, actual natural placed solo/four-member boss/victory rendering and reproducible Linux delivery remain open. No debug scene, injected save or manufactured gameplay outcome was used.
