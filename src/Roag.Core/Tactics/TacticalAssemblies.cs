@@ -42,8 +42,8 @@ public sealed partial class DungeonServiceState
             if (node.Sign is { } sign && (!Enum.IsDefined(sign.Direction) || !AttackGeometry.Cardinal(sign.Direction)
                 || sign.Hint is not ("Treasure" or "Supplies" or "Rooms / danger") || node.UsedBy != 0
                 || sign.Target.Area != RoomArea.Dungeon || sign.Target.Floor != node.Position.Floor
-                || world.Dungeon?.Floors.FirstOrDefault(f => f.Origin.Floor == sign.Target.Floor)?.Rooms.Any(r => r.Index + 1 == sign.Target.Room) != true
-                || world.Dungeon?.RoomAt(node.Position) == sign.Target)) throw new InvalidDataException("Invalid coarse route sign.");
+                || !WorldSession.SnapshotRoomTargetExists(world, node.Position, sign.Target)
+                || WorldSession.SnapshotAuthoredRoomAt(world, node.Position) == sign.Target)) throw new InvalidDataException("Invalid coarse route sign.");
             if (node.Fixture is not { } fixture) continue;
             if (fixture.Center != node.Position.Offset(1, 0) || fixture.Cells == null
                 || !fixture.Cells.SequenceEqual(TacticalCombat.FixtureCross(fixture.Center))

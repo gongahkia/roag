@@ -7,8 +7,7 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
-    public WorldRoomId? RoomAt(WorldPosition position) => State.Dungeon is { } run
-        ? run.RoomAt(position) : Chunks.Generator.RoomAt(position);
+    public WorldRoomId? RoomAt(WorldPosition position) => SnapshotRoomAt(State, Chunks.Generator, position);
 
     /// <summary>Create the bounded solo run on persistent world chunks and actors.</summary>
     public static WorldSession CreateDungeonRun(int seed, ClassKind kind = ClassKind.Adventurer, bool survival = false)

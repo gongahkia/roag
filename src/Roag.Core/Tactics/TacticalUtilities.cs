@@ -30,7 +30,7 @@ public sealed class TacticalSupplies
     {
         if (!world.Actors.Any(a => a.Tactics?.Supplies.Utility?.Marker != null)) return;
         using var chunks = new ChunkCache(plan, world, content ?? ContentCatalog.Default);
-        WorldRoomId? Room(WorldPosition p) => world.Dungeon != null ? world.Dungeon.RoomAt(p) : chunks.Generator.RoomAt(p);
+        WorldRoomId? Room(WorldPosition p) => WorldSession.SnapshotRoomAt(world, chunks.Generator, p);
         foreach (var actor in world.Actors)
             if (actor.Tactics?.Supplies.Utility?.Marker is { } marker
                 && (!plan.Contains(marker.Position) || marker.Position.Floor != actor.Position.Floor

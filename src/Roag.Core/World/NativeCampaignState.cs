@@ -1,5 +1,6 @@
 using Roag.Core.Dungeons;
 using Roag.Core.Tactics;
+using System.Text.Json.Serialization;
 
 namespace Roag.Core.World;
 
@@ -12,6 +13,8 @@ public sealed class NativeCampaignState
     public HashSet<int> AdventurerTowns { get; set; } = [];
     public NativeWildlifeBreeding Breeding { get; set; } = new();
     public NativeEncounterRewards EncounterRewards { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<DungeonComplexState>? Complexes { get; set; }
 
     internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors)
     {
@@ -28,6 +31,14 @@ public sealed class NativeCampaignState
                 || actor.Tactics?.Build is { } build && build.Class != r.Class)
             || world.Party.Any(id => !actors.TryGetValue(id, out var actor) || actor.Tactics?.Build == null || !world.Tactics.Participants.Contains(id)))
             throw new InvalidDataException("Invalid native world party policy or fixed adventurer.");
+        if (Complexes != null)
+        {
+            if (Complexes.Count is < 1 or > 8 || Complexes.Any(c => c == null || c.Parcel == null)
+                || Complexes.Select(c => c.Parcel.Id).Distinct().Count() != Complexes.Count
+                || Complexes.Any(c => Complexes.Any(other => other != c && c.Parcel.Overlaps(other.Parcel))))
+                throw new InvalidDataException("Invalid physical complex registry.");
+            foreach (var complex in Complexes) complex.Validate(plan, actors);
+        }
         if (Breeding == null) throw new InvalidDataException("Missing native breeding state.");
         Breeding.Validate(world, actors);
         if (EncounterRewards == null) throw new InvalidDataException("Missing native encounter rewards.");

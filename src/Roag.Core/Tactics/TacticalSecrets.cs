@@ -84,7 +84,7 @@ public sealed partial class TacticalCombat
             if (secret.Kind == DungeonSecretKind.CrackedCache)
             { _world.Chunks.Edit(secret.Wall!.Value, Material.Floor); _world.Chunks.Edit(secret.Cache!.Value, Material.Floor); }
             else
-            { _world.Chunks.Edit(secret.Position, Material.Floor); _world.State.Dungeon?.Terrain.Remove(Roag.Core.Dungeons.DungeonRunState.CellKey(secret.Position)); }
+            { _world.Chunks.Edit(secret.Position, Material.Floor); _world.DungeonAt(secret.Position)?.Terrain.Remove(Roag.Core.Dungeons.DungeonRunState.CellKey(secret.Position)); }
             // Reveal before spawning so later placement cannot see an unopened wall.
             State.Secrets.Nodes[i] = secret with { Revealed = true };
             Emit("SecretDiscovered", owner.Id, 0, action, secret.Position, ability: secret.Kind.ToString());

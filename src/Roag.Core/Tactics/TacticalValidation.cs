@@ -167,7 +167,7 @@ public static class TacticalValidation
                     resources.Parry?.Origin, resources.Bulwark?.Position, resources.Beacon?.Position }
                     .Any(p => p is { } cell && !plan.Contains(cell)))
                 throw new InvalidDataException("Invalid owned class resource.");
-            if (resources.Beacon is { } beacon && ((world.Dungeon is { } run ? run.RoomAt(beacon.Position) : (rooms ??= new(plan, content)).RoomAt(beacon.Position)) != beacon.Room
+            if (resources.Beacon is { } beacon && (WorldSession.SnapshotRoomAt(world, rooms ??= new(plan, content), beacon.Position) != beacon.Room
                 || !world.Chunks.Any(c => c.Key == beacon.Position.Chunk && c.Discovered.Contains(beacon.Position.LocalIndex))))
                 throw new InvalidDataException("Invalid or unexplored return beacon room.");
             if (resources.Bulwark is { } block && (block.Action >= state.NextAction || block.Expires < queue.Clock

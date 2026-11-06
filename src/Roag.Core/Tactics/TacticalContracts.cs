@@ -19,13 +19,13 @@ public sealed class DungeonContract
             || Defeated == null || Defeated.Any(id => !Targets.Contains(id)) || Failure == null
             || (Status == DungeonContractStatus.Offered ? Owner != 0 : !world.Party.Contains(Owner))
             || (Status == DungeonContractStatus.Completed ? node.UsedBy != Owner || Defeated.Count != Targets.Length : node.UsedBy != 0)
-            || Room.Area != RoomArea.Dungeon || Room.Floor != node.Position.Floor || world.Dungeon?.RoomAt(node.Position) != Room
+            || Room.Area != RoomArea.Dungeon || Room.Floor != node.Position.Floor || WorldSession.SnapshotAuthoredRoomAt(world, node.Position) != Room
             || Status is DungeonContractStatus.Offered or DungeonContractStatus.Active && Targets.Any(id => !world.Actors.Any(a => a.Id == id)))
             throw new InvalidDataException("Invalid room contract targets, owner, progress or receipt.");
         if (Status == DungeonContractStatus.Active)
         {
             var owner = world.Actors.Single(a => a.Id == Owner);
-            if (world.Dungeon?.RoomAt(owner.Position) != Room) throw new InvalidDataException("Active contract owner has left its room.");
+            if (WorldSession.SnapshotAuthoredRoomAt(world, owner.Position) != Room) throw new InvalidDataException("Active contract owner has left its room.");
         }
     }
 }

@@ -38,6 +38,12 @@ public static class DungeonComplexPlanner
 {
     public static DungeonComplexBlueprint Generate(WorldPlan plan, DungeonParcel parcel)
     {
+        var blueprint = GenerateGeometry(plan, parcel);
+        return blueprint with { Passages = DungeonPassagePlanner.Generate(blueprint) };
+    }
+
+    internal static DungeonComplexBlueprint GenerateGeometry(WorldPlan plan, DungeonParcel parcel)
+    {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(parcel);
         if (plan.FloorCount < 8 || parcel.Id < 1 || parcel.Width < DungeonParcelPlanner.Width || parcel.Height < DungeonParcelPlanner.Height
@@ -70,8 +76,7 @@ public static class DungeonComplexPlanner
         var finale = new DungeonFloorState(4, DungeonRunState.FinaleBiome, origin, map.Width, map.Height,
             [new(0, map.Id, origin, map.Width, map.Height, 0, false)],
             origin.Offset(map.StartX - 1, map.StartY - 1), origin.Offset(map.BossX - 1, map.BossY - 1), Branch: DungeonComplexBlueprint.FinalBranch);
-        var blueprint = new DungeonComplexBlueprint(parcel, seed, floors.ToArray(), finale, links.ToArray(), []);
-        return blueprint with { Passages = DungeonPassagePlanner.Generate(blueprint) };
+        return new(parcel, seed, floors.ToArray(), finale, links.ToArray(), []);
 
         void AddPair(int stage, string biome, int slot)
         {
