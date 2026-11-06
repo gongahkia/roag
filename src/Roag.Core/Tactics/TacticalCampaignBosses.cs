@@ -18,6 +18,25 @@ public sealed partial class TacticalCombat
         actor.SpriteId = CampaignBossCatalog.Sprite(arena.Kind);
     }
 
+    private void ValidateCampaignBossWindup(Actor actor, string ability, IReadOnlyList<WorldPosition> cells,
+        AttackDelivery delivery, DamageElement element, int damage, int windup, int recovery, CampaignBossCast? cast)
+    {
+        if (actor.Tactics?.Enemy?.CampaignBoss == null)
+        {
+            if (cast != null || ability.StartsWith("core:ability/boss_", StringComparison.Ordinal))
+                throw new ArgumentException("Campaign boss attacks require their owning controller.");
+            return;
+        }
+        var arena = BossArena(actor); var definition = CampaignBossDefinition(actor);
+        if (cast == null || !CampaignBossValidation.GeometryFits(arena, cast, actor.Position, cells)
+            || ability != "core:ability/boss_" + cast.Move.ToString().ToLowerInvariant()
+            || delivery != AttackDelivery.Area || element != DamageElement.Physical
+            || damage != (cast.Move is CampaignBossMove.ReservoirFeast or CampaignBossMove.PartitionWeb or CampaignBossMove.BoneRampart or CampaignBossMove.FuneralChime ? 0 : actor.Power)
+            || windup != (cast.Move == CampaignBossMove.ReservoirFeast ? 240 : definition.Windup)
+            || recovery != (cast.Move == CampaignBossMove.ShieldAdvance ? 240 : definition.Recovery))
+            throw new ArgumentException("Campaign boss commitment does not match its authored role or geometry.");
+    }
+
     private CampaignBossArena BossArena(Actor boss) => State.CampaignBosses.Arenas.Single(a => a.Id == boss.Tactics!.Enemy!.CampaignBoss!.Arena);
     private EnemyDefinition CampaignBossDefinition(Actor boss)
     {
@@ -104,6 +123,10 @@ public sealed partial class TacticalCombat
         var attack = CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
             damage, windup, recovery, targetId, boss: cast);
         memory.Moves = checked(memory.Moves + 1);
+        if (cast.Move == CampaignBossMove.ReservoirFeast)
+            Emit("BossFeastAnnounced", boss.Id, 0, attack.Id, arena.Channels[cast.Feature].Pool, cast.Feature + 1);
+        if (cast.Move == CampaignBossMove.ChannelSurge)
+            Emit("BossSurgeAnnounced", boss.Id, 0, attack.Id, boss.Position, cast.Feature + 1, ability: cast.Facing.ToString());
         if (cast.Move == CampaignBossMove.ReelIn)
         {
             // A cuttable line is present throughout the warning; breaking any segment cancels the pull.
@@ -181,11 +204,16 @@ public sealed partial class TacticalCombat
                 var occupants = _world.State.Actors.Where(a => a.Id != boss.Id && a.Life == LifeState.Alive && attack.Cells.Contains(a.Position))
                     .OrderByDescending(a => a.Position.X * dx + a.Position.Y * dy).ToArray();
                 foreach (var occupant in occupants)
-                    for (int i = 0; i < (arena.FinalRole ? 2 : 1); i++) if (!TryShove(occupant, cast.Facing, boss.Id, attack.Id)) break;
+                    for (int i = 0; i < (arena.FinalRole ? 2 : 1); i++)
+                        if (!TryShove(occupant, cast.Facing, boss.Id, attack.Id, p =>
+                            arena.Channels[cast.Feature].Cells.Contains(p) && _world.Chunks.At(p) is Material.Water or Material.Bridge or Material.Floor
+                                && _world.ObjectAt(p) is not { Solid: true } && !_world.TacticalBlockAt(p))) break;
                 return true;
             case CampaignBossMove.ShieldAdvance:
-                ResolveDamageBatch(attack);
-                foreach (var p in attack.Cells)
+                // A newly built wall constrains this physical charge as well as its movement.
+                var reachable = attack.Cells.TakeWhile(ProjectileOpen).ToArray();
+                ResolveDamageBatch(attack with { Cells = reachable });
+                foreach (var p in reachable)
                 {
                     if (_world.OccupantAt(p, boss.Id) is { Life: LifeState.Alive } occupant) TryShove(occupant, cast.Facing, boss.Id, attack.Id);
                     if (!_world.CanEnter(p, boss.Id) || ProtectedForcedLanding(p)) break;
@@ -228,6 +256,7 @@ public sealed partial class TacticalCombat
         if (memory.ExposedUntil > Clock || arena.Kind == CampaignBossKind.SluiceMaw && arena.Channels.All(c => c.Drained))
             return amount == 0 ? 0 : checked(amount + Math.Max(1, amount / 2));
         if (arena.Kind != CampaignBossKind.OssuaryCaptain || source == null || attack.Origin.Floor != target.Position.Floor
+            || attack.Cause is not (DamageCause.DirectAttack or DamageCause.TriggeredEffect)
             || State.Attacks.Any(a => a.Source == target.Id)) return amount;
         int dx = Math.Sign(attack.Origin.X - target.Position.X), dy = Math.Sign(attack.Origin.Y - target.Position.Y);
         if (!AttackGeometry.TryFacing(dx, dy, out var incoming)) return amount;

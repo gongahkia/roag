@@ -113,6 +113,34 @@ public sealed class CampaignBossTests
         Assert.Throws<InvalidOperationException>(() => a.World.CreateCampaignBossArena(CampaignBossKind.Threadmother, observed.Offset(7, 7), 74, false));
     }
 
+    [Theory]
+    [InlineData("structure")]
+    [InlineData("work")]
+    [InlineData("loot")]
+    [InlineData("corpse")]
+    [InlineData("decoy")]
+    public void PlacementRejectsRegisteredPhysicalStateBeforeCreatingATimelineOrPainting(string kind)
+    {
+        using var world = WorldSession.Create(42); var p = new WorldPosition(512, 512, 1);
+        switch (kind)
+        {
+            case "structure": world.State.Structures.Add(new() { Position = p, Material = Material.Floor, Foundation = Material.Rock }); break;
+            case "work": world.State.Work.Add(new() { Id = 1, Target = p, Definition = "test:reserved-work", Required = 100 }); break;
+            case "loot": world.State.Loot.Add(new() { Id = "test:physical-cache", Position = p, Contents = new() { ["gold"] = 2 } }); break;
+            case "corpse":
+                var corpse = ActorFactory.Create(world.Content, world.Content.Game.Raider, 42, world.State.NextActorId++, p, 0);
+                corpse.Life = LifeState.Dead; corpse.Health = 0; world.State.Actors.Add(corpse); break;
+            case "decoy":
+                var combat = new TacticalCombat(world, _ => { }); var hero = world.Party.Single();
+                combat.Register(hero, new() { Build = CharacterBuild.Create(ClassKind.Shade, 42) }); hero.Tactics!.Resources.Decoy = p; break;
+        }
+        bool hadTimeline = world.State.Tactics != null;
+        string before = JsonSerializer.Serialize(world.State);
+        Assert.Throws<InvalidOperationException>(() => world.CreateCampaignBossArena(CampaignBossKind.Bellkeeper, p, 73, false));
+        Assert.Equal(hadTimeline, world.State.Tactics != null);
+        Assert.Equal(before, JsonSerializer.Serialize(world.State));
+    }
+
     [Fact]
     public void SoundseekBaitsToCommittedNoiseAndKeepsLockedCellsAfterTargetMoves()
     {
@@ -325,6 +353,77 @@ public sealed class CampaignBossTests
             }
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void SurgeActuallyPushesAcrossWetTilesWithoutGrantingOrdinarySwimming()
+    {
+        using var a = new Encounter(CampaignBossKind.SluiceMaw, final: true);
+        var start = a.Arena.Center.Offset(-2, -3);
+        a.Hero.Position = a.World.State.Position = start; a.World.Reveal();
+        Assert.Equal(Material.Water, a.World.Chunks.At(start.Offset(1, 0)));
+        Assert.False(a.World.GroundOpen(start.Offset(1, 0)));
+        var attack = a.Cast(0); a.Resolve(attack);
+        Assert.Equal(start.Offset(2, 0), a.Hero.Position);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "Displaced" && e.Target == a.Hero.Id);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
+    public void NewWallStopsChargeDamageAndMovementBeforeBodiesBeyondTheObstruction()
+    {
+        using var a = new Encounter(CampaignBossKind.OssuaryCaptain, members: 4);
+        var ally = a.World.Party.First(m => m.Id != a.Hero.Id); ally.Position = a.Arena.Center.Offset(0, 3);
+        int hp = ally.Health;
+        var attack = a.Cast(0); Assert.Contains(ally.Position, attack.Cells);
+        a.World.Chunks.Edit(a.Arena.Center.Offset(0, 2), Material.Wall);
+        a.Resolve(attack);
+        Assert.Equal(hp, ally.Health); Assert.Equal(a.Arena.Center.Offset(0, 3), ally.Position);
+        Assert.Equal(a.Arena.Center.Offset(0, 1), a.Boss.Position);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "BossExposed");
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReelPullsActualOccupantButMovingOffItsLockedTileEvadesIt(bool evade)
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother);
+        var attack = a.Cast(1); var start = a.Hero.Position;
+        if (evade) { a.Act(new(TacticalAction.Move, Facing.East)); a.NextHero(); }
+        a.Resolve(attack);
+        Assert.Equal(evade ? start.Offset(1, 0) : start.Offset(0, -2), a.Hero.Position);
+        Assert.Equal(a.Hero.MaxHealth - (evade ? 0 : a.Boss.Power), a.Hero.Health);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
+    public void ForeignAndMalformedBossWindupsAreRejectedBeforeChangingAnyState()
+    {
+        using var a = new Encounter(CampaignBossKind.Bellkeeper);
+        string before = JsonSerializer.Serialize(a.World.State);
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup("core:ability/boss_soundseek", [a.Boss.Position],
+            AttackDelivery.Area, DamageElement.Physical, 5, 160, 140, boss: new(CampaignBossMove.Soundseek)));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        a.Act(new(TacticalAction.Wait)); Assert.Same(a.Boss, a.Combat.AdvanceToDecision());
+        before = JsonSerializer.Serialize(a.World.State);
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup("core:ability/boss_channelsurge", [a.Hero.Position],
+            AttackDelivery.Area, DamageElement.Physical, 5, 160, 140, boss: new(CampaignBossMove.ChannelSurge, 0)));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+    }
+
+    [Fact]
+    public void AbsentNewStateInAnOlderNativeSaveRestoresAnEmptyRegistryWithoutChangingItsTimeline()
+    {
+        using var world = WorldSession.Create(42); var combat = new TacticalCombat(world, _ => { });
+        combat.Register(world.Party.Single(), new() { Build = CharacterBuild.Create(ClassKind.Adventurer, 42) });
+        var old = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(combat.State))!;
+        old.AsObject().Remove("CampaignBosses");
+        var restored = JsonSerializer.Deserialize<TacticalWorldState>(old.ToJsonString())!;
+        Assert.Empty(restored.CampaignBosses.Arenas); Assert.Empty(restored.CampaignBosses.Pulses);
+        Assert.Equal(JsonSerializer.Serialize(combat.State.Timeline), JsonSerializer.Serialize(restored.Timeline));
+        world.State.Tactics = restored; TacticalValidation.Validate(world.Plan, world.State);
     }
 
     [Theory]

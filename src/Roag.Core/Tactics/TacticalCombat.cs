@@ -433,6 +433,7 @@ public sealed partial class TacticalCombat
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
         if (intendedTarget != 0) _ = Actor(intendedTarget);
         ValidateRetainedWindup(actor, ability, retainedAbility);
+        ValidateCampaignBossWindup(actor, ability, cells, delivery, element, damage, windupCost, recoveryCost, boss);
         if (actor.Life != LifeState.Alive || damage < 0 || string.IsNullOrWhiteSpace(ability)
             || cells.Count == 0 && (actor.Tactics?.Enemy == null || delivery != AttackDelivery.Area) || cells.Distinct().Count() != cells.Count
             || cells.Any(p => p.Floor != actor.Position.Floor || !_world.Plan.Contains(p))

@@ -6,12 +6,12 @@ public sealed partial class TacticalCombat
 {
     private bool ProtectedForcedLanding(WorldPosition position) => _world.Chunks.At(position) is Material.StairsDown or Material.StairsUp;
 
-    private bool TryShove(Actor target, Facing facing, long source, long action)
+    private bool TryShove(Actor target, Facing facing, long source, long action, Func<WorldPosition, bool>? forcedGround = null)
     {
         var (dx, dy) = AttackGeometry.Offset(facing); var next = target.Position.Offset(dx, dy);
         string? blocked = target.Life != LifeState.Alive || target.Tactics == null ? "invalid target"
             : target.Tactics.Invulnerable ? "immune"
-            : !_world.Plan.Contains(next) || !_world.GroundOpen(next) ? "wall"
+            : !_world.Plan.Contains(next) || !(forcedGround?.Invoke(next) ?? _world.GroundOpen(next)) ? "wall"
             : ProtectedForcedLanding(next) ? "stairs"
             : target.Tactics.Enemy?.PursuitBoundary is { } boundary && !boundary.Contains(next) ? "dungeon boundary"
             : _world.OccupantAt(next, target.Id) != null ? "occupied" : null;

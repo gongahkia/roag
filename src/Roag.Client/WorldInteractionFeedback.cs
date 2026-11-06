@@ -64,6 +64,7 @@ internal static class WorldInspection
             if (actor.Tactics?.Burning is { } burning)
                 detail += $" Burning: {burning.Remaining} pulses of {burning.Power}, next in {Math.Max(0, burning.Due - session.State.Tactics!.Queue.Clock) / 100.0:0.00}s.";
             detail += targeting;
+            if (actor.Tactics?.Enemy?.CampaignBoss != null) detail = session.DungeonCombat.CampaignBossDescription(actor.Id) + " " + stats;
             if (session.HasNativeParty && session.DungeonCombat.IsContractTarget(actor.Id)) detail += " Marked room-contract target.";
             if (session.State.Tactics?.Quests.Nodes.Any(q => q.Target == actor.Id && !q.EnemyDefeated) == true) detail += " Branch guard: its defeat is required for the branch reward.";
             if (session.HasNativeParty)

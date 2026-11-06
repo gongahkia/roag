@@ -6,7 +6,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
-**291 semantic aliases, 94 font glyphs, 318 distinct runtime-bound IDs.**
+**291 semantic aliases, 94 font glyphs, 319 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -192,9 +192,9 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-boon-volatile-vial | godot-white-potion | potion | publisher_filename / high | Render as roag boon volatile vial; preserve the source identity and keep mechanics in game data. |
 | roag-boon-ward-ledger | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as roag boon ward ledger; preserve the source identity and keep mechanics in game data. |
 | roag-boon-windup-hunter | godot-white-time | time | publisher_filename / high | Render as roag boon windup hunter; preserve the source identity and keep mechanics in game data. |
-| roag-boss-resonator | urizen-onebit-r47-c003 | urn | author_metadata_visible_rgb_match / high | Render as roag boss resonator; preserve the source identity and keep mechanics in game data. |
-| roag-boss-valve | urizen-onebit-r25-c028 | anvil | author_metadata_visible_rgb_match / high | Render as roag boss valve; preserve the source identity and keep mechanics in game data. |
-| roag-boss-web | urizen-onebit-r11-c169 | Figure row 11, profession column 65: unidentified held prop / stance | visual_region_and_silhouette / low | Render as roag boss web; preserve the source identity and keep mechanics in game data. |
+| roag-boss-resonator | urizen-onebit-r25-c036 | bell | author_metadata_visible_rgb_match / high | Render as roag boss resonator; preserve the source identity and keep mechanics in game data. |
+| roag-boss-valve | urizen-onebit-r00-c068 | door / valve / metal | author_metadata_visible_rgb_match / high | Render as roag boss valve; preserve the source identity and keep mechanics in game data. |
+| roag-boss-web | urizen-onebit-r39-c004 | web | author_metadata_visible_rgb_match / high | Render as roag boss web; preserve the source identity and keep mechanics in game data. |
 | roag-class-adventurer | urizen-onebit-r00-c107 | Figure row 00, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag class adventurer; preserve the source identity and keep mechanics in game data. |
 | roag-class-alchemist | urizen-onebit-r09-c112 | Figure row 09, profession column 08: small vessel | visual_region_and_silhouette / low | Render as roag class alchemist; preserve the source identity and keep mechanics in game data. |
 | roag-class-arcanist | urizen-onebit-r00-c187 | Figure row 00, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag class arcanist; preserve the source identity and keep mechanics in game data. |

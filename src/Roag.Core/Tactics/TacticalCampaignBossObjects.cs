@@ -19,8 +19,8 @@ public sealed partial class TacticalCombat
         return fixture.Kind switch
         {
             CampaignBossFixtureKind.Resonator => $"{fixture.Health} HP. Blocks movement and shots. Attack it to cancel its expanding rings and expose the Bellkeeper during a long recovery.",
-            CampaignBossFixtureKind.Valve => arena!.Channels[fixture.Channel].Drained ? "Permanently drained. This channel is dry and cannot feed Sluice-Maw."
-                : "Operate from beside it for one action. Permanently drains its marked channel, opens a dry route and exposes Sluice-Maw. Drain the announced feast pool before impact to deny healing.",
+            CampaignBossFixtureKind.Valve => arena!.Channels[fixture.Channel].Drained ? $"Channel #{fixture.Channel + 1}: permanently drained. This channel is dry and cannot feed Sluice-Maw."
+                : $"Channel #{fixture.Channel + 1}, flow {arena.Channels[fixture.Channel].Flow}. Hover to trace its visible channel and pool. Operate from beside it for one action. Permanently drains its marked channel, opens a dry route and exposes Sluice-Maw. Drain the announced feast pool before impact to deny healing.",
             CampaignBossFixtureKind.WebAnchor => $"{fixture.Health} HP. Cut this anchor to clear its entire connected partition. The central walking gap remains open. Fire schedules visible spreading burns that can hit allies.",
             CampaignBossFixtureKind.WebStrand => $"{fixture.Health} HP. Blocks movement and shots; any damaging attack can cut it. Fire clears connected strands with delayed impacts that can hit nearby allies. Walk through the marked gap or cut an anchor.",
             CampaignBossFixtureKind.ReelLine => "1 HP. Any damaging attack cuts the line and stops the locked pull. Moving away from its marked landing also evades it.",
@@ -133,7 +133,7 @@ public sealed partial class TacticalCombat
     private void QueueCampaignBossPulse(CampaignBossArena arena, CampaignBossPulseKind kind, WorldPosition origin,
         WorldPosition[] cells, long due, int damage, long fixture, long source = 0)
     {
-        if (cells.Length == 0 || State.CampaignBosses.Pulses.Count >= 256) return;
+        if (cells.Length == 0 || State.CampaignBosses.Pulses.Count >= 2048) return;
         long id = State.NextAction++; source = source == 0 ? arena.Boss : source;
         long schedule = State.Queue.Schedule(ScheduledKind.CampaignBossPulse, due, source, referenceId: id).Sequence;
         State.CampaignBosses.Pulses.Add(new(id, arena.Id, source, kind, origin, cells, due, schedule, damage, fixture));
@@ -196,7 +196,11 @@ public sealed partial class TacticalCombat
             CampaignBossKind.Threadmother => "Hunts downed or weakened prey. Partition webs block movement and shots but retain a walking gap; cut an anchor to clear its partition. Evade the marked Reel In tile or cut its visible line. Fire spreads as delayed visible hazards and can hit allies.",
             _ => $"Shield faces {memory.ShieldFacing}; front and front diagonals reduce damage by {(arena.FinalRole ? 90 : 80)}%. Turns and the long recovery after a locked forward charge expose flanks. Break bone ramparts or use their central gap and open ends."
         };
-        return (arena.FinalRole ? "Final guardian: authored greater health, power and denser mechanics. " : "Major guardian: fixed world role. ")
-            + variation + ". " + mechanics + (memory.ExposedUntil > Clock ? $" Exposed for {(memory.ExposedUntil - Clock) / 100d:0.00}s: takes 50% extra damage." : "");
+        var pending = State.Attacks.FirstOrDefault(a => a.Source == bossId && a.Boss != null);
+        string warning = pending?.Boss is { } cast ? CampaignBossCatalog.MoveName(cast.Move)
+            + (cast.Feature >= 0 ? " / channel #" + (cast.Feature + 1) : "") + $" in {Math.Max(0, pending.Due - Clock) / 100d:0.00}s. " : "";
+        if (pending?.Boss?.Move == CampaignBossMove.ReservoirFeast) warning += "Drain that pool's numbered valve before impact to deny healing. ";
+        return warning + mechanics + (arena.FinalRole ? " Final guardian: greater health, power and denser mechanics. " : " Major guardian: fixed world role. ")
+            + variation + "." + (memory.ExposedUntil > Clock ? $" Exposed for {(memory.ExposedUntil - Clock) / 100d:0.00}s: takes 50% extra damage." : "");
     }
 }

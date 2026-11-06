@@ -13,15 +13,21 @@ public sealed partial class WorldSession
             throw new ArgumentOutOfRangeException(nameof(center));
         if (variation == -1) variation = RoagRandom.Derive(seed, "campaign-boss:" + kind) % 3;
         if (variation is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(variation));
-        var combat = State.Tactics == null ? CreateTacticalSimulation() : new TacticalCombat(this, AdvanceTacticalWorld);
-        var store = combat.State.CampaignBosses;
+        long clock = State.Tactics?.Queue.Clock ?? checked(State.Tick * new TacticalTuning().UnitsPerWorldTick);
+        if (readyAt is { } due && due < clock) throw new ArgumentOutOfRangeException(nameof(readyAt));
+        if (State.Dungeon != null) throw new InvalidOperationException("Campaign boss arenas require world terrain outside the bounded dungeon run.");
+        // Validate the entire footprint before creating a tactical state or mutating terrain.
+        var store = State.Tactics?.CampaignBosses ?? new CampaignBossWorldState();
         var arena = new CampaignBossArena { Id = store.NextArena, Kind = kind, Center = center, Seed = seed, Variation = variation, FinalRole = finalRole };
-        if (store.Arenas.Count >= 32 || store.Arenas.Any(a => a.Center.Floor == center.Floor
+        var reserved = CampaignBossPlacementReservations();
+        if (store.NextArena is < 1 or >= 1000 || store.Arenas.Count >= 32 || store.Arenas.Any(a => a.Center.Floor == center.Floor
                 && Math.Abs(a.Center.X - center.X) <= 14 && Math.Abs(a.Center.Y - center.Y) <= 14)
-            || State.Actors.Any(a => a.Life != LifeState.Dead && arena.Contains(a.Position))
+            || reserved.Any(arena.Contains)
             || Enumerable.Range(-7, 15).SelectMany(y => Enumerable.Range(-7, 15).Select(x => center.Offset(x, y)))
                 .Any(p => Chunks.Seen(p) || Chunks.IsEdited(p) || ObjectAt(p) is { Kind: not "decoration" }))
             throw new InvalidOperationException("Place new boss arenas only on unobserved, unedited, unoccupied ground away from registered fixtures.");
+        var combat = State.Tactics == null ? CreateTacticalSimulation() : new TacticalCombat(this, AdvanceTacticalWorld);
+        combat.State.CampaignBosses = store;
         for (int y = -7; y <= 7; y++) for (int x = -7; x <= 7; x++)
             Chunks.Edit(center.Offset(x, y), Math.Max(Math.Abs(x), Math.Abs(y)) == 7 && x != 0 && y != 0 ? Material.Wall : Material.Floor);
         if (kind == CampaignBossKind.Bellkeeper)
@@ -52,6 +58,52 @@ public sealed partial class WorldSession
         combat.RegisterCampaignBoss(actor, arena, readyAt ?? checked(combat.Clock + 100));
         actor.Health = actor.MaxHealth;
         return arena;
+    }
+
+    private HashSet<WorldPosition> CampaignBossPlacementReservations()
+    {
+        var cells = State.Structures.Select(s => s.Position).Concat(State.Discoveries.Select(d => d.Position))
+            .Concat(State.Loot.Where(l => !l.Taken).Select(l => l.Position)).ToHashSet();
+        foreach (var work in State.Work)
+        {
+            cells.Add(work.Target);
+            if (work.Station is { } station) cells.Add(station);
+            if (work.DeliveryStorage is { } delivery) cells.Add(delivery);
+            foreach (var supply in work.Supplies ?? []) if (supply.Storage is { } storage) cells.Add(storage);
+        }
+        foreach (var actor in State.Actors)
+        {
+            // Corpses and their recoverable equipment are physical history too.
+            cells.Add(actor.Position);
+            if (actor.Tactics?.Resources is not { } resources) continue;
+            foreach (var p in new[] { resources.Decoy, resources.Spirit, resources.Snare, resources.Beacon?.Position,
+                resources.Bulwark?.Position, resources.Sentry?.Position, resources.Parry?.Origin })
+                if (p is { } position) cells.Add(position);
+        }
+        if (State.Tactics is not { } tactics) return cells;
+        cells.UnionWith(tactics.Attacks.SelectMany(a => a.Cells));
+        cells.UnionWith(tactics.CampFires.Select(f => f.Position));
+        cells.UnionWith(tactics.Chests.Chests.Select(c => c.Position));
+        cells.UnionWith(tactics.Services.Nodes.Select(n => n.Position));
+        cells.UnionWith(tactics.Services.Nodes.Where(n => n.Fixture != null).SelectMany(n => n.Fixture!.Cells));
+        cells.UnionWith(tactics.Doors.Nodes.Select(n => n.Position));
+        cells.UnionWith(tactics.Gates.Nodes.Select(n => n.Position));
+        cells.UnionWith(tactics.Quests.Nodes.SelectMany(q => q.Cells));
+        cells.UnionWith(tactics.Vaults.Nodes.SelectMany(v => new[] { v.Position, v.KeyPosition }));
+        foreach (var secret in tactics.Secrets.Nodes)
+        {
+            cells.Add(secret.Position); cells.Add(secret.Clue);
+            if (secret.Cache is { } cache) cells.Add(cache);
+        }
+        cells.UnionWith(tactics.RoomFeatures.Nodes.Select(n => n.Position));
+        cells.UnionWith(tactics.OptionalTerrain.Nodes.Select(n => n.Position));
+        cells.UnionWith(tactics.Loot.Drops.Select(d => d.Position));
+        cells.UnionWith(tactics.EnemySnares.Select(n => n.Position));
+        cells.UnionWith(tactics.Webs.SelectMany(w => w.Span.Cells()));
+        cells.UnionWith(tactics.Silt.Select(n => n.Position));
+        cells.UnionWith(tactics.Embers.Select(n => n.Position));
+        cells.UnionWith(tactics.Mirrors.Select(n => n.Position));
+        return cells;
     }
 
     internal static WorldPosition Rotate(WorldPosition center, int x, int y, int rotation) => rotation switch

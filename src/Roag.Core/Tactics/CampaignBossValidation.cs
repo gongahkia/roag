@@ -4,11 +4,42 @@ namespace Roag.Core.Tactics;
 
 internal static class CampaignBossValidation
 {
+    internal static bool MoveFits(CampaignBossKind kind, CampaignBossMove move) => kind switch
+    {
+        CampaignBossKind.Bellkeeper => move is CampaignBossMove.Soundseek or CampaignBossMove.FuneralChime,
+        CampaignBossKind.SluiceMaw => move is CampaignBossMove.ChannelSurge or CampaignBossMove.ReservoirFeast,
+        CampaignBossKind.Threadmother => move is CampaignBossMove.PartitionWeb or CampaignBossMove.ReelIn,
+        CampaignBossKind.OssuaryCaptain => move is CampaignBossMove.ShieldAdvance or CampaignBossMove.BoneRampart,
+        _ => false
+    };
+    internal static bool GeometryFits(CampaignBossArena arena, CampaignBossCast cast, WorldPosition origin, IReadOnlyList<WorldPosition> cells)
+    {
+        if (!MoveFits(arena.Kind, cast.Move) || !Enum.IsDefined(cast.Facing) || !AttackGeometry.Cardinal(cast.Facing)
+            || cells.Any(p => !arena.Contains(p)) || cast.Feature < -1
+            || arena.Kind == CampaignBossKind.SluiceMaw && (cast.Feature < 0 || cast.Feature >= arena.Channels.Count)
+            || arena.Kind != CampaignBossKind.SluiceMaw && cast.Feature != -1) return false;
+        return cast.Move switch
+        {
+            CampaignBossMove.Soundseek => cells.Count is >= 1 and <= 9 && (arena.FinalRole || cells.Count == 1)
+                && cells.All(p => Math.Max(Math.Abs(p.X - cells[0].X), Math.Abs(p.Y - cells[0].Y)) <= 1),
+            CampaignBossMove.ReservoirFeast => cells.SequenceEqual(new[] { arena.Channels[cast.Feature].Pool }),
+            CampaignBossMove.ChannelSurge => cells.SequenceEqual(arena.Channels[cast.Feature].Cells),
+            CampaignBossMove.ReelIn => cells.Count == 1,
+            CampaignBossMove.ShieldAdvance => cells.Count <= (arena.FinalRole ? 5 : 4)
+                && cells.Select((p, i) => { var (x,y) = AttackGeometry.Offset(cast.Facing); return p == origin.Offset(x * (i + 1), y * (i + 1)); }).All(valid => valid),
+            CampaignBossMove.PartitionWeb => cells.Count <= (arena.FinalRole ? 16 : 8)
+                && cells.All(p => Math.Max(Math.Abs(p.X - arena.Center.X), Math.Abs(p.Y - arena.Center.Y)) <= 4),
+            CampaignBossMove.BoneRampart => cells.Count <= 4
+                && cells.All(p => Math.Max(Math.Abs(p.X - arena.Center.X), Math.Abs(p.Y - arena.Center.Y)) <= 2),
+            _ => cells.Count <= (arena.FinalRole ? 24 : 16)
+        };
+    }
+
     internal static void Validate(WorldPlan plan, WorldState world)
     {
         var state = world.Tactics!; var store = state.CampaignBosses;
         if (store == null || store.NextArena < 1 || store.NextArena > 1000 || store.Arenas == null || store.Arenas.Count > 32
-            || store.Pulses == null || store.Pulses.Count > 256 || store.Arenas.Any(a => a == null)
+            || store.Pulses == null || store.Pulses.Count > 2048 || store.Arenas.Any(a => a == null)
             || store.Arenas.Select(a => a.Id).Distinct().Count() != store.Arenas.Count
             || store.Arenas.Select(a => a.Boss).Distinct().Count() != store.Arenas.Count
             || store.Pulses.Any(p => p == null) || store.Pulses.Select(p => p.Id).Distinct().Count() != store.Pulses.Count)
@@ -73,14 +104,7 @@ internal static class CampaignBossValidation
             if (owned != (attack.Boss != null)) throw new InvalidDataException("Missing or foreign campaign boss commitment.");
             if (attack.Boss is not { } cast) continue;
             var arena = store.Arenas.Single(a => a.Boss == attack.Source);
-            bool moveRole = arena.Kind switch
-            {
-                CampaignBossKind.Bellkeeper => cast.Move is CampaignBossMove.Soundseek or CampaignBossMove.FuneralChime,
-                CampaignBossKind.SluiceMaw => cast.Move is CampaignBossMove.ChannelSurge or CampaignBossMove.ReservoirFeast,
-                CampaignBossKind.Threadmother => cast.Move is CampaignBossMove.PartitionWeb or CampaignBossMove.ReelIn,
-                _ => cast.Move is CampaignBossMove.ShieldAdvance or CampaignBossMove.BoneRampart
-            };
-            if (!moveRole || !Enum.IsDefined(cast.Move) || !Enum.IsDefined(cast.Facing) || !AttackGeometry.Cardinal(cast.Facing)
+            if (!Enum.IsDefined(cast.Move) || attack.Cells == null || !GeometryFits(arena, cast, attack.Origin, attack.Cells)
                 || attack.Ability != "core:ability/boss_" + cast.Move.ToString().ToLowerInvariant()
                 || attack.Delivery != AttackDelivery.Area || attack.Element != DamageElement.Physical || attack.Cause != DamageCause.DirectAttack
                 || attack.RecoveryCost == null || attack.Support != null || attack.Advance != null || attack.Shove != null
@@ -92,7 +116,8 @@ internal static class CampaignBossValidation
                 || cast.Move is CampaignBossMove.Soundseek or CampaignBossMove.ReelIn && attack.Cells.Length == 0
                 || cast.Move == CampaignBossMove.ReelIn && attack.Cells.Length != 1
                 || cast.Move == CampaignBossMove.ReservoirFeast && !attack.Cells.SequenceEqual(new[] { arena.Channels[cast.Feature].Pool })
-                || cast.Move == CampaignBossMove.ChannelSurge && !attack.Cells.SequenceEqual(arena.Channels[cast.Feature].Cells))
+                || cast.Move == CampaignBossMove.ChannelSurge && !attack.Cells.SequenceEqual(arena.Channels[cast.Feature].Cells)
+                || attack.Damage != (cast.Move is CampaignBossMove.ReservoirFeast or CampaignBossMove.PartitionWeb or CampaignBossMove.BoneRampart or CampaignBossMove.FuneralChime ? 0 : actors[attack.Source].Power))
                 throw new InvalidDataException("Invalid saved campaign boss attack.");
         }
         foreach (var pulse in store.Pulses)

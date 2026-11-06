@@ -36,6 +36,14 @@ public static class CampaignBossCatalog
             kind == CampaignBossKind.Threadmother ? EnemyTargetPriority.VulnerablePrey : EnemyTargetPriority.NearestThreat,
             SpecialEncounter: true);
     }
+    public static string MoveName(CampaignBossMove move) => move switch
+    {
+        CampaignBossMove.Soundseek => "Soundseek", CampaignBossMove.FuneralChime => "Funeral Chime",
+        CampaignBossMove.ChannelSurge => "Channel Surge", CampaignBossMove.ReservoirFeast => "Reservoir Feast",
+        CampaignBossMove.PartitionWeb => "Partition Web", CampaignBossMove.ReelIn => "Reel In",
+        CampaignBossMove.ShieldAdvance => "Shield Advance", CampaignBossMove.BoneRampart => "Bone Rampart",
+        _ => throw new ArgumentOutOfRangeException(nameof(move))
+    };
     public static string Sprite(CampaignBossKind kind) => "roag-enemy-" + Id(kind)["core:enemy/".Length..].Replace('_', '-');
 }
 

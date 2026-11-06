@@ -369,6 +369,7 @@ internal sealed partial class WorldGame
             FillClipped(new(r.X, r.Y, r.Width, 2), color); FillClipped(new(r.X, r.Bottom - 2, r.Width, 2), color);
             FillClipped(new(r.X, r.Y, 2, r.Height), color); FillClipped(new(r.Right - 2, r.Y, 2, r.Height), color);
         }
+        DrawCampaignBossDetails();
         foreach (var actor in _session.State.Actors.Where(a => a.Life != LifeState.Dead && a.Tactics != null && _session.Visible.Contains(a.Position)))
         {
             if (actor.Tactics is { DefinitionId: "core:enemy/haunted_cache", Enemy.Alerted: false } && actor.Health == actor.MaxHealth) continue;

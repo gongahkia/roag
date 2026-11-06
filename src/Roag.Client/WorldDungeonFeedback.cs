@@ -63,6 +63,7 @@ internal sealed partial class WorldGame
             "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD", "WorldLootClaimed" => "RECOVERED",
             "SocialInteractionCompleted" => "TALK",
             "BossChorusBroken" => "CHORUS BROKEN", "BossExposed" => "EXPOSED", "BossShieldBlocked" => "SHIELD",
+            "BossFeastAnnounced" => "FEAST #" + e.Amount, "BossSurgeAnnounced" => "SURGE #" + e.Amount,
             "BossValveDrained" => "DRAINED", "BossFeastDenied" => "FEAST DENIED", "BossReservoirFeast" => "+" + e.Amount,
             "BossWebRaised" => "WEB", "BossWebIgnited" => "BURNING WEB", "BossReelEvaded" => "LINE BROKEN",
             "BossRampartRaised" => "RAMPART",
