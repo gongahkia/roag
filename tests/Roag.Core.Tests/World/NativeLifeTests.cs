@@ -68,7 +68,7 @@ public sealed class NativeLifeTests
         world.Chunks.Edit(cell, Material.Floor);
         var animal = ActorFactory.Create(world.Content, source, world.Seed, world.State.NextActorId++, cell, 0);
         if (settled) animal.Habitat = animal.NatalHabitat = cell;
-        world.State.Actors.Add(animal); world.DungeonCombat.RegisterRetainedEnemy(animal, 1000);
+        world.State.Actors.Add(animal); world.DungeonCombat.RegisterRetainedEnemy(animal, world.DungeonCombat.Clock + 1000);
         int wounds = animal.Body.Wounds;
         Kill(world, hero, animal);
         Assert.Equal(LifeState.Dead, animal.Life); Assert.Equal(Math.Min(10, wounds + 2), animal.Body.Wounds);
