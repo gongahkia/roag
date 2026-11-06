@@ -93,13 +93,19 @@ public sealed partial class TacticalCombat
         Emit("BossFixtureBroken", source, arena.Boss, action, fixture.Position, ability: fixture.Kind.ToString());
         if (fixture.Kind == CampaignBossFixtureKind.WebAnchor)
             foreach (var strand in arena.Fixtures.Where(f => f.Group == fixture.Group)) strand.Health = 0;
+        if (fixture.Kind == CampaignBossFixtureKind.ReelLine
+            && Actor(arena.Boss) is { Life: LifeState.Alive } reeler
+            && State.Attacks.Any(a => a.Source == reeler.Id && a.Id == fixture.Group && a.Boss?.Move == CampaignBossMove.ReelIn))
+            RecordCombatControl(source, reeler, ActionTiming.Recovery(reeler.Tactics!.MoveCost, EffectiveSpeed(reeler)));
         if (fixture.Kind == CampaignBossFixtureKind.ReelLine)
             foreach (var line in arena.Fixtures.Where(f => f.Group == fixture.Group && f.Kind == CampaignBossFixtureKind.ReelLine)) line.Health = 0;
         if (fixture.Kind != CampaignBossFixtureKind.Resonator) return;
         CancelCampaignPulses(p => p.Arena == arena.Id && p.Kind == CampaignBossPulseKind.Chime && p.Fixture == fixture.Id);
         var boss = Actor(arena.Boss); if (boss.Life != LifeState.Alive) return;
         int duration = arena.FinalRole ? 350 : 450;
-        if (State.Attacks.Any(a => a.Source == boss.Id && a.Boss?.Move == CampaignBossMove.FuneralChime)) CancelAttacks(boss.Id, source, action, "broken chorus");
+        long before = CampaignBossReadyAt(boss);
+        bool interrupted = State.Attacks.Any(a => a.Source == boss.Id && a.Boss?.Move == CampaignBossMove.FuneralChime);
+        if (interrupted) CancelAttacks(boss.Id, source, action, "broken chorus");
         var ready = State.Queue.Snapshot().Pending.SingleOrDefault(w => w.ActorId == boss.Id && w.Kind == ScheduledKind.ActorReady);
         if (ready != null) State.Queue.Delay(ready.Sequence, duration);
         else if (State.Attacks.FindIndex(a => a.Source == boss.Id) is >= 0 and var index)
@@ -107,9 +113,18 @@ public sealed partial class TacticalCombat
             var pending = State.Attacks[index]; State.Attacks[index] = pending with { RecoveryCost = checked(pending.RecoveryCost!.Value + duration) };
         }
         else if (boss.Id != State.ActiveActor) ScheduleReady(boss, duration);
+        RecordCombatControl(source, boss, Math.Max(CampaignBossReadyAt(boss) - before,
+            interrupted ? ActionTiming.Recovery(boss.Tactics!.MoveCost, EffectiveSpeed(boss)) : 0));
         ExposeCampaignBoss(boss, action, duration);
         Emit("BossChorusBroken", source, boss.Id, action, fixture.Position, duration);
     }
+    private long CampaignBossReadyAt(Actor boss)
+    {
+        if (State.Attacks.FirstOrDefault(a => a.Source == boss.Id && a.RecoveryCost != null) is { } attack)
+            return checked(attack.Due + ActionTiming.Recovery(attack.RecoveryCost!.Value, EffectiveSpeed(boss)));
+        return State.Queue.Snapshot().Pending.FirstOrDefault(w => w.ActorId == boss.Id && w.Kind == ScheduledKind.ActorReady)?.Due ?? Clock;
+    }
+
     private void IgniteCampaignWeb(CampaignBossArena arena, CampaignBossFixture start, LockedAttack attack)
     {
         var network = arena.Fixtures.Where(f => f.Health > 0 && f.Kind is CampaignBossFixtureKind.WebAnchor or CampaignBossFixtureKind.WebStrand).ToArray();
@@ -201,7 +216,11 @@ public sealed partial class TacticalCombat
         string warning = pending?.Boss is { } cast ? CampaignBossCatalog.MoveName(cast.Move)
             + (cast.Feature >= 0 ? " / channel #" + (cast.Feature + 1) : "") + $" in {Math.Max(0, pending.Due - Clock) / 100d:0.00}s. " : "";
         if (pending?.Boss?.Move == CampaignBossMove.ReservoirFeast) warning += "Drain that pool's numbered valve before impact to deny healing. ";
-        return warning + mechanics + (arena.FinalRole ? " Final guardian: greater health, power and denser mechanics. " : " Major guardian: fixed world role. ")
+        string priority = arena.Kind == CampaignBossKind.Threadmother
+            ? "Downed prey first, then lowest HP percentage; nearer prey breaks ties. "
+            : arena.Kind == CampaignBossKind.Bellkeeper ? "Recent sound first; otherwise nearby standing threats before downed prey. "
+            : "Nearby standing threats before downed prey. ";
+        return warning + priority + mechanics + (arena.FinalRole ? " Final guardian: greater health, power and denser mechanics. " : " Major guardian: fixed world role. ")
             + variation + "." + (memory.ExposedUntil > Clock ? $" Exposed for {(memory.ExposedUntil - Clock) / 100d:0.00}s: takes 50% extra damage." : "");
     }
 }

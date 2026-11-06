@@ -16,12 +16,12 @@ public sealed class CampaignBossTests
         public CampaignBossArena Arena { get; }
         public Actor Hero { get; }
         public Actor Boss { get; }
-        public Encounter(CampaignBossKind kind, bool final = false, int variation = 0, int members = 1)
+        public Encounter(CampaignBossKind kind, bool final = false, int variation = 0, int members = 1, ClassKind heroClass = ClassKind.Adventurer)
         {
             World = WorldSession.Create(42);
             Combat = new(World, _ => { }, new(EnableSurvival: false));
             Hero = World.Party.Single();
-            Combat.Register(Hero, new() { Build = CharacterBuild.Create(ClassKind.Adventurer, 42), AutoEat = false });
+            Combat.Register(Hero, new() { Build = CharacterBuild.Create(heroClass, 42), AutoEat = false });
             Arena = World.CreateCampaignBossArena(kind, new(512, 512, 1), 73, final, variation, readyAt: 50);
             Boss = World.ActorById(Arena.Boss);
             Hero.Position = World.State.Position = Arena.Center.Offset(0, 6);
@@ -155,6 +155,8 @@ public sealed class CampaignBossTests
         Assert.Equal(before, JsonSerializer.Serialize(a.Combat.State));
         Assert.Equal(new[] { noisy }, plan.Cells);
         a.Combat.CommitEnemyTurn(a.Hero.Id, (_, _) => null); var locked = Assert.Single(a.Combat.State.Attacks);
+        Assert.Equal(0, locked.IntendedTarget);
+        Assert.Null(a.Combat.InspectEnemy(a.Hero.Id, a.Boss.Id)!.TargetId);
         a.NextHero(); a.Act(new(TacticalAction.Move, Facing.South)); a.NextHero();
         Assert.Equal(new[] { noisy }, locked.Cells); a.Resolve(locked);
         Assert.Equal(a.Hero.MaxHealth, a.Hero.Health);
@@ -226,6 +228,7 @@ public sealed class CampaignBossTests
         a.Resolve(attack);
         Assert.Equal(a.Arena.Channels[attack.Boss!.Feature].Pool, a.Boss.Position);
         Assert.Equal(hp + 14, a.Boss.Health);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "Healed" && e.Source == a.Boss.Id && e.Target == a.Boss.Id && e.Amount == 14);
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
@@ -275,18 +278,127 @@ public sealed class CampaignBossTests
     [Fact]
     public void FireSchedulesConnectedNetworkWithFriendlyFireAndActualClearedPaths()
     {
-        using var a = new Encounter(CampaignBossKind.Threadmother, members: 4);
+        using var a = new Encounter(CampaignBossKind.Threadmother, members: 4, heroClass: ClassKind.Arcanist);
         var partition = a.Cast(0); a.Resolve(partition);
         var strand = a.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.WebStrand);
         a.Hero.Position = a.World.State.Position = strand.Position.Offset(-1, 0);
         var ally = a.World.Party.First(m => m.Id != a.Hero.Id); ally.Position = strand.Position.Offset(1, 0);
         int hp = ally.Health;
-        a.Hit(strand.Position, 1, DamageElement.Fire);
+        a.World.Reveal(); long clock = a.Combat.Clock;
+        var command = new TacticalIntent(TacticalAction.Special, Facing.East);
+        Assert.Contains(strand.Position, a.Combat.Preview(command).Cells);
+        a.Act(command); a.NextHero(); Assert.True(a.Combat.Clock > clock);
         Assert.True(a.Combat.State.CampaignBosses!.Pulses.Count >= 3);
+        Assert.All(a.Combat.State.CampaignBosses.Pulses, p => Assert.Equal(a.Hero.Id, p.Source));
         var due = a.Combat.State.CampaignBosses!.Pulses.Min(p => p.Due);
         while (a.Combat.Clock < due) { a.Act(new(TacticalAction.Wait)); a.NextHero(); }
         Assert.True(ally.Health < hp); Assert.True(a.World.GroundOpen(strand.Position));
         Assert.Contains(a.Combat.State.Events, e => e.Kind == "BossWebBurned");
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "DamageTaken" && e.Source == a.Hero.Id && e.Target == ally.Id && e.Ability == "core:ability/boss_burning_network");
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
+    public void FirstChimeImpactCannotAddUnmarkedCellsWhenAWallOpensAfterCommitment()
+    {
+        using var a = new Encounter(CampaignBossKind.Bellkeeper);
+        var resonator = a.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.Resonator);
+        var opened = resonator.Position.Offset(0, 1);
+        a.World.Chunks.Edit(opened, Material.Wall);
+        var attack = a.Cast(1); Assert.DoesNotContain(opened, attack.Cells);
+        Assert.Equal(0, attack.IntendedTarget);
+        a.World.Chunks.Edit(opened, Material.Floor);
+        a.Hero.Position = a.World.State.Position = opened; a.World.Reveal();
+        int hp = a.Hero.Health; a.Resolve(attack);
+        Assert.Equal(hp, a.Hero.Health);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "BossChimeRing");
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
+    public void ResonatorOnlyControlEarnsOwnedOneTimeExperienceWithoutBossDamage()
+    {
+        using var a = new Encounter(CampaignBossKind.Bellkeeper, members: 4);
+        _ = a.Cast(1); var resonator = a.Arena.Fixtures.First();
+        a.Hit(resonator.Position);
+        var support = a.Combat.State.Rewards.Enemies[a.Boss.Id].Members[a.Hero.Id];
+        Assert.Equal(0, support.Damage); Assert.True(support.Control > 0);
+        long credit = support.Control; a.Hit(resonator.Position); Assert.Equal(credit, support.Control);
+        var finisher = a.World.Party.First(m => m.Id != a.Hero.Id);
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, finisher.Id, finisher.Position,
+            [a.Boss.Position], "test:boss-finisher", AttackDelivery.Melee, DamageElement.Physical, 1000, a.Combat.Clock));
+        Assert.Equal(LifeState.Dead, a.Boss.Life); Assert.True(a.Boss.Tactics!.RewardsClaimed);
+        Assert.True(ExperienceUnits(a.Hero) > 0); Assert.True(ExperienceUnits(finisher) > 0);
+        Assert.Equal(40L * ContributionRewards.UnitsPerExperience, a.World.Party.Sum(ExperienceUnits));
+        Assert.All(a.World.Party.Where(m => m.Id != a.Hero.Id && m.Id != finisher.Id), m => Assert.Equal(0, ExperienceUnits(m)));
+        string rewards = JsonSerializer.Serialize(a.World.Party.Select(m => new { m.Id, m.Tactics!.Build, m.Tactics.ExperienceFraction }));
+        a.Hit(a.Boss.Position, 1000);
+        Assert.Equal(rewards, JsonSerializer.Serialize(a.World.Party.Select(m => new { m.Id, m.Tactics!.Build, m.Tactics.ExperienceFraction })));
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    private static long ExperienceUnits(Actor member) => member.Tactics!.Build!.Experience * ContributionRewards.UnitsPerExperience + member.Tactics.ExperienceFraction;
+
+    [Fact]
+    public void CuttingSeveralReelSegmentsCreditsControlOnlyOnce()
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother);
+        _ = a.Cast(1); var line = a.Arena.Fixtures.Where(f => f.Kind == CampaignBossFixtureKind.ReelLine).ToArray();
+        Assert.True(line.Length > 1);
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, a.Hero.Id, a.Hero.Position,
+            line.Select(f => f.Position).ToArray(), "test:line-cut", AttackDelivery.Area, DamageElement.Physical, 1, a.Combat.Clock));
+        var contribution = a.Combat.State.Rewards.Enemies[a.Boss.Id].Members[a.Hero.Id];
+        Assert.Equal(ActionTiming.Recovery(a.Boss.Tactics!.MoveCost, a.Boss.Speed), contribution.Control);
+        Assert.Equal(0, contribution.Damage);
+        a.Hit(line[0].Position); Assert.Equal(ActionTiming.Recovery(a.Boss.Tactics.MoveCost, a.Boss.Speed), contribution.Control);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Fact]
+    public void CanonicalTriggeredFireIgnitesTheNetworkAndRetainsItsOwningMember()
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother, heroClass: ClassKind.Arcanist);
+        a.Resolve(a.Cast(0));
+        var strand = a.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.WebStrand);
+        const string boon = "core:boon/flashpoint";
+        a.Hero.Tactics!.Boons.Inventory = a.Hero.Tactics.Boons.Inventory.Grant(boon, BoonRarity.Common, ClassKind.Arcanist);
+        long action = a.Combat.State.NextAction++;
+        var e = new BoonEvent { Id = a.Combat.State.NextEvent++, ChainId = action, RootActionId = action,
+            Kind = BoonTrigger.HitConfirmed, SourceId = a.Hero.Id, SourceFaction = "player",
+            SourcePosition = a.Hero.Position, Position = strand.Position };
+        var activation = new BoonActivation(a.Combat.State.BoonEffects.Dispatch.NextActivationId++, boon, a.Hero.Id,
+            "player", a.Hero.Position, action, action, e.Id, [new(a.Hero.Id, boon)], 1, e);
+        a.Combat.ExecuteBoonEffect(activation, BoonCatalog.Default.Get(boon).Effects.Single());
+        Assert.True(a.Combat.State.CampaignBosses!.Pulses.Count >= 3);
+        Assert.All(a.Combat.State.CampaignBosses.Pulses, p => Assert.Equal(a.Hero.Id, p.Source));
+        Assert.Contains(a.Combat.State.Events, ev => ev.Kind == "BossWebIgnited" && ev.Source == a.Hero.Id);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Theory]
+    [InlineData(CampaignBossKind.Bellkeeper, false)]
+    [InlineData(CampaignBossKind.SluiceMaw, false)]
+    [InlineData(CampaignBossKind.Threadmother, true)]
+    [InlineData(CampaignBossKind.OssuaryCaptain, false)]
+    public void EveryAdditionalRoleHasFreePrivateInspectionOfItsActualTargetingPolicy(CampaignBossKind kind, bool vulnerable)
+    {
+        using var a = new Encounter(kind, members: 2);
+        var friend = a.World.Party.First(m => m.Id != a.Hero.Id);
+        a.Hero.Position = a.World.State.Position = a.Arena.Center.Offset(0, 2);
+        friend.Position = a.Arena.Center.Offset(3, 2); friend.Health = 1; a.World.Reveal();
+        long target = vulnerable ? friend.Id : a.Hero.Id;
+        Assert.Equal(target, a.Combat.SelectEnemyTarget(a.Boss.Id));
+        string before = JsonSerializer.Serialize(a.World.State);
+        var inspection = a.Combat.InspectEnemy(a.Hero.Id, a.Boss.Id)!;
+        Assert.Equal(target, inspection.TargetId);
+        Assert.Contains(vulnerable ? "lowest HP percentage" : "standing threats before downed prey", inspection.Tendency);
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, a.Boss.Id, a.Boss.Position, [friend.Position],
+            "test:down-prey", AttackDelivery.Area, DamageElement.Physical, 1000, a.Combat.Clock));
+        Assert.Equal(LifeState.Downed, friend.Life);
+        Assert.Equal(target, a.Combat.SelectEnemyTarget(a.Boss.Id));
+        a.Hero.Position = a.World.State.Position = a.Hero.Position with { Floor = 0 };
+        Assert.Null(a.Combat.InspectEnemy(a.Hero.Id, a.Boss.Id));
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
@@ -412,6 +524,21 @@ public sealed class CampaignBossTests
         Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup("core:ability/boss_channelsurge", [a.Hero.Position],
             AttackDelivery.Area, DamageElement.Physical, 5, 160, 140, boss: new(CampaignBossMove.ChannelSurge, 0)));
         Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+    }
+
+    [Fact]
+    public void EmptyChargeAndMixedControllerEffectsAreRejectedWithoutSpendingReadiness()
+    {
+        using var a = new Encounter(CampaignBossKind.OssuaryCaptain);
+        a.Act(new(TacticalAction.Wait)); Assert.Same(a.Boss, a.Combat.AdvanceToDecision());
+        string before = JsonSerializer.Serialize(a.World.State);
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup("core:ability/boss_shieldadvance", [],
+            AttackDelivery.Area, DamageElement.Physical, 5, 160, 240, boss: new(CampaignBossMove.ShieldAdvance)));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        Assert.Throws<ArgumentException>(() => a.Combat.CommitWindup("core:ability/boss_shieldadvance", [a.Boss.Position.Offset(0, 1)],
+            AttackDelivery.Area, DamageElement.Physical, 5, 160, 240,
+            advance: new(Facing.South, 1), boss: new(CampaignBossMove.ShieldAdvance)));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State)); Assert.Same(a.Boss, a.Combat.Active);
     }
 
     [Fact]

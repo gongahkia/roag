@@ -52,10 +52,14 @@ public sealed partial class TacticalCombat
         for (int y = -radius; y <= radius; y++) for (int x = -radius; x <= radius; x++)
             if (Math.Max(Math.Abs(x), Math.Abs(y)) == radius && BossCell(arena, p.Offset(x, y))) yield return p.Offset(x, y);
     }
+    private bool HasCampaignBossNoise(Actor boss) => BossArena(boss).Kind == CampaignBossKind.Bellkeeper
+        && boss.Tactics!.Enemy!.CampaignBoss is { LastNoise: { } noise } memory
+        && Clock - memory.NoiseAt <= 500 && BossArena(boss).Contains(noise);
+
     private EnemyIntent PlanCampaignBossTurn(Actor boss, Actor? target, Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep)
     {
         var arena = BossArena(boss); var memory = boss.Tactics!.Enemy!.CampaignBoss!;
-        bool heardNoise = arena.Kind == CampaignBossKind.Bellkeeper && memory.LastNoise is { } recent && Clock - memory.NoiseAt <= 500 && arena.Contains(recent);
+        bool heardNoise = HasCampaignBossNoise(boss);
         if (!heardNoise && (target == null || !arena.Contains(target.Position))) return new(EnemyIntentKind.Wait);
         var aim = target == null ? memory.LastNoise!.Value : EnemyAim(target, boss.Position.Floor);
         EnemyIntent Windup(CampaignBossMove move, IEnumerable<WorldPosition> cells, int feature = -1, Facing facing = Facing.South)
@@ -121,8 +125,11 @@ public sealed partial class TacticalCombat
         int windup = cast.Move == CampaignBossMove.ReservoirFeast ? 240 : definition.Windup;
         int recovery = cast.Move == CampaignBossMove.ShieldAdvance ? 240 : definition.Recovery;
         int damage = cast.Move is CampaignBossMove.ReservoirFeast or CampaignBossMove.PartitionWeb or CampaignBossMove.BoneRampart or CampaignBossMove.FuneralChime ? 0 : boss.Power;
+        bool locationTarget = cast.Move is CampaignBossMove.FuneralChime or CampaignBossMove.ReservoirFeast
+            or CampaignBossMove.PartitionWeb or CampaignBossMove.BoneRampart
+            || cast.Move == CampaignBossMove.Soundseek && HasCampaignBossNoise(boss);
         var attack = CommitWindup(intent.Ability, intent.Cells, intent.Delivery, DamageElement.Physical,
-            damage, windup, recovery, targetId, boss: cast);
+            damage, windup, recovery, locationTarget ? 0 : targetId, boss: cast);
         memory.Moves = checked(memory.Moves + 1);
         if (cast.Move == CampaignBossMove.ReservoirFeast)
             Emit("BossFeastAnnounced", boss.Id, 0, attack.Id, arena.Channels[cast.Feature].Pool, cast.Feature + 1);
@@ -157,7 +164,8 @@ public sealed partial class TacticalCombat
                 foreach (var fixture in arena.Fixtures.Where(f => f.Kind == CampaignBossFixtureKind.Resonator && f.Health > 0))
                     for (int radius = 1; radius <= (arena.FinalRole ? 4 : 3); radius++)
                         QueueCampaignBossPulse(arena, CampaignBossPulseKind.Chime, fixture.Position,
-                            BossRing(arena, fixture.Position, radius).ToArray(), checked(Clock + (radius - 1) * (arena.FinalRole ? 90 : 120)), boss.Power, fixture.Id);
+                            (radius == 1 ? attack.Cells.Where(p => Math.Max(Math.Abs(p.X - fixture.Position.X), Math.Abs(p.Y - fixture.Position.Y)) == 1)
+                                : BossRing(arena, fixture.Position, radius)).ToArray(), checked(Clock + (radius - 1) * (arena.FinalRole ? 90 : 120)), boss.Power, fixture.Id);
                 Emit("BossChimeStarted", boss.Id, 0, attack.Id, boss.Position); return true;
             case CampaignBossMove.ReservoirFeast:
                 var channel = arena.Channels[cast.Feature];
@@ -168,6 +176,7 @@ public sealed partial class TacticalCombat
                     Emit("Displaced", boss.Id, boss.Id, attack.Id, boss.Position, forced: true, from: from);
                     Emit("TileEntered", boss.Id, boss.Id, attack.Id, boss.Position, forced: true, from: from);
                     int heal = Math.Min(boss.MaxHealth - boss.Health, arena.FinalRole ? 24 : 14); boss.Health += heal;
+                    if (heal > 0) Emit("Healed", boss.Id, boss.Id, attack.Id, boss.Position, heal, ability: attack.Ability);
                     Emit("BossReservoirFeast", boss.Id, boss.Id, attack.Id, boss.Position, heal);
                 }
                 else { ExposeCampaignBoss(boss, attack.Id, 300); Emit("BossFeastDenied", boss.Id, 0, attack.Id, channel.Pool); }

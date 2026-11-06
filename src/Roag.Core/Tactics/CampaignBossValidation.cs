@@ -25,7 +25,7 @@ internal static class CampaignBossValidation
             CampaignBossMove.ReservoirFeast => cells.SequenceEqual(new[] { arena.Channels[cast.Feature].Pool }),
             CampaignBossMove.ChannelSurge => cells.SequenceEqual(arena.Channels[cast.Feature].Cells),
             CampaignBossMove.ReelIn => cells.Count == 1,
-            CampaignBossMove.ShieldAdvance => cells.Count <= (arena.FinalRole ? 5 : 4)
+            CampaignBossMove.ShieldAdvance => cells.Count >= 1 && cells.Count <= (arena.FinalRole ? 5 : 4)
                 && cells.Select((p, i) => { var (x,y) = AttackGeometry.Offset(cast.Facing); return p == origin.Offset(x * (i + 1), y * (i + 1)); }).All(valid => valid),
             CampaignBossMove.PartitionWeb => cells.Count <= (arena.FinalRole ? 16 : 8)
                 && cells.All(p => Math.Max(Math.Abs(p.X - arena.Center.X), Math.Abs(p.Y - arena.Center.Y)) <= 4),

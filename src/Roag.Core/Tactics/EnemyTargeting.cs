@@ -108,6 +108,7 @@ public sealed partial class TacticalCombat
             var planned = PlanRetainedEnemyTurn(enemy, (_, _) => null, mistBlocks);
             target = planned.Retained is { } cast ? _world.State.Actors.FirstOrDefault(a => a.Id == cast.Target && sight.Contains(a.Position)) : null;
         }
+        if (attack == null && enemy.Tactics.Enemy.CampaignBoss != null && HasCampaignBossNoise(enemy)) target = null;
         return new(enemyId, enemy.Tactics.Enemy.Retained != null ? RetainedEnemyTendency(enemy)
                 : enemy.Tactics.Enemy.CampaignBoss != null ? CampaignBossDescription(enemy.Id)
                 : EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority) + " " + CampFireResponses.Description(enemy.Tactics.DefinitionId),
