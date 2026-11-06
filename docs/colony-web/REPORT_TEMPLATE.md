@@ -88,6 +88,7 @@ Questions: none | specific decision needed
 END ROAG MIGRATION REPORT
 ```
 
-Do not automatically begin another phase after emitting this report. If a goal
-cannot yet finish, continue authorized repairs where feasible; do not mark completion
+The user authorized internal orchestration after P04: retain each phase report,
+review its evidence, repair failures, and continue to dependent work when its gates
+pass. Manual permission between phases is no longer required. Do not mark completion
 merely to produce a tidy report or because a budget is nearly exhausted.

@@ -1,4 +1,4 @@
-# Roag colony web — P04
+# Roag colony web — P05 (integration)
 
 From the repository root:
 
@@ -32,7 +32,7 @@ All five duties have per-founder priorities: **0 off**, **1 normal**, **2 prefer
 **3 first**. Farming and hauling use gatherer; construction, repair, dismantling and
 workshop production use builder; kitchen work uses cook; medicine and aid use healer.
 Higher priority changes release lower-priority work safely. At a new claim, a worker prefers ready jobs of their higher duty priority when global job priority is equal or higher; existing claims of other workers are retained. A dominant guard duty
-sends that founder to a physical watch position near the heart, without combat.
+sends that founder to a physical watch position near the heart; on a raid, guards rally at guard posts and can fight nearby attackers.
 Explicit job assignments still require an enabled applicable duty. All six founders
 remain independently assignable; no party cap or aggregate background production exists.
 
@@ -87,9 +87,10 @@ require arrival. This is new farming behavior, independent of finite forage node
 | Ore processing | Workshop | 2 stone → 1 ore | 30 | 4 ore |
 | Medicine | Infirmary | 2 food + 1 ore → 2 medicine | 40 | 4 medicine |
 | Simple tools | Workshop | 1 ore + 1 wood → 1 tool | 30 | 2 tools |
+| Ammunition | Workshop | 1 wood + 1 stone → 4 rounds | 24 | 36 rounds outside magazines |
 
 Farms pause at a 20-food reserve. Targets count existing storage, bundles and work
-cargo; an in-progress batch finishes. Tools are stored products in P04, with no
+cargo; an in-progress batch finishes. Tools are stored products in P05, with no
 equipment bonus yet. Ore is processed from finite stone, not an invented free stock.
 Recipes take delivered inputs once, generate one output batch, and physically deliver
 it before starting another. Full storage retains cargo and explains the wait.
@@ -104,9 +105,9 @@ is retained until care ends. Unused care medicine drops on interruption/death.
 The ledger proves, per material:
 
 ```text
-finite source depletion - development removal + farm/recipe production
-  = stores + bundles + work/care cargo + sites + embodied buildings
-    + salvage/repair spent + recipe/eating/medicine consumed + explicitly lost
+finite source depletion - development removal + farm/recipe production + enemy loot
+  = stores + defense magazines + bundles + work/care cargo + sites + embodied buildings
+    + salvage/repair spent + recipe/eating/medicine/ammunition consumed + explicitly lost
 ```
 
 Reservations are subsets of real inventories. Recipes, harvests, meals, treatment,
@@ -114,6 +115,46 @@ rescue and death have validated counters. Dismantling retains storage contents a
 returns 75% of embodied costs, rounded down; the remainder is spent. Dead founder
 records remain saved; their cargo is recoverable. No resource duplication/rewards
 are attached to repeated cancellation or death.
+
+## Defend and recover
+
+The first warning arrives at **tick 10800** and the raid at **tick 12000** (day
+four). The warning names the approach. Pause to inspect it. Four melee raiders and
+one breacher enter at legal map-edge cells; they seek the heart or nearby founders
+and can break player-built obstructions. Gates are doors: open admits everyone,
+closed blocks everyone. Building a blueprint does not create an invulnerable barrier.
+
+Towers cost **4 wood + 4 stone**, hold 12 rounds, and shoot within Manhattan range
+10. Traps cost **2 wood + 1 stone**, hold one round and trigger under a raider.
+Guard posts cost **1 wood** and are passable rally locations. Make ammunition at a
+workshop after cancelling its previous recipe order. Use each defense card's
+**Reload** button: a worker physically collects and delivers four rounds to a
+tower or one to a trap. Reloading needs that much free magazine space. Three jobs
+fill a tower. Magazine ammunition is separate from the workshop reserve target.
+
+Use the **Colony defense** panel for a selected founder's rally, retreat or shelter
+order. Group shelter uses nearby distinct destinations. Urgent eating, resting and
+care take precedence. Work and cargo remain attached during emergency orders;
+release the order to resume them. Raids initially shelter civilians and rally guards;
+you can change or release those orders. Rallied founders strike adjacent attackers.
+
+Attacks warn on locked cells and never follow a moving target. Walls and friendly
+bodies block tower shots; friendly bodies take no damage from colony shots. A round
+is consumed at launch even if its source is destroyed and the unresolved attack is
+cancelled. Each defeated attacker leaves one recoverable wood unit exactly once.
+
+After the raid, rescue and treatment use the same physical medicine chain. Repair
+surviving damaged defenses with actual supplies, reload, and resume production.
+Heart destruction or actual death of every founder ends the run; downing alone does
+not. Save/export retains pending attacks, cooldowns, emergency orders and ammunition.
+
+For the current seed-42 preparation scenario, add stockpiles **59/58/57/56,66** and
+designate wood **#12** and stone **#18** as the first sources deplete. Build towers at
+**63,60**, **68,63**, **64,69**, **60,63**, a trap at **64,58**, a guard post at
+**62,62**, a wall at **65,60**, and a gate at **64,60**. Physically load the towers
+and trap before the warning. The headless ordinary-command probe is
+`node scripts/defense-probe.mjs`; its outputs are integration evidence, not a
+replacement for production browser acceptance.
 
 ## Movement, saves and checks
 
@@ -131,7 +172,7 @@ while retaining backlog. Render/UI reads never advance the simulation themselves
 transactional IndexedDB; invalid imports and failed writes preserve the current world
 and valid slot. Unavailable storage is visible and JSON export still works. Reload
 restores the last successful save; there is no autosave or offline simulation.
-Schema **3**, content **colony-p04-1**, rejects P02/P03 and legacy saves without replacing
+Schema **4**, content **colony-p05-1**, rejects earlier schemas and legacy saves without replacing
 them. No migration is claimed. Export older slots with their older build before an
 explicit fresh run. The 2 MB validation limit covers all needs, crop stages, claims,
 cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
@@ -139,7 +180,7 @@ cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
 From `web/`:
 
 ```sh
-export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P04
+export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P05
 fnm exec --using=24.21.0 npm run assets:check
 fnm exec --using=24.21.0 npm run typecheck
 fnm exec --using=24.21.0 npm test
@@ -170,6 +211,6 @@ terrain-edit corridor. Neither is the three-day sustainable-colony evidence.
 The original 27 selected sprite crops/provenance/credits remain intact. Only four
 compact generated runtime asset files ship; no full research catalog/atlas, archives,
 legacy runtime or source maps. Original artwork and legacy sources are untouched.
-No combat, towers, raids, bosses, recruitment or seasonal/social simulation is added.
+P05 has one finite announced raid. Endless raids, bosses, recruitment and seasonal/social simulation arrive in later phases.
 Six founders/one-tile structures are supported; large-colony performance, Firefox,
 Safari, touch work journeys and long-run survival balance are not claimed.

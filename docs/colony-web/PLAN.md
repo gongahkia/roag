@@ -394,7 +394,7 @@ Work:
   untested browsers honestly. Test real production output and storage failures.
 - Verify root/subpath deployments, compressed sizes, missing-resource errors and
   absence of old runtime dependencies. Configure a web-only CI pipeline.
-- Prepare Pages deployment and document Vercel's equivalent Vite configuration.
+- Prepare deployment to the user-selected Vercel destination; retain static subpath compatibility for Pages.
   Publish only to the user-selected/authorized destination; missing access blocks
   publication, not packaging or local release tests. Save a release manifest and URL.
 - Re-verify archives and original files before deleting old runtime sources/projects,
