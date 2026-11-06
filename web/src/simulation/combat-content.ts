@@ -6,7 +6,7 @@ export const COMBAT_CONTENT = {
   trap: { damage: 32, windup: 1, cooldown: 5 },
   guard: { damage: 12, windup: 3, cooldown: 10, pursuit: 5 },
   raider: { health: 36, damage: 12, windup: 5, cooldown: 14, notice: 6 },
-  breacher: { health: 72, damage: 16, structureDamage: 25, windup: 8, cooldown: 18, notice: 1 },
+  breacher: { health: 72, damage: 16, structureDamage: 25, windup: 8, cooldown: 18, notice: 1, defenseNotice: 3 },
   wave: ['raider', 'raider', 'breacher', 'raider', 'raider'],
 } as const;
 export function validateCombatContent(): void {

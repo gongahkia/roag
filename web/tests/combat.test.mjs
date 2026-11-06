@@ -132,3 +132,9 @@ test('a reserved movement cell never permits melee against a body two tiles away
   r.target={kind:'person',id:p.id};r.route=[{x:69,y:67}];r.routeVersion=w.terrainVersion;
   advanceCombat(w);assert.equal(w.combat.attacks.filter(a=>a.source.id===r.id).length,0);
 });
+
+test('breachers pressure nearby towers with stable ties while ordinary raiders pursue the heart',()=>{
+  const w=fixture(),first=building(w,68,64,'tower',0);building(w,69,63,'tower',0);const r=raider(w,70,64,'breacher');
+  w.structures.reverse();advanceCombat(w);assert.deepEqual(r.target,{kind:'structure',id:first.id});assert.equal(r.health,72,'No health inflation accompanies the targeting policy');
+  const ordinary=fixture();building(ordinary,68,64,'tower',0);const other=raider(ordinary,70,64);advanceCombat(ordinary);assert.deepEqual(other.target,{kind:'heart',id:ordinary.heart.id});
+});
