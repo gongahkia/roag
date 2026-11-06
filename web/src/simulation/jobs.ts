@@ -195,7 +195,7 @@ function perform(world: World, j: Job, p: Person): void {
     if(!facility){finish(world,j,true);return;}
     if(j.stage===3){if(total(p.cargo)&&!deliver(world,j,p))return;j.stage=0;j.progress=0;release(world,j);j.retryAt=world.tick+10;return;}
     const output=j.kind==='farm'?'food':j.recipe!, reserve=j.kind==='farm'?NEEDS.foodReserve:RECIPES[j.recipe!].reserve;
-    const existing=[...world.structures,...world.piles].reduce((n,s)=>n+s.inventory[output],0)+world.people.reduce((n,p)=>n+p.cargo[output],0);
+    const existing=[...world.structures.filter(isStore),...world.piles].reduce((n,s)=>n+s.inventory[output],0)+world.people.reduce((n,p)=>n+p.cargo[output],0);
     if(j.stage===0&&j.progress===0&&total(j.site)===0&&total(p.cargo)===0&&existing>=reserve){j.status=`Reserve met: ${existing}/${reserve} ${output}`;release(world,j);j.retryAt=world.tick+50;return;}
     if(j.kind==='farm') {
       if(j.stage===2&&world.tick<j.readyAt){j.status=`Growing; ready at tick ${j.readyAt}`;release(world,j);j.retryAt=j.readyAt;return;}
