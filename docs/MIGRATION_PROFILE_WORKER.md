@@ -171,3 +171,58 @@ Only the normal **Begin a fresh run** control advanced to a new campaign: seed *
 Personally inspected final screenshots `07-real-terminal-resumed.png`, `09-profile-retained-new-world.png` and `10-fresh-resumed.png` show the ended run, retained earned Guardian's Vow with the other reward rows still locked, and the fresh living level 1 founder. The original normal and large 1024×720 paged presentation checks remain valid. Inputs, exact saved-state snapshots, client logs, screenshots, runtime and profile records stay in the ignored worktree evidence directory. Prior v1 driver-loop and v2 scope-checkpoint attempts, interrupted v3 and the missing-import compile failure are retained rather than replaced. Successful v4 does not erase those limitations.
 
 **Assigned profile backend plus this natural solo terminal/fresh-world lifecycle scope is now verified.** This is an isolated bounded native runtime from the worker's tested source, not the later merged living-world runtime. Natural secret discovery, same-member three-boon chain reaction, canonical Regent completion, full solo/four-member campaign journeys, new-boss/world integration and reproducible Linux delivery are not established by this probe. Root has already integrated production profile commits through 7a1b61b0 and owns merged regressions and its physical entry/special-site/canonical-complex/selected-final call sites. No further profile production API is required by this probe. Root must still review/cherry-pick this completed driver/evidence documentation and the 141b6d26 pause handoff as desired, then validate profile behavior with the final aggregate runtime. All eight aggregate acceptance gates remain open; this worker does not mark the full goal complete.
+
+
+## Read-only merged integration audit — 2026-11-06
+
+Requested by root after main integrated the pause/driver commits as 12af67f4/d580a7a0. Audited main **18f66075be04e8fed5e17c6ed060f37da7a9f506**, comparing original achievement execution/content from **d498fe0889050d2a23f2ff86d80db6084ed6467a**. Main was read only; no production edit, cherry-pick, build/test or rendered run occurred. `native-profile/integration-audit/source-proof.json` pins nine relevant file hashes. They matched the audited main commit when the audit finished. This is source review, not additional passing runtime evidence.
+
+All 22 original stable IDs/names and all four reward IDs remain present. Original executed trigger correspondence:
+
+| Achievement | Merged native committed source / policy |
+| --- | --- |
+| first_guardian → guardians_vow | Actual owning stage < 4 boss death receipt emits EliteDefeated; original observer also accepted this event without a player-source condition. |
+| uncovered_truth → prospectors_heart | SecretDiscovered from the actual member's ordinary attack/entry secret resolution. |
+| chain_reaction → circuit_chorus | Three distinct BoonActivated IDs, same member and retained causal chain; delayed boss pulses now retain their saved causal ChainId before pruning. |
+| regents_fall → crownfire | Full post-drain settled canonical Regent complex Victory + own Stage 4 death receipt + actual dead Hollow Regent + conscious survivor; bounded canonical settlement retained. |
+| first_blood | Actual member EntityKilled with dead native enemy target. |
+| pathfinder | Actual member FloorChanged; TileEntered alone does not award it. |
+| treasure_hunter | Member ChestClaimed after actual claim. |
+| coin_purse | Member CurrencyCollected with resulting shared gold≥50; stocking/trading alone is not a retroactive balance scan. |
+| first_level | Actual member-target LevelUp reaches≥2. |
+| veteran | Actual member-target LevelUp reaches≥5. |
+| boon_bearer | Member BoonGranted. |
+| stonebreaker | Member TerrainBroken from actual attack-broken barricade. |
+| ore_seeker | Member OreBroken from actual attacked ore feature. |
+| gate_opener | Member TimedGateOpened from paid triggering entry. |
+| key_bearer | Member VaultKeyCollected from actual key-tile entry. |
+| warded | Member WardFlaskCollected from actual ward-tile entry. |
+| torchbearer | Member BrazierLit from actual feature entry. |
+| long_heal | Member SupplyCollected from actual healing or the approved paid hunger-restoration adaptation. |
+| pressure_survivor | Public RecordPursuerArrival requires an actual living extraction_pursuer; **no production caller or PursuerArrived producer currently exists**. |
+| deeper_road | Member FloorChanged/TileEntered resolves actual authored physical floor Stage≥2, independent of complex-global Stage/RouteHistory. |
+| sanctum_reached | Same member-owned actual Stage 4 floor, not a generic depth7 tile or an unrelated boss arena. |
+| regent_awakened | Actual Hollow Regent PhaseTwo flag after RegentPhaseChanged, preserving the original event-based condition. |
+
+Two concrete source-level integration findings remain:
+
+1. **Unwired Under Pressure trigger.** `WorldProfiles.cs:65` and `TacticalProfile.cs:76` expose the arrival hook, but there is no production caller at this audited HEAD. Thus an otherwise enrolled campaign cannot earn the original pressure_survivor badge through current native production flow. Root's special-site integration must call it only after the real confined pursuer is committed, never site registration, activation preview or an unspawned deadline; ordinary post-action profile flush must follow. The helper alone is not evidence that special-site arrival works.
+2. **Traversed entry can be dropped by the final-position guard.** `TacticalClassActions.cs:122` physically traverses all preview.Cells first; lines 131–136 then emit each committed TileEntered. The observer resolves ownership at e.Position (`TacticalProfile.cs:43`), but calls RecordDungeonEntry, which resolves the actor's final Position again (lines 67–71). A legitimate multi-tile dash through an excavated stage/sanctum corner can enter the authored rectangle and end outside it; every relevant intermediate event is then rejected despite actual paid traversal. This is a concrete code-path mismatch, not yet a runtime reproduction. Keep the strict current-position check for external public RecordDungeonEntry callers. The minimal fix is a private committed-entry observer accepting the already authoritative event position after checking its real party source and authored ownership, or observe while each physical move is committed. Do not move/reorder all movement event dispatch merely for this badge, because existing locked movement/boon snapshots depend on that transaction ordering.
+
+No additional concrete privacy or exact-save incompatibility was found in these hooks. DungeonFloorAt resolves bounded/parcel-owned authored rectangles; independent campaign-boss room IDs are not treated as sanctum identity. Physical badges never use the camera, selected member, room selection, or complex-global stage. Recording only adds saved profile/event facts, without Reveal or chunk discovery edits; display feedback separately requires Visible.Contains(event.Position). The profile panel intentionally shares permanent achievement labels without publishing remote map coordinates. An actual remote member's real entry can contribute to the shared profile while the controlled member's private map remains private.
+
+Future-pool behavior remains correct at source: explicit fresh EnablePermanentProfile is the only place that appends the four rewards from StartingAchievements. Later award/flush updates permanent records/cache, not AvailableBoons or deterministic chest rolls. Load validates existing optional profile state without allocating an identity, inferring earned badges, settling completed complexes, or rebuilding pools. Old saves with absent profile remain null/ineligible. New physical complex branch/room namespaces are not profile compatibility keys. Regent's Fall remains canonical Regent-specific even if another enemy is selected as world final; the selected-final RecordCampaignVictory API has no production caller at this HEAD and remains root's separate campaign-settlement responsibility.
+
+Minimal meaningful merged checks, proposed rather than run:
+
+- In a newly enrolled actual 19-floor complex, make a paid one-step/stair entry into an unchosen Stage 2 branch while Run.Stage is still 1; assert deeper_road exactly once and no inferred route history. Enter actual Stage 4 and assert sanctum_reached once. Generic same-depth caves and a separate campaign-boss arena must grant neither. Save/load/resave the complete state and unchanged pool/offers.
+- Select/inspect a parked deep member and choose a paid route without crossing its seal: no entry badge or new discovery. Then let that member actually enter while another member's private vision is elsewhere: award the shared profile while leaving the other member's position/readiness/visible map unchanged. Keep wrong supplied-stage, nonexistent/dead member API rejection checks.
+- Reproduce the corner case with a fixture excavated clear lane and an actual paid multi-cell Dash whose intermediate cell lies in the owned Stage 4 rectangle and whose final tile lies outside; require the committed traversal badge and no remote camera grant. This should fail before the minimal observer fix.
+- With real post-drain resolution, kill a canonical non-world-final Regent and retain a conscious survivor: verify its complex Victory/receipt, crownfire award, frozen current pool and exact continuing state. Compare mutual final-party death and other-boss kills: no crownfire. Existing worker fixtures cover these guards, but not the complete merged nineteen-floor journey.
+- When root wires special-site arrival, prove activation/preview/reentry-before-arrival grants nothing, real delayed confined arrival grants pressure_survivor once, and continued save preserves that outcome. Re-run the existing focused NativeProfileStoreTests/DungeonProfileTests/NativeComplexProfileTests plus these new integration cases in a root-approved slot; no full suite is requested by this audit.
+
+Root subsequently confirmed it will fix the committed traversal observer using the actual TileEntered position while retaining the direct public current-position guard. Root also confirmed the currently unwired pursuer/selected-final calls are expected item 17/19 integration dependencies. No worker production patch is proposed for those root-owned call sites.
+
+Root reported its separately executed merged 18f Release batch: **90 of 93 passed, three NativeComplexProfileTests failed**. This worker did not run that batch. The three fixtures installed terrain-only complexes (`Populated=false`) and manually inserted a Regent, which violates main's stronger full complex population validator. Root will replace that fixture setup with real full InstallDungeonComplex population and its actual registered canonical boss; preserving production validation is the correct response. Earlier isolated worker 26-test results remain attributable to their own frozen source and do not claim these later merged fixtures pass. A rerun of the corrected merged cases is still required.
+
+The completed worker's scoped solo v4 lifecycle evidence remains attributable only to its frozen bounded runtime. Main still needs its merged rendered/profile regression and final full-game acceptance. No aggregate gate is closed by this source audit. Worker remains available for root's merged rendered verification.
