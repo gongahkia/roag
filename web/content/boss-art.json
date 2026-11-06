@@ -1,0 +1,1309 @@
+{
+  "version": 1,
+  "catalog": {
+    "path": "assets/catalog.json.gz",
+    "sha256": "ed7b5cbbdfb21b82092197035694f3454582a8822df783e31171a8ec56beede3"
+  },
+  "scope": "P07 art preparation. Roles and visual review are local metadata; original catalog identity, uncertainty and pixels remain authoritative. This file does not activate encounters or change rendering.",
+  "displayPolicy": {
+    "framePolicy": "One static crop per alias. Neighboring cells are not animation frames or alternate facings.",
+    "directionPolicy": "Retain original orientation. Unconfirmed direction sets remain unconfirmed; show facing/aim using separate authored cues.",
+    "mechanicsPolicy": "Collision, hit area, interaction, flow, attack cells and hazard timing are authored in simulation, never inferred from opaque pixels.",
+    "factionPolicy": "Use explicit hostile outline/selection/health cues and readable role labels. Color and silhouette alone must not identify allegiance.",
+    "statePolicy": "Damage, valve open/closed, resonance, burning and charge need separate authored overlays or labels; these crops do not establish state variants."
+  },
+  "hostiles": {
+    "raider": "enemy-raider",
+    "breacher": "enemy-breacher",
+    "shield": "enemy-shield",
+    "archer": "enemy-archer",
+    "healer": "enemy-healer",
+    "rusher": "enemy-rusher",
+    "captain": "boss-ossuary-captain"
+  },
+  "roles": {
+    "boss-bellkeeper": {
+      "authoredRole": {
+        "name": "Bellkeeper",
+        "kind": "boss",
+        "purpose": "Static body for the sound-and-resonator encounter.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r42-c110",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1431,
+          547,
+          12,
+          12
+        ],
+        "rgbaSha256": "64543e30337c974a3b8f19fbe3b03f8b590521f8493eedde41b84638060ddd44",
+        "recordName": "enemy / ghost",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 76,
+              "properties": {
+                "group1": "enemy",
+                "group2": "ghost",
+                "group3": "",
+                "tags": "",
+                "type": "fantasy,enemy"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Ghost",
+        "description": "Publisher-labelled artwork: ghost. Original publisher gameplay-role labels remain in the source identity evidence.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "ghost",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r42-c110"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "White floating figure with a dark face opening and tapering lower body.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "boss-sluice-maw": {
+      "authoredRole": {
+        "name": "Sluice-Maw",
+        "kind": "boss",
+        "purpose": "Static body for the channel-and-valve encounter.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r42-c108",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1405,
+          547,
+          12,
+          12
+        ],
+        "rgbaSha256": "95b4bd27945a466c7c5ac3009549a4da6890acbfccaa4fbacf3d6b526675b3ce",
+        "recordName": "enemy / slime",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 72,
+              "properties": {
+                "group1": "enemy",
+                "group2": "slime",
+                "group3": "",
+                "tags": "",
+                "type": "fantasy,enemy"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Slime",
+        "description": "Publisher-labelled artwork: slime. Original publisher gameplay-role labels remain in the source identity evidence.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "slime",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r42-c108"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Cyan low rounded body with two dark vertical face marks.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "boss-threadmother": {
+      "authoredRole": {
+        "name": "Threadmother",
+        "kind": "boss",
+        "purpose": "Static body for the web-and-pull encounter.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r15-c002",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          27,
+          196,
+          12,
+          12
+        ],
+        "rgbaSha256": "c50cde4a74b7715eb6b02d3e569cab1cccdad31e1e9196ce8e6e5edaf70ccc0a",
+        "recordName": "animal / spider",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-basic",
+              "tile_id": 172,
+              "properties": {
+                "group1": "animal",
+                "group2": "spider",
+                "group3": "",
+                "tags": "default,animal",
+                "type": "actor"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "animal / spider",
+        "description": "animal / spider",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "animal",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "spider",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r15-c002"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Pale orange central body with several symmetric side projections.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "feature-resonator": {
+      "authoredRole": {
+        "name": "Resonator",
+        "kind": "feature",
+        "purpose": "Interactable bell-shaped resonator; behavior and durability are authored separately.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r25-c036",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          469,
+          326,
+          12,
+          12
+        ],
+        "rgbaSha256": "5ffc5751f9882e8271831ad61817017e4f8c983aac68f3334fe88061b289fd8b",
+        "recordName": "bell",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 192,
+              "properties": {
+                "group1": "bell",
+                "group2": "",
+                "group3": "",
+                "tags": "",
+                "type": "thing"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "bell",
+        "description": "bell",
+        "type": "prop",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "bell",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r25-c036"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Gold bell outline with a broad base and dark opening.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "feature-valve": {
+      "authoredRole": {
+        "name": "Valve",
+        "kind": "feature",
+        "purpose": "Interactable control for an explicitly authored channel.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r00-c068",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          885,
+          1,
+          12,
+          12
+        ],
+        "rgbaSha256": "14a74660ed97a94e65cdbf19863b87282f404b4eba5cd831131bedfef43ea708",
+        "recordName": "door / valve / metal",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-modern",
+              "tile_id": 176,
+              "properties": {
+                "group1": "door",
+                "group2": "valve",
+                "group3": "metal",
+                "tags": "modern,door",
+                "type": "cell"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "door / valve / metal",
+        "description": "door / valve / metal",
+        "type": "structure",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "door",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "metal",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "modern",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "valve",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "tile_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r00-c068"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Blue-gray doorway frame enclosing a small square control-like form; the crop is a door/valve, not an isolated wheel.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "hazard-web": {
+      "authoredRole": {
+        "name": "Web",
+        "kind": "hazard",
+        "purpose": "Static web overlay; blocking, burning and cancellation are simulation rules.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r39-c004",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          53,
+          508,
+          12,
+          12
+        ],
+        "rgbaSha256": "88e15414a4e4c2efe39610d9bdef6d4b45e1c36d877a615d6eef3bc58c62870b",
+        "recordName": "web",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-basic",
+              "tile_id": 374,
+              "properties": {
+                "group1": "web",
+                "group2": "",
+                "group3": "",
+                "tags": "default",
+                "type": "thing"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "web",
+        "description": "Centered crossed web/lattice; suitable as a repeated web prop without rotating it.",
+        "type": "prop",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "web",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r39-c004",
+          "reference/asset-semantics.json#sprites/urizen-onebit-r39-c004"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Centered gray crossed lattice, fully contained within its source cell.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "boss-ossuary-captain": {
+      "authoredRole": {
+        "name": "Ossuary Captain",
+        "kind": "boss",
+        "purpose": "Static body for the existing captain hostile kind; facing and charge remain separate cues.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r10-c104",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1353,
+          131,
+          12,
+          12
+        ],
+        "rgbaSha256": "a346d7e48e303a6090bfdc9a406491a3f1461cef35c3dbf98a3912f57b8e95f5",
+        "recordName": "Figure row 10, profession column 00: empty hands / neutral stance",
+        "identity": {
+          "basis": "visual_region_and_silhouette",
+          "confidence": "low",
+          "author_name_known": false
+        }
+      },
+      "artwork": {
+        "name": "White skeleton-like humanoid: empty hands",
+        "description": "A skull-like head has a large dark face opening; narrow limbs and separated chest marks suggest a skeletal figure. The arms are close to the body; no distinct held implement is visible.",
+        "type": "actor",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "humanoid",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/10"
+          },
+          {
+            "term": "skeleton",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/10"
+          },
+          {
+            "term": "unarmed",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/104"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r10-c104",
+          "reference/asset-semantics.json#character_rows/10",
+          "reference/asset-semantics.json#character_columns/104"
+        ],
+        "uncertainties": [
+          "Body row and held prop do not confirm species, profession, animation or a direction set.",
+          "Publisher identity remains unconfirmed; visual descriptions are interpretations."
+        ],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Beige skull-like head, separated chest marks and thin limbs; distinct from the white founder figures.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-raider": {
+      "authoredRole": {
+        "name": "Raider",
+        "kind": "hostile",
+        "purpose": "Static body for the existing raider kind.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r21-c203",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          2640,
+          274,
+          12,
+          12
+        ],
+        "rgbaSha256": "8b5f6b73033a3f69f3e207960c2df46eb303a049f12b6272ca13bff00bcf0b5f",
+        "recordName": "enemy / pirate",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 63,
+              "properties": {
+                "group1": "enemy",
+                "group2": "pirate",
+                "group3": "",
+                "tags": "",
+                "type": "medieval,enemy"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Pirate",
+        "description": "Publisher-labelled artwork: pirate. Original publisher gameplay-role labels remain in the source identity evidence.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "pirate",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r21-c203"
+        ],
+        "uncertainties": [],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Blue humanoid with a broad upper head shape, projecting side arm and separated legs.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-breacher": {
+      "authoredRole": {
+        "name": "Breacher",
+        "kind": "hostile",
+        "purpose": "Static body for the existing breacher kind.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r43-c108",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1405,
+          560,
+          12,
+          12
+        ],
+        "rgbaSha256": "3296b12c8c320095404ba2ee1fd0942f41eaf97dfc99abbefbcae79ef8de6e72",
+        "recordName": "enemy / bodyguard",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-modern",
+              "tile_id": 195,
+              "properties": {
+                "group1": "enemy",
+                "group2": "bodyguard",
+                "group3": "",
+                "tags": "modern",
+                "type": "actor"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Bodyguard",
+        "description": "Publisher-labelled artwork: bodyguard. Original publisher gameplay-role labels remain in the source identity evidence.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "bodyguard",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "modern",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r43-c108"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Blue-purple broad-shouldered figure with bent arms and a compact head; distinct from the narrower robed healer.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-shield": {
+      "authoredRole": {
+        "name": "Shield bearer",
+        "kind": "hostile",
+        "purpose": "Static body for the existing shield kind; shield facing is an authored overlay.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r05-c113",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1470,
+          66,
+          12,
+          12
+        ],
+        "rgbaSha256": "3bd9cbc299518f2652793f9f42a8843bed19f747a2dcbfe41883ae55be8a3f99",
+        "recordName": "Figure row 05, profession column 09: bucket or rectangular shield-like prop",
+        "identity": {
+          "basis": "visual_region_and_silhouette",
+          "confidence": "low",
+          "author_name_known": false
+        }
+      },
+      "artwork": {
+        "name": "Orange flat-headed small humanoid: rectangular shield-like object",
+        "description": "A compact humanoid with a horizontal flat head outline and a single dark face opening. A broad outlined rectangular object hangs beside the body.",
+        "type": "actor",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "humanoid",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/5"
+          },
+          {
+            "term": "short_stature",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/5"
+          },
+          {
+            "term": "shield_like",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/113"
+          },
+          {
+            "term": "held_prop",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/113"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r05-c113",
+          "reference/asset-semantics.json#character_rows/5",
+          "reference/asset-semantics.json#character_columns/113"
+        ],
+        "uncertainties": [
+          "Body row and held prop do not confirm species, profession, animation or a direction set.",
+          "Publisher identity remains unconfirmed; visual descriptions are interpretations."
+        ],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Orange flat-headed figure holding a broad rectangular shape on one side; not a confirmed shield or profession.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-archer": {
+      "authoredRole": {
+        "name": "Archer",
+        "kind": "hostile",
+        "purpose": "Static body for the existing archer kind; aim and locked shots are separate cues.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r04-c119",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1548,
+          53,
+          12,
+          12
+        ],
+        "rgbaSha256": "1a325b4445952272f4b8444a57e7fba6a6ee2e12291d08d77a54cd8779014bb1",
+        "recordName": "Figure row 04, profession column 15: curved bow-like prop",
+        "identity": {
+          "basis": "visual_region_and_silhouette",
+          "confidence": "low",
+          "author_name_known": false
+        }
+      },
+      "artwork": {
+        "name": "Green wide-eared small humanoid: curved bow-shaped object",
+        "description": "A small humanoid with a wide, ear-like head outline and a narrow torso; the silhouette is goblin-like, without confirmed species. A curved narrow object is held beside the upper body.",
+        "type": "actor",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "humanoid",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/4"
+          },
+          {
+            "term": "goblin_like",
+            "confidence": "low",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/4"
+          },
+          {
+            "term": "bow_like",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/119"
+          },
+          {
+            "term": "held_prop",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/119"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r04-c119",
+          "reference/asset-semantics.json#character_rows/4",
+          "reference/asset-semantics.json#character_columns/119"
+        ],
+        "uncertainties": [
+          "Body row and held prop do not confirm species, profession, animation or a direction set.",
+          "Publisher identity remains unconfirmed; visual descriptions are interpretations."
+        ],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Green small figure beside a curved bow-like shape; the weapon interpretation remains uncertain.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-healer": {
+      "authoredRole": {
+        "name": "Healer",
+        "kind": "hostile",
+        "purpose": "Static body for the existing healer kind; healing intent is a separate cue.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r17-c104",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1353,
+          222,
+          12,
+          12
+        ],
+        "rgbaSha256": "6733d01579ff9680ff1f292a31f668017e0f69a3343cb0114a79efb208958410",
+        "recordName": "enemy / monk",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 59,
+              "properties": {
+                "group1": "enemy",
+                "group2": "monk",
+                "group3": "",
+                "tags": "",
+                "type": "medieval,enemy"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Monk",
+        "description": "A hood-like head outline and long robe-shaped body end in small separated foot marks. The arms are close to the body; no distinct held implement is visible.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "monk",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "humanoid",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/17"
+          },
+          {
+            "term": "hood",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/17"
+          },
+          {
+            "term": "robe",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/17"
+          },
+          {
+            "term": "unarmed",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/104"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r17-c104",
+          "reference/asset-semantics.json#character_rows/17",
+          "reference/asset-semantics.json#character_columns/104"
+        ],
+        "uncertainties": [
+          "Body row and held prop do not confirm species, profession, animation or a direction set."
+        ],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Purple hood-like head and long robe-shaped silhouette with a narrow lower body.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "enemy-rusher": {
+      "authoredRole": {
+        "name": "Rusher",
+        "kind": "hostile",
+        "purpose": "Static body for the existing rusher kind; speed and attacks are authored rules.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r20-c104",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          1353,
+          261,
+          12,
+          12
+        ],
+        "rgbaSha256": "b2ca8583fe9474d91b1096c3297798d00ba2d98bfb07d5be04cad8d260f1d88c",
+        "recordName": "enemy / imp",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-fantasy-medieval",
+              "tile_id": 69,
+              "properties": {
+                "group1": "enemy",
+                "group2": "imp",
+                "group3": "",
+                "tags": "",
+                "type": "fantasy,enemy,demon"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "Imp",
+        "description": "A small humanoid has pronounced paired horns, a compact torso and angular protrusions beside its body. The arms are close to the body; no distinct held implement is visible.",
+        "type": "actor",
+        "classificationConfidence": "high",
+        "subjects": [
+          {
+            "term": "imp",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "horned",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/20"
+          },
+          {
+            "term": "humanoid",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/20"
+          },
+          {
+            "term": "imp_like",
+            "confidence": "low",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_rows/20"
+          },
+          {
+            "term": "unarmed",
+            "confidence": "medium",
+            "basis": "visual_observation",
+            "evidence": "reference/asset-semantics.json#character_columns/104"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r20-c104",
+          "reference/asset-semantics.json#character_rows/20",
+          "reference/asset-semantics.json#character_columns/104"
+        ],
+        "uncertainties": [
+          "Body row and held prop do not confirm species, profession, animation or a direction set."
+        ],
+        "sourceNotes": "Rows are visual body variants, not verified species or palette swaps. Columns align prop/stance variants but do not supply animation frames or job definitions."
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Small red horned body with angular side projections and separated feet.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "hazard-fire": {
+      "authoredRole": {
+        "name": "Fire",
+        "kind": "hazard",
+        "purpose": "One static fire marker; spread, duration and damage remain bounded simulation rules.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r42-c006",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          79,
+          547,
+          12,
+          12
+        ],
+        "rgbaSha256": "f150660616124547dda3aa0d17e12ec1e6f963b15da8ed1f374f57b9064c9d66",
+        "recordName": "fire",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-basic",
+              "tile_id": 212,
+              "properties": {
+                "group1": "fire",
+                "group2": "",
+                "group3": "",
+                "tags": "default",
+                "type": "cell"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "fire",
+        "description": "Small isolated red flame silhouette.",
+        "type": "effect",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "fire",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "standalone_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r42-c006",
+          "reference/asset-semantics.json#sprites/urizen-onebit-r42-c006"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Isolated red flame with a pointed top and a small dark central gap.",
+        "animationFrames": 1,
+        "orientation": "source",
+        "catalogChanged": false
+      }
+    },
+    "channel-water-h": {
+      "authoredRole": {
+        "name": "Horizontal water channel",
+        "kind": "terrain",
+        "purpose": "Horizontal channel segment only; joins and flow are authored explicitly.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r32-c004",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          53,
+          417,
+          12,
+          12
+        ],
+        "rgbaSha256": "4d95d17be3317731541cf9c2ea90635f07081a161396171dbdba4d2fe61758aa",
+        "recordName": "water / trough; orientation=H",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-basic",
+              "tile_id": 266,
+              "properties": {
+                "group1": "water",
+                "group2": "trough",
+                "group3": "",
+                "orientation": "H",
+                "tags": "default",
+                "type": "thing"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "water / trough; orientation=H",
+        "description": "Blue horizontal trough segment with two dark slots; preserve H orientation.",
+        "type": "terrain",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "trough",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "water",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "tile_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r32-c004",
+          "reference/asset-semantics.json#sprites/urizen-onebit-r32-c004"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Blue horizontal trough with two dark horizontal slots, in preserved H orientation.",
+        "animationFrames": 1,
+        "orientation": "H",
+        "catalogChanged": false
+      }
+    },
+    "channel-water-v": {
+      "authoredRole": {
+        "name": "Vertical water channel",
+        "kind": "terrain",
+        "purpose": "Vertical channel segment only; joins and flow are authored explicitly.",
+        "identityScope": "Local colony game casting; does not change the original artwork identity."
+      },
+      "source": {
+        "id": "urizen-onebit-r32-c001",
+        "pack": "urizen",
+        "path": "urizen/urizen_onebit_tileset__v2d0.png",
+        "rect": [
+          14,
+          417,
+          12,
+          12
+        ],
+        "rgbaSha256": "472a4700e8b71ea3677aa0b96feb62c164dddbcff450cc003f33ee58c69b06d3",
+        "recordName": "water / trough; orientation=V",
+        "identity": {
+          "basis": "author_metadata_visible_rgb_match",
+          "confidence": "high",
+          "upstream_matches": [
+            {
+              "set": "urizen-onebit-basic",
+              "tile_id": 263,
+              "properties": {
+                "group1": "water",
+                "group2": "trough",
+                "group3": "",
+                "orientation": "V",
+                "tags": "default",
+                "type": "thing"
+              }
+            }
+          ]
+        }
+      },
+      "artwork": {
+        "name": "water / trough; orientation=V",
+        "description": "Blue vertical trough segment with two dark slots; preserve V orientation.",
+        "type": "terrain",
+        "classificationConfidence": "medium",
+        "subjects": [
+          {
+            "term": "trough",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          },
+          {
+            "term": "water",
+            "confidence": "high",
+            "basis": "publisher_metadata",
+            "evidence": "identity"
+          }
+        ],
+        "composition": {
+          "kind": "tile_candidate",
+          "animation": "unconfirmed",
+          "directions": "unconfirmed",
+          "sockets": "unauthored",
+          "collision": "game_defined"
+        },
+        "references": [
+          "sprites.json#urizen-onebit-r32-c001",
+          "reference/asset-semantics.json#sprites/urizen-onebit-r32-c001"
+        ],
+        "uncertainties": [],
+        "sourceNotes": null
+      },
+      "review": {
+        "date": "2026-11-07",
+        "method": "Existing deterministic exporter; derived crop opened at integer enlargement on the colony background.",
+        "observation": "Blue vertical trough with two dark horizontal slots, in preserved V orientation.",
+        "animationFrames": 1,
+        "orientation": "V",
+        "catalogChanged": false
+      }
+    }
+  }
+}

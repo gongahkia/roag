@@ -27,6 +27,22 @@
     "icon-heart": "godot-white-heart",
     "icon-center": "godot-white-target",
     "icon-zoom": "godot-white-magnifier",
-    "rock": "urizen-onebit-r02-c000"
+    "rock": "urizen-onebit-r02-c000",
+    "boss-bellkeeper": "urizen-onebit-r42-c110",
+    "boss-sluice-maw": "urizen-onebit-r42-c108",
+    "boss-threadmother": "urizen-onebit-r15-c002",
+    "feature-resonator": "urizen-onebit-r25-c036",
+    "feature-valve": "urizen-onebit-r00-c068",
+    "hazard-web": "urizen-onebit-r39-c004",
+    "boss-ossuary-captain": "urizen-onebit-r10-c104",
+    "enemy-raider": "urizen-onebit-r21-c203",
+    "enemy-breacher": "urizen-onebit-r43-c108",
+    "enemy-shield": "urizen-onebit-r05-c113",
+    "enemy-archer": "urizen-onebit-r04-c119",
+    "enemy-healer": "urizen-onebit-r17-c104",
+    "enemy-rusher": "urizen-onebit-r20-c104",
+    "hazard-fire": "urizen-onebit-r42-c006",
+    "channel-water-h": "urizen-onebit-r32-c004",
+    "channel-water-v": "urizen-onebit-r32-c001"
   }
 }
