@@ -225,7 +225,7 @@ function perform(world: World, j: Job, p: Person): void {
       j.status='Footprint occupied; yielding before dismantling';return;
     }
   }
-  j.status = j.kind === 'build' ? 'Building' : j.kind === 'repair' ? 'Repairing' : 'Dismantling';
+  j.status = j.kind === 'build' ? 'Building' : j.kind === 'repair' ? 'Repairing' : j.kind === 'reload' ? 'Reloading' : 'Dismantling';
   if (++j.progress < jobTicks(j)) return;
   if (j.kind === 'build') {
     world.structures.push({ id: world.nextId++, x:j.x,y:j.y,kind:j.building!,health:100,open:j.building==='door',inventory:emptyStock(),embodied:{...j.site} }); j.site = emptyStock();
