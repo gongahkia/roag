@@ -100,8 +100,8 @@ public sealed partial class TacticalCombat
             if (member.Tactics!.Activity is not { } activity) continue;
             if (activity.Kind != SustainedActivityKind.Work && member.Position != activity.Anchor) { StopActivity(member, "displaced"); continue; }
             int range = activity.Kind == SustainedActivityKind.Rest ? State.Camp.RestNoticeRange : State.Camp.WatchNoticeRange;
-            var threats = _world.State.Actors.Where(a => a.Life != LifeState.Dead && a.Tactics?.Enemy is { Dormant: false }
-                && _world.IsHostile(a) && a.Position.Distance(member.Position) <= range).ToArray();
+            var threats = _world.ActorsNear(member.Position, range).Where(a => a.Tactics?.Enemy is { Dormant: false }
+                && _world.IsHostile(a)).ToArray();
             if (threats.Length == 0 || !threats.Any(a => _world.VisionFrom(member.Position).Contains(a.Position))) continue;
             bool lookout = activity.Kind == SustainedActivityKind.Watch || activity.Kind == SustainedActivityKind.Work
                 && _world.State.Work.FirstOrDefault(w => w.Id == activity.Work) is { Kind: WorkKind.Camp } duty
@@ -116,7 +116,7 @@ public sealed partial class TacticalCombat
         Emit("CampAlarm", watcher.Id, watcher.Id, 0, watcher.Position, State.Camp.AlarmHearing);
         foreach (var member in _world.Party.Where(a => a.Life == LifeState.Alive && a.Tactics?.Activity != null).ToArray())
             if (CanHear(watcher.Position, member.Position, State.Camp.AlarmHearing)) StopActivity(member, "alarm");
-        foreach (var enemy in _world.State.Actors.Where(a => a.Life == LifeState.Alive && a.Tactics?.Enemy is { Dormant: false }
+        foreach (var enemy in _world.ActorsNear(watcher.Position, State.Camp.AlarmHearing).Where(a => a.Life == LifeState.Alive && a.Tactics?.Enemy is { Dormant: false }
                      && _world.IsHostile(a) && PursuitAllowed(a, watcher.Position)))
             if (CanHear(watcher.Position, enemy.Position, State.Camp.AlarmHearing))
                 enemy.Tactics!.Enemy!.Awareness = new(watcher.Id, watcher.Position, Clock);
