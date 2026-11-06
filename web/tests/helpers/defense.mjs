@@ -12,12 +12,12 @@ export function fortify() {
   }
   for(const source of [12,18])cmd({kind:'gather',source});
   const defenses=[];
-  for(const [building,x,y] of [['tower',63,60],['tower',68,63],['tower',64,69],['tower',60,63],['trap',64,58],['guardpost',62,62],['wall',65,60],['door',64,60]]) {
+  for(const [building,x,y] of [['tower',71,60],['tower',70,62],['tower',64,69],['tower',60,63],['trap',64,58],['guardpost',62,62],['wall',65,60],['door',64,60]]) {
     until(()=>placementReason(w,{x,y})===null,`${building} footprint`);
     defenses.push(build(building,x,y));
   }
   cmd({kind:'produce',structure:h.workshop.id,recipe:'ammo'});
-  for(const s of defenses.filter(s=>s.kind==='tower'||s.kind==='trap')) {
+  for(const s of defenses.filter(s=>(s.kind==='tower'||s.kind==='trap')&&!(s.x===70&&s.y===62))) {
     const batches=s.kind==='tower'?3:1;
     for(let i=0;i<batches;i++) {
       cmd({kind:'reload',structure:s.id});const j=w.jobs.find(j=>j.kind==='reload'&&j.ref===s.id&&j.state==='active');assert.ok(j,'reload job identified by defense');

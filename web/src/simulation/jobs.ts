@@ -252,6 +252,7 @@ function removeStructure(world: World, s: Structure, completing: number | null =
     if(p.body.routine?.reservation?.source===s.id)p.body.routine.reservation=null;
     if(p.body.routine?.facility===s.id)endRoutine(world,p);
   }
+  for(const r of world.combat.raiders)if(r.target?.kind==='structure'&&r.target.id===s.id){r.target=null;r.route=[];r.retryAt=world.tick;}
   world.combat.defenses=world.combat.defenses.filter(d=>d.structure!==s.id);
   world.combat.attacks=world.combat.attacks.filter(a=>a.source.kind!=='structure'||a.source.id!==s.id);
   world.terrainVersion++;

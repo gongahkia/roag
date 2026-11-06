@@ -150,9 +150,11 @@ not. Save/export retains pending attacks, cooldowns, emergency orders and ammuni
 
 For the current seed-42 preparation scenario, add stockpiles **59/58/57/56,66** and
 designate wood **#12** and stone **#18** as the first sources deplete. Build towers at
-**63,60**, **68,63**, **64,69**, **60,63**, a trap at **64,58**, a guard post at
-**62,62**, a wall at **65,60**, and a gate at **64,60**. Physically load the towers
-and trap before the warning. The headless ordinary-command probe is
+**71,60**, **70,62**, **64,69**, **60,63**, a trap at **64,58**, a guard post at
+**62,62**, a wall at **65,60**, and a gate at **64,60**. Physically load the tower at **71,60**, the two rear towers and the trap before
+the warning. The forward tower at **70,62** can draw breacher attacks while the
+**71,60** tower covers it; repair the surviving damage after combat. This scenario
+leaves the forward tower unloaded to exercise recovery from imperfect preparation. The headless ordinary-command probe is
 `node scripts/defense-probe.mjs`; its outputs are integration evidence, not a
 replacement for production browser acceptance.
 
