@@ -20,7 +20,7 @@ export function fortify() {
   for(const s of defenses.filter(s=>s.kind==='tower'||s.kind==='trap')) {
     const batches=s.kind==='tower'?3:1;
     for(let i=0;i<batches;i++) {
-      cmd({kind:'reload',structure:s.id});const j=w.jobs.at(-1);
+      cmd({kind:'reload',structure:s.id});const j=w.jobs.find(j=>j.kind==='reload'&&j.ref===s.id&&j.state==='active');assert.ok(j,'reload job identified by defense');
       until(()=>j.state==='done',`${s.kind} physical reload`,3000);
       assert.equal(s.inventory.ammo,(i+1)*(s.kind==='tower'?4:1));
     }

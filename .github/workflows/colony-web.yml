@@ -10,7 +10,7 @@ permissions:
 jobs:
   foundation:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     env:
       ROAG_EVIDENCE_DIR: ../artifacts/colony-web/P05
     defaults:

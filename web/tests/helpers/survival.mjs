@@ -12,7 +12,7 @@ export function harness(scenario='colony',initial=null) {
  const tick=(n=1)=>{for(let i=0;i<n;i++){const before=w.people.map(p=>({x:p.x,y:p.y}));step(w);audit();w.people.forEach((p,j)=>assert.ok(Math.abs(p.x-before[j].x)+Math.abs(p.y-before[j].y)<=1,'physical movement'));}};
  const cmd=input=>{assert.ok(enqueue(w,input),JSON.stringify({input,reason:workCommandReason(w,input)}));commands.push({due:w.tick+1,input:structuredClone(input)});tick();};
  const until=(condition,label,limit=2500)=>{for(let i=0;i<limit&&!condition();i++)tick();assert.ok(condition(),`${label} timeout ${w.tick}: ${JSON.stringify({people:w.people.map(p=>({id:p.id,job:p.job,pos:[p.x,p.y],next:p.next,body:p.body})),jobs:w.jobs.filter(j=>j.state==='active')})}`);};
- const build=(building,x,y)=>{cmd({kind:'build',building,target:{x,y}});const j=w.jobs.at(-1);until(()=>j.state==='done',building);makeSave(w,{manualPaused:true,speed:4});return w.structures.find(s=>s.x===x&&s.y===y);};
+ const build=(building,x,y)=>{cmd({kind:'build',building,target:{x,y}});const j=w.jobs.find(j=>j.kind==='build'&&j.x===x&&j.y===y&&j.state==='active');assert.ok(j,'new construction job identified by target');until(()=>j.state==='done',building);makeSave(w,{manualPaused:true,speed:4});return w.structures.find(s=>s.x===x&&s.y===y);};
  return {w,commands,audit,tick,cmd,until,build};
 }
 export function establish(scenario='colony') {
