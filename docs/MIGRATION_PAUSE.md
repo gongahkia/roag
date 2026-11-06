@@ -1,3 +1,45 @@
+# Current migration pause checkpoint — 2026-11-06
+
+**Paused again at the user's explicit request.** Resume with `/goal resume` in this same conversation; no new objective or separate worker prompts are needed. Do not restart implementation merely because this file is read. The same A (9–16, including remaining 10), then B (17–20) objective remains authoritative at `/home/gongahkia/.codex/attachments/8ba90282-fe56-4de0-bbf8-a2fd4b85d637/goal-objective.md`. All eight full-game gates remain OPEN; packaged Linux delivery is still bounded-party **cd49a638**. This pause drops no scope and closes no gate.
+
+## Latest preserved state
+
+- **Main: `main`, implementation HEAD `315227a8` (`fasterandnewdefaults`).** The user committed the seven previously pending files: full-complex constructor and its test, boss room precedence/catalog exclusion, physical-entry profile hook, complex audio lookup and per-timeline-item oath-path memoization. Preserve this commit. Main was clean before this documentation checkpoint. The memoization and combined integration are not yet compiled/verified against this current source.
+- **Bosses: `codex/new-bosses`, pause HEAD `01579f81`, last verified production `af9478f3`.** Worktree `/home/gongahkia/coding/projects/roag-worktrees/bosses`. Verified follow-ups `6c44da17` (51 passing) and `af9478f3` (54 passing) remain to be reviewed/cherry-picked. Seven unverified files remain, including untracked `tests/Roag.Core.Tests/Client/CampaignBossPresentationTests.cs`: arena-local targeting/pursuit, retreat/save/reentry, independent final Threadmother partitions and input-only presentation checks. Planned 72-case batch was not started. The proposed forced-shove boundary guard is **unimplemented and still pending coordinator review**; no new user gameplay answer has been requested. See the worker handoff.
+- **Profiles: `codex/native-profile`, pause HEAD `141b6d26`, last verified production `abb3ba52`.** Worktree `/home/gongahkia/coding/projects/roag-worktrees/profiles`. Driver changes and docs-only pause commit `141b6d26` preserve natural rendered lifecycle progress; inspect actual status before resuming. No production feature edits are pending there. The exact terminal/fresh-campaign lifecycle remains unverified. See `docs/MIGRATION_PROFILE_WORKER.md` in that worktree.
+
+Both existing worker agents were told to stop; do not create replacement worktrees or reset their WIP. Resume them with follow-up tasks if still available. Worker handoff commits do not belong to the final production acceptance claim.
+
+## Integration already preserved on main
+
+Profile commits are integrated through `7a1b61b0`; bosses through `09bdb103`. Earlier coordinator text saying no worker implementation was merged is historical. Profile mappings: `c9b0d654 → 3060346c`, `c3a5ff11 → 1af1be91`, `88a8649b → 63c3e261`, `9d3f81e3 → b6efb062`, `abb3ba52 → 7a1b61b0`. Boss mappings: `506f0a49 → 478a35bb`, `b78c69ae → ee04c4f0`, `d92ef3e7 → 83079390`, `bd8b6164 → 09bdb103`.
+
+The only cherry-pick conflict was in feedback sounds; both achievement and boss-effect cases were preserved. Root owns review of the two later verified boss commits, remaining territory WIP, combined regression, physical placement, final roles and final acceptance. No current-source aggregate pass follows from the worker checks.
+
+## Verification and safely stopped processes
+
+- **Physical routes:** the ten-case `DungeonComplexRouteTests|DungeonPassageSealTests` v2 runner was explicitly interrupted for this pause after about 30 minutes. Session **52107** / parent **747603** terminated with exit **1**, no completed TRX and no accepted pass. All children are gone. `native-complexes/routes/pause-v2-requested.json`, source/runner manifests, `routes-focused-v2.log` and `slow-live-v2.stacks` remain. The live managed stack showed actual paid excavation/build work repeatedly calling `PruneOaths → OathPartner → SupportOpen`; the later memoization in `315227a8` needs meaningful obstruction/death/save checks and a new pinned runner before rerunning routes. Old frozen Debug outputs were preserved, not overwritten by another build.
+- **Four-complex factory:** session **33547** exited **0**, **1 passed, zero failures/skips**, 5m35s Debug. Evidence `native-complexes/factory/focused-v1.trx`, sibling log, independently reviewed JSON, 1,315 archived source files and 838 runner hashes. It tests four complete populated complexes while retaining native actors/plan, founder, zero clock, private FOW and free class choice. This frozen source predates merged boss/profile hooks and oath memoization. No client cutover, generation-performance acceptance or rendered travel follows from it. `CreateOpenCampaign` still is not called by production startup.
+- **Calendar:** session **72652** exited **1** for the cooperative user stop; no client/driver remains. v3 saved **57 full hours plus a partial next rest**, clock **22,698,200**, founder alive **24/24 HP**, position **(316,530,0)**, food **9** at the last full-hour observation. `native-calendar/rendered-three-days-v3/handoff.json`: `checkpointSaved: true`, `checkpointError: null`. No 72-hour pass exists. It continued the actual v2 save without provisioning replay; frozen runtime still predates later pack/complex/worker changes. Previously failed night accounting remains failed, not retroactively repaired by this older runtime.
+- **Profile rendered probe:** the worker safely saved/captured/stopped v3 at **142,289**, floor **3**, tile **(294,246)**, original run **1**, **11 badges**, pending input empty. Spore Herald downed the actual member at 141,963; bleeding caused final death at **142,289**, leaving **Dead / HP 0**, `AwaitingContinuation: true` before the pause checkpoint. Guardian's Vow was genuinely earned and excluded from the old campaign's frozen pool. **Exact terminal reload, fresh-world retention/new-pool inclusion and fresh exact reload have not run**. Preserve this actual terminal save/profile; do not roll back, edit, reroll or replay the earlier expedition. Evidence lives under the profiles worktree's `native-profile/rendered-v3`, including `user-pause-checkpoint.json` and result. Driver exit reflects deliberate stop, not a lifecycle pass.
+
+Earlier main population **167 affected checks** and terrain **138** remain scoped passes. Last full regression remains **0f72fe03 / 2,203 passed**, before the later integrations. No build, test or gameplay sequence was started after this pause request. Automated sound stays muted.
+
+## First steps only after explicit resume
+
+1. Read this checkpoint, authoritative goal/AGENTS/migration records, inspect all three actual branches/statuses and each worker handoff. Preserve all subsequent user changes. Resume the existing scoped workers, not replacement migrations.
+2. Verify stopped processes/evidence first. Resume the natural calendar in a **new** output directory using `verify_native_calendar.py --hours 72 --continue-from <v3> --runtime <v3>/runtime`, **without `--provision`**. Resume profile terminal/fresh proof from its actual v3 save/profile and pinned runtime; follow the worker's driver instructions and keep unverified limits explicit.
+3. Review/cherry-pick boss `6c44da17` and `af9478f3`, preserving the independent root hooks. Decide the pending forced-shove territory detail consistently with paid physical counterplay; finish/test remaining boss WIP. Validate oath memoization and combined hooks with a separate pinned artifacts runner, then complete actual route/edit-preservation/private-party checks. Never overwrite a live runner or infer a pass from a timeout.
+4. Wire the full factory only after appropriate checks; complete discoverable physical entrances, solo/four-party boundary travel/pursuit/work/saves, #17 special deadlines/aftermath and #19 fixed final-role selection/early access/victory continuation. Finish outstanding 9–15 integrated journeys, boss/profile acceptance, preservation/dependency audit after replacement verification, current full regression and reproducible Linux delivery. Continue through both tranches, then stop for playtest.
+
+Use `./tools/dotnet.sh`, `TMPDIR=/home/gongahkia/.cache/roag-tests-tmp`, `ALSOFT_DRIVERS=null SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1`. Sibling Vagabonds remains read-only. No new gameplay question is pending from the user.
+
+---
+
+# Earlier pause and resume history
+
+The following checkpoint predates the latest pause above. Its branch/process/integration statuses are historical; keep its failed/incomplete evidence without treating those statuses as current.
+
 # Migration pause checkpoint — 2026-11-06
 
 Historical checkpoint: the same goal and existing workers were explicitly resumed later on 2026-11-06. See current MIGRATION_PROGRESS/PARALLEL status before treating this file as an active pause.
