@@ -16,13 +16,13 @@ function begin(w:World,p:Person,kind:Routine['kind']):Routine {
 export function die(w:World,p:Person):void {
   if(p.life==='dead')return;endRoutine(w,p);
   if(p.job){const j=w.jobs.find(j=>j.id===p.job)!;release(w,j);j.requested=null;}else drop(w,p,p.cargo);
-  p.life='dead';p.body.health=0;p.body.deathAt=0;p.body.recoverAt=0;p.next=null;p.progress=0;clearTravel(p);p.body.status='Dead';w.statistics.deaths++;
+  p.life='dead';p.body.health=0;p.body.deathAt=0;p.body.recoverAt=0;p.next=null;p.progress=0;p.moveTicks=4;clearTravel(p);p.body.status='Dead';w.statistics.deaths++;
   for(const helper of w.people)if(helper.body.routine?.patient===p.id)endRoutine(w,helper);
 }
 export function fall(w:World,p:Person):void {
   if(p.life!=='alive')return;endRoutine(w,p);
   if(p.job){const j=w.jobs.find(j=>j.id===p.job)!;release(w,j);j.requested=null;}else drop(w,p,p.cargo);
-  p.life='downed';p.body.health=0;p.body.deathAt=w.tick+N.rescueWindow;p.body.recoverAt=0;p.next=null;p.progress=0;clearTravel(p);
+  p.life='downed';p.body.health=0;p.body.deathAt=w.tick+N.rescueWindow;p.body.recoverAt=0;p.next=null;p.progress=0;p.moveTicks=4;clearTravel(p);
   p.body.status=`Downed; medicine and rescue before tick ${p.body.deathAt}`;
 }
 function chooseFacility(w:World,p:Person,r:Routine,kind:'bed'|'infirmary'):boolean {

@@ -1,6 +1,7 @@
 import { combatCommandReason, applyCombatCommand, resolveCombatImpacts, prepareCombat, advanceCombat } from './combat.ts';
 import { advanceNeeds, endRoutine } from './needs.ts';
-import { index, inside, MOVE_TICKS, neighbors, same, spatial, walkable } from './model.ts';
+import { groundMoveTicks } from './biome.ts';
+import { index, inside, neighbors, same, spatial, walkable } from './model.ts';
 import type { Cell, CommandInput, Person, World } from './model.ts';
 import { applyWorkCommand, advanceJobs, clearTravel, release, workCommandReason } from './jobs.ts';
 import { route } from './navigation.ts';
@@ -56,7 +57,7 @@ export function step(world: World): void {
     if (p.life!=='alive') continue;
     if (p.next) {
       p.progress++;
-      if (p.progress>=MOVE_TICKS) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;movedPeople.add(p.id);p.next=null;p.progress=0; }
+      if (p.progress>=p.moveTicks) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;movedPeople.add(p.id);p.next=null;p.progress=0;p.moveTicks=4; }
       else continue;
     }
     if (p.yieldTo && same(p,p.yieldTo)) { p.yieldTo=null;p.route=[];p.retryAt=p.yieldUntil; }
@@ -74,7 +75,7 @@ export function step(world: World): void {
     const next=p.route[0];if(!next)continue;
     const other=occupied.get(index(next.x,next.y));
     if (!walkable(world,next) || other!==undefined && other!==p.id) { p.route=[];p.failures++;p.retryAt=world.tick+10;p.blocked='Occupied; yielding';yieldBlocker(world,p,occupied);continue; }
-    p.next=p.route.shift()!;p.progress=0;p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
+    p.next=p.route.shift()!;p.progress=0;p.moveTicks=groundMoveTicks(world,p.next);p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
   }
   advanceCombat(world,movedPeople);
   // Removed targets can never become valid again: stable IDs are not reused.
@@ -88,6 +89,6 @@ export function step(world: World): void {
   world.terminal=terminalReason(world);
 }
 export function renderedPosition(p: Person, alpha: number): Cell {
-  const ratio=p.next?Math.min(1,(p.progress+Math.max(0,Math.min(1,alpha)))/MOVE_TICKS):0;
+  const ratio=p.next?Math.min(1,(p.progress+Math.max(0,Math.min(1,alpha)))/p.moveTicks):0;
   return {x:p.x+(p.next?p.next.x-p.x:0)*ratio,y:p.y+(p.next?p.next.y-p.y:0)*ratio};
 }

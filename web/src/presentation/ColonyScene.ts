@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { assetUrl } from '../assets.ts';
 import type { Manifest } from '../assets.ts';
 import { founders } from '../content.ts';
-import { active, MOVE_TICKS } from '../simulation/model.ts';
+import { active } from '../simulation/model.ts';
 import { total, WORK_CONTENT } from '../simulation/work-content.ts';
 import { renderedPosition } from '../simulation/step.ts';
 import type { ColonyController } from '../platform/controller.ts';
@@ -207,7 +207,7 @@ export class ColonyScene extends Phaser.Scene {
       marks.fillStyle(0x1b1623).fillRect(x+1,y-2,TILE-2,2).fillStyle(0xc3a0e1).fillRect(x+1,y-2,(TILE-2)*barrier.health/ENCOUNTER_CONTENT.rampart.health,2);
     }
     for(const enemy of combat.raiders){
-      const ratio=enemy.next?Math.min(1,(enemy.progress+alpha)/MOVE_TICKS):0;
+      const ratio=enemy.next?Math.min(1,(enemy.progress+alpha)/enemy.moveTicks):0;
       const x=(enemy.x+(enemy.next?enemy.next.x-enemy.x:0)*ratio+.5)*TILE;
       const y=(enemy.y+(enemy.next?enemy.next.y-enemy.y:0)*ratio+.5)*TILE;
       const v=facingVector(enemy.facing), side={x:-v.y,y:v.x};

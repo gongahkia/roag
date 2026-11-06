@@ -1,15 +1,16 @@
 import type { Combat, CombatCommand } from './combat-model.ts';
+import type { Environment } from './biome.ts';
 import type { Duty, Recipe } from './survival-content.ts';
 import type { Streams } from './random.ts';
 import type { Building, Material, Stock } from './work-content.ts';
 export const WIDTH = 128, HEIGHT = 128, TICK_MS = 100, MOVE_TICKS = 4, SEARCH_LIMIT = 4096;
-export const CONTENT_VERSION = 'colony-p06-1';
+export const CONTENT_VERSION = 'colony-p07-1';
 export type Cell = { x: number; y: number };
 export type Life = 'alive' | 'downed' | 'dead';
 export type Routine = { kind: 'eat' | 'rest' | 'treatment' | 'rescue' | 'watch'; facility: number | null; patient: number | null; reservation: Reservation | null; cargo: Stock; progress: number; status: string; resume: Cell | null };
 export type Body = { hunger:number; fatigue:number; health:number; mood:number; deathAt:number; recoverAt:number; meals:number; rests:number; duties:Record<Duty,number>; routine:Routine|null; status:string };
 export type Person = Cell & { id: number; founder: number; life: Life; destination: Cell | null; next: Cell | null;
-  progress: number; route: Cell[]; routeVersion: number; retryAt: number; blocked: string | null;
+  progress: number; moveTicks: number; route: Cell[]; routeVersion: number; retryAt: number; blocked: string | null;
   job: number | null; cargo: Stock; yieldTo: Cell | null; yieldUntil: number; failures: number; body: Body };
 export type Resource = Cell & { id: number; kind: Material; initial: number; remaining: number };
 export type Structure = Cell & { id: number; kind: Building | 'stockpile'; health: number; open: boolean; inventory: Stock; embodied: Stock };
@@ -27,7 +28,7 @@ export type CommandInput = CombatCommand | { kind: 'move'; actor: number; target
   | { kind:'produce'; structure:number; recipe:Recipe|'farm' } | { kind:'duty'; actor:number; duty:Duty; value:number }
   | { kind: 'dev'; action: 'damage' | 'kill' | 'deplete' | 'injure' | 'down' | 'hungry' | 'tired'; id: number };
 export type Command = { sequence: number; due: number; input: CommandInput };
-export type World = { combat:Combat; seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
+export type World = { combat:Combat; environment:Environment; seed: number; tick: number; nextId: number; nextSequence: number; rng: Streams;
   width: number; height: number; terrain: number[]; terrainVersion: number; scenario: 'colony' | 'routing-lab' | 'work-lab';
   generation: { attempts: number; fallback: boolean }; heart: Cell & { id: number; health: number };
   people: Person[]; resources: Resource[]; pending: Command[]; terminal: 'heart-destroyed' | 'all-dead' | null;

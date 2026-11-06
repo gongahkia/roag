@@ -1,4 +1,5 @@
-import { active, distance, index, inside, MOVE_TICKS, same, spatial, walkable } from './model.ts';
+import { ENVIRONMENT, groundMoveTicks, hotGround } from './biome.ts';
+import { active, distance, index, inside, same, spatial, walkable } from './model.ts';
 import type { Cell, CommandInput, Person, World } from './model.ts';
 import type { Attack, BattleOrder, Combat, CombatRef, Raider } from './combat-model.ts';
 import { COMBAT_CONTENT as C } from './combat-content.ts';
@@ -24,7 +25,7 @@ export function initialCombat(): Combat {
 export function createRaider(w: World,ticket: SpawnTicket,cell: Cell): Raider {
   const facing=({north:'south',south:'north',east:'west',west:'east'} as const)[ticket.edge];
   return {id:ticket.id,kind:ticket.kind,health:C[ticket.kind].health,...cell,facing,squadId:ticket.squadId,leaderId:ticket.leaderId,
-    loweredUntil:0,exposedUntil:0,specialCount:0,charge:null,next:null,progress:0,route:[],routeVersion:w.terrainVersion,retryAt:w.tick,cooldown:0,target:null};
+    loweredUntil:0,exposedUntil:0,specialCount:0,charge:null,next:null,progress:0,moveTicks:4,route:[],routeVersion:w.terrainVersion,retryAt:w.tick,cooldown:0,target:null};
 }
 export function combatCommandReason(w: World, input: CommandInput): string | null {
   if (w.terminal) return 'The colony has ended';
@@ -218,7 +219,7 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
     const next=r.route[0];if(!next)return;
     if(!walkable(w,next)){if(breachable(w,next)&&distance(r,next)===1){face(r,next,w.tick);melee(w,r,next);}else{r.route=[];r.retryAt=w.tick+10;}return;}
     const owner=occupied.get(index(next.x,next.y));if(owner!==undefined&&owner!==r.id){const person=w.people.find(p=>p.id===owner&&p.life==='alive');if(person){face(r,person,w.tick);melee(w,r,person);}r.route=[];r.retryAt=w.tick+10;return;}
-    face(r,next,w.tick);r.next=r.route.shift()!;r.progress=0;occupied.set(index(next.x,next.y),r.id);
+    face(r,next,w.tick);r.next=r.route.shift()!;r.progress=0;r.moveTicks=groundMoveTicks(w,r.next);occupied.set(index(next.x,next.y),r.id);
   };
   const move=(r:Raider,cell:Cell,adjacent:boolean):void=>{
     if(r.next||r.charge)return;
@@ -234,7 +235,7 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
   const api=encounterApi(w,move,movedPeople);
   for(const r of [...w.combat.raiders].sort((a,b)=>a.id-b.id)){
     if(r.charge||w.combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===r.id))continue;
-    if(r.next){r.progress++;if(r.progress>=MOVE_TICKS){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;r.next=null;r.progress=0;}else continue;}
+    if(r.next){r.progress++;if(r.progress>=r.moveTicks){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;r.next=null;r.progress=0;r.moveTicks=4;}else continue;}
     if(encounterTurn(w,r,api))continue;
     const target=selectTarget(w,r),cell=refCell(w,target)!;
     if(!r.target||r.target.kind!==target.kind||r.target.id!==target.id){r.target=target;r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
@@ -256,6 +257,10 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
   advanceEncounters(w,api);
 }
 export function advanceCombat(w: World,movedPeople=new Set<number>()): void {
+  if(w.tick%ENVIRONMENT.heatEvery===0){
+    for(const p of w.people)if(p.life==='alive'&&hotGround(w,p))damage(w,{kind:'person',id:p.id},ENVIRONMENT.heatDamage,'hostile',p);
+    for(const r of [...w.combat.raiders])if(hotGround(w,r))damage(w,{kind:'raider',id:r.id},ENVIRONMENT.heatDamage,'colony',r);
+  }
   raidSchedule(w);moveRaiders(w,movedPeople);defenses(w);guards(w);const c=w.combat;
   // Barricade expiry or destruction can invalidate an old pursuit target in this tick.
   for(const r of c.raiders)if(r.target&&!refCell(w,r.target)){r.target=null;r.route=[];}
