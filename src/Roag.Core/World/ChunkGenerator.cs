@@ -36,6 +36,7 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
     private readonly GradientNoise _vegetation = new(unchecked((int)WorldRandom.Hash(plan.Seed, 711)));
     private readonly GradientNoise _water = new(unchecked((int)WorldRandom.Hash(plan.Seed, 712)));
     public int CachedFootprints => _footprints.Count;
+    internal int FootprintCapacity { get; set; } = 8;
     public Footprint GenerateFootprint(bool town, int id, int floor = 0, bool forceFallback = false)
     {
         if ((floor < 0 || floor >= plan.FloorCount) || town && floor != 0) throw new ArgumentException("Invalid footprint floor.");
@@ -103,7 +104,7 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
         var footprint = new Footprint(tiles, rawCells, size, size, trace, roomCells);
         if (!forceFallback)
         {
-            if (_footprints.Count >= 8) _footprints.Remove(_order.Dequeue());
+            if (_footprints.Count >= FootprintCapacity) _footprints.Remove(_order.Dequeue());
             _footprints[key] = footprint; _order.Enqueue(key);
         }
         return footprint;
@@ -149,6 +150,27 @@ public sealed partial class ChunkGenerator(WorldPlan plan, ContentCatalog? conte
             { int i = (y - key.Y * 64) * 64 + x - key.X * 64; tiles[i] = f.Cells[(y - top) * 64 + x - left]; cultures[i] = c; }
         }
     }
+    /// <summary>The same base tile as Generate, without constructing 4,096 distant cells.</summary>
+    internal Material SampleAt(WorldPosition p)
+    {
+        if (!plan.Contains(p)) return Material.Rock;
+        var material = NaturalAt(p, plan.BiomeAt(p.X, p.Y));
+        if (p.Floor == 0)
+            foreach (var town in plan.Towns) Paint(true, town.Id, town.Center);
+        foreach (var site in plan.Sites) Paint(false, site.Id, site.Center);
+        if (p.Floor == 0 && material is not (Material.StairsDown or Material.StairsUp))
+            foreach (var road in plan.Roads)
+                if (road.Contains(p)) material = material == Material.Water ? Material.Bridge : Material.Earth;
+        return material;
+
+        void Paint(bool town, int id, WorldPosition center)
+        {
+            int x = p.X - center.X + 32, y = p.Y - center.Y + 32;
+            if (x is >= 0 and < 64 && y is >= 0 and < 64)
+                material = GenerateFootprint(town, id, p.Floor).Cells[y * 64 + x];
+        }
+    }
+
     public Material NaturalAt(WorldPosition p, Biome biome)
     {
         if (p.Floor > 0) return Material.Rock;
@@ -187,6 +209,7 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     public GeneratedChunk Get(ChunkKey key)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        RetainNativeFootprints();
         if (_resident.TryGetValue(key, out var item)) { _resident[key] = (item.Chunk, ++_use); return item.Chunk; }
         long started = DiagnosticSink == null ? 0 : System.Diagnostics.Stopwatch.GetTimestamp();
         var prepared = _preparation?.TakeReady(key);
@@ -206,10 +229,25 @@ public sealed class ChunkCache(WorldPlan plan, WorldState state, ContentCatalog?
     internal Material UneditedAt(WorldPosition p)
     {
         if (!plan.Contains(p)) return Material.Rock;
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_landmarkCount != state.Discoveries.Count) { _landmarks = DiscoveryPlacement.Terrain(state.Discoveries, content ?? ContentCatalog.Default); _landmarkCount = state.Discoveries.Count; }
-        var original = Get(p.Chunk).Tiles[p.LocalIndex];
+        Material original;
+        if (state.NativeCampaign != null && !_resident.ContainsKey(p.Chunk))
+        {
+            RetainNativeFootprints();
+            original = Generator.SampleAt(p);
+        }
+        else original = Get(p.Chunk).Tiles[p.LocalIndex];
         return _landmarks.TryGetValue(p, out var landmark) && original is not (Material.StairsDown or Material.StairsUp)
             ? landmark == Material.Earth && original == Material.Water ? Material.Bridge : landmark : original;
+    }
+    // There are finitely many authored town/site/floor footprints. Retaining
+    // those pure bases avoids repeated WFC work across world-wide routines;
+    // generated chunks still obey the existing 25-chunk resident bound.
+    private void RetainNativeFootprints()
+    {
+        if (state.NativeCampaign != null)
+            Generator.FootprintCapacity = Math.Max(8, checked(plan.Towns.Count + plan.Sites.Count * plan.FloorCount));
     }
     public bool Seen(WorldPosition p) => plan.Contains(p) && _deltas.TryGetValue(p.Chunk, out var delta) && delta.Discovered.Contains(p.LocalIndex);
     public bool IsEdited(WorldPosition p) => _deltas.TryGetValue(p.Chunk, out var delta) && delta.Edits.ContainsKey(p.LocalIndex);
