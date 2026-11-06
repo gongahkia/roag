@@ -21,6 +21,7 @@ public sealed class DungeonComplexBlueprintTests
             Assert.Equal(18, blueprint.Floors.Length);
             Assert.Equal(7, blueprint.Floors.Select(f => f.Layout.Biome).Distinct().Count());
             Assert.Equal(17, blueprint.Links.Length);
+            Assert.Equal(9, blueprint.Passages.Length);
             Assert.Equal(0, blueprint.SurfaceEntrance.Floor);
             Assert.Equal(blueprint.Floors[0].Entry, WorldStairs.Destination(blueprint.SurfaceEntrance, Material.StairsDown));
             var identities = new HashSet<WorldRoomId>();
@@ -58,6 +59,36 @@ public sealed class DungeonComplexBlueprintTests
                 Assert.Equal(DungeonRoutes.ForStage(2, [first.Id]).Select(r => r.Id), choices);
                 foreach (var link in blueprint.Links.Where(l => l.From == firstLink.To))
                     Assert.Contains(blueprint.Links, l => l.From == link.To && l.To == DungeonComplexBlueprint.FinalBranch);
+            }
+            var rectangles = blueprint.Floors.Select(f => (f.Branch, Area: f.Describe())).ToArray();
+            foreach (var passage in blueprint.Passages)
+            {
+                var source = blueprint.Floors.Single(f => f.Branch == passage.Branch && f.Elite);
+                var elite = source.Describe().Rooms.Single(r => r.Role == "elite");
+                var entrance = passage.UpperCells[0];
+                Assert.DoesNotContain(source.Layout.Rows[entrance.Y - source.Origin.Y][entrance.X - source.Origin.X], "#~");
+                Assert.Equal(passage.Bottom, WorldStairs.Destination(passage.Top, Material.StairsDown));
+                Assert.Equal(passage.Top, WorldStairs.Destination(passage.Bottom, Material.StairsUp));
+                Assert.Equal(passage.Top, passage.UpperCells[^1]); Assert.Contains(passage.Barrier, passage.UpperCells);
+                Assert.All(passage.UpperCells.Zip(passage.UpperCells.Skip(1)), p => Assert.Equal(1, p.First.Distance(p.Second)));
+                Assert.All(passage.UpperCells, p => Assert.True(parcel.Contains(p)));
+                Assert.All(passage.UpperCells, p => Assert.DoesNotContain(rectangles,
+                    f => f.Area.Rooms.Any(r => r != elite && r.Contains(p))));
+                foreach (var route in passage.Routes)
+                {
+                    Assert.Equal(passage.Bottom, route.Cells[0]); Assert.Equal(route.Barrier, route.Cells[^1]);
+                    Assert.All(route.Cells, p => Assert.True(parcel.Contains(p)));
+                    Assert.All(route.Cells.Zip(route.Cells.Skip(1)), p => Assert.Equal(1, p.First.Distance(p.Second)));
+                    Assert.All(route.Cells, p => Assert.DoesNotContain(rectangles, f => f.Branch != route.Branch && f.Area.Contains(p)));
+                    if (route.Branch != DungeonComplexBlueprint.FinalBranch)
+                    {
+                        var target = blueprint.Floors.Single(f => f.Branch == route.Branch && !f.Elite);
+                        Assert.All(route.Cells.SkipLast(1), p => Assert.Null(target.RoomAt(p, parcel.Id)));
+                        Assert.NotNull(target.RoomAt(route.Barrier, parcel.Id));
+                        Assert.DoesNotContain(target.Layout.Rows[route.Barrier.Y - target.Origin.Y][route.Barrier.X - target.Origin.X], "#~");
+                    }
+                    else Assert.All(route.Cells.SkipLast(1), p => Assert.False(blueprint.Finale.Contains(p)));
+                }
             }
         }
         Assert.Equal(before, JsonSerializer.Serialize(plan));

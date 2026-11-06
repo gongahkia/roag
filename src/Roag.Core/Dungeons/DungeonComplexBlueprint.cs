@@ -28,7 +28,7 @@ public sealed record DungeonBranchLink(int From, int To, string Route);
 
 /// <summary>All original route alternatives have fixed physical coordinates before exploration.</summary>
 public sealed record DungeonComplexBlueprint(DungeonParcel Parcel, int Seed, DungeonFloorBlueprint[] Floors,
-    DungeonFloorState Finale, DungeonBranchLink[] Links)
+    DungeonFloorState Finale, DungeonBranchLink[] Links, DungeonStairPassage[] Passages)
 {
     public const int FinalBranch = 40;
     public WorldPosition SurfaceEntrance => Floors.Single(f => f.Stage == 1 && !f.Elite).Entry.Offset(4, 0) with { Floor = 0 };
@@ -70,7 +70,8 @@ public static class DungeonComplexPlanner
         var finale = new DungeonFloorState(4, DungeonRunState.FinaleBiome, origin, map.Width, map.Height,
             [new(0, map.Id, origin, map.Width, map.Height, 0, false)],
             origin.Offset(map.StartX - 1, map.StartY - 1), origin.Offset(map.BossX - 1, map.BossY - 1), Branch: DungeonComplexBlueprint.FinalBranch);
-        return new(parcel, seed, floors.ToArray(), finale, links.ToArray());
+        var blueprint = new DungeonComplexBlueprint(parcel, seed, floors.ToArray(), finale, links.ToArray(), []);
+        return blueprint with { Passages = DungeonPassagePlanner.Generate(blueprint) };
 
         void AddPair(int stage, string biome, int slot)
         {
