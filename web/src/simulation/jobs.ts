@@ -228,8 +228,13 @@ function perform(world: World, j: Job, p: Person): void {
     const salvage = emptyStock(); for (const k of MATERIALS) { salvage[k] = Math.floor(s.embodied[k]*C.salvagePercent/100); world.spent[k] += s.embodied[k]-salvage[k]; }
     drop(world,s,salvage); world.structures = world.structures.filter(b => b.id !== s.id);
     for (const other of world.jobs) { if (other.reservation?.source === s.id) other.reservation = null; if(other.delivery===s.id)other.delivery=null; if(other.ref===s.id&&other.id!==j.id&&active(other))finish(world,other,true); }
+    // Settle care claims in the removal tick too: a paused world must remain saveable.
+    for (const person of world.people) {
+      const routine = person.body.routine;
+      if (routine?.reservation?.source === s.id) routine.reservation = null;
+      if (routine?.facility === s.id) endRoutine(world,person);
+    }
   }
-  for(const p of world.people)if(p.body.routine?.facility===structure?.id&&!world.structures.some(s=>s.id===structure?.id))endRoutine(world,p);
   world.terrainVersion++; finish(world,j);
 }
 export const jobDuty=(j:Job):Duty=>j.kind==='gather'||j.kind==='haul'||j.kind==='farm'?'gatherer':j.kind==='produce'?RECIPES[j.recipe!].duty:'builder';
