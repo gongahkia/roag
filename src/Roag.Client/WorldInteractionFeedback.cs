@@ -51,7 +51,7 @@ internal static class WorldInspection
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             if (actor.Tactics?.Enemy is { Retained: null } memory)
             {
-                var arena = session.State.Tactics!.CampaignBosses.Arenas.FirstOrDefault(a => a.Boss == actor.Id);
+                var arena = session.State.Tactics!.CampaignBosses?.Arenas.FirstOrDefault(a => a.Boss == actor.Id);
                 var definition = arena == null ? EnemyCatalog.Default.Get(actor.Tactics.DefinitionId)
                     : CampaignBossCatalog.Definition(arena.Kind, arena.FinalRole, arena.Variation);
                 detail = definition.Name + ". " + stats;

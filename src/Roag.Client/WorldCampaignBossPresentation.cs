@@ -9,8 +9,7 @@ internal sealed partial class WorldGame
 {
     private void DrawCampaignBossDetails()
     {
-        var store = _session.State.Tactics!.CampaignBosses;
-        if (store.Arenas.Count == 0) return;
+        if (_session.State.Tactics!.CampaignBosses is not { Arenas.Count: > 0 } store) return;
         var combat = _session.DungeonCombat; var mouse = Mouse.GetState();
         WorldPosition? hover = null;
         if (_map.Contains(mouse.Position))
@@ -67,16 +66,17 @@ internal sealed partial class WorldGame
     private bool OperateCampaignBossValve(WorldPosition p)
     {
         if (!_session.Visible.Contains(p) || _session.CampaignBossFixtureAt(p) is not { Kind: CampaignBossFixtureKind.Valve } valve) return false;
-        var arena = _session.State.Tactics!.CampaignBosses.Arenas.Single(a => a.Contains(p));
+        var arena = _session.State.Tactics!.CampaignBosses!.Arenas.Single(a => a.Contains(p));
         var result = _session.SubmitDungeon(new(TacticalAction.CampaignBossInteract, Target: arena.Id, Choice: checked((int)valve.Id)));
         _notice = result.Success ? "Valve opened. The marked channel is permanently drained." : result.Message;
         CollectDungeonFeedback(); return true;
     }
     private bool OperateAdjacentCampaignBossValve()
     {
-        var p = _session.State.Tactics!.CampaignBosses.Arenas.SelectMany(a => a.Fixtures)
+        if (_session.State.Tactics!.CampaignBosses is not { } store) return false;
+        var p = store.Arenas.SelectMany(a => a.Fixtures)
             .FirstOrDefault(f => f.Kind == CampaignBossFixtureKind.Valve && f.Position.Distance(_session.DungeonMember.Position) <= 1
-                && _session.Visible.Contains(f.Position) && !_session.State.Tactics.CampaignBosses.Arenas.Single(a => a.Contains(f.Position)).Channels[f.Channel].Drained)?.Position;
+                && _session.Visible.Contains(f.Position) && !store.Arenas.Single(a => a.Contains(f.Position)).Channels[f.Channel].Drained)?.Position;
         return p is { } position && OperateCampaignBossValve(position);
     }
 }

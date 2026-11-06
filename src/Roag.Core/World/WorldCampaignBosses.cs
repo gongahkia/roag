@@ -112,7 +112,7 @@ public sealed partial class WorldSession
     public WorldRoomId? CampaignBossRoomAt(WorldPosition p) => SnapshotCampaignBossRoomAt(State, p);
     public static WorldRoomId? SnapshotCampaignBossRoomAt(WorldState world, WorldPosition p)
     {
-        var arena = world.Tactics?.CampaignBosses.Arenas.FirstOrDefault(a => a.Contains(p));
+        var arena = world.Tactics?.CampaignBosses?.Arenas.FirstOrDefault(a => a.Contains(p));
         return arena == null ? null : new(RoomArea.Dungeon, checked(1000 + (int)arena.Id), p.Floor, 1);
     }
     public CampaignBossFixture? CampaignBossFixtureAt(WorldPosition p)

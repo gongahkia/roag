@@ -38,7 +38,7 @@ public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, 
 public sealed class EnemyMemory
 {
     public RetainedEnemyMemory? Retained { get; set; }
-    public CampaignBossMemory? CampaignBoss { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public CampaignBossMemory? CampaignBoss { get; set; }
     public EnemyAwareness? Awareness { get; set; }
     public EnemyPursuitBoundary? PursuitBoundary { get; set; }
     public bool Dormant { get; set; }

@@ -13,7 +13,7 @@ public sealed partial class TacticalCombat
     };
     public string CampaignBossFixtureDescription(WorldPosition p)
     {
-        var arena = State.CampaignBosses.Arenas.FirstOrDefault(a => a.Contains(p));
+        var arena = State.CampaignBosses?.Arenas.FirstOrDefault(a => a.Contains(p));
         var fixture = arena?.Fixtures.FirstOrDefault(f => f.Position == p && f.Health > 0);
         if (fixture == null) return "";
         return fixture.Kind switch
@@ -29,7 +29,7 @@ public sealed partial class TacticalCombat
     }
     private TacticalPreview PreviewCampaignBossInteraction(Actor actor, TacticalIntent intent)
     {
-        var arena = State.CampaignBosses.Arenas.FirstOrDefault(a => a.Id == intent.Target);
+        var arena = State.CampaignBosses?.Arenas.FirstOrDefault(a => a.Id == intent.Target);
         var valve = arena?.Fixtures.FirstOrDefault(f => f.Id == intent.Choice && f.Kind == CampaignBossFixtureKind.Valve && f.Health > 0);
         if (!Friendly(actor) || arena == null || valve == null || actor.Position.Distance(valve.Position) > 1
             || !_world.VisionFrom(actor.Position).Contains(valve.Position)) return Invalid("Stand beside a visible cistern valve.");
@@ -38,7 +38,7 @@ public sealed partial class TacticalCombat
     }
     private void CommitCampaignBossInteraction(Actor actor, TacticalIntent intent, long action)
     {
-        var arena = State.CampaignBosses.Arenas.Single(a => a.Id == intent.Target);
+        var arena = BossStore.Arenas.Single(a => a.Id == intent.Target);
         var valve = arena.Fixtures.Single(f => f.Id == intent.Choice);
         var channel = arena.Channels[valve.Channel]; channel.Drained = true;
         var stillWet = arena.Channels.Where(c => !c.Drained).SelectMany(c => c.Cells).ToHashSet();
@@ -50,9 +50,9 @@ public sealed partial class TacticalCombat
 
     private void ObserveCampaignBossNoise(TacticalEvent e)
     {
-        if (State.CampaignBosses.Arenas.Count == 0 || e.Source == 0 || !_world.State.Party.Contains(e.Source)
+        if (State.CampaignBosses is not { Arenas.Count: > 0 } store || e.Source == 0 || !_world.State.Party.Contains(e.Source)
             || e.Kind is not ("AttackPerformed" or "CampAlarm" or "DoorOpened" or "TerrainBroken" or "CampFireLit" or "BellRung" or "BossValveDrained")) return;
-        foreach (var arena in State.CampaignBosses.Arenas)
+        foreach (var arena in store.Arenas)
         {
             if (arena.Kind != CampaignBossKind.Bellkeeper || !arena.Contains(e.Position)) continue;
             var boss = Actor(arena.Boss);
@@ -65,11 +65,11 @@ public sealed partial class TacticalCombat
     // Called after canonical actor damage, preserving the pre-break obstruction of that same attack.
     private void ResolveCampaignBossObjects(LockedAttack attack)
     {
-        if (attack.Damage <= 0 || State.CampaignBosses.Arenas.Count == 0) return;
+        if (attack.Damage <= 0 || State.CampaignBosses is not { Arenas.Count: > 0 }) return;
         var cuts = new List<(CampaignBossArena Arena, CampaignBossFixture Fixture)>();
         foreach (var p in attack.Cells)
         {
-            var arena = State.CampaignBosses.Arenas.FirstOrDefault(a => a.Contains(p));
+            var arena = State.CampaignBosses?.Arenas.FirstOrDefault(a => a.Contains(p));
             var fixture = arena?.Fixtures.FirstOrDefault(f => f.Position == p && f.Health > 0 && f.Kind != CampaignBossFixtureKind.Valve);
             if (fixture != null && (attack.Source != arena!.Boss || attack.Element == DamageElement.Fire)) cuts.Add((arena!, fixture));
             bool blocked = !ProjectileOpen(p);
@@ -116,7 +116,7 @@ public sealed partial class TacticalCombat
         var distance = new Dictionary<long, int> { [start.Id] = 0 }; var queue = new Queue<CampaignBossFixture>(); queue.Enqueue(start);
         while (queue.TryDequeue(out var fixture))
         {
-            if (!State.CampaignBosses.Pulses.Any(p => p.Arena == arena.Id && p.Kind == CampaignBossPulseKind.BurningWeb && p.Fixture == fixture.Id))
+            if (!BossStore.Pulses.Any(p => p.Arena == arena.Id && p.Kind == CampaignBossPulseKind.BurningWeb && p.Fixture == fixture.Id))
             {
                 var cells = new[] { fixture.Position }.Concat(new[] { Facing.North, Facing.East, Facing.South, Facing.West }.Select(f =>
                 { var (x, y) = AttackGeometry.Offset(f); return fixture.Position.Offset(x, y); })).Where(p => BossCell(arena, p)).ToArray();
@@ -133,22 +133,23 @@ public sealed partial class TacticalCombat
     private void QueueCampaignBossPulse(CampaignBossArena arena, CampaignBossPulseKind kind, WorldPosition origin,
         WorldPosition[] cells, long due, int damage, long fixture, long source = 0)
     {
-        if (cells.Length == 0 || State.CampaignBosses.Pulses.Count >= 2048) return;
+        if (cells.Length == 0 || BossStore.Pulses.Count >= 2048) return;
         long id = State.NextAction++; source = source == 0 ? arena.Boss : source;
         long schedule = State.Queue.Schedule(ScheduledKind.CampaignBossPulse, due, source, referenceId: id).Sequence;
-        State.CampaignBosses.Pulses.Add(new(id, arena.Id, source, kind, origin, cells, due, schedule, damage, fixture));
+        BossStore.Pulses.Add(new(id, arena.Id, source, kind, origin, cells, due, schedule, damage, fixture));
     }
     private void CancelCampaignPulses(Func<CampaignBossPulse, bool> predicate)
     {
-        foreach (var pulse in State.CampaignBosses.Pulses.Where(predicate).ToArray())
-        { State.Queue.Cancel(pulse.Schedule); State.CampaignBosses.Pulses.Remove(pulse); }
+        if (State.CampaignBosses is not { } store) return;
+        foreach (var pulse in store.Pulses.Where(predicate).ToArray())
+        { State.Queue.Cancel(pulse.Schedule); BossStore.Pulses.Remove(pulse); }
     }
     private void PruneCampaignBosses()
     {
-        if (State.CampaignBosses.Arenas.Count == 0) return;
+        if (State.CampaignBosses is not { Arenas.Count: > 0 } store) return;
         CancelCampaignPulses(p => p.Kind == CampaignBossPulseKind.Chime &&
-            (Actor(p.Source).Life != LifeState.Alive || State.CampaignBosses.Arenas.Single(a => a.Id == p.Arena).Fixtures.All(f => f.Id != p.Fixture || f.Health <= 0)));
-        foreach (var arena in State.CampaignBosses.Arenas)
+            (Actor(p.Source).Life != LifeState.Alive || BossStore.Arenas.Single(a => a.Id == p.Arena).Fixtures.All(f => f.Id != p.Fixture || f.Health <= 0)));
+        foreach (var arena in BossStore.Arenas)
         {
             foreach (var line in arena.Fixtures.Where(f => f.Kind == CampaignBossFixtureKind.ReelLine && f.Health > 0
                 && !State.Attacks.Any(a => a.Source == arena.Boss && a.Id == f.Group))) line.Health = 0;
@@ -157,9 +158,9 @@ public sealed partial class TacticalCombat
     }
     private void ResolveCampaignBossPulse(ScheduledAction work)
     {
-        var pulse = State.CampaignBosses.Pulses.Single(p => p.Schedule == work.Sequence);
-        State.CampaignBosses.Pulses.Remove(pulse);
-        var arena = State.CampaignBosses.Arenas.Single(a => a.Id == pulse.Arena);
+        var pulse = BossStore.Pulses.Single(p => p.Schedule == work.Sequence);
+        BossStore.Pulses.Remove(pulse);
+        var arena = BossStore.Arenas.Single(a => a.Id == pulse.Arena);
         ResolveAtomically(RootCause(pulse.Id), () =>
         {
             if (pulse.Kind == CampaignBossPulseKind.BurningWeb)
@@ -174,7 +175,7 @@ public sealed partial class TacticalCombat
             CompactBossFixtures(arena);
         });
     }
-    private IEnumerable<LockedAttack> CampaignBossWarnings() => State.CampaignBosses.Pulses.Select(p =>
+    private IEnumerable<LockedAttack> CampaignBossWarnings() => State.CampaignBosses is not { } store ? [] : store.Pulses.Select(p =>
         new LockedAttack(p.Id, p.Source, p.Origin, p.Cells.ToArray(), p.Kind == CampaignBossPulseKind.Chime ? "core:ability/boss_chime_ring" : "core:ability/boss_burning_network",
             AttackDelivery.Area, p.Kind == CampaignBossPulseKind.Chime ? DamageElement.Resonance : DamageElement.Fire, p.Damage, p.Due, Cause: DamageCause.GroundHazard));
 

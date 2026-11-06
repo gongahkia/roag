@@ -7,7 +7,7 @@ public sealed partial class TacticalCombat
 {
     public void RegisterCampaignBoss(Actor actor, CampaignBossArena arena, long? readyAt = null)
     {
-        if (!State.CampaignBosses.Arenas.Contains(arena) || arena.Boss != actor.Id || !arena.Contains(actor.Position)
+        if (State.CampaignBosses is not { } store || !store.Arenas.Contains(arena) || arena.Boss != actor.Id || !arena.Contains(actor.Position)
             || Friendly(actor) || actor.Tactics != null || State.Participants.Contains(actor.Id))
             throw new ArgumentException("Register an unacted persistent boss in its registered world arena.");
         var definition = CampaignBossCatalog.Definition(arena.Kind, arena.FinalRole, arena.Variation);
@@ -37,7 +37,8 @@ public sealed partial class TacticalCombat
             throw new ArgumentException("Campaign boss commitment does not match its authored role or geometry.");
     }
 
-    private CampaignBossArena BossArena(Actor boss) => State.CampaignBosses.Arenas.Single(a => a.Id == boss.Tactics!.Enemy!.CampaignBoss!.Arena);
+    private CampaignBossWorldState BossStore => State.CampaignBosses ?? throw new InvalidDataException("Missing owning campaign boss registry.");
+    private CampaignBossArena BossArena(Actor boss) => BossStore.Arenas.Single(a => a.Id == boss.Tactics!.Enemy!.CampaignBoss!.Arena);
     private EnemyDefinition CampaignBossDefinition(Actor boss)
     {
         var arena = BossArena(boss);

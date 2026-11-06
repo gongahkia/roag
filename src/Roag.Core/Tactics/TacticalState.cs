@@ -114,7 +114,7 @@ public sealed record LockedAttack(long Id, long Source, WorldPosition Origin, Wo
     bool HitsOwner = false, bool PersistsWithoutOwner = false, bool IgnoresTerrain = false, BoonCause? Causality = null,
     int? FateFace = null, long IntendedTarget = 0, int? RecoveryCost = null,
     EnemySupport? Support = null, EnemyAdvance? Advance = null, EnemyShove? Shove = null, Facing? SentinelFacing = null, WorldPosition? EmberLanding = null, MirrorReflection? Reflection = null,
-    bool RetainedAbility = false, CampaignBossCast? Boss = null);
+    bool RetainedAbility = false, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CampaignBossCast? Boss = null);
 public sealed record TacticalTimelineEntry(ScheduledKind Kind, long ActorId, long Due, long ReferenceId,
     bool Projected, long? Sequence);
 public sealed record TacticalEvent(long Sequence, long Time, string Kind, long Source, long Target,
@@ -148,7 +148,7 @@ public sealed class TacticalWorldState
     public List<SiltTrail> Silt { get; set; } = [];
     public List<EnemyEmber> Embers { get; set; } = [];
     public List<EnemyMirror> Mirrors { get; set; } = [];
-    public CampaignBossWorldState CampaignBosses { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public CampaignBossWorldState? CampaignBosses { get; set; }
     public BoonWorldEffects BoonEffects { get; set; } = new();
     public ContributionRewards Rewards { get; set; } = new();
     public CooperationTuning Cooperation { get; set; } = new();

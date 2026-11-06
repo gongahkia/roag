@@ -124,7 +124,7 @@ public sealed partial class WorldSession
         if (!plan.Contains(p) || Materials.Opaque(chunks.At(p))
             || state.Tactics?.Chests.Chests.Any(c => !c.Claimed && c.Position == p) == true
             || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)
-            || state.Tactics?.CampaignBosses.Arenas.Any(a => a.Contains(p) && a.Fixtures.Any(f => f.Position == p && f.Solid)) == true) return false;
+            || state.Tactics?.CampaignBosses?.Arenas.Any(a => a.Contains(p) && a.Fixtures.Any(f => f.Position == p && f.Solid)) == true) return false;
         var discovery = state.Discoveries.FirstOrDefault(d => d.Position == p);
         if (discovery != null) return !DiscoverySolid(content, discovery);
         var cache = state.Loot.FirstOrDefault(c => c.Position == p);

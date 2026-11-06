@@ -38,7 +38,14 @@ internal static class CampaignBossValidation
     internal static void Validate(WorldPlan plan, WorldState world)
     {
         var state = world.Tactics!; var store = state.CampaignBosses;
-        if (store == null || store.NextArena < 1 || store.NextArena > 1000 || store.Arenas == null || store.Arenas.Count > 32
+        if (store == null)
+        {
+            if (world.Actors.Any(a => a.Tactics?.Enemy?.CampaignBoss != null) || state.Attacks.Any(a => a.Boss != null)
+                || state.Queue.Snapshot().Pending.Any(w => w.Kind == ScheduledKind.CampaignBossPulse))
+                throw new InvalidDataException("Campaign boss work has no owning registry.");
+            return;
+        }
+        if (store.NextArena < 1 || store.NextArena > 1000 || store.Arenas == null || store.Arenas.Count > 32
             || store.Pulses == null || store.Pulses.Count > 2048 || store.Arenas.Any(a => a == null)
             || store.Arenas.Select(a => a.Id).Distinct().Count() != store.Arenas.Count
             || store.Arenas.Select(a => a.Boss).Distinct().Count() != store.Arenas.Count

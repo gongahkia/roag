@@ -515,7 +515,7 @@ public sealed partial class TacticalCombat
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
         var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.CampaignBossPulse
-            ? State.CampaignBosses.Pulses.Any(p => p.Schedule == e.Sequence && p.Cells.Any(_world.Visible.Contains)) : e.Kind == ScheduledKind.EmberPulse
+            ? State.CampaignBosses?.Pulses.Any(p => p.Schedule == e.Sequence && p.Cells.Any(_world.Visible.Contains)) == true : e.Kind == ScheduledKind.EmberPulse
             ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : e.Kind == ScheduledKind.TerrainCycle
                 ? State.OptionalTerrain.Nodes.Any(n => n.Schedule == e.Sequence && n.Phase == OptionalTerrainPhase.Warning && _world.Visible.Contains(n.Position))
                 : e.Kind == ScheduledKind.FixtureImpact ? State.Services.Nodes.Any(n => n.Fixture?.Pending?.Schedule == e.Sequence && _world.Visible.Contains(n.Fixture.Center))

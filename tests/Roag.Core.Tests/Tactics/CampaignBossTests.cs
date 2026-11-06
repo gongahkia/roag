@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Roag.Core.Content;
+using Roag.Client;
 using Roag.Core.Tactics;
 using Roag.Core.World;
 using Xunit;
@@ -181,8 +182,8 @@ public sealed class CampaignBossTests
     {
         using var a = new Encounter(CampaignBossKind.Bellkeeper, final: true);
         var attack = a.Cast(1); a.Resolve(attack);
-        Assert.NotEmpty(a.Combat.State.CampaignBosses.Pulses);
-        var pulse = a.Combat.State.CampaignBosses.Pulses.First();
+        Assert.NotEmpty(a.Combat.State.CampaignBosses!.Pulses);
+        var pulse = a.Combat.State.CampaignBosses!.Pulses.First();
         a.World.Visible.Clear(); a.World.Visible.Add(pulse.Cells[0]);
         string before = JsonSerializer.Serialize(a.Combat.State);
         Assert.NotEmpty(a.Combat.VisibleAttacks(a.World.Visible));
@@ -190,8 +191,8 @@ public sealed class CampaignBossTests
         Assert.DoesNotContain(a.Combat.VisibleTimeline(), e => e.Kind == ScheduledKind.CampaignBossPulse);
         Assert.Equal(before, JsonSerializer.Serialize(a.Combat.State));
         a.Hit(pulse.Origin);
-        Assert.DoesNotContain(a.Combat.State.CampaignBosses.Pulses, p => p.Fixture == pulse.Fixture);
-        Assert.NotEmpty(a.Combat.State.CampaignBosses.Pulses);
+        Assert.DoesNotContain(a.Combat.State.CampaignBosses!.Pulses, p => p.Fixture == pulse.Fixture);
+        Assert.NotEmpty(a.Combat.State.CampaignBosses!.Pulses);
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
@@ -281,8 +282,8 @@ public sealed class CampaignBossTests
         var ally = a.World.Party.First(m => m.Id != a.Hero.Id); ally.Position = strand.Position.Offset(1, 0);
         int hp = ally.Health;
         a.Hit(strand.Position, 1, DamageElement.Fire);
-        Assert.True(a.Combat.State.CampaignBosses.Pulses.Count >= 3);
-        var due = a.Combat.State.CampaignBosses.Pulses.Min(p => p.Due);
+        Assert.True(a.Combat.State.CampaignBosses!.Pulses.Count >= 3);
+        var due = a.Combat.State.CampaignBosses!.Pulses.Min(p => p.Due);
         while (a.Combat.Clock < due) { a.Act(new(TacticalAction.Wait)); a.NextHero(); }
         Assert.True(ally.Health < hp); Assert.True(a.World.GroundOpen(strand.Position));
         Assert.Contains(a.Combat.State.Events, e => e.Kind == "BossWebBurned");
@@ -421,9 +422,60 @@ public sealed class CampaignBossTests
         var old = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(combat.State))!;
         old.AsObject().Remove("CampaignBosses");
         var restored = JsonSerializer.Deserialize<TacticalWorldState>(old.ToJsonString())!;
-        Assert.Empty(restored.CampaignBosses.Arenas); Assert.Empty(restored.CampaignBosses.Pulses);
+        Assert.Null(restored.CampaignBosses);
+        Assert.Equal(old.ToJsonString(), JsonSerializer.Serialize(restored));
         Assert.Equal(JsonSerializer.Serialize(combat.State.Timeline), JsonSerializer.Serialize(restored.Timeline));
         world.State.Tactics = restored; TacticalValidation.Validate(world.Plan, world.State);
+    }
+
+    [Fact]
+    public void PreBossNativeWorldManifestWithOriginalWindupLoadsAndResavesByteForByte()
+    {
+        using var world = WorldSession.CreateNativeCampaign(42);
+        var combat = world.DungeonCombat; var hero = world.DungeonMember;
+        var position = new[] { Facing.North, Facing.East, Facing.South, Facing.West }
+            .Select(f => { var (x,y) = AttackGeometry.Offset(f); return hero.Position.Offset(x,y); }).First(p => world.CanEnter(p));
+        var enemy = ActorFactory.Create(world.Content, world.Content.Game.Raider, world.Seed, world.State.NextActorId++, position, 0);
+        enemy.CombatTrait = ""; world.State.Actors.Add(enemy);
+        combat.RegisterEnemy(enemy, "core:enemy/mossbound_guard", combat.Clock);
+        Assert.True(combat.Commit(new(TacticalAction.Wait)).Success);
+        // Existing world creatures already own earlier same-time readiness slots.
+        // Let those real actions settle; the newly registered guard never skips them.
+        Actor? ready = null;
+        for (int i = 0; i <= combat.State.Participants.Count; i++)
+        {
+            ready = combat.AdvanceToDecision(); Assert.NotNull(ready);
+            if (ready.Id == enemy.Id) break;
+            Assert.NotNull(ready.Tactics!.Enemy); combat.CommitWorldEnemyTurn();
+        }
+        Assert.Same(enemy, ready);
+        combat.CommitEnemyTurn(hero.Id, (_, _) => null); world.Reveal();
+        Assert.Contains(combat.State.Attacks, a => a.Source == enemy.Id);
+        Assert.Null(combat.State.CampaignBosses);
+        _ = combat.VisibleAttacks(world.Visible); _ = combat.VisibleTimeline();
+        _ = combat.InspectEnemy(hero.Id, enemy.Id); _ = WorldInspection.Inspect(world, enemy.Position);
+        Assert.Null(world.CampaignBossRoomAt(hero.Position)); Assert.Null(combat.State.CampaignBosses);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-old-boss-compatibility-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "old-slot"); world.Save(slot);
+            byte[] original = File.ReadAllBytes(slot);
+            using (var manifest = JsonDocument.Parse(original))
+            {
+                var tactics = manifest.RootElement.GetProperty("state").GetProperty("tactics");
+                Assert.False(tactics.TryGetProperty("campaignBosses", out _));
+                foreach (var attack in tactics.GetProperty("attacks").EnumerateArray()) Assert.False(attack.TryGetProperty("boss", out _));
+                foreach (var actor in manifest.RootElement.GetProperty("state").GetProperty("actors").EnumerateArray())
+                    if (actor.GetProperty("tactics").ValueKind == JsonValueKind.Object
+                        && actor.GetProperty("tactics").GetProperty("enemy").ValueKind == JsonValueKind.Object)
+                        Assert.False(actor.GetProperty("tactics").GetProperty("enemy").TryGetProperty("campaignBoss", out _));
+            }
+            using var loaded = WorldSession.Load(slot);
+            Assert.Null(loaded.State.Tactics!.CampaignBosses);
+            TacticalValidation.Validate(loaded.Plan, loaded.State);
+            loaded.Save(slot); Assert.Equal(original, File.ReadAllBytes(slot));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     [Theory]
@@ -441,7 +493,7 @@ public sealed class CampaignBossTests
         {
             case "role": a.Boss.Tactics!.DefinitionId = "core:enemy/sluice_maw"; break;
             case "stats": a.Boss.Tactics!.InnateStats = a.Boss.Tactics.Stats with { MaxHealth = 1000 }; break;
-            case "arena": a.Combat.State.CampaignBosses.Arenas.Clear(); break;
+            case "arena": a.Combat.State.CampaignBosses!.Arenas.Clear(); break;
             case "cast": a.Combat.State.Attacks[0] = attack with { Boss = new(CampaignBossMove.ChannelSurge, 0) }; break;
             case "fixture": a.Arena.Fixtures[0].Channel = 99; break;
             case "pulse": a.Combat.State.Queue.Schedule(ScheduledKind.CampaignBossPulse, a.Combat.Clock + 100, a.Boss.Id, referenceId: 1); break;
