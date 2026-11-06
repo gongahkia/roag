@@ -177,3 +177,14 @@ test('feast deadline retires while a reserved edge is still moving and never gra
   e.feast.expiresAt = w.tick + 1; const next = at(r.next), health = r.health; step(w);
   assert.equal(e.feast, null); assert.deepEqual(r.next, next); assert.equal(r.progress, 2); assert.equal(r.health, health);
 });
+
+test('later actor counter completion atomically retires earlier actors partial drain and ignite claims', () => {
+  for (const [kind, mode, featureKind] of [['sluice', 'drain', 'valve'], ['threadmother', 'ignite', 'web']]) {
+    const { w, e } = fixture(kind), [earlier, later] = w.people, f = w.bosses.features.find(f => f.kind === featureKind); e.readyAt = 100;
+    Object.assign(earlier, { x: f.x - 1, y: f.y }); Object.assign(later, { x: f.x + 1, y: f.y });
+    counter(w, later, mode, f); ticks(w, 5); counter(w, earlier, mode, f); ticks(w, B.counters[mode] - 6);
+    assert.equal(w.bosses.work.length, 2); step(w);
+    assert.equal(w.bosses.work.length, 0, `${mode} completion invalidates every competing claim on the same public tick`);
+    step(w); assert.ok(w.combat.orders.every(o => o.actor !== earlier.id && o.actor !== later.id));
+  }
+});

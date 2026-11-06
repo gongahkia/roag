@@ -174,6 +174,7 @@ function ignite(w: BossWorld, start: BossFeature, source: number): void {
     }
     for (const next of candidates) if (!seen.has(next.id) && distance(current.feature, next) === 1) { seen.add(next.id); queue.push({ feature: next, depth: current.depth + 1 }); }
   }
+  retireInvalidCounterWork(w);
   w.bosses.status = 'Ignited connected web; locked fire pulses burn either faction even if their caster dies';
 }
 export function damageBossFeature(w: BossWorld, id: number, amount: number, source: number, fire = false): void {
@@ -193,10 +194,17 @@ export function bossCounterReason(w: BossWorld, mode: BossCounterMode, target: C
   if (mode === 'cut') return ['anchor', 'web', 'line'].includes(f.kind) ? null : 'Cut a web, anchor or announced reel line';
   return ['anchor', 'web'].includes(f.kind) && !w.bosses.effects.some(a => a.kind === 'fire' && a.feature === f.id) ? null : 'Ignite an unlit web or anchor';
 }
+function retireInvalidCounterWork(w: BossWorld): void {
+  w.bosses.work = w.bosses.work.filter(work => {
+    const target = w.bosses.features.find(f => f.id === work.target);
+    return target !== undefined && bossCounterReason(w, work.mode, target) === null;
+  });
+}
 function drain(w: BossWorld, f: BossFeature): void {
   const e = encounter(w, f.owner); if (!e || f.channel === null || e.drained[f.channel]) return;
   e.drained[f.channel] = true; w.bosses.effects = w.bosses.effects.filter(a => a.owner !== f.owner || a.channel !== f.channel);
   if (e.feast?.channel === f.channel) stopFeast(w, e); expose(w, e);
+  retireInvalidCounterWork(w);
   w.bosses.status = `Channel ${f.channel + 1} drained permanently; its surge and feast are cancelled`;
 }
 export function prepareBossCounters(w: BossWorld, api: BossApi): void {
