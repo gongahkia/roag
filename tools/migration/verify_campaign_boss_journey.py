@@ -73,6 +73,7 @@ def exact(client, label):
 
 
 def reports(client, label):
+    hold(client)
     before = client.ui['nativeDungeon']['clock']
     selected = client.ui['nativeDungeon']['controlledActor']
     client.control_click('dungeon:menu')
@@ -520,11 +521,13 @@ class CampaignJourney(Journey):
             self.client.key('Escape')
         receipt = state['nativeCampaign']['finale']
         assert receipt.get('victoryAt') is not None and receipt.get('victor', 0) > 0
-        before = self.client.ui['nativeDungeon']['clock']
         self.client.key('b')
         assert self.client.ui['panel'] == 'dungeon-party'
-        self.client.key('Escape')
+        before = self.client.ui['nativeDungeon']['clock']
+        self.client.capture('victory-free-party-reading')
         assert self.client.ui['nativeDungeon']['clock'] == before
+        self.client.key('Escape')
+        before = self.client.ui['nativeDungeon']['clock']
         self.client.key('t')
         self.client.key('space')
         assert self.client.ui['notice'] == 'Action committed.'
