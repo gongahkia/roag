@@ -7,7 +7,9 @@ const mode = process.argv[2];
 if (!['root', 'roag'].includes(mode)) throw new Error('Expected root or roag');
 const mount = mode === 'root' ? '/' : '/roag/';
 const root = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P07', `build-${mode}`);
-const port = mode === 'root' ? 4173 : 4174;
+const basePort = Number(process.env.ROAG_BROWSER_PORT_BASE ?? 4173);
+if (!Number.isInteger(basePort) || basePort < 1024 || basePort > 65534) throw new Error('Invalid ROAG_BROWSER_PORT_BASE');
+const port = basePort + (mode === 'root' ? 0 : 1);
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
 const server = createServer(async (request, response) => {
   try {

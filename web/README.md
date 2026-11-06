@@ -282,7 +282,9 @@ Install Chromium if absent with `fnm exec --using=24.21.0 npx playwright install
 (or `--with-deps chromium` on minimal Linux). Native visibility tests use full Chromium
 through CDP, actual tab transitions, and no synthetic visibility override. Browser
 checks generate ordinary raid and boss fixtures unless `ROAG_RAID_FIXTURE_DIR` and
-`ROAG_BOSS_FIXTURE_DIR` point to validated scenario directories from the same source, then build and serve both `/` and `/roag/` on ports 4173/4174. To inspect those outputs:
+`ROAG_BOSS_FIXTURE_DIR` point to validated scenario directories from the same source, then build and serve both `/` and `/roag/` on ports 4173/4174. Isolated worktrees may set `ROAG_BROWSER_PORT_BASE` to reserve
+a different consecutive port pair; the server and test URLs use the same setting.
+To inspect those outputs:
 
 ```sh
 fnm exec --using=24.21.0 node scripts/serve-production.mjs root
