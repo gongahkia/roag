@@ -270,7 +270,12 @@ export function bossDied(w: BossWorld, owner: number): void {
   if (!w.bosses.effects.some(a => a.owner === owner)) w.bosses.encounters = w.bosses.encounters.filter(other => other !== e);
 }
 export function advanceBossEffects(w: BossWorld, api: BossApi): void {
-  for (const e of w.bosses.encounters) if (e.noise && e.noise.at + B.noise.lifetime < w.tick) e.noise = null;
+  for (const e of w.bosses.encounters) {
+    if (e.noise && e.noise.at + B.noise.lifetime < w.tick) e.noise = null;
+    // A reserved movement edge can outlive the deadline; retire the feast on
+    // the public tick even while core movement is finishing that edge.
+    if (e.feast && e.feast.expiresAt <= w.tick) stopFeast(w, e);
+  }
   const due = w.bosses.effects.filter(a => a.due <= w.tick).sort((a, b) => a.due - b.due || a.id - b.id);
   for (const value of due) {
     if (!w.bosses.effects.some(a => a.id === value.id)) continue;

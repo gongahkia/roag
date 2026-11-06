@@ -170,3 +170,10 @@ test('counter target deletion during impact leaves no work references and releas
   damageBossFeature(w, f.id, 24, 2); assert.equal(w.bosses.work.length, 0); step(w);
   assert.equal(w.combat.orders.some(o => o.actor === p.id), false); assert.equal(w.bosses.features.some(a => a.id === f.id), false);
 });
+
+test('feast deadline retires while a reserved edge is still moving and never grants late healing', () => {
+  const { w, r, e } = fixture('sluice'); r.health = 100; e.moves = 1; step(w);
+  until(w, () => !!e.feast && !!r.next && r.progress === 1);
+  e.feast.expiresAt = w.tick + 1; const next = at(r.next), health = r.health; step(w);
+  assert.equal(e.feast, null); assert.deepEqual(r.next, next); assert.equal(r.progress, 2); assert.equal(r.health, health);
+});
