@@ -46,3 +46,23 @@ The second compiled batch passed **41 focused cases**, zero failures/skips, 28 s
 Presentation now names the committed move and its countdown above a visible boss, numbers valves/channels/pools, traces the visible selected channel on valve hover, draws visible surge flow arrows and marks the Captain's guarded front. Hover inspection starts with the actual warning/counterplay. Exact reviewed fixture selections: web `urizen-onebit-r39-c004` `[53,508,12,12]`, valve control `urizen-onebit-r00-c068` `[885,1,12,12]`, funeral bell `urizen-onebit-r25-c036` `[469,326,12,12]`, all from `urizen/urizen_onebit_tileset__v2d0.png`. Earlier humanoid/anvil/urn candidates were replaced after crop inspection; no source pixels or neutral identities were changed. The catalog generator completed after those selections. This is backend/crop evidence; a natural rendered boss playthrough remains integration work.
 
 Current coordinator-requested follow-up: omit absent boss state/null metadata when loading and resaving older worlds, initialize only on actual boss registration, and verify exact absent-state serialization. The 41-case runner precedes that compatibility change.
+
+## User-requested pause checkpoint — 2026-11-06
+
+The coordinator relayed the user's explicit temporary pause. Feature work stopped immediately. Preserve this worktree and branch for the same goal's later resumption; no builds, gameplay tests or rendered runs were started after that request.
+
+Completed implementation commits:
+
+- `506f0a49`: four typed native bosses, normal/final variants, world arena API, exact state, counterplay, inspection/atlas bindings and initial 30-case passing batch.
+- `b78c69ae`: physical surge/charge corrections, pre-paint placement refusal/atomicity, stricter commitment validation, readable numbered previews and reviewed fixture art. All 41 focused cases passed, zero failures/skips, 28 seconds. `edge-build.json` records 2,193 source/input hashes and 838 runner hashes. This is the last compiled gameplay checkpoint.
+
+**Uncommitted compatibility edits are saved, uncompiled and unverified.** They make `TacticalWorldState.CampaignBosses` nullable and null-omitted, add null omission to `EnemyMemory.CampaignBoss` and `LockedAttack.Boss`, initialize the store only during accepted arena construction, guard empty/no-boss runtime/client/snapshot/reference paths and update the absent-state serialization check. The modified files are:
+
+- `src/Roag.Core/Tactics/TacticalState.cs`, `EnemyCatalog.cs`, `CampaignBossValidation.cs`, `TacticalCampaignBosses.cs`, `TacticalCampaignBossObjects.cs`, `TacticalCombat.cs`, `TacticalReferences.cs`.
+- `src/Roag.Core/World/WorldCampaignBosses.cs`, `WorldCollision.cs`.
+- `src/Roag.Client/WorldCampaignBossPresentation.cs`, `WorldInteractionFeedback.cs`.
+- `tests/Roag.Core.Tests/Tactics/CampaignBossTests.cs`.
+
+A read-only checkpoint `git diff --check` passed. No worker build/test/render/catalog process remains running: the 41-case test process completed successfully; the catalog regeneration process was polled to terminal success at this pause. The coordinator's processes and other worktrees were not touched.
+
+On explicit resume, finish reviewing the optional-state null guards, add an actual ordinary pre-boss manifest load/resave byte-identity test (including original enemy memory and a committed original windup), compile/run that compatibility batch, then run appropriate affected original-controller/tactical/client checks in the coordinator-assigned slot. Finish the requested review of all four visible targeting tendencies and canonical damage/proc/contribution ownership, preserving any findings/tests. No broader current-source regression or rendered boss journey has yet been performed. Root still owns room precedence, original population's additive-ID exclusion, geography/placement/final selection, victory/profile integration, natural rendered solo/four-member journeys and the refreshed Linux delivery. All eight aggregate acceptance gates remain open.
