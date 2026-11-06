@@ -59,13 +59,17 @@ def navigation(walk, target):
     return route[::-1]
 
 
-def observe_report(client):
+def observe_report(client, target_complex=None):
     before = client.ui['nativeDungeon']['clock']
     client.control_click('dungeon:menu'); client.control_click('dungeon:journal')
     reports = client.ui['expeditions']['entrances']
     assert reports, 'No legitimately recorded entrance report exists'
     origin = position(client.ui['position'])
-    report = min(reports, key=lambda r: distance(origin, position(r['position'])))
+    if target_complex is None:
+        report = min(reports, key=lambda r: distance(origin, position(r['position'])))
+    else:
+        report = next((r for r in reports if r['id'] == target_complex), None)
+        assert report is not None, 'Requested complex has no actual UI expedition entrance report: ' + str(target_complex)
     client.capture('02-reported-destination')
     client.control_click('dungeon:close')
     assert client.ui['nativeDungeon']['clock'] == before
@@ -240,7 +244,7 @@ def excavation_step(client, walk, target, dig_records):
     return False
 
 
-def verify(client, budget, excavate=False):
+def verify(client, budget, excavate=False, target_complex=None):
     start = exact(client, '00-exact-continuation')
     assert json.loads(client.slot.read_text()) == json.loads((client.continuation / 'control/campaign.json').read_text())
     party = start['party']
@@ -259,7 +263,7 @@ def verify(client, budget, excavate=False):
         walk.checkpoint('01-retained-paid-rest-completed')
         exact(client, '01-retained-rest-exact')
     client.key('t')
-    report = observe_report(client)
+    report = observe_report(client, target_complex)
     target = position(report['position'])
     walk.observe()
     fight = TravelFight(client)
@@ -428,12 +432,13 @@ def main():
     parser.add_argument('--budget', type=int, default=1000)
     parser.add_argument('--recover-accepted', action='store_true')
     parser.add_argument('--excavate', action='store_true')
+    parser.add_argument('--target-complex', type=int)
     args = parser.parse_args()
     client = WorldClient.__new__(WorldClient)
     try:
         client.__init__(args.output.resolve(), 42, runtime_source=args.runtime.resolve(),
                         continuation=args.continue_from.resolve(), window_size='1024x720', scene='world-campaign')
-        result = recover_accepted(client, args.continue_from.resolve()) if args.recover_accepted else verify(client, args.budget, args.excavate)
+        result = recover_accepted(client, args.continue_from.resolve()) if args.recover_accepted else verify(client, args.budget, args.excavate, args.target_complex)
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)
         client.request('stop'); client.process.wait(timeout=15)
