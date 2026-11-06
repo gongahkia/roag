@@ -761,6 +761,7 @@ internal sealed partial class WorldGame
             journal = _panel == "journal" ? JournalRows(PanelBox(w, h).Width - 104).Skip(_journalOffset).Take(JournalVisibleRows(PanelBox(w, h))) : null,
             expeditions = _panel == "dungeon-journal" ? new { page = _expeditionPage,
                 entrances = _session.KnownDungeonEntrances(),
+                majorBosses = _session.GeneratedBossSites,
                 rows = ExpeditionJournalRows(PanelBox(w, h).Width - 108).Skip(_expeditionPage * ExpeditionVisibleRows(PanelBox(w, h))).Take(ExpeditionVisibleRows(PanelBox(w, h))) } : null,
             controls = _controls.Select(c => new { id = c.Id, label = c.Label, enabled = c.Enabled, selected = c.Selected, reason = c.DisabledReason, tip = c.Tip, sprite = c.Sprite, detail = c.Detail, progress = c.Progress, badgeSprite = c.BadgeSprite, dimmed = c.Dimmed, bounds = Rect(c.Bounds), spriteBounds = c.Sprite == null ? null : (object)Rect(ControlSpriteBox(c)) }),
             actors = _session.State.Actors.Where(a => !a.Recruited && a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)).Select(a => new { id = a.Id, kind = a.Kind.ToString(), name = a.Name, archetype = a.Archetype, habitat = a.Habitat, hostile = _session.IsHostile(a), behaviour = _session.WildlifeDescription(a), routine = a.Routine?.Kind.ToString(), activity = _session.RoutineDescription(a), x = a.Position.X, y = a.Position.Y, floor = a.Position.Floor,

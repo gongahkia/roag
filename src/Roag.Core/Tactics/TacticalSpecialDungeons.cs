@@ -30,7 +30,8 @@ public sealed partial class TacticalCombat
         if (Clock + special.Tuning.FirstPressure < special.ExpiresAt)
             ScheduleSpecialPressure(complex, Clock + special.Tuning.FirstPressure);
         Emit("SpecialDungeonActivated", actor.Id, actor.Id, action, actor.Position, ability: special.Aftermath.ToString());
-        _world.RecordSpecialDungeonMessage($"Extraction seal activated. Deadline {special.ExpiresAt}; {special.Aftermath}. Retreat does not reset it.");
+        string consequence = special.Aftermath == SpecialDungeonAftermath.LethalCollapse ? "lethal collapse" : "partial collapse";
+        _world.RecordSpecialDungeonMessage($"Extraction seal activated: {special.Tuning.DurationSeconds} seconds until {consequence}. Retreat does not reset the deadline.");
     }
 
     private void ScheduleSpecialPressure(DungeonComplexState complex, long due)
@@ -189,6 +190,9 @@ public sealed partial class TacticalCombat
             _world.Chunks.Edit(p, Material.Wall); special.Rubble.Add(p);
         }
         Emit("SpecialDungeonExpired", 0, 0, 0, entry, special.Casualties.Count, ability: special.Aftermath.ToString());
-        _world.RecordSpecialDungeonMessage($"{special.Aftermath}: the activated labyrinth's deadline has expired. Its local aftermath is permanent; rewards and identities have not reset.");
+        string rubble = special.Rubble.Count == 0 ? "Protected passages remain open." : "The rubble can be excavated.";
+        _world.RecordSpecialDungeonMessage(special.Aftermath == SpecialDungeonAftermath.LethalCollapse
+            ? $"The activated labyrinth's lethal deadline has expired. Those caught underground have fallen. {rubble}"
+            : $"The activated labyrinth's deadline has expired. Its surviving inhabitants and treasure remain. {rubble}");
     }
 }

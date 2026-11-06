@@ -35,7 +35,7 @@ public sealed partial class WorldSession
     {
         var special = complex.Special!;
         string consequence = special.Aftermath == SpecialDungeonAftermath.LethalCollapse
-            ? "Lethal collapse: everyone underground inside this labyrinth dies at expiry. Its entrance caves in; outside survivors may excavate the remains."
+            ? "Lethal collapse: everyone underground inside this labyrinth dies at expiry. Clear outer passages may become rubble; outside survivors may excavate the remains."
             : "Partial collapse: several clear outer passages may become diggable rubble. Surviving inhabitants, treasure and reward receipts persist; the remains can be revisited.";
         string warning = $"Optional unstable labyrinth. Activation spends one action and starts a {special.Tuning.DurationSeconds}-second world-time deadline. Reinforcements and a confined invulnerable pursuer can arrive. Retreat is allowed; leaving never resets the deadline. {consequence}";
         return new(complex.Parcel.Id, DungeonEntrance(complex).Name, SpecialDungeonActivation(complex), special.Aftermath,

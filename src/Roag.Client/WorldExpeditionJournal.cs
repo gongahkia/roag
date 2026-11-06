@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Roag.Core.Tactics;
 using Roag.Core.World;
 
 namespace Roag.Client;
@@ -11,6 +12,11 @@ internal sealed partial class WorldGame
     {
         var entries = new List<(string Text, string Sprite)>();
         if (_session.CampaignFinale != null) entries.Add(("CAMPAIGN OBJECTIVE / " + _session.FinalObjective, "banner"));
+        foreach (var site in _session.GeneratedBossSites)
+        {
+            string name = CampaignBossCatalog.Definition(site.Kind, false, 0).Name;
+            entries.Add(($"Guardian report: {name}, {_session.Plan.Sites[site.SiteId].Name}. Surface entrance ({site.Entrance.X}, {site.Entrance.Y}); the chamber is on depth 1. Reports locate a destination without revealing its terrain or current occupants.", "banner"));
+        }
         var entrances = _session.KnownDungeonEntrances();
         entries.Add((entrances.Count == 0 ? "No labyrinth entrances recorded. Ask residents for rumours, or find stairs while exploring."
             : "REPORTED ENTRANCES / Reports mark locations, not explored terrain. Travel there with ordinary paid movement.", "banner"));
