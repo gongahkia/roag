@@ -1,4 +1,4 @@
-import { active, distance, index, inside, MOVE_TICKS, neighbors, same, spatial, walkable } from './model.ts';
+import { active, distance, index, inside, MOVE_TICKS, same, spatial, walkable } from './model.ts';
 import type { Cell, CommandInput, Person, World } from './model.ts';
 import type { Attack, BattleOrder, Combat, CombatRef, Raider } from './combat-model.ts';
 import { COMBAT_CONTENT as C } from './combat-content.ts';
@@ -22,11 +22,12 @@ export function combatCommandReason(w: World, input: CommandInput): string | nul
 }
 function releaseOrder(w: World, order: BattleOrder): void {
   const p=w.people.find(p=>p.id===order.actor);w.combat.orders=w.combat.orders.filter(o=>o.actor!==order.actor);
-  if(!p||p.life!=='alive'||p.body.routine&&p.body.routine.kind!=='watch')return;
+  if(!p||p.life!=='alive')return;
+  if(p.body.routine&&p.body.routine.kind!=='watch'){p.body.routine.resume=p.job?null:order.resume?{...order.resume}:null;return;}
   clearTravel(p);if(!p.job&&order.resume)p.destination={...order.resume};p.body.status='Battle order released; resuming colony work';
 }
 function setOrder(w: World,p: Person,mode: BattleOrder['mode'],target: Cell): void {
-  const old=w.combat.orders.find(o=>o.actor===p.id),resume=old?.resume??(!p.job?p.body.routine?.resume??p.destination:null);
+  const old=w.combat.orders.find(o=>o.actor===p.id),resume=old?old.resume:!p.job?p.body.routine?.resume??p.destination:null;
   if(p.body.routine?.kind==='watch')endRoutine(w,p);if(!p.body.routine)clearTravel(p);
   const order:BattleOrder={actor:p.id,mode,target:{...target},resume:resume?{...resume}:null};
   if(old)w.combat.orders[w.combat.orders.indexOf(old)]=order;else w.combat.orders.push(order);
@@ -79,14 +80,24 @@ export function resolveCombatImpacts(w: World): void {
   }
 }
 function guarded(p: Person): boolean {return p.body.duties.guard>0&&p.body.duties.guard>=Math.max(p.body.duties.gatherer,p.body.duties.builder,p.body.duties.cook,p.body.duties.healer);}
-function standGoal(w: World,desired: Cell,p: Person): Cell|null {
-  return [desired,...neighbors(desired)].filter(c=>walkable(w,c)).sort((a,b)=>distance(a,desired)-distance(b,desired)||distance(a,p)-distance(b,p)||a.y-b.y||a.x-b.x)[0]??null;
+function standGoal(w: World,desired: Cell,p: Person,claimed: Set<number>): Cell|null {
+  const occupied=spatial(w);
+  const legal=(c:Cell)=>distance(c,desired)<=3&&walkable(w,c)&&!claimed.has(index(c.x,c.y))&&(occupied.get(index(c.x,c.y))===undefined||occupied.get(index(c.x,c.y))===p.id);
+  // Preserve an established arrival tile, including after arrival, so crowd arbitration does not oscillate.
+  if(p.destination&&legal(p.destination))return p.destination;
+  if(legal(p))return {x:p.x,y:p.y};
+  const candidates:Cell[]=[];
+  for(let y=desired.y-3;y<=desired.y+3;y++)for(let x=desired.x-3;x<=desired.x+3;x++){const c={x,y};if(legal(c))candidates.push(c);}
+  return candidates.sort((a,b)=>distance(a,desired)-distance(b,desired)||distance(a,p)-distance(b,p)||a.y-b.y||a.x-b.x)[0]??null;
 }
 function destination(p: Person,goal: Cell): void {
   if(!p.next&&same(p,goal)){clearTravel(p,true);return;}
   if(!p.destination||!same(p.destination,goal)){p.destination={...goal};p.route=[];p.retryAt=0;p.failures=0;}
 }
 export function prepareCombat(w: World): void {
+  // Needs can down a source after impacts resolved earlier in this tick.
+  w.combat.attacks=w.combat.attacks.filter(a=>aliveSource(w,a.source));
+  const claimed=new Set<number>();
   w.combat.orders=w.combat.orders.filter(o=>w.people.some(p=>p.id===o.actor&&p.life==='alive'));
   w.combat.cooldowns=w.combat.cooldowns.filter(c=>w.people.some(p=>p.id===c.actor&&p.life==='alive'));
   for(const order of w.combat.orders){
@@ -94,7 +105,7 @@ export function prepareCombat(w: World): void {
     if(p.body.routine||p.body.recoverAt>w.tick)continue;
     const enemy=order.mode==='rally'?w.combat.raiders.filter(r=>distance(r,order.target)<=C.guard.pursuit).sort((a,b)=>distance(a,p)-distance(b,p)||a.id-b.id)[0]:undefined;
     if(enemy){const progress={status:'Rally: approaching attacker'};approach(w,progress,p,enemy,'Rally: approaching attacker');p.body.status=progress.status;}
-    else{const goal=standGoal(w,order.target,p);if(goal){destination(p,goal);p.body.status=`${order.mode==='rally'?'Guarding rally point':'Seeking emergency shelter'} ${goal.x},${goal.y}${p.blocked?': '+p.blocked:''}`;}else{clearTravel(p,true);p.body.status='Battle destination blocked; choose open ground or release order';}}
+    else{const goal=standGoal(w,order.target,p,claimed);if(goal){claimed.add(index(goal.x,goal.y));destination(p,goal);p.body.status=`${order.mode==='rally'?'Guarding rally point':'Seeking emergency shelter'} ${goal.x},${goal.y}${p.blocked?': '+p.blocked:''}`;}else{clearTravel(p,true);p.body.status='Battle destination blocked; choose open ground or release order';}}
   }
 }
 function launch(w: World,source: CombatRef,origin: Cell,target: Cell,kind: Attack['kind'],faction: Attack['faction'],amount: number,delay: number): boolean {
