@@ -40,6 +40,7 @@ export function step(world: World): void {
       const input=c.input,p=world.people.find(p=>p.id===input.actor)!;
       if(p.job){const j=world.jobs.find(j=>j.id===p.job)!;release(world,j);j.requested=null;j.retryAt=world.tick+20;}
       if(p.body.routine?.kind==='watch')endRoutine(world,p);
+      else if(p.body.routine){p.body.routine.resume={...input.target};continue;}
       clearTravel(p);p.destination={...input.target};p.retryAt=world.tick;
     } else applyWorkCommand(world,c.input);
   }

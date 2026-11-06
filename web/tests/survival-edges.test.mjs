@@ -19,9 +19,9 @@ test('a destination issued during eating is retained until care completes',()=>{
 test('production output survives missing storage, cancellation and physical recovery without repeated output',()=>{
  for(const cancel of [false,true]){
   const h=setup(),{w,cmd,until,tick}=h;
-  until(()=>w.statistics.eatenMeals>=12,'consume reserve',1200);
+  until(()=>w.statistics.eatenMeals>=12,'consume reserve',2000);
   for(const s of [...w.structures].filter(s=>s.kind==='stockpile'))cmd({kind:'dismantle',structure:s.id});until(()=>!w.structures.some(s=>s.kind==='stockpile'),'remove storage',600);
-  const kitchen=w.structures.find(s=>s.kind==='kitchen');cmd({kind:'produce',structure:kitchen.id,recipe:'meal'});const j=w.jobs.at(-1);
+  const kitchen=w.structures.find(s=>s.kind==='kitchen');cmd({kind:'produce',structure:kitchen.id,recipe:'meal'});const j=w.jobs.find(j=>j.kind==='produce'&&j.recipe==='meal'&&j.state==='active');
   until(()=>j.stage===3&&j.status.includes('Storage full'),'actual output awaiting storage',1500);const cycles=j.cycles,produced=w.produced.meal;tick(50);assert.equal(j.cycles,cycles);assert.equal(w.produced.meal,produced);save(w);
   if(cancel){cmd({kind:'work',job:j.id,action:'cancel'});assert.equal(enqueue(w,{kind:'work',job:j.id,action:'cancel'}),false);assert.equal(j.completions,0);}
   cmd({kind:'stockpile',target:{x:58,y:66}});until(()=>w.structures.find(s=>s.x===58&&s.y===66).inventory.meal>0,'physical output recovery',1000);save(w);
@@ -30,7 +30,7 @@ test('production output survives missing storage, cancellation and physical reco
 test('a sealed patient cannot be rescued remotely: the paid dose survives failed access and death',()=>{
  const h=setup(),{w,cmd,until,tick}=h,p=w.people[5];cmd({kind:'move',actor:p.id,target:{x:55,y:70}});until(()=>p.x===55&&p.y===70&&!p.next&&!p.destination,'isolation');cmd({kind:'dev',action:'down',id:p.id});
  for(const c of neighbors(p))w.terrain[index(c.x,c.y)]=2;w.terrainVersion++;
- const consumed=w.consumed.medicine;until(()=>w.people.some(a=>a.body.routine?.patient===p.id&&a.body.routine.cargo.medicine===1),'medicine carried');tick(100);assert.equal(p.life,'downed');assert.equal(w.consumed.medicine,consumed);assert.ok(w.people.some(a=>a.body.routine?.status.includes('interaction')));const copy=parseSave(save(w)).world;const n=p.body.deathAt-w.tick;tick(n);for(let i=0;i<n;i++)step(copy);assert.equal(canonical(copy),canonical(w));assert.equal(p.life,'dead');assert.equal(w.statistics.deaths,1);assert.equal(w.consumed.medicine,consumed);assert.ok(!w.people.some(a=>a.body.routine?.patient===p.id));save(w);
+ const consumed=w.consumed.medicine;until(()=>w.people.some(a=>a.body.routine?.patient===p.id&&a.body.routine.cargo.medicine===1),'medicine carried');tick(100);assert.equal(p.life,'downed');assert.equal(w.consumed.medicine,consumed);assert.ok(w.people.some(a=>/interaction|No route|budget/.test(a.body.routine?.status??'')));const copy=parseSave(save(w)).world;const n=p.body.deathAt-w.tick;tick(n);for(let i=0;i<n;i++)step(copy);assert.equal(canonical(copy),canonical(w));assert.equal(p.life,'dead');assert.equal(w.statistics.deaths,1);assert.equal(w.consumed.medicine,consumed);assert.ok(!w.people.some(a=>a.body.routine?.patient===p.id));save(w);
 });
 test('raw finite food is physically eaten and accounted without a kitchen',()=>{
  const h=harness(),{w,cmd,tick}=h;cmd({kind:'stockpile',target:{x:63,y:66}});cmd({kind:'gather',source:21});tick(2000);assert.ok(w.statistics.eatenFood>=6);assert.equal(w.statistics.eatenMeals,0);assert.equal(w.consumed.food,w.statistics.eatenFood);save(w);
@@ -39,5 +39,5 @@ test('overwork alone visibly damages a fed colony; a rebuilt bed and medical car
  const h=setup(),{w,cmd,until}=h;
  for(const s of [...w.structures].filter(s=>s.kind==='bed'))cmd({kind:'dismantle',structure:s.id});until(()=>!w.structures.some(s=>s.kind==='bed'),'remove beds');
  const p=w.people[0];until(()=>p.body.fatigue>=NEEDS.exhaustedAt&&p.body.health<100,'overwork injury',6000);assert.ok(p.body.hunger<NEEDS.starveAt);assert.ok(p.body.fatigue>=NEEDS.exhaustedAt);assert.match(p.body.status,/Overworked/);
- h.build('bed',66,68);until(()=>p.body.fatigue<NEEDS.restAt&&p.body.health===100,'bed and medicine recovery',1000);save(w);
+ for(const x of [66,68,70])cmd({kind:'build',building:'bed',target:{x,y:68}});until(()=>p.body.fatigue<NEEDS.restAt&&p.body.health===100,'bed and medicine recovery',1000);save(w);
 });

@@ -10,9 +10,9 @@ export const jobCost = (j: Job): Stock => j.kind === 'build' ? { ...C.buildings[
 export const jobTicks = (j: Job): number => j.kind === 'build' ? C.buildings[j.building!].ticks
   : j.kind === 'produce' ? RECIPES[j.recipe!].ticks : j.kind === 'farm' ? Math.max(NEEDS.plantingTicks,NEEDS.tendingTicks,NEEDS.harvestTicks) : j.kind === 'gather' ? C.extractionTicks : j.kind === 'repair' ? C.repairTicks : C.dismantleTicks;
 export const capacity = (s: Structure): number => s.kind === 'stockpile' ? C.stockpileCapacity : C.buildings[s.kind].capacity;
-export function clearTravel(p: Person): void {
+export function clearTravel(p: Person, keepYield=false): void {
   // Complete an already reserved edge; never snap a worker backwards or forwards.
-  p.destination = p.next ? { ...p.next } : null; p.route = []; p.blocked = null; p.yieldTo = null; p.failures = 0;
+  p.destination = p.next ? { ...p.next } : null; p.route = []; p.blocked = null; if(!keepYield)p.yieldTo = null; p.failures = 0;
 }
 export function drop(world: World, at: Cell, stock: Stock): void {
   if (!total(stock)) return;
@@ -77,7 +77,7 @@ export function addJob(world: World, kind: Job['kind'], at: Cell, ref: number | 
 export function applyWorkCommand(world: World, input: CommandInput): void {
   if (workCommandReason(world, input)) return;
   switch (input.kind) {
-    case 'duty': { const p=world.people.find(p=>p.id===input.actor)!; p.body.duties[input.duty]=input.value; if(p.job&&input.value===0&&jobDuty(world.jobs.find(j=>j.id===p.job)!)===input.duty)release(world,world.jobs.find(j=>j.id===p.job)!);if(p.body.routine?.kind==='rescue'&&p.body.duties.healer===0||p.body.routine?.kind==='watch')endRoutine(world,p);break; }
+    case 'duty': { const p=world.people.find(p=>p.id===input.actor)!; p.body.duties[input.duty]=input.value; if(p.job){const j=world.jobs.find(j=>j.id===p.job)!;const current=p.body.duties[jobDuty(j)];if(current===0||input.value>current)release(world,j);}if(p.body.routine?.kind==='rescue'&&p.body.duties.healer===0||p.body.routine?.kind==='watch')endRoutine(world,p);break; }
     case 'produce': { const s=world.structures.find(s=>s.id===input.structure)!; const j=addJob(world,input.recipe==='farm'?'farm':'produce',s,s.id,null);j.recipe=input.recipe==='farm'?null:input.recipe;break; }
     case 'gather': { const r = world.resources.find(r => r.id === input.source)!; addJob(world, 'gather', r, r.id, null); break; }
     case 'stockpile': world.structures.push({ id: world.nextId++, ...input.target, kind: 'stockpile', health: 100, open: true, inventory: emptyStock(), embodied: emptyStock() }); break;
@@ -135,7 +135,7 @@ export function deliver(world: World, j: Job, p: Person): boolean {
   const stores = world.structures.filter(s => capacity(s) > total(s.inventory)).sort((a,b) => distance(p,a)-distance(p,b) || a.id-b.id);
   let s = stores.find(s => s.id === j.delivery);
   if (!s) { s = stores[0]; j.delivery = s?.id ?? null; }
-  if (!s) { clearTravel(p); j.status = 'Storage full or absent; cargo retained. Establish storage or cancel to drop a bundle'; return false; }
+  if (!s) { clearTravel(p,true); j.status = 'Storage full or absent; cargo retained. Establish storage or cancel to drop a bundle'; return false; }
   if (!approach(world,j,p,s,'Hauling output to storage')) return false;
   let room = capacity(s) - total(s.inventory);
   for (const k of MATERIALS) { const n = Math.min(room,p.cargo[k]); s.inventory[k] += n; p.cargo[k] -= n; room -= n; }
@@ -241,12 +241,12 @@ export function advanceJobs(world: World): void {
   for (const j of [...world.jobs].sort((a,b) => b.priority-a.priority || a.id-b.id)) {
     if (j.state !== 'active' || j.retryAt>world.tick) continue;
     if (!j.worker) {
-      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !p.body.routine && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id));
+      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !p.body.routine && p.body.recoverAt<=world.tick && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id));
       if (!p) { j.status = j.requested ? 'Assigned worker unavailable' : 'Waiting for free worker with enabled duty'; continue; }
       j.worker = p.id; p.job = j.id;
     }
     const p = world.people.find(p => p.id === j.worker)!;
-    if (used.has(p.id)||p.body.routine) { if(p.body.routine)j.status=`Interrupted: ${p.body.routine.status}`;continue; } used.add(p.id);
+    if (used.has(p.id)||p.body.routine||p.body.recoverAt>world.tick) { if(p.body.routine)j.status=`Interrupted: ${p.body.routine.status}`;continue; } used.add(p.id);
     if((p.body.hunger>=NEEDS.mealAt||p.body.fatigue>=NEEDS.restAt||p.body.health<70)&&world.tick%2){j.status='Needs or injury slow work (50%)';continue;}world.statistics.workTicks++;perform(world,j,p);
   }
   // Empty piles have no remaining claims after pickups. Retain referenced empty piles until those jobs finish.

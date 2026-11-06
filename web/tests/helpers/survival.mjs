@@ -28,5 +28,6 @@ export function establish(scenario='colony') {
  const medicine=w.jobs.find(j=>j.recipe==='medicine'&&j.state==='active');cmd({kind:'work',job:medicine.id,action:'cancel'});
  until(()=>w.structures.some(s=>s.inventory.ore>=1),'spare ore');const ore=w.jobs.find(j=>j.recipe==='ore'&&j.state==='active');cmd({kind:'work',job:ore.id,action:'cancel'});
  cmd({kind:'produce',structure:workshop.id,recipe:'tool'});until(()=>w.recipeCounts.tool>=1,'tool production');cmd({kind:'work',job:w.jobs.find(j=>j.recipe==='tool'&&j.state==='active').id,action:'cancel'});
+ until(()=>w.people.every(p=>p.body.rests>=1&&!p.body.routine),'first natural rest cycle',2000);
  return {...h,farm,kitchen,infirmary,workshop};
 }
