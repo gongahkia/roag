@@ -211,7 +211,7 @@ public sealed partial class TacticalCombat
         {
             CampaignBossKind.Bellkeeper => "Hears recent loud party attacks, doors and alarms through attenuating walls; marks that exact noise tile for Soundseek. Breaking resonators cancels their expanding chime rings and grants an extended exposure window.",
             CampaignBossKind.SluiceMaw => "Surges lock marked channel tiles and push with the visible flow. Operate nearby valves for one action to open dry routes and deny the announced connected-pool feast. Draining exposes it to 50% extra damage.",
-            CampaignBossKind.Threadmother => "Hunts downed or weakened prey. Partition webs block movement and shots but retain a walking gap; cut an anchor to clear its partition. Evade the marked Reel In tile or cut its visible line. Fire spreads as delayed visible hazards and can hit allies.",
+            CampaignBossKind.Threadmother => "Hunts downed or weakened prey. Partition webs block movement and shots but retain a walking gap; cut an anchor to clear its partition. Evade the marked Reel In tile or cut its visible line. Its locked hit also shortens downed prey's bleed-out; only standing victims are pulled. Fire spreads as delayed visible hazards and can hit allies.",
             _ => $"Shield faces {memory.ShieldFacing}; front and front diagonals reduce damage by {(arena.FinalRole ? 90 : 80)}%. Turns and the long recovery after a locked forward charge expose flanks. Break bone ramparts or use their central gap and open ends."
         };
         var pending = State.Attacks.FirstOrDefault(a => a.Source == bossId && a.Boss != null);

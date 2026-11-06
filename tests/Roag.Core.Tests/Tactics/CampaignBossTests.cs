@@ -793,6 +793,45 @@ public sealed class CampaignBossTests
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReelDamagesItsLockedDownedPreyEvenAfterANearerDownedTargetAppears(bool final)
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother, final: final, members: 4);
+        var marked = a.World.Party.First(m => m.Id != a.Hero.Id);
+        var alternate = a.World.Party.First(m => m.Id != a.Hero.Id && m.Id != marked.Id);
+        marked.Position = a.Arena.Center.Offset(0, 4);
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, a.Boss.Id, a.Boss.Position, [marked.Position],
+            "test:down-prey", AttackDelivery.Area, DamageElement.Physical, 1000, a.Combat.Clock));
+        Assert.Equal(LifeState.Downed, marked.Life);
+        a.Boss.Tactics!.Enemy!.CampaignBoss!.Moves = 1;
+        a.Act(new(TacticalAction.Wait));
+        LockedAttack? attack = null;
+        for (int i = 0; i < 10; i++)
+        {
+            var actor = a.Combat.AdvanceToDecision(); Assert.NotNull(actor);
+            if (actor.Id == a.Boss.Id)
+            {
+                Assert.Equal(marked.Id, a.Combat.SelectEnemyTarget(a.Boss.Id));
+                a.Combat.CommitWorldEnemyTurn(); attack = Assert.Single(a.Combat.State.Attacks); break;
+            }
+            a.Act(new(TacticalAction.Wait));
+        }
+        Assert.NotNull(attack); Assert.Equal(marked.Id, attack.IntendedTarget); Assert.Equal(new[] { marked.Position }, attack.Cells);
+        a.NextHero();
+        alternate.Position = a.Arena.Center.Offset(0, 2);
+        a.Combat.ResolveAttack(new(a.Combat.State.NextAction++, a.Boss.Id, a.Boss.Position, [alternate.Position],
+            "test:down-nearer-prey", AttackDelivery.Area, DamageElement.Physical, 1000, a.Combat.Clock));
+        Assert.Equal(alternate.Id, a.Combat.SelectEnemyTarget(a.Boss.Id));
+        var position = marked.Position; a.Resolve(attack);
+        Assert.Equal(LifeState.Downed, marked.Life); Assert.Equal(position, marked.Position);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "BleedShortened" && e.Source == a.Boss.Id && e.Target == marked.Id && e.Action == attack.Id);
+        Assert.DoesNotContain(a.Combat.State.Events, e => e.Kind == "BleedShortened" && e.Target == alternate.Id && e.Action == attack.Id);
+        Assert.DoesNotContain(a.Combat.State.Events, e => e.Kind == "Displaced" && e.Target == marked.Id && e.Action == attack.Id);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
     [Fact]
     public void ForeignAndMalformedBossWindupsAreRejectedBeforeChangingAnyState()
     {

@@ -221,11 +221,11 @@ public sealed partial class TacticalCombat
                 Emit(cast.Move == CampaignBossMove.PartitionWeb ? "BossWebRaised" : "BossRampartRaised", boss.Id, 0, attack.Id, boss.Position); return true;
             case CampaignBossMove.ReelIn:
                 bool intact = arena.Fixtures.Any(f => f.Kind == CampaignBossFixtureKind.ReelLine && f.Group == attack.Id && f.Health > 0);
-                if (intact && _world.OccupantAt(attack.Cells[0], boss.Id) is { Life: LifeState.Alive } victim
+                if (intact && _world.OccupantAt(attack.Cells[0], boss.Id) is { Life: not LifeState.Dead } victim
                     && EnemySquads.Clear(boss.Position, victim.Position, p => p == victim.Position || ProjectileOpen(p)))
                 {
                     ResolveDamageBatch(attack);
-                    for (int step = 0; step < (arena.FinalRole ? 3 : 2) && victim.Position.Distance(arena.Center) > 1; step++)
+                    for (int step = 0; step < (arena.FinalRole ? 3 : 2) && victim.Life == LifeState.Alive && victim.Position.Distance(arena.Center) > 1; step++)
                         if (!TryShove(victim, BossFacing(victim.Position, arena.Center), boss.Id, attack.Id)) break;
                 }
                 else Emit("BossReelEvaded", boss.Id, 0, attack.Id, attack.Cells[0]);
