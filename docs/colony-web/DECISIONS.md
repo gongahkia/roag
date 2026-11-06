@@ -11,6 +11,7 @@ Recorded 2026-11-06. User instructions in the current conversation take preceden
 | D05 | Preserve first; coordinator now implements and reviews P05–P09 internally using isolated agent worktrees, then integrates tested local and remote main. | User explicitly replaced the manual goal/report handoff after P04. Keep milestone reports and acceptance gates. |
 | D06 | Existing gameplay code may eventually be replaced; archive it before removal. | User wants a fresh implementation. Removal is sequenced at release cutover, after recovery checks. |
 | D07 | Real time with pause and speed controls; autonomous workers and indirect orders. | Recommended in the accepted analysis; working product default. |
+| D09 | Add a dedicated game HUD tranche before release: full-screen contextual/diegetic interface using the preserved sprite pack and a Cozette/Creep-style bitmap font. | Explicit user direction on 2026-11-07; see HUD_PLAN.md. |
 | D08 | Vercel is the selected public release target. Keep root and subpath static-build compatibility. | User selected Vercel on 2026-11-07; account/project details requested and pending. |
 
 The following are initial implementation defaults, not separately approved product

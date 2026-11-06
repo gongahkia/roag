@@ -23,6 +23,7 @@ or deployed yet. Vercel is selected; account/project details are pending.
 | P06 Endless raids/squads/first boss | NOT STARTED | Depends on accepted P05. |
 | P07 Bosses/biomes/hazards | NOT STARTED | Depends on accepted P06. |
 | P08 Living world/recovery economy | NOT STARTED | Depends on accepted P07. |
+| P09-HUD Game interface | NOT STARTED | Explicit user-requested tranche: full-screen contextual/diegetic HUD, sprite pack and bitmap font; [plan](HUD_PLAN.md). |
 | P09 Release/performance/cutover | NOT STARTED | Depends on accepted P08 and all required earlier gates. |
 
 Confirmed defeat rule: heart destroyed OR all colonists dead. Temporary downing is

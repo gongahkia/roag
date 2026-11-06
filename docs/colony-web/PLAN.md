@@ -373,6 +373,14 @@ Acceptance:
 4. Run a longer colony scenario with food/stock/population/event-history measurements;
    distinguish fixture isolation from natural balance and disclose unresolved issues.
 
+### P09-HUD — Dedicated game interface tranche
+
+Added by explicit user direction on 2026-11-07. After gameplay stabilizes, replace
+the scrolling webpage presentation with a full-screen game HUD, contextual and
+diegetic controls, preserved sprite-pack artwork and a readable bitmap font in
+the Cozette/Creep style. Follow [HUD_PLAN.md](HUD_PLAN.md) and retain a separate
+report. Complete this tranche before final release/browser/performance checks.
+
 ### P09 — Release, performance, and retirement of old runtime
 
 Dependencies: P08 and all earlier acceptance gates; P05/P06 may have local or explicitly
