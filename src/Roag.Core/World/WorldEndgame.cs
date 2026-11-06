@@ -6,7 +6,7 @@ namespace Roag.Core.World;
 public sealed partial class WorldSession
 {
     public Actor FinalBoss => State.Actors.Single(a => a.Id == State.Endgame.ActorId);
-    public string FinalObjective => State.Endgame.Victory ? "The world's final threat has fallen. This expedition is complete."
+    public string FinalObjective => CampaignFinale != null ? GeneratedFinalObjective() : State.Endgame.Victory ? "The world's final threat has fallen. This expedition is complete."
         : $"{FinalBoss.Name} waits beneath {Plan.Sites[State.Endgame.SiteId].Name} ({FinalBoss.Position.X}, {FinalBoss.Position.Y}), depth {FinalBoss.Position.Floor}. No seal or quest bars your way.";
     private void PopulateAdventures()
     {

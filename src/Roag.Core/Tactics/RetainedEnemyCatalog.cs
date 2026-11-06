@@ -55,7 +55,8 @@ public sealed record RetainedEnemyCast(long Target, int RandomState);
 public sealed partial class TacticalCombat
 {
     private EnemyDefinition EnemyDefinitionFor(Actor actor) => actor.Tactics!.Enemy?.Retained != null
-        ? RetainedEnemyCatalog.Definition(_world.Content, actor) : actor.Tactics.Enemy?.CampaignBoss != null ? CampaignBossDefinition(actor) : EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
+        ? RetainedEnemyCatalog.Definition(_world.Content, actor) : actor.Tactics.Enemy?.CampaignBoss != null ? CampaignBossDefinition(actor)
+            : _world.FinalEnemyDefinition(actor) ?? EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
 
     public void RegisterRetainedEnemy(Actor actor, long? readyAt = null)
     {

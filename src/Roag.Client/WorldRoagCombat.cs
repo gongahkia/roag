@@ -82,7 +82,7 @@ internal sealed partial class WorldGame
         if (_session.HasNativeParty && focused && Press(Keys.Escape) && _panel.StartsWith("dungeon-", StringComparison.Ordinal))
         { ClosePanel(); _roagKeyboard = keyboard; return; }
         if (focused && HandleDungeonMenuKeyboard(keyboard)) { _roagKeyboard = keyboard; return; }
-        if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.State.Endgame.Victory&&!_session.State.AwaitingContinuation)
+        if(focused&&_panel.Length==0&&!PointerModal&&!Playback.Busy&&!_session.ExpeditionEndedByVictory&&!_session.State.AwaitingContinuation)
         {
             if(_session.State.RoagCombat || _session.HasNativeParty)
             {

@@ -314,7 +314,7 @@ internal sealed partial class WorldGame
         if (PointerModal) return;
         var control = WorldMouseControl.Hit(_controls, _mouse.Position);
         bool hand = control is { Enabled: true };
-        if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation && control == null)
+        if (_panel.Length == 0 && !_session.ExpeditionEndedByVictory && !_session.State.AwaitingContinuation && control == null)
         {
             if (CombatStageVisible)
             {

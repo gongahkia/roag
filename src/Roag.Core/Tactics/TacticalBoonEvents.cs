@@ -177,6 +177,7 @@ public sealed partial class TacticalCombat
                 .Concat(State.CampaignBosses?.Pulses.Where(p => p.Causality != null).Select(p => p.Causality!.ChainId) ?? []);
             State.BoonEffects.Dispatch.Prune(retained);
         }
+        SettleCampaignFinale();
         SettleProfileProgress();
     }
 

@@ -1,4 +1,5 @@
 using Roag.Core.Dungeons;
+using Roag.Core.Content;
 using Roag.Core.Tactics;
 using System.Text.Json.Serialization;
 
@@ -18,8 +19,10 @@ public sealed class NativeCampaignState
     public long PackResourcesConsumed { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<DungeonComplexState>? Complexes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GeneratedCampaignFinale? Finale { get; set; }
 
-    internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors)
+    internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors, ContentCatalog? content = null)
     {
         if (StartedAt < 0 || StartedAt > world.Tick || world.Dungeon != null || world.Tactics is not { DrivesWorldClock: true }
             || world.RoagCombat || world.RoagCombatState.Length != 0 || plan.RoagNative
@@ -51,6 +54,7 @@ public sealed class NativeCampaignState
         Breeding.Validate(world, actors);
         if (EncounterRewards == null) throw new InvalidDataException("Missing native encounter rewards.");
         EncounterRewards.Validate(world, actors);
+        Finale?.Validate(plan, world, content ?? ContentCatalog.Default, actors);
     }
 }
 

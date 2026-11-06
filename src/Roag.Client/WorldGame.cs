@@ -190,7 +190,7 @@ internal sealed partial class WorldGame : Game
                 else if (_panel == "person" && SpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
                 else if (_panel == "dungeon-social" && NativeSocialSpeechBox(PanelBox(GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height)).Contains(mouse.Position)) AdvanceDialogue();
                 else if (_contextCells != null) ClearWorldSelection(); // Dismiss consumes the click.
-                else if (_panel.Length == 0 && !_session.State.Endgame.Victory && !_session.State.AwaitingContinuation)
+                else if (_panel.Length == 0 && !_session.ExpeditionEndedByVictory && !_session.State.AwaitingContinuation)
                 {
                     if (_session.State.RoagCombat || _session.HasNativeParty) RoagClick(mouse.Position);
                     else if (CombatStageVisible) CombatClick(mouse.Position);
@@ -214,7 +214,7 @@ internal sealed partial class WorldGame : Game
                 Zoom(Math.Sign(mouse.ScrollWheelValue - _mouse.ScrollWheelValue));
         }
         else if (!InputFocused) { _dragStart = null; _dragging = false; }
-        if (_session.IsInCombat || _session.State.Endgame.Victory || _session.State.AwaitingContinuation) ClearWorldSelection();
+        if (_session.IsInCombat || _session.ExpeditionEndedByVictory || _session.State.AwaitingContinuation) ClearWorldSelection();
         CollectCombatFeedback();
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
         _session.ModalOpen = PanelPausesTime(_panel) || PointerModal || Playback.Busy;
@@ -369,7 +369,7 @@ internal sealed partial class WorldGame : Game
             && _session.Visible.Contains(new((int)Math.Floor(motion.Position.X), (int)Math.Floor(motion.Position.Y), a.Position.Floor))
             && ActorRect(motion.Position).Contains(point));
         _pointer.Update(_session, _camera, point,
-            enabled: _panel.Length == 0 && !PointerModal && (_session.HasNativeParty || !_session.IsInCombat) && !_session.State.AwaitingContinuation && !_session.State.Endgame.Victory && WorldMouseControl.Hit(_controls, point) == null,
+            enabled: _panel.Length == 0 && !PointerModal && (_session.HasNativeParty || !_session.IsInCombat) && !_session.State.AwaitingContinuation && !_session.ExpeditionEndedByVictory && WorldMouseControl.Hit(_controls, point) == null,
             interactionCell: actor?.Position);
     }
     protected override void Draw(GameTime gameTime)

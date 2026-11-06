@@ -80,7 +80,7 @@ public sealed partial class TacticalCombat
         if (actor.Tactics!.Enemy!.CampaignBoss != null) return PlanCampaignBossTurn(actor, target, nextStep);
         if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks,
             combatSupport: target != null || _world.State.NativeCampaign == null);
-        var definition = EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
+        var definition = _world.FinalEnemyDefinition(actor) ?? EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
         if (target == null && definition.Id is not ("core:enemy/cinder_mender" or "core:enemy/mend_acolyte"
             or "core:enemy/ward_weaver" or "core:enemy/grave_cantor"))
         {

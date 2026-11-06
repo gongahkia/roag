@@ -18,7 +18,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     public bool Paused { get; set; } = true;
     public bool ModalOpen { get; set; }
     public bool Focused { get; set; } = true;
-    public bool Frozen => Paused || ModalOpen || !Focused || IsInCombat || State.AwaitingContinuation || DeathPending || State.Endgame.Victory;
+    public bool Frozen => Paused || ModalOpen || !Focused || IsInCombat || State.AwaitingContinuation || DeathPending || ExpeditionEndedByVictory;
     public bool DeathPending { get; private set; }
     public string? SavePath { get; set; }
     public HashSet<WorldPosition> Visible { get; } = [];

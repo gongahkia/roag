@@ -19,7 +19,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid tactical world header.");
         state.Profile?.Validate(state, world.NextActorId);
         var queue = ActionTimeline.Restore(state.Timeline).Snapshot();
-        world.NativeCampaign?.Validate(plan, world, world.Actors.ToDictionary(a => a.Id));
+        world.NativeCampaign?.Validate(plan, world, world.Actors.ToDictionary(a => a.Id), content);
         if (state.Tuning is null) throw new InvalidDataException("Missing tactical tuning.");
         try { state.Tuning.Validate(); }
         catch (ArgumentException e) { throw new InvalidDataException("Invalid saved tactical tuning.", e); }

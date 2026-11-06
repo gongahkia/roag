@@ -39,9 +39,26 @@ public sealed class OpenCampaignConstructionTests(ITestOutputHelper output)
         Assert.All(reference.State.Actors, old =>
         {
             var actual = world.ActorById(old.Id);
-            Assert.Equal(old.Position, actual.Position); Assert.Equal(old.Health, actual.Health);
+            var home = world.CampaignFinale!.Guardians.FirstOrDefault(g => g.Actor == old.Id || g.Actor == old.EncounterLeader);
+            if (home == null) Assert.Equal(old.Position, actual.Position);
+            else
+            {
+                var original = reference.ActorById(home.Actor);
+                Assert.Equal(home.Spawn.Offset(old.Position.X - original.Position.X, old.Position.Y - original.Position.Y), actual.Position);
+            }
+            Assert.Equal(old.Health, actual.Health); Assert.Equal(old.MaxHealth, actual.MaxHealth);
             Assert.Equal(old.Kind, actual.Kind); Assert.Equal(old.Name, actual.Name);
+            Assert.Equal(old.Archetype, actual.Archetype); Assert.Equal(old.VariantId, actual.VariantId);
+            Assert.Equal(old.EncounterLeader, actual.EncounterLeader); Assert.Equal(old.Tactics?.DefinitionId, actual.Tactics?.DefinitionId);
+            Assert.Equal(JsonSerializer.Serialize(old.Tactics), JsonSerializer.Serialize(actual.Tactics));
+            Assert.Equal(JsonSerializer.Serialize(old.Equipment), JsonSerializer.Serialize(actual.Equipment));
+            Assert.Equal(JsonSerializer.Serialize(old.Cargo), JsonSerializer.Serialize(actual.Cargo));
         });
+        Assert.Equal(JsonSerializer.Serialize(reference.State.Loot), JsonSerializer.Serialize(world.State.Loot));
+        Assert.Equal(JsonSerializer.Serialize(reference.State.GeneratedEquipment), JsonSerializer.Serialize(world.State.GeneratedEquipment));
+        Assert.Equal(48, world.CampaignFinale!.Guardians.Count);
+        Assert.Equal(24, world.CampaignFinale.Guardians.Select(g => g.SiteId).Distinct().Count());
+        Assert.Equal(20, world.Plan.Sites.Count(s => world.RetainedGuardiansAt(s.Id).Count == 0 && world.GeneratedBossSites.All(b => b.SiteId != s.Id)));
         Assert.True(world.ChooseDungeonClass(ClassKind.Hookrunner).Success);
         var waits = Stopwatch.StartNew();
         for (int i = 0; i < 4; i++)
