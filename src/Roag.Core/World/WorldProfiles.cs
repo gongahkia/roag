@@ -67,6 +67,15 @@ public sealed partial class WorldSession
         if (HasNativeParty) DungeonCombat.RecordPursuerArrival(pursuer);
     }
 
+    /// <summary>Canonical original-complex completion is independent of the selected world-final role.</summary>
+    public void RecordComplexVictory(long boss)
+    {
+        if (!HasNativeParty || State.NativeCampaign?.Complexes == null) return;
+        if (State.NativeCampaign.Complexes.Any(c => c.Run.Victory && c.Run.BossExitReceipts.Contains(boss)
+            && c.Run.Floors.Any(f => f.Stage == 4 && f.Boss == boss)))
+            DungeonCombat.RecordCampaignVictory(boss);
+    }
+
     /// <summary>Root campaign settlement owns final-role choice. This hook only observes settled final victory.</summary>
     public void RecordCampaignVictory(long boss)
     {

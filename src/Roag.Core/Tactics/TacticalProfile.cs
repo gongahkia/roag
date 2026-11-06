@@ -85,6 +85,9 @@ public sealed partial class TacticalCombat
         if (State.Profile is not { } progress) return;
         if (_world.State.Dungeon is { Victory: true } run && run.Floors.FirstOrDefault(f => f.Stage == 4) is { } finale)
             RecordCampaignVictory(finale.Boss);
+        if (!progress.Earned.Contains(AchievementCatalog.Prefix + "regents_fall") && _world.State.NativeCampaign?.Complexes is { } complexes)
+            foreach (var complex in complexes.Where(c => c.Run.Victory))
+                foreach (var floor in complex.Run.Floors.Where(f => f.Stage == 4 && f.Boss > 0)) _world.RecordComplexVictory(floor.Boss);
         if (progress.Chains.Count > 0)
             progress.Chains.RemoveAll(c => !State.BoonEffects.Dispatch.Chains.ContainsKey(c.Chain));
     }

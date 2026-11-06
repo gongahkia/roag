@@ -41,6 +41,10 @@ public sealed class NativeProfileClientTests : IDisposable
             Directory.CreateDirectory(control); Directory.CreateDirectory(Path.Combine(_directory, "real-profile"));
             string link = Path.Combine(control, "linked-profile"); Directory.CreateSymbolicLink(link, Path.Combine(_directory, "real-profile"));
             Assert.Throws<ArgumentException>(() => Options.Parse(["--playtest-control", control, "--profile", link]));
+            string internalProfile = Path.Combine(control, "profile"); Directory.CreateDirectory(internalProfile);
+            string realRecord = Path.Combine(_directory, "real-profile", "profile-a.roag"); File.WriteAllText(realRecord, "preserve");
+            File.CreateSymbolicLink(Path.Combine(internalProfile, "profile-a.roag"), realRecord);
+            Assert.Throws<ArgumentException>(() => Options.Parse(["--playtest-control", control, "--profile", internalProfile]));
         }
     }
 

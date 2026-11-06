@@ -179,4 +179,21 @@ public sealed class NativeProfileStoreTests
         int writes = disk.Writes; Assert.Throws<IOException>(() => store.AllocateRun()); Assert.Equal(writes, disk.Writes);
     }
 
+    [Fact]
+    public void CheckpointRetryReplicatesTheCurrentWorldEvenWhenTheFirstCopyAlreadyAdvanced()
+    {
+        var disk = new MemoryStorage(); var store = new NativeProfileStore(disk); var old = store.AllocateRun();
+        store.CommitCheckpoint(old, terminal: false); var fresh = store.AllocateRun();
+        disk.FailAt = disk.Writes + 2;
+        Assert.Throws<IOException>(() => store.CommitCheckpoint(fresh, terminal: false));
+        disk.FailAt = int.MaxValue; store.CommitCheckpoint(fresh, terminal: false);
+        var snapshots = disk.Files.ToDictionary(p => p.Key, p => p.Value);
+        foreach (string slot in NativeProfileStore.Slots)
+        {
+            disk.Files.Clear(); foreach (var pair in snapshots) disk.Files.Add(pair.Key, pair.Value);
+            disk.Files[slot] = [0]; store.ValidateContinuation(fresh, terminal: false);
+            Assert.Throws<IOException>(() => store.ValidateContinuation(old, terminal: false));
+        }
+    }
+
 }

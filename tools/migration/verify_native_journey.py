@@ -45,7 +45,16 @@ class Client:
             if source_state.get('tactics', {}).get('profile') is not None:
                 # Copy only the actual profile already belonging to this save.
                 # Never enroll an old fixture or manufacture a new run identity.
-                shutil.copytree(continuation / 'control/campaign.json.profile', Path(str(self.slot) + '.profile'))
+                profile_directory = continuation / 'control/campaign.json.profile'
+                expected_profile = source_state['tactics']['profile']['profile']
+                identities = []
+                for record in profile_directory.glob('profile-*.roag'):
+                    try:
+                        identities.append(json.loads(json.loads(record.read_text())['payload'])['id'])
+                    except (ValueError, KeyError):
+                        pass  # Preserve damaged replicas exactly; native loading decides recovery.
+                assert expected_profile in identities and all(identity == expected_profile for identity in identities), 'Continuation profile belongs to another save'
+                shutil.copytree(profile_directory, Path(str(self.slot) + '.profile'))
         metadata = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             status=subprocess.check_output(['git', 'status', '--short'], cwd=ROOT, text=True),
             assemblies={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.runtime.glob('Roag*.dll')},

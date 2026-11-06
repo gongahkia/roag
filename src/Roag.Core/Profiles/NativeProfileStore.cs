@@ -122,6 +122,9 @@ public sealed class NativeProfileStore
 
     private static void Check(ProfileData data, CampaignProgress progress, bool terminal)
     {
+        if (progress.Earned == null || progress.Pending == null || progress.StartingAchievements == null
+            || progress.Earned.Any(id => !AchievementCatalog.Contains(id)) || progress.Pending.Any(id => !progress.Earned.Contains(id)))
+            throw new InvalidDataException("Invalid pending permanent achievement.");
         if (progress.Profile != data.Id || progress.Run <= 0 || progress.Run >= data.NextRun
             || progress.StartingAchievements.Except(data.Earned).Any())
             throw new IOException("This campaign's permanent profile is missing or differs; progress was preserved.");
@@ -155,10 +158,10 @@ public sealed class NativeProfileStore
         using var held = _storage.Lock();
         var found = Compatible(allowAbsent: false); var data = found.Inspection.Data!;
         Check(data, progress, terminal);
-        if (data.CurrentRun < progress.Run)
-        {
-            data.CurrentRun = progress.Run; WriteBoth(found, data);
-        }
+        data.CurrentRun = Math.Max(data.CurrentRun, progress.Run);
+        // A previous first replica may already contain this checkpoint. Retrying
+        // must still repair its second copy before reporting a successful save.
+        WriteBoth(found, data);
     }
 
     private sealed class DiskStorage(string directory) : IProfileStorage

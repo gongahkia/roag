@@ -9,7 +9,7 @@ import argparse
 import json
 from pathlib import Path
 
-from verify_native_journey import Client, Journey
+from verify_native_journey import Client, Journey, distance, position
 
 SECRET = 'core:achievement/uncovered_truth'
 
@@ -71,18 +71,22 @@ def verify(client, budget, large):
             client.capture('exploring-' + str(step))
     else:
         raise AssertionError('Natural secret discovery action budget exhausted')
-    assert 'secret' in journey.receipts, 'The secret was not revealed by the ordinary action driver'
+    assert 'secret' in journey.receipts or any(s['revealed'] for s in client.ui['nativeDungeon']['secrets']), 'No observed secret discovery receipt'
     client.capture('03-real-secret-unlock')
     page(client, '04-profile-earned')
     earned = set(profile(client)['earned'])
     state = exact_resume(client, '05-unlock-exact')
     assert 'core:boon/prospectors_heart' not in state['tactics']['chests']['availableBoons'], 'The existing chest pool changed mid-run'
+    assert any(e['kind'] == 'SecretDiscovered' for e in state['tactics']['events']), 'No actual committed secret event'
     for step in range(budget):
         journey.observe()
         if journey.player['health'] <= 0:
             break
-        if journey.fighters:
+        if journey.fighters and min(distance(journey.at, position(f['position'])) for f in journey.fighters) <= 3:
             client.key('space')  # Deliberately face actual danger; enemies/bleeding decide the outcome.
+        elif journey.fighters:
+            foe = min(journey.fighters, key=lambda f: distance(journey.at, position(f['position'])))
+            assert journey.go(journey.neighbors(position(foe['position']))), 'No observed approach to the visible danger'
         else:
             assert journey.explore(), 'No observed route to encounter danger'
         if step % 60 == 0:
@@ -105,6 +109,10 @@ def verify(client, budget, large):
     fresh = exact_resume(client, '08-fresh-exact')
     assert len(fresh['party']) == 1 and not fresh['awaitingContinuation']
     assert fresh['tactics']['profile']['earned'] == []
+    founder = next(a for a in fresh['actors'] if a['id'] == fresh['party'][0])
+    assert founder['life'] == 0 and founder['tactics']['build']['level'] == 1 and founder['tactics']['build']['experience'] == 0
+    assert founder['tactics']['boons']['inventory']['stacks'] == {}
+    assert fresh['inventory']['gold'] == 0
     assert 'core:boon/prospectors_heart' in fresh['tactics']['chests']['availableBoons']
     page(client, '09-profile-retained-new-world')
     client.capture('10-fresh-resumed')

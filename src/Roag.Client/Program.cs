@@ -285,7 +285,7 @@ finally
                 string profileRelative = Path.GetRelativePath(playtest, o.ProfileDirectory);
                 if (Path.IsPathRooted(profileRelative) || profileRelative == ".." || profileRelative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                     throw new ArgumentException("Automated playtest profiles must stay inside the isolated control directory.");
-                foreach (string target in new[] { o.Save, o.Save + ".chunks", o.ProfileDirectory })
+                foreach (string target in new[] { o.Save, o.Save + ".chunks", o.ProfileDirectory, Path.Combine(o.ProfileDirectory, "profile-a.roag"), Path.Combine(o.ProfileDirectory, "profile-b.roag"), Path.Combine(o.ProfileDirectory, "profile.lock") })
                 {
                     string? current = target;
                     while (current != null && current.Length >= playtest.Length)
