@@ -29,7 +29,7 @@ export function prepareBossSpawn(w: BossWorld, ticket: SpawnTicket): boolean {
   const placement = findBossLayout(w, ticket.kind, ticket.edge);
   if (!placement.layout) { w.bosses.status = `Boss entry deferred: ${placement.reason} (${placement.attempts} candidate sites checked)`; return false; }
   const layout = placement.layout;
-  w.bosses.encounters.push({ owner: ticket.id, kind: ticket.kind, wave: w.combat.wave, layout, drained: layout.channels.map(() => false), moves: 0, readyAt: w.tick, exposedUntil: 0, noise: null, feast: null, deadAt: null });
+  w.bosses.encounters.push({ owner: ticket.id, kind: ticket.kind, wave: w.combat.wave, layout, drained: layout.channels.map(() => false), arrived: false, moves: 0, readyAt: w.tick, exposedUntil: 0, noise: null, feast: null, deadAt: null });
   for (const at of layout.resonators) feature(w, ticket.id, 'resonator', at);
   layout.channels.forEach((channel, n) => feature(w, ticket.id, 'valve', channel.valve, null, n));
   for (const at of layout.anchors) feature(w, ticket.id, 'anchor', at, ticket.id);
@@ -144,7 +144,11 @@ export function bossTurn(w: BossWorld, r: Raider, api: BossApi): boolean {
     return true;
   }
   if (w.bosses.effects.some(a => a.owner === r.id && a.kind !== 'fire') || e.readyAt > w.tick) return true;
-  if (!same(r, e.layout.center)) { r.target = null; api.move(r, e.layout.center, false); return true; }
+  if (r.kind === 'sluice' && e.drained.every(Boolean)) return false;
+  if (!e.arrived) {
+    if (!same(r, e.layout.center)) { r.target = null; api.move(r, e.layout.center, false); return true; }
+    e.arrived = true;
+  }
   const acted = r.kind === 'bellkeeper' ? bellTurn(w, e, r) : r.kind === 'sluice' ? sluiceTurn(w, e, r) : threadTurn(w, e, r);
   if (acted) { e.moves++; e.readyAt = w.tick + B.profiles[r.kind].cooldown; r.route = []; r.target = null; return true; }
   return false;
@@ -166,7 +170,7 @@ function ignite(w: BossWorld, start: BossFeature, source: number): void {
       const cells = [cell(current.feature), ...neighbors(current.feature).filter(at => !blocksShot(w, at))];
       effect(w, e, 'fire', current.feature, cells, Math.min(B.fire.maxDelay, B.fire.windup + current.depth * B.fire.gap), B.fire.damage, { source, feature: current.feature.id, group: current.feature.group });
     }
-    for (const next of candidates) if (!seen.has(next.id) && (distance(current.feature, next) === 1 || current.feature.kind === 'anchor' && next.kind === 'anchor' && current.feature.group === next.group)) { seen.add(next.id); queue.push({ feature: next, depth: current.depth + 1 }); }
+    for (const next of candidates) if (!seen.has(next.id) && distance(current.feature, next) === 1) { seen.add(next.id); queue.push({ feature: next, depth: current.depth + 1 }); }
   }
   w.bosses.status = 'Ignited connected web; locked fire pulses burn either faction even if their caster dies';
 }
@@ -201,7 +205,7 @@ export function prepareBossCounters(w: BossWorld, api: BossApi): void {
     const clear = (): void => { w.bosses.work = w.bosses.work.filter(work => work.actor !== order.actor); };
     if (!person || person.life !== 'alive' || !f || bossCounterReason(w, order.mode, order.target)) { clear(); api.release(order.actor); continue; }
     if (person.body.routine && person.body.routine.kind !== 'watch' || person.body.recoverAt > w.tick) { clear(); continue; }
-    if (person.next || distance(person, f) !== 1) { clear(); api.approach(person, f); continue; }
+    if (person.next || distance(person, f) > 1) { clear(); api.approach(person, f); continue; }
     let work = w.bosses.work.find(work => work.actor === person.id);
     if (!work) { work = { actor: person.id, mode: order.mode, target: f.id, startedAt: w.tick, progress: 0 }; w.bosses.work.push(work); }
     work.progress++; person.body.status = `${order.mode} ${f.kind}: ${work.progress}/${B.counters[order.mode]}`;
@@ -226,7 +230,9 @@ function resolve(w: BossWorld, value: BossEffect, api: BossApi): void {
   else if (value.kind === 'surge') {
     if (value.channel === null || e.drained[value.channel]) return;
     const people = w.people.filter(p => p.life === 'alive' && value.cells.some(at => same(at, p))).map(p => p.id);
-    hurtCells(w, value, api); for (const id of people) api.shove(id, e.layout.channels[value.channel]!.flow);
+    const raiders = w.combat.raiders.filter(r => value.cells.some(at => same(at, r))).map(r => r.id);
+    hurtCells(w, value, api, true); const flow = e.layout.channels[value.channel]!.flow;
+    for (const id of people) api.shove(id, flow); for (const id of raiders) api.shoveRaider(id, flow);
   } else if (value.kind === 'feast') {
     if (value.channel !== null && !e.drained[value.channel] && wetRoute(w, e, r!, value.channel)) {
       const pool = e.layout.channels[value.channel]!.pool, occupant = spatial(w).get(key(pool));

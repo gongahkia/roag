@@ -14,7 +14,7 @@ export type BossEffect = {
 };
 export type BossEncounter = {
   owner: number; kind: BossKind; wave: number; layout: BossLayout;
-  drained: boolean[]; moves: number; readyAt: number; exposedUntil: number;
+  drained: boolean[]; arrived: boolean; moves: number; readyAt: number; exposedUntil: number;
   noise: { cell: Cell; at: number } | null;
   feast: { channel: number; expiresAt: number } | null;
   /** Retained only while finite fire pulses still need this historical owner. */
@@ -26,6 +26,7 @@ export type BossWorld = World & { bosses: Bosses };
 /** Core owns collision, shared search limits, physical movement and final damage cleanup. */
 export type BossApi = {
   move(raider: Raider, target: Cell, adjacent: boolean, allowedCells?: Cell[]): void;
+  shoveRaider(raiderId: number, delta: Cell): boolean;
   shove(personId: number, delta: Cell): boolean;
   damage(ref: CombatRef, amount: number, origin: Cell): void;
   approach(person: Person, target: Cell): void;
