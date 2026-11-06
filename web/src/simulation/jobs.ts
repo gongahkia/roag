@@ -34,7 +34,7 @@ export function finish(world: World, j: Job, cancelled = false): void {
   if (j.kind === 'build') world.terrainVersion++;
 }
 export function placementReason(world: World, target: Cell): string | null {
-  if (!inside(target) || target.x < 1 || target.y < 1 || target.x > 126 || target.y > 126 || !walkable(world, target)) return 'Choose open ground away from the heart and structures';
+  if (!inside(target) || target.x < 2 || target.y < 2 || target.x > 125 || target.y > 125 || !walkable(world, target)) return 'Choose open ground inside the outer approach lane, away from the heart and structures';
   if (spatial(world).has(index(target.x, target.y))) return 'A worker occupies or has reserved this tile';
   if (world.resources.some(r => r.remaining>0 && same(r, target)) || world.piles.some(p => same(p, target) && total(p.inventory)) || world.structures.some(s => same(s, target))) return 'A source, bundle or structure occupies this tile';
   if (world.jobs.some(j => active(j) && same(j, target))) return 'Another job occupies this tile';
@@ -232,7 +232,7 @@ function perform(world: World, j: Job, p: Person): void {
   } else if(j.kind==='reload') {
     const n=Math.min(j.site.ammo,capacity(structure!)-structure!.inventory.ammo);
     structure!.inventory.ammo+=n;j.site.ammo-=n;
-  } else if (j.kind === 'repair') { structure!.health = 100; for (const k of MATERIALS) { world.spent[k] += j.site[k]; j.site[k] = 0; } }
+  } else if (j.kind === 'repair') { structure!.health = 100; world.combat.stats.repairs++; for (const k of MATERIALS) { world.spent[k] += j.site[k]; j.site[k] = 0; } }
   else removeStructure(world,structure!,j.id);
   world.terrainVersion++; finish(world,j);
 }

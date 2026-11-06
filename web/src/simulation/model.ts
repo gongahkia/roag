@@ -3,7 +3,7 @@ import type { Duty, Recipe } from './survival-content.ts';
 import type { Streams } from './random.ts';
 import type { Building, Material, Stock } from './work-content.ts';
 export const WIDTH = 128, HEIGHT = 128, TICK_MS = 100, MOVE_TICKS = 4, SEARCH_LIMIT = 4096;
-export const CONTENT_VERSION = 'colony-p05-1';
+export const CONTENT_VERSION = 'colony-p06-1';
 export type Cell = { x: number; y: number };
 export type Life = 'alive' | 'downed' | 'dead';
 export type Routine = { kind: 'eat' | 'rest' | 'treatment' | 'rescue' | 'watch'; facility: number | null; patient: number | null; reservation: Reservation | null; cargo: Stock; progress: number; status: string; resume: Cell | null };
@@ -40,6 +40,7 @@ export function neighbors(p: Cell): Cell[] { return [{x:p.x,y:p.y-1},{x:p.x+1,y:
 export const active = (j: Job): boolean => j.state === 'active' || j.state === 'suspended';
 export function walkable(world: World, p: Cell): boolean {
   return inside(p) && world.terrain[index(p.x,p.y)] !== 2 && !same(p,world.heart)
+    && !(Array.isArray(world.combat?.barricades) && world.combat.barricades.some(b => same(b,p)))
     && !world.jobs.some(j => j.kind === 'build' && active(j) && same(j,p))
     && !world.structures.some(s => same(s,p) && !['stockpile','trap','guardpost'].includes(s.kind) && !(s.kind === 'door' && s.open));
 }

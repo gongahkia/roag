@@ -1,3 +1,4 @@
+import { addRaider } from './helpers/combat.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { establish, harness } from './helpers/survival.mjs';
@@ -22,16 +23,7 @@ function continuation(world, ticks) {
   }
   assert.equal(canonical(copy), canonical(world));
 }
-function attacker(world, kind = 'raider', x = 73, y = 62) {
-  // Focused combat fixtures supply enemies; colony facilities and ammunition below
-  // are made through ordinary resource, production, construction and reload jobs.
-  Object.assign(world.combat, { phase: 'combat', wave: 1, warningAt: 0, spawnAt: 0 });
-  const raider = { id: world.nextId++, kind, x, y, health: COMBAT_CONTENT[kind].health,
-    next: null, progress: 0, route: [], routeVersion: world.terrainVersion,
-    retryAt: world.tick, cooldown: 0, target: null };
-  world.combat.raiders.push(raider); world.combat.stats.spawned++;
-  return raider;
-}
+function attacker(world,kind='raider',x=73,y=62){return addRaider(world,x,y,kind);}
 
 const prepared = establish('work-lab');
 for (const job of [...prepared.w.jobs].filter(j => j.state === 'active')) prepared.cmd({ kind: 'work', job: job.id, action: 'cancel' });
@@ -48,7 +40,7 @@ const midReload = structuredClone(prepared.w);
 prepared.until(() => reload.state === 'done', 'reload completion');
 const defenseWorld = structuredClone(prepared.w);
 
-test('schema 4 preserves physical reload supplies and ammunition exactly across continuation', () => {
+test('schema 5 preserves physical reload supplies and ammunition exactly across continuation', () => {
   const world = structuredClone(midReload);
   assert.equal(world.jobs.find(j => j.id === reload.id).site.ammo, 4);
   assert.equal(world.structures.find(s => s.id === tower.id).inventory.ammo, 0);
@@ -57,7 +49,7 @@ test('schema 4 preserves physical reload supplies and ammunition exactly across 
   continuation(world, 150);
   assert.equal(world.structures.find(s => s.id === tower.id).inventory.ammo, 4);
   assert.equal(world.consumed.ammo, 0);
-  for (const change of [s => s.version = 3, s => s.contentVersion = 'colony-p04-1']) {
+  for (const change of [s => s.version = 4, s => s.contentVersion = 'colony-p05-1']) {
     const invalid = save(world); change(invalid); assert.throws(() => parseSave(JSON.stringify(invalid)), /Invalid save/);
   }
 });

@@ -1,3 +1,4 @@
+import { addRaider } from './helpers/combat.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorld } from '../src/simulation/world.ts';
@@ -17,17 +18,14 @@ function fixture() {
   w.people.forEach((p,i)=>{p.x=30+i*2;p.y=30;for(const duty of Object.keys(p.body.duties))p.body.duties[duty]=0;});
   return w;
 }
-function raider(w,x,y,kind='raider') {
-  const r={id:w.nextId++,kind,health:C[kind].health,x,y,next:null,progress:0,route:[],routeVersion:w.terrainVersion,retryAt:w.tick,cooldown:0,target:null};
-  w.combat.phase='combat';w.combat.wave=1;w.combat.raiders.push(r);w.combat.stats.spawned++;return r;
-}
+const raider=addRaider;
 function building(w,x,y,kind='tower',ammo=0) {
   const s={id:w.nextId++,x,y,kind,health:100,open:false,inventory:emptyStock(),embodied:{...WORK_CONTENT.buildings[kind].cost}};
   s.inventory.ammo=ammo;w.structures.push(s);return s;
 }
 function attack(w,source,target,{kind='melee',faction='hostile',damage=12,due=w.tick+1,origin=source}={}) {
   const ref=source.kind==='tower'||source.kind==='trap'?{kind:'structure',id:source.id}:w.people.includes(source)?{kind:'person',id:source.id}:{kind:'raider',id:source.id};
-  const a={id:w.nextId++,kind,source:ref,origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:kind==='bolt'?shotCells(w,origin,target):[{x:target.x,y:target.y}],due,damage,faction};w.combat.attacks.push(a);return a;
+  const a={id:w.nextId++,kind,source:ref,origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:kind==='bolt'?shotCells(w,origin,target):[{x:target.x,y:target.y}],due,damage,faction,recipient:null};w.combat.attacks.push(a);return a;
 }
 function ticks(w,n){for(let i=0;i<n&&!w.terminal;i++)step(w);}
 
@@ -115,7 +113,7 @@ test('group shelter chooses stable distinct reachable tiles and releasing during
 });
 
 test('automatic shelter is issued once; a player release is not recreated every tick',()=>{
-  const w=fixture();w.scenario='colony';w.combat.phase='warning';w.combat.wave=1;w.combat.pending=['raider'];w.tick=C.spawnAt;advanceCombat(w);assert.equal(w.combat.orders.length,6);
+  const w=fixture();w.scenario='colony';w.combat.phase='warning';w.combat.wave=1;w.combat.pending=[{id:w.nextId++,kind:'raider',squadId:null,leaderId:null,edge:'east',entryOffset:0}];w.tick=C.spawnAt;advanceCombat(w);assert.equal(w.combat.orders.length,6);
   applyCombatCommand(w,{kind:'battle',actor:0,mode:'release',target:{x:64,y:65}});prepareCombat(w);advanceCombat(w);assert.equal(w.combat.orders.length,0);
 });
 

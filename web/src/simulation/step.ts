@@ -51,12 +51,12 @@ export function step(world: World): void {
   advanceNeeds(world);
   prepareCombat(world);
   advanceJobs(world);
-  const occupied=spatial(world); let searches=0;
+  const occupied=spatial(world), movedPeople=new Set<number>(); let searches=0;
   for (const p of world.people) {
     if (p.life!=='alive') continue;
     if (p.next) {
       p.progress++;
-      if (p.progress>=MOVE_TICKS) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;p.next=null;p.progress=0; }
+      if (p.progress>=MOVE_TICKS) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;movedPeople.add(p.id);p.next=null;p.progress=0; }
       else continue;
     }
     if (p.yieldTo && same(p,p.yieldTo)) { p.yieldTo=null;p.route=[];p.retryAt=p.yieldUntil; }
@@ -76,7 +76,7 @@ export function step(world: World): void {
     if (!walkable(world,next) || other!==undefined && other!==p.id) { p.route=[];p.failures++;p.retryAt=world.tick+10;p.blocked='Occupied; yielding';yieldBlocker(world,p,occupied);continue; }
     p.next=p.route.shift()!;p.progress=0;p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
   }
-  advanceCombat(world);
+  advanceCombat(world,movedPeople);
   // Removed targets can never become valid again: stable IDs are not reused.
   // Retire only these inert commands, keeping sequence counters and all live intent.
   world.pending=world.pending.filter(({input})=>{

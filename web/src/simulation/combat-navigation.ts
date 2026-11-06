@@ -24,15 +24,15 @@ class Heap {
 /** Planned obstruction cost allows a real breach; natural stone is never tunnelled. */
 export function breachable(w: World, at: Cell): boolean {
   return inside(at) && w.terrain[index(at.x, at.y)] !== 2 && !same(at, w.heart)
-    && (w.structures.some(s => same(s, at)) || w.jobs.some(j => j.kind === 'build' && active(j) && same(j, at)));
+    && (w.combat.barricades.some(b => same(b, at)) || w.structures.some(s => same(s, at)) || w.jobs.some(j => j.kind === 'build' && active(j) && same(j, at)));
 }
-export function raiderRoute(w: World, from: Cell, objective: Cell, occupied: Map<number, number>, self: number, limit: number = C.searchLimit): Cell[] {
-  const goals = neighbors(objective).filter(p => walkable(w, p) || breachable(w, p));
+export function raiderRoute(w: World, from: Cell, objective: Cell, occupied: Map<number, number>, self: number, limit: number = C.searchLimit, adjacent = true): Cell[] {
+  const goals = (adjacent ? neighbors(objective) : [objective]).filter(p => walkable(w, p) || breachable(w, p));
   if (!goals.length) return [];
   const goalKeys = new Set(goals.map(p => index(p.x, p.y)));
   const start = index(from.x, from.y); if (goalKeys.has(start)) return [];
   const heap = new Heap(), costs = new Map<number, number>([[start, 0]]), parents = new Map<number, number>();
-  const heuristic = (p: Cell) => Math.max(0, distance(p, objective) - 1);
+  const heuristic = (p: Cell) => Math.max(0, distance(p, objective) - (adjacent ? 1 : 0));
   let serial = 0, expanded = 0;
   heap.push({ cell: { x: from.x, y: from.y }, key: start, cost: 0, score: heuristic(from), serial: serial++ });
   while (heap.nodes.length && expanded < limit) {
