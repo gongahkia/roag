@@ -161,17 +161,27 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   // Raid injuries require fresh medicine. The workshop has one recipe order at a
   // time, so switch its real production from ammunition back to medicine's ore input.
   await job(page, 'produce ammo').getByRole('button', { name: 'Cancel', exact: true }).click();
+  // Recovery is still part of endless defense. Refill surviving magazines while
+  // ore/medicine and repairs run, so the next approach cannot overrun the clinic.
+  const rearReloads = survived.world.structures.filter(s => s.kind === 'tower' && s.health === 100 && s.inventory.ammo <= 8);
+  for (const s of rearReloads) await at(page, s.x, s.y).getByRole('button', { name: 'Reload 4 ammo', exact: true }).click();
   await resume(page); await expect(job(page, 'produce ammo')).toContainText('CANCELLED'); await pause(page);
   await produce(page, structure(page, 'workshop'), 'ore');
   await resume(page);
   for (const s of damaged) await expect(at(page, s.x, s.y)).toContainText('Condition 100%', { timeout: 60000 });
+  await pause(page);
+  for (let batch = 1; batch <= 3; batch++) {
+    await at(page, 70, 62).getByRole('button', { name: 'Reload 4 ammo', exact: true }).click();
+    await resume(page); await expect(at(page, 70, 62)).toContainText(`Ammo ${batch * 4}/12`, { timeout: 60000 }); await pause(page);
+  }
+  await resume(page);
   await expect.poll(async () => (await page.locator('#duties .duty-card > p').allTextContents()).filter(text => text.includes('Health 100%')).length, { timeout: 90000 }).toBe(6);
   await pause(page); const recovered = await snapshot(page, info, 'ordinary-recovery-work');
   expect(recovered.world.terminal).toBeNull(); expect(recovered.world.statistics.workTicks).toBeGreaterThan(survived.world.statistics.workTicks);
   expect(recovered.world.people.every(person => person.life === 'alive' && person.body.health === 100)).toBe(true);
   expect(recovered.world.statistics.rescues).toBeGreaterThan(prepared.world.statistics.rescues);
   expect(recovered.world.statistics.treatments).toBeGreaterThan(prepared.world.statistics.treatments);
-  commands.push('cancel ammunition production after raid; produce ore for fresh medicine; physically rescue/treat all founders to full health');
+  commands.push('cancel ammunition production after raid; produce ore for fresh medicine; physically rescue/treat all founders to full health', `reload undamaged towers ${rearReloads.map(s => `${s.x},${s.y}`).join(' / ')} once while repairing; fill repaired forward tower with three physical batches`);
   await page.setViewportSize({ width: 390, height: 844 }); await page.locator('#defense-heading').scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('defense-controls-390.png'), fullPage: true });
