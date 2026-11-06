@@ -8,7 +8,9 @@ import { materialAudit } from '../../src/simulation/jobs.ts';
 import { step } from '../../src/simulation/step.ts';
 
 const hash = (value: unknown): string => createHash('sha256').update(canonical(value)).digest('hex');
-const towers = [[63, 60], [68, 63], [64, 69], [60, 63]] as const;
+// An unloaded forward tower draws the breacher; the loaded tower at 71,60 covers it.
+// Its real battle damage supplies the ordinary repair portion of the journey.
+const towers = [[71, 60], [64, 69], [60, 63]] as const;
 const structure = (page: Page, kind: string): Locator => page.locator('#structures .work-card').filter({ has: page.locator('h4', { hasText: new RegExp(` ${kind} ·`) }) });
 const at = (page: Page, x: number, y: number): Locator => page.locator('#structures .work-card').filter({ has: page.locator('h4', { hasText: new RegExp(` · ${x},${y}$`) }) });
 const job = (page: Page, name: string): Locator => page.locator('#jobs .work-card').filter({ has: page.locator('h4', { hasText: name }) });
@@ -79,7 +81,7 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   commands.push('farm 68,64; kitchen 70,64; beds 66/68/70,68; clinic 72,68; workshop 74,68', 'farm, meals, ore and medicine through production; cancel ore; produce ammunition');
 
   for (const [x, y] of towers) await place(page, 'tower', x, y);
-  for (const [kind, x, y] of [['trap', 64, 58], ['guardpost', 62, 62], ['wall', 65, 60], ['door', 64, 60]] as const) await place(page, kind, x, y);
+  for (const [kind, x, y] of [['tower', 70, 62], ['trap', 64, 58], ['guardpost', 62, 62], ['wall', 65, 60], ['door', 64, 60]] as const) await place(page, kind, x, y);
   await resume(page); await expect(structure(page, 'tower')).toHaveCount(4, { timeout: 90000 });
   for (const [x, y] of [[64, 58], [62, 62], [65, 60], [64, 60]]) await expect(at(page, x!, y!)).toHaveCount(1, { timeout: 60000 });
   await pause(page);
@@ -92,10 +94,11 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   await at(page, 64, 58).getByRole('button', { name: 'Reload 1 ammo', exact: true }).click(); await resume(page);
   await expect(at(page, 64, 58)).toContainText('Ammo 1/1', { timeout: 30000 }); await pause(page);
   const prepared = await snapshot(page, info, 'ordinary-prepared-defense');
-  expect(prepared.world.scenario).toBe('colony'); expect(prepared.world.recipeCounts.ammo).toBeGreaterThanOrEqual(13);
-  expect(prepared.world.structures.filter(s => s.kind === 'tower').every(s => s.inventory.ammo === 12)).toBe(true);
+  expect(prepared.world.scenario).toBe('colony'); expect(prepared.world.recipeCounts.ammo).toBeGreaterThanOrEqual(10);
+  expect(prepared.world.structures.filter(s => s.kind === 'tower' && !(s.x === 70 && s.y === 62)).every(s => s.inventory.ammo === 12)).toBe(true);
+  expect(prepared.world.structures.find(s => s.kind === 'tower' && s.x === 70 && s.y === 62)?.inventory.ammo).toBe(0);
   expect(prepared.world.people.every(person => person.life === 'alive')).toBe(true);
-  commands.push('four worker-built towers, trap, guard post, wall and gate', 'three physical reload batches per tower; one trap round');
+  commands.push('four worker-built towers, trap, guard post, wall and gate', 'three physical reload batches for towers 71,60 / 64,69 / 60,63; one trap round', 'front tower 70,62 deliberately unloaded and screened by 71,60 cover; real battle damage requires repair');
   await page.locator('#battle-find-heart').click(); await page.screenshot({ path: info.outputPath('ordinary-loaded-defenses.png'), fullPage: true });
 
   await resume(page); await expect(page.locator('#raid-phase')).toHaveText('warning', { timeout: 260000 }); await pause(page);
@@ -137,19 +140,30 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   expect(survived.world.terminal).toBeNull(); expect(survived.world.heart.health).toBeGreaterThan(0);
   expect(survived.world.combat.completed).toBe(1); expect(survived.world.combat.stats.kills).toBe(5);
   expect(survived.world.combat.stats.shots).toBeGreaterThan(0); expect(survived.world.consumed.ammo).toBeGreaterThan(0);
+  expect(survived.world.combat.stats.colonyDamage).toBeGreaterThan(prepared.world.combat.stats.colonyDamage);
   const expected = structuredClone(midWave.world); while (expected.tick < survived.world.tick) step(expected);
   expect(hash(survived.world)).toBe(hash(expected));
   await page.locator('#battle-find-heart').click(); await page.screenshot({ path: info.outputPath('ordinary-wave-survived.png'), fullPage: true });
 
   if (await page.locator('#battle-release-all').isEnabled()) await page.locator('#battle-release-all').click();
+  const front = survived.world.structures.find(s => s.kind === 'tower' && s.x === 70 && s.y === 62);
+  expect(front?.health).toBeGreaterThan(0); expect(front?.health).toBeLessThan(100);
   const damaged = survived.world.structures.filter(s => s.health < 100);
   for (const s of damaged) await at(page, s.x, s.y).getByRole('button', { name: 'Repair', exact: true }).click();
+  // Raid injuries require fresh medicine. The workshop has one recipe order at a
+  // time, so switch its real production from ammunition back to medicine's ore input.
+  await job(page, 'produce ammo').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await resume(page); await expect(job(page, 'produce ammo')).toContainText('CANCELLED'); await pause(page);
+  await produce(page, structure(page, 'workshop'), 'ore');
   await resume(page);
   for (const s of damaged) await expect(at(page, s.x, s.y)).toContainText('Condition 100%', { timeout: 60000 });
-  await expect.poll(async () => Number(await page.locator('#tick').textContent()), { timeout: 30000 }).toBeGreaterThan(survived.world.tick + 500);
+  await expect.poll(async () => (await page.locator('#duties .duty-card > p').allTextContents()).filter(text => text.includes('Health 100%')).length, { timeout: 90000 }).toBe(6);
   await pause(page); const recovered = await snapshot(page, info, 'ordinary-recovery-work');
   expect(recovered.world.terminal).toBeNull(); expect(recovered.world.statistics.workTicks).toBeGreaterThan(survived.world.statistics.workTicks);
-  expect(recovered.world.people.filter(person => person.life === 'alive').length).toBeGreaterThan(0);
+  expect(recovered.world.people.every(person => person.life === 'alive' && person.body.health === 100)).toBe(true);
+  expect(recovered.world.statistics.rescues).toBeGreaterThan(prepared.world.statistics.rescues);
+  expect(recovered.world.statistics.treatments).toBeGreaterThan(prepared.world.statistics.treatments);
+  commands.push('cancel ammunition production after raid; produce ore for fresh medicine; physically rescue/treat all founders to full health');
   await page.setViewportSize({ width: 390, height: 844 }); await page.locator('#defense-heading').scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('defense-controls-390.png'), fullPage: true });
