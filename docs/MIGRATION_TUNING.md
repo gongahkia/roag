@@ -1,5 +1,7 @@
 # Native migration tuning
 
+Entrance knowledge (2026-11-06): no movement, combat, generation, recovery or survival values change. Each existing paid resident rumour keeps its original discovery and additionally reports one nearest unknown complex entrance, with distance/parcel-ID ties and no RNG draw. Knowing coordinates never marks terrain explored. Sight records only actually visible surface entrances; shared reports/journal inspection are free.
+
 Full-world performance observation (2026-11-06): all **four** original complexes remain; the measured seed42 world has **1,656 actors / 1,345 timeline participants**. Two Release diagnostic snapshots record startup20,766.93ms/four paid waits4,878.46ms and later11,803.64ms/2,103.10ms. Runs differ in cache/competing-work conditions; no controlled speedup ratio or final latency acceptance is claimed. Optimization6fc3f8c9 avoids constructing unused original-enemy body/corpse facts when no actual hostile exists and the previous valid outcome is already paid Wait. Preserve the four actual Heal/Ward/Revive controllers, retained creature routines and new bosses. No actor is frozen, skipped on the timeline, rescheduled at a new cadence or hidden by camera; no cost, geography, population, food or difficulty value changes. Definitions/memory remain validated and existing original support conditions/ties stay intact.
 
 
