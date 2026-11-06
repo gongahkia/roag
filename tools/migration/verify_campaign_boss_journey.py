@@ -95,7 +95,6 @@ def reports(client, label):
         client.control_click('dungeon:journal-next')
     else:
         raise AssertionError('Journal page budget reached; no report inferred')
-    client.control_click('dungeon:close')
     assert client.ui['nativeDungeon']['clock'] == before
     assert client.ui['nativeDungeon']['controlledActor'] == selected
     text = ' '.join(pages)
@@ -103,6 +102,10 @@ def reports(client, label):
     assert match, 'The displayed journal lacks an unambiguous generated final destination'
     result = dict(majorBosses=leads, entrances=entrances, text=text,
                   finalName=match[1], finalDestination=tuple(map(int, match.groups()[1:])))
+    # Closing inspection intentionally resumes already ordered paid duties.
+    client.control_click('dungeon:close')
+    result['readingClock'] = before
+    result['resumedClock'] = client.ui['nativeDungeon']['clock']
     (client.output / (label + '-reports.json')).write_text(json.dumps(result, indent=2) + '\n')
     return result
 
