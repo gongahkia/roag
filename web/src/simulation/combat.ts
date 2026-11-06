@@ -10,6 +10,7 @@ import { appendRaidSummary, firstRaidDeadlines, nextRaidDeadlines, nextSpawn, pl
 import type { SpawnTicket } from './raid-model.ts';
 import { advanceEncounters, defendedDamage, encounterTurn, resolveEncounterImpact } from './encounters.ts';
 import type { EncounterApi } from './encounters.ts';
+import { ENCOUNTER_CONTENT as E } from './encounter-content.ts';
 import { emptyStock } from './work-content.ts';
 
 export function initialCombat(): Combat {
@@ -173,7 +174,7 @@ function raidSchedule(w: World): void {
     const plan=planWave(c.completed+1,w.rng.raids,w.nextId);w.rng.raids=plan.nextRaidsRng;w.nextId=plan.nextId;
     c.phase='warning';c.wave=plan.wave;c.edge=plan.edge;c.pending=plan.tickets;c.budget=plan.budget;c.spent=plan.spent;
     c.waveStart={tick:w.tick,spawned:c.stats.spawned,kills:c.stats.kills,deaths:w.statistics.deaths,ammo:w.consumed.ammo,structuresLost:c.stats.structuresLost,repairs:c.stats.repairs};
-    c.status=`Wave ${c.wave} announced from the ${c.edge}${plan.captain?' — the Rampart Captain approaches':''}. Arrival at tick ${c.spawnAt}. Budget ${c.spent}/${c.budget}; prepare and reload.`;
+    c.status=`Wave ${c.wave} announced from the ${c.edge}${plan.captain?' — the Ossuary Captain approaches':''}. Arrival at tick ${c.spawnAt}. Budget ${c.spent}/${c.budget}; prepare and reload.`;
   }
   if(c.phase==='warning'&&w.tick>=c.spawnAt){c.phase='combat';automaticOrders(w);c.status=`Wave ${c.wave} arriving from the ${c.edge}; civilians seek shelter, guards rally. Orders can be changed or released.`;}
   if(c.phase!=='combat'||!c.pending.length)return;
@@ -189,7 +190,7 @@ function selectTarget(w: World,r: Raider): CombatRef {
 function melee(w: World,r: Raider,target: Cell): void {
   if(r.cooldown>w.tick||distance(r,target)>1)return;const built=w.structures.some(s=>same(s,target))||w.jobs.some(j=>j.kind==='build'&&active(j)&&same(j,target))||same(w.heart,target);
   const amount=r.kind==='breacher'&&built?C.breacher.structureDamage:C[r.kind].damage;
-  if(launch(w,{kind:'raider',id:r.id},r,target,'melee','hostile',amount,C[r.kind].windup))r.cooldown=w.tick+C[r.kind].cooldown;
+  if(launch(w,{kind:'raider',id:r.id},r,target,'melee','hostile',amount,C[r.kind].windup)){r.cooldown=w.tick+C[r.kind].cooldown;if(r.kind==='shield')r.loweredUntil=w.tick+E.shield.loweredTicks;}
 }
 function encounterApi(w: World,move: EncounterApi['move']=()=>{},movedPeople=new Set<number>()): EncounterApi {
   return {
@@ -206,7 +207,7 @@ function encounterApi(w: World,move: EncounterApi['move']=()=>{},movedPeople=new
 function face(r: Raider,cell: Cell,tick: number): void {
   const dx=cell.x-r.x,dy=cell.y-r.y;if(!dx&&!dy)return;
   const direction=Math.abs(dx)>=Math.abs(dy)?dx>0?'east':'west':dy>0?'south':'north';
-  if(direction!==r.facing&&r.kind==='captain')r.exposedUntil=Math.max(r.exposedUntil,tick+12);
+  if(direction!==r.facing&&r.kind==='captain')r.exposedUntil=Math.max(r.exposedUntil,tick+E.captain.exposureTicks);
   r.facing=direction;
 }
 function moveRaiders(w: World,movedPeople: Set<number>): void {
