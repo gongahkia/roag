@@ -1,5 +1,7 @@
 # Migration preservation checklist
 
+Physical parcel reservation (2026-11-06): six construction-planner checks pass over 40 world seeds and all seven original paired biome layouts. Planned columns clear all retained towns/sites and preserve real stair distances/full room extents. The planner changes no terrain or exploration and is not yet integrated into fresh campaigns. Physical complex placement/persistence/private split journeys remain unfinished; no gate closes.
+
 Physical-complex population preparation (2026-11-06): explicit owning floor/progression/seed replaces depth-only global lookups in generation helpers. The existing bounded content, seed streams, markers, routes, rewards and recruitment remain; **33 affected checks pass** (`native-complexes/population-context`). No physical world complex is placed yet. The pending physical branch-opening adaptation is recorded in MIGRATION_PROGRESS.md; remaining complex/campaign acceptance stays open.
 
 Camp query review (2026-11-06): existing ordered spatial indexing replaces whole-roster scans for resting/watch members and alarm listeners, retaining the actual sight/hearing/hostility/confinement checks. All **60 affected checks pass** (`native-calendar/camp-index-reviewed`), including wall/floor hearing and private split-member awareness. No paid action/calendar compression or full-game acceptance is implied.
