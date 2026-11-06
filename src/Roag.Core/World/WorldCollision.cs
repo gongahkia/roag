@@ -55,6 +55,7 @@ public sealed partial class WorldSession
         if (!Plan.Contains(p)) return null;
         if (State.Tactics is { } tactics)
         {
+            if (CampaignBossObjectAt(p) is { } bossObject) return bossObject;
             for (int i = 0; i < tactics.CampFires.Count; i++)
             {
                 var fire = tactics.CampFires[i];
@@ -122,7 +123,8 @@ public sealed partial class WorldSession
         if (state.Dungeon is { } run && !run.Contains(p)) return false;
         if (!plan.Contains(p) || Materials.Opaque(chunks.At(p))
             || state.Tactics?.Chests.Chests.Any(c => !c.Claimed && c.Position == p) == true
-            || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)) return false;
+            || state.Actors.Any(a => a.Tactics?.Resources.Bulwark?.Position == p)
+            || state.Tactics?.CampaignBosses.Arenas.Any(a => a.Contains(p) && a.Fixtures.Any(f => f.Position == p && f.Solid)) == true) return false;
         var discovery = state.Discoveries.FirstOrDefault(d => d.Position == p);
         if (discovery != null) return !DiscoverySolid(content, discovery);
         var cache = state.Loot.FirstOrDefault(c => c.Position == p);

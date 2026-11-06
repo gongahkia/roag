@@ -51,7 +51,9 @@ internal static class WorldInspection
             if (session.Content.Entries.GetValueOrDefault(actor.CombatTrait) is TalentDefinition talent) detail += " " + talent.Name + ": " + talent.Description;
             if (actor.Tactics?.Enemy is { Retained: null } memory)
             {
-                var definition = EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
+                var arena = session.State.Tactics!.CampaignBosses.Arenas.FirstOrDefault(a => a.Boss == actor.Id);
+                var definition = arena == null ? EnemyCatalog.Default.Get(actor.Tactics.DefinitionId)
+                    : CampaignBossCatalog.Definition(arena.Kind, arena.FinalRole, arena.Variation);
                 detail = definition.Name + ". " + stats;
                 if (definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite or EnemyBrainKind.HollowRegent)
                     detail += memory.PhaseTwo ? " Phase 2: faster actions." : " Phase 1; changes phase at half HP.";
@@ -111,6 +113,13 @@ internal static class WorldInspection
                 : questNode.Kind == DungeonBranchNodeKind.Gate ? quest.Opened ? "Permanently open." : "Closed. " + condition
                 : (questNode.Activated ? "Activated. " : "Cross this tile. ") + condition;
             return new(title, detail, "Move with the keyboard", "", "object");
+        }
+        if (session.CampaignBossFixtureAt(cell) is { } bossFixture)
+        {
+            string name = TacticalCombat.CampaignBossFixtureName(bossFixture.Kind);
+            if (!session.Visible.Contains(cell)) return new(name + " (remembered)", "Observe this fixture again to inspect its current state.", "Move with the keyboard", "", "object");
+            return new(name, session.DungeonCombat.CampaignBossFixtureDescription(cell), bossFixture.Kind == CampaignBossFixtureKind.Valve
+                ? "Click or press Enter beside the valve; operation costs one action" : "Aim a damaging attack with F or R", "", "object");
         }
         if (session.State.Tactics?.Services.Nodes.FirstOrDefault(n => n.Position == cell) is { } service)
         {

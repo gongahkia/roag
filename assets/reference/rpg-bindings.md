@@ -6,7 +6,7 @@ Every RPG semantic alias below references an unchanged ID/crop in the source aud
 
 Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_game_catalog.py`. Inspect crops in [the atlas](../atlas.html) or the native F2 viewer. Original publisher-name evidence remains in [catalog.json.gz](../catalog.json.gz).
 
-**284 semantic aliases, 94 font glyphs, 318 distinct runtime-bound IDs.**
+**291 semantic aliases, 94 font glyphs, 318 distinct runtime-bound IDs.**
 
 | Alias | Stable ID | Source identity / working label | Evidence | Game interpretation / adaptation |
 |---|---|---|---|---|
@@ -192,6 +192,9 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-boon-volatile-vial | godot-white-potion | potion | publisher_filename / high | Render as roag boon volatile vial; preserve the source identity and keep mechanics in game data. |
 | roag-boon-ward-ledger | urizen-onebit-r37-c000 | book / clear | author_metadata_visible_rgb_match / high | Render as roag boon ward ledger; preserve the source identity and keep mechanics in game data. |
 | roag-boon-windup-hunter | godot-white-time | time | publisher_filename / high | Render as roag boon windup hunter; preserve the source identity and keep mechanics in game data. |
+| roag-boss-resonator | urizen-onebit-r47-c003 | urn | author_metadata_visible_rgb_match / high | Render as roag boss resonator; preserve the source identity and keep mechanics in game data. |
+| roag-boss-valve | urizen-onebit-r25-c028 | anvil | author_metadata_visible_rgb_match / high | Render as roag boss valve; preserve the source identity and keep mechanics in game data. |
+| roag-boss-web | urizen-onebit-r11-c169 | Figure row 11, profession column 65: unidentified held prop / stance | visual_region_and_silhouette / low | Render as roag boss web; preserve the source identity and keep mechanics in game data. |
 | roag-class-adventurer | urizen-onebit-r00-c107 | Figure row 00, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag class adventurer; preserve the source identity and keep mechanics in game data. |
 | roag-class-alchemist | urizen-onebit-r09-c112 | Figure row 09, profession column 08: small vessel | visual_region_and_silhouette / low | Render as roag class alchemist; preserve the source identity and keep mechanics in game data. |
 | roag-class-arcanist | urizen-onebit-r00-c187 | Figure row 00, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag class arcanist; preserve the source identity and keep mechanics in game data. |
@@ -212,6 +215,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-enemy-banner-captain | urizen-onebit-r06-c173 | Figure row 06, profession column 69: unidentified held prop / stance | visual_region_and_silhouette / low | Render as roag enemy banner captain; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-banner-follower | urizen-onebit-r04-c107 | Figure row 04, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag enemy banner follower; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-bastion-bulwark | urizen-onebit-r19-c113 | Figure row 19, profession column 09: bucket or rectangular shield-like prop | visual_region_and_silhouette / low | Render as roag enemy bastion bulwark; preserve the source identity and keep mechanics in game data. |
+| roag-enemy-bellkeeper | urizen-onebit-r42-c110 | enemy / ghost | author_metadata_visible_rgb_match / high | Render as roag enemy bellkeeper; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-bodyguard-brute | urizen-onebit-r30-c174 | Figure row 30, profession column 70: large hammer-like tool | visual_region_and_silhouette / low | Render as roag enemy bodyguard brute; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-bone-fragment | urizen-onebit-r38-c002 | bones / remains | author_metadata_visible_rgb_match / high | Render as roag enemy bone fragment; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-bone-splitter | urizen-onebit-r10-c104 | Figure row 10, profession column 00: empty hands / neutral stance | visual_region_and_silhouette / low | Render as roag enemy bone splitter; preserve the source identity and keep mechanics in game data. |
@@ -241,6 +245,7 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-enemy-mycelial-matriarch | urizen-onebit-r18-c187 | Figure row 18, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag enemy mycelial matriarch; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-oath-twin-a | urizen-onebit-r20-c108 | Figure row 20, profession column 04: long pole-like tool | visual_region_and_silhouette / low | Render as roag enemy oath twin a; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-oath-twin-b | urizen-onebit-r20-c107 | Figure row 20, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag enemy oath twin b; preserve the source identity and keep mechanics in game data. |
+| roag-enemy-ossuary-captain | urizen-onebit-r10-c104 | Figure row 10, profession column 00: empty hands / neutral stance | visual_region_and_silhouette / low | Render as roag enemy ossuary captain; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-pack-chorister | urizen-onebit-r08-c175 | Figure row 08, profession column 71: cross-shaped prop | visual_region_and_silhouette / low | Render as roag enemy pack chorister; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-pin-archer | urizen-onebit-r04-c119 | Figure row 04, profession column 15: curved bow-like prop | visual_region_and_silhouette / low | Render as roag enemy pin archer; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-prism-curator | urizen-onebit-r24-c187 | Figure row 24, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag enemy prism curator; preserve the source identity and keep mechanics in game data. |
@@ -250,10 +255,12 @@ Edit `assets/ithica-expedition-bindings.json`, then run `python3 tools/build_gam
 | roag-enemy-shield-bearer | urizen-onebit-r05-c113 | Figure row 05, profession column 09: bucket or rectangular shield-like prop | visual_region_and_silhouette / low | Render as roag enemy shield bearer; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-siege-wisp | urizen-onebit-r26-c112 | Figure row 26, profession column 08: small vessel | visual_region_and_silhouette / low | Render as roag enemy siege wisp; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-silt-worm | urizen-onebit-r34-c104 | Figure row 34, profession column 00: empty hands / neutral stance | visual_region_and_silhouette / low | Render as roag enemy silt worm; preserve the source identity and keep mechanics in game data. |
+| roag-enemy-sluice-maw | urizen-onebit-r42-c108 | enemy / slime | author_metadata_visible_rgb_match / high | Render as roag enemy sluice maw; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-snare-scribe | urizen-onebit-r27-c112 | Figure row 27, profession column 08: small vessel | visual_region_and_silhouette / low | Render as roag enemy snare scribe; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-spore-herald | urizen-onebit-r18-c108 | Figure row 18, profession column 04: long pole-like tool | visual_region_and_silhouette / low | Render as roag enemy spore herald; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-thorn-warden | urizen-onebit-r25-c187 | Figure row 25, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag enemy thorn warden; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-thornspitter | urizen-onebit-r32-c104 | Figure row 32, profession column 00: empty hands / neutral stance | visual_region_and_silhouette / low | Render as roag enemy thornspitter; preserve the source identity and keep mechanics in game data. |
+| roag-enemy-threadmother | urizen-onebit-r15-c002 | animal / spider | author_metadata_visible_rgb_match / high | Render as roag enemy threadmother; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-vault-lurker | urizen-onebit-r14-c107 | Figure row 14, profession column 03: short blade-like tool | visual_region_and_silhouette / low | Render as roag enemy vault lurker; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-ward-weaver | urizen-onebit-r17-c187 | Figure row 17, profession column 83: raised staff-like prop | visual_region_and_silhouette / low | Render as roag enemy ward weaver; preserve the source identity and keep mechanics in game data. |
 | roag-enemy-web-weaver | urizen-onebit-r11-c169 | Figure row 11, profession column 65: unidentified held prop / stance | visual_region_and_silhouette / low | Render as roag enemy web weaver; preserve the source identity and keep mechanics in game data. |

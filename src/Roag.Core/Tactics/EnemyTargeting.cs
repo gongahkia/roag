@@ -48,7 +48,7 @@ public sealed partial class TacticalCombat
             throw new InvalidOperationException("Target selection requires a living native enemy.");
         if (!_world.IsHostile(enemy) || enemy.Tactics.Enemy.Dormant) return null;
         if (enemy.Tactics.Enemy.Retained != null) return SelectRetainedEnemyTarget(enemy, mistBlocks);
-        var priority = EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority;
+        var priority = EnemyDefinitionFor(enemy).TargetPriority;
         var ecology = _world.Ecology(enemy);
         bool InTerritory(Actor p) => ecology == null || enemy.Habitat is not { } home
             || p.Position.Distance(home) <= (enemy.ProvokedUntil > _world.State.Tick ? ecology.Leash : ecology.Notice);
@@ -109,6 +109,7 @@ public sealed partial class TacticalCombat
             target = planned.Retained is { } cast ? _world.State.Actors.FirstOrDefault(a => a.Id == cast.Target && sight.Contains(a.Position)) : null;
         }
         return new(enemyId, enemy.Tactics.Enemy.Retained != null ? RetainedEnemyTendency(enemy)
+                : enemy.Tactics.Enemy.CampaignBoss != null ? CampaignBossDescription(enemy.Id)
                 : EnemyTargeting.Description(EnemyCatalog.Default.Get(enemy.Tactics.DefinitionId).TargetPriority) + " " + CampFireResponses.Description(enemy.Tactics.DefinitionId),
             target?.Id, target?.Name, attack != null, attack?.Support != null || attack is { RetainedAbility: true } && RetainedSupport(_world.Content.Get<Roag.Core.Content.AbilityDefinition>(attack.Ability)),
             attack?.Cells.Where(sight.Contains).ToArray() ?? [], attack?.Due);

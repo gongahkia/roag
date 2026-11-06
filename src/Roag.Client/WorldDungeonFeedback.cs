@@ -30,7 +30,7 @@ internal sealed partial class WorldGame
         _dungeonFeedback.Advance(visualElapsed, InputFocused || _playtest != null, _session.State.Position.Floor);
         var floor = run?.Floors.Single(f => f.Contains(_session.State.Position));
         bool boss = _session.State.Actors.Any(a => a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
-            && (floor?.Boss == a.Id || a.Tactics?.Enemy?.Retained != null
+            && (floor?.Boss == a.Id || a.Tactics?.Enemy?.CampaignBoss != null || a.Tactics?.Enemy?.Retained != null
                 && _session.Content.Entries.GetValueOrDefault(a.Archetype) is Roag.Core.Content.BossDefinition));
         string biome = floor?.Biome ?? _session.Plan.BiomeAt(_session.State.Position.X, _session.State.Position.Y).ToString();
         _dungeonAudioScene = run?.Victory == true || _session.State.Endgame.Victory ? "victory" : _session.State.AwaitingContinuation ? "defeat"
@@ -49,6 +49,7 @@ internal sealed partial class WorldGame
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" or "WorldLootClaimed" => "chest",
             "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" or "AchievementEarned" => "boon",
+            "BossChimeStarted" or "BossChimeRing" => "enemy", "BossFixtureBroken" or "BossWebBurned" or "BossValveDrained" => "terrain",
             "CampFireLit" or "CampFireExtinguished" => "terrain", "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit", "RetainedSkillUsed" => "boon",
@@ -61,6 +62,10 @@ internal sealed partial class WorldGame
             "CampAlarm" => "ALARM", "ActivityStopped" => e.Ability.StartsWith("completed", StringComparison.Ordinal) ? "DONE" : "AWAKE",
             "FoodEaten" => "FED", "ProvisionsCollected" => "+" + e.Amount + " FOOD", "WorldLootClaimed" => "RECOVERED",
             "SocialInteractionCompleted" => "TALK",
+            "BossChorusBroken" => "CHORUS BROKEN", "BossExposed" => "EXPOSED", "BossShieldBlocked" => "SHIELD",
+            "BossValveDrained" => "DRAINED", "BossFeastDenied" => "FEAST DENIED", "BossReservoirFeast" => "+" + e.Amount,
+            "BossWebRaised" => "WEB", "BossWebIgnited" => "BURNING WEB", "BossReelEvaded" => "LINE BROKEN",
+            "BossRampartRaised" => "RAMPART",
             "RetainedSkillUsed" => "SKILL", "Stunned" => "STUN",
             "ConditionApplied" => e.Ability == "ability.hunters-mark" ? "MARK" : e.Ability == "ability.stand-fast" ? "BRACE" : "BLEED",
             "StressChanged" => e.Ability == "ability.dread" ? "DREAD +" + e.Amount : "CALM " + e.Amount,

@@ -92,6 +92,7 @@ public sealed partial class TacticalCombat
             _advanceWorld(Clock);
             State.CampFires.RemoveAll(f => f.Until <= Clock);
             ObserveActivities();
+            PruneCampaignBosses();
             PruneWebs();
             PruneSilt();
             PruneEmbers();
@@ -110,6 +111,12 @@ public sealed partial class TacticalCombat
                 // A killed source's explicitly committed attack is cancelled on death.
                 ResolveAttack(attack);
                 if (_world.State.NativeCampaign != null) ObserveEnemyAwareness();
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
+            if (work.Kind == ScheduledKind.CampaignBossPulse)
+            {
+                ResolveCampaignBossPulse(work);
                 if (_world.State.AwaitingContinuation) return null;
                 continue;
             }
@@ -251,6 +258,8 @@ public sealed partial class TacticalCombat
                 return PreviewDungeonRoute(actor, intent);
             case TacticalAction.UseUtility:
                 return PreviewUtility(actor, intent);
+            case TacticalAction.CampaignBossInteract:
+                return PreviewCampaignBossInteraction(actor, intent);
             case TacticalAction.Interact:
                 return PreviewService(actor, intent);
             case TacticalAction.OpenDoor:
@@ -352,6 +361,8 @@ public sealed partial class TacticalCombat
                     ClaimChest(actor, intent, action); break;
                 case TacticalAction.UseUtility:
                     CommitUtility(actor, preview, action); break;
+                case TacticalAction.CampaignBossInteract:
+                    CommitCampaignBossInteraction(actor, intent, action); break;
                 case TacticalAction.Interact:
                     CommitService(actor, intent, action); break;
                 case TacticalAction.OpenDoor:
@@ -416,7 +427,7 @@ public sealed partial class TacticalCombat
     /// <summary>AI/class handlers commit explicit locked terrain cells, never a tracking target.</summary>
     public LockedAttack CommitWindup(string ability, IReadOnlyList<WorldPosition> cells, AttackDelivery delivery,
         DamageElement element, int damage, int windupCost, int recoveryCost, long intendedTarget = 0,
-        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null, WorldPosition? emberLanding = null, bool retainedAbility = false)
+        EnemySupport? support = null, EnemyAdvance? advance = null, EnemyShove? shove = null, Facing? sentinelFacing = null, WorldPosition? emberLanding = null, bool retainedAbility = false, CampaignBossCast? boss = null)
     {
         if (_world.State.AwaitingContinuation) throw new InvalidOperationException("This campaign has ended.");
         var actor = Active ?? throw new InvalidOperationException("No actor is ready.");
@@ -465,7 +476,7 @@ public sealed partial class TacticalCombat
         var cause = RootCause(action, coefficient: AbilityCoefficient(ability));
         var attack = new LockedAttack(action, actor.Id, actor.Position, cells.ToArray(), ability, delivery, element, damage, due,
             Causality: cause, IntendedTarget: intendedTarget, RecoveryCost: deferredRecovery ? recoveryCost : null,
-            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing, EmberLanding: emberLanding, Reflection: routed.Reflection, RetainedAbility: retainedAbility);
+            Support: support, Advance: advance, Shove: shove, SentinelFacing: sentinelFacing, EmberLanding: emberLanding, Reflection: routed.Reflection, RetainedAbility: retainedAbility, Boss: boss);
         ResolveAtomically(cause, () =>
         {
             ConsumeMirror(actor, action, routed.Reflection, cells);
@@ -495,13 +506,15 @@ public sealed partial class TacticalCombat
     }
 
     public IReadOnlyList<LockedAttack> VisibleAttacks(IReadOnlySet<WorldPosition> vision)
-        => State.Attacks.Concat(SentryAttacks()).Concat(EmberWarnings()).Concat(TerrainWarnings()).Concat(FixtureWarnings()).Where(a => vision.Contains(a.Source == 0 || a.ClassGenerated || a.Ability == EnemyEmbers.Pulse ? a.Origin : Actor(a.Source).Position))
+        => State.Attacks.Concat(SentryAttacks()).Concat(EmberWarnings()).Concat(TerrainWarnings()).Concat(FixtureWarnings()).Concat(CampaignBossWarnings()).Where(a => a.Ability is "core:ability/boss_chime_ring" or "core:ability/boss_burning_network" ? a.Cells.Any(vision.Contains)
+            : vision.Contains(a.Source == 0 || a.ClassGenerated || a.Ability == EnemyEmbers.Pulse ? a.Origin : Actor(a.Source).Position))
             .Select(a => a with { Cells = a.Cells.Where(vision.Contains).ToArray() }).Where(a => a.Cells.Length > 0).ToArray();
 
     public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
-        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.EmberPulse
+        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.CampaignBossPulse
+            ? State.CampaignBosses.Pulses.Any(p => p.Schedule == e.Sequence && p.Cells.Any(_world.Visible.Contains)) : e.Kind == ScheduledKind.EmberPulse
             ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : e.Kind == ScheduledKind.TerrainCycle
                 ? State.OptionalTerrain.Nodes.Any(n => n.Schedule == e.Sequence && n.Phase == OptionalTerrainPhase.Warning && _world.Visible.Contains(n.Position))
                 : e.Kind == ScheduledKind.FixtureImpact ? State.Services.Nodes.Any(n => n.Fixture?.Pending?.Schedule == e.Sequence && _world.Visible.Contains(n.Fixture.Center))
@@ -531,9 +544,11 @@ public sealed partial class TacticalCombat
                             with { TargetCells = attack.Cells.ToImmutableArray(), DamageType = attack.Element, DirectAttack = !attack.ClassGenerated,
                                 WindupId = attack.RecoveryCost != null ? attack.Id : null },
                         webCuts: CaptureWebCuts(attack.Source, attack.Cells, attack.Delivery, attack.Damage));
-                if (attack.RetainedAbility) ResolveRetainedEnemyAbility(attack);
+                if (attack.Boss != null && ResolveCampaignBossCast(attack)) { }
+                else if (attack.RetainedAbility) ResolveRetainedEnemyAbility(attack);
                 else ResolveDamageBatch(attack, assistance);
             }
+            ResolveCampaignBossObjects(attack);
             if (attack.EmberLanding != null && !_world.State.AwaitingContinuation) ResolveMothLanding(Actor(attack.Source), attack);
             if (attack.Advance != null && !_world.State.AwaitingContinuation) ResolveEnemyAdvance(attack);
             if (attack.Shove is { } shove && !_world.State.AwaitingContinuation
@@ -582,6 +597,7 @@ public sealed partial class TacticalCombat
                 attempted = checked(attempted + bonus); boons.ReversalTarget = null;
                 Emit("RingReversalSpent", source.Id, target.Id, attack.Id, target.Position, bonus);
             }
+            attempted = CampaignBossAdjustedDamage(target, source, attack, attempted);
             bool invulnerable = target.Tactics?.Invulnerable == true;
             var protection = SquadProtection(target, source, direct);
             int afterDefense = invulnerable || protection != null ? 0 : Math.Max(0, attempted - EffectiveArmor(target));
@@ -745,6 +761,7 @@ public sealed partial class TacticalCombat
             ? new OathDamage(snapshot.OathGiven, snapshot.OathReceived, snapshot.OathSharedOnly) : null;
         var entry = new TacticalEvent(State.NextEvent++, Clock, kind, source, target, action, position, amount, prevented, ability, forced, from, loot, protection, oath, reflection);
         State.Events.Add(entry);
+        ObserveCampaignBossNoise(entry);
         if (State.Events.Count > 512)
         {
             // Background waits still dispatch normally, but cannot crowd a

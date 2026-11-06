@@ -77,7 +77,7 @@ public static class TacticalValidation
             if (memory.PursuitBoundary is { } boundary)
             {
                 boundary.Validate(plan);
-                if (memory.Retained != null || EnemyCatalog.Default.Get(actor.Tactics.DefinitionId).Ai != EnemyBrainKind.Pursuer
+                if (memory.Retained != null || memory.CampaignBoss != null || EnemyCatalog.Default.Get(actor.Tactics.DefinitionId).Ai != EnemyBrainKind.Pursuer
                     || !boundary.Contains(actor.Position))
                     throw new InvalidDataException("Pursuer is outside its owning dungeon or has an invalid role.");
             }
@@ -95,6 +95,7 @@ public static class TacticalValidation
         EnemySilt.Validate(plan, world, actors, content);
         EnemyEmbers.Validate(plan, world, actors, content);
         EnemyMirrors.Validate(plan, world, actors, content);
+        CampaignBossValidation.Validate(plan, world);
         var fragments = new Dictionary<long, int>();
         foreach (var actor in world.Actors)
             if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)
@@ -280,7 +281,7 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
-            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact or ScheduledKind.GateClosure) continue;
+            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact or ScheduledKind.GateClosure or ScheduledKind.CampaignBossPulse) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)

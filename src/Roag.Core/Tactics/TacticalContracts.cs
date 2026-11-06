@@ -40,6 +40,7 @@ public sealed partial class TacticalCombat
             Tactics: { Enemy: not null, RewardExempt: false } } && _world.RoomAt(a.Position) == room
             && a.Tactics.DefinitionId != EnemySentinel.Definition
             && a.Tactics.Enemy.Retained == null
+            && !CampaignBossCatalog.Contains(a.Tactics.DefinitionId)
             && EnemyCatalog.Default.Get(a.Tactics.DefinitionId).Ai is not (EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
                 or EnemyBrainKind.Pursuer or EnemyBrainKind.HollowRegent)).Select(a => a.Id).Order().ToArray();
 

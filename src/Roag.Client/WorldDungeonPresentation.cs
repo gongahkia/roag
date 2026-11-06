@@ -316,6 +316,7 @@ internal sealed partial class WorldGame
     private void DungeonInteract()
     {
         var actor = _session.DungeonMember;
+        if (OperateAdjacentCampaignBossValve()) return;
         var downed = _session.Party.FirstOrDefault(a => a.Life == LifeState.Downed && a.Position.Distance(actor.Position) == 1);
         if (downed != null) { _panel = "dungeon-party"; return; }
         var corpse = _session.Party.FirstOrDefault(a => a.Life == LifeState.Dead && a.Equipment.Count > 0

@@ -77,6 +77,7 @@ public sealed partial class TacticalCombat
     private EnemyIntent PlanEnemyTurn(Actor actor, Actor? target,
         Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
     {
+        if (actor.Tactics!.Enemy!.CampaignBoss != null) return PlanCampaignBossTurn(actor, target, nextStep);
         if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks,
             combatSupport: target != null || _world.State.NativeCampaign == null);
         var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
@@ -121,6 +122,11 @@ public sealed partial class TacticalCombat
             // Validate before changing the pattern counter or committing recovery.
             if (intent.Cells.IsDefault || intent.Cells.Any(p => !_world.Plan.Contains(p)))
                 throw new InvalidOperationException("Enemy controller produced invalid world cells.");
+            if (memory.CampaignBoss != null)
+            {
+                CommitCampaignBossTurn(actor, intent, targetId);
+                return intent;
+            }
             if (memory.Retained != null)
             {
                 CommitRetainedEnemyCast(actor, intent);

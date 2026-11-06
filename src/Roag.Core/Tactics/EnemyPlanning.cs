@@ -8,7 +8,7 @@ public sealed record EnemyIntent(EnemyIntentKind Kind, Facing Facing = Facing.So
     AttackDelivery Delivery = AttackDelivery.Melee, ImmutableArray<WorldPosition> Cells = default,
     int DamageBonus = 0, bool Alert = false, bool ClearRetaliation = false,
     EnemySupport? Support = null, EnemyAdvance? Advance = null, Facing? ShieldFacing = null, EnemyShove? Shove = null, Facing? SentinelFacing = null, WorldPosition? EmberLanding = null,
-    RetainedEnemyCast? Retained = null);
+    RetainedEnemyCast? Retained = null, CampaignBossCast? Boss = null);
 
 public enum EnemySupportKind { Heal, Summon, Ward, Snare, Phase, Gulp, Revive, Alarm, Web, Mirror }
 public sealed record EnemySupport(EnemySupportKind Kind, int Power = 0, string Definition = "", int MaximumActive = 0,

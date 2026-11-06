@@ -94,6 +94,7 @@ public sealed partial class TacticalCombat
 
     private void DrainBoons()
     {
+        PruneCampaignBosses();
         PruneWebs();
         PruneSilt();
         PruneEmbers();
@@ -157,6 +158,7 @@ public sealed partial class TacticalCombat
         SettleOverdueGates();
         SettlePendingEliteRewards();
         SettleDungeonVictory();
+        PruneCampaignBosses();
         PruneWebs();
         PruneSilt();
         PruneEmbers();

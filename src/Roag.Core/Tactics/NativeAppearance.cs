@@ -18,6 +18,7 @@ public static class NativeAppearance
         => RetainedBoons.Find(definition)?.Sprite ?? "roag-boon-" + BoonCatalog.Default.Get(definition).Id["core:boon/".Length..].Replace('_', '-');
     public static string ForEnemy(string definition)
     {
+        if (CampaignBossCatalog.Contains(definition)) return CampaignBossCatalog.Sprite(CampaignBossCatalog.Kind(definition));
         var enemy = EnemyCatalog.Default.Get(definition);
         return "roag-enemy-" + enemy.Id["core:enemy/".Length..].Replace('_', '-');
     }

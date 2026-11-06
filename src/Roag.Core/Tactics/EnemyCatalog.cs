@@ -38,6 +38,7 @@ public sealed record EnemyDefinition(string Id, string Name, EnemyBrainKind Ai, 
 public sealed class EnemyMemory
 {
     public RetainedEnemyMemory? Retained { get; set; }
+    public CampaignBossMemory? CampaignBoss { get; set; }
     public EnemyAwareness? Awareness { get; set; }
     public EnemyPursuitBoundary? PursuitBoundary { get; set; }
     public bool Dormant { get; set; }
@@ -71,6 +72,8 @@ public sealed class EnemyMemory
     internal void Validate()
     {
         Retained?.Validate();
+        CampaignBoss?.Validate();
+        if (Retained != null && CampaignBoss != null) throw new InvalidDataException("Enemy controller roles overlap.");
         Squad?.Validate();
         EnemySentinel.ValidateMemory(this);
         if (Attacks < 0 || Summons is < 0 or > 3 || SummonedBy < 0 || FragmentOf < 0 || RevivalOf < 0 || RevivedBy < 0 || CalledBy < 0
