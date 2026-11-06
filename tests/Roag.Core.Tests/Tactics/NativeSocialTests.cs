@@ -49,10 +49,11 @@ public sealed class NativeSocialTests
         Assert.True(f.World.QuoteNativeInteraction(f.Hero.Id, f.Person.Id, intent.Item).Valid);
         var preview = f.Combat.Preview(intent); Assert.True(preview.Valid);
         Assert.Equal(before, JsonSerializer.Serialize(f.World.State));
+        long clock = f.Combat.Clock;
         Assert.True(f.Combat.Commit(intent).Success);
         Assert.Equal(3, f.Person.Trust.GetValueOrDefault(f.Hero.Id)); Assert.Equal(3, f.Hero.Trust.GetValueOrDefault(f.Person.Id));
         Assert.Contains(f.Person.Memories, m => m.Key == "conversation" && m.Other == f.Hero.Id);
-        Assert.Equal(preview.Recovery, Assert.Single(f.Combat.State.Timeline.Pending, w => w.ActorId == f.Hero.Id).Due);
+        Assert.Equal(clock + preview.Recovery, Assert.Single(f.Combat.State.Timeline.Pending, w => w.ActorId == f.Hero.Id).Due);
         f.Combat.AdvanceToPartyDecision(); Assert.True(f.World.PerformInteraction(f.Person.Id, intent.Item).Success);
         Assert.Equal(3, f.Person.Trust[f.Hero.Id]); // The retained memory cooldown prevents repeated trust farming.
         RoundTrip(f.World);
@@ -94,7 +95,7 @@ public sealed class NativeSocialTests
         {
             var cell = f.Hero.Position.Offset(0, 1);
             var enemy = ActorFactory.Create(f.World.Content, f.World.Content.Game.Raider, 42, f.World.State.NextActorId++, cell, 0);
-            f.World.State.Actors.Add(enemy); f.Combat.RegisterRetainedEnemy(enemy, 1000);
+            f.World.State.Actors.Add(enemy); f.Combat.RegisterRetainedEnemy(enemy, f.Combat.Clock + 1000);
         }
         string before = JsonSerializer.Serialize(f.World.State);
         Assert.False(f.Combat.Commit(new(TacticalAction.SocialInteraction, Target: person.Id, Item: interaction)).Success);
