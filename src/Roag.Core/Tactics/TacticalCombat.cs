@@ -368,7 +368,7 @@ public sealed partial class TacticalCombat
                     var target = Actor(intent.Target);
                     if (Friendly(actor)) _world.State.Inventory["medicine"]--;
                     else actor.Cargo["medicine"]--;
-                    _world.State.ResourcesConsumed++;
+                    _world.RecordNativeConsumption(1, sharedPack: Friendly(actor));
                     target.Life = LifeState.Alive; target.Health = Math.Max(1, target.MaxHealth / 4);
                     target.Tactics!.BleedTurns = 0;
                     RecordCombatHealing(actor.Id, target.Id, target.Health);

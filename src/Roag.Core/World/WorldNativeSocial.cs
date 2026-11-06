@@ -55,7 +55,7 @@ public sealed partial class WorldSession
         foreach (var (stack, count) in quote.Costs)
         {
             Add(stack, -count);
-            if (stack != "gold") State.ResourcesConsumed += count;
+            if (stack != "gold") RecordNativeConsumption(count);
         }
         switch (interaction.Action)
         {

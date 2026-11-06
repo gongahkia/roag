@@ -13,6 +13,9 @@ public sealed class NativeCampaignState
     public HashSet<int> AdventurerTowns { get; set; } = [];
     public NativeWildlifeBreeding Breeding { get; set; } = new();
     public NativeEncounterRewards EncounterRewards { get; set; } = new();
+    /// <summary>Consumption outside regional town/person stock; included in the total world counter.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public long PackResourcesConsumed { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<DungeonComplexState>? Complexes { get; set; }
 
@@ -20,6 +23,7 @@ public sealed class NativeCampaignState
     {
         if (StartedAt < 0 || StartedAt > world.Tick || world.Dungeon != null || world.Tactics is not { DrivesWorldClock: true }
             || world.RoagCombat || world.RoagCombatState.Length != 0 || plan.RoagNative
+            || PackResourcesConsumed < 0 || PackResourcesConsumed > world.ResourcesConsumed
             || Following == null || Following.Any(p => p.Key == p.Value || !world.Party.Contains(p.Key) || !world.Party.Contains(p.Value)
                 || Following.ContainsKey(p.Value) || actors[p.Key].Life == LifeState.Dead || actors[p.Value].Life == LifeState.Dead)
             || AdventurerTowns == null || AdventurerTowns.Any(id => id < 0 || id >= plan.Towns.Count)
@@ -48,6 +52,14 @@ public sealed class NativeCampaignState
 
 public sealed partial class WorldSession
 {
+    internal void RecordNativeConsumption(int count, bool sharedPack = true)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        State.ResourcesConsumed = checked(State.ResourcesConsumed + count);
+        if (sharedPack && State.NativeCampaign is { } campaign)
+            campaign.PackResourcesConsumed = checked(campaign.PackResourcesConsumed + count);
+    }
+
     public long NativeElapsedTime => State.Tactics is { } tactics
         ? tactics.Queue.Clock - (State.NativeCampaign?.StartedAt ?? 0) * tactics.Tuning.UnitsPerWorldTick : 0;
     public bool HasNativeParty => State.Dungeon != null || State.NativeCampaign != null;

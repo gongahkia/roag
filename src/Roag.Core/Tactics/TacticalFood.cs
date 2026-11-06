@@ -26,7 +26,7 @@ public sealed partial class TacticalCombat
     {
         var recipient = MedicineRecipient(actor, target)!;
         int amount = checked(_world.Content.Get<AbilityDefinition>("ability.medicine").Power + _world.EquipmentEffectPower(actor, "healing") + RetainedTalentPower(actor, "healing"));
-        _world.State.Inventory["medicine"]--; _world.State.ResourcesConsumed++;
+        _world.State.Inventory["medicine"]--; _world.RecordNativeConsumption(1);
         CleanseNativeConditions(recipient, complete: false);
         HealCampCompanion(actor, recipient, amount, action, "ability.medicine");
     }
@@ -69,7 +69,7 @@ public sealed partial class TacticalCombat
             actor.Preparations.RemoveAll(p => p.Effect == meal.Effect || p.Until <= _world.State.Tick);
             actor.Preparations.Add(new(meal.Id, meal.Effect, meal.Power, checked(_world.State.Tick + meal.Duration)));
         }
-        _world.State.ResourcesConsumed++;
+        _world.RecordNativeConsumption(1);
         RestoreFoodHunger(actor, action, _world.Simulation.MealReduction, source);
     }
 

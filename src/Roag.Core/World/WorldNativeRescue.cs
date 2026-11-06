@@ -28,7 +28,13 @@ public sealed partial class WorldSession
     internal void ShareRecruitSupplies(Actor recruit)
     {
         foreach (var (stack, count) in recruit.Cargo)
-            if (count > 0) Add(stack, count);
+            if (count > 0)
+            {
+                Add(stack, count);
+                // Cargo leaves the regional stock boundary when it joins the
+                // globally shared expedition pack, just as a town sale does.
+                if (State.NativeCampaign != null) State.ResourcesExported += count;
+            }
         recruit.Cargo.Clear();
     }
 }

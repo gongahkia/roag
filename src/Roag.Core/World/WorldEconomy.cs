@@ -153,5 +153,6 @@ public sealed partial class WorldSession
         + State.Actors.Sum(a => a.Cargo.Values.Sum(v => (long)v))
         - State.Work.Sum(o => (o.Supplies?.Where(s => s.Phase == SupplyPhase.Carrying).Sum(s => (long)s.Count) ?? 0)
             + (o.Output?.Remaining.Values.Sum(v => (long)v) ?? 0));
-    public long RegionalResourceFlow => State.ResourcesProduced - State.ResourcesConsumed - State.ResourcesLost + State.ResourcesImported - State.ResourcesExported;
+    public long RegionalResourceFlow => State.ResourcesProduced - (State.ResourcesConsumed - (State.NativeCampaign?.PackResourcesConsumed ?? 0))
+        - State.ResourcesLost + State.ResourcesImported - State.ResourcesExported;
 }

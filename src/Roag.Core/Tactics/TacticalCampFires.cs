@@ -41,7 +41,7 @@ public sealed partial class TacticalCombat
         State.CampFires.RemoveAll(f => f.Position == actor.Position || f.Until <= Clock);
         if (!extinguish)
         {
-            _world.State.Inventory["wood"]--; _world.State.ResourcesConsumed++;
+            _world.State.Inventory["wood"]--; _world.RecordNativeConsumption(1);
             State.CampFires.Add(new(actor.Id, actor.Position, checked(Clock + (long)State.Camp.FireMinutes * 60 * Tuning.UnitsPerSecond)));
         }
         Emit(extinguish ? "CampFireExtinguished" : "CampFireLit", actor.Id, actor.Id, action, actor.Position);
