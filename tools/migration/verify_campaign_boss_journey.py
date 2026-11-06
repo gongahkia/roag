@@ -112,6 +112,7 @@ class CampaignJourney(Journey):
         self.death_effects = set()
         self.saved_casts = set()
         self.flank = None
+        self.travel_dash = False
         self.route_history = deque(maxlen=80)
         self.goal = None
         self.stage = 'recruit' if len(client.ui['nativeDungeon']['player']) < members else 'travel'
@@ -206,10 +207,20 @@ class CampaignJourney(Journey):
         actor = self.player['id']
         key = next(k for x, y, k in DIRECTIONS if (x, y) == (p[0] - origin[0], p[1] - origin[1]))
         self.select_movement()
-        self.client.key(key)
+        dash = False
+        if self.travel_dash and self.at[2] == 0 and self.player['classId'] == 'Ranger' and not self.fighters:
+            dx, dy = p[0] - origin[0], p[1] - origin[1]
+            lane = [(origin[0] + dx * n, origin[1] + dy * n, origin[2]) for n in range(1, 4)]
+            target = position(self.goal['entrance'])
+            dash = all(q in self.visible and self.open(q, True)
+                       and not self.visible[q]['material'].startswith('Stairs') for q in lane)
+            dash = dash and distance(lane[-1], target) < distance(origin, target)
+        self.client.key(('x+' if dash else '') + key)
         after = next(p for p in self.client.ui['nativeDungeon']['player'] if p['id'] == actor)
         if position(after['position']) == origin:
             self.failed[p] += 1
+        elif dash and distance(origin, position(after['position'])) > 1:
+            self.receipts.add('paid-visible-clear-lane-ranger-dash')
         return True
 
     def checkpoint(self, label='checkpoint', reload=False):
@@ -432,6 +443,7 @@ class CampaignJourney(Journey):
         return True
 
     def navigate(self):
+        self.travel_dash = True
         entrance = position(self.goal['entrance'])
         depth = self.goal['depth']
         if self.at[2] == 0:
@@ -449,6 +461,10 @@ class CampaignJourney(Journey):
         else:
             target = tuple(self.report['finalDestination']) if self.goal['final'] else entrance
         self.route_history.append(abs(target[0] - self.at[0]) + abs(target[1] - self.at[1]))
+        if self.at[2] == 0:
+            choices = [p for p in self.neighbors(self.at) if self.open(p, True) and distance(p, target) < distance(self.at, target)]
+            if choices:
+                return self.move(min(choices, key=lambda p: (distance(p, target), self.failed[p], self.visits[p])))
         goals = [target] if target[2] == self.at[2] else []
         if goals and self.go(goals, True):
             return True
@@ -490,6 +506,7 @@ class CampaignJourney(Journey):
         if not self.client.ui['nativeDungeon']['victory']:
             self.report = reports(self.client, 'initial-public-journal')
         for self.steps in range(1, budget + 1):
+            self.travel_dash = False
             if self.client.sequence >= 650:
                 self.checkpoint('protocol-boundary-' + str(self.steps), reload=True)
             if self.client.ui['nativeDungeon']['controlledActor'] != self.client.ui['nativeDungeon']['activeActor']:
