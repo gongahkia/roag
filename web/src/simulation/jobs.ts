@@ -6,9 +6,11 @@ import type { Cell, CommandInput, Job, Person, Structure, World } from './model.
 import { BUILDINGS, emptyStock, MATERIALS, total, WORK_CONTENT as C } from './work-content.ts';
 import type { Stock } from './work-content.ts';
 export const jobCost = (j: Job): Stock => j.kind === 'build' ? { ...C.buildings[j.building!].cost }
+  : j.kind === 'reload' ? { ...emptyStock(), ammo: j.building === 'trap' ? 1 : 4 }
   : j.kind === 'produce' ? { ...RECIPES[j.recipe!].cost } : j.kind === 'repair' ? { ...emptyStock(), wood: j.building === 'wall' ? 0 : 1, stone: j.building === 'wall' ? 1 : 0, food: 0 } : emptyStock();
 export const jobTicks = (j: Job): number => j.kind === 'build' ? C.buildings[j.building!].ticks
   : j.kind === 'produce' ? RECIPES[j.recipe!].ticks : j.kind === 'farm' ? Math.max(NEEDS.plantingTicks,NEEDS.tendingTicks,NEEDS.harvestTicks) : j.kind === 'gather' ? C.extractionTicks : j.kind === 'repair' ? C.repairTicks : C.dismantleTicks;
+export const isStore = (s: Structure): boolean => s.kind === 'stockpile' || s.kind === 'storage';
 export const capacity = (s: Structure): number => s.kind === 'stockpile' ? C.stockpileCapacity : C.buildings[s.kind].capacity;
 export function clearTravel(p: Person, keepYield=false): void {
   // Complete an already reserved edge; never snap a worker backwards or forwards.
@@ -47,6 +49,10 @@ export function workCommandReason(world: World, input: CommandInput): string | n
     case 'gather': return !world.resources.some(r => r.id === input.source && r.remaining > 0) ? 'Choose a finite resource source'
       : pending.some(j => j.kind === 'gather' && j.ref === input.source) ? 'This source is already designated' : pending.length >= 128 ? 'Work list full' : null;
     case 'stockpile': case 'build': return input.kind === 'build' && !BUILDINGS.includes(input.building) ? 'Unknown building' : pending.length >= 128 || world.structures.length + pending.filter(j=>j.kind==='build').length >= 256 ? 'Colony structure/work limit reached' : placementReason(world, input.target);
+    case 'reload': {
+      const s=world.structures.find(s=>s.id===input.structure && (s.kind==='tower'||s.kind==='trap'));
+      return !s ? 'Choose a tower or trap' : pending.some(j=>j.ref===s.id) ? 'Defense already has work; finish or cancel it first' : pending.length>=128 ? 'Work list full' : capacity(s)-s.inventory.ammo<(s.kind==='trap'?1:4) ? 'Magazine needs room for a full batch (tower 4, trap 1)' : null;
+    }
     case 'repair': case 'dismantle': {
       const s = world.structures.find(s => s.id === input.structure);
       return !s ? 'Structure no longer exists' : input.kind === 'repair' && (s.kind === 'stockpile' || s.health === 100) ? 'Choose a damaged building'
@@ -82,6 +88,7 @@ export function applyWorkCommand(world: World, input: CommandInput): void {
     case 'gather': { const r = world.resources.find(r => r.id === input.source)!; addJob(world, 'gather', r, r.id, null); break; }
     case 'stockpile': world.structures.push({ id: world.nextId++, ...input.target, kind: 'stockpile', health: 100, open: true, inventory: emptyStock(), embodied: emptyStock() }); break;
     case 'build': addJob(world, 'build', input.target, null, input.building); world.terrainVersion++; break;
+    case 'reload': { const s=world.structures.find(s=>s.id===input.structure)!; addJob(world,'reload',s,s.id,s.kind as 'tower'|'trap'); break; }
     case 'repair': case 'dismantle': { const s = world.structures.find(s => s.id === input.structure)!; addJob(world, input.kind, s, s.id, s.kind === 'stockpile' ? null : s.kind); break; }
     case 'work': {
       const j = world.jobs.find(j => j.id === input.job)!;
@@ -132,7 +139,7 @@ export function approach(world: World, j: {status:string}, p: Person, at: Cell, 
 }
 export function deliver(world: World, j: Job, p: Person): boolean {
   if (!total(p.cargo)) return true;
-  const stores = world.structures.filter(s => capacity(s) > total(s.inventory)).sort((a,b) => distance(p,a)-distance(p,b) || a.id-b.id);
+  const stores = world.structures.filter(s => isStore(s) && capacity(s) > total(s.inventory)).sort((a,b) => distance(p,a)-distance(p,b) || a.id-b.id);
   let s = stores.find(s => s.id === j.delivery);
   if (!s) { s = stores[0]; j.delivery = s?.id ?? null; }
   if (!s) { clearTravel(p,true); j.status = 'Storage full or absent; cargo retained. Establish storage or cancel to drop a bundle'; return false; }
@@ -151,7 +158,7 @@ function supply(world: World, j: Job, p: Person): boolean {
   if (MATERIALS.every(k => j.site[k] === cost[k])) return true;
   if (j.reservation && (!inventory(world,j.reservation.source) || available(world,j.reservation.source,j.reservation.kind) < 0)) j.reservation = null;
   if (!j.reservation) {
-    const sources = [...world.structures.filter(s => capacity(s)>0),...world.piles].sort((a,b) => distance(p,a)-distance(p,b) || a.id-b.id);
+    const sources = [...world.structures.filter(isStore),...world.piles].sort((a,b) => distance(p,a)-distance(p,b) || a.id-b.id);
     for (const k of MATERIALS) {
       const missing = cost[k] - j.site[k]; if (missing <= 0) continue;
       const source = sources.find(s => available(world,s.id,k)>0);
@@ -206,7 +213,7 @@ function perform(world: World, j: Job, p: Person): void {
   }
   const structure = world.structures.find(s => s.id === j.ref);
   if (j.kind !== 'build' && (!structure || !same(j,structure))) { finish(world,j,true); return; }
-  if ((j.kind === 'build' || j.kind === 'repair') && !supply(world,j,p)) return;
+  if ((j.kind === 'build' || j.kind === 'repair' || j.kind === 'reload') && !supply(world,j,p)) return;
   if (!approach(world,j,p,j,j.kind === 'build' ? 'Approaching construction site' : 'Approaching structure')) return;
   if (j.kind === 'dismantle' && structure) {
     const occupied=spatial(world),id=occupied.get(index(structure.x,structure.y)),occupant=world.people.find(p=>p.id===id);
@@ -222,20 +229,36 @@ function perform(world: World, j: Job, p: Person): void {
   if (++j.progress < jobTicks(j)) return;
   if (j.kind === 'build') {
     world.structures.push({ id: world.nextId++, x:j.x,y:j.y,kind:j.building!,health:100,open:j.building==='door',inventory:emptyStock(),embodied:{...j.site} }); j.site = emptyStock();
+  } else if(j.kind==='reload') {
+    const n=Math.min(j.site.ammo,capacity(structure!)-structure!.inventory.ammo);
+    structure!.inventory.ammo+=n;j.site.ammo-=n;
   } else if (j.kind === 'repair') { structure!.health = 100; for (const k of MATERIALS) { world.spent[k] += j.site[k]; j.site[k] = 0; } }
-  else {
-    const s = structure!; drop(world,s,s.inventory);
-    const salvage = emptyStock(); for (const k of MATERIALS) { salvage[k] = Math.floor(s.embodied[k]*C.salvagePercent/100); world.spent[k] += s.embodied[k]-salvage[k]; }
-    drop(world,s,salvage); world.structures = world.structures.filter(b => b.id !== s.id);
-    for (const other of world.jobs) { if (other.reservation?.source === s.id) other.reservation = null; if(other.delivery===s.id)other.delivery=null; if(other.ref===s.id&&other.id!==j.id&&active(other))finish(world,other,true); }
-    // Settle care claims in the removal tick too: a paused world must remain saveable.
-    for (const person of world.people) {
-      const routine = person.body.routine;
-      if (routine?.reservation?.source === s.id) routine.reservation = null;
-      if (routine?.facility === s.id) endRoutine(world,person);
-    }
-  }
+  else removeStructure(world,structure!,j.id);
   world.terrainVersion++; finish(world,j);
+}
+function removeStructure(world: World, s: Structure, completing: number | null = null): void {
+  if (!world.structures.some(b => b.id === s.id)) return;
+  world.structures = world.structures.filter(b => b.id !== s.id);
+  drop(world,s,s.inventory);
+  const salvage=emptyStock();
+  for(const k of MATERIALS){salvage[k]=Math.floor(s.embodied[k]*C.salvagePercent/100);world.spent[k]+=s.embodied[k]-salvage[k];}
+  drop(world,s,salvage);
+  for(const j of world.jobs){
+    if(j.reservation?.source===s.id)j.reservation=null;
+    if(j.delivery===s.id)j.delivery=null;
+    if(j.ref===s.id&&j.id!==completing&&active(j))finish(world,j,true);
+  }
+  for(const p of world.people){
+    if(p.body.routine?.reservation?.source===s.id)p.body.routine.reservation=null;
+    if(p.body.routine?.facility===s.id)endRoutine(world,p);
+  }
+  world.combat.defenses=world.combat.defenses.filter(d=>d.structure!==s.id);
+  world.combat.attacks=world.combat.attacks.filter(a=>a.source.kind!=='structure'||a.source.id!==s.id);
+  world.terrainVersion++;
+}
+export function destroyStructure(world: World, s: Structure): void {
+  if(!world.structures.some(b=>b.id===s.id))return;
+  removeStructure(world,s);world.combat.stats.structuresLost++;
 }
 export const jobDuty=(j:Job):Duty=>j.kind==='gather'||j.kind==='haul'||j.kind==='farm'?'gatherer':j.kind==='produce'?RECIPES[j.recipe!].duty:'builder';
 export function advanceJobs(world: World): void {
@@ -246,12 +269,12 @@ export function advanceJobs(world: World): void {
   for (const j of [...world.jobs].sort((a,b) => b.priority-a.priority || a.id-b.id)) {
     if (j.state !== 'active' || j.retryAt>world.tick) continue;
     if (!j.worker) {
-      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !p.body.routine && p.body.recoverAt<=world.tick && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id) && (j.requested!==null || !world.jobs.some(other=>other!==j&&other.state==='active'&&other.worker===null&&other.retryAt<=world.tick&&other.priority>=j.priority&&(other.requested===null||other.requested===p.id)&&p.body.duties[jobDuty(other)]>p.body.duties[jobDuty(j)])));
+      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !world.combat.orders.some(o=>o.actor===p.id) && !p.body.routine && p.body.recoverAt<=world.tick && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id) && (j.requested!==null || !world.jobs.some(other=>other!==j&&other.state==='active'&&other.worker===null&&other.retryAt<=world.tick&&other.priority>=j.priority&&(other.requested===null||other.requested===p.id)&&p.body.duties[jobDuty(other)]>p.body.duties[jobDuty(j)])));
       if (!p) { j.status = j.requested ? 'Assigned worker unavailable' : 'Waiting for free worker with enabled duty'; continue; }
       j.worker = p.id; p.job = j.id;
     }
     const p = world.people.find(p => p.id === j.worker)!;
-    if (used.has(p.id)||p.body.routine||p.body.recoverAt>world.tick) { if(p.body.routine)j.status=`Interrupted: ${p.body.routine.status}`;continue; } used.add(p.id);
+    if (used.has(p.id)||world.combat.orders.some(o=>o.actor===p.id)||p.body.routine||p.body.recoverAt>world.tick) { if(p.body.routine)j.status=`Interrupted: ${p.body.routine.status}`;continue; } used.add(p.id);
     if((p.body.hunger>=NEEDS.mealAt||p.body.fatigue>=NEEDS.restAt||p.body.health<70)&&world.tick%2){j.status='Needs or injury slow work (50%)';continue;}world.statistics.workTicks++;perform(world,j,p);
   }
   // Empty piles have no remaining claims after pickups. Retain referenced empty piles until those jobs finish.
@@ -261,6 +284,6 @@ export function materialAudit(world: World): Record<keyof Stock, { depleted:numb
   return Object.fromEntries(MATERIALS.map(k => {
     const depleted = world.resources.filter(r => r.kind===k).reduce((n,r) => n+r.initial-r.remaining,0), removed=world.sourceRemoved[k];
     const stored = [...world.structures,...world.piles].reduce((n,s) => n+s.inventory[k],0), carried=world.people.reduce((n,p) => n+p.cargo[k]+(p.body.routine?.cargo[k]??0),0), site=world.jobs.reduce((n,j) => n+j.site[k],0), embodied=world.structures.reduce((n,s) => n+s.embodied[k],0);
-    return [k,{depleted,removed,produced:depleted-removed+world.produced[k],generated:world.produced[k],consumed:world.consumed[k],stored,carried,site,embodied,spent:world.spent[k],lost:world.lost[k],accounted:stored+carried+site+embodied+world.spent[k]+world.lost[k]+world.consumed[k],reserved:world.jobs.reduce((n,j) => n+(j.reservation?.kind===k?j.reservation.count:0),0)}];
+    return [k,{depleted,removed,produced:depleted-removed+world.produced[k],generated:world.produced[k],consumed:world.consumed[k],stored,carried,site,embodied,spent:world.spent[k],lost:world.lost[k],accounted:stored+carried+site+embodied+world.spent[k]+world.lost[k]+world.consumed[k],reserved:world.jobs.reduce((n,j) => n+(j.reservation?.kind===k?j.reservation.count:0),0)+world.people.reduce((n,p)=>n+(p.body.routine?.reservation?.kind===k?p.body.routine.reservation.count:0),0)}];
   })) as ReturnType<typeof materialAudit>;
 }
