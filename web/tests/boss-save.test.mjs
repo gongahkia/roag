@@ -130,6 +130,8 @@ test('real Bellkeeper, Sluice-Maw and Threadmother telegraphs round-trip with ex
       ['null layout channels', w => w.bosses.encounters[0].layout.channels = null],
       ['missing layout geometry', w => w.bosses.encounters[0].layout.webs = null],
       ['wrong layout center', w => w.bosses.encounters[0].layout.center.x++],
+      ['forgotten arrival', w => w.bosses.encounters[0].arrived = false],
+      ['arrival coerced from string', w => w.bosses.encounters[0].arrived = 'true'],
       ['unknown boss kind', w => w.bosses.encounters[0].kind = 'dragon'],
       ['wrong owner', w => w.bosses.encounters[0].owner = w.people[0].id],
       ['invented dead encounter', w => w.bosses.encounters[0].deadAt = w.tick],
@@ -144,6 +146,10 @@ test('real Bellkeeper, Sluice-Maw and Threadmother telegraphs round-trip with ex
       ['empty effect cells', w => w.bosses.effects[0].cells = []],
       ['effect cell extra field', w => w.bosses.effects[0].cells[0].owner = 1],
       ['duplicate effect cell', w => w.bosses.effects[0].cells.push(w.bosses.effects[0].cells[0])],
+    ]);
+    if (kind === 'threadmother') rejects(world, [
+      ['moved locked line', w => w.bosses.features.find(feature => feature.kind === 'line').y++],
+      ['missing locked line segment', w => w.bosses.features = w.bosses.features.filter(feature => feature.id !== w.bosses.features.find(value => value.kind === 'line').id)],
     ]);
     continueExactly(world, 80);
     assert.equal(checkpoint.bosses.encounters[0].layout.kind, encounter.kind);
@@ -160,6 +166,7 @@ test('physical strike, drain, cut and ignite work resumes exactly without accept
     const at = neighbors(feature).find(cell => walkable(world, cell) && !world.people.some(p => p.x === cell.x && p.y === cell.y) && !world.combat.raiders.some(r => r.x === cell.x && r.y === cell.y));
     assert.ok(at); person.x = at.x; person.y = at.y;
     assert.ok(enqueue(world, { kind: 'battle', actor: person.id, mode, target: { x: feature.x, y: feature.y } }));
+    rejects(world, [['array masquerading as command mode', w => w.pending[0].input.mode = [mode]]]);
     untilValid(world, () => world.bosses.work.some(work => work.actor === person.id && work.progress >= 3), `${mode} work began`);
     rejects(world, [
       ['unknown work field', w => w.bosses.work[0].parallel = true],
@@ -205,6 +212,7 @@ test('locked fire survives historical feature, boss and founder death then expir
     ['missing historical encounter', w => w.bosses.encounters = []],
     ['owner death in future', w => w.bosses.encounters[0].deadAt = w.tick + 1],
     ['dead encounter claiming live state', w => w.bosses.encounters[0].deadAt = null],
+    ['duplicate historical fire feature', w => { const effect = structuredClone(w.bosses.effects[0]); effect.id = w.nextId++; w.bosses.effects.push(effect); }],
     ['fire source is boss', w => w.bosses.effects[0].source = boss.id],
     ['historical feature aliases living object', w => w.bosses.effects[0].feature = w.resources[0].id],
     ['historical feature beyond effect', w => w.bosses.effects[0].feature = w.bosses.effects[0].id],
@@ -215,4 +223,77 @@ test('locked fire survives historical feature, boss and founder death then expir
   continueExactly(world, 60);
   assert.equal(world.bosses.encounters.length, 0); assert.equal(world.bosses.effects.length, 0);
   assert.equal(world.combat.stats.bosses, 1); assert.equal(world.combat.stats.kills, 4); assert.equal(world.combat.lootWood, 8);
+});
+
+test('a committed Sluice feast retains wet edge timing and exact healing after reload', async () => {
+  const { world, boss, encounter } = await bossFixture('sluice');
+  // Select the second attack in an explicit isolated encounter fixture.
+  encounter.moves = 1; boss.health = 100;
+  untilValid(world, () => encounter.feast !== null, 'committed feast began walking');
+  untilValid(world, () => boss.next !== null && boss.progress === 2, 'wet feast movement edge');
+  assert.equal(boss.moveTicks, 6);
+  const checkpoint = structuredClone(world);
+  rejects(world, [
+    ['wrong feast channel', w => w.bosses.encounters[0].feast.channel = 2],
+    ['expired feast', w => w.bosses.encounters[0].feast.expiresAt = w.tick],
+    ['invented channel direction', w => w.bosses.encounters[0].layout.channels[0].flow.x = 2],
+    ['edited saved pool', w => w.bosses.encounters[0].layout.channels[0].pool.x++],
+    ['feasting drained channel', w => w.bosses.encounters[0].drained[0] = true],
+    ['wrong raider duration', w => w.combat.raiders[0].moveTicks = 5],
+    ['missing raider duration', w => delete w.combat.raiders[0].moveTicks],
+  ]);
+  untilValid(world, () => boss.health > 100, 'physical arrival healed', 80);
+  assert.equal(boss.health, 124); assert.deepEqual({ x: boss.x, y: boss.y }, encounter.layout.channels[0].pool);
+  continueExactly(checkpoint, 100);
+});
+
+test('regenerated partitions and their historical fire groups remain strict and continuable', async () => {
+  const { world, person, encounter } = await bossFixture('threadmother');
+  const anchor = world.bosses.features.find(feature => feature.kind === 'anchor');
+  const at = neighbors(anchor).find(cell => walkable(world, cell)); person.x = at.x; person.y = at.y;
+  assert.ok(enqueue(world, { kind: 'battle', actor: person.id, mode: 'cut', target: { x: anchor.x, y: anchor.y } }));
+  untilValid(world, () => !world.bosses.features.some(feature => feature.id === anchor.id), 'paid anchor cut');
+  untilValid(world, () => world.bosses.effects.some(effect => effect.kind === 'partition'), 'partition telegraph');
+  const partition = world.bosses.effects.find(effect => effect.kind === 'partition');
+  rejects(world, [
+    ['reordered partition cells', w => w.bosses.effects.find(effect => effect.kind === 'partition').cells.reverse()],
+    ['foreign partition group', w => w.bosses.effects.find(effect => effect.kind === 'partition').group = anchor.id],
+  ]);
+  const checkpoint = structuredClone(world);
+  untilValid(world, () => world.bosses.features.some(feature => feature.group === partition.id), 'partition rebuilt');
+  assert.ok(world.bosses.features.filter(feature => feature.kind !== 'line').every(feature => feature.group === partition.id));
+  assert.ok(!world.bosses.features.some(feature => feature.x === encounter.layout.center.x + 2 && feature.y === encounter.layout.center.y));
+  continueExactly(checkpoint, 50);
+  rejects(world, [['historical group aliases live owner with wrong identity', w => w.bosses.features.find(feature => feature.kind === 'anchor').group = w.people[0].id]]);
+});
+
+test('competing drain and ignition retire earlier workers in the same completed tick', async () => {
+  for (const [kind, mode, targetKind] of [['sluice', 'drain', 'valve'], ['threadmother', 'ignite', 'web']]) {
+    const { world } = await bossFixture(kind);
+    const feature = world.bosses.features.find(value => value.kind === targetKind);
+    const positions = neighbors(feature).filter(cell => walkable(world, cell)); assert.ok(positions.length >= 2);
+    const earlierInLoop = world.people[0], completesFirst = world.people[1];
+    earlierInLoop.x = positions[0].x; earlierInLoop.y = positions[0].y;
+    completesFirst.x = positions[1].x; completesFirst.y = positions[1].y;
+    const order = actor => ({ kind: 'battle', actor, mode, target: { x: feature.x, y: feature.y } });
+    assert.ok(enqueue(world, order(completesFirst.id))); advanceValid(world, 5);
+    assert.ok(enqueue(world, order(earlierInLoop.id)));
+    untilValid(world, () => mode === 'drain' ? world.bosses.encounters[0].drained[feature.channel] : world.bosses.effects.some(effect => effect.kind === 'fire'), `competing ${mode} completes`);
+    assert.ok(!world.bosses.work.some(work => work.mode === mode && work.target === feature.id));
+    continueExactly(world, 35);
+  }
+});
+
+test('feast deadline expiration during a reserved edge saves immediately and keeps its committed duration', async () => {
+  const { world, boss, encounter } = await bossFixture('sluice');
+  encounter.moves = 1; boss.health = 100;
+  untilValid(world, () => encounter.feast !== null, 'feast began');
+  untilValid(world, () => boss.next !== null && boss.progress === 2, 'feast edge acquired');
+  // A focused deadline boundary fixture represents reaching a slow edge in the
+  // final tick of the retained travel allowance. Progress is still real motion.
+  encounter.feast.expiresAt = world.tick + 1; saved(world);
+  const snapshot = structuredClone(world), next = structuredClone(boss.next);
+  advanceValid(world);
+  assert.equal(encounter.feast, null); assert.deepEqual(boss.next, next); assert.equal(boss.moveTicks, 6);
+  continueExactly(snapshot, 30);
 });

@@ -87,6 +87,7 @@ export function validateBosses(world: World, ids: Set<number>, occupied: Set<num
     assert(integer(encounter.owner, 8, world.nextId - 1) && !owners.has(encounter.owner), 'boss owner identity');
     owners.set(encounter.owner, encounter);
     assert(integer(encounter.wave, 1, world.combat.wave) && encounter.wave % 4 === 0 && integer(encounter.moves) && integer(encounter.readyAt, 0, world.tick + 60) && integer(encounter.exposedUntil, 0, world.tick + B.exposure.ticks), 'boss encounter counters');
+    assert(encounter.arrived || encounter.moves === 0 && encounter.feast === null, 'boss arrival history');
     const owner = world.combat.raiders.find(raider => raider.id === encounter.owner);
     if (encounter.deadAt === null) assert(owner?.kind === encounter.kind && encounter.wave === world.combat.wave, 'living boss encounter owner');
     else {
@@ -98,6 +99,7 @@ export function validateBosses(world: World, ids: Set<number>, occupied: Set<num
     if (encounter.feast) assert(encounter.kind === 'sluice' && integer(encounter.feast.channel, 0, encounter.layout.channels.length - 1) && !encounter.drained[encounter.feast.channel] && integer(encounter.feast.expiresAt, world.tick + 1, world.tick + B.feast.travelTicks), 'boss feast route');
   }
   for (const raider of world.combat.raiders) if (kinds.includes(raider.kind)) assert(owners.has(raider.id), 'missing live boss encounter');
+  assert(bosses.encounters.filter(encounter => encounter.deadAt !== null).length <= world.combat.stats.bosses, 'historical boss death ledger');
   for (const feature of bosses.features) addId(feature.id);
   for (const effect of bosses.effects) addId(effect.id);
   const positions = new Set<number>();
@@ -121,11 +123,12 @@ export function validateBosses(world: World, ids: Set<number>, occupied: Set<num
       occupied.add(key);
     }
   }
+  const burning = new Set<number>();
   for (const effect of bosses.effects) {
     const encounter = owners.get(effect.owner);
     assert(encounter && effect.owner < effect.id && effect.cells.length > 0, 'boss effect owner/geometry');
     assert(effect.source === (effect.kind === 'fire' ? effect.source : effect.owner) && (effect.kind !== 'fire' || world.people.some(person => person.id === effect.source)), 'boss effect source');
-    assert(effect.kind === 'fire' || encounter.deadAt === null, 'nonfire effect from dead boss');
+    assert(effect.kind === 'fire' || encounter.deadAt === null && encounter.arrived, 'nonfire effect from dead or unarrived boss');
     const content = B[effect.kind], maximum = effect.kind === 'fire' ? B.fire.maxDelay : effect.kind === 'ring' ? B.ring.windup + (B.ring.radii - 1) * B.ring.gap : content.windup;
     const damage = 'damage' in content ? content.damage : 0;
     assert(integer(effect.due, world.tick + 1, world.tick + maximum) && effect.damage === damage, 'boss effect timing/damage');
@@ -147,12 +150,18 @@ export function validateBosses(world: World, ids: Set<number>, occupied: Set<num
       assert([...encounter.layout.anchors, ...encounter.layout.webs].some(position => same(position, effect.origin)), 'historical fire origin');
       assert(effect.group === effect.owner || !ids.has(effect.group), 'historical fire group');
       if (encounter.deadAt !== null) assert(effect.due <= encounter.deadAt + B.fire.maxDelay, 'finite fire after owner death');
+      assert(!burning.has(effect.feature), 'duplicate committed feature fire'); burning.add(effect.feature);
       const feature = bosses.features.find(feature => feature.id === effect.feature);
       if (feature) assert(feature.owner === effect.owner && (feature.kind === 'anchor' || feature.kind === 'web') && feature.group === effect.group && same(feature, effect.origin), 'living fire source feature');
       else assert(!ids.has(effect.feature), 'historical fire feature identity');
       assert(effect.cells.some(position => same(position, effect.origin)), 'fire retains origin');
     } else assert(encounter.kind === 'bellkeeper' && effect.feature === null && effect.channel === null && effect.group === null, 'soundseek commitment');
     validateEffectGeometry(effect);
+    if (effect.kind === 'reel') {
+      const expected = ray(effect.origin, effect.cells[0]!).slice(0, -1);
+      const actual = bosses.features.filter(feature => feature.kind === 'line' && feature.group === effect.id).sort((a, b) => a.id - b.id).map(({ x, y }) => ({ x, y }));
+      assert(canonical(actual) === canonical(expected), 'locked reel line geometry');
+    }
   }
   for (const feature of bosses.features) {
     if (feature.kind === 'line') assert(bosses.effects.some(effect => effect.id === feature.group && effect.kind === 'reel' && effect.owner === feature.owner), 'line reel group');
@@ -174,10 +183,25 @@ export function validateBosses(world: World, ids: Set<number>, occupied: Set<num
 
 function validateEffectGeometry(effect: BossEffect): void {
   if (effect.kind === 'soundseek' || effect.kind === 'feast' || effect.kind === 'reel') assert(effect.cells.length === 1, 'boss point effect');
-  if (effect.kind === 'reel') assert(distance(effect.origin, effect.cells[0]!) <= B.reel.range, 'boss reel range');
+  if (effect.kind === 'reel') assert(distance(effect.origin, effect.cells[0]!) > 1 && distance(effect.origin, effect.cells[0]!) <= B.reel.range, 'boss reel range');
   if (effect.kind === 'ring') {
     const radius = Math.max(Math.abs(effect.cells[0]!.x - effect.origin.x), Math.abs(effect.cells[0]!.y - effect.origin.y));
     assert(integer(radius, 1, B.ring.radii) && effect.cells.every(position => Math.max(Math.abs(position.x - effect.origin.x), Math.abs(position.y - effect.origin.y)) === radius), 'locked boss ring');
   }
   if (effect.kind === 'fire') assert(effect.cells.every(position => distance(effect.origin, position) <= 1), 'locked fire pulse');
+}
+
+/** Immutable Bresenham geometry; later obstacles do not rewrite a committed line. */
+function ray(origin: Cell, target: Cell): Cell[] {
+  const cells: Cell[] = []; let x = origin.x, y = origin.y;
+  const dx = Math.abs(target.x - x), sx = x < target.x ? 1 : -1;
+  const dy = -Math.abs(target.y - y), sy = y < target.y ? 1 : -1;
+  let error = dx + dy;
+  while (x !== target.x || y !== target.y) {
+    const twice = 2 * error;
+    if (twice >= dy) { error += dy; x += sx; }
+    if (twice <= dx) { error += dx; y += sy; }
+    cells.push({ x, y });
+  }
+  return cells;
 }
