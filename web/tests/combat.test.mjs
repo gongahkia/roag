@@ -126,3 +126,9 @@ test('mid-wave cloned continuation preserves all movement, impacts, RNG and loot
   assert.equal(spatial(w).size,w.people.filter(p=>p.life!=='dead').reduce((n,p)=>n+1+(p.next?1:0),0)+w.combat.raiders.reduce((n,r)=>n+1+(r.next?1:0),0));
   assert.ok(w.combat.raiders.every(r=>walkable(w,r)&&(!r.next||walkable(w,r.next))));
 });
+
+test('a reserved movement cell never permits melee against a body two tiles away',()=>{
+  const w=fixture(),r=raider(w,70,67),p=w.people[0];p.x=68;p.y=67;p.next={x:69,y:67};p.progress=0;p.destination={x:69,y:67};
+  r.target={kind:'person',id:p.id};r.route=[{x:69,y:67}];r.routeVersion=w.terrainVersion;
+  advanceCombat(w);assert.equal(w.combat.attacks.filter(a=>a.source.id===r.id).length,0);
+});

@@ -160,7 +160,7 @@ function selectTarget(w: World,r: Raider): CombatRef {
   const target=w.people.filter(p=>p.life==='alive'&&distance(p,r)<=C[r.kind].notice).sort((a,b)=>distance(r,a)-distance(r,b)||a.id-b.id)[0];return target?{kind:'person',id:target.id}:{kind:'heart',id:w.heart.id};
 }
 function melee(w: World,r: Raider,target: Cell): void {
-  if(r.cooldown>w.tick)return;const built=w.structures.some(s=>same(s,target))||w.jobs.some(j=>j.kind==='build'&&active(j)&&same(j,target))||same(w.heart,target);
+  if(r.cooldown>w.tick||distance(r,target)>1)return;const built=w.structures.some(s=>same(s,target))||w.jobs.some(j=>j.kind==='build'&&active(j)&&same(j,target))||same(w.heart,target);
   const amount=r.kind==='breacher'&&built?C.breacher.structureDamage:C[r.kind].damage;
   if(launch(w,{kind:'raider',id:r.id},r,target,'melee','hostile',amount,C[r.kind].windup))r.cooldown=w.tick+C[r.kind].cooldown;
 }
