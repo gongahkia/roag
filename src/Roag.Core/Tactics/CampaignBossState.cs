@@ -104,7 +104,8 @@ public sealed class CampaignBossArena
     }
 }
 public sealed record CampaignBossPulse(long Id, long Arena, long Source, CampaignBossPulseKind Kind,
-    WorldPosition Origin, WorldPosition[] Cells, long Due, long Schedule, int Damage, long Fixture = 0);
+    WorldPosition Origin, WorldPosition[] Cells, long Due, long Schedule, int Damage, long Fixture = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BoonCause? Causality = null);
 public sealed class CampaignBossWorldState
 {
     public long NextArena { get; set; } = 1;

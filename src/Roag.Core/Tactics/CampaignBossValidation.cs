@@ -130,16 +130,22 @@ internal static class CampaignBossValidation
         foreach (var pulse in store.Pulses)
         {
             var arena = store.Arenas.FirstOrDefault(a => a.Id == pulse.Arena);
-            if (arena == null || pulse.Id <= 0 || pulse.Id >= state.NextAction || !actors.ContainsKey(pulse.Source)
-                || !state.Participants.Contains(pulse.Source) || !Enum.IsDefined(pulse.Kind)
+            if (arena == null || pulse.Id <= 0 || pulse.Id >= state.NextAction || pulse.Source < 0
+                || pulse.Source != 0 && (!actors.ContainsKey(pulse.Source) || !state.Participants.Contains(pulse.Source)) || !Enum.IsDefined(pulse.Kind)
                 || !arena.Contains(pulse.Origin) || pulse.Cells == null || pulse.Cells.Length is < 1 or > 40
                 || pulse.Cells.Distinct().Count() != pulse.Cells.Length || pulse.Cells.Any(p => !arena.Contains(p))
                 || pulse.Due < clock || pulse.Due - clock > 5000 || pulse.Damage is < 1 or > 20 || pulse.Fixture <= 0 || pulse.Fixture >= arena.NextFixture
-                || pulse.Kind == CampaignBossPulseKind.Chime && (arena.Kind != CampaignBossKind.Bellkeeper || pulse.Source != arena.Boss
+                || pulse.Kind == CampaignBossPulseKind.Chime && (arena.Kind != CampaignBossKind.Bellkeeper || pulse.Source != arena.Boss || pulse.Causality != null
                     || actors[pulse.Source].Life != LifeState.Alive || !arena.Fixtures.Any(f => f.Id == pulse.Fixture && f.Kind == CampaignBossFixtureKind.Resonator && f.Health > 0))
                 || pulse.Kind == CampaignBossPulseKind.BurningWeb && arena.Kind != CampaignBossKind.Threadmother
                 || queue.Count(w => Matches(w, pulse)) != 1 || state.Attacks.Any(a => a.Id == pulse.Id))
                 throw new InvalidDataException("Invalid campaign boss pulse or schedule.");
+            if (pulse.Causality is { } cause && (cause.ChainId <= 0 || cause.ChainId >= state.NextAction
+                || cause.RootActionId <= 0 || cause.RootActionId >= state.NextAction || !double.IsFinite(cause.ProcCoefficient)
+                || cause.ProcCoefficient is < 0 or > 10 || cause.Ancestry.IsDefault
+                || cause.Ancestry.Any(k => k is null || !actors.ContainsKey(k.Owner) || !BoonCatalog.Default.Contains(k.Boon))
+                || cause.Ancestry.Distinct().Count() != cause.Ancestry.Length))
+                throw new InvalidDataException("Invalid burning network causal ownership.");
         }
         if (queue.Any(w => w.Kind == ScheduledKind.CampaignBossPulse && !store.Pulses.Any(p => Matches(w, p))))
             throw new InvalidDataException("Orphaned campaign boss pulse.");

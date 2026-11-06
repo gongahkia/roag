@@ -136,7 +136,8 @@ public sealed partial class TacticalCombat
                 var cells = new[] { fixture.Position }.Concat(new[] { Facing.North, Facing.East, Facing.South, Facing.West }.Select(f =>
                 { var (x, y) = AttackGeometry.Offset(f); return fixture.Position.Offset(x, y); })).Where(p => BossCell(arena, p)).ToArray();
                 QueueCampaignBossPulse(arena, CampaignBossPulseKind.BurningWeb, fixture.Position, cells,
-                    checked(Clock + 100 + distance[fixture.Id] * 75), arena.FinalRole ? 4 : 2, fixture.Id, attack.Source);
+                    checked(Clock + 100 + distance[fixture.Id] * 75), arena.FinalRole ? 4 : 2, fixture.Id, attack.Source,
+                    _cause ?? attack.Causality ?? RootCause(attack.Id, attack.ClassGenerated));
             }
             foreach (var next in network)
                 if (!distance.ContainsKey(next.Id) && (fixture.Position.Distance(next.Position) == 1 || next.Group == fixture.Group && fixture.Kind == CampaignBossFixtureKind.WebAnchor))
@@ -146,12 +147,12 @@ public sealed partial class TacticalCombat
     }
 
     private void QueueCampaignBossPulse(CampaignBossArena arena, CampaignBossPulseKind kind, WorldPosition origin,
-        WorldPosition[] cells, long due, int damage, long fixture, long source = 0)
+        WorldPosition[] cells, long due, int damage, long fixture, long? source = null, BoonCause? causality = null)
     {
         if (cells.Length == 0 || BossStore.Pulses.Count >= 2048) return;
-        long id = State.NextAction++; source = source == 0 ? arena.Boss : source;
-        long schedule = State.Queue.Schedule(ScheduledKind.CampaignBossPulse, due, source, referenceId: id).Sequence;
-        BossStore.Pulses.Add(new(id, arena.Id, source, kind, origin, cells, due, schedule, damage, fixture));
+        long id = State.NextAction++, owner = source ?? arena.Boss;
+        long schedule = State.Queue.Schedule(ScheduledKind.CampaignBossPulse, due, owner, referenceId: id).Sequence;
+        BossStore.Pulses.Add(new(id, arena.Id, owner, kind, origin, cells, due, schedule, damage, fixture, causality));
     }
     private void CancelCampaignPulses(Func<CampaignBossPulse, bool> predicate)
     {
@@ -176,7 +177,7 @@ public sealed partial class TacticalCombat
         var pulse = BossStore.Pulses.Single(p => p.Schedule == work.Sequence);
         BossStore.Pulses.Remove(pulse);
         var arena = BossStore.Arenas.Single(a => a.Id == pulse.Arena);
-        ResolveAtomically(RootCause(pulse.Id), () =>
+        ResolveAtomically(pulse.Causality ?? RootCause(pulse.Id), () =>
         {
             if (pulse.Kind == CampaignBossPulseKind.BurningWeb)
             {
@@ -185,7 +186,8 @@ public sealed partial class TacticalCombat
             }
             ResolveDamageBatch(new(pulse.Id, pulse.Source, pulse.Origin, pulse.Cells, pulse.Kind == CampaignBossPulseKind.Chime ? "core:ability/boss_chime_ring" : "core:ability/boss_burning_network",
                 AttackDelivery.Area, pulse.Kind == CampaignBossPulseKind.Chime ? DamageElement.Resonance : DamageElement.Fire,
-                pulse.Damage, pulse.Due, Cause: DamageCause.GroundHazard, HitsOwner: pulse.Kind == CampaignBossPulseKind.BurningWeb, PersistsWithoutOwner: pulse.Kind == CampaignBossPulseKind.BurningWeb));
+                pulse.Damage, pulse.Due, Cause: DamageCause.GroundHazard, ClassGenerated: pulse.Causality?.ClassGenerated == true,
+                HitsOwner: pulse.Kind == CampaignBossPulseKind.BurningWeb, PersistsWithoutOwner: pulse.Kind == CampaignBossPulseKind.BurningWeb));
             Emit(pulse.Kind == CampaignBossPulseKind.Chime ? "BossChimeRing" : "BossWebBurned", pulse.Source, 0, pulse.Id, pulse.Origin, pulse.Damage);
             CompactBossFixtures(arena);
         });

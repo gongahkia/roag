@@ -173,7 +173,8 @@ public sealed partial class TacticalCombat
                 .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Activation != null).Select(a => a.Tactics!.Burning!.Activation!.ChainId))
                 .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Native != null).Select(a => a.Tactics!.Burning!.Native!.Action))
                 .Concat(_world.State.Actors.Where(a => a.Tactics != null).SelectMany(a => a.Tactics!.Conditions.Select(c => c.Action)))
-                .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
+                .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id))
+                .Concat(State.CampaignBosses?.Pulses.Where(p => p.Causality != null).Select(p => p.Causality!.ChainId) ?? []);
             State.BoonEffects.Dispatch.Prune(retained);
         }
         SettleProfileProgress();

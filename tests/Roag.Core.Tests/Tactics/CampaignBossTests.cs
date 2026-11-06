@@ -375,6 +375,72 @@ public sealed class CampaignBossTests
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
+    [Fact]
+    public void EnvironmentalFireKeepsSourceZeroThroughDelayedFriendlyFire()
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother, members: 2);
+        a.Resolve(a.Cast(0));
+        var strand = a.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.WebStrand);
+        var friend = a.World.Party.First(m => m.Id != a.Hero.Id); friend.Position = strand.Position.Offset(1, 0);
+        int hp = friend.Health;
+        long action = a.Combat.State.NextAction++;
+        a.Combat.ResolveAttack(new(action, 0, strand.Position, [strand.Position], "core:terrain/heat_vent",
+            AttackDelivery.Area, DamageElement.Fire, 1, a.Combat.Clock, Cause: DamageCause.GroundHazard));
+        Assert.NotEmpty(a.Combat.State.CampaignBosses!.Pulses);
+        Assert.All(a.Combat.State.CampaignBosses.Pulses, p => Assert.Equal(0, p.Source));
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+        var due = a.Combat.State.CampaignBosses.Pulses.Min(p => p.Due);
+        while (a.Combat.Clock < due) { a.Act(new(TacticalAction.Wait)); a.NextHero(); }
+        Assert.True(friend.Health < hp);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "DamageTaken" && e.Source == 0 && e.Target == friend.Id
+            && e.Ability == "core:ability/boss_burning_network");
+        Assert.DoesNotContain(a.Combat.State.Rewards.Enemies.Values.SelectMany(e => e.Members.Keys), id => id == 0);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DelayedNetworkRetainsProcAncestryAndGeneratedExclusionThroughWorldSave(bool generated)
+    {
+        using var a = new Encounter(CampaignBossKind.Threadmother);
+        a.Resolve(a.Cast(0));
+        var strand = a.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.WebStrand);
+        const string dividend = "core:boon/grave_dividend", ancestor = "core:boon/flashpoint";
+        a.Hero.Tactics!.Boons.Inventory = a.Hero.Tactics.Boons.Inventory.Grant(dividend, BoonRarity.Common, ClassKind.Adventurer);
+        long action = a.Combat.State.NextAction++;
+        var cause = new BoonCause(action, action, [new(a.Hero.Id, ancestor)], .25, generated);
+        a.Combat.ResolveAttack(new(action, a.Hero.Id, a.Hero.Position, [strand.Position], "test:generated-web-fire",
+            AttackDelivery.Area, DamageElement.Fire, 1, a.Combat.Clock, Cause: DamageCause.TriggeredEffect,
+            ClassGenerated: generated, Causality: cause));
+        Assert.All(a.Combat.State.CampaignBosses!.Pulses, p => Assert.Equal(cause, p.Causality));
+        a.Boss.Position = strand.Position.Offset(1, 0); a.Boss.Health = 1;
+        a.Hero.Health -= 5; int hp = a.Hero.Health, maximum = a.Hero.MaxHealth;
+        string directory = Path.Combine(Path.GetTempPath(), "roag-network-cause-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "slot"); a.World.Save(slot);
+            using var loaded = WorldSession.Load(slot); var resumed = new TacticalCombat(loaded, _ => { });
+            Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+            long due = a.Combat.State.CampaignBosses.Pulses.Min(p => p.Due);
+            while (a.Combat.Clock < due) { a.Act(new(TacticalAction.Wait)); a.NextHero(); }
+            while (resumed.Clock < due)
+            {
+                Assert.True(resumed.Commit(new(TacticalAction.Wait)).Success);
+                while (resumed.AdvanceToDecision() is { } actor && actor.Id != a.Hero.Id) resumed.CommitWorldEnemyTurn();
+            }
+            Assert.Equal(LifeState.Dead, a.Boss.Life);
+            Assert.Equal(hp + a.Hero.MaxHealth - maximum + (generated ? 0 : 1), a.Hero.Health);
+            Assert.Equal(!generated, a.Combat.State.Events.Any(e => e.Kind == "BoonActivated" && e.Ability == dividend));
+            Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+            TacticalValidation.Validate(loaded.Plan, loaded.State);
+            var pending = a.Combat.State.CampaignBosses.Pulses.First();
+            a.Combat.State.CampaignBosses.Pulses[0] = pending with { Causality = cause with { ProcCoefficient = double.NaN } };
+            Assert.Throws<InvalidDataException>(() => TacticalValidation.Validate(a.World.Plan, a.World.State));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
     [Theory]
     [InlineData(CampaignBossKind.Bellkeeper, false)]
     [InlineData(CampaignBossKind.SluiceMaw, false)]
