@@ -24,6 +24,8 @@ public sealed class WorldClientTests : IDisposable
         using var world = Assert.IsType<WorldSession>(opened.Session);
         Assert.False(opened.Resumed); Assert.False(File.Exists(Slot));
         Assert.True(world.HasNativeParty); Assert.NotNull(world.State.NativeCampaign); Assert.Null(world.State.Dungeon);
+        Assert.Equal(4, world.State.NativeCampaign.Complexes!.Count);
+        Assert.All(world.State.NativeCampaign.Complexes, c => Assert.True(c.Populated));
         Assert.True(world.ChooseDungeonClass(Roag.Core.Tactics.ClassKind.Hookrunner).Success);
         Assert.True(world.SubmitRoag(new("wait")).Success);
         world.Save(Slot); byte[] saved = File.ReadAllBytes(Slot);

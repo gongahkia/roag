@@ -60,7 +60,7 @@ internal sealed partial class WorldGame
         try
         {
             if (_session.HasPermanentProfile) _session.Save(_options.Save);
-            replacement = _session.State.NativeCampaign != null ? WorldSession.CreateNativeCampaign(WorldStartup.FreshSeed())
+            replacement = _session.State.NativeCampaign != null ? WorldSession.CreateOpenCampaign(WorldStartup.FreshSeed())
                 : _session.HasNativeParty ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
                 : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
             if (_session.HasPermanentProfile || replacement.HasNativeParty && (_options.PlaytestDirectory != null || _options.ProfileSpecified || !_options.Preview))
