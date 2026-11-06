@@ -21,11 +21,17 @@ public sealed class SentryState
 /// <summary>Only the owning actor holds these resources. No selected-member globals.</summary>
 public sealed class ClassResources
 {
+    internal event Action? BulwarkChanged;
+    private BulwarkState? _bulwark;
     public WorldPosition? Decoy { get; set; }
     public WorldPosition? Snare { get; set; }
     public WorldPosition? Spirit { get; set; }
     public SentryState? Sentry { get; set; }
-    public BulwarkState? Bulwark { get; set; }
+    public BulwarkState? Bulwark
+    {
+        get => _bulwark;
+        set { if (_bulwark == value) return; _bulwark = value; BulwarkChanged?.Invoke(); }
+    }
     public ReturnBeacon? Beacon { get; set; }
     public ParryWindow? Parry { get; set; }
     public bool Riposte { get; set; }

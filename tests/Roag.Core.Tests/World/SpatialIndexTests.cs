@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Roag.Core.Tactics;
 using Roag.Core.World;
 using Xunit;
 
@@ -6,6 +7,56 @@ namespace Roag.Core.Tests.World;
 
 public sealed class SpatialIndexTests
 {
+    [Fact]
+    public void TacticalIndexesTrackReplacementDefinitionsAndEveryBulwarkOwnerWithoutSavingDerivedState()
+    {
+        using var world = WorldCollisionTests.Arena(); var p = world.State.Position;
+        world.State.Tactics = new();
+        var a = world.State.Actors[0]; var b = world.State.Actors[1];
+        a.Tactics = EnemyCatalog.Default.Get(EnemyOaths.A).CreateTactics();
+        b.Tactics = EnemyCatalog.Default.Get(EnemyOaths.B).CreateTactics();
+        Compare();
+        a.Tactics.Resources.Bulwark = new(p, 1, 1, 100); Compare();
+        b.Tactics.Resources.Bulwark = new(p, 2, 2, 100); Compare();
+        a.Tactics.Resources.Bulwark = null; Compare();
+        b.Tactics.Resources.Bulwark = new(p.Offset(1, 0), 2, 2, 100); Compare();
+        b.Tactics.Resources = new() { Bulwark = new(p, 3, 3, 100) }; Compare();
+        b.Life = LifeState.Dead; Compare(); // Live collision historically retains every owner's block.
+        b.Id = 9999999; Compare();
+        a.Tactics.DefinitionId = "core:enemy/ruin_skitter"; Compare();
+        b.Tactics = EnemyCatalog.Default.Get(EnemyOaths.A).CreateTactics(); Compare();
+        a.Tactics = null; Compare();
+        var added = new Actor { Id = 8888888, Tactics = EnemyCatalog.Default.Get(EnemyOaths.B).CreateTactics() };
+        added.Tactics.Resources.Bulwark = new(p, 4, 4, 100);
+        world.State.Actors.Insert(0, added); Compare();
+        world.State.Actors.RemoveAt(0); Compare();
+        world.State.Actors = new ActorCollection { a }; Compare();
+        world.State.Actors.Clear(); Compare();
+
+        void Compare()
+        {
+            string before = JsonSerializer.Serialize(world.State);
+            Assert.Equal(world.State.Actors.Where(x => EnemyOaths.IsTwin(x.Tactics?.DefinitionId ?? "")), world.OathTwins);
+            foreach (var cell in new[] { p, p.Offset(1, 0), p with { Floor = 1 } })
+                foreach (long except in new[] { 0L, a.Id, b.Id })
+                    Assert.Equal(world.State.Actors.Any(x => x.Id != except && x.Tactics?.Resources.Bulwark?.Position == cell),
+                        world.TacticalBlockAt(cell, except));
+            Assert.Equal(before, JsonSerializer.Serialize(world.State));
+        }
+    }
+
+    [Fact]
+    public void OptionalIdentityLookupPreservesMissingAndFirstOwnerSemanticsWhileStrictLookupRejectsDuplicates()
+    {
+        using var world = WorldCollisionTests.Arena();
+        var a = world.State.Actors[0]; var b = world.State.Actors[1];
+        Assert.Null(world.FindActor(-1)); Assert.Same(a, world.FindActor(a.Id));
+        b.Id = a.Id; Assert.Same(a, world.FindActor(a.Id));
+        Assert.Throws<InvalidOperationException>(() => world.ActorById(a.Id));
+        world.State.Actors.Remove(a); Assert.Same(b, world.FindActor(b.Id));
+        world.State.Actors.Remove(b); Assert.Null(world.FindActor(b.Id));
+    }
+
     [Fact]
     public void TileRegionAndIdentityQueriesTrackEveryMutationWithoutChangingState()
     {

@@ -204,7 +204,21 @@ public sealed class OccupationJob
 }
 public sealed class Actor
 {
-    public ActorTactics? Tactics { get; set; }
+    private ActorTactics? _tactics;
+    internal event Action? TacticsChanged;
+    private void NotifyTacticsChanged() => TacticsChanged?.Invoke();
+    public ActorTactics? Tactics
+    {
+        get => _tactics;
+        set
+        {
+            if (ReferenceEquals(_tactics, value)) return;
+            if (_tactics != null) _tactics.QueryChanged -= NotifyTacticsChanged;
+            _tactics = value;
+            if (_tactics != null) _tactics.QueryChanged += NotifyTacticsChanged;
+            NotifyTacticsChanged();
+        }
+    }
     public string RoagClass { get; set; } = "";
     public string RoagCharacter { get; set; } = "";
     public int RoagMaxHealth { get; set; }

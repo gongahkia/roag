@@ -57,7 +57,7 @@ public sealed partial class TacticalCombat
     private Actor? OathPartner(Actor actor, Func<WorldPosition, bool>? open = null)
     {
         if (actor.Tactics is not { Enemy: { OathBroken: false } memory } || !EnemyOaths.IsTwin(actor.Tactics.DefinitionId)) return null;
-        var partner = _world.State.Actors.FirstOrDefault(a => a.Id == memory.OathPartner);
+        var partner = _world.FindActor(memory.OathPartner);
         return partner?.Tactics?.Enemy is { OathBroken: false } other && other.OathPartner == actor.Id
             && EnemyOaths.IsTwin(partner.Tactics.DefinitionId) && partner.Tactics.DefinitionId != actor.Tactics.DefinitionId
             && EnemyOaths.Reaches(actor, partner, open ?? SupportOpen) ? partner : null;
@@ -76,7 +76,7 @@ public sealed partial class TacticalCombat
             if (!cells.TryGetValue(p, out bool result)) cells[p] = result = SupportOpen(p);
             return result;
         }
-        foreach (var actor in _world.State.Actors)
+        foreach (var actor in _world.OathTwins)
             if (actor.Tactics?.Enemy is { OathBroken: false } memory && EnemyOaths.IsTwin(actor.Tactics.DefinitionId)
                 && checkedPairs?.Contains(actor.Id) != true)
             {
@@ -86,7 +86,7 @@ public sealed partial class TacticalCombat
                     continue;
                 }
                 memory.OathBroken = true;
-                var partner = _world.State.Actors.FirstOrDefault(a => a.Id == memory.OathPartner);
+                var partner = _world.FindActor(memory.OathPartner);
                 if (partner?.Tactics?.Enemy is { } other && EnemyOaths.IsTwin(partner.Tactics.DefinitionId)) other.OathBroken = true;
             }
     }

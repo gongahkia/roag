@@ -41,14 +41,7 @@ public sealed partial class WorldSession
         // Collision is a hot path, including worlds without native actors. Avoid a
         // capturing predicate allocation on every expanded pathfinding tile.
         if (State.Tactics == null) return false;
-        // ActorCollection exposes an interface enumerator, so index iteration also
-        // avoids boxing that enumerator in native worlds.
-        for (int i = 0; i < State.Actors.Count; i++)
-        {
-            var actor = State.Actors[i];
-            if (actor.Id != exceptOwner && actor.Tactics?.Resources.Bulwark?.Position == p) return true;
-        }
-        return false;
+        return ActorIndex.BulwarkAt(p, exceptOwner);
     }
     private WorldObject? ObjectAt(WorldPosition p, Material? terrain)
     {

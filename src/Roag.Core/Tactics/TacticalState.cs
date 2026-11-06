@@ -6,6 +6,11 @@ namespace Roag.Core.Tactics;
 /// <summary>Combat metadata attached to a persistent world actor; never stores another position or HP.</summary>
 public sealed class ActorTactics
 {
+    internal event Action? QueryChanged;
+    private string _definitionId = "";
+    private ClassResources _resources = new();
+    public ActorTactics() => _resources.BulwarkChanged += NotifyQueryChanged;
+    private void NotifyQueryChanged() => QueryChanged?.Invoke();
     public CharacterBuild? Build { get; set; }
     public BuildStats? InnateStats { get; set; }
     [JsonIgnore] public BuildStats Stats => Build?.Stats ?? (InnateStats is { } innate
@@ -23,7 +28,11 @@ public sealed class ActorTactics
     public bool Invulnerable { get; set; }
     public bool RegularEnemy { get; set; }
     public bool RewardExempt { get; set; }
-    public string DefinitionId { get; set; } = "";
+    public string DefinitionId
+    {
+        get => _definitionId;
+        set { if (_definitionId == value) return; _definitionId = value; NotifyQueryChanged(); }
+    }
     public int CurrencyDrop { get; set; }
     public bool HealthDrop { get; set; }
     public bool FoodDrop { get; set; }
@@ -39,7 +48,18 @@ public sealed class ActorTactics
     public SustainedActivity? Activity { get; set; }
     public ResidentRescue? Resident { get; set; }
     public BoonBurning? Burning { get; set; }
-    public ClassResources Resources { get; set; } = new();
+    public ClassResources Resources
+    {
+        get => _resources;
+        set
+        {
+            if (ReferenceEquals(_resources, value)) return;
+            if (_resources != null) _resources.BulwarkChanged -= NotifyQueryChanged;
+            _resources = value;
+            if (_resources != null) _resources.BulwarkChanged += NotifyQueryChanged;
+            NotifyQueryChanged();
+        }
+    }
     public ActorBoons Boons { get; set; } = new();
     public TacticalSupplies Supplies { get; set; } = new();
 

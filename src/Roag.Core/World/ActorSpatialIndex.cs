@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
@@ -29,6 +30,8 @@ internal sealed class ActorSpatialIndex : IDisposable
     private readonly Dictionary<WorldPosition, List<Actor>> _tiles = [];
     private readonly Dictionary<(int X, int Y, int Floor), List<Actor>> _regions = [];
     private readonly Dictionary<long, List<Actor>> _identities = [];
+    private readonly Dictionary<WorldPosition, List<Actor>> _bulwarks = [];
+    private readonly List<Actor> _oathTwins = [];
     private readonly Dictionary<Actor, (int Order, long Id)> _actors = [];
     private readonly Comparison<Actor> _compare;
     private bool _dirty;
@@ -40,13 +43,15 @@ internal sealed class ActorSpatialIndex : IDisposable
     private void Rebuild()
     {
         _dirty = false;
-        foreach (var actor in _actors.Keys) actor.IndexChanged -= Move;
-        _tiles.Clear(); _regions.Clear(); _identities.Clear(); _actors.Clear();
+        foreach (var actor in _actors.Keys) { actor.IndexChanged -= Move; actor.TacticsChanged -= Invalidate; }
+        _tiles.Clear(); _regions.Clear(); _identities.Clear(); _bulwarks.Clear(); _oathTwins.Clear(); _actors.Clear();
         for (int i = 0; i < Source.Count; i++)
         {
             var actor = Source[i];
-            if (_actors.TryAdd(actor, (i, actor.Id))) actor.IndexChanged += Move;
+            if (_actors.TryAdd(actor, (i, actor.Id))) { actor.IndexChanged += Move; actor.TacticsChanged += Invalidate; }
             Add(_tiles, actor.Position, actor); Add(_regions, Key(actor.Position), actor); Add(_identities, actor.Id, actor);
+            if (actor.Tactics?.Resources?.Bulwark is { } bulwark) Add(_bulwarks, bulwark.Position, actor);
+            if (EnemyOaths.IsTwin(actor.Tactics?.DefinitionId ?? "")) _oathTwins.Add(actor);
         }
     }
     private static void Add<T>(Dictionary<T, List<Actor>> map, T key, Actor actor) where T : notnull
@@ -73,6 +78,19 @@ internal sealed class ActorSpatialIndex : IDisposable
         Ensure();
         return _identities.TryGetValue(id, out var actors) && actors.Count == 1
             ? actors[0] : throw new InvalidOperationException("Actor identity must have exactly one owner.");
+    }
+    public Actor? First(long id)
+    {
+        Ensure();
+        return _identities.TryGetValue(id, out var actors) ? actors[0] : null;
+    }
+    public IReadOnlyList<Actor> OathTwins { get { Ensure(); return _oathTwins; } }
+    public bool BulwarkAt(WorldPosition cell, long exceptOwner)
+    {
+        Ensure();
+        if (_bulwarks.TryGetValue(cell, out var actors))
+            foreach (var actor in actors) if (actor.Id != exceptOwner) return true;
+        return false;
     }
     public Actor? Occupant(WorldPosition cell, long except)
     {
@@ -103,7 +121,7 @@ internal sealed class ActorSpatialIndex : IDisposable
     public void Dispose()
     {
         Source.Changed -= Invalidate;
-        foreach (var actor in _actors.Keys) actor.IndexChanged -= Move;
+        foreach (var actor in _actors.Keys) { actor.IndexChanged -= Move; actor.TacticsChanged -= Invalidate; }
     }
 }
 
@@ -120,5 +138,7 @@ public sealed partial class WorldSession
         }
     }
     public Actor ActorById(long id) => ActorIndex.Single(id);
+    internal Actor? FindActor(long id) => ActorIndex.First(id);
+    internal IReadOnlyList<Actor> OathTwins => ActorIndex.OathTwins;
     public IReadOnlyList<Actor> ActorsNear(WorldPosition center, int radius) => ActorIndex.Near(center, radius);
 }
