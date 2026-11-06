@@ -56,8 +56,13 @@ export function encounterTurn(w: World, r: Raider, api: EncounterApi): boolean {
   if (r.kind === 'healer') return healerTurn(w, r, api);
   if (r.kind === 'rusher') {
     const leader = w.combat.raiders.find(a => a.id === r.leaderId && a.kind === 'healer' && a.health > 0 && a.squadId === r.squadId);
-    if (leader && r.health < maximum(r) && distance(r, leader) > 2 && !w.people.some(p => p.life === 'alive' && distance(r, p) <= 2)) {
-      r.target = ref(leader); api.move(r, leader, true); return true;
+    if (leader && r.health < maximum(r) && !w.people.some(p => p.life === 'alive' && distance(r, p) <= 2)) {
+      r.target = ref(leader);
+      // Healing locks a cell for its full windup. Stay for care once nearby,
+      // instead of alternating an attack step with a retreat step forever.
+      if (distance(r, leader) > 2) api.move(r, leader, true);
+      else r.route = [];
+      return true;
     }
     return false;
   }

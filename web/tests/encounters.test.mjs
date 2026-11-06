@@ -90,6 +90,23 @@ test('wounded rushers withdraw toward their living healer; removing support rest
   w.combat.raiders = w.combat.raiders.filter(a => a !== healer); assert.equal(encounterTurn(w, r, engine), false);
 });
 
+test('real wounded rusher waits for locked healing and resumes aggression only after actual care', () => {
+  const w = fixture(), healer = actor(w, 'healer', 60, 60), patient = actor(w, 'rusher', 62, 60, { health: 10, leaderId: healer.id });
+  step(w); const first = w.combat.attacks.find(a => a.kind === 'heal'); assert.ok(first); assert.equal(first.recipient, patient.id);
+  for (let tick = w.tick; tick < first.due - 1; tick++) { step(w); assert.equal(patient.health, 10); assert.equal(patient.next, null); assert.deepEqual({ x: patient.x, y: patient.y }, { x: 62, y: 60 }); }
+  step(w); assert.equal(patient.health, 26, 'Only the completed healer windup restores health'); assert.equal(patient.next, null);
+  while (patient.health < E.profiles.rusher.health && w.tick < 60) step(w);
+  assert.equal(patient.health, E.profiles.rusher.health); assert.equal(patient.target.kind, 'heart'); assert.ok(patient.next || patient.route.length, 'Fully healed rusher resumes pursuit');
+  assert.equal(w.combat.attacks.filter(a => a.kind === 'heal').length, 0);
+});
+
+test('waiting for care ends immediately when a colonist threatens the rusher or support dies', () => {
+  const w = fixture(), healer = actor(w, 'healer', 60, 60), patient = actor(w, 'rusher', 62, 60, { health: 10, leaderId: healer.id }), engine = api(w);
+  assert.equal(encounterTurn(w, patient, engine), true); assert.equal(engine.moves.length, 0); assert.equal(patient.health, 10);
+  w.people[0].x = 63; w.people[0].y = 60; assert.equal(encounterTurn(w, patient, engine), false);
+  w.people[0].x = 30; w.people[0].y = 30; w.combat.raiders = w.combat.raiders.filter(r => r.id !== healer.id); assert.equal(encounterTurn(w, patient, engine), false); assert.equal(patient.health, 10);
+});
+
 test('Captain turning, windup and post-charge exposure permit counters; specials alternate', () => {
   const w = fixture(), r = actor(w, 'captain', 60, 60), p = w.people[0], engine = api(w); p.x = 60; p.y = 64;
   assert.equal(defendedDamage(w, r, 20, { x: 62, y: 60 }), 4);
