@@ -4,6 +4,8 @@ import { NEEDS as N } from './survival-content.ts';
 import { emptyStock } from './work-content.ts';
 import { approach, available, clearTravel, drop, inventory, release } from './jobs.ts';
 
+// A Captain can down a guard after this tick's prepareCombat pass. Retire
+// life-bound intent immediately so every public tick remains saveable.
 function retireBattleIntent(w:World,p:Person):void {
   w.combat.orders=w.combat.orders.filter(o=>o.actor!==p.id);
   w.combat.cooldowns=w.combat.cooldowns.filter(c=>c.actor!==p.id);

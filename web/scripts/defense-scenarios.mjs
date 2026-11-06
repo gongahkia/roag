@@ -24,6 +24,7 @@ function summary(w){return structuredClone({tick:w.tick,terminal:w.terminal,hear
 // These cases start from createWorld through ordinary commands. No inventory,
 // structures, health, enemy timing or needs are injected into either colony.
 const prepared=fortify(),w=prepared.w,ready=summary(w),phases=[];
+const firstRaidSchedule={warningAt:w.combat.warningAt,spawnAt:w.combat.spawnAt};
 assert.equal(w.scenario,'colony');assert.ok(w.tick<w.combat.warningAt);assert.ok(w.structures.some(s=>s.kind==='tower'&&s.x===70&&s.y===62&&s.inventory.ammo===0),'Exposed front tower is unloaded; covering towers carry real magazines');
 const cover=w.structures.filter(s=>s.kind==='tower'&&s.inventory.ammo===12);assert.equal(cover.length,3);
 let phase='',mid=null,firstDamage=null;
@@ -59,7 +60,9 @@ console.log('Prepared colony:',JSON.stringify({ready:ready.tick,raid:afterRaid.t
 const unprepared=establish();
 assert.ok(unprepared.w.structures.every(s=>!['tower','trap','guardpost'].includes(s.kind)));
 until(unprepared,()=>unprepared.w.terminal!==null,'unprepared normal-wave defeat',14000);
-assert.equal(unprepared.w.combat.edge,w.combat.edge);assert.equal(unprepared.w.combat.spawnAt,w.combat.spawnAt);assert.equal(unprepared.w.combat.stats.spawned,5);assert.equal(unprepared.w.terminal,'heart-destroyed');
+// The defended colony has already scheduled wave two; compare the original
+// first-wave deadlines, not its moving endless-director schedule.
+assert.equal(unprepared.w.combat.wave,1);assert.equal(unprepared.w.combat.edge,w.combat.edge);assert.equal(unprepared.w.combat.warningAt,firstRaidSchedule.warningAt);assert.equal(unprepared.w.combat.spawnAt,firstRaidSchedule.spawnAt);assert.equal(unprepared.w.combat.stats.spawned,5);assert.equal(unprepared.w.terminal,'heart-destroyed');
 const terminal=snapshot(unprepared.w,'defense-unprepared-terminal.json'),terminalHash=hash(terminal.world),terminalRestored=parseSave(encodeSave(terminal));
 for(let i=0;i<250;i++)step(terminalRestored.world);assert.equal(hash(terminalRestored.world),terminalHash);
 const unpreparedResult={origin:'Fresh seed-42 colony with ordinary food/rest/care infrastructure but no defenses; no debug stock or altered raid timing',result:summary(unprepared.w),commands:unprepared.commands,terminalReload:{ticksAttempted:250,hash:terminalHash,restored:hash(terminalRestored.world)}};

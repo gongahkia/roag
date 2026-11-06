@@ -104,6 +104,14 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   await resume(page); await expect(page.locator('#raid-phase')).toHaveText('warning', { timeout: 260000 }); await pause(page);
   await expect(page.locator('#raid-announcement')).toContainText(/approaches from the (north|east|south|west)/);
   await page.locator('#battle-find-entry').click(); await page.screenshot({ path: info.outputPath('announced-approach.png'), fullPage: true });
+  // Keep a capable healer behind the western cover. The endless director's fair
+  // routing makes leaving all six civilians in the same exposed cluster unsafe.
+  // This is an ordinary player order, not altered health or a delayed next raid.
+  await page.getByLabel('Bram Reed healer priority', { exact: true }).selectOption('3');
+  await page.getByRole('button', { name: 'Find Bram Reed, Gatherer', exact: true }).click();
+  await order(page, 'shelter', 57, 64); await resume(page);
+  await expect(page.locator('#battle-current-order')).toHaveText('shelter at 57, 64'); await pause(page);
+  commands.push('warning: Bram healer priority 3 and shelter 57,64 behind western cover; preserve a capable rescuer');
   await page.getByRole('button', { name: 'Find Nell Vale, Guard', exact: true }).click();
   await order(page, 'rally', 67, 63); await resume(page); await expect(page.locator('#battle-current-order')).toHaveText('rally at 67, 63'); await pause(page);
   await order(page, 'retreat', 62, 64); await resume(page); await expect(page.locator('#battle-current-order')).toHaveText('retreat at 62, 64'); await pause(page);
