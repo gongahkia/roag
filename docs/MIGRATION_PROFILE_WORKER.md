@@ -50,6 +50,7 @@ The profile freezes its reward snapshot when a fresh campaign is enrolled. Exist
 - `WorldSession.Load(..., profileDirectory = null)`: validates the independent continuing profile only when optional native progress exists.
 - `WorldSession.RecordDungeonEntry(member, stage, sanctum = false)`: root calls on actual committed physical member arrival, using that floor's stage. The bounded stairs implementation derives the actual floor directly. Do not call for camera selection, route opening or global complex advancement.
 - `WorldSession.RecordPursuerArrival(pursuer)`: root calls only after special-site arrival; it checks an actual living `core:enemy/extraction_pursuer`.
+- `WorldSession.RecordComplexVictory(boss)`: canonical original Regent-complex completion, independently of selected world-final role. Verifies that the actual owning saved complex has its Stage4 boss receipt and Victory flag, then requires the dead Hollow Regent and a conscious survivor. Post-drain settlement also observes these completed complexes idempotently.
 - `WorldSession.RecordCampaignVictory(boss)`: root calls after settling actual selected-final-role victory in Endgame. The hook checks selected identity/dead body/living survivor and awards Regent's Fall only for Hollow Regent. Other selected final bosses do not masquerade as the Regent.
 
 Source/profile-specific tests and evidence are being prepared; no compile/test/rendered pass or finished item-20 integration is claimed yet. Root remains responsible for the above new-world entry, special-site and selected-final settlement call sites after combining streams. Full solo/four-party campaign journeys and refreshed Linux delivery remain mandatory.
@@ -77,3 +78,26 @@ TMPDIR=/home/gongahkia/.cache/roag-tests-tmp ALSOFT_DRIVERS=null SDL_AUDIODRIVER
 Review fixed an actual First Blood bug before integration: the world's live-hostility query returns false after death, so the observer checks committed dead native enemy identity. A real paid-kill regression now covers it. New cases also cover either generation's loss after run allocation/award/terminal, failed second award/terminal replica followed by retry, valid-checksum semantically corrupt newest payloads, all four future chest rewards and exact frozen offers, explicit preview eligibility, CLI custom-profile continuation/isolation, every free paged UI control at 1024×720/1440×900, actual stage/sanctum entry, solo/four-member canonical Regent victory and exclusion when nobody is conscious. These remain backend/fixture evidence, not natural full-party campaign completion.
 
 `verify_native_journey.py` now copies an existing enrolled continuation's profile directory with its ordinary save/chunks; absent profile metadata never creates/enrolls an old fixture. `verify_native_profile.py` is prepared for natural rendered input; no rendered pass has yet occurred.
+
+## Temporary user-requested pause — 2026-11-06
+
+The coordinator relayed the user's explicit request to pause immediately. Profile feature work stopped; no new build/test/rendered probe was started after that request. No profile-owned process remains running. The last command batch was source editing plus lightweight `git diff --check`/Python syntax checks, not a C# build. The broader source batch's terminal result remains **156 passed, zero failures/skips, exit 0**; the first batch remains **17 passed, zero failures/skips, exit 0**. No rendered profile journey has been attempted and no final profile package exists.
+
+Completed implementation commits (before this documentation checkpoint):
+
+1. `c9b0d654` — native original achievement catalog, saved progress types and two-generation profile store.
+2. `c3a5ff11` — committed event hooks, terminal/fresh-world lifecycle, client enrollment/isolated profile option, free paged presentation and initial 17 checks.
+3. `88a8649b` — First Blood correction, broader lifecycle/canonical Regent/physical entry/future reward/IO/UI verification and prepared rendered probe; 156 affected checks pass.
+
+Uncommitted follow-up source is deliberately preserved in this worktree for resume. It has **not** been compiled or tested:
+
+- `src/Roag.Core/Profiles/NativeProfileStore.cs`: validate direct pending award inputs; always replicate a checkpoint on retry even when its first record already advanced the current-run marker.
+- `src/Roag.Core/World/WorldProfiles.cs` and `src/Roag.Core/Tactics/TacticalProfile.cs`: root-agreed `RecordComplexVictory(boss)` plus post-drain observation. Requires that the owning saved complex's actual Stage4 boss has a death receipt and Victory flag, then verifies actual dead Hollow Regent/conscious survivor, independently of selected Endgame victory. Root has not integrated this hook yet.
+- `src/Roag.Client/Program.cs` and `tests/Roag.Core.Tests/Client/NativeProfileClientTests.cs`: extend playtest isolation to symlinks in the profile record/lock files, with a corresponding isolated test.
+- `tests/Roag.Core.Tests/Profiles/NativeProfileStoreTests.cs`: first-checkpoint-replica failure/retry followed by either-generation loss.
+- New untracked `tests/Roag.Core.Tests/Profiles/NativeComplexProfileTests.cs`: canonical non-final Regent-complex guard tests. These construct actual original complex terrain and explicit fixture settlement boundaries; they are backend checks, never rendered claims.
+- `tools/migration/verify_native_journey.py`: before copying an already enrolled continuation, confirm readable existing profile records belong to that saved profile; preserve damaged replicas for native recovery. No new identity/profile is invented for old saves.
+
+Resume from this state; do not discard/reset these edits. First review/compile the pending follow-up and run an appropriately narrow profile/complex/checkpoint/isolation batch in a coordinator-approved heavy slot. If it passes, commit the coherent follow-up and obtain a rendered slot for `verify_native_profile.py` (natural solo secret, free normal/large pages, exact save, final death, terminal reload and fresh-world retained future-pool unlock). A rendered attempt may fail and must retain its evidence honestly. The current prepared script has not been run.
+
+Root integration still needs actual member-owned physical complex/sanctum entry hooks, special-site pursuer-arrival hook, canonical complex-victory settlement and selected-world-final victory settlement, review/cherry-pick of worker commits, merged focused/regression checks, full solo/four-member campaign journeys and updated reproducible Linux delivery. All eight aggregate gates remain open. The root coordinator alone owns the goal's paused status/resumption and shared migration records.
