@@ -51,6 +51,21 @@ test('movement, speed, mid-move save/reload continuation and portable JSON with 
  const speeds:unknown[]=[];
  for(const speed of [1,2,4]){await page.getByRole('button',{name:`${speed}×`,exact:true}).click();await expect(page.locator('#clock-status')).toHaveText(`Running at ${speed}×`);const start=await tick(page);await page.waitForTimeout(350);speeds.push({speed,start,end:await tick(page)});}
  await paused(page);const frozenTick=await tick(page);await page.waitForTimeout(250);expect(await tick(page)).toBe(frozenTick);
+ // Speed checks can finish the first route on a busy browser. Start a fresh
+ // route at 1x and keep Pause focused while observing a real movement edge.
+ await page.getByRole('button',{name:'1×',exact:true}).click();
+ const currentX=Number((await page.locator('#person-position').textContent())!.split(',')[0]);
+ await order(page,currentX>=70?61:80,64);
+ let moving:Save|null=null;
+ for(let attempt=0;attempt<4;attempt++){
+  await page.locator('#pause').focus();await page.keyboard.press('Enter');
+  await expect(page.locator('#person-progress')).toHaveText(/[0-2]\/4 →/);
+  await page.keyboard.press('Enter');await expect(page.locator('#clock-status')).toHaveText('Paused');
+  const observed=await exportSave(page,info,`movement-pause-attempt-${attempt}`);
+  if(observed.world.people[0]!.next!==null){moving=observed;break;}
+  expect(observed.world.people[0]!.destination).not.toBeNull();
+ }
+ expect(moving,'Native pause captures an observed movement edge').not.toBeNull();
  const saved=await exportSave(page,info,'mid-movement');expect(saved.world.people[0]!.next).not.toBeNull();expect(saved.world.people[0]!.destination).not.toBeNull();
  await page.getByRole('button',{name:'Save',exact:true}).click();await expect(page.locator('#storage-status')).toHaveText(`Saved tick ${saved.world.tick}.`);
  await page.screenshot({path:info.outputPath('mid-movement-saved.png'),fullPage:true});
