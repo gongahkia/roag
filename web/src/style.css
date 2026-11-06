@@ -59,3 +59,5 @@ select { max-width: 100%; min-width: 0; color: #e8e6d6; background: #1b2720; bor
 #raid-history th, #raid-history td { padding:10px 12px; border-top:1px solid var(--line); white-space:nowrap; }
 #raid-history th { color:var(--muted); font-weight:500; }
 @media(max-width:760px) { #barricades li { align-items:flex-start; flex-direction:column; gap:8px; } #battle-mode { max-width:220px; } }
+
+.boss-panel{margin-top:1.5rem;border-top:1px solid var(--line,#455047);padding-top:1rem}.boss-panel #boss-encounters,.boss-panel #boss-effects{white-space:pre-wrap;overflow-wrap:anywhere}.boss-panel ul{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:.75rem}.boss-panel li{padding:.75rem;border:1px solid var(--line,#455047)}.boss-panel li button{margin:.2rem}

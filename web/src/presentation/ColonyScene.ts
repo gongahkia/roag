@@ -1,3 +1,5 @@
+import bossArt from '../../content/boss-art.json';
+import { BossLayer } from './BossLayer.ts';
 import Phaser from 'phaser';
 import { assetUrl } from '../assets.ts';
 import type { Manifest } from '../assets.ts';
@@ -18,6 +20,8 @@ export class ColonyScene extends Phaser.Scene {
   private view: View = { x: 64.5 * TILE, y: 64.5 * TILE, zoom: 3 };
   private workMarks!: Phaser.GameObjects.Graphics;
   private combatMarks!: Phaser.GameObjects.Graphics;
+  private bossLayer!: BossLayer;
+  private hostiles = new Map<number, Phaser.GameObjects.Image>();
   private attackLabels = new Map<number, Phaser.GameObjects.Text>();
   private ring!: Phaser.GameObjects.Rectangle;
   private drag: { x: number; y: number; view: View; moved: boolean; button: number } | undefined;
@@ -53,6 +57,7 @@ export class ColonyScene extends Phaser.Scene {
     this.ring = this.add.rectangle(0, 0, 16, 16).setStrokeStyle(1, 0xe6ce85).setFillStyle(0, 0).setDepth(100).setVisible(false);
     this.workMarks = this.add.graphics().setDepth(4);
     this.combatMarks = this.add.graphics().setDepth(5);
+    this.bossLayer = new BossLayer(this);
     this.rebuild();
     this.unsubscribe = this.controller.subscribe((reset) => {
       if (reset) { this.rebuild(); this.command({ type: 'center' }); }
@@ -198,7 +203,8 @@ export class ColonyScene extends Phaser.Scene {
   }
   private drawCombat(): void {
     const world=this.controller.world, combat=world.combat, marks=this.combatMarks;
-    marks.clear();
+    marks.clear();this.bossLayer.draw(world);
+    for(const [id,image] of this.hostiles)if(!combat.raiders.some(r=>r.id===id)){image.destroy();this.hostiles.delete(id);}
     const alpha=this.controller.clock.paused?0:this.controller.clock.alpha;
     for(const barrier of combat.barricades){
       const x=barrier.x*TILE,y=barrier.y*TILE;
@@ -215,13 +221,9 @@ export class ColonyScene extends Phaser.Scene {
       const protectedFront=enemy.kind==='shield'?enemy.loweredUntil<=world.tick:enemy.kind==='captain'&&enemy.exposedUntil<=world.tick&&!committed;
       if(protectedFront)marks.fillStyle(enemy.kind==='captain'?0xe6ce85:0x8fbcdc,.24).fillTriangle(x,y,x+v.x*9+side.x*9,y+v.y*9+side.y*9,x+v.x*9-side.x*9,y+v.y*9-side.y*9);
       if(enemy.kind==='captain'&&enemy.exposedUntil>world.tick)marks.lineStyle(1,0xffe49a).strokeCircle(x,y,8);
-      if(enemy.kind==='breacher')marks.fillStyle(0xf0a45e).fillRect(x-5,y-5,10,10).lineStyle(1,0x381c17).strokeRect(x-5,y-5,10,10).lineBetween(x-3,y-3,x+3,y+3);
-      else if(enemy.kind==='shield')marks.fillStyle(0x8fbcdc).fillPoints([{x:x-4,y:y-5},{x:x+4,y:y-5},{x:x+4,y:y+2},{x,y:y+6},{x:x-4,y:y+2}],true).lineStyle(1,0x152c3c).lineBetween(x,y-3,x,y+3);
-      else if(enemy.kind==='archer')marks.fillStyle(0xc79de5).fillTriangle(x,y-5,x+5,y+5,x-5,y+5).lineStyle(1,0x3d254d).lineBetween(x-3,y+3,x+3,y+3);
-      else if(enemy.kind==='healer')marks.fillStyle(0x85d4a1).fillRect(x-2,y-5,4,10).fillRect(x-5,y-2,10,4);
-      else if(enemy.kind==='rusher')marks.fillStyle(0xfb7c8b).fillTriangle(x+v.x*6,y+v.y*6,x-v.x*4+side.x*4,y-v.y*4+side.y*4,x-v.x*4-side.x*4,y-v.y*4-side.y*4);
-      else if(enemy.kind==='captain')marks.fillStyle(0xe6ce85).fillPoints([{x:x-5,y:y+4},{x:x-6,y:y-4},{x:x-2,y:y-1},{x,y:y-6},{x:x+2,y:y-1},{x:x+6,y:y-4},{x:x+5,y:y+4}],true).lineStyle(1,0x5f4b20).lineBetween(x-4,y+2,x+4,y+2);
-      else marks.fillStyle(0xf07565).fillPoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true).lineStyle(1,0x381c17).strokePoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true);
+      let artwork=this.hostiles.get(enemy.id);
+      if(!artwork){artwork=this.add.image(0,0,'colony',bossArt.hostiles[enemy.kind]).setDepth(3);this.hostiles.set(enemy.id,artwork);}
+      artwork.setFrame(bossArt.hostiles[enemy.kind]).setPosition(x,y).setTint(enemy.kind==='healer'?0x85d4a1:enemy.kind==='captain'?0xe6ce85:0xf4b0a0);
       marks.lineStyle(1,0xffffff,.9).lineBetween(x+v.x*4,y+v.y*4,x+v.x*7,y+v.y*7);
       marks.fillStyle(0x301b1b).fillRect(x-5,y-9,10,2).fillStyle(0xb4d38b).fillRect(x-5,y-9,10*enemy.health/COMBAT_CONTENT[enemy.kind].health,2);
       if(enemy.charge)for(const cell of enemy.charge.cells.slice(enemy.charge.cursor))marks.lineStyle(1,0xf0a45e,.8).strokeRect(cell.x*TILE+2,cell.y*TILE+2,TILE-4,TILE-4);

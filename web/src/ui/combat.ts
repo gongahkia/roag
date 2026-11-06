@@ -4,6 +4,7 @@ import type { BattleOrder, Combat } from '../simulation/combat-model.ts';
 import { COMBAT_CONTENT } from '../simulation/combat-content.ts';
 import { ENCOUNTER_CONTENT } from '../simulation/encounter-content.ts';
 import type { RaidKind } from '../simulation/raid-model.ts';
+import { BOSS_NAMES, isBossKind } from '../simulation/raid-model.ts';
 import { founders } from '../content.ts';
 import { element } from './panels.ts';
 import type { UiCommand } from './panels.ts';
@@ -43,7 +44,7 @@ export function setupCombat(controller: ColonyController, send: (command: UiComm
     const phaseKey = `${w.seed}:${c.phase}:${c.wave}:${w.terminal}`;
     if (phaseKey !== phase) {
       element('raid-announcement').textContent = w.terminal ? `Colony lost: ${w.terminal === 'heart-destroyed' ? 'the heart was destroyed' : 'every founder has died'}. Start a new run when ready.`
-        : c.phase === 'warning' ? `Raid warning: wave ${c.wave} approaches from the ${c.edge}.${c.pending.some(t => t.kind === 'captain') ? ' The Ossuary Captain leads this wave.' : ''} Prepare defenses and shelter civilians.`
+        : c.phase === 'warning' ? `Raid warning: wave ${c.wave} approaches from the ${c.edge}.${c.pending.some(t => isBossKind(t.kind)) ? ` The ${BOSS_NAMES[c.pending.find(t=>isBossKind(t.kind))!.kind as keyof typeof BOSS_NAMES]} leads this wave.` : ''} Prepare defenses and shelter civilians.`
         : c.phase === 'combat' ? `Wave ${c.wave}: defend the colony heart.`
         : c.phase === 'recovery' ? `Wave ${c.completed} survived. Treat injuries, repair defenses and reload before wave ${c.completed + 1}.`
         : 'Prepare the colony: build defenses, make ammunition and assign guards.';
@@ -54,11 +55,11 @@ export function setupCombat(controller: ColonyController, send: (command: UiComm
       : c.phase === 'combat' ? `${c.raiders.length} attackers on the map · ${c.pending.length} awaiting entry.`
       : `Wave ${c.completed + 1} warning in ${duration(c.warningAt - w.tick)}. Recovery until tick ${c.recoveryUntil}.`;
     element('raid-budget').textContent = c.wave ? `Wave ${c.wave} budget: ${c.spent}/${c.budget} committed · ${c.pending.length} awaiting entry · ${c.completed} completed`
-      : 'Every fourth wave brings the Ossuary Captain. Each announced wave has a finite budget.';
+      : 'Every fourth wave brings a seeded boss: Captain, Bellkeeper, Sluice-Maw or Threadmother. Each announced wave has a finite budget.';
     element('heart-health').textContent = String(w.heart.health);
     element('raid-phase').textContent = c.phase;
     element('battle-status').textContent = c.status;
-    element('battle-statistics').textContent = `${c.stats.kills} enemies defeated · ${c.stats.bosses} Captains defeated · ${c.stats.shots} shots · ${c.stats.traps} trap triggers · ${c.stats.heartDamage} heart damage · ${c.stats.colonyDamage} founder damage · ${c.stats.structuresLost} structures lost · ${c.stats.repairs} repairs`;
+    element('battle-statistics').textContent = `${c.stats.kills} enemies defeated · ${c.stats.bosses} bosses defeated · ${c.stats.shots} shots · ${c.stats.traps} trap triggers · ${c.stats.heartDamage} heart damage · ${c.stats.colonyDamage} founder damage · ${c.stats.structuresLost} structures lost · ${c.stats.repairs} repairs`;
     element<HTMLButtonElement>('battle-find-entry').disabled = c.phase === 'peace';
     element('battle-selected').textContent = p ? `${founders[p.founder]!.name} · ${p.life}` : 'Select a founder on the map or in the roster to give a defense order.';
     const current = c.orders.find(value => value.actor === p?.id);
@@ -96,6 +97,8 @@ export function setupCombat(controller: ColonyController, send: (command: UiComm
         if (raider.exposedUntil > w.tick) state += ` · exposed: +${ENCOUNTER_CONTENT.captain.exposedPercent}% incoming damage for ${raider.exposedUntil - w.tick} ticks`;
         else state += raider.charge || attack ? ' · front protection open during commitment' : ` · front protection ${ENCOUNTER_CONTENT.captain.reductionPercent}%`;
       }
+      const environmental=w.bosses.encounters.find(e=>e.owner===raider.id);
+      if(environmental)state+=` · site ${environmental.layout.center.x},${environmental.layout.center.y}${environmental.exposedUntil>w.tick?' · exposed':''} · see environmental counters`;
       row.status.textContent = `${roles[raider.kind]} #${raider.id} · health ${raider.health}/${COMBAT_CONTENT[raider.kind].health} · tile ${raider.x}, ${raider.y}\nFacing ${raider.facing} · ${group}\n${state}`;
     }
     for (const [id, row] of barrierRows) if (!c.barricades.some(barrier => barrier.id === id)) { row.node.remove(); barrierRows.delete(id); }
