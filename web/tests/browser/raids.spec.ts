@@ -13,7 +13,7 @@ import { materialAudit } from '../../src/simulation/jobs.ts';
 
 // These are accepted ordinary-command checkpoints, not injected inventory or
 // browser globals. The scenario runner supplies provenance and fresh-seed replay.
-const directory = resolve(process.env.ROAG_RAID_FIXTURE_DIR ?? resolve(import.meta.dirname, '../..', process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P06', 'acceptance-scenarios'));
+const directory = resolve(process.env.ROAG_RAID_FIXTURE_DIR ?? resolve(import.meta.dirname, '../..', process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P07', 'acceptance-scenarios'));
 const hash = (value: unknown): string => createHash('sha256').update(canonical(value)).digest('hex');
 async function fixture(label: string): Promise<Save> {
   const metadata = JSON.parse(await readFile(resolve(directory, 'raid-scenarios.json'), 'utf8'));
@@ -83,7 +83,7 @@ test('ordinary recurring-wave checkpoints show warning budgets, recovery history
 
   const later = await importCheckpoint(page, 'wave-5-warning');
   await expect(page.locator('#raid-announcement')).toContainText('wave 5');
-  await expect(page.locator('#battle-statistics')).toContainText('1 Captains defeated');
+  await expect(page.locator('#battle-statistics')).toContainText('1 bosses defeated');
   await expect(page.locator('#raid-history-body tr')).toHaveCount(4);
   await resume(page); await expect.poll(async () => Number(await page.locator('#tick').textContent()), { timeout: 10000 }).toBeGreaterThan(later.world.tick + 20);
   await pause(page); const continued = await exported(page, info, 'ordinary-later-wave-continued');

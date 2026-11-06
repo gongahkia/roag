@@ -1,4 +1,4 @@
-# Roag colony web — P06
+# Roag colony web — P07
 
 From the repository root:
 
@@ -172,7 +172,8 @@ strike. Archers commit cardinal shots that can be blocked or dodged. Healers spe
 living healer unless threatened. Interrupting the healer changes that support.
 The defense panel and map show roles, facing, support and committed impact cells.
 
-Every fourth wave brings the **Ossuary Captain**. Its front reduces damage by 80%
+Every fourth wave brings one of four bosses, rotating from a seed-specific first boss.
+Seed 42 starts with the **Ossuary Captain**. Its front reduces damage by 80%
 while protected; turning and recovery expose it to 50% additional damage. A visible
 four-cell charge commits before moving and cannot pass through a new obstruction.
 The alternating rampart leaves a walking gap. Its barricades have 36 health and
@@ -193,6 +194,54 @@ The last 16 wave summaries retain losses, ammunition use and repairs. Live enemi
 and queued entries each cap at 150; committed attacks at 256 and barricades at eight.
 The artificial cap workload tests bounded behavior, not ordinary late-wave balance.
 
+## Environmental bosses and biomes
+
+Seed **43** begins in marshland and meets **Bellkeeper** on wave 4; seed **44** begins
+in ashlands and meets **Sluice-Maw**; seed **45** begins in woodland and meets
+**Threadmother**. Bosses rotate every fourth wave thereafter. Woodland has balanced
+resources. Marsh has richer finite forage and less wood; shallow tiles take 6 ticks
+per step. Ash has richer stone and less wood/forage; exposed ember tiles deal 2 damage
+every 50 ticks. A completed structure covers its tile. Workers and enemies obey the
+same hazard and movement rules. Webs take 8 ticks; ordinary ground takes 4. A committed
+step retains its duration even if water drains or a web burns midway through it.
+
+- **Bellkeeper:** actual work, footsteps and colony attacks produce bounded sound.
+  Its pulse locks the last heard cell; leave that cell before impact. Resonators
+  announce three expanding rings. Select a founder and **Strike fixture** to approach
+  and work beside a resonator. Destroying it cancels its rings and exposes the boss
+  to 50% additional damage for 40 ticks.
+- **Sluice-Maw:** channels have fixed saved cells, eastward flow, a pool and a valve.
+  Surges hurt and push either faction. A feast heals only after the boss physically
+  reaches its connected wet pool. **Drain channel** takes 20 ticks of adjacent work,
+  permanently cancels that channel's surge/feast and exposes the boss. Draining both
+  channels leaves it ordinary melee attacks.
+- **Threadmother:** anchors hold a web partition with a walking gap. Its reel locks
+  a cell and visible line; moving, placing an obstruction or **Cut thread** can stop
+  the pull. A downed target instead loses 120 ticks from its rescue deadline. Strike
+  an anchor to clear its connected partition. **Ignite web** takes 24 ticks of primitive
+  spark work, with no fuel recipe; connected web/anchor cells burn after visible
+  delays. Fire hurts both factions and nearby structures, and committed fire remains
+  dangerous after its owner or igniter dies. Empty gaps stop spread.
+
+The **Environmental counters** panel shows actual cells, work progress, deadlines,
+exposure and permanent valve state. Choose a living founder before using its action
+buttons. Counters require arrival and work; urgent food/rest/care can interrupt them.
+Boss geometry searches at most 64 candidate sites without repainting buildings,
+sources, bodies or previously accessible routes. If none is safe, its reserved
+identity waits in the raid queue. Killing a boss yields five physical wood once and
+continues the endless run. Sound/rings/reels target colonists; surges, fire and ash
+are neutral hazards. Geometry, noise memory, work claims, pending effects and locked
+movement durations are saved exactly.
+
+The ordinary `npm run test:bosses` command starts each of seeds 43/44/45 with no
+inventory or buildings, gathers/builds defenses, survives four waves, uses the boss
+counter and recovers all six founders. It exports the complete command journal,
+replays from a fresh seed and checks exact save continuations. Keep only useful
+wood/stone reserves: suspend excess gathering so civilians can farm, cook, reload
+and make medicine. Stage an unwounded worker near a valve before the feast; keep a
+second guard ready to attack during the exposed window. These are demonstrated
+preparations, not a guarantee for every seed or colony layout.
+
 ## Movement, saves and checks
 
 Select via map or roster; right-click a destination or use **Go to tile**. Drag to
@@ -209,7 +258,7 @@ while retaining backlog. Render/UI reads never advance the simulation themselves
 transactional IndexedDB; invalid imports and failed writes preserve the current world
 and valid slot. Unavailable storage is visible and JSON export still works. Reload
 restores the last successful save; there is no autosave or offline simulation.
-Schema **5**, content **colony-p06-1**, rejects earlier schemas and legacy saves without replacing
+Schema **6**, content **colony-p07-1**, rejects earlier schemas and legacy saves without replacing
 them. No migration is claimed. Export older slots with their older build before an
 explicit fresh run. The 2 MB validation limit covers all needs, crop stages, claims,
 cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
@@ -217,12 +266,13 @@ cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
 From `web/`:
 
 ```sh
-export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P06
+export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P07
 fnm exec --using=24.21.0 npm run assets:check
 fnm exec --using=24.21.0 npm run typecheck
 fnm exec --using=24.21.0 npm test
 fnm exec --using=24.21.0 npm run test:scenarios
 fnm exec --using=24.21.0 npm run test:raids
+fnm exec --using=24.21.0 npm run test:bosses
 fnm exec --using=24.21.0 npm run build
 fnm exec --using=24.21.0 npm run test:browser
 python3 -B ../tools/verify_preservation.py
@@ -231,7 +281,8 @@ python3 -B ../tools/verify_preservation.py
 Install Chromium if absent with `fnm exec --using=24.21.0 npx playwright install chromium`
 (or `--with-deps chromium` on minimal Linux). Native visibility tests use full Chromium
 through CDP, actual tab transitions, and no synthetic visibility override. Browser
-checks generate ordinary raid fixtures unless `ROAG_RAID_FIXTURE_DIR` points to an existing validated scenario directory, then build and serve both `/` and `/roag/` on ports 4173/4174. To inspect those outputs:
+checks generate ordinary raid and boss fixtures unless `ROAG_RAID_FIXTURE_DIR` and
+`ROAG_BOSS_FIXTURE_DIR` point to validated scenario directories from the same source, then build and serve both `/` and `/roag/` on ports 4173/4174. To inspect those outputs:
 
 ```sh
 fnm exec --using=24.21.0 node scripts/serve-production.mjs root
@@ -246,9 +297,9 @@ and a separate slot. It exposes injury/downing/hunger/fatigue controls for focus
 checks and building damage for repair. `?scenario=routing-lab` remains a separate
 terrain-edit corridor. Neither is the three-day sustainable-colony evidence.
 
-The original 27 selected sprite crops/provenance/credits remain intact. Only four
+The original 27 selected sprite crops/provenance/credits remain intact. Sixteen additional selected crops supply boss, hostile and environmental roles; see `content/boss-art.json` for identity uncertainty and casting decisions. Only four
 compact generated runtime asset files ship; no full research catalog/atlas, archives,
 legacy runtime or source maps. Original artwork and legacy sources are untouched.
-P06 has endless budgeted raids, two support squads and the Ossuary Captain. More bosses, biomes, recruitment and seasonal/social simulation follow in later phases.
+P07 adds three environmental bosses and three biome preparations. Recruitment and seasonal/social simulation follow in P08; the dedicated game HUD follows in P09-HUD.
 Six founders/one-tile structures are supported; large-colony performance, Firefox,
 Safari, touch work journeys and long-run survival balance are not claimed.

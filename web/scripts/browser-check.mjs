@@ -9,13 +9,20 @@ const run = (script, args, environment = process.env) => {
 };
 run('scripts/export-assets.mjs', []);
 run('node_modules/typescript/bin/tsc', ['--noEmit']);
-const evidence = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P06');
+const evidence = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P07');
 mkdirSync(evidence, { recursive: true });
 // Standalone browser checks generate their own ordinary, replay-verified inputs.
 // A coordinator may provide the same frozen source's retained scenario directory.
 if (!process.env.ROAG_RAID_FIXTURE_DIR) {
   process.env.ROAG_RAID_FIXTURE_DIR = resolve(evidence, 'acceptance-scenarios');
   run('scripts/raid-scenarios.mjs', [], { ...process.env, ROAG_EVIDENCE_DIR: process.env.ROAG_RAID_FIXTURE_DIR });
+}
+if (!process.env.ROAG_BOSS_FIXTURE_DIR) {
+  process.env.ROAG_BOSS_FIXTURE_DIR = resolve(evidence, 'boss-scenarios');
+  for (const seed of [43, 44, 45]) run('scripts/boss-scenarios.mjs', [], {
+    ...process.env, ROAG_BOSS_SEED: String(seed),
+    ROAG_EVIDENCE_DIR: resolve(process.env.ROAG_BOSS_FIXTURE_DIR, `seed-${seed}`),
+  });
 }
 for (const mode of ['root', 'roag']) {
   const directory = resolve(evidence, `build-${mode}`);

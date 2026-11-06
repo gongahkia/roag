@@ -20,7 +20,8 @@
     "test:browser": "node scripts/browser-check.mjs",
     "check": "npm run assets && npm run assets:check && npm run test && npm run test:browser",
     "test:scenarios": "node scripts/scenarios.mjs && node scripts/work-scenarios.mjs && node scripts/survival-scenarios.mjs && node scripts/defense-scenarios.mjs && node scripts/encounter-stress.mjs",
-    "test:raids": "node scripts/raid-scenarios.mjs"
+    "test:raids": "node scripts/raid-scenarios.mjs",
+    "test:bosses": "node scripts/boss-matrix.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"
