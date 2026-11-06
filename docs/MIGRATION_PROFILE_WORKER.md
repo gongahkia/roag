@@ -65,3 +65,15 @@ TMPDIR=/home/gongahkia/.cache/roag-tests-tmp ALSOFT_DRIVERS=null SDL_AUDIODRIVER
 ```
 
 These cases verify pinned original inventory, actual paid secret/attack observations, frozen pools, no time/RNG change, partial per-member causal saves, failed terminal manifest with retained awards/tombstone, fresh world retention, exact ordinary continuing saves, missing-profile refusal and absence of old-save conversion. Causal noncombination cases explicitly inject unit-event inputs into the observer; they are not represented as rendered gameplay. Storage fault tests use in-memory isolated records; lifecycle tests use unique temporary directories. No real user profile/save paths are used.
+
+## Broader affected backend evidence
+
+The second source batch passes **156 affected tests**, zero failures/skips, terminal exit 0, test duration **2m32s**, at `native-profile/affected-v2.{trx,log}`. `affected-v2-build.json` records the exact source/runner hashes and dirty source identity; it includes all new native profile checks plus native terrain/lifecycle, old client/save/chest/route and automation-isolation regressions. Exact filter:
+
+```sh
+TMPDIR=/home/gongahkia/.cache/roag-tests-tmp ALSOFT_DRIVERS=null SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 ./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj --filter 'FullyQualifiedName~NativeProfile|FullyQualifiedName~DungeonTerrainTests|FullyQualifiedName~WorldClientTests|FullyQualifiedName~SaveSnapshotTests|FullyQualifiedName~DungeonRouteTests|FullyQualifiedName~ChestTests|FullyQualifiedName~PlaytestBridgeTests' --logger 'trx;LogFileName=affected-v2.trx' --results-directory artifacts/migration/verification/native-profile
+```
+
+Review fixed an actual First Blood bug before integration: the world's live-hostility query returns false after death, so the observer checks committed dead native enemy identity. A real paid-kill regression now covers it. New cases also cover either generation's loss after run allocation/award/terminal, failed second award/terminal replica followed by retry, valid-checksum semantically corrupt newest payloads, all four future chest rewards and exact frozen offers, explicit preview eligibility, CLI custom-profile continuation/isolation, every free paged UI control at 1024×720/1440×900, actual stage/sanctum entry, solo/four-member canonical Regent victory and exclusion when nobody is conscious. These remain backend/fixture evidence, not natural full-party campaign completion.
+
+`verify_native_journey.py` now copies an existing enrolled continuation's profile directory with its ordinary save/chunks; absent profile metadata never creates/enrolls an old fixture. `verify_native_profile.py` is prepared for natural rendered input; no rendered pass has yet occurred.

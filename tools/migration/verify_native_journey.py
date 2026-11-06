@@ -41,6 +41,11 @@ class Client:
         if continuation:
             shutil.copy2(continuation / 'control/campaign.json', self.slot)
             shutil.copytree(continuation / 'control/campaign.json.chunks', Path(str(self.slot) + '.chunks'))
+            source_state = json.loads(self.slot.read_text())['state']
+            if source_state.get('tactics', {}).get('profile') is not None:
+                # Copy only the actual profile already belonging to this save.
+                # Never enroll an old fixture or manufacture a new run identity.
+                shutil.copytree(continuation / 'control/campaign.json.profile', Path(str(self.slot) + '.profile'))
         metadata = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
             status=subprocess.check_output(['git', 'status', '--short'], cwd=ROOT, text=True),
             assemblies={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in self.runtime.glob('Roag*.dll')},

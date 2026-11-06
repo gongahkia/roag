@@ -21,7 +21,7 @@ public sealed class CampaignProgress
 
     public void Validate(TacticalWorldState state, long nextActor)
     {
-        if (!Guid.TryParseExact(Profile, "N", out _) || Run <= 0 || Run >= long.MaxValue || Earned == null || Pending == null || StartingAchievements == null
+        if (state.Chests?.AvailableBoons == null || !Guid.TryParseExact(Profile, "N", out _) || Run <= 0 || Run >= long.MaxValue || Earned == null || Pending == null || StartingAchievements == null
             || Earned.Any(id => !AchievementCatalog.Contains(id)) || Pending.Any(id => !Earned.Contains(id))
             || StartingAchievements.Any(id => !AchievementCatalog.Contains(id)) || Chains == null || Chains.Count > 10000
             || Chains.Any(c => c == null || c.Chain <= 0 || c.Chain >= state.NextAction || c.Owner <= 0 || c.Owner >= nextActor

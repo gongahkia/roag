@@ -155,4 +155,91 @@ public sealed partial class DungeonTerrainTests
             world.RecordPursuerArrival(world.State.Dungeon.Floors[1].Boss); Assert.Empty(world.State.Tactics.Profile.Earned);
         });
     }
+    [Fact]
+    public void FirstBloodUsesTheCommittedEnemyDeathRatherThanAnAliveOnlyHostilityQuery()
+    {
+        InProfileFolder(slot =>
+        {
+            using var world = Floor(); world.EnablePermanentProfile(slot); var hero = world.Party.Single();
+            var enemy = ReplaceRegular(world, "core:enemy/mossbound_guard"); enemy.Position = hero.Position.Offset(1, 0); enemy.Health = 1;
+            world.Reveal(); Assert.True(world.SubmitDungeon(new(TacticalAction.BasicAttack, Facing.East)).Success);
+            Assert.Equal(LifeState.Dead, enemy.Life); Assert.False(world.IsHostile(enemy));
+            Assert.Contains(ProfilePrefix + "first_blood", world.PermanentAchievements);
+            Assert.Single(world.State.Tactics!.Events, e => e.Kind == "AchievementEarned" && e.Ability == ProfilePrefix + "first_blood");
+        });
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(4, true)]
+    [InlineData(1, false)]
+    public void OriginalStageAndRegentAchievementsRequirePhysicalEntryAndACanonicalSurvivingVictory(int members, bool survive)
+    {
+        InProfileFolder(slot =>
+        {
+            using var world = WorldSession.CreateDungeonRun(42); world.EnablePermanentProfile(slot);
+            var hero = world.Party.Single(); var combat = world.DungeonCombat; var run = world.State.Dungeon!;
+            void Hit(long source, WorldPosition[] cells, bool hitsOwner = false) => combat.ResolveAttack(new(combat.State.NextAction++, source,
+                world.ActorById(source).Position, cells, "test:profile-regent", AttackDelivery.Area, DamageElement.Physical, 10000,
+                combat.Clock, HitsOwner: hitsOwner, IgnoresTerrain: true));
+            for (int stage = 1; stage <= 3; stage++)
+            {
+                var floor = run.Floors.Last(); var boss = world.ActorById(floor.Boss); Hit(hero.Id, [boss.Position]);
+                hero.Position = world.State.Position = floor.Exit; world.Reveal();
+                Assert.True(world.SubmitDungeon(new(TacticalAction.DungeonRoute, Choice: 1)).Success);
+                Assert.DoesNotContain(ProfilePrefix + (stage == 1 ? "deeper_road" : "sanctum_reached"), combat.State.Profile!.Earned);
+                Assert.True(world.SubmitDungeon(new(TacticalAction.UseStairs)).Success);
+                Assert.Contains(ProfilePrefix + "deeper_road", combat.State.Profile.Earned);
+                if (stage == 3) Assert.Contains(ProfilePrefix + "sanctum_reached", combat.State.Profile.Earned);
+            }
+            for (int i = 1; i < members; i++) DungeonPartyTests.AddMember(world, ClassKind.Ranger, 7);
+            var regent = world.ActorById(run.Floors.Last().Boss);
+            combat.ResolveAttack(new(combat.State.NextAction++, hero.Id, hero.Position, [regent.Position], "test:regent-phase",
+                AttackDelivery.Area, DamageElement.Physical, regent.MaxHealth / 2 + 10, combat.Clock, IgnoresTerrain: true));
+            Assert.Contains(ProfilePrefix + "regent_awakened", combat.State.Profile!.Earned);
+            Hit(hero.Id, survive ? [regent.Position] : [hero.Position, regent.Position], hitsOwner: !survive);
+            Assert.Equal(survive, run.Victory);
+            Assert.Equal(survive, combat.State.Profile.Earned.Contains(ProfilePrefix + "regents_fall"));
+            world.FlushPermanentProfile();
+            Assert.Equal(survive, world.PermanentAchievements.Contains(ProfilePrefix + "regents_fall"));
+            world.Save(slot); using var loaded = WorldSession.Load(slot);
+            Assert.Equal(JsonSerializer.Serialize(world.State), JsonSerializer.Serialize(loaded.State));
+            if (survive)
+            {
+                Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
+                if (members == 1)
+                {
+                    Assert.True(world.SubmitDungeon(new(TacticalAction.UseStairs)).Success);
+                    Assert.Equal(6, hero.Position.Floor);
+                }
+                Assert.True(run.Victory);
+            }
+            TacticalValidation.Validate(world.Plan, world.State);
+        });
+    }
+
+    [Fact]
+    public void AllFourPermanentRewardsCanRollInFutureNativeChestsWithAnExactFrozenPool()
+    {
+        InProfileFolder(slot =>
+        {
+            var store = new NativeProfileStore(slot + ".profile"); var prior = store.AllocateRun();
+            foreach (var achievement in AchievementCatalog.All)
+            { prior.Earned.Add(achievement.Id); prior.Pending.Add(achievement.Id); }
+            store.CommitProgress(prior, terminal: true);
+            using var world = Floor(); world.EnablePermanentProfile(slot);
+            var state = world.State.Tactics!; var rewards = AchievementCatalog.Rewards(prior.Earned).ToHashSet();
+            Assert.Equal(4, rewards.Count); Assert.All(rewards, id => Assert.Contains(id, state.Chests.AvailableBoons));
+            var found = new HashSet<string>();
+            for (int seed = 1; seed <= 1000 && !rewards.IsSubsetOf(found); seed++)
+                foreach (var offer in state.Chests.Offers(seed, "core:chest/standard", ClassKind.Adventurer)) found.Add(offer.Boon);
+            Assert.True(rewards.IsSubsetOf(found));
+            world.Save(slot); using var loaded = WorldSession.Load(slot);
+            Assert.Equal(state.Chests.AvailableBoons, loaded.State.Tactics!.Chests.AvailableBoons);
+            Assert.Equal(state.Chests.Offers(91, "core:chest/standard", ClassKind.Adventurer),
+                loaded.State.Tactics.Chests.Offers(91, "core:chest/standard", ClassKind.Adventurer));
+            TacticalValidation.Validate(world.Plan, world.State);
+        });
+    }
+
 }

@@ -35,7 +35,7 @@ public sealed partial class WorldSession
 
     public void FlushPermanentProfile()
     {
-        if (State.Tactics?.Profile is not { } progress) return;
+        if (State.Tactics?.Profile is not { } progress || progress.Pending.Count == 0 && !State.AwaitingContinuation) return;
         if (_profileStore == null) throw new IOException("The campaign's permanent profile is not attached.");
         _profileStore.CommitProgress(progress, State.AwaitingContinuation);
         _permanentAchievements.UnionWith(progress.Earned);
@@ -45,6 +45,8 @@ public sealed partial class WorldSession
     {
         if (State.Tactics?.Profile is not { } progress) return;
         progress.Validate(State.Tactics, State.NextActorId);
+        if (_profileStore == null) throw new IOException("The campaign's permanent profile is not attached.");
+        _profileStore.ValidateContinuation(progress, State.AwaitingContinuation);
         FlushPermanentProfile();
     }
 

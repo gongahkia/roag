@@ -129,7 +129,7 @@ internal sealed partial class WorldGame
                     : $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / {place}"
                     : "Fifteen classes. Find your next build.";
                 Text(Short(detail, (card.Width - 68) / (_uiFonts?.Advance ?? 8)), card.X + 34, card.Y + 450, Muted);
-                if (_session.HasPermanentProfile) Text($"{_session.PermanentAchievements.Count}/22 achievements / {Roag.Core.Profiles.AchievementCatalog.Rewards(_session.PermanentAchievements).Length}/4 unlocks", card.X + 34, card.Y + 480, Gold);
+                if (_session.HasPermanentProfile) Text($"{_session.PermanentAchievements.Count}/22 earned / {Roag.Core.Profiles.AchievementCatalog.Rewards(_session.PermanentAchievements).Length}/4 unlocks", card.X + 34, card.Y + 480, Gold);
             }
             Text("Arrows select / Enter confirms", card.X + 34, card.Bottom - 34, Muted);
         }

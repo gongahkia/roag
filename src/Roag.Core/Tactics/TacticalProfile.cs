@@ -30,7 +30,7 @@ public sealed partial class TacticalCombat
                 if (chain.Boons.Count >= 3) AwardProfile("chain_reaction", e.Source);
                 break;
             case "EntityKilled" when member && !_world.State.Party.Contains(e.Target)
-                && _world.State.Actors.Any(a => a.Id == e.Target && a.Life == LifeState.Dead && _world.IsHostile(a)):
+                && _world.State.Actors.Any(a => a.Id == e.Target && a.Life == LifeState.Dead && a.Tactics?.Enemy != null):
                 AwardProfile("first_blood", e.Source); break;
             case "FloorChanged" when member:
                 AwardProfile("pathfinder", e.Source);

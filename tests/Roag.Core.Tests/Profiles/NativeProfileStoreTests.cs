@@ -90,18 +90,21 @@ public sealed class NativeProfileStoreTests
         Assert.Empty(run.Pending); Assert.Contains(Guardian, store.Inspect().Data!.Earned);
     }
 
-    [Fact]
-    public void SecondAwardWriteFailureRequiresRetryAndThenSurvivesEitherSingleRecordLoss()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SecondAwardWriteFailureRequiresRetryAndThenSurvivesEitherSingleRecordLoss(bool terminal)
     {
         var disk = new MemoryStorage(); var store = new NativeProfileStore(disk); var run = store.AllocateRun();
         run.Earned.Add(Guardian); run.Pending.Add(Guardian); disk.FailAt = disk.Writes + 2;
-        Assert.Throws<IOException>(() => store.CommitProgress(run, terminal: false)); Assert.Contains(Guardian, run.Pending);
-        disk.FailAt = int.MaxValue; store.CommitProgress(run, terminal: false);
+        Assert.Throws<IOException>(() => store.CommitProgress(run, terminal: terminal)); Assert.Contains(Guardian, run.Pending);
+        disk.FailAt = int.MaxValue; store.CommitProgress(run, terminal: terminal);
         var snapshots = disk.Files.ToDictionary(p => p.Key, p => p.Value);
         foreach (string slot in NativeProfileStore.Slots)
         {
             disk.Files.Clear(); foreach (var pair in snapshots) disk.Files.Add(pair.Key, pair.Value);
             disk.Files[slot] = [0]; Assert.Contains(Guardian, store.Inspect().Data!.Earned);
+            if (terminal) Assert.Throws<IOException>(() => store.ValidateContinuation(run, terminal: false));
         }
     }
 
@@ -132,4 +135,48 @@ public sealed class NativeProfileStoreTests
         run.Earned.Clear(); run.StartingAchievements.Add(Guardian);
         Assert.Throws<IOException>(() => store.ValidateContinuation(run, terminal: false)); Assert.Equal(writes, disk.Writes);
     }
+    [Theory]
+    [InlineData("allocation")]
+    [InlineData("award")]
+    [InlineData("terminal")]
+    public void EitherSingleGenerationCanBeLostAfterAnAcknowledgedCriticalReceipt(string receipt)
+    {
+        var disk = new MemoryStorage(); var store = new NativeProfileStore(disk); var run = store.AllocateRun();
+        if (receipt != "allocation")
+        {
+            run.Earned.Add(Guardian); run.Pending.Add(Guardian); store.CommitProgress(run, terminal: receipt == "terminal");
+        }
+        var snapshots = disk.Files.ToDictionary(p => p.Key, p => p.Value);
+        foreach (string slot in NativeProfileStore.Slots)
+        {
+            disk.Files.Clear(); foreach (var pair in snapshots) disk.Files.Add(pair.Key, pair.Value);
+            disk.Files[slot] = [0];
+            if (receipt == "terminal") Assert.Throws<IOException>(() => store.ValidateContinuation(run, terminal: false));
+            else store.ValidateContinuation(run, terminal: false);
+            var next = store.AllocateRun(); Assert.True(next.Run > run.Run);
+            if (receipt != "allocation") Assert.Contains(Guardian, next.StartingAchievements);
+        }
+    }
+
+    [Theory]
+    [InlineData("missing-field")]
+    [InlineData("counter")]
+    [InlineData("unknown-award")]
+    [InlineData("truncated-payload")]
+    public void AValidChecksumNeverMakesSemanticallyInvalidNewestProgressSafeToOverwrite(string defect)
+    {
+        var disk = new MemoryStorage(); var store = new NativeProfileStore(disk); store.AllocateRun();
+        string slot = disk.Files.OrderByDescending(p => JsonNode.Parse(p.Value)!["sequence"]!.GetValue<long>()).First().Key;
+        var record = JsonNode.Parse(disk.Files[slot])!; var payload = JsonNode.Parse(record["payload"]!.GetValue<string>())!.AsObject();
+        if (defect == "missing-field") payload.Remove("nextRun");
+        if (defect == "counter") payload["nextRun"] = 0;
+        if (defect == "unknown-award") payload["earned"] = new JsonArray("unknown");
+        string text = defect == "truncated-payload" ? payload.ToJsonString()[..20] : payload.ToJsonString();
+        record["payload"] = text;
+        record["checksum"] = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+        disk.Files[slot] = JsonSerializer.SerializeToUtf8Bytes(record);
+        Assert.Equal(ProfileStatus.Corrupt, store.Inspect().Status);
+        int writes = disk.Writes; Assert.Throws<IOException>(() => store.AllocateRun()); Assert.Equal(writes, disk.Writes);
+    }
+
 }

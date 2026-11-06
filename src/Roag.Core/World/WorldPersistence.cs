@@ -134,7 +134,8 @@ public sealed partial class WorldSession
                 || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid camp duty.");
         }
-        session.RestorePermanentProfile(path, profileDirectory);
+        try { session.RestorePermanentProfile(path, profileDirectory); }
+        catch { session.Dispose(); throw; }
         session.RestorePartyFormation();
         session.PrepareLocalCollision(force: true); session.RefreshVisibility(remember: false);
         return session;

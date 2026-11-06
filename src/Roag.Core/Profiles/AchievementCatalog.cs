@@ -36,7 +36,7 @@ public static class AchievementCatalog
         new(Prefix + "regent_awakened", "Regent Awakened", "Force the Hollow Regent into phase two.")
     ];
     private static readonly ImmutableDictionary<string, AchievementDefinition> Definitions = All.ToImmutableDictionary(a => a.Id, StringComparer.Ordinal);
-    public static bool Contains(string id) => Definitions.ContainsKey(id);
+    public static bool Contains(string id) => id is not null && Definitions.ContainsKey(id);
     public static AchievementDefinition Get(string id) => Definitions.TryGetValue(id, out var value) ? value : throw new InvalidDataException("Unknown achievement identity.");
     public static bool IsReward(string id) => All.Any(a => a.Reward == id);
     public static string[] Rewards(IEnumerable<string> earned)
