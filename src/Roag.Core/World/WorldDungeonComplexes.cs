@@ -18,7 +18,8 @@ public sealed partial class WorldSession
     internal static DungeonRunState? SnapshotDungeonAt(WorldState world, WorldPosition position)
         => world.Dungeon ?? SnapshotComplexAt(world, position)?.Run;
 
-    internal DungeonRunState? DungeonAt(WorldPosition position) => SnapshotDungeonAt(State, position);
+    /// <summary>Authored progression at an actual location; live inspection still requires the member's vision.</summary>
+    public DungeonRunState? DungeonAt(WorldPosition position) => SnapshotDungeonAt(State, position);
     internal static DungeonFloorState? SnapshotDungeonFloorAt(WorldState world, WorldPosition position)
         => SnapshotDungeonAt(world, position)?.Floors.FirstOrDefault(f => f.Contains(position));
     public DungeonFloorState? DungeonFloorAt(WorldPosition position) => SnapshotDungeonFloorAt(State, position);

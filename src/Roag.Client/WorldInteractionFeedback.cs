@@ -88,11 +88,11 @@ internal static class WorldInspection
                     + (owner.Life == LifeState.Dead ? " Its owner is permanently dead." : ""),
                 "Select its owner in the party page", "", "object");
         }
-        if (session.State.Dungeon?.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == cell) is { } routeFloor
+        if (session.DungeonFloorAt(cell) is { Stage: < 4, Boss: > 0 } routeFloor && routeFloor.Exit == cell
             && material != Material.StairsDown)
         {
             if (!session.Visible.Contains(cell)) return new("Stage exit (remembered)", "Observe this exit again to inspect its seal.", "Move with the keyboard", "", "object");
-            bool available = session.State.Dungeon.BossExitReceipts.Contains(routeFloor.Boss);
+            bool available = session.DungeonAt(cell)!.BossExitReceipts.Contains(routeFloor.Boss);
             return new(available ? "Stage exit: choose a route" : "Sealed stage exit",
                 available ? "The elite has fallen. Choose a route here for one paid action, then walk down its stairs. Cleared floors remain accessible."
                     : "Defeat this floor's elite to unlock the next stage. The exit stays at this marked location when the elite moves.",
@@ -231,7 +231,7 @@ internal static class WorldInspection
             return new(resource.Definition.Name, session.GatheringDanger(cell) + resource.Description + " Each gather: " + session.ResourceYieldDescription(resource.Definition) + ".",
                 "Right-click to gather; drag-select several resources", resource.Available > 0 ? "" : resource.RecoveryDescription, "resource");
         string action = material switch { Material.StairsDown => "Approach and descend", Material.StairsUp => "Approach and ascend", Material.Storage => "Approach and open storage", Material.Camp => "Walk beside the camp; right-click to rest or craft", _ => "Move with WASD or arrow keys" };
-        string placeName = session.State.Dungeon is { } run && run.Floors.FirstOrDefault(f => f.Contains(cell)) is { } floor
+        string placeName = session.DungeonFloorAt(cell) is { } floor
             ? floor.Stage == 4 ? "Final Sanctum" : DungeonCatalog.Default.Biomes.Single(b => b.Id == floor.Biome).Name
             : session.Plan.BiomeAt(cell.X, cell.Y).ToString();
         if (session.HasNativeParty && material is Material.StairsDown or Material.StairsUp) action = "Step onto the stair, or press Enter while standing on it";

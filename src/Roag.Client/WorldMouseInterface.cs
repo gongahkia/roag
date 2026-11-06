@@ -596,7 +596,8 @@ internal sealed partial class WorldGame
             nativeDungeon = !_session.HasNativeParty ? null : new
             {
                 profile = _session.State.Tactics?.Profile == null ? null : new { earned = _session.PermanentAchievements.Order().ToArray(), run = _session.State.Tactics.Profile.Run, pending = _session.State.Tactics.Profile.Pending.Order().ToArray() },
-                stage = _session.State.Dungeon?.Stage ?? 0, victory = _session.State.Dungeon?.Victory ?? _session.State.Endgame.Victory,
+                stage = _session.State.Dungeon?.Stage ?? _session.DungeonFloorAt(_session.State.Position)?.Stage ?? 0,
+                victory = _session.State.Dungeon?.Victory ?? _session.State.Endgame.Victory,
                 campaign = _session.State.NativeCampaign != null, calendar = _session.CalendarDescription, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,
                 controlledActor = _session.State.Tactics.ControlledActor,
@@ -685,9 +686,9 @@ internal sealed partial class WorldGame
                     contract = n.Contract == null ? null : new { status = n.Contract.Status.ToString(), targets = n.Contract.Targets.Length, defeated = n.Contract.Defeated.Count, n.Contract.Failure }
                 }),
                 serviceOffers = _panel == "dungeon-service" ? _session.DungeonCombat.DungeonServiceChoices(_nativeService, _session.DungeonMember.Id) : null,
-                routeGates = (_session.State.Dungeon?.Floors ?? []).Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
+                routeGates = _session.DungeonFloors.Where(f => f.Stage < 4 && f.Boss > 0 && _session.Visible.Contains(f.Exit)
                     && _session.Chunks.At(f.Exit) != Material.StairsDown)
-                    .Select(f => new { f.Stage, position = f.Exit, available = _session.State.Dungeon!.BossExitReceipts.Contains(f.Boss) }),
+                    .Select(f => new { f.Stage, position = f.Exit, available = _session.DungeonAt(f.Exit)!.BossExitReceipts.Contains(f.Boss) }),
                 routeOffers = _panel == "dungeon-routes" ? _session.AvailableDungeonRoutes(_session.DungeonMember.Id) : null,
                 chestOffers = _panel == "dungeon-chest" ? _session.DungeonCombat.ChestOffers(_nativeChest, _session.DungeonMember.Id) : null,
                 boonSprites = _panel == "dungeon-chest"

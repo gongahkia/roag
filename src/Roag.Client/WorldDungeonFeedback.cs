@@ -22,7 +22,7 @@ internal sealed partial class WorldGame
     private void UpdateDungeonPresentation(double elapsed)
     {
         if (!_session.HasNativeParty) return;
-        var run = _session.State.Dungeon;
+        var run = _session.DungeonAt(_session.State.Position);
         long now = Stopwatch.GetTimestamp();
         double visualElapsed = _dungeonPresentationStamp == 0 ? 0 : Stopwatch.GetElapsedTime(_dungeonPresentationStamp, now).TotalSeconds;
         _dungeonPresentationStamp = now;

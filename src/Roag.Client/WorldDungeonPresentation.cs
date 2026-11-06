@@ -354,6 +354,7 @@ internal sealed partial class WorldGame
         Text("ROAG", 20, 16, Gold, 2);
         Text($"{_session.NativeElapsedTime / (double)combat.Tuning.UnitsPerSecond:0.00}s / {(_session.DungeonMember.Id == combat.State.ActiveActor ? "your action" : "viewing member")}", 160, 22, Muted);
         string identity = _session.State.Dungeon is { } run ? $"Stage {run.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}"
+            : _session.DungeonFloorAt(_session.State.Position) is { } floor ? $"Stage {floor.Stage} / floor {_session.State.Position.Floor} / seed {_session.Seed}"
             : $"{_session.CalendarDescription} / {(_session.State.Position.Floor == 0 ? _session.WeatherAt(_session.State.Position).Weather.ToString() : "depth " + _session.State.Position.Floor)}";
         Text(identity, 20, 57, Muted);
         Fill(_side, Panel);
