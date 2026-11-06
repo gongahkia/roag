@@ -136,6 +136,7 @@ function threadTurn(w: BossWorld, e: BossEncounter, r: Raider): boolean {
 export function bossTurn(w: BossWorld, r: Raider, api: BossApi): boolean {
   if (!bossKind(r.kind)) return false;
   const e = encounter(w, r.id); if (!e || e.deadAt !== null) return false;
+  if (e.noise && e.noise.at + B.noise.lifetime < w.tick) e.noise = null;
   if (e.feast) {
     const channel = e.layout.channels[e.feast.channel]!, allowed = wetRoute(w, e, r, e.feast.channel);
     if (!allowed || e.feast.expiresAt <= w.tick) { stopFeast(w, e); return true; }
@@ -149,6 +150,7 @@ export function bossTurn(w: BossWorld, r: Raider, api: BossApi): boolean {
     if (!same(r, e.layout.center)) { r.target = null; api.move(r, e.layout.center, false); return true; }
     e.arrived = true;
   }
+  if (r.kind === 'sluice' && !e.layout.channels.some((channel, n) => !e.drained[n] && channel.cells.some(at => same(at, r)))) { r.target = null; api.move(r, e.layout.center, false); return true; }
   const acted = r.kind === 'bellkeeper' ? bellTurn(w, e, r) : r.kind === 'sluice' ? sluiceTurn(w, e, r) : threadTurn(w, e, r);
   if (acted) { e.moves++; e.readyAt = w.tick + B.profiles[r.kind].cooldown; r.route = []; r.target = null; return true; }
   return false;
@@ -208,7 +210,7 @@ export function prepareBossCounters(w: BossWorld, api: BossApi): void {
     if (person.next || distance(person, f) > 1) { clear(); api.approach(person, f); continue; }
     let work = w.bosses.work.find(work => work.actor === person.id);
     if (!work) { work = { actor: person.id, mode: order.mode, target: f.id, startedAt: w.tick, progress: 0 }; w.bosses.work.push(work); }
-    work.progress++; person.body.status = `${order.mode} ${f.kind}: ${work.progress}/${B.counters[order.mode]}`;
+    work.progress++; recordBossNoise(w, person); person.body.status = `${order.mode} ${f.kind}: ${work.progress}/${B.counters[order.mode]}`;
     if (work.progress < B.counters[order.mode]) continue;
     clear();
     if (order.mode === 'drain') drain(w, f);

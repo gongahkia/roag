@@ -137,3 +137,36 @@ test('exhausted Sluice counters release normal pursuit instead of oscillating ba
   const { w, r, e } = fixture('sluice'); e.arrived = true; e.drained = [true, true]; r.x -= 5;
   const engine = api(w); assert.equal(bossTurn(w, r, engine), false); assert.equal(engine.moves.length, 0);
 });
+
+test('channel surge damages both factions and applies at most one legal flow step, including its owner', () => {
+  const { w, r, e } = fixture('sluice'), p = w.people[0], channel = e.layout.channels[0];
+  Object.assign(p, channel.cells[0]); step(w); const surge = w.bosses.effects[0];
+  while (w.tick < surge.due - 1) step(w);
+  const personBefore = at(p), ownerBefore = at(r), personHealth = p.body.health, ownerHealth = r.health;
+  step(w); assert.equal(p.body.health, personHealth - 12); assert.equal(r.health, ownerHealth - 12);
+  assert.equal(distance(p, personBefore), 1); assert.equal(distance(r, ownerBefore), 1); assert.deepEqual(at(r), { x: ownerBefore.x + 1, y: ownerBefore.y });
+  until(w, () => w.bosses.effects.some(a => a.kind === 'feast'), 100);
+  assert.equal(e.arrived, true); assert.ok(e.layout.channels.some(c => c.cells.some(at => same(at, r))), 'owner physically returns to wet ground after its own surge');
+});
+
+test('surge cannot move a founder twice or displace a reserved enemy edge', () => {
+  const { w, r, e } = fixture('sluice'), p = w.people[0], channel = e.layout.channels[0];
+  step(w); const surge = w.bosses.effects[0];
+  while (w.tick < surge.due - 1) step(w);
+  const destination = channel.cells[0];
+  Object.assign(p, { x: destination.x - 1, y: destination.y, next: at(destination), progress: 5, moveTicks: 6, route: [], destination: at(destination) });
+  // An unrelated attacker already crossing an edge keeps that reserved edge;
+  // hazard damage does not grant an additional movement or cancel its progress.
+  const ticket = { id: w.nextId++, kind: 'raider', squadId: null, leaderId: null, edge: 'east', entryOffset: 0 };
+  const enemy = createRaider(w, ticket, channel.cells[2]); enemy.next = at(channel.cells[3]); enemy.progress = 1; enemy.moveTicks = 6; w.combat.raiders.push(enemy);
+  const previous = at(p), enemyPrevious = at(enemy), enemyHealth = enemy.health; step(w);
+  assert.deepEqual(at(p), destination); assert.equal(distance(previous, p), 1); assert.equal(p.body.health, 88);
+  assert.deepEqual(at(enemy), enemyPrevious); assert.equal(enemy.progress, 2); assert.equal(enemy.health, enemyHealth - B.surge.damage);
+});
+
+test('counter target deletion during impact leaves no work references and releases its order next preparation', () => {
+  const { w, e } = fixture('bellkeeper'), p = w.people[0], f = w.bosses.features[0]; e.readyAt = 100;
+  Object.assign(p, { x: f.x - 1, y: f.y }); counter(w, p, 'strike', f); ticks(w, 4); assert.equal(w.bosses.work[0].target, f.id);
+  damageBossFeature(w, f.id, 24, 2); assert.equal(w.bosses.work.length, 0); step(w);
+  assert.equal(w.combat.orders.some(o => o.actor === p.id), false); assert.equal(w.bosses.features.some(a => a.id === f.id), false);
+});
