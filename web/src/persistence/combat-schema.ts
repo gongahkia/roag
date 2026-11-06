@@ -55,11 +55,12 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   assert(Array.isArray(combat.defenses) && combat.defenses.length <= world.structures.length, 'defense limit');
   object(combat.stats, ['spawned', 'kills', 'shots', 'traps', 'heartDamage', 'colonyDamage', 'structuresLost']);
   for (const n of Object.values(combat.stats)) assert(integer(n), 'combat statistic');
+  assert(combat.stats.heartDamage === 100 - world.heart.health, 'heart damage ledger');
   assert(combat.stats.spawned === combat.stats.kills + combat.raiders.length, 'raider kill ledger');
   assert(integer(combat.lootWood) && combat.lootWood === combat.stats.kills, 'exactly-once raid loot');
-  if (combat.phase === 'peace') assert(combat.wave === 0 && combat.completed === 0 && !combat.pending.length && !combat.raiders.length && !combat.attacks.length, 'peace state');
+  if (combat.phase === 'peace') assert(combat.wave === 0 && combat.completed === 0 && combat.stats.spawned === 0 && !combat.pending.length && !combat.raiders.length && !combat.attacks.length, 'peace state');
   else assert(combat.wave === 1, 'active first wave');
-  if (combat.phase === 'warning') assert(combat.completed === 0 && !combat.raiders.length && !combat.attacks.length, 'warning state');
+  if (combat.phase === 'warning') assert(combat.completed === 0 && combat.stats.spawned === 0 && !combat.raiders.length && !combat.attacks.length, 'warning state');
   if (combat.phase === 'combat') assert(combat.completed === 0, 'combat completion');
   if (combat.phase === 'recovery') assert(combat.completed === 1 && !combat.pending.length && !combat.raiders.length && !combat.attacks.length, 'recovery state');
 
@@ -105,24 +106,29 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
     const person = world.people.find(p => attack.source.kind === 'person' && p.id === attack.source.id && p.life === 'alive');
     const raider = combat.raiders.find(r => attack.source.kind === 'raider' && r.id === attack.source.id);
     const structure = world.structures.find(s => attack.source.kind === 'structure' && s.id === attack.source.id && s.health > 0);
-    let damage: number, windup: number, range: number;
+    let damage: number, windup: number, range: number, cooldown: number, until: number | undefined;
     if (person) {
       assert(attack.kind === 'melee' && attack.faction === 'colony', 'guard attack policy');
-      damage = C.guard.damage; windup = C.guard.windup; range = 1;
+      damage = C.guard.damage; windup = C.guard.windup; range = 1; cooldown = C.guard.cooldown;
+      until = combat.cooldowns.find(c => c.actor === person.id)?.until;
     } else if (raider) {
       assert(attack.kind === 'melee' && attack.faction === 'hostile', 'raider attack policy');
-      damage = C[raider.kind].damage; windup = C[raider.kind].windup; range = 1;
+      damage = C[raider.kind].damage; windup = C[raider.kind].windup; range = 1; cooldown = C[raider.kind].cooldown; until = raider.cooldown;
     } else if (structure?.kind === 'tower') {
       assert(attack.kind === 'bolt' && attack.faction === 'colony', 'tower attack policy');
-      damage = C.tower.damage; windup = C.tower.windup; range = C.tower.range;
+      damage = C.tower.damage; windup = C.tower.windup; range = C.tower.range; cooldown = C.tower.cooldown;
+      until = combat.defenses.find(d => d.structure === structure.id)?.cooldown;
     } else {
       assert(structure?.kind === 'trap' && attack.kind === 'trap' && attack.faction === 'colony', 'living attack source');
-      damage = C.trap.damage; windup = C.trap.windup; range = 0;
+      damage = C.trap.damage; windup = C.trap.windup; range = 0; cooldown = C.trap.cooldown;
+      until = combat.defenses.find(d => d.structure === structure.id)?.cooldown;
     }
     assert((attack.damage === damage || raider?.kind === 'breacher' && attack.damage === C.breacher.structureDamage) && integer(attack.due, world.tick + 1, world.tick + windup), 'attack timing or damage');
+    assert(until === attack.due - windup + cooldown, 'attack launch cooldown');
     if (structure) assert(same(attack.origin, structure), 'stationary attack origin');
     else assert(distance(attack.origin, (person ?? raider)!) <= Math.ceil(windup / MOVE_TICKS), 'mobile attack origin');
     assert(distance(attack.origin, attack.target) <= range, 'attack range');
+    assert(attack.kind === 'melee' ? distance(attack.origin, attack.target) === 1 : attack.kind === 'trap' || !same(attack.origin, attack.target), 'attack reach');
     assert(Array.isArray(attack.cells) && attack.cells.length > 0 && attack.cells.length <= C.tower.range + 1, 'attack geometry');
     const expected = attack.kind === 'bolt' ? unobstructedRay(attack.origin, attack.target) : [attack.target];
     assert(attack.cells.length === expected.length, 'attack cell count');
@@ -132,6 +138,7 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
       assert(same(position, expected[i]!), 'locked attack geometry');
     }
   }
+  assert(combat.attacks.filter(a => a.kind === 'bolt').length <= combat.stats.shots && combat.attacks.filter(a => a.kind === 'trap').length <= combat.stats.traps, 'pending attacks paid ammunition');
 
   const actors = new Set<number>();
   for (const order of combat.orders) {
