@@ -1,5 +1,6 @@
 import { NEEDS } from '../simulation/survival-content.ts';
 import { setupWork } from './work.ts';
+import { setupCombat } from './combat.ts';
 import { total, MATERIALS } from '../simulation/work-content.ts';
 import { assetUrl } from '../assets.ts';
 import type { Manifest } from '../assets.ts';
@@ -34,9 +35,11 @@ export function setupPanels(manifest:Manifest,controller:ColonyController,send:(
   element('destination-order').addEventListener('submit',(event)=>{event.preventDefault();controller.order({x:Number(element<HTMLInputElement>('destination-x').value),y:Number(element<HTMLInputElement>('destination-y').value)});});
   element('lab-gate').addEventListener('click',()=>controller.editGate());
   const updateWork=setupWork(controller,send);
+  const updateCombat=setupCombat(controller,send);
   let lastInspection='',lastPerson:number|null=null;
   return ()=>{
     updateWork();
+    updateCombat();
     const world=controller.world,p=world.people.find(p=>p.id===controller.selected),founder=p?founders[p.founder]:undefined;
     element('tick').textContent=String(world.tick);element('run-seed').textContent=String(world.seed);
     const status=controller.clock.hidden?'Hidden — paused':controller.clock.manualPaused?'Paused':`Running at ${controller.clock.speed}×`;
