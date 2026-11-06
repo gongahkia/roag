@@ -157,6 +157,7 @@ function raidSchedule(w: World): void {
 }
 function refCell(w: World,ref: CombatRef): Cell|undefined {return ref.kind==='heart'?w.heart:ref.kind==='person'?w.people.find(p=>p.id===ref.id&&p.life==='alive'):ref.kind==='structure'?w.structures.find(s=>s.id===ref.id):w.combat.raiders.find(r=>r.id===ref.id);}
 function selectTarget(w: World,r: Raider): CombatRef {
+  if(r.kind==='breacher'){const tower=w.structures.filter(s=>s.kind==='tower'&&distance(s,r)<=C.breacher.defenseNotice).sort((a,b)=>distance(a,r)-distance(b,r)||a.id-b.id)[0];if(tower)return {kind:'structure',id:tower.id};}
   const target=w.people.filter(p=>p.life==='alive'&&distance(p,r)<=C[r.kind].notice).sort((a,b)=>distance(r,a)-distance(r,b)||a.id-b.id)[0];return target?{kind:'person',id:target.id}:{kind:'heart',id:w.heart.id};
 }
 function melee(w: World,r: Raider,target: Cell): void {
