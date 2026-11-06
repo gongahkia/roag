@@ -196,6 +196,7 @@ function encounterApi(w: World,move: EncounterApi['move']=()=>{},movedPeople=new
   return {
     launch:(source,origin,target,kind,faction,amount,delay,extra)=>launch(w,source,origin,target,kind,faction,amount,delay,extra),
     damage:(ref,amount,faction,origin)=>damage(w,ref,amount,faction,origin), move,
+    breach:(cell)=>{const site=w.jobs.find(j=>j.kind==='build'&&active(j)&&same(j,cell));if(!site)return false;finish(w,site,true);return true;},
     shove:(id,delta)=>{
       const p=w.people.find(p=>p.id===id&&p.life==='alive');
       if(!p||p.next||movedPeople.has(id)||Math.abs(delta.x)+Math.abs(delta.y)!==1)return false;
@@ -212,16 +213,23 @@ function face(r: Raider,cell: Cell,tick: number): void {
 }
 function moveRaiders(w: World,movedPeople: Set<number>): void {
   const occupied=spatial(w);let searches=0;
-  const move=(r:Raider,cell:Cell,adjacent:boolean):void=>{
-    if(r.next||r.charge)return;
-    if(distance(r,cell)<=(adjacent?1:0)){r.route=[];return;}
-    if(r.routeVersion!==w.terrainVersion){r.route=[];r.routeVersion=w.terrainVersion;r.retryAt=w.tick;}
-    if(r.route.length&&distance(r.route[r.route.length-1]!,cell)>(adjacent?1:0)){r.route=[];r.retryAt=w.tick;}
-    if(!r.route.length){if(r.retryAt>w.tick||searches>=C.searchesPerTick)return;searches++;r.route=raiderRoute(w,r,cell,occupied,r.id,C.searchLimit,adjacent);r.routeVersion=w.terrainVersion;r.retryAt=w.tick+10;}
+  const requests:{raider:Raider;cell:Cell;adjacent:boolean;waitingSince:number}[]=[];
+  const enterRoute=(r:Raider):void=>{
     const next=r.route[0];if(!next)return;
     if(!walkable(w,next)){if(breachable(w,next)&&distance(r,next)===1){face(r,next,w.tick);melee(w,r,next);}else{r.route=[];r.retryAt=w.tick+10;}return;}
     const owner=occupied.get(index(next.x,next.y));if(owner!==undefined&&owner!==r.id){const person=w.people.find(p=>p.id===owner&&p.life==='alive');if(person){face(r,person,w.tick);melee(w,r,person);}r.route=[];r.retryAt=w.tick+10;return;}
     face(r,next,w.tick);r.next=r.route.shift()!;r.progress=0;occupied.set(index(next.x,next.y),r.id);
+  };
+  const move=(r:Raider,cell:Cell,adjacent:boolean):void=>{
+    if(r.next||r.charge)return;
+    if(distance(r,cell)<=(adjacent?1:0)){r.route=[];return;}
+    if(r.routeVersion!==w.terrainVersion){r.route=[];r.routeVersion=w.terrainVersion;r.retryAt=Math.min(r.retryAt,w.tick);}
+    if(r.route.length&&distance(r.route[r.route.length-1]!,cell)>(adjacent?1:0)){r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
+    if(!r.route.length){
+      if(r.retryAt<=w.tick)requests.push({raider:r,cell:{x:cell.x,y:cell.y},adjacent,waitingSince:r.retryAt});
+      return;
+    }
+    enterRoute(r);
   };
   const api=encounterApi(w,move,movedPeople);
   for(const r of [...w.combat.raiders].sort((a,b)=>a.id-b.id)){
@@ -229,9 +237,21 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
     if(r.next){r.progress++;if(r.progress>=MOVE_TICKS){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;r.next=null;r.progress=0;}else continue;}
     if(encounterTurn(w,r,api))continue;
     const target=selectTarget(w,r),cell=refCell(w,target)!;
-    if(!r.target||r.target.kind!==target.kind||r.target.id!==target.id){r.target=target;r.route=[];r.retryAt=w.tick;}
+    if(!r.target||r.target.kind!==target.kind||r.target.id!==target.id){r.target=target;r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
     if(distance(r,cell)<=1){r.route=[];face(r,cell,w.tick);melee(w,r,cell);continue;}
     move(r,cell,true);
+  }
+  // Keep actor motion/AI in stable identity order, but share the bounded search
+  // budget by saved waiting age. A blocked early actor cannot monopolize every
+  // retry slot while a later actor has never received its first search.
+  requests.sort((a,b)=>a.waitingSince-b.waitingSince||a.raider.id-b.raider.id);
+  for(const request of requests){
+    if(searches>=C.searchesPerTick)break;
+    const r=request.raider;
+    if(r.next||r.charge||w.combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===r.id))continue;
+    searches++;r.route=raiderRoute(w,r,request.cell,occupied,r.id,C.searchLimit,request.adjacent);
+    r.routeVersion=w.terrainVersion;r.retryAt=w.tick+10;
+    enterRoute(r);
   }
   advanceEncounters(w,api);
 }

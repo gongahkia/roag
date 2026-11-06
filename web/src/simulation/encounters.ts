@@ -1,4 +1,4 @@
-import { distance, index, inside, same, spatial, walkable } from './model.ts';
+import { active, distance, index, inside, same, spatial, walkable } from './model.ts';
 import type { Cell, World } from './model.ts';
 import type { Attack, CombatRef, Raider } from './combat-model.ts';
 import { COMBAT_CONTENT } from './combat-content.ts';
@@ -10,6 +10,7 @@ export type EncounterApi = {
   damage(ref: CombatRef, amount: number, faction: Attack['faction'], origin: Cell): void;
   move(raider: Raider, target: Cell, adjacent: boolean): void;
   shove(personId: number, delta: Cell): boolean;
+  breach(cell: Cell): boolean;
 };
 const cell = (c: Cell): Cell => ({ x: c.x, y: c.y });
 const ref = (r: Raider): CombatRef => ({ kind: 'raider', id: r.id });
@@ -82,6 +83,13 @@ export function encounterTurn(w: World, r: Raider, api: EncounterApi): boolean {
   if (r.cooldown > w.tick) return true;
   const charging = r.specialCount % 2 === 0, cells = charging ? chargeCells(r, direction) : rampartCells(r, direction);
   if (!cells.length) return false;
+  if (charging) for (const at of cells) {
+    const body = encounterBody(w, at);
+    if (body && body.kind !== 'raider' || w.jobs.some(j => j.kind === 'build' && active(j) && same(j, at))) break;
+    // A charge cannot break natural rock. Use the ordinary bounded route search
+    // to get around it instead of repeating an ineffectual special forever.
+    if (w.terrain[index(at.x, at.y)] === 2) return false;
+  }
   const tuning = charging ? E.charge : E.rampart;
   if (api.launch(ref(r), r, cells[cells.length - 1]!, charging ? 'charge' : 'rampart', 'hostile', charging ? E.charge.damage : 0, tuning.windup, { cells })) {
     r.specialCount++; r.cooldown = w.tick + tuning.cooldown;
@@ -109,6 +117,7 @@ export function advanceEncounters(w: World, api: EncounterApi): void {
     const charge = r.charge; if (!charge) continue;
     const next = charge.cells[charge.cursor];
     if (!next || !inside(next) || distance(r, next) !== 1) { endCharge(w, r); continue; }
+    if (api.breach(next)) { endCharge(w, r); continue; }
     const body = encounterBody(w, next), delta = { x: next.x - r.x, y: next.y - r.y };
     if (body) {
       if (body.kind === 'raider') { endCharge(w, r); continue; }

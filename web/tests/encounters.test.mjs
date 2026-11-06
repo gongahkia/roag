@@ -42,6 +42,7 @@ function api(w) {
       if (ref.kind === 'heart') w.heart.health -= amount;
     },
     move(r, target, adjacent) { result.moves.push({ actor: r.id, target: { x: target.x, y: target.y }, adjacent }); },
+    breach() { return false; },
     shove(id, delta) {
       const p = w.people.find(p => p.id === id), target = { x: p.x + delta.x, y: p.y + delta.y };
       if (p.life !== 'alive' || p.next || !walkable(w, target) || spatial(w).has(index(target.x, target.y))) return false;
@@ -123,6 +124,23 @@ test('Captain charge rechecks a wall built after telegraph and never jumps throu
   w.tick++; advanceEncounters(w, engine); assert.equal(r.x, 61);
   w.tick++; advanceEncounters(w, engine); assert.equal(r.x, 61); assert.equal(r.charge, null); assert.equal(barrier.health, 80);
   assert.equal(engine.hits.length, 1); assert.equal(p.body.health, 100);
+});
+
+test('an ordinary unfinished wall is breached by a paid Captain charge and cannot stall the raid', () => {
+  const w = fixture(), captain = actor(w, 'captain', 60, 64);
+  assert.equal(enqueue(w, { kind: 'build', building: 'wall', target: { x: 61, y: 64 } }), true);
+  step(w); const site = w.jobs.find(j => j.kind === 'build'); assert.equal(site.state, 'active'); assert.equal(site.progress, 0);
+  assert.equal(w.combat.attacks.find(a => a.kind === 'charge').due, 21);
+  while (w.tick < 20) step(w); assert.equal(site.state, 'active');
+  step(w); assert.equal(site.state, 'cancelled'); assert.equal(captain.x, 60); assert.equal(captain.charge, null); assert.ok(captain.exposedUntil > w.tick);
+  while (w.tick < 150) step(w); assert.ok(w.heart.health < 100); assert.ok(captain.x > 60);
+});
+
+test('Captain routes around natural rock before charging instead of repeating blocked specials', () => {
+  const w = fixture(), captain = actor(w, 'captain', 60, 64); w.terrain[index(61, 64)] = 2; w.terrainVersion++;
+  step(w); assert.equal(w.combat.attacks.some(a => a.source.id === captain.id), false); assert.ok(captain.next, 'ordinary bounded path search starts around the rock');
+  for (let n = 0; n < 180 && !w.terminal; n++) step(w);
+  assert.equal(w.terrain[index(61, 64)], 2); assert.ok(w.heart.health < 100); assert.ok(captain.x > 60 || captain.y !== 64);
 });
 
 test('charge hits each identity once and moves at most one cell per tick with legal shoves', () => {
