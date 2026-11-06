@@ -34,8 +34,14 @@ public sealed partial class TacticalCombat
                 AwardProfile("first_blood", e.Source); break;
             case "FloorChanged" when member:
                 AwardProfile("pathfinder", e.Source);
-                if (_world.State.Dungeon?.Floors.FirstOrDefault(f => f.Contains(e.Position)) is { } floor)
+                if (_world.DungeonFloorAt(e.Position) is { } floor)
                     RecordDungeonEntry(e.Source, floor.Stage, floor.Stage == 4);
+                break;
+            case "TileEntered" when member:
+                // Excavated passages can enter another fixed physical branch
+                // without stairs or a global bounded-run stage transition.
+                if (_world.DungeonFloorAt(e.Position) is { } entered)
+                    RecordDungeonEntry(e.Source, entered.Stage, entered.Stage == 4);
                 break;
             case "ChestClaimed" when member: AwardProfile("treasure_hunter", e.Source); break;
             case "CurrencyCollected" when member && _world.Count("gold") >= 50: AwardProfile("coin_purse", e.Source); break;

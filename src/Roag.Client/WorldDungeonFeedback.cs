@@ -28,7 +28,7 @@ internal sealed partial class WorldGame
         _dungeonPresentationStamp = now;
         // Native effects continue through menus, independently of paid game time.
         _dungeonFeedback.Advance(visualElapsed, InputFocused || _playtest != null, _session.State.Position.Floor);
-        var floor = run?.Floors.Single(f => f.Contains(_session.State.Position));
+        var floor = _session.DungeonFloorAt(_session.State.Position);
         bool boss = _session.State.Actors.Any(a => a.Life == LifeState.Alive && _session.Visible.Contains(a.Position)
             && (floor?.Boss == a.Id || a.Tactics?.Enemy?.CampaignBoss != null || a.Tactics?.Enemy?.Retained != null
                 && _session.Content.Entries.GetValueOrDefault(a.Archetype) is Roag.Core.Content.BossDefinition));

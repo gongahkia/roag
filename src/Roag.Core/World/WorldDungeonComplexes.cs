@@ -35,7 +35,8 @@ public sealed partial class WorldSession
     }
 
     internal static WorldRoomId? SnapshotAuthoredRoomAt(WorldState world, WorldPosition position)
-        => world.Dungeon is { } bounded ? bounded.RoomAt(position) : SnapshotComplexAt(world, position)?.RoomAt(position);
+        => SnapshotCampaignBossRoomAt(world, position)
+            ?? (world.Dungeon is { } bounded ? bounded.RoomAt(position) : SnapshotComplexAt(world, position)?.RoomAt(position));
 
     internal static bool SnapshotRoomTargetExists(WorldState world, WorldPosition source, WorldRoomId target)
     {
@@ -46,6 +47,7 @@ public sealed partial class WorldSession
 
     internal static WorldRoomId? SnapshotRoomAt(WorldState world, ChunkGenerator generator, WorldPosition position)
     {
+        if (SnapshotCampaignBossRoomAt(world, position) is { } arena) return arena;
         if (world.Dungeon is { } bounded) return bounded.RoomAt(position);
         if (SnapshotComplexAt(world, position) is { } complex) return complex.RoomAt(position);
         return generator.RoomAt(position);

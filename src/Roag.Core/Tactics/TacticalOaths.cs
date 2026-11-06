@@ -54,20 +54,37 @@ public sealed partial class TacticalCombat
         am.OathPartner = b.Id; bm.OathPartner = a.Id;
     }
 
-    private Actor? OathPartner(Actor actor)
+    private Actor? OathPartner(Actor actor, Func<WorldPosition, bool>? open = null)
     {
         if (actor.Tactics is not { Enemy: { OathBroken: false } memory } || !EnemyOaths.IsTwin(actor.Tactics.DefinitionId)) return null;
         var partner = _world.State.Actors.FirstOrDefault(a => a.Id == memory.OathPartner);
         return partner?.Tactics?.Enemy is { OathBroken: false } other && other.OathPartner == actor.Id
             && EnemyOaths.IsTwin(partner.Tactics.DefinitionId) && partner.Tactics.DefinitionId != actor.Tactics.DefinitionId
-            && EnemyOaths.Reaches(actor, partner, SupportOpen) ? partner : null;
+            && EnemyOaths.Reaches(actor, partner, open ?? SupportOpen) ? partner : null;
     }
 
     private void PruneOaths()
     {
+        // Nothing moves or changes terrain during this pass. Share its exact
+        // tile queries and mutual-pair checks; discard both caches before the
+        // next timeline item so a new wall, bulwark or death is observed then.
+        Dictionary<WorldPosition, bool>? cells = null;
+        HashSet<long>? checkedPairs = null;
+        bool Open(WorldPosition p)
+        {
+            cells ??= [];
+            if (!cells.TryGetValue(p, out bool result)) cells[p] = result = SupportOpen(p);
+            return result;
+        }
         foreach (var actor in _world.State.Actors)
-            if (actor.Tactics?.Enemy is { OathBroken: false } memory && EnemyOaths.IsTwin(actor.Tactics.DefinitionId) && OathPartner(actor) == null)
+            if (actor.Tactics?.Enemy is { OathBroken: false } memory && EnemyOaths.IsTwin(actor.Tactics.DefinitionId)
+                && checkedPairs?.Contains(actor.Id) != true)
             {
+                if (OathPartner(actor, Open) is { } intact)
+                {
+                    (checkedPairs ??= []).Add(actor.Id); checkedPairs.Add(intact.Id);
+                    continue;
+                }
                 memory.OathBroken = true;
                 var partner = _world.State.Actors.FirstOrDefault(a => a.Id == memory.OathPartner);
                 if (partner?.Tactics?.Enemy is { } other && EnemyOaths.IsTwin(partner.Tactics.DefinitionId)) other.OathBroken = true;

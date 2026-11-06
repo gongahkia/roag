@@ -74,7 +74,7 @@ public sealed partial class WorldSession
         if (selection.Definition is not { } definition) return;
         int seed = selection.Seed;
         var choices = State.Actors.Where(a => a.Life == LifeState.Alive && floor.Contains(a.Position)
-                && a.Tactics?.Enemy is { Squad: null, Retained: null } && a.Position.Distance(floor.Entry) >= 8
+                && a.Tactics?.Enemy is { Squad: null, Retained: null, CampaignBoss: null } && a.Position.Distance(floor.Entry) >= 8
                 && EnemyCatalog.Default.Get(a.Tactics.DefinitionId).Ai is EnemyBrainKind.Guard or EnemyBrainKind.Skitter or EnemyBrainKind.ExpansionRegular)
             .OrderBy(a => a.Id).ToArray();
         if (choices.Length == 0) return;
