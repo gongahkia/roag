@@ -12,6 +12,20 @@ public static class DungeonPassagePlanner
 {
     private static readonly (int X, int Y)[] Directions = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
+    internal static WorldPosition SourceSeal(DungeonFloorState source)
+        => Socket(source, "elite", "E").Offset(2, 0);
+
+    internal static WorldPosition TargetSeal(DungeonFloorState target)
+        => target.Stage == 4 ? new(target.Origin.X, target.Entry.Y, target.Origin.Floor) : Socket(target, "start", "W");
+
+    private static WorldPosition Socket(DungeonFloorState floor, string role, string direction)
+    {
+        var room = floor.Rooms.Single(r => r.Role == role);
+        var shape = DungeonCatalog.Default.Rooms[room.Definition].Transform(room.Turns, room.Mirror);
+        var socket = shape.Sockets.Single(s => s.Facing == direction);
+        return room.Origin.Offset(socket.X - 1, socket.Y - 1);
+    }
+
     public static DungeonStairPassage[] Generate(DungeonComplexBlueprint blueprint)
     {
         var result = new List<DungeonStairPassage>();
@@ -46,7 +60,7 @@ public static class DungeonPassagePlanner
             var routes = RoutesAroundFloors(parcel, bottom, targets.Select(t => t.Outer).ToArray(), obstacles);
             var branches = targets.Select((t, i) => new DungeonRoutePassage(t.Link.To, t.Link.Route, t.Gate,
                 routes[i].Concat(Line([t.Outer, t.Gate]).Skip(1)).ToArray())).ToArray();
-            result.Add(new(source.Branch, top, bottom, socket.Offset(2, 0), upper, branches));
+            result.Add(new(source.Branch, top, bottom, SourceSeal(source.Describe()), upper, branches));
         }
         return result.ToArray();
     }

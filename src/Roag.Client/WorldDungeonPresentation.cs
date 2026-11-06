@@ -281,8 +281,9 @@ internal sealed partial class WorldGame
     {
         var point = _camera.ScreenToWorld(new(pointer.X, pointer.Y));
         var position = new WorldPosition((int)Math.Floor(point.X), (int)Math.Floor(point.Y), _session.State.Position.Floor);
-        var floor = _session.State.Dungeon?.Floors.FirstOrDefault(f => f.Stage < 4 && f.Boss > 0 && f.Exit == position);
-        if (floor == null || _session.Chunks.At(position) == Material.StairsDown || !_session.Visible.Contains(position)) return false;
+        var floor = _session.DungeonFloorAt(position);
+        if (floor is not { Stage: < 4, Boss: > 0 } || floor.Exit != position || _session.DungeonRouteChosen(position)
+            || _session.Chunks.At(position) == Material.StairsDown || !_session.Visible.Contains(position)) return false;
         if (_session.AvailableDungeonRoutes(_session.DungeonMember.Id).Count > 0) _panel = "dungeon-routes";
         else _notice = position.Distance(_session.State.Position) > 1 ? "Stand beside the marked stage exit to choose a route."
             : "This route remains sealed until this floor's elite falls.";
@@ -625,12 +626,13 @@ internal sealed partial class WorldGame
             Icon(fire.Position, "campfire", new Color(255, 190, 112));
         foreach (var corpse in _session.Party.Where(a => a.Life == LifeState.Dead))
             Icon(corpse.Position, "bones", Gold);
-        foreach (var floor in (_session.State.Dungeon?.Floors ?? []).Where(f => f.Stage < 4 && f.Boss > 0))
+        foreach (var floor in _session.DungeonFloors.Where(f => f.Stage < 4 && f.Boss > 0))
         {
             if (floor.Exit.Floor != _session.State.Position.Floor || !_session.Chunks.Seen(floor.Exit)
-                || !_map.Intersects(TileRect(floor.Exit)) || _session.Chunks.At(floor.Exit) == Material.StairsDown) continue;
+                || !_map.Intersects(TileRect(floor.Exit)) || _session.Chunks.At(floor.Exit) == Material.StairsDown
+                || _session.DungeonRouteChosen(floor.Exit)) continue;
             bool visible = _session.Visible.Contains(floor.Exit);
-            bool available = visible && _session.State.Dungeon!.BossExitReceipts.Contains(floor.Boss);
+            bool available = visible && _session.DungeonExitCleared(floor.Exit);
             var tile = TileRect(floor.Exit);
             _sprites.Fit(_batch, "stairs-down", tile, visible ? available ? Gold : Muted : Muted * .35f);
             if (visible) Text(available ? "ROUTE" : "SEALED", tile.X - 6, tile.Bottom + 2, available ? Gold : Muted);

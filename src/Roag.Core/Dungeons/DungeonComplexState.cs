@@ -8,6 +8,8 @@ public sealed record DungeonComplexState(DungeonParcel Parcel, int Seed, Dungeon
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Populated { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DungeonComplexRoutes? Routes { get; set; }
     public bool Contains(WorldPosition position) => position.Floor is >= 1 and <= 7 && Parcel.Contains(position);
 
     public WorldRoomId? RoomAt(WorldPosition position) => Contains(position) ? Run.RoomAt(position, Parcel.Id) : null;

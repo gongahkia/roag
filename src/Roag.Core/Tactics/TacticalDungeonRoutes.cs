@@ -84,12 +84,18 @@ public sealed partial class TacticalCombat
 
     private void SettleDungeonVictory()
     {
-        if (_world.State.Dungeon is not { Victory: false, Stage: 4 } run) return;
         var victor = _world.Party.FirstOrDefault(a => a.Life == LifeState.Alive && a.Health > 0);
         if (victor == null) return;
-        var finale = run.Floors.Single(f => f.Stage == 4);
-        if (!run.BossExitReceipts.Contains(finale.Boss)) return;
-        run.Victory = true;
-        Emit("Victory", victor.Id, finale.Boss, 0, finale.Exit);
+        if (_world.State.Dungeon is { Victory: false, Stage: 4 } bounded) Settle(bounded, "Victory");
+        if (_world.State.NativeCampaign?.Complexes is { } complexes)
+            foreach (var complex in complexes) if (complex.Populated && !complex.Run.Victory) Settle(complex.Run, "ComplexCleared");
+
+        void Settle(DungeonRunState run, string kind)
+        {
+            var finale = run.Floors.Single(f => f.Stage == 4);
+            if (!run.BossExitReceipts.Contains(finale.Boss)) return;
+            run.Victory = true;
+            Emit(kind, victor.Id, finale.Boss, 0, finale.Exit);
+        }
     }
 }

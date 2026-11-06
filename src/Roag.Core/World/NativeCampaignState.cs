@@ -41,7 +41,11 @@ public sealed class NativeCampaignState
                 || Complexes.Select(c => c.Parcel.Id).Distinct().Count() != Complexes.Count
                 || Complexes.Any(c => Complexes.Any(other => other != c && c.Parcel.Overlaps(other.Parcel))))
                 throw new InvalidDataException("Invalid physical complex registry.");
-            foreach (var complex in Complexes) complex.Validate(plan, actors);
+            foreach (var complex in Complexes)
+            {
+                complex.Validate(plan, actors);
+                complex.Routes?.Validate(plan, complex, world);
+            }
         }
         if (Breeding == null) throw new InvalidDataException("Missing native breeding state.");
         Breeding.Validate(world, actors);

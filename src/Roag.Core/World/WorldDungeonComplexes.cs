@@ -21,7 +21,9 @@ public sealed partial class WorldSession
     internal DungeonRunState? DungeonAt(WorldPosition position) => SnapshotDungeonAt(State, position);
     internal static DungeonFloorState? SnapshotDungeonFloorAt(WorldState world, WorldPosition position)
         => SnapshotDungeonAt(world, position)?.Floors.FirstOrDefault(f => f.Contains(position));
-    internal DungeonFloorState? DungeonFloorAt(WorldPosition position) => SnapshotDungeonFloorAt(State, position);
+    public DungeonFloorState? DungeonFloorAt(WorldPosition position) => SnapshotDungeonFloorAt(State, position);
+    public IEnumerable<DungeonFloorState> DungeonFloors => State.Dungeon?.Floors
+        ?? State.NativeCampaign?.Complexes?.SelectMany(c => c.Run.Floors) ?? [];
 
     internal DungeonRunState? DungeonBossOwner(long actor)
     {
@@ -86,7 +88,8 @@ public sealed partial class WorldSession
         if (campaign.Complexes?.Any(c => c.Parcel.Id == blueprint.Parcel.Id || c.Parcel.Overlaps(blueprint.Parcel)) == true)
             throw new InvalidOperationException("This physical complex is already installed or overlaps another.");
         var complex = new DungeonComplexState(blueprint.Parcel, blueprint.Seed,
-            new() { Floors = blueprint.Floors.Select(f => f.Describe()).Append(blueprint.Finale).ToList() });
+            new() { Floors = blueprint.Floors.Select(f => f.Describe()).Append(blueprint.Finale).ToList() })
+        { Routes = DungeonComplexRoutes.Create(blueprint) };
         complex.Validate(Plan, State.Actors.ToDictionary(a => a.Id));
 
         // Prepare the entire paint before changing the world. Adjacent corridor

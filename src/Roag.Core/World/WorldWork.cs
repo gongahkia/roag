@@ -145,6 +145,7 @@ public sealed partial class WorldSession
                 State.Structures.Add(new() { Position = order.Target, Material = order.After, Foundation = order.Before, Cost = new(order.Reserved) }); break;
             case WorkKind.Dig:
                 RecordHabitatClearing(order.Target, order.Before, order.After);
+                RetireDungeonPassageSeal(order.Target);
                 Chunks.Edit(order.Target, order.After); State.Structures.RemoveAll(s => s.Position == order.Target);
                 State.Tactics?.Doors.Nodes.RemoveAll(d => d.Position == order.Target);
                 CheckExcavatedBypass(order); break;

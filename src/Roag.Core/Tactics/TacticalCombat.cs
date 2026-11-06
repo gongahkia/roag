@@ -359,7 +359,7 @@ public sealed partial class TacticalCombat
                 case TacticalAction.OpenVault:
                     OpenVault(actor, executed.Target, action); break;
                 case TacticalAction.DungeonRoute:
-                    _world.ConnectDungeonRoute(this, intent.Choice);
+                    _world.ConnectDungeonRoute(this, actor, intent.Choice);
                     Emit("RouteOpened", actor.Id, actor.Id, action, actor.Position); break;
                 case TacticalAction.Guard:
                     actor.Tactics.Guarding = true;
