@@ -9,7 +9,7 @@ const run = (script, args) => {
 };
 run('scripts/export-assets.mjs', []);
 run('node_modules/typescript/bin/tsc', ['--noEmit']);
-const evidence = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P04');
+const evidence = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P05');
 mkdirSync(evidence, { recursive: true });
 for (const mode of ['root', 'roag']) {
   const directory = resolve(evidence, `build-${mode}`);
