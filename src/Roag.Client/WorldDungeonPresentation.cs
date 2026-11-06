@@ -105,6 +105,7 @@ internal sealed partial class WorldGame
                 Add("dungeon:service-back", "Keep current utility", new(box.X + 334, box.Y + 210, 260, 42));
             }
             else if (_panel == "dungeon-profile") BuildPermanentProfileControls(box);
+            else if (_panel == "dungeon-journal") BuildExpeditionJournalControls(box);
             else if (_panel == "dungeon-boons")
             {
                 int count = _session.DungeonMember.Tactics!.Boons.Inventory.Stacks.Count;
@@ -114,15 +115,11 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "party", "gear", "cooperate", "needs"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Party and rescue", "Equipment / K", "Cooperation / O", "Survival / N"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "journal", "work", "party", "gear", "cooperate", "needs", "profile", "skills", "trade"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Expedition journal", "Work / J", "Party and rescue", "Equipment / K", "Cooperation / O", "Survival / N", "Achievements and unlocks", "Unlocked skills / L", "Town trade"];
                 int columns = (box.Width - 80) / 2;
-                for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
+                for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 8 * (columns + 24), box.Y + 80 + i % 8 * 50, columns, 40),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
-                Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, columns, 44));
-                Add("dungeon:profile", "Achievements and unlocks", new(box.X + 52 + columns, box.Y + 392, columns, 44));
-                Add("dungeon:skills", "Unlocked skills / L", new(box.X + 28, box.Y + 446, columns, 44));
-                Add("dungeon:trade", "Town trade", new(box.X + 52 + columns, box.Y + 446, columns, 44));
             }
             else if (_panel == "dungeon-new-confirm")
             {
@@ -179,6 +176,9 @@ internal sealed partial class WorldGame
             case "menu": _panel = "dungeon-menu"; break;
             case "map": ToggleDungeonMap(); break;
             case "guide": _panel = "dungeon-guide"; break;
+            case "journal": _expeditionPage = 0; _panel = "dungeon-journal"; break;
+            case "journal-prev": _expeditionPage = Math.Max(0, _expeditionPage - 1); break;
+            case "journal-next": _expeditionPage++; break;
             case "settings": _panel = "dungeon-settings"; break;
             case "profile": _profilePage = 0; _panel = "dungeon-profile"; break;
             case "profile-prev": _profilePage = Math.Max(0, _profilePage - 1); break;
@@ -474,6 +474,7 @@ internal sealed partial class WorldGame
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
         if (_panel == "dungeon-profile") title = "PERMANENT ACHIEVEMENTS";
+        if (_panel == "dungeon-journal") title = "EXPEDITION JOURNAL";
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
@@ -490,6 +491,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
         Text(title, x, y, Gold, 1.3f); y += 48;
         if (_panel == "dungeon-profile") { DrawPermanentProfile(box, x, y); return; }
+        if (_panel == "dungeon-journal") { DrawExpeditionJournal(box, x, y); return; }
         if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
         if (_panel == "dungeon-gear") { DrawDungeonGearPanel(box, x, y); return; }
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }

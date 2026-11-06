@@ -211,6 +211,7 @@ public sealed partial class WorldSession
     private void ObserveDiscoveries()
     {
         if (State.Dungeon != null) return;
+        ObserveDungeonEntrances();
         foreach (var d in State.Discoveries.Where(d => !d.Known && Visible.Contains(d.Position))) d.Known = true;
         foreach (var s in Plan.Sites.Where(s => Visible.Contains(s.Center))) State.KnownSites.Add(s.Id);
     }
@@ -220,7 +221,7 @@ public sealed partial class WorldSession
         if (candidates.Length == 0) return new(false, "No local places are recorded here.");
         var d = candidates.FirstOrDefault(d => d.WitnessId == actor.Id && !d.Known) ?? candidates[0]; d.Known = true;
         var origin = listener ?? State.Position;
-        string text = $"{actor.Name}: {d.Name} lies {d.Position.Distance(origin)} tiles {Direction(origin, d.Position)} ({d.Position.X}, {d.Position.Y}). {DiscoveryText(d)}";
+        string text = $"{actor.Name}: {d.Name} lies {d.Position.Distance(origin)} tiles {Direction(origin, d.Position)} ({d.Position.X}, {d.Position.Y}). {DiscoveryText(d)}" + ReportDungeonEntrance(origin);
         Log(text); return new(true, text);
     }
 }
