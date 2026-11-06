@@ -10,7 +10,7 @@ import type { Stock } from '../simulation/work-content.ts';
 import { terminalReason } from '../simulation/step.ts';
 import { validateCombat } from './combat-schema.ts';
 export type Controls = { manualPaused:boolean; speed:1|2|4 };
-export type Save = { format:'roag-colony'; version:4; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
+export type Save = { format:'roag-colony'; version:5; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
 export const MAX_SAVE_BYTES=2_000_000;
 function assert(ok:unknown,message:string):asserts ok {if(!ok)throw new Error(`Invalid save: ${message}`);}
 function object(value:unknown,keys:string[]):asserts value is Record<string,unknown> {
@@ -21,7 +21,7 @@ const integer=(n:unknown,min=0,max=1e9):n is number=>Number.isSafeInteger(n)&&Nu
 function cell(value:unknown):asserts value is Cell {object(value,['x','y']);assert(integer(value.x,0,WIDTH-1)&&integer(value.y,0,HEIGHT-1),'cell outside world');}
 export function validateSave(value:unknown):Save {
   object(value,['format','version','contentVersion','world','controls']);
-  assert(value.format==='roag-colony'&&value.version===4&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
+  assert(value.format==='roag-colony'&&value.version===5&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
   object(value.controls,['manualPaused','speed']);assert(typeof value.controls.manualPaused==='boolean'&&[1,2,4].includes(Number(value.controls.speed))&&typeof value.controls.speed==='number','controls');
   const v=value.world;object(v,['combat','seed','tick','nextId','nextSequence','rng','width','height','terrain','terrainVersion','scenario','generation','heart','people','resources','pending','terminal','jobs','structures','piles','spent','lost','sourceRemoved','produced','consumed','statistics','recipeCounts']);
   assert(validSeed(Number(v.seed))&&typeof v.seed==='number'&&integer(v.tick)&&integer(v.nextId,8)&&integer(v.nextSequence,1)&&integer(v.terrainVersion),'counters/seed');
@@ -33,6 +33,12 @@ export function validateSave(value:unknown):Save {
   assert(Array.isArray(v.people)&&v.people.length===6&&Array.isArray(v.resources)&&v.resources.length===18&&Array.isArray(v.pending)&&v.pending.length<=128,'entity counts');
   assert(Array.isArray(v.jobs)&&v.jobs.length<=256&&Array.isArray(v.structures)&&v.structures.length<=256&&Array.isArray(v.piles)&&v.piles.length<=2048,'work entity counts');
   const world=v as unknown as World;
+  // walkable is used before the full combat validator; reject malformed blocker
+  // arrays here so imports cannot throw raw errors while inspecting founders.
+  assert(typeof v.combat==='object'&&v.combat!==null&&!Array.isArray(v.combat),'combat object');
+  const barriers=(v.combat as Record<string,unknown>).barricades;
+  assert(Array.isArray(barriers)&&barriers.length<=8,'barricade limit');
+  for(const barrier of barriers){object(barrier,['id','owner','x','y','health','expiresAt']);cell({x:barrier.x,y:barrier.y});}
   assert(world.jobs.filter(active).length<=128&&world.structures.length+world.jobs.filter(j=>active(j)&&j.kind==='build').length<=256,'active work / future structure budget');
   const ids=new Set<number>([1]),occupied=new Set<number>();
   for(let i=0;i<v.people.length;i++) {
@@ -66,7 +72,7 @@ export function validateSave(value:unknown):Save {
   assert(world.terminal===terminalReason(world),'terminal consistency');
   return structuredClone(value) as unknown as Save;
 }
-export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:4,contentVersion:CONTENT_VERSION,world,controls});}
+export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:5,contentVersion:CONTENT_VERSION,world,controls});}
 export function encodeSave(save:Save):string {return canonical(validateSave(save));}
 export function parseSave(text:string):Save {
   if(text.length>MAX_SAVE_BYTES)throw new Error('Save file is too large');
@@ -80,7 +86,7 @@ function commandShape(world: World, value: unknown): void {
   assert(value!==null&&typeof value==='object','command');const v=value as Record<string,unknown>;
   const ref=(list:{id:number}[],id:unknown)=>list.some(p=>p.id===id);
   switch(v.kind) {
-    case 'battle': object(v,['kind','actor','mode','target']);cell(v.target);assert((v.actor===0||ref(world.people,v.actor))&&['rally','retreat','shelter','release'].includes(String(v.mode)),'battle command');break;
+    case 'battle': object(v,['kind','actor','mode','target']);cell(v.target);assert((v.actor===0||ref(world.people,v.actor))&&['rally','retreat','shelter','clear','release'].includes(String(v.mode)),'battle command');break;
     case 'reload': object(v,['kind','structure']);assert(world.structures.some(s=>s.id===v.structure&&(s.kind==='tower'||s.kind==='trap')),'reload reference');break;
     case 'move': object(v,['kind','actor','target']);cell(v.target);assert(ref(world.people,v.actor),'actor reference');break;
     case 'edit': object(v,['kind','target','solid']);cell(v.target);assert(world.scenario==='routing-lab'&&typeof v.solid==='boolean','edit command');break;
