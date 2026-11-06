@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
-import {establish} from './survival.mjs';
+import {establish,rankedSources} from './survival.mjs';
 import {placementReason} from '../../src/simulation/jobs.ts';
 import {makeSave} from '../../src/persistence/schema.ts';
 
 // An ordinary zero-stock colony. Every material is gathered, grown or produced.
-export function fortify() {
-  const h=establish(),{w,cmd,build,until}=h;
+export function fortify(seed=42) {
+  const h=establish('colony',seed),{w,cmd,build,until}=h;
   for(const x of [59,58,57,56]) {
     until(()=>placementReason(w,{x,y:66})===null,'stockpile access');
     cmd({kind:'stockpile',target:{x,y:66}});
   }
-  for(const source of [12,18])cmd({kind:'gather',source});
+  const sources=seed===42?[12,18]:['wood','stone'].map(kind=>rankedSources(w,kind).find(r=>!w.jobs.some(j=>j.kind==='gather'&&j.ref===r.id&&j.state==='active'))?.id).filter(Boolean);
+  for(const source of sources)cmd({kind:'gather',source});
   const defenses=[];
   for(const [building,x,y] of [['tower',71,60],['tower',70,62],['tower',64,69],['tower',60,63],['trap',64,58],['guardpost',62,62],['wall',65,60],['door',64,60]]) {
     until(()=>placementReason(w,{x,y})===null,`${building} footprint`);

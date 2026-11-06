@@ -15,10 +15,14 @@ export function harness(scenario='colony',initial=null) {
  const build=(building,x,y)=>{cmd({kind:'build',building,target:{x,y}});const j=w.jobs.find(j=>j.kind==='build'&&j.x===x&&j.y===y&&j.state==='active');assert.ok(j,'new construction job identified by target');until(()=>j.state==='done',building);makeSave(w,{manualPaused:true,speed:4});return w.structures.find(s=>s.x===x&&s.y===y);};
  return {w,commands,audit,tick,cmd,until,build};
 }
-export function establish(scenario='colony') {
- const h=harness(scenario),{w,cmd,build,until}=h;
+export function rankedSources(w,kind){return w.resources.filter(r=>r.kind===kind&&r.remaining>0).sort((a,b)=>b.remaining/(20+Math.abs(b.x-64)+Math.abs(b.y-64))-a.remaining/(20+Math.abs(a.x-64)+Math.abs(a.y-64))||a.id-b.id);}
+export function establish(scenario='colony',seed=42) {
+ const h=harness(scenario,createWorld(seed,{scenario})),{w,cmd,build,until}=h;
  for(const x of [63,62,61,60])cmd({kind:'stockpile',target:{x,y:66}});
- cmd({kind:'gather',source:11});cmd({kind:'gather',source:15});
+ const wood=seed===42?w.resources.find(r=>r.id===11):rankedSources(w,'wood')[0];
+ const stone=seed===42?w.resources.find(r=>r.id===15):rankedSources(w,'stone')[0];
+ cmd({kind:'gather',source:wood.id});cmd({kind:'gather',source:stone.id});
+ if(seed!==42&&wood.initial<45)cmd({kind:'gather',source:rankedSources(w,'wood').find(r=>r.id!==wood.id).id});
  const farm=build('farm',68,64);cmd({kind:'produce',structure:farm.id,recipe:'farm'});
  const kitchen=build('kitchen',70,64);cmd({kind:'produce',structure:kitchen.id,recipe:'meal'});
  for(const x of [66,68,70])build('bed',x,68);
