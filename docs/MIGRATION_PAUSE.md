@@ -1,3 +1,5 @@
+Resume note (2026-11-06): the goal is active again and both existing workers resumed. The following pause checkpoint is historical; current authoritative status is MIGRATION_PROGRESS/PARALLEL. Preserve its actual interrupted evidence/checkpoints, without treating its old process/merge status as current.
+
 # Current migration pause checkpoint — 2026-11-06
 
 **Paused again at the user's explicit request.** Resume with `/goal resume` in this same conversation; no new objective or separate worker prompts are needed. Do not restart implementation merely because this file is read. The same A (9–16, including remaining 10), then B (17–20) objective remains authoritative at `/home/gongahkia/.codex/attachments/8ba90282-fe56-4de0-bbf8-a2fd4b85d637/goal-objective.md`. All eight full-game gates remain OPEN; packaged Linux delivery is still bounded-party **cd49a638**. This pause drops no scope and closes no gate.
