@@ -4,6 +4,14 @@ import { NEEDS as N } from './survival-content.ts';
 import { emptyStock } from './work-content.ts';
 import { approach, available, clearTravel, drop, inventory, release } from './jobs.ts';
 
+// A Captain can down a guard after this tick's prepareCombat pass. Retire
+// life-bound intent immediately so every public tick remains saveable.
+function retireBattleIntent(w:World,p:Person):void {
+  w.combat.orders=w.combat.orders.filter(o=>o.actor!==p.id);
+  w.combat.cooldowns=w.combat.cooldowns.filter(c=>c.actor!==p.id);
+  w.combat.attacks=w.combat.attacks.filter(a=>a.source.kind!=='person'||a.source.id!==p.id);
+}
+
 export function endRoutine(w:World,p:Person):void {
   const r=p.body.routine;if(!r)return;drop(w,p,r.cargo);const resume=r.resume;p.body.routine=null;clearTravel(p);
   if(!p.job&&resume&&p.life==='alive')p.destination=resume;
@@ -15,12 +23,14 @@ function begin(w:World,p:Person,kind:Routine['kind']):Routine {
 }
 export function die(w:World,p:Person):void {
   if(p.life==='dead')return;endRoutine(w,p);
+  retireBattleIntent(w,p);
   if(p.job){const j=w.jobs.find(j=>j.id===p.job)!;release(w,j);j.requested=null;}else drop(w,p,p.cargo);
   p.life='dead';p.body.health=0;p.body.deathAt=0;p.body.recoverAt=0;p.next=null;p.progress=0;clearTravel(p);p.body.status='Dead';w.statistics.deaths++;
   for(const helper of w.people)if(helper.body.routine?.patient===p.id)endRoutine(w,helper);
 }
 export function fall(w:World,p:Person):void {
   if(p.life!=='alive')return;endRoutine(w,p);
+  retireBattleIntent(w,p);
   if(p.job){const j=w.jobs.find(j=>j.id===p.job)!;release(w,j);j.requested=null;}else drop(w,p,p.cargo);
   p.life='downed';p.body.health=0;p.body.deathAt=w.tick+N.rescueWindow;p.body.recoverAt=0;p.next=null;p.progress=0;clearTravel(p);
   p.body.status=`Downed; medicine and rescue before tick ${p.body.deathAt}`;
