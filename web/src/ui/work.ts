@@ -19,7 +19,7 @@ export function setupWork(controller:ColonyController,send:(c:UiCommand)=>void):
     controller.work(building.value==='stockpile'?{kind:'stockpile',target}:{kind:'build',building:building.value as Building,target});});
   const cost=()=>{const entry=WORK_CONTENT.buildings[building.value as Building];element('build-cost').textContent=entry?`${stockText(entry.cost)} · ${entry.ticks} work ticks · one tile`:'Empty ground designation · no materials · capacity 30';};building.addEventListener('change',cost);cost();
   const rows=new Map<number,{node:HTMLElement;status:HTMLElement;detail:HTMLElement;priority:HTMLSelectElement;worker:HTMLSelectElement;suspend:HTMLButtonElement;cancel:HTMLButtonElement}>();
-  const structures=new Map<number,{node:HTMLElement;status:HTMLElement;repair:HTMLButtonElement;door:HTMLButtonElement|null}>();
+  const structures=new Map<number,{node:HTMLElement;status:HTMLElement;repair:HTMLButtonElement;door:HTMLButtonElement|null;reload:HTMLButtonElement|null}>();
   const jobAction=(j:Job,input:CommandInput)=>{if(active(j))controller.work(input);};
   const dutyRows=controller.world.people.map(p=>{
     const node=document.createElement('article');node.className='duty-card';text(node,'strong',founders[p.founder]!.name);const status=text(node,'p','');
@@ -63,15 +63,19 @@ export function setupWork(controller:ColonyController,send:(c:UiCommand)=>void):
     for(const [id,row] of structures)if(!w.structures.some(s=>s.id===id)){row.node.remove();structures.delete(id);}
     for(const s of w.structures){
       let row=structures.get(s.id);
-      if(!row){const node=document.createElement('article');node.className='work-card';node.dataset.structure=String(s.id);text(node,'h4',`#${s.id} ${s.kind} · ${s.x},${s.y}`);const status=text(node,'p','');
+      if(!row){const node=document.createElement('article');node.className='work-card';node.dataset.structure=String(s.id);text(node,'h4',`#${s.id} ${s.kind==='door'?'gate':s.kind==='guardpost'?'guard post':s.kind} · ${s.x},${s.y}`);const status=text(node,'p','');
         if(s.kind==='farm')button(node,'Plant / tend / harvest',()=>controller.work({kind:'produce',structure:s.id,recipe:'farm'}));
         for(const [recipe,entry] of Object.entries(RECIPES))if(entry.facility===s.kind)button(node,`Produce ${recipe}`,()=>controller.work({kind:'produce',structure:s.id,recipe:recipe as keyof typeof RECIPES}));
         const repair=button(node,'Repair',()=>controller.work({kind:'repair',structure:s.id}));button(node,'Dismantle',()=>controller.work({kind:'dismantle',structure:s.id}));button(node,'Find',()=>send({type:'focus',x:s.x,y:s.y}));
-        const door=s.kind==='door'?button(node,'Close door',()=>controller.work({kind:'door',structure:s.id,open:!s.open})):null;
+        const door=s.kind==='door'?button(node,'Close gate',()=>controller.work({kind:'door',structure:s.id,open:!s.open})):null;
+        const reload=s.kind==='tower'||s.kind==='trap'?button(node,`Reload ${s.kind==='tower'?4:1} ammo`,()=>controller.work({kind:'reload',structure:s.id})):null;
         if(w.scenario==='work-lab'&&s.kind!=='stockpile')button(node,'Lab: damage to 50%',()=>controller.work({kind:'dev',action:'damage',id:s.id}));
-        row={node,status,repair,door};structures.set(s.id,row);element('structures').prepend(node);
+        row={node,status,repair,door,reload};structures.set(s.id,row);element('structures').prepend(node);
       }
-      row.status.textContent=`Condition ${s.health}%${capacity(s)?` · ${total(s.inventory)}/${capacity(s)} capacity · ${stockText(s.inventory)}`:''}${s.kind==='door'?s.open?' · open to workers':' · closed to everyone':''}`;row.repair.disabled=s.health===100||s.kind==='stockpile';if(row.door)row.door.textContent=s.open?'Close door':'Open door';
+      const defense=s.kind==='tower'||s.kind==='trap';
+      const cooldown=w.combat.defenses.find(d=>d.structure===s.id)?.cooldown??0;
+      row.status.textContent=`Condition ${s.health}%${defense?` · Ammo ${s.inventory.ammo}/${WORK_CONTENT.buildings[s.kind as 'tower'|'trap'].capacity}${s.inventory.ammo===0?' · Empty: produce ammo at a workshop, then reload':''}${cooldown>w.tick?` · Ready in ${cooldown-w.tick} ticks`:''}`:capacity(s)?` · ${total(s.inventory)}/${capacity(s)} capacity · ${stockText(s.inventory)}`:''}${s.kind==='door'?s.open?' · open to everyone':' · closed to everyone':''}`;row.repair.disabled=s.health===100||s.kind==='stockpile';if(row.door)row.door.textContent=s.open?'Close gate':'Open gate';
+      if(row.reload){const batch=s.kind==='tower'?4:1,limit=WORK_CONTENT.buildings[s.kind as 'tower'|'trap'].capacity;const busy=w.jobs.some(j=>active(j)&&j.ref===s.id);row.reload.disabled=controller.busy||Boolean(w.terminal)||busy||s.inventory.ammo+batch>limit;row.reload.title=busy?'Finish or cancel this structure’s current job before reloading':s.inventory.ammo+batch>limit?`Reload needs room for ${batch} rounds`:'A worker collects and delivers ammunition from storage';}
     }
   };
 }

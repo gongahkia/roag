@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { assetUrl } from '../assets.ts';
 import type { Manifest } from '../assets.ts';
 import { founders } from '../content.ts';
-import { active } from '../simulation/model.ts';
+import { active, MOVE_TICKS } from '../simulation/model.ts';
 import { total, WORK_CONTENT } from '../simulation/work-content.ts';
 import { renderedPosition } from '../simulation/step.ts';
 import type { ColonyController } from '../platform/controller.ts';
@@ -14,6 +14,8 @@ import { element } from '../ui/panels.ts';
 export class ColonyScene extends Phaser.Scene {
   private view: View = { x: 64.5 * TILE, y: 64.5 * TILE, zoom: 3 };
   private workMarks!: Phaser.GameObjects.Graphics;
+  private combatMarks!: Phaser.GameObjects.Graphics;
+  private attackLabels = new Map<number, Phaser.GameObjects.Text>();
   private ring!: Phaser.GameObjects.Rectangle;
   private drag: { x: number; y: number; view: View; moved: boolean; button: number } | undefined;
   private keys = new Set<string>();
@@ -47,6 +49,7 @@ export class ColonyScene extends Phaser.Scene {
     this.cameras.main.roundPixels = true;
     this.ring = this.add.rectangle(0, 0, 16, 16).setStrokeStyle(1, 0xe6ce85).setFillStyle(0, 0).setDepth(100).setVisible(false);
     this.workMarks = this.add.graphics().setDepth(4);
+    this.combatMarks = this.add.graphics().setDepth(5);
     this.rebuild();
     this.unsubscribe = this.controller.subscribe((reset) => {
       if (reset) { this.rebuild(); this.command({ type: 'center' }); }
@@ -170,6 +173,12 @@ export class ColonyScene extends Phaser.Scene {
     this.workMarks.clear();
     for(const s of world.structures) if(s.kind==='stockpile') this.workMarks.lineStyle(1,0x95cfa0,.9).strokeRect(s.x*TILE+1,s.y*TILE+1,TILE-2,TILE-2);
     for(const s of world.structures)if(s.kind==='infirmary')this.workMarks.fillStyle(0xffffff).fillRect((s.x+.42)*TILE,(s.y+.2)*TILE,2,8).fillRect((s.x+.23)*TILE,(s.y+.39)*TILE,8,2);
+    for(const s of world.structures){
+      const x=s.x*TILE,y=s.y*TILE;
+      if(s.kind==='tower')this.workMarks.lineStyle(1,0xe6ce85).strokeRect(x+1,y+1,TILE-2,TILE-2).fillStyle(0xe6ce85).fillRect(x+4,y-3,4,4);
+      if(s.kind==='trap')this.workMarks.lineStyle(1,s.inventory.ammo?0xe6ce85:0x888888).lineBetween(x+2,y+2,x+10,y+10).lineBetween(x+2,y+10,x+10,y+2);
+      if(s.kind==='guardpost')this.workMarks.lineStyle(1,0x8fbcdc).lineBetween(x+3,y+1,x+3,y+11).fillStyle(0x8fbcdc).fillTriangle(x+4,y+1,x+11,y+4,x+4,y+6);
+    }
     for(const j of world.jobs) if(j.kind==='build'&&active(j)) this.workMarks.lineStyle(1,j.state==='suspended'?0x999999:0xe6ce85,.9).strokeRect(j.x*TILE+1,j.y*TILE+1,TILE-2,TILE-2);
     for(const b of world.piles) if(total(b.inventory)) this.workMarks.fillStyle(0xe6ce85).fillRect((b.x+.3)*TILE,(b.y+.3)*TILE,5,5);
     for (const p of world.people) {
@@ -182,6 +191,28 @@ export class ColonyScene extends Phaser.Scene {
     }
     const selected = this.controller.selected === null ? undefined : this.people.get(this.controller.selected);
     this.ring.setVisible(Boolean(selected)); if (selected) this.ring.setPosition(selected.x, selected.y);
+    this.drawCombat();
+  }
+  private drawCombat(): void {
+    const world=this.controller.world, combat=world.combat, marks=this.combatMarks;
+    marks.clear();
+    const alpha=this.controller.clock.paused?0:this.controller.clock.alpha;
+    for(const enemy of combat.raiders){
+      const ratio=enemy.next?Math.min(1,(enemy.progress+alpha)/MOVE_TICKS):0;
+      const x=(enemy.x+(enemy.next?enemy.next.x-enemy.x:0)*ratio+.5)*TILE;
+      const y=(enemy.y+(enemy.next?enemy.next.y-enemy.y:0)*ratio+.5)*TILE;
+      if(enemy.kind==='breacher')marks.fillStyle(0xf0a45e).fillRect(x-5,y-5,10,10).lineStyle(1,0x381c17).strokeRect(x-5,y-5,10,10).lineBetween(x-3,y-3,x+3,y+3);
+      else marks.fillStyle(0xf07565).fillPoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true).lineStyle(1,0x381c17).strokePoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true);
+    }
+    for(const attack of combat.attacks){
+      const color=attack.faction==='hostile'?0xff796b:0xffd877;
+      for(const cell of attack.cells)marks.fillStyle(color,.2).fillRect(cell.x*TILE,cell.y*TILE,TILE,TILE).lineStyle(1,color).strokeRect(cell.x*TILE+1,cell.y*TILE+1,TILE-2,TILE-2);
+      marks.lineStyle(1,color,.45).lineBetween((attack.origin.x+.5)*TILE,(attack.origin.y+.5)*TILE,(attack.target.x+.5)*TILE,(attack.target.y+.5)*TILE);
+      let label=this.attackLabels.get(attack.id);
+      if(!label){label=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'7px',color:'#ffffff',backgroundColor:'#251d18'}).setOrigin(.5,1).setDepth(6);this.attackLabels.set(attack.id,label);}
+      label.setPosition((attack.target.x+.5)*TILE,attack.target.y*TILE).setText(String(Math.max(0,attack.due-world.tick)));
+    }
+    for(const [id,label] of this.attackLabels)if(!combat.attacks.some(attack=>attack.id===id)){label.destroy();this.attackLabels.delete(id);}
   }
   update(_time: number, delta: number): void {
     if (this.stage.dataset.ready !== 'true') return;

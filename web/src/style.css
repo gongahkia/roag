@@ -27,3 +27,20 @@ select { max-width: 100%; min-width: 0; color: #e8e6d6; background: #1b2720; bor
 
 #survival > .muted { max-width:none; text-align:left; margin:12px 0; font-size:13px; }
 #material-ledger { font-size:12px; margin-top:16px; }
+.raid-banner { border-left:3px solid var(--gold); padding:9px 12px; margin-bottom:12px; background:#263127; font-size:12px; line-height:1.6; }
+.raid-banner p + p { color:var(--muted); font-size:11px; margin-top:3px; }
+.defense-panel .section-heading { gap:12px; flex-wrap:wrap; }
+.defense-panel h2 { font:normal 23px Georgia,serif; }
+.defense-panel > p { margin:10px 0; }
+.defense-panel .muted { text-align:left; max-width:none; margin:10px 0; }
+.defense-focus { display:flex; flex-wrap:wrap; gap:6px; }
+.defense-columns { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:20px; }
+.defense-columns > div { min-width:0; }
+#battle-form { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:12px; }
+#battle-form label { display:flex; align-items:center; gap:6px; }
+#battle-form input { width:65px; }
+#raiders { padding:0; margin:12px 0; list-style:none; }
+#raiders li { display:flex; gap:12px; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0; font-size:12px; }
+#raiders li button { flex-shrink:0; font-size:11px; }
+#attack-summary { overflow-wrap:anywhere; }
+@media(max-width:760px) { .defense-columns { grid-template-columns:1fr; } #raiders li { flex-wrap:wrap; gap:6px; } .raid-banner { font-size:11px; } }
