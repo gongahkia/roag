@@ -10,7 +10,7 @@ The user explicitly authorized this worktree/worker arrangement on 2026-11-06. T
 | Boss worker | `/home/gongahkia/coding/projects/roag-worktrees/bosses` / `codex/new-bosses` | Item 18: all four approved boss mechanics, normal/final-role variants, persistence, atlas bindings, inspection/feedback and focused verification. Provide generation/registration interfaces for the coordinator; do not take over world layout/final-role selection. |
 | Profile worker | `/home/gongahkia/coding/projects/roag-worktrees/profiles` / `codex/native-profile` | Item 20: native permanent achievements/unlocks, original profile preservation, terminal-death/fresh-world lifecycle, storage and focused verification. Provide victory/progression interfaces for the coordinator; do not take over campaign role selection. |
 
-Workers start from the same committed code baseline **0d5cbf3b**, plus this shared coordination document. Main's unfinished population edits are deliberately absent from their branches. Parallel preparation of B is explicitly authorized; the coordinator still verifies the combined world/expedition scope before declaring A complete and performs combined campaign acceptance after integration.
+Workers started from committed **9c7c3ee4** (the **0d5cbf3b** implementation plus this coordination document). Main's unfinished population edits are deliberately absent from their branches. Parallel preparation of B is explicitly authorized; the coordinator still verifies the combined world/expedition scope before declaring A complete and performs combined campaign acceptance after integration.
 
 ## Shared interfaces and invariants
 
@@ -35,4 +35,10 @@ Only the coordinator integrates reviewed worker commits into main, after committ
 
 ## Current state
 
-Setup is in progress. Worker IDs, accepted interfaces, completed commits, evidence and integration status will be recorded here as they become concrete. No extra instances or merges are implied by this initial document.
+Both isolated workers are running: `/root/bosses` on `codex/new-bosses`, and `/root/profiles` on `codex/native-profile`. Neither has been integrated or passed its assigned acceptance yet.
+
+Accepted boss contract: additive `CampaignBossCatalog` and typed arena/memory state preserve the original 50-definition catalog. `WorldSession.CreateCampaignBossArena(kind, center, seed, finalRole, variation)` paints new, unobserved/unmodified/uninhabited ground once and returns the actual arena/boss/fixtures; `TacticalCombat.RegisterCampaignBoss` supports coordinator placement. Live/snapshot arena-room lookup will use a separate place namespace; the coordinator adds precedence in shared room lookup. Main owns generation placement, final selection and special deadlines. All mechanics remain on the existing timeline and real tiles.
+
+Accepted profile contract: independent native profile storage defaults to the selected continuing slot plus `.profile`, with explicit `--profile` sharing and isolated automation paths. Original achievements/unlocks and the campaign-creation reward-pool snapshot are preserved. Explicit attachment initializes eligibility; loading an older world alone grants nothing and preserves absent state. The coordinator calls committed physical-entry milestones and `RecordCampaignVictory(bossId)` for the actual selected final role. Canonical Hollow Regent achievements retain their specific trigger. The two workers agreed on disjoint shared combat/event hooks.
+
+Heavy verification is coordinated: the profile worker released its initial slot while authoring its files; the coordinator will run the broader population/bounded regression next. The separate frozen 72-hour calendar journey continues independently. No worker commits have been merged; root retains responsibility for code review, conflict resolution, combined verification and all eight final gates.
