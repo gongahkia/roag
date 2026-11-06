@@ -53,6 +53,15 @@ def exact_checkpoint(client, label=None):
         client.control_click('dungeon:close')
 
 
+def record_calendar_state(client, label):
+    # Read-only evidence of already committed, predetermined rests. These
+    # manifests never guide input or become rollback/continuation slots.
+    clock = client.ui['nativeDungeon']['clock']
+    client.control_click('dungeon:save')
+    assert client.ui['nativeDungeon']['clock'] == clock
+    (client.output / (label + '-campaign.json')).write_bytes(client.slot.read_bytes())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
@@ -138,6 +147,7 @@ def main():
                 closed = now // 60 in (0, 20)
                 market(client, closed)
                 client.capture(f'boundary-{completed:02}-market')
+                record_calendar_state(client, f'boundary-{completed:02}')
                 before = client.ui['nativeDungeon']['clock']
                 client.request('wait', seconds=.4)
                 assert client.ui['nativeDungeon']['clock'] == before
