@@ -80,8 +80,26 @@ public sealed partial class TacticalCombat
         if (actor.Tactics!.Enemy!.CampaignBoss != null) return PlanCampaignBossTurn(actor, target, nextStep);
         if (actor.Tactics!.Enemy!.Retained != null) return PlanRetainedEnemyTurn(actor, nextStep, mistBlocks,
             combatSupport: target != null || _world.State.NativeCampaign == null);
+        var definition = EnemyCatalog.Default.Get(actor.Tactics.DefinitionId);
+        if (target == null && definition.Id is not ("core:enemy/cinder_mender" or "core:enemy/mend_acolyte"
+            or "core:enemy/ward_weaver" or "core:enemy/grave_cantor"))
+        {
+            // These controllers already resolve to a paid Wait without a real
+            // hostile. Avoid building world-wide body/corpse facts only to
+            // discard their local intent; offscreen ally support still plans.
+            definition.Validate(); actor.Tactics.Enemy.Validate();
+            if (!EnemyPlanning.Supported(definition))
+                throw new NotSupportedException("This enemy controller still requires its native support/effect port: " + definition.Id);
+            return new(EnemyIntentKind.Wait);
+        }
+        return PlanOriginalEnemyTurn(actor, target, definition, nextStep, mistBlocks);
+    }
+
+    private EnemyIntent PlanOriginalEnemyTurn(Actor actor, Actor? target, EnemyDefinition definition,
+        Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep, Func<WorldPosition, bool>? mistBlocks)
+    {
         var aim = target == null ? actor.Position : EnemyAim(target, actor.Position.Floor);
-        var intent = EnemyPlanning.Choose(EnemyCatalog.Default.Get(actor.Tactics!.DefinitionId), actor.Tactics.Enemy!,
+        var intent = EnemyPlanning.Choose(definition, actor.Tactics!.Enemy!,
             new(actor.Position, aim, p => _world.CanEnter(p, actor.Id), ProjectileOpen, mistBlocks ?? (p => _world.DungeonMistBlocks(p)),
                 goals => nextStep(actor.Position, goals), p => _world.Chunks.At(p) == Material.Barricade,
                 _world.State.Actors.Where(a => a.Id != actor.Id && State.Participants.Contains(a.Id))

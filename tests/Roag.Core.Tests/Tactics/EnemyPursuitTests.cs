@@ -8,6 +8,36 @@ namespace Roag.Core.Tests.Tactics;
 public sealed partial class ClassActionTests
 {
     [Theory]
+    [InlineData("mossbound_guard")]
+    [InlineData("thornspitter")]
+    [InlineData("ruin_skitter")]
+    [InlineData("spore_herald")]
+    [InlineData("forge_conjurer")]
+    [InlineData("bodyguard_brute")]
+    [InlineData("heavy_rammer")]
+    [InlineData("hollow_regent")]
+    public void AnAbsentHostileKeepsTheEnemyOnItsPaidTimelineWithoutInventingALocalAttack(string name)
+    {
+        using var a = new Arena(ClassKind.Adventurer, ClassKind.Adventurer, enemyDue: 0);
+        EnemyProfile(a, name);
+        a.Hero.Position = a.World.State.Position = new(100, 100, 1);
+        a.Friend.Position = new(110, 110, 1); a.World.Reveal();
+        a.Act(TacticalAction.Wait); a.Next(a.Enemy.Id);
+        string before = JsonSerializer.Serialize(a.World.State);
+        Assert.Equal(new EnemyIntent(EnemyIntentKind.Wait), a.Combat.PreviewWorldEnemyTurn());
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        long clock = a.Combat.Clock; var position = a.Enemy.Position; int random = a.Combat.State.RandomState;
+        Assert.Equal(EnemyIntentKind.Wait, a.Combat.CommitWorldEnemyTurn().Kind);
+        Assert.Equal(position, a.Enemy.Position); Assert.Empty(a.Combat.State.Attacks);
+        Assert.Equal(random, a.Combat.State.RandomState);
+        var ready = Assert.Single(a.Combat.State.Queue.Snapshot().Pending,
+            w => w.ActorId == a.Enemy.Id && w.Kind == ScheduledKind.ActorReady);
+        Assert.Equal(clock + ActionTiming.Recovery(EnemyCatalog.Default.Get("core:enemy/" + name).MoveCost,
+            a.Combat.CurrentActionSpeed(a.Enemy.Id)), ready.Due);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "Waited" && e.Source == a.Enemy.Id && e.Time == clock);
+    }
+
+    [Theory]
     [InlineData("cinder_mender", EnemySupportKind.Heal)]
     [InlineData("mend_acolyte", EnemySupportKind.Heal)]
     [InlineData("ward_weaver", EnemySupportKind.Ward)]
