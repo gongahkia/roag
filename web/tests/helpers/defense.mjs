@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {establish} from './survival.mjs';
+import {placementReason} from '../../src/simulation/jobs.ts';
+import {makeSave} from '../../src/persistence/schema.ts';
+
+// An ordinary zero-stock colony. Every material is gathered, grown or produced.
+export function fortify() {
+  const h=establish(),{w,cmd,build,until}=h;
+  for(const x of [59,58,57,56]) {
+    until(()=>placementReason(w,{x,y:66})===null,'stockpile access');
+    cmd({kind:'stockpile',target:{x,y:66}});
+  }
+  for(const source of [12,18])cmd({kind:'gather',source});
+  const defenses=[];
+  for(const [building,x,y] of [['tower',63,60],['tower',68,63],['tower',64,69],['tower',60,63],['trap',64,58],['guardpost',62,62],['wall',65,60],['door',64,60]]) {
+    until(()=>placementReason(w,{x,y})===null,`${building} footprint`);
+    defenses.push(build(building,x,y));
+  }
+  cmd({kind:'produce',structure:h.workshop.id,recipe:'ammo'});
+  for(const s of defenses.filter(s=>s.kind==='tower'||s.kind==='trap')) {
+    const batches=s.kind==='tower'?3:1;
+    for(let i=0;i<batches;i++) {
+      cmd({kind:'reload',structure:s.id});const j=w.jobs.at(-1);
+      until(()=>j.state==='done',`${s.kind} physical reload`,3000);
+      assert.equal(s.inventory.ammo,(i+1)*(s.kind==='tower'?4:1));
+    }
+  }
+  makeSave(w,{manualPaused:true,speed:4});
+  return {...h,defenses};
+}
