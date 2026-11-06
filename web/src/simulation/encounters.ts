@@ -138,7 +138,7 @@ export function resolveEncounterImpact(w: World, attack: Attack, _api: Encounter
     if (patient && same(patient, attack.target) && distance(owner, patient) <= E.heal.range && lineReaches(w, owner, patient, ref(patient))) patient.health = Math.min(maximum(patient), patient.health + E.heal.amount);
   } else if (attack.kind === 'charge') {
     if (owner.kind === 'captain' && same(owner, attack.origin)) {
-      owner.next = null; owner.progress = 0; owner.route = []; owner.charge = { cells: attack.cells.map(cell), cursor: 0, hits: [] };
+      owner.next = null; owner.progress = 0; owner.moveTicks = 4; owner.route = []; owner.charge = { cells: attack.cells.map(cell), cursor: 0, hits: [] };
     }
   } else if (owner.kind === 'captain') {
     for (const candidate of attack.cells) {

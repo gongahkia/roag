@@ -1,3 +1,4 @@
+import { recordBossNoise, bossCellMoveTicks } from './bosses.ts';
 import { combatCommandReason, applyCombatCommand, resolveCombatImpacts, prepareCombat, advanceCombat } from './combat.ts';
 import { advanceNeeds, endRoutine } from './needs.ts';
 import { groundMoveTicks } from './biome.ts';
@@ -57,7 +58,7 @@ export function step(world: World): void {
     if (p.life!=='alive') continue;
     if (p.next) {
       p.progress++;
-      if (p.progress>=p.moveTicks) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;movedPeople.add(p.id);p.next=null;p.progress=0;p.moveTicks=4; }
+      if (p.progress>=p.moveTicks) { occupied.delete(index(p.x,p.y));p.x=p.next.x;p.y=p.next.y;movedPeople.add(p.id);recordBossNoise(world,p);p.next=null;p.progress=0;p.moveTicks=4; }
       else continue;
     }
     if (p.yieldTo && same(p,p.yieldTo)) { p.yieldTo=null;p.route=[];p.retryAt=p.yieldUntil; }
@@ -75,7 +76,7 @@ export function step(world: World): void {
     const next=p.route[0];if(!next)continue;
     const other=occupied.get(index(next.x,next.y));
     if (!walkable(world,next) || other!==undefined && other!==p.id) { p.route=[];p.failures++;p.retryAt=world.tick+10;p.blocked='Occupied; yielding';yieldBlocker(world,p,occupied);continue; }
-    p.next=p.route.shift()!;p.progress=0;p.moveTicks=groundMoveTicks(world,p.next);p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
+    p.next=p.route.shift()!;p.progress=0;p.moveTicks=Math.max(groundMoveTicks(world,p.next),bossCellMoveTicks(world,p.next));p.blocked=null;occupied.set(index(p.next.x,p.next.y),p.id);
   }
   advanceCombat(world,movedPeople);
   // Removed targets can never become valid again: stable IDs are not reused.

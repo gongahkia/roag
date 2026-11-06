@@ -43,6 +43,7 @@ export function lineReaches(w: World, origin: Cell, target: Cell, recipient: Com
 export function barricadeSite(w: World, cell: Cell, occupied: Map<number, number>): boolean {
   return inside(cell) && walkable(w, cell) && !occupied.has(index(cell.x, cell.y))
     && !w.combat.barricades.some(b => same(b, cell)) && !w.structures.some(s => same(s, cell))
+    && !w.bosses.features.some(f => same(f,cell))
     && !w.jobs.some(j => j.kind === 'build' && active(j) && same(j, cell))
     && !w.resources.some(s => s.remaining > 0 && same(s, cell)) && !w.piles.some(p => same(p, cell));
 }

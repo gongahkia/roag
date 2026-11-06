@@ -1,3 +1,5 @@
+import { prepareBossSpawn, bossTurn, prepareBossCounters, advanceBossEffects, bossDied, bossCounterReason, damageBossFeature, recordBossNoise, bossCellMoveTicks, bossDamage } from './bosses.ts';
+import type { BossApi, BossCounterMode } from './boss-model.ts';
 import { ENVIRONMENT, groundMoveTicks, hotGround } from './biome.ts';
 import { active, distance, index, inside, same, spatial, walkable } from './model.ts';
 import type { Cell, CommandInput, Person, World } from './model.ts';
@@ -32,18 +34,20 @@ export function combatCommandReason(w: World, input: CommandInput): string | nul
   if (w.terminal) return 'The colony has ended';
   if (input.kind !== 'battle') return 'Unknown battle command';
   if (!Number.isSafeInteger(input.actor) || input.actor !== 0 && !w.people.some(p => p.id === input.actor && p.life === 'alive')) return 'Choose a living colonist or all colonists';
-  if (!['rally','retreat','shelter','clear','release'].includes(input.mode) || !inside(input.target)) return 'Choose a battle order and a tile within the map';
+  if (!['rally','retreat','shelter','clear','strike','drain','cut','ignite','release'].includes(input.mode) || !inside(input.target)) return 'Choose a battle order and a tile within the map';
+  if(['strike','drain','cut','ignite'].includes(input.mode))return bossCounterReason(w,input.mode as BossCounterMode,input.target);
   if(input.mode==='clear')return w.combat.barricades.some(b=>same(b,input.target))?null:'Choose a hostile barricade to clear';
   return input.mode !== 'release' && !walkable(w,input.target) ? 'Choose open ground for the rally or shelter destination' : null;
 }
 function releaseOrder(w: World, order: BattleOrder): void {
-  const p=w.people.find(p=>p.id===order.actor);w.combat.orders=w.combat.orders.filter(o=>o.actor!==order.actor);
+  const p=w.people.find(p=>p.id===order.actor);w.combat.orders=w.combat.orders.filter(o=>o.actor!==order.actor);w.bosses.work=w.bosses.work.filter(work=>work.actor!==order.actor);
   if(!p||p.life!=='alive')return;
   if(p.body.routine&&p.body.routine.kind!=='watch'){p.body.routine.resume=p.job?null:order.resume?{...order.resume}:null;return;}
   clearTravel(p);if(!p.job&&order.resume)p.destination={...order.resume};p.body.status='Battle order released; resuming colony work';
 }
 function setOrder(w: World,p: Person,mode: BattleOrder['mode'],target: Cell): void {
   const old=w.combat.orders.find(o=>o.actor===p.id),resume=old?old.resume:!p.job?p.body.routine?.resume??p.destination:null;
+  w.bosses.work=w.bosses.work.filter(work=>work.actor!==p.id);
   if(p.body.routine?.kind==='watch')endRoutine(w,p);if(!p.body.routine)clearTravel(p);
   const order:BattleOrder={actor:p.id,mode,target:{x:target.x,y:target.y},resume:resume?{x:resume.x,y:resume.y}:null};
   if(old)w.combat.orders[w.combat.orders.indexOf(old)]=order;else w.combat.orders.push(order);
@@ -58,16 +62,18 @@ export function applyCombatCommand(w: World,input: CommandInput): void {
 function aliveSource(w: World,ref: CombatRef): boolean {
   if(ref.kind==='person')return w.people.some(p=>p.id===ref.id&&p.life==='alive');
   if(ref.kind==='raider')return w.combat.raiders.some(r=>r.id===ref.id&&r.health>0);
+  if(ref.kind==='feature')return w.bosses.features.some(f=>f.id===ref.id&&f.health>0);
   if(ref.kind==='barricade')return w.combat.barricades.some(b=>b.id===ref.id&&b.health>0);
   if(ref.kind==='structure')return w.structures.some(s=>s.id===ref.id&&s.health>0);
   return ref.id===w.heart.id&&w.heart.health>0;
 }
 function damage(w: World,ref: CombatRef,amount: number,faction: Attack['faction'],origin: Cell): void {
+  if(ref.kind==='feature'){damageBossFeature(w,ref.id,amount,ref.id);return;}
   if(ref.kind==='barricade'){const b=w.combat.barricades.find(b=>b.id===ref.id);if(!b)return;b.health=Math.max(0,b.health-amount);if(!b.health){w.combat.barricades=w.combat.barricades.filter(other=>other.id!==b.id);w.terrainVersion++;}return;}
   if(ref.kind==='raider'){
-    if(faction!=='colony')return;const r=w.combat.raiders.find(r=>r.id===ref.id);if(!r)return;r.health=Math.max(0,r.health-defendedDamage(w,r,amount,origin));
+    if(faction!=='colony')return;const r=w.combat.raiders.find(r=>r.id===ref.id);if(!r)return;r.health=Math.max(0,r.health-bossDamage(w,r.id,defendedDamage(w,r,amount,origin)));
     if(!r.health){
-      w.combat.raiders=w.combat.raiders.filter(other=>other.id!==r.id);
+      w.combat.raiders=w.combat.raiders.filter(other=>other.id!==r.id);bossDied(w,r.id);
       w.combat.attacks=w.combat.attacks.filter(a=>a.source.kind!=='raider'||a.source.id!==r.id);
       const owned=w.combat.barricades.filter(b=>b.owner===r.id);if(owned.length){w.combat.barricades=w.combat.barricades.filter(b=>b.owner!==r.id);w.terrainVersion++;}
       for(const other of w.combat.raiders)if(other.target?.kind==='raider'&&other.target.id===r.id){other.target=null;other.route=[];}
@@ -129,16 +135,18 @@ export function prepareCombat(w: World): void {
   for(const order of w.combat.orders){
     const p=w.people.find(p=>p.id===order.actor)!;if(p.body.routine?.kind==='watch')endRoutine(w,p);
     if(p.body.routine||p.body.recoverAt>w.tick)continue;
+    if(['strike','drain','cut','ignite'].includes(order.mode))continue;
     if(order.mode==='clear'){const barrier=w.combat.barricades.find(b=>same(b,order.target));if(!barrier){releaseOrder(w,order);continue;}const progress={status:'Approaching hostile barricade'};approach(w,progress,p,barrier,'Approaching hostile barricade');p.body.status=progress.status;continue;}
     const enemy=order.mode==='rally'?w.combat.raiders.filter(r=>distance(r,order.target)<=C.guard.pursuit).sort((a,b)=>distance(a,p)-distance(b,p)||a.id-b.id)[0]:undefined;
     if(enemy){const progress={status:'Rally: approaching attacker'};approach(w,progress,p,enemy,'Rally: approaching attacker');p.body.status=progress.status;}
     else{const goal=standGoal(w,order.target,p,claimed);if(goal){claimed.add(index(goal.x,goal.y));destination(p,goal);p.body.status=`${order.mode==='rally'?'Guarding rally point':'Seeking emergency shelter'} ${goal.x},${goal.y}${p.blocked?': '+p.blocked:''}`;}else{clearTravel(p,true);p.body.status='Battle destination blocked; choose open ground or release order';}}
   }
+  prepareBossCounters(w,bossApi(w));
 }
 function launch(w: World,source: CombatRef,origin: Cell,target: Cell,kind: Attack['kind'],faction: Attack['faction'],amount: number,delay: number,extra?:{cells?:Cell[];recipient?:number}): boolean {
   if(w.combat.attacks.length>=C.maxAttacks||w.combat.attacks.some(a=>a.source.kind===source.kind&&a.source.id===source.id))return false;
   const cells=extra?.cells??(kind==='bolt'||kind==='arrow'?shotCells(w,origin,target):[{x:target.x,y:target.y}]);if(!cells.length)return false;
-  w.combat.attacks.push({id:w.nextId++,kind,source:{...source},origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:cells.map(c=>({...c})),due:w.tick+delay,damage:amount,faction,recipient:extra?.recipient??null});w.combat.attacks.sort((a,b)=>a.due-b.due||a.id-b.id);return true;
+  w.combat.attacks.push({id:w.nextId++,kind,source:{...source},origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:cells.map(c=>({...c})),due:w.tick+delay,damage:amount,faction,recipient:extra?.recipient??null});w.combat.attacks.sort((a,b)=>a.due-b.due||a.id-b.id);recordBossNoise(w,origin);return true;
 }
 function defenses(w: World): void {
   w.combat.defenses=w.combat.defenses.filter(d=>w.structures.some(s=>s.id===d.structure&&(s.kind==='tower'||s.kind==='trap')));
@@ -181,10 +189,15 @@ function raidSchedule(w: World): void {
   if(c.phase==='warning'&&w.tick>=c.spawnAt){c.phase='combat';automaticOrders(w);c.status=`Wave ${c.wave} arriving from the ${c.edge}; civilians seek shelter, guards rally. Orders can be changed or released.`;}
   if(c.phase!=='combat'||!c.pending.length)return;
   const occupied=spatial(w),spawn=nextSpawn(c.pending,c.raiders.length,p=>walkable(w,p)&&!occupied.has(index(p.x,p.y)));
-  if(spawn.ticket&&spawn.cell){c.pending=spawn.remaining;c.raiders.push(createRaider(w,spawn.ticket,spawn.cell));c.stats.spawned++;}
+  if(spawn.ticket&&spawn.cell){
+    if(['bellkeeper','sluice','threadmother'].includes(spawn.ticket.kind)){
+      if(!w.bosses.encounters.some(e=>e.owner===spawn.ticket.id)&&w.tick%20!==0)return;
+      if(!prepareBossSpawn(w,spawn.ticket)){c.status=w.bosses.status;return;}
+    }
+    c.pending=spawn.remaining;c.raiders.push(createRaider(w,spawn.ticket,spawn.cell));c.stats.spawned++;}
   else c.status=`Raid waits at the ${c.edge} edge or actor cap. Pending attackers and their identities are retained.`;
 }
-function refCell(w: World,ref: CombatRef): Cell|undefined {return ref.kind==='heart'?w.heart:ref.kind==='person'?w.people.find(p=>p.id===ref.id&&p.life==='alive'):ref.kind==='structure'?w.structures.find(s=>s.id===ref.id):ref.kind==='barricade'?w.combat.barricades.find(b=>b.id===ref.id):w.combat.raiders.find(r=>r.id===ref.id);}
+function refCell(w: World,ref: CombatRef): Cell|undefined {return ref.kind==='heart'?w.heart:ref.kind==='person'?w.people.find(p=>p.id===ref.id&&p.life==='alive'):ref.kind==='structure'?w.structures.find(s=>s.id===ref.id):ref.kind==='barricade'?w.combat.barricades.find(b=>b.id===ref.id):ref.kind==='feature'?w.bosses.features.find(f=>f.id===ref.id):w.combat.raiders.find(r=>r.id===ref.id);}
 function selectTarget(w: World,r: Raider): CombatRef {
   if(r.kind==='breacher'){const tower=w.structures.filter(s=>s.kind==='tower'&&distance(s,r)<=C.breacher.defenseNotice).sort((a,b)=>distance(a,r)-distance(b,r)||a.id-b.id)[0];if(tower)return {kind:'structure',id:tower.id};}
   const target=w.people.filter(p=>p.life==='alive'&&distance(p,r)<=C[r.kind].notice).sort((a,b)=>distance(r,a)-distance(r,b)||a.id-b.id)[0];return target?{kind:'person',id:target.id}:{kind:'heart',id:w.heart.id};
@@ -207,6 +220,15 @@ function encounterApi(w: World,move: EncounterApi['move']=()=>{},movedPeople=new
     },
   };
 }
+function bossApi(w: World,move: BossApi['move']=()=>{},movedPeople=new Set<number>()): BossApi {
+  const ordinary=encounterApi(w,move,movedPeople);
+  return {
+    move,shove:ordinary.shove,
+    damage:(ref,amount,origin)=>damage(w,ref,amount,ref.kind==='raider'?'colony':'hostile',origin),
+    approach:(p,target)=>{const status={status:'Approaching environmental counter'};approach(w,status,p,target,status.status);p.body.status=status.status;},
+    release:(actor)=>{const order=w.combat.orders.find(o=>o.actor===actor);if(order)releaseOrder(w,order);},
+  };
+}
 function face(r: Raider,cell: Cell,tick: number): void {
   const dx=cell.x-r.x,dy=cell.y-r.y;if(!dx&&!dy)return;
   const direction=Math.abs(dx)>=Math.abs(dy)?dx>0?'east':'west':dy>0?'south':'north';
@@ -215,29 +237,30 @@ function face(r: Raider,cell: Cell,tick: number): void {
 }
 function moveRaiders(w: World,movedPeople: Set<number>): void {
   const occupied=spatial(w);let searches=0;
-  const requests:{raider:Raider;cell:Cell;adjacent:boolean;waitingSince:number}[]=[];
+  const requests:{raider:Raider;cell:Cell;adjacent:boolean;waitingSince:number;allowedCells?:Cell[]}[]=[];
   const enterRoute=(r:Raider):void=>{
     const next=r.route[0];if(!next)return;
     if(!walkable(w,next)){if(breachable(w,next)&&distance(r,next)===1){face(r,next,w.tick);melee(w,r,next);}else{r.route=[];r.retryAt=w.tick+10;}return;}
     const owner=occupied.get(index(next.x,next.y));if(owner!==undefined&&owner!==r.id){const person=w.people.find(p=>p.id===owner&&p.life==='alive');if(person){face(r,person,w.tick);melee(w,r,person);}r.route=[];r.retryAt=w.tick+10;return;}
-    face(r,next,w.tick);r.next=r.route.shift()!;r.progress=0;r.moveTicks=groundMoveTicks(w,r.next);occupied.set(index(next.x,next.y),r.id);
+    face(r,next,w.tick);r.next=r.route.shift()!;r.progress=0;r.moveTicks=Math.max(groundMoveTicks(w,r.next),bossCellMoveTicks(w,r.next));occupied.set(index(next.x,next.y),r.id);
   };
-  const move=(r:Raider,cell:Cell,adjacent:boolean):void=>{
+  const move:BossApi['move']=(r,cell,adjacent,allowedCells)=>{
     if(r.next||r.charge)return;
     if(distance(r,cell)<=(adjacent?1:0)){r.route=[];return;}
     if(r.routeVersion!==w.terrainVersion){r.route=[];r.routeVersion=w.terrainVersion;r.retryAt=Math.min(r.retryAt,w.tick);}
+    if(allowedCells&&r.route.some(p=>!allowedCells.some(c=>same(c,p)))){r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
     if(r.route.length&&distance(r.route[r.route.length-1]!,cell)>(adjacent?1:0)){r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
     if(!r.route.length){
-      if(r.retryAt<=w.tick)requests.push({raider:r,cell:{x:cell.x,y:cell.y},adjacent,waitingSince:r.retryAt});
+      if(r.retryAt<=w.tick)requests.push({raider:r,cell:{x:cell.x,y:cell.y},adjacent,waitingSince:r.retryAt,...(allowedCells?{allowedCells}: {})});
       return;
     }
     enterRoute(r);
   };
-  const api=encounterApi(w,move,movedPeople);
+  const api=encounterApi(w,move,movedPeople), environmental=bossApi(w,move,movedPeople);
   for(const r of [...w.combat.raiders].sort((a,b)=>a.id-b.id)){
     if(r.charge||w.combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===r.id))continue;
     if(r.next){r.progress++;if(r.progress>=r.moveTicks){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;r.next=null;r.progress=0;r.moveTicks=4;}else continue;}
-    if(encounterTurn(w,r,api))continue;
+    if(bossTurn(w,r,environmental)||encounterTurn(w,r,api))continue;
     const target=selectTarget(w,r),cell=refCell(w,target)!;
     if(!r.target||r.target.kind!==target.kind||r.target.id!==target.id){r.target=target;r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
     if(distance(r,cell)<=1){r.route=[];face(r,cell,w.tick);melee(w,r,cell);continue;}
@@ -251,11 +274,12 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
     if(searches>=C.searchesPerTick)break;
     const r=request.raider;
     if(r.next||r.charge||w.combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===r.id))continue;
-    searches++;r.route=raiderRoute(w,r,request.cell,occupied,r.id,C.searchLimit,request.adjacent);
+    searches++;r.route=raiderRoute(w,r,request.cell,occupied,r.id,C.searchLimit,request.adjacent,request.allowedCells);
     r.routeVersion=w.terrainVersion;r.retryAt=w.tick+10;
     enterRoute(r);
   }
   advanceEncounters(w,api);
+  advanceBossEffects(w,environmental);
 }
 export function advanceCombat(w: World,movedPeople=new Set<number>()): void {
   if(w.tick%ENVIRONMENT.heatEvery===0){

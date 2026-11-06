@@ -1,3 +1,4 @@
+import { recordBossNoise } from './bosses.ts';
 import { NEEDS, RECIPES, DUTIES } from './survival-content.ts';
 import type { Duty } from './survival-content.ts';
 import { endRoutine, fall, die } from './needs.ts';
@@ -37,6 +38,7 @@ export function placementReason(world: World, target: Cell): string | null {
   if (!inside(target) || target.x < 2 || target.y < 2 || target.x > 125 || target.y > 125 || !walkable(world, target)) return 'Choose open ground inside the outer approach lane, away from the heart and structures';
   if (spatial(world).has(index(target.x, target.y))) return 'A worker occupies or has reserved this tile';
   if (world.resources.some(r => r.remaining>0 && same(r, target)) || world.piles.some(p => same(p, target) && total(p.inventory)) || world.structures.some(s => same(s, target))) return 'A source, bundle or structure occupies this tile';
+  if (world.bosses.features.some(f=>f.kind!=='line'&&same(f,target))) return 'Clear the environmental fixture before building here';
   if (world.jobs.some(j => active(j) && same(j, target))) return 'Another job occupies this tile';
   return null;
 }
@@ -276,7 +278,7 @@ export function advanceJobs(world: World): void {
     }
     const p = world.people.find(p => p.id === j.worker)!;
     if (used.has(p.id)||world.combat.orders.some(o=>o.actor===p.id)||p.body.routine||p.body.recoverAt>world.tick) { if(p.body.routine)j.status=`Interrupted: ${p.body.routine.status}`;continue; } used.add(p.id);
-    if((p.body.hunger>=NEEDS.mealAt||p.body.fatigue>=NEEDS.restAt||p.body.health<70)&&world.tick%2){j.status='Needs or injury slow work (50%)';continue;}world.statistics.workTicks++;perform(world,j,p);
+    if((p.body.hunger>=NEEDS.mealAt||p.body.fatigue>=NEEDS.restAt||p.body.health<70)&&world.tick%2){j.status='Needs or injury slow work (50%)';continue;}world.statistics.workTicks++;const before=j.progress;perform(world,j,p);if(j.progress!==before)recordBossNoise(world,p);
   }
   // Empty piles have no remaining claims after pickups. Retain referenced empty piles until those jobs finish.
   world.piles = world.piles.filter(p => total(p.inventory)>0 || world.jobs.some(j => active(j) && (j.ref === p.id || j.reservation?.source === p.id)));

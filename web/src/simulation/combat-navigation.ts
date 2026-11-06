@@ -26,8 +26,10 @@ export function breachable(w: World, at: Cell): boolean {
   return inside(at) && w.terrain[index(at.x, at.y)] !== 2 && !same(at, w.heart)
     && (w.combat.barricades.some(b => same(b, at)) || w.structures.some(s => same(s, at)) || w.jobs.some(j => j.kind === 'build' && active(j) && same(j, at)));
 }
-export function raiderRoute(w: World, from: Cell, objective: Cell, occupied: Map<number, number>, self: number, limit: number = C.searchLimit, adjacent = true): Cell[] {
-  const goals = (adjacent ? neighbors(objective) : [objective]).filter(p => walkable(w, p) || breachable(w, p));
+export function raiderRoute(w: World, from: Cell, objective: Cell, occupied: Map<number, number>, self: number, limit: number = C.searchLimit, adjacent = true, allowedCells?: readonly Cell[]): Cell[] {
+  const allowed = allowedCells ? new Set(allowedCells.map(p => index(p.x,p.y))) : null;
+  const passable = (p: Cell): boolean => allowed ? allowed.has(index(p.x,p.y)) && walkable(w,p) : walkable(w,p) || breachable(w,p);
+  const goals = (adjacent ? neighbors(objective) : [objective]).filter(passable);
   if (!goals.length) return [];
   const goalKeys = new Set(goals.map(p => index(p.x, p.y)));
   const start = index(from.x, from.y); if (goalKeys.has(start)) return [];
@@ -44,7 +46,7 @@ export function raiderRoute(w: World, from: Cell, objective: Cell, occupied: Map
     }
     for (const p of neighbors(node.cell)) {
       const key = index(p.x, p.y), owner = occupied.get(key);
-      if (owner !== undefined && owner !== self || !walkable(w, p) && !breachable(w, p)) continue;
+      if (owner !== undefined && owner !== self || !passable(p)) continue;
       const cost = node.cost + (walkable(w, p) ? 1 : 12);
       if (cost >= (costs.get(key) ?? Infinity)) continue;
       costs.set(key, cost); parents.set(key, node.key);

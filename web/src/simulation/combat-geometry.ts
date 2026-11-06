@@ -10,6 +10,8 @@ export function combatBodyAt(w: World, cell: Cell): CombatRef | null {
   if (raider) return { kind: 'raider', id: raider.id };
   const barricade = w.combat.barricades.find(b => same(b, cell));
   if (barricade) return { kind: 'barricade', id: barricade.id };
+  const feature = w.bosses.features.find(f => (f.kind==='resonator'||f.kind==='anchor') && same(f,cell));
+  if (feature) return { kind:'feature', id:feature.id };
   const structure = w.structures.find(s => same(s, cell) && s.kind !== 'stockpile' && s.kind !== 'trap' && s.kind !== 'guardpost' && !(s.kind === 'door' && s.open));
   if (structure) return { kind: 'structure', id: structure.id };
   return same(w.heart, cell) ? { kind: 'heart', id: w.heart.id } : null;
@@ -17,6 +19,7 @@ export function combatBodyAt(w: World, cell: Cell): CombatRef | null {
 export function blocksShot(w: World, cell: Cell): boolean {
   return !inside(cell) || w.terrain[index(cell.x, cell.y)] === 2 || same(w.heart, cell)
     || w.combat.barricades.some(b => same(b, cell))
+    || w.bosses.features.some(f => (f.kind==='resonator'||f.kind==='anchor') && same(f,cell))
     || w.structures.some(s => same(s, cell) && s.kind !== 'stockpile' && s.kind !== 'trap' && s.kind !== 'guardpost' && !(s.kind === 'door' && s.open))
     || w.jobs.some(j => j.kind === 'build' && active(j) && same(j, cell));
 }
