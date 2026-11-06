@@ -52,3 +52,26 @@ cutover requires verified archives and an explicit deletion list. Final remote
 synchronization uses an ordinary push, preserving unrelated commits and branch
 protection. Publication requires the chosen hosting destination and actual
 verification of its deployed URL.
+
+## P06 ownership and accepted checkpoint
+
+P05 is accepted at `60155b42`; see its report for the complete browser coverage
+boundary. P06 preparation was kept isolated while the P05 production build was
+frozen. The dedicated P09-HUD tranche is required before release.
+
+| Worktree branch | Responsibility |
+| --- | --- |
+| codex/colony-p06-integration | Coordinator-owned shared lifecycle, ordinary multiwave scenario and final integration |
+| codex/colony-p06-director | Pure deterministic wave budgets, tickets, deadlines and bounded summaries |
+| codex/colony-p06-encounters | Squads, Captain geometry, fair path budget, collision/lifecycle regressions and actor stress |
+| codex/colony-p06-schema | Strict schema 5, malformed imports and encounter continuation |
+| codex/colony-p06-ui | Visible roles, facing/windows, telegraphs, barricade counters and raid history |
+
+P06 keeps the first warning/arrival and budget-seven roster. Later waves warn
+1200 ticks after completion and arrive 600 ticks later; budgets grow by three to
+60. Every fourth wave includes the Ossuary Captain. Announced IDs and entry choices
+are saved before spawning. Actor/pending caps are 150 each, attacks 256,
+barricades eight and history sixteen. Artificial cap stress is distinguished from
+ordinary colony balance. Captain loot is five wood; other attacker loot remains
+one. The outer entry ring is reserved from construction so entry cannot be sealed
+with free blueprints. These are implementation defaults subject to measured tuning.
