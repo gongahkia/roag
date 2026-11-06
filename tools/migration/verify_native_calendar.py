@@ -62,6 +62,28 @@ def record_calendar_state(client, label):
     (client.output / (label + '-campaign.json')).write_bytes(client.slot.read_bytes())
 
 
+def provision(client):
+    for _ in range(40):
+        if client.ui['inventory']['food'] >= 28:
+            return
+        market(client)
+        needed = 28 - client.ui['inventory']['food']
+        amount = 10 if needed >= 10 else 5 if needed >= 5 else 1
+        client.control_click('dungeon:trade-amount:' + str(amount))
+        offer = next(c for c in client.ui['controls'] if c['id'] == 'dungeon:trade-do:Buy:food')
+        if offer['enabled']:
+            client.control_click(offer['id'])
+            continue
+        # The actual price changes as stock falls. Sell existing materials in
+        # small paid batches and re-read the real quote; never assume a price.
+        item = next((s for s in ('wood', 'stone') if client.ui['inventory'].get(s, 0) > 0), None)
+        assert item, 'The real starting supplies cannot finance this provisioning plan; preserve the current save'
+        amount = 5 if client.ui['inventory'][item] >= 5 else 1
+        client.control_click('dungeon:trade-amount:' + str(amount))
+        client.control_click('dungeon:trade-do:Sell:' + item)
+    raise AssertionError('Actual provisioning exceeded its transaction budget')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
@@ -69,6 +91,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--continue-from', type=Path)
     parser.add_argument('--runtime', type=Path)
+    parser.add_argument('--provision', action='store_true', help='Buy provisions through real quotes when continuing a preparation checkpoint.')
     args = parser.parse_args()
     assert 24 <= args.hours <= 72
     previous = args.continue_from.resolve() if args.continue_from else None
@@ -98,15 +121,8 @@ def main():
             client.control_click('dungeon:class:0')
             assert '06:00' in client.ui['nativeDungeon']['calendar']
             client.capture('01-dawn-town')
-        if args.hours > 24 and not previous:
-            for _ in range(2):
-                market(client)
-                client.control_click('dungeon:trade-amount:10')
-                client.control_click('dungeon:trade-do:Sell:wood')
-            for _ in range(2):
-                market(client)
-                client.control_click('dungeon:trade-amount:10')
-                client.control_click('dungeon:trade-do:Buy:food')
+        if args.hours > 24 and (not previous or args.provision):
+            provision(client)
             assert client.ui['inventory']['food'] >= 28
             client.capture('02-actual-expedition-provisions')
             if client.ui['panel']:
