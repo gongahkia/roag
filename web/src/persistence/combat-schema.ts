@@ -59,6 +59,10 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   assert(Array.isArray(combat.barricades) && combat.barricades.length <= E.rampart.maxBarricades, 'barricade limit');
   assert(Array.isArray(combat.orders) && combat.orders.length <= world.people.length && Array.isArray(combat.cooldowns) && combat.cooldowns.length <= world.people.length, 'actor combat limits');
   assert(Array.isArray(combat.defenses) && combat.defenses.length <= world.structures.length, 'defense limit');
+  // Reference checks below inspect these arrays before their detailed loops.
+  for (const raider of combat.raiders) object(raider, ['id', 'kind', 'x', 'y', 'health', 'facing', 'squadId', 'leaderId', 'loweredUntil', 'exposedUntil', 'specialCount', 'charge', 'next', 'progress', 'route', 'routeVersion', 'retryAt', 'cooldown', 'target']);
+  for (const defense of combat.defenses) object(defense, ['structure', 'cooldown']);
+  for (const cooldown of combat.cooldowns) object(cooldown, ['actor', 'until']);
   object(combat.stats, ['spawned', 'kills', 'shots', 'traps', 'heartDamage', 'colonyDamage', 'structuresLost', 'repairs', 'bosses']);
   for (const n of Object.values(combat.stats)) assert(integer(n), 'combat statistic');
   assert(combat.stats.heartDamage === 100 - world.heart.health, 'heart damage ledger');
@@ -138,6 +142,11 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   }
   const deaths = combat.stats.kills - start.kills;
   assert(combat.stats.spawned - start.spawned + combat.pending.length <= RAID_CONTENT.maxPending && remainingCost + deaths <= combat.spent && combat.spent <= remainingCost + deaths * RAID_COST.captain, 'finite wave expenditure');
+  if (world.scenario === 'colony') {
+    const remainingCaptains = [...combat.pending, ...combat.raiders].filter(r => r.kind === 'captain').length;
+    const plannedCaptains = Math.floor(combat.wave / 4);
+    assert(remainingCaptains <= (combat.wave > combat.completed && combat.wave % 4 === 0 ? 1 : 0) && combat.stats.bosses + remainingCaptains === plannedCaptains, 'director Captain lifetime ledger');
+  }
   for (const member of [...combat.pending, ...combat.raiders]) {
     const leader = [...combat.pending, ...combat.raiders].find(other => other.id === member.leaderId);
     if (leader) assert(leader.squadId === member.squadId && leader.leaderId === leader.id, 'living squad leader');
@@ -179,7 +188,9 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
     assert(until === attack.due - windup + cooldown, 'attack launch cooldown');
     if (structure) assert(same(attack.origin, structure), 'stationary attack origin');
     else if (raider) assert(same(attack.origin, raider), 'committed raider origin');
-    else assert(distance(attack.origin, person!) <= Math.ceil(windup / MOVE_TICKS), 'mobile attack origin');
+    // A committed guard may be shoved one tile each tick by a charge. The saved
+    // strike remains at its original cell even while its owner is displaced.
+    else assert(distance(attack.origin, person!) <= world.tick - (attack.due - windup), 'mobile attack origin');
     const reach = distance(attack.origin, attack.target);
     assert(reach <= range && (attack.kind === 'trap' ? reach === 0 : attack.kind === 'melee' ? reach === 1 : reach > 0), 'attack range');
     if (attack.kind === 'arrow') assert(reach >= E.archer.minRange && (attack.origin.x === attack.target.x || attack.origin.y === attack.target.y), 'archer cardinal lane');
@@ -238,6 +249,7 @@ function validateHistory(world: World): void {
   for (const [i, summary] of c.history.entries()) {
     object(summary, ['wave', 'budget', 'spent', 'startedAt', 'endedAt', 'spawned', 'kills', 'colonistsLost', 'ammoSpent', 'structuresLost', 'repairs']);
     assert(summary.wave === c.completed - c.history.length + i + 1 && summary.budget === waveBudget(summary.wave) && integer(summary.spent, 0, summary.budget), 'raid summary identity/budget');
+    if (world.scenario === 'colony') assert(summary.spent === summary.budget, 'completed colony budget');
     assert(integer(summary.startedAt, previousEnd, world.tick) && integer(summary.endedAt, summary.startedAt, world.tick), 'raid summary chronology'); previousEnd = summary.endedAt;
     assert(integer(summary.spawned, 0, RAID_CONTENT.maxPending) && summary.kills === summary.spawned && summary.kills <= summary.spent && summary.spent <= summary.kills * RAID_COST.captain, 'completed raid summary');
     assert(integer(summary.colonistsLost, 0, world.people.length) && integer(summary.ammoSpent) && integer(summary.structuresLost) && integer(summary.repairs), 'raid summary measurements');

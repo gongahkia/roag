@@ -109,7 +109,7 @@ function validateWork(world: World, ids: Set<number>): void {
   const addId=(id:number)=>{assert(integer(id,8,world.nextId-1)&&!ids.has(id),'duplicate work ID');ids.add(id);};
   const positions=new Set<number>();
   for(const s of world.structures) {
-    object(s,['id','x','y','kind','health','open','inventory','embodied']);addId(s.id);cell({x:s.x,y:s.y});
+    object(s,['id','x','y','kind','health','open','inventory','embodied']);addId(s.id);cell({x:s.x,y:s.y});assert(integer(s.x,2,125)&&integer(s.y,2,125),'reserved entry ring');
     assert(['stockpile',...BUILDINGS].includes(s.kind)&&integer(s.health,1,100)&&typeof s.open==='boolean','structure definition');stock(s.inventory);stock(s.embodied);
     assert(total(s.inventory)<=capacity(s),'storage capacity');
     if(s.kind==='tower'||s.kind==='trap')assert(MATERIALS.every(k=>k==='ammo'||s.inventory[k]===0),'defense magazine contains non-ammunition');
@@ -140,7 +140,7 @@ function validateWork(world: World, ids: Set<number>): void {
       if(j.kind==='repair'||j.kind==='dismantle')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&(s.kind==='stockpile'?j.building===null:j.building===s.kind)),'structure work reference');
       if(j.kind==='reload')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&s.kind===j.building&&capacity(s)-s.inventory.ammo>=jobCost(j).ammo),'reload target or magazine space');
       if(j.kind==='farm'||j.kind==='produce')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&s.kind===(j.kind==='farm'?'farm':RECIPES[j.recipe!].facility)),'production reference');
-      if(j.kind==='build') {const key=index(j.x,j.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>p.life!=='dead'&&(same(p,j)||p.next&&same(p.next,j)))&&!world.combat.raiders.some(r=>same(r,j)||r.next&&same(r.next,j)),'site footprint');positions.add(key);}
+      if(j.kind==='build') {const key=index(j.x,j.y);assert(integer(j.x,2,125)&&integer(j.y,2,125),'reserved entry ring');assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>p.life!=='dead'&&(same(p,j)||p.next&&same(p.next,j)))&&!world.combat.raiders.some(r=>same(r,j)||r.next&&same(r.next,j)),'site footprint');positions.add(key);}
     }
     if(j.reservation) {
       const r=j.reservation;object(r,['source','kind','count']);assert(MATERIALS.includes(r.kind)&&integer(r.count,1,WORK_CONTENT.cargoCapacity)&&j.worker!==null&&j.state==='active','reservation');
