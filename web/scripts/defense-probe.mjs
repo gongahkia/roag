@@ -3,7 +3,7 @@ import {resolve} from 'node:path';
 import {fortify} from '../tests/helpers/defense.mjs';
 import {makeSave,encodeSave} from '../src/persistence/schema.ts';
 import {materialAudit} from '../src/simulation/jobs.ts';
-const dir=resolve(process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P05');mkdirSync(dir,{recursive:true});
+const dir=resolve(process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P06');mkdirSync(dir,{recursive:true});
 const h=fortify(),{w,tick,cmd}=h;
 console.log('fortified',w.tick,w.structures.filter(s=>['tower','trap'].includes(s.kind)).map(s=>({kind:s.kind,x:s.x,y:s.y,ammo:s.inventory.ammo})));
 writeFileSync(resolve(dir,'fortified.json'),encodeSave(makeSave(w,{manualPaused:true,speed:4})));

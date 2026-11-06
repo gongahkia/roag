@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { fortify } from '../tests/helpers/defense.mjs';
 import { placementReason,workCommandReason } from '../src/simulation/jobs.ts';
 import { createWorld } from '../src/simulation/world.ts';
+import { distance } from '../src/simulation/model.ts';
 import { canonical } from '../src/simulation/canonical.ts';
 import { enqueue,step } from '../src/simulation/step.ts';
 import { makeSave,encodeSave,parseSave } from '../src/persistence/schema.ts';
@@ -23,7 +24,7 @@ function maintain(){
  for(const j of w.jobs.filter(j=>j.state==='active'&&j.priority!==(j.kind==='gather'||j.kind==='haul'?1:3)))issue({kind:'priority',job:j.id,value:j.kind==='gather'||j.kind==='haul'?1:3});
  if(w.combat.phase==='combat'){
   for(const p of w.people.filter(p=>p.life==='alive'&&p.id<6&&w.combat.orders.some(o=>o.actor===p.id)))issue({kind:'battle',actor:p.id,mode:'release',target:{x:p.x,y:p.y}});
-  if(w.tick%50===0){const enemy=[...w.combat.raiders].sort((a,b)=>(a.kind==='healer'?-1:0)-(b.kind==='healer'?-1:0)||a.id-b.id)[0];if(enemy)for(const actor of [6,7])issue({kind:'battle',actor,mode:'rally',target:{x:enemy.x,y:enemy.y}});}
+  if(w.tick%50===0){const enemy=w.combat.raiders.filter(r=>distance(r,w.heart)<=16).sort((a,b)=>(a.kind==='healer'?-1:0)-(b.kind==='healer'?-1:0)||a.id-b.id)[0];for(const actor of [6,7]){const p=w.people.find(p=>p.id===actor);if(p.life!=='alive')continue;const injured=p.body.health<50;issue({kind:'battle',actor,mode:injured?'shelter':'rally',target:injured?{x:64,y:67}:enemy?{x:enemy.x,y:enemy.y}:{x:62,y:62}});}}
  }
  for(const s of w.structures){
   if(s.health<100&&s.kind!=='stockpile')issue({kind:'repair',structure:s.id});
@@ -36,14 +37,25 @@ try{
  while(w.tick<40000&&!w.terminal&&w.combat.completed<5){
   if(w.tick%10===0)maintain();h.tick();
   for(const a of w.combat.attacks)if(['heal','charge','rampart','arrow'].includes(a.kind)&&!specials.has(a.kind)){specials.add(a.kind);save(`first-${a.kind}`);}
+  if(w.combat.barricades.length&&!specials.has('barricades')){specials.add('barricades');save('first-barricades');}
+  if(w.combat.raiders.some(r=>r.charge)&&!specials.has('mid-charge')){specials.add('mid-charge');save('mid-charge');}
   const key=`${w.combat.wave}:${w.combat.phase}`;
   if(key!==phase){phase=key;const snapshot={tick:w.tick,wave:w.combat.wave,phase:w.combat.phase,heart:w.heart.health,stats:w.combat.stats,people:w.people.map(p=>[p.id,p.life,p.body.health]),defenses:w.structures.filter(s=>s.kind==='tower').map(s=>[s.x,s.y,s.health,s.inventory.ammo])};console.log(JSON.stringify(snapshot));milestones.push(structuredClone(snapshot));save(`wave-${key.replace(':','-')}`);}
   if(w.tick%50===0){makeSave(w,{manualPaused:true,speed:4});saveChecks++;}
  }
  console.log('RESULT',w.tick,w.terminal,w.combat.completed,w.combat.stats,w.statistics);
 }catch(error){writeFileSync(resolve(out,'failure-world.json'),JSON.stringify(w));throw error;}
-assert.equal(w.terminal,null,'ordinary colony survives');assert.equal(w.combat.completed,5);assert.equal(w.combat.stats.bosses,1);assert.ok(w.people.some(p=>p.life==='alive'));
-assert.deepEqual([...specials].sort(),['arrow','charge','heal','rampart']);assert.equal(w.combat.lootWood,w.combat.stats.kills+4*w.combat.stats.bosses);
+assert.equal(w.terminal,null,'ordinary colony survives');assert.equal(w.combat.completed,5);assert.equal(w.combat.stats.bosses,1);assert.ok(w.people.every(p=>p.life==='alive'));
+save('after-five-waves');
+for(const actor of [6,7])cmd({kind:'duty',actor,duty:'guard',value:0});
+cmd({kind:'duty',actor:3,duty:'healer',value:3});
+const recoveryStart=w.tick,workBefore=w.statistics.workTicks;
+while(w.tick<recoveryStart+1000&&!w.terminal&&(!w.people.every(p=>p.life==='alive'&&p.body.health===100)||w.statistics.workTicks<=workBefore)){
+ if(w.tick%10===0)maintain();h.tick();if(w.tick%50===0){makeSave(w,{manualPaused:true,speed:4});saveChecks++;}
+}
+assert.equal(w.terminal,null);assert.ok(w.people.every(p=>p.life==='alive'&&p.body.health===100),'ordinary post-wave treatment restores every founder');assert.ok(w.statistics.workTicks>workBefore,'colony work resumes');
+
+for(const kind of ['arrow','charge','heal','rampart','barricades','mid-charge'])assert.ok(specials.has(kind),`ordinary encounter demonstrates ${kind}`);assert.equal(w.combat.lootWood,w.combat.stats.kills+4*w.combat.stats.bosses);
 save('final');
 const hash=world=>createHash('sha256').update(canonical(world)).digest('hex');
 const events=new Map();for(const c of h.commands){const list=events.get(c.due)??[];list.push(c.input);events.set(c.due,list);}

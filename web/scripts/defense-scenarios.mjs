@@ -9,7 +9,7 @@ import { step } from '../src/simulation/step.ts';
 import { makeSave, encodeSave, parseSave } from '../src/persistence/schema.ts';
 import { materialAudit } from '../src/simulation/jobs.ts';
 
-const dir=resolve(process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P05');mkdirSync(dir,{recursive:true});
+const dir=resolve(process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P06');mkdirSync(dir,{recursive:true});
 const controls={manualPaused:true,speed:4};
 const hash=value=>createHash('sha256').update(canonical(value)).digest('hex');
 const write=(name,value)=>writeFileSync(resolve(dir,name),JSON.stringify(value,null,2)+'\n');

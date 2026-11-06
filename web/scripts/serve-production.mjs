@@ -6,7 +6,7 @@ import { webRoot } from './export-assets.mjs';
 const mode = process.argv[2];
 if (!['root', 'roag'].includes(mode)) throw new Error('Expected root or roag');
 const mount = mode === 'root' ? '/' : '/roag/';
-const root = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P05', `build-${mode}`);
+const root = resolve(webRoot, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P06', `build-${mode}`);
 const port = mode === 'root' ? 4173 : 4174;
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
 const server = createServer(async (request, response) => {

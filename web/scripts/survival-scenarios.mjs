@@ -10,7 +10,7 @@ import {canonical} from '../src/simulation/canonical.ts';
 import {createWorld} from '../src/simulation/world.ts';
 import {FixedClock} from '../src/platform/clock.ts';
 import {step,enqueue} from '../src/simulation/step.ts';
-const evidence=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P05');mkdirSync(evidence,{recursive:true});
+const evidence=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P06');mkdirSync(evidence,{recursive:true});
 const h=establish(),{w,tick}=h,measurements=[];
 const hash=w=>createHash('sha256').update(canonical(w)).digest('hex');
 const record=label=>{makeSave(w,{manualPaused:true,speed:4});measurements.push({label,tick:w.tick,sha256:hash(w),population:w.people.map(p=>({id:p.id,life:p.life,...p.body})),statistics:{...w.statistics},recipes:{...w.recipeCounts},materials:materialAudit(w),jobs:structuredClone(w.jobs)});console.log(label,w.tick,w.statistics,w.people.map(p=>[p.life,p.body.health,p.body.meals,p.body.rests]));};
