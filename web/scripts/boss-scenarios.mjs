@@ -32,7 +32,20 @@ const snapshot=label=>{const data=makeSave(w,{manualPaused:true,speed:4});saveCh
 function issue(input){if(input.kind!=='battle'&&workCommandReason(w,input)!==null)return false;if(!enqueue(w,input))return false;h.commands.push({due:w.tick+1,input:structuredClone(input)});return true;}
 function maintain(){
  for(const j of w.jobs.filter(j=>j.state==='active'&&j.priority!==(j.kind==='gather'||j.kind==='haul'?1:3)))issue({kind:'priority',job:j.id,value:j.kind==='gather'||j.kind==='haul'?1:3});
- for(const kind of ['wood','stone'])if(w.jobs.filter(j=>j.kind==='gather'&&j.state==='active'&&w.resources.find(r=>r.id===j.ref)?.kind===kind).length<2){const source=rankedSources(w,kind).find(r=>!w.jobs.some(j=>j.kind==='gather'&&j.ref===r.id&&j.state==='active'));if(source)issue({kind:'gather',source:source.id});}
+ // Gathering is continuous work: reserve limits release workers for food,
+ // medicine and reloads instead of filling every stockpile indefinitely.
+ for(const kind of ['wood','stone']){
+  const stored=[...w.structures,...w.piles].reduce((sum,s)=>sum+s.inventory[kind],0)+w.people.reduce((sum,p)=>sum+p.cargo[kind],0);
+  const jobs=w.jobs.filter(j=>j.kind==='gather'&&['active','suspended'].includes(j.state)&&w.resources.find(r=>r.id===j.ref)?.kind===kind);
+  const active=jobs.filter(j=>j.state==='active');
+  if(stored>=35){for(const j of active)issue({kind:'work',job:j.id,action:'suspend'});}
+  else if(stored<15&&active.length===0){
+   const existing=jobs.find(j=>j.state==='suspended'&&w.resources.find(r=>r.id===j.ref)?.remaining>0);
+   if(existing)issue({kind:'work',job:existing.id,action:'resume'});
+   else {const source=rankedSources(w,kind).find(r=>!jobs.some(j=>j.ref===r.id));if(source)issue({kind:'gather',source:source.id});}
+  }
+  if(active.length>1)for(const j of active.slice(1))issue({kind:'work',job:j.id,action:'suspend'});
+ }
  if(w.combat.phase==='combat'){
   for(const p of w.people.filter(p=>p.life==='alive'&&p.id<6&&w.combat.orders.some(o=>o.actor===p.id)))issue({kind:'battle',actor:p.id,mode:'release',target:{x:p.x,y:p.y}});
   if(w.tick%20===0){
@@ -42,6 +55,14 @@ function maintain(){
     const p=w.people.find(p=>p.id===actor);if(p.life!=='alive')continue;const order=w.combat.orders.find(o=>o.actor===actor);
     if(p.body.health<50){if(order?.mode!=='shelter')issue({kind:'battle',actor,mode:'shelter',target:{x:61,y:65}});continue;}
     if(order&&['strike','drain','cut','ignite'].includes(order.mode)&&bossCounterReason(w,order.mode,order.target)===null)continue;
+    // Keep the counter worker at the announced valve while the escort comes
+    // into tower range; chasing an entry-edge boss abandons colony cover.
+    if(boss&&encounter.kind==='sluice'&&!specials.has('feast')){
+     const valve=w.bosses.features.find(f=>f.owner===boss.id&&f.kind==='valve');
+     const target=actor===6&&valve?{x:valve.x,y:valve.y}:{x:62,y:62};
+     if(!order||order.mode!==(actor===6?'shelter':'rally')||order.target.x!==target.x||order.target.y!==target.y)issue({kind:'battle',actor,mode:actor===6?'shelter':'rally',target});
+     continue;
+    }
     let feature=null,mode=null;
     if(boss&&actor===6){
      if(encounter.kind==='bellkeeper'&&specials.has('ring')){feature=w.bosses.features.filter(f=>f.owner===boss.id&&f.kind==='resonator').sort((a,b)=>distance(p,a)-distance(p,b)||a.id-b.id)[0];mode='strike';}
