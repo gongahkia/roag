@@ -111,7 +111,18 @@ test('ordinary colony gathers, builds and reloads finite defenses; survives a sa
   await page.getByRole('button', { name: '1×', exact: true }).click();
   await expect(page.locator('#raiders li')).not.toHaveCount(0);
   await page.locator('#raiders li button').first().click();
-  await expect(page.locator('#attack-summary')).toContainText('impact in', { timeout: 90000 }); await pause(page);
+  // Keep the native Pause button focused before watching the short telegraph. Scrolling
+  // from the enemy list to click it can consume the entire three-tick windup.
+  let observedAttack: Save | null = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await resume(page); await page.locator('#pause').focus();
+    await expect(page.locator('#attack-summary')).toContainText('impact in', { timeout: 90000 });
+    await page.keyboard.press('Enter'); await expect(page.locator('#clock-status')).toHaveText('Paused');
+    const observed = await snapshot(page, info, `mid-wave-pause-attempt-${attempt}`);
+    if (observed.world.combat.attacks.length) { observedAttack = observed; break; }
+    expect(observed.world.combat.phase).toBe('combat');
+  }
+  expect(observedAttack, 'Native pause captures a pending attack before impact').not.toBeNull();
   const midWave = await snapshot(page, info, 'mid-wave-before-real-reload');
   expect(midWave.world.combat.phase).toBe('combat'); expect(midWave.world.combat.raiders.length).toBeGreaterThan(0);
   expect(midWave.world.combat.attacks.length).toBeGreaterThan(0);
