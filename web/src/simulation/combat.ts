@@ -146,7 +146,7 @@ export function prepareCombat(w: World): void {
 function launch(w: World,source: CombatRef,origin: Cell,target: Cell,kind: Attack['kind'],faction: Attack['faction'],amount: number,delay: number,extra?:{cells?:Cell[];recipient?:number}): boolean {
   if(w.combat.attacks.length>=C.maxAttacks||w.combat.attacks.some(a=>a.source.kind===source.kind&&a.source.id===source.id))return false;
   const cells=extra?.cells??(kind==='bolt'||kind==='arrow'?shotCells(w,origin,target):[{x:target.x,y:target.y}]);if(!cells.length)return false;
-  w.combat.attacks.push({id:w.nextId++,kind,source:{...source},origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:cells.map(c=>({...c})),due:w.tick+delay,damage:amount,faction,recipient:extra?.recipient??null});w.combat.attacks.sort((a,b)=>a.due-b.due||a.id-b.id);recordBossNoise(w,origin);return true;
+  w.combat.attacks.push({id:w.nextId++,kind,source:{...source},origin:{x:origin.x,y:origin.y},target:{x:target.x,y:target.y},cells:cells.map(c=>({...c})),due:w.tick+delay,damage:amount,faction,recipient:extra?.recipient??null});w.combat.attacks.sort((a,b)=>a.due-b.due||a.id-b.id);if(faction==='colony')recordBossNoise(w,origin);return true;
 }
 function defenses(w: World): void {
   w.combat.defenses=w.combat.defenses.filter(d=>w.structures.some(s=>s.id===d.structure&&(s.kind==='tower'||s.kind==='trap')));
