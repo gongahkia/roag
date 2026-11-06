@@ -112,18 +112,36 @@ public sealed partial class WorldSession
     public WorldRoomId? CampaignBossRoomAt(WorldPosition p) => SnapshotCampaignBossRoomAt(State, p);
     public static WorldRoomId? SnapshotCampaignBossRoomAt(WorldState world, WorldPosition p)
     {
-        var arena = world.Tactics?.CampaignBosses?.Arenas.FirstOrDefault(a => a.Contains(p));
-        return arena == null ? null : new(RoomArea.Dungeon, checked(1000 + (int)arena.Id), p.Floor, 1);
+        if (world.Tactics?.CampaignBosses is not { Arenas.Count: > 0 } store) return null;
+        for (int i = 0; i < store.Arenas.Count; i++)
+            if (store.Arenas[i] is { } arena && arena.Contains(p))
+                return new(RoomArea.Dungeon, checked(1000 + (int)arena.Id), p.Floor, 1);
+        return null;
     }
     public CampaignBossFixture? CampaignBossFixtureAt(WorldPosition p)
     {
         if (State.Tactics?.CampaignBosses is not { Arenas.Count: > 0 } store) return null;
-        return store.Arenas.FirstOrDefault(a => a.Contains(p))?.Fixtures.FirstOrDefault(f => f.Health > 0 && f.Position == p);
+        // These queries run for every collision/pathfinding probe. Avoid captured
+        // predicates even before the absent-state guard, and never allocate props.
+        for (int i = 0; i < store.Arenas.Count; i++)
+        {
+            var arena = store.Arenas[i];
+            if (!arena.Contains(p)) continue;
+            for (int j = 0; j < arena.Fixtures.Count; j++)
+            {
+                var fixture = arena.Fixtures[j];
+                if (fixture.Health > 0 && fixture.Position == p) return fixture;
+            }
+        }
+        return null;
     }
+    private static readonly WorldObject[] CampaignBossObjectTemplates = Enum.GetValues<CampaignBossFixtureKind>()
+        .Select(static kind => new WorldObject(TacticalCombat.CampaignBossFixtureName(kind), CampaignBossFixtureSprite(kind),
+            "campaign-boss-fixture", kind is not (CampaignBossFixtureKind.Valve or CampaignBossFixtureKind.ReelLine))).ToArray();
     internal WorldObject? CampaignBossObjectAt(WorldPosition p)
     {
         var fixture = CampaignBossFixtureAt(p);
-        return fixture == null ? null : new(TacticalCombat.CampaignBossFixtureName(fixture.Kind), CampaignBossFixtureSprite(fixture.Kind), "campaign-boss-fixture", fixture.Solid);
+        return fixture == null ? null : CampaignBossObjectTemplates[(int)fixture.Kind];
     }
     internal static string CampaignBossFixtureSprite(CampaignBossFixtureKind kind) => kind switch
     {

@@ -101,6 +101,30 @@ public sealed class CampaignBossTests
         }
     }
 
+    [Theory]
+    [InlineData(CampaignBossKind.Bellkeeper)]
+    [InlineData(CampaignBossKind.SluiceMaw)]
+    [InlineData(CampaignBossKind.Threadmother)]
+    [InlineData(CampaignBossKind.OssuaryCaptain)]
+    public void LiveBossFixturesKeepCollisionProbesAllocationFree(CampaignBossKind kind)
+    {
+        using var a = new Encounter(kind);
+        if (kind is CampaignBossKind.Threadmother or CampaignBossKind.OssuaryCaptain)
+            a.Resolve(a.Cast(kind == CampaignBossKind.Threadmother ? 0 : 1));
+        Assert.NotEmpty(a.Arena.Fixtures);
+        for (int i = 0; i < 20; i++)
+            foreach (var fixture in a.Arena.Fixtures) { a.World.ObjectAt(fixture.Position); a.World.GroundOpen(fixture.Position); }
+        long start = GC.GetAllocatedBytesForCurrentThread(); int checksum = 0;
+        for (int i = 0; i < 1000; i++)
+            foreach (var fixture in a.Arena.Fixtures)
+            {
+                if (a.World.ObjectAt(fixture.Position) != null) checksum++;
+                if (a.World.GroundOpen(fixture.Position)) checksum++;
+            }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - start;
+        Assert.InRange(allocated, 0, 1024); Assert.True(checksum > 0);
+    }
+
     [Fact]
     public void InitialMaterializationRejectsObservedEditedOverlappingAndOccupiedGroundWithoutMutation()
     {
