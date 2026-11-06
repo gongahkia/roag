@@ -12,7 +12,7 @@ public sealed record DungeonFloorBlueprint(int Branch, int Stage, DungeonLayout 
     public DungeonFloorState Describe(long boss = 0) => new(Stage, Layout.Biome, Origin, Layout.Width, Layout.Height,
         Layout.Rooms.Select(r => new DungeonRoomSite(r.Index, r.Shape.Id, Origin.Offset(r.X, r.Y),
             r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror, r.Role, Layout.CriticalRooms.Contains(r.Index))).ToArray(),
-        Entry, Exit, boss);
+        Entry, Exit, boss, Branch);
 
     public WorldRoomId? RoomAt(WorldPosition position, int place)
     {
@@ -69,7 +69,7 @@ public static class DungeonComplexPlanner
         var origin = new WorldPosition(parcel.X + (parcel.Width - map.Width) / 2, parcel.Y + (parcel.Height - map.Height) / 2, 7);
         var finale = new DungeonFloorState(4, DungeonRunState.FinaleBiome, origin, map.Width, map.Height,
             [new(0, map.Id, origin, map.Width, map.Height, 0, false)],
-            origin.Offset(map.StartX - 1, map.StartY - 1), origin.Offset(map.BossX - 1, map.BossY - 1));
+            origin.Offset(map.StartX - 1, map.StartY - 1), origin.Offset(map.BossX - 1, map.BossY - 1), Branch: DungeonComplexBlueprint.FinalBranch);
         return new(parcel, seed, floors.ToArray(), finale, links.ToArray());
 
         void AddPair(int stage, string biome, int slot)

@@ -1,5 +1,6 @@
 using Roag.Core.World;
 using Roag.Core.Tactics;
+using System.Text.Json.Serialization;
 
 namespace Roag.Core.Dungeons;
 
@@ -10,10 +11,18 @@ public sealed record DungeonRoomSite(int Index, string Definition, WorldPosition
         && p.Y >= Origin.Y && p.Y < Origin.Y + Height;
 }
 public sealed record DungeonFloorState(int Stage, string Biome, WorldPosition Origin, int Width, int Height,
-    DungeonRoomSite[] Rooms, WorldPosition Entry, WorldPosition Exit, long Boss = 0)
+    DungeonRoomSite[] Rooms, WorldPosition Entry, WorldPosition Exit, long Boss = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int Branch = 0)
 {
     public bool Contains(WorldPosition p) => p.Floor == Origin.Floor && p.X >= Origin.X && p.X < Origin.X + Width
         && p.Y >= Origin.Y && p.Y < Origin.Y + Height;
+
+    public WorldRoomId? RoomAt(WorldPosition position, int place = 0)
+    {
+        if (!Contains(position)) return null;
+        var room = Rooms.FirstOrDefault(r => r.Contains(position));
+        return room == null ? null : new(RoomArea.Dungeon, place, position.Floor, Branch * 16 + room.Index + 1);
+    }
 }
 
 public sealed record DungeonRecruit(long Actor, ClassKind Class);
@@ -39,11 +48,10 @@ public sealed class DungeonRunState
         return false;
     }
     public static long CellKey(WorldPosition p) => (long)p.Floor * WorldPlan.Size * WorldPlan.Size + (long)p.Y * WorldPlan.Size + p.X;
-    public WorldRoomId? RoomAt(WorldPosition p)
+    public WorldRoomId? RoomAt(WorldPosition p, int place = 0)
     {
-        var floor = Floors.FirstOrDefault(f => f.Origin.Floor == p.Floor);
-        var room = floor?.Rooms.FirstOrDefault(r => r.Contains(p));
-        return room == null ? null : new(RoomArea.Dungeon, 0, p.Floor, room.Index + 1);
+        var floor = Floors.FirstOrDefault(f => f.Contains(p));
+        return floor?.RoomAt(p, place);
     }
 
     internal void Validate(WorldPlan plan, WorldState world, IReadOnlyDictionary<long, Actor> actors)
@@ -79,7 +87,7 @@ public sealed class DungeonRunState
             int expectedStage = finale ? 4 : (floor.Origin.Floor + 1) / 2;
             string expectedBiome = finale ? FinaleBiome : expectedStage == 1 ? DungeonCatalog.Default.Biomes[0].Id
                 : RouteHistory.ElementAtOrDefault(expectedStage - 2)?.Replace("core:route/", "core:biome/", StringComparison.Ordinal) ?? "";
-            if (floor.Origin.Floor is < 1 or > 7 || floor.Stage != expectedStage || floor.Biome != expectedBiome
+            if (floor.Branch != 0 || floor.Origin.Floor is < 1 or > 7 || floor.Stage != expectedStage || floor.Biome != expectedBiome
                 || floor.Width != (finale ? 23 : 140) || floor.Height != (finale ? 17 : 90) || !plan.Contains(floor.Origin)
                 || !plan.Contains(floor.Origin.Offset(floor.Width - 1, floor.Height - 1)) || !floor.Contains(floor.Entry) || !floor.Contains(floor.Exit)
                 || floor.Rooms == null || (finale ? floor.Rooms.Length != 1 : floor.Rooms.Length is < 8 or > 12)

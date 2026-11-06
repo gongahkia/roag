@@ -36,6 +36,7 @@ public sealed class DungeonComplexBlueprintTests
                     var identity = floor.RoomAt(room.Origin, parcel.Id);
                     Assert.NotNull(identity); Assert.True(identities.Add(identity.Value));
                     Assert.Equal(parcel.Id, identity.Value.Place);
+                    Assert.Equal(identity, metadata.RoomAt(room.Origin, parcel.Id));
                 }
                 foreach (var other in blueprint.Floors.Where(f => f != floor && f.Origin.Floor == floor.Origin.Floor))
                     Assert.True(metadata.Origin.X + metadata.Width <= other.Origin.X || other.Origin.X + other.Layout.Width <= metadata.Origin.X
@@ -60,5 +61,28 @@ public sealed class DungeonComplexBlueprintTests
             }
         }
         Assert.Equal(before, JsonSerializer.Serialize(plan));
+    }
+
+    [Fact]
+    public void PhysicalRoomIdsSelectTheActualRegionAndPlaceAndSurviveMetadataRoundTrip()
+    {
+        var first = new DungeonFloorState(1, "test:first", new(100, 100, 1), 140, 90,
+            [new(0, "test:start", new(110, 110, 1), 7, 7, 0, false)], new(111, 111, 1), new(120, 120, 1));
+        var second = first with
+        {
+            Origin = new(400, 100, 1), Branch = 21, Entry = new(411, 111, 1), Exit = new(420, 120, 1),
+            Rooms = [first.Rooms[0] with { Origin = new(410, 110, 1) }]
+        };
+        var run = new DungeonRunState { Floors = [first, second] };
+        Assert.Equal(new WorldRoomId(RoomArea.Dungeon, 0, 1, 1), run.RoomAt(first.Entry));
+        Assert.Equal(new WorldRoomId(RoomArea.Dungeon, 3, 1, 337), run.RoomAt(second.Entry, 3));
+        Assert.NotEqual(run.RoomAt(second.Entry, 3), run.RoomAt(second.Entry, 4));
+        Assert.Null(run.RoomAt(new(300, 100, 1), 3));
+        Assert.Null(run.RoomAt(second.Entry with { Floor = 2 }, 3));
+        Assert.Null(run.RoomAt(second.Origin, 3)); // A corridor is not a room.
+        var copy = JsonSerializer.Deserialize<DungeonRunState>(JsonSerializer.Serialize(run))!;
+        Assert.Equal(run.RoomAt(second.Entry, 3), copy.RoomAt(second.Entry, 3));
+        // Existing bounded floor JSON retains its original shape and identity.
+        Assert.DoesNotContain("\"Branch\"", JsonSerializer.Serialize(first), StringComparison.Ordinal);
     }
 }
