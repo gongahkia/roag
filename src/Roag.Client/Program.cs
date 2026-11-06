@@ -25,6 +25,7 @@ try
               --skip-intro (enter the selected run directly, bypassing the title menu)
               --new (start over; normal saving/quitting replaces the selected slot)
               --load (require and resume the selected slot)
+              --profile PATH (permanent profile directory; default SAVE.profile)
               --import-legacy PATH (validate/copy an old RPG save and exit)
               --scene world|world-campaign|world-streaming|world-site|world-output|world-supplies|world-occupations|world-habitat|world-migration|world-recovery|world-memories|world-weather|world-routines|world-resources|world-wildlife|world-situation|world-camp|world-discovery|world-battle|world-cooperation|world-boss|world-progression|world-encounters|world-inspector (preview without autosaving)
               --scene town|forest|crypt|battle|victory|atlas (legacy previews)
@@ -168,6 +169,9 @@ finally
             get; private set;
         }
         public string Save { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roag", "campaign.json");
+        private string? _profileDirectory;
+        public string ProfileDirectory => _profileDirectory ?? Save + ".profile";
+        public bool ProfileSpecified => _profileDirectory != null;
         public string? ImportLegacy { get; private set; }
         public string? UiReport { get; private set; }
         public string? SessionRoot { get; private set; }
@@ -192,6 +196,7 @@ finally
                 string Value() => i + 1 < args.Length ? args[++i] : throw new ArgumentException("Missing option value.");
                 switch (args[i])
                 {
+                    case "--profile": o._profileDirectory = Path.GetFullPath(Value()); break;
                     case "--ui-report": o.UiReport = Path.GetFullPath(Value()); break;
                     case "--session-root": o.SessionRoot = Path.GetFullPath(Value()); break;
                     case "--no-recording": o.NoRecording = true; break;
@@ -277,7 +282,10 @@ finally
                 string relative = Path.GetRelativePath(playtest, o.Save);
                 if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                     throw new ArgumentException("Automated playtest saves must stay inside the isolated control directory.");
-                foreach (string target in new[] { o.Save, o.Save + ".chunks" })
+                string profileRelative = Path.GetRelativePath(playtest, o.ProfileDirectory);
+                if (Path.IsPathRooted(profileRelative) || profileRelative == ".." || profileRelative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    throw new ArgumentException("Automated playtest profiles must stay inside the isolated control directory.");
+                foreach (string target in new[] { o.Save, o.Save + ".chunks", o.ProfileDirectory })
                 {
                     string? current = target;
                     while (current != null && current.Length >= playtest.Length)

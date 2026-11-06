@@ -11,7 +11,15 @@ internal static class WorldStartup
         int seed = options.SeedSpecified || options.Preview ? options.Seed : FreshSeed();
         var session = resume ? Resume(options, native, diagnostics) : native
             ? options.NativeCampaignLaunch ? WorldSession.CreateNativeCampaign(seed) : WorldSession.CreateDungeonRun(seed, survival: true) : WorldSession.Create(seed, diagnostics: diagnostics);
-        if (session is WorldSession nativeWorld && native) nativeWorld.DiagnosticSink = diagnostics;
+        if (session is WorldSession nativeWorld && native)
+        {
+            nativeWorld.DiagnosticSink = diagnostics;
+            if (!resume && (!options.Preview || options.PlaytestDirectory != null || options.ProfileSpecified))
+            {
+                try { nativeWorld.EnablePermanentProfile(options.Save, options.ProfileDirectory); }
+                catch { nativeWorld.Dispose(); throw; }
+            }
+        }
         if (session is WorldSession world) world.Paused = options.Preview;
         return (session, resume);
     }
@@ -20,7 +28,9 @@ internal static class WorldStartup
     {
         try
         {
-            var session = SessionStore.Load(options.Save, diagnostics);
+            var session = native && SessionStore.Format(options.Save) is "roag-world" or "vagabonds-world"
+                ? WorldSession.Load(options.Save, diagnostics: diagnostics, profileDirectory: options.ProfileDirectory)
+                : SessionStore.Load(options.Save, diagnostics);
             if (native && session is not WorldSession { HasNativeParty: true })
             {
                 (session as IDisposable)?.Dispose();

@@ -17,6 +17,7 @@ public static class TacticalValidation
         if (state.NextAction < 1 || state.NextEvent < 1 || state.RandomState <= 0 || state.RandomState >= RoagRandom.Modulus
             || state.Participants is null || state.Attacks is null || state.Events is null || state.Events.Count > 512)
             throw new InvalidDataException("Invalid tactical world header.");
+        state.Profile?.Validate(state, world.NextActorId);
         var queue = ActionTimeline.Restore(state.Timeline).Snapshot();
         world.NativeCampaign?.Validate(plan, world, world.Actors.ToDictionary(a => a.Id));
         if (state.Tuning is null) throw new InvalidDataException("Missing tactical tuning.");

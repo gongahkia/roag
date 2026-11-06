@@ -49,7 +49,19 @@ The profile freezes its reward snapshot when a fresh campaign is enrolled. Exist
 - `WorldSession.FlushPermanentProfile()`: flush actual earned outcomes; ordinary successful party commands call it after the full action and scheduled consequences settle.
 - `WorldSession.Load(..., profileDirectory = null)`: validates the independent continuing profile only when optional native progress exists.
 - `WorldSession.RecordDungeonEntry(member, stage, sanctum = false)`: root calls on actual committed physical member arrival, using that floor's stage. The bounded stairs implementation derives the actual floor directly. Do not call for camera selection, route opening or global complex advancement.
-- `WorldSession.RecordPursuerArrival(pursuer)`: root calls only after special-site arrival; it checks an actual living `core:enemy/dread_pursuer`.
+- `WorldSession.RecordPursuerArrival(pursuer)`: root calls only after special-site arrival; it checks an actual living `core:enemy/extraction_pursuer`.
 - `WorldSession.RecordCampaignVictory(boss)`: root calls after settling actual selected-final-role victory in Endgame. The hook checks selected identity/dead body/living survivor and awards Regent's Fall only for Hollow Regent. Other selected final bosses do not masquerade as the Regent.
 
 Source/profile-specific tests and evidence are being prepared; no compile/test/rendered pass or finished item-20 integration is claimed yet. Root remains responsible for the above new-world entry, special-site and selected-final settlement call sites after combining streams. Full solo/four-party campaign journeys and refreshed Linux delivery remain mandatory.
+
+## Initial focused backend evidence
+
+`c9b0d654` records the catalog/store/types inventory. The subsequent hook/client/test implementation compiled all projects and passed **17 focused tests, zero failures/skips**, terminal exit 0, test duration 7s. Evidence retained inside this worktree at `artifacts/migration/verification/native-profile/focused-v1.{trx,log}` and `focused-v1-build.json`, including actual source/runner SHA-256 inventories, base/HEAD/dirty source status and SDK **10.0.402**. This is focused backend evidence only.
+
+Exact command (all automation muted, ample temp directory):
+
+```sh
+TMPDIR=/home/gongahkia/.cache/roag-tests-tmp ALSOFT_DRIVERS=null SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1 ./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj --filter 'FullyQualifiedName~NativeProfileStoreTests|FullyQualifiedName~DungeonTerrainTests.CommittedSecretAwards|FullyQualifiedName~DungeonTerrainTests.ActualPaidAttackObserves|FullyQualifiedName~DungeonTerrainTests.DifferentMembersAndUnrelated|FullyQualifiedName~DungeonTerrainTests.FinalDeathRetainsAwards|FullyQualifiedName~DungeonTerrainTests.OldNativeSavesRemain|FullyQualifiedName~DungeonTerrainTests.MissingProfileRejects|FullyQualifiedName~DungeonTerrainTests.EntryBadgesRequire' --logger 'trx;LogFileName=focused-v1.trx' --results-directory artifacts/migration/verification/native-profile
+```
+
+These cases verify pinned original inventory, actual paid secret/attack observations, frozen pools, no time/RNG change, partial per-member causal saves, failed terminal manifest with retained awards/tombstone, fresh world retention, exact ordinary continuing saves, missing-profile refusal and absence of old-save conversion. Causal noncombination cases explicitly inject unit-event inputs into the observer; they are not represented as rendered gameplay. Storage fault tests use in-memory isolated records; lifecycle tests use unique temporary directories. No real user profile/save paths are used.

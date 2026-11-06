@@ -80,6 +80,11 @@ public sealed partial class WorldSession
                     : "Abandonment could not be saved. Use Save to record this death before starting a fresh run.");
             }
         }
+        if (result.Success && !State.AwaitingContinuation)
+        {
+            try { FlushPermanentProfile(); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Diagnose("profile-save-failed", new { e.Message }); return new(true, "Progress could not be saved. Use Save to retry before starting a fresh run."); }
+        }
         return result.Success && State.AwaitingContinuation ? new(true, "You have fallen. Begin a fresh run.") : result;
     }
 

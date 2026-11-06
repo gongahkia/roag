@@ -118,7 +118,7 @@ internal sealed partial class WorldGame
             if (_panel == "title-new-confirm")
             {
                 Text("START A NEW RUN?", card.X + 34, card.Y + 192, Gold);
-                Wrap("Your current character, build and dungeon will be replaced in the continuing save slot.", card.X + 34, card.Y + 220, card.Width - 68, Muted);
+                Wrap("Your current character, build and dungeon will be replaced in the continuing save slot. Permanent achievements and unlocked boons are kept.", card.X + 34, card.Y + 220, card.Width - 68, Muted);
             }
             else
             {
@@ -129,6 +129,7 @@ internal sealed partial class WorldGame
                     : $"{ClassCatalog.Get(hero.Tactics!.Build!.Class).Name} / level {hero.Level} / {place}"
                     : "Fifteen classes. Find your next build.";
                 Text(Short(detail, (card.Width - 68) / (_uiFonts?.Advance ?? 8)), card.X + 34, card.Y + 450, Muted);
+                if (_session.HasPermanentProfile) Text($"{_session.PermanentAchievements.Count}/22 achievements / {Roag.Core.Profiles.AchievementCatalog.Rewards(_session.PermanentAchievements).Length}/4 unlocks", card.X + 34, card.Y + 480, Gold);
             }
             Text("Arrows select / Enter confirms", card.X + 34, card.Bottom - 34, Muted);
         }

@@ -156,6 +156,8 @@ public sealed class TacticalWorldState
     public CampTuning Camp { get; set; } = new();
     public RescueTuning Rescue { get; set; } = new();
     public TacticalLootState Loot { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Roag.Core.Profiles.CampaignProgress? Profile { get; set; }
     public TacticalChestState Chests { get; set; } = new();
     public DungeonServiceState Services { get; set; } = new();
     public TacticalDoorState Doors { get; set; } = new();

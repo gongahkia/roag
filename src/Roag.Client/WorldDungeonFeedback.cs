@@ -48,7 +48,7 @@ internal sealed partial class WorldGame
             "WindupStarted" or "EliteEngaged" or "ElitePhaseChanged" or "RegentPhaseChanged" => "enemy", "DamageTaken" when _session.State.Party.Contains(e.Target) => "hit",
             "AttackPerformed" when _session.State.Party.Contains(e.Source) => "attack",
             "DamageTaken" => "hit", "BoonGranted" or "VaultOpened" or "WorldLootClaimed" => "chest",
-            "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" => "boon",
+            "BoonActivated" or "StatIncreased" or "SecretDiscovered" or "SidequestCompleted" or "AchievementEarned" => "boon",
             "CampFireLit" or "CampFireExtinguished" => "terrain", "CampAlarm" => "enemy", "ActivityStopped" => "menu", "Revived" => "boon", "Recruited" or "RescueNoticed" => "menu",
             "DoorOpened" or "VaultKeyCollected" or "FloorChanged" or "CurrencyCollected" => "menu",
             "FoodEaten" or "ProvisionsCollected" => "menu", "StarvationDamage" => "hit", "RetainedSkillUsed" => "boon",
@@ -68,6 +68,7 @@ internal sealed partial class WorldGame
             "Revived" => "REVIVED +" + e.Amount, "Recruited" => "JOINED", "AllyCovered" => "COVER " + e.Amount, "RescueNoticed" => "AID",
             "EliteEngaged" => "BOSS", "ElitePhaseChanged" or "RegentPhaseChanged" => "PHASE 2", "Victory" => "VICTORY",
             "SupplyCollected" when e.Ability == "ability.medicine" || _session.State.Tactics!.Events.Any(p => p.Kind == "FoodEaten" && p.Action == e.Action && p.Source == e.Source) => null,
+            "AchievementEarned" => "ACHIEVEMENT",
             "BoonActivated" => "BOON", "SupplyCollected" => "HEAL", "CurrencyCollected" => "+" + e.Amount + " GOLD", _ => null
         };
         var source = _session.State.Actors.FirstOrDefault(a => a.Id == e.Source);

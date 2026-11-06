@@ -25,6 +25,7 @@ public sealed partial class WorldSession
     private static readonly JsonSerializerOptions SaveOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = false, RespectRequiredConstructorParameters = true };
     public void Save(string path)
     {
+        PreparePermanentProfileSave();
         CaptureRoagRules();
         path = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -40,6 +41,7 @@ public sealed partial class WorldSession
         var state = JsonSerializer.SerializeToNode(State, SaveOptions)!.AsObject(); state.Remove("chunks");
         WriteAtomic(path, JsonSerializer.SerializeToUtf8Bytes(new Manifest(Plan.RoagNative || HasNativeParty ? "roag-world" : "vagabonds-world", 3, Content.Hash, Plan, state, refs), SaveOptions));
         PruneSaveSnapshots(directory, refs);
+        CommitPermanentProfileCheckpoint();
         SavePath = path; DeathPending = false;
         Diagnose("save", new { path, chunks = refs.Count });
     }
@@ -73,7 +75,7 @@ public sealed partial class WorldSession
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    public static WorldSession Load(string path, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null)
+    public static WorldSession Load(string path, ContentCatalog? content = null, Action<WorldDiagnosticEvent>? diagnostics = null, string? profileDirectory = null)
     {
         var catalog = content ?? ContentCatalog.Default;
         if (catalog.Issues.Count > 0) throw new InvalidDataException("Cannot load with invalid content.");
@@ -132,6 +134,7 @@ public sealed partial class WorldSession
                 || duty.Cost.Any(y => order.Reserved.GetValueOrDefault(catalog.Get<ItemDefinition>(y.Key).Stack) != y.Value))
                 throw new InvalidDataException("Invalid camp duty.");
         }
+        session.RestorePermanentProfile(path, profileDirectory);
         session.RestorePartyFormation();
         session.PrepareLocalCollision(force: true); session.RefreshVisibility(remember: false);
         return session;

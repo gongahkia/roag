@@ -104,6 +104,7 @@ internal sealed partial class WorldGame
                 Add("dungeon:service-confirm", "Replace carried utility", new(box.X + 28, box.Y + 210, 290, 42));
                 Add("dungeon:service-back", "Keep current utility", new(box.X + 334, box.Y + 210, 260, 42));
             }
+            else if (_panel == "dungeon-profile") BuildPermanentProfileControls(box);
             else if (_panel == "dungeon-boons")
             {
                 int count = _session.DungeonMember.Tactics!.Boons.Inventory.Stacks.Count;
@@ -118,7 +119,8 @@ internal sealed partial class WorldGame
                 int columns = (box.Width - 80) / 2;
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 5 * (columns + 24), box.Y + 80 + i % 5 * 60, columns, 44),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
-                Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, box.Width - 56, 44));
+                Add("dungeon:work", "Work / J", new(box.X + 28, box.Y + 392, columns, 44));
+                Add("dungeon:profile", "Achievements and unlocks", new(box.X + 52 + columns, box.Y + 392, columns, 44));
                 Add("dungeon:skills", "Unlocked skills / L", new(box.X + 28, box.Y + 446, columns, 44));
                 Add("dungeon:trade", "Town trade", new(box.X + 52 + columns, box.Y + 446, columns, 44));
             }
@@ -178,6 +180,9 @@ internal sealed partial class WorldGame
             case "map": ToggleDungeonMap(); break;
             case "guide": _panel = "dungeon-guide"; break;
             case "settings": _panel = "dungeon-settings"; break;
+            case "profile": _profilePage = 0; _panel = "dungeon-profile"; break;
+            case "profile-prev": _profilePage = Math.Max(0, _profilePage - 1); break;
+            case "profile-next": _profilePage = Math.Min(7, _profilePage + 1); break;
             case "title": TrySave(); if (_notice == "World saved.") OpenTitleScreen(); break;
             case "setting": ChangeDungeonPreference(parts[2]); break;
             case "new-question": _panel = "dungeon-new-confirm"; break;
@@ -465,6 +470,7 @@ internal sealed partial class WorldGame
     {
         var box = PanelBox(w, h); Fill(box, Panel); int x = box.X + 24, y = box.Y + 20;
         string title = _panel switch { "dungeon-class" => "CHOOSE A FIXED CLASS", "dungeon-chest" => "CHOOSE A BOON", "dungeon-boons" => "YOUR BOONS", "dungeon-guide" => "CONTROLS", "dungeon-routes" => "OPEN A PHYSICAL ROUTE", "dungeon-utility" => "CARRIED UTILITY", "dungeon-service" => "FINITE SERVICE", "dungeon-service-replace" => "EXCHANGE CARRIED UTILITY", "dungeon-settings" => "PRESENTATION SETTINGS", _ => "MENU" };
+        if (_panel == "dungeon-profile") title = "PERMANENT ACHIEVEMENTS";
         if (_panel == "dungeon-party") title = "PARTY AND RESCUE";
         if (_panel is "dungeon-gear" or "dungeon-gear-detail") title = "EQUIPMENT AND SHARED PACK";
         if (_panel == "dungeon-cooperate") title = "COOPERATIVE ABILITIES";
@@ -480,6 +486,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
         Text(title, x, y, Gold, 1.3f); y += 48;
+        if (_panel == "dungeon-profile") { DrawPermanentProfile(box, x, y); return; }
         if (_panel == "dungeon-party") { DrawDungeonPartyPanel(box, x, y); return; }
         if (_panel == "dungeon-gear") { DrawDungeonGearPanel(box, x, y); return; }
         if (_panel == "dungeon-gear-detail") { DrawDungeonGearDetail(box, x, y); return; }
@@ -502,7 +509,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-new-confirm")
         {
             Text("START A NEW RUN?", x, y, Gold); y += 32;
-            Wrap("Your current character, build and dungeon will be replaced in the continuing save slot. Presentation settings are kept.", x, y, box.Width - 48, Muted);
+            Wrap("Your current character, build and dungeon will be replaced in the continuing save slot. Permanent achievements, unlocked boons and presentation settings are kept.", x, y, box.Width - 48, Muted);
         }
         if (_panel == "dungeon-settings")
         {

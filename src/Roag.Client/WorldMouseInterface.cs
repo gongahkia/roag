@@ -56,9 +56,20 @@ internal sealed partial class WorldGame
     private void NewWorld()
     {
         if (_session.DeathPending) { _notice = "Save the recorded deaths before starting another world."; return; }
-        var replacement = _session.State.NativeCampaign != null ? WorldSession.CreateNativeCampaign(WorldStartup.FreshSeed())
-            : _session.HasNativeParty ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
-            : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
+        WorldSession? replacement = null;
+        try
+        {
+            if (_session.HasPermanentProfile) _session.Save(_options.Save);
+            replacement = _session.State.NativeCampaign != null ? WorldSession.CreateNativeCampaign(WorldStartup.FreshSeed())
+                : _session.HasNativeParty ? WorldSession.CreateDungeonRun(WorldStartup.FreshSeed(), survival: true)
+                : WorldSession.Create(WorldStartup.FreshSeed(), diagnostics: _session.DiagnosticSink);
+            if (_session.HasPermanentProfile || replacement.HasNativeParty && (_options.PlaytestDirectory != null || _options.ProfileSpecified || !_options.Preview))
+                replacement.EnablePermanentProfile(_options.Save, _session.ProfileDirectory ?? _options.ProfileDirectory);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            replacement?.Dispose(); _notice = "Could not begin a fresh world: " + e.Message; return;
+        }
         _session.Dispose(); _session = replacement; _streamPosition = null; _streamDx = _streamDy = 0; ResetCombatPresentation(); ClearWorldSelection(); if (_autoSave) _session.SavePath = _options.Save;
         _session.Paused = _options.Preview;
         _recording?.Record("new-world", new { _session.Seed }); RecordSnapshot();
@@ -584,6 +595,7 @@ internal sealed partial class WorldGame
             tick = _session.State.Tick, position = new { x = _session.State.Position.X, y = _session.State.Position.Y, floor = _session.State.Position.Floor },
             nativeDungeon = !_session.HasNativeParty ? null : new
             {
+                profile = _session.State.Tactics?.Profile == null ? null : new { earned = _session.PermanentAchievements.Order().ToArray(), run = _session.State.Tactics.Profile.Run, pending = _session.State.Tactics.Profile.Pending.Order().ToArray() },
                 stage = _session.State.Dungeon?.Stage ?? 0, victory = _session.State.Dungeon?.Victory ?? _session.State.Endgame.Victory,
                 campaign = _session.State.NativeCampaign != null, calendar = _session.CalendarDescription, clock = _session.DungeonCombat.Clock,
                 activeActor = _session.State.Tactics!.ActiveActor,

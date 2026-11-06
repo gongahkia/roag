@@ -18,7 +18,7 @@ public sealed record BoonChestDefinition(string Id, string Name, int Price, int[
 public sealed class TacticalChestState
 {
     public long NextChest { get; set; } = 1;
-    // Profile unlocks are a later tranche. Preserve this run's pool in its save.
+    // Freeze this campaign's original pool plus its starting permanent unlocks.
     public string[] AvailableBoons { get; set; } = BoonCatalog.Original.NormalPool.ToArray();
     public List<BoonChest> Chests { get; set; } = [];
 
@@ -50,7 +50,7 @@ public sealed class TacticalChestState
     internal void Validate(WorldPlan plan, IReadOnlyDictionary<long, Actor> actors)
     {
         if (NextChest <= 0 || AvailableBoons == null || AvailableBoons.Distinct().Count() != AvailableBoons.Length
-            || AvailableBoons.Any(id => !BoonCatalog.Default.NormalPool.Contains(id)) || Chests == null
+            || AvailableBoons.Any(id => !BoonCatalog.Default.NormalPool.Contains(id) && !Roag.Core.Profiles.AchievementCatalog.IsReward(id)) || Chests == null
             || Chests.Select(c => c?.Id).Distinct().Count() != Chests.Count
             || Chests.Select(c => c?.Marker).Distinct(StringComparer.Ordinal).Count() != Chests.Count
             || Chests.Select(c => c?.Position).Distinct().Count() != Chests.Count)

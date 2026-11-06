@@ -754,6 +754,7 @@ public sealed partial class TacticalCombat
             if (routine >= 0) State.Events.RemoveAt(routine);
             else State.Events.RemoveRange(0, State.Events.Count - 512);
         }
+        ObserveProfileEvent(entry, _cause);
         QueueCombatEvent(entry, snapshot, webCuts);
     }
     private static TacticalPreview Invalid(string reason) => new(false, reason, 0, []);

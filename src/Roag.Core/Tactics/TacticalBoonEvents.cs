@@ -174,6 +174,7 @@ public sealed partial class TacticalCombat
                 .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
             State.BoonEffects.Dispatch.Prune(retained);
         }
+        SettleProfileProgress();
     }
 
     private bool HasWaitSubscriber(BoonEvent e)
