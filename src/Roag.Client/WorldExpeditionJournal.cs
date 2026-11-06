@@ -10,12 +10,15 @@ internal sealed partial class WorldGame
     private JournalRow[] ExpeditionJournalRows(int width)
     {
         var entries = new List<(string Text, string Sprite)>();
+        if (_session.CampaignFinale != null) entries.Add(("CAMPAIGN OBJECTIVE / " + _session.FinalObjective, "banner"));
         var entrances = _session.KnownDungeonEntrances();
         entries.Add((entrances.Count == 0 ? "No labyrinth entrances recorded. Ask residents for rumours, or find stairs while exploring."
             : "REPORTED ENTRANCES / Reports mark locations, not explored terrain. Travel there with ordinary paid movement.", "banner"));
         var origin = _session.DungeonMember.Position with { Floor = 0 };
         foreach (var entrance in entrances)
             entries.Add(($"{entrance.Name}: ({entrance.Position.X}, {entrance.Position.Y}), {entrance.Position.Distance(origin)} surface tiles {WorldSession.Direction(origin, entrance.Position)}. Physical stairs lead underground; return by the same stairs.", "banner"));
+        foreach (var special in _session.KnownSpecialDungeons())
+            entries.Add((special.Name + " / " + SpecialDungeonStatus(special) + ". " + special.Warning + " Review it under Menu / Unstable labyrinths.", "banner"));
         entries.AddRange(_session.State.Tasks.Where(t => !t.Complete).Select(t => ("Request: " + t.Description, "banner")));
         entries.Add(("EXPEDITION HISTORY / Newest first", "banner"));
         entries.AddRange(_session.State.Journal.AsEnumerable().Reverse().Select(t => (t, JournalSprite(t))));

@@ -10,6 +10,8 @@ public static class TacticalReferences
         if (world.Tactics is not { } state) return false;
         if (world.Dungeon?.Floors.Any(f => f.Boss == id) == true) return true;
         if (world.NativeCampaign?.Complexes?.Any(c => c.Run.Floors.Any(f => f.Boss == id)) == true) return true;
+        if (world.NativeCampaign?.Complexes?.Any(c => c.Special is { } s
+            && (s.Pursuer == id || s.Reinforcements.Contains(id) || s.Casualties.Contains(id))) == true) return true;
         if (world.Party.Contains(id) || world.Dungeon?.Recruits.Any(r => r.Actor == id) == true) return true;
         if (world.NativeCampaign?.Recruits.Any(r => r.Actor == id) == true) return true;
         if (state.CampaignBosses?.Arenas.Any(a => a.Boss == id) == true

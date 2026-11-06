@@ -98,6 +98,12 @@ public sealed partial class TacticalCombat
             PruneEmbers();
             PruneMirrors();
             PruneOaths();
+            if (work.Kind is ScheduledKind.StagePressure or ScheduledKind.StageDeadline or ScheduledKind.SpecialPursuerArrival)
+            {
+                ResolveSpecialDungeonWork(work);
+                if (_world.State.AwaitingContinuation) return null;
+                continue;
+            }
             if (work.Kind == ScheduledKind.Survival)
             {
                 ResolveSurvival();
@@ -234,6 +240,8 @@ public sealed partial class TacticalCombat
                 return PreviewWorldLoot(actor, intent);
             case TacticalAction.SocialInteraction:
                 return PreviewSocialInteraction(actor, intent);
+            case TacticalAction.ActivateSpecialDungeon:
+                return PreviewSpecialDungeon(actor, intent);
             case TacticalAction.LightCampFire:
             case TacticalAction.ExtinguishCampFire:
                 return PreviewCampFire(actor, intent.Action == TacticalAction.ExtinguishCampFire);
@@ -338,6 +346,8 @@ public sealed partial class TacticalCombat
                     CommitWorldLoot(actor, executed, action); break;
                 case TacticalAction.SocialInteraction:
                     CommitSocialInteraction(actor, executed, action); break;
+                case TacticalAction.ActivateSpecialDungeon:
+                    CommitSpecialDungeon(actor, executed, action); break;
                 case TacticalAction.LightCampFire:
                 case TacticalAction.ExtinguishCampFire:
                     CommitCampFire(actor, executed.Action == TacticalAction.ExtinguishCampFire, action); break;
@@ -516,7 +526,7 @@ public sealed partial class TacticalCombat
     public IReadOnlyList<TacticalTimelineEntry> VisibleTimeline()
     {
         bool Visible(long id) => _world.State.Party.Contains(id) || _world.Visible.Contains(Actor(id).Position);
-        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind != ScheduledKind.Survival).Where(e => e.Kind == ScheduledKind.CampaignBossPulse
+        var actual = State.Queue.Snapshot().Pending.Where(e => e.Kind is not (ScheduledKind.Survival or ScheduledKind.StagePressure or ScheduledKind.StageDeadline or ScheduledKind.SpecialPursuerArrival)).Where(e => e.Kind == ScheduledKind.CampaignBossPulse
             ? State.CampaignBosses?.Pulses.Any(p => p.Schedule == e.Sequence && p.Cells.Any(_world.Visible.Contains)) == true : e.Kind == ScheduledKind.EmberPulse
             ? State.Embers.Any(f => f.Schedule == e.Sequence && _world.Visible.Contains(f.Position)) : e.Kind == ScheduledKind.TerrainCycle
                 ? State.OptionalTerrain.Nodes.Any(n => n.Schedule == e.Sequence && n.Phase == OptionalTerrainPhase.Warning && _world.Visible.Contains(n.Position))

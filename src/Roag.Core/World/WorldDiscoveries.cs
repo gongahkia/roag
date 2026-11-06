@@ -187,9 +187,15 @@ public sealed partial class WorldSession
     {
         var site = Plan.Sites[d.SiteId]; var town = Plan.Towns[d.TownId];
         var guardian = State.Actors.First(a => a.Id == 40000 + site.Id * 8);
-        return Content.Get<DiscoveryDefinition>(d.Definition).Text.Replace("{town}", town.Name).Replace("{faction}", State.Factions[town.FactionId].Name)
+        string text = Content.Get<DiscoveryDefinition>(d.Definition).Text.Replace("{town}", town.Name).Replace("{faction}", State.Factions[town.FactionId].Name)
             .Replace("{site}", site.Name).Replace("{guardian}", guardian.Name).Replace("{witness}", State.Actors.Single(a => a.Id == d.WitnessId).Name)
             .Replace("{direction}", Direction(d.Position, site.Center));
+        if (RetainedGuardianLocation(d.SiteId) is { } home)
+        {
+            var stronghold = Plan.Sites[home.SiteId];
+            text += $" Guardian report: {guardian.Name}'s stronghold is {stronghold.Name} ({stronghold.Center.X}, {stronghold.Center.Y}), depth {home.Spawn.Floor}.";
+        }
+        return text;
     }
     public static string Direction(WorldPosition from, WorldPosition to)
     {

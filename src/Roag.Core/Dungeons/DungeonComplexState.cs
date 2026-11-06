@@ -11,6 +11,8 @@ public sealed record DungeonComplexState(DungeonParcel Parcel, int Seed, Dungeon
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool KnownEntrance { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SpecialDungeonState? Special { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DungeonComplexRoutes? Routes { get; set; }
     public bool Contains(WorldPosition position) => position.Floor is >= 1 and <= 7 && Parcel.Contains(position);
 

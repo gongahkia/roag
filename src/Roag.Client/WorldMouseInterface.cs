@@ -596,6 +596,7 @@ internal sealed partial class WorldGame
             nativeDungeon = !_session.HasNativeParty ? null : new
             {
                 profile = _session.State.Tactics?.Profile == null ? null : new { earned = _session.PermanentAchievements.Order().ToArray(), run = _session.State.Tactics.Profile.Run, pending = _session.State.Tactics.Profile.Pending.Order().ToArray() },
+                specialDungeons = _session.KnownSpecialDungeons(),
                 stage = _session.State.Dungeon?.Stage ?? _session.DungeonFloorAt(_session.State.Position)?.Stage ?? 0,
                 victory = _session.State.Dungeon?.Victory ?? _session.State.Endgame.Victory,
                 campaign = _session.State.NativeCampaign != null, calendar = _session.CalendarDescription, clock = _session.DungeonCombat.Clock,

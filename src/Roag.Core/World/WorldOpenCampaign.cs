@@ -14,6 +14,7 @@ public sealed partial class WorldSession
             foreach (var parcel in DungeonParcelPlanner.Reserve(world.Plan))
                 world.InstallDungeonComplex(DungeonComplexPlanner.Generate(world.Plan, parcel));
             world.PopulateGeneratedCampaign();
+            world.InitializeSpecialDungeons(world.FinalBoss.Id);
             // Construction must not reveal distant entrances/rooms. Recompute
             // only the selected founder's normal private observation.
             world.Reveal();

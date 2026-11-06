@@ -1,6 +1,6 @@
 namespace Roag.Core.Tactics;
 
-public enum ScheduledKind { ActorReady, Impact, Effect, StagePressure, StageDeadline, EmberPulse, Survival, TerrainCycle, FixtureImpact, GateClosure, CampaignBossPulse }
+public enum ScheduledKind { ActorReady, Impact, Effect, StagePressure, StageDeadline, EmberPulse, Survival, TerrainCycle, FixtureImpact, GateClosure, CampaignBossPulse, SpecialPursuerArrival }
 
 public sealed record ScheduledAction(long Sequence, long Due, ScheduledKind Kind, long ActorId,
     bool PlayerControlled, long ReferenceId);

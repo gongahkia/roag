@@ -42,6 +42,7 @@ internal sealed partial class WorldGame
             else if (_panel == "dungeon-work") BuildDungeonWorkControls(box);
             else if (_panel == "dungeon-camp") BuildDungeonCampControls(box);
             else if (_panel == "dungeon-needs") BuildDungeonNeedsControls(box);
+            else if (_panel is "dungeon-specials" or "dungeon-special-confirm") BuildSpecialDungeonControls(box);
             else if (_panel == "dungeon-abandon-confirm") BuildDungeonAbandonControls(box);
             else if (_panel == "dungeon-recruit") BuildDungeonRecruitControls(box);
             else if (_panel == "dungeon-chest-recipient") BuildDungeonChestRecipientControls(box);
@@ -115,8 +116,8 @@ internal sealed partial class WorldGame
             }
             else if (_panel == "dungeon-menu")
             {
-                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "journal", "work", "party", "gear", "cooperate", "needs", "profile", "skills", "trade"];
-                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Expedition journal", "Work / J", "Party and rescue", "Equipment / K", "Cooperation / O", "Survival / N", "Achievements and unlocks", "Unlocked skills / L", "Town trade"];
+                string[] ids = ["classes", "guide", "settings", "new-question", "title", "quit", "journal", "work", "party", "gear", "cooperate", "needs", "profile", "skills", "trade", "specials"];
+                string[] labels = ["Starting class", "Controls and help", "Presentation settings", "Start a new run", "Return to title", "Save and quit", "Expedition journal", "Work / J", "Party and rescue", "Equipment / K", "Cooperation / O", "Survival / N", "Achievements and unlocks", "Unlocked skills / L", "Town trade", "Unstable labyrinths"];
                 int columns = (box.Width - 80) / 2;
                 for (int i = 0; i < ids.Length; i++) Add("dungeon:" + ids[i], labels[i], new(box.X + 28 + i / 8 * (columns + 24), box.Y + 80 + i % 8 * 50, columns, 40),
                     ids[i] != "new-question" || !_session.DeathPending, reason: "Save the recorded death first.");
@@ -179,6 +180,12 @@ internal sealed partial class WorldGame
             case "journal": _expeditionPage = 0; _panel = "dungeon-journal"; break;
             case "journal-prev": _expeditionPage = Math.Max(0, _expeditionPage - 1); break;
             case "journal-next": _expeditionPage++; break;
+            case "specials": _specialDungeonPage = 0; _panel = "dungeon-specials"; break;
+            case "special-prev": _specialDungeonPage = Math.Max(0, _specialDungeonPage - 1); break;
+            case "special-next": _specialDungeonPage++; break;
+            case "special-review": _panel = "dungeon-special-confirm"; break;
+            case "special-cancel": _panel = "dungeon-specials"; break;
+            case "special-activate": ActivateSpecialDungeon(); break;
             case "settings": _panel = "dungeon-settings"; break;
             case "profile": _profilePage = 0; _panel = "dungeon-profile"; break;
             case "profile-prev": _profilePage = Math.Max(0, _profilePage - 1); break;
@@ -395,7 +402,8 @@ internal sealed partial class WorldGame
                 hero.Body.Hunger >= _session.Simulation.StarveAt ? new Color(240, 112, 78) : Muted);
             y += 22;
         }
-        if (_session.State.Dungeon?.Victory == true || _session.State.Endgame.Victory) { Text("REGENT DEFEATED", x, y, Gold); y += 24; }
+        if (_session.State.Dungeon?.Victory == true || _session.State.Endgame.Victory)
+        { Text(_session.CampaignFinale != null ? "CAMPAIGN VICTORY" : "REGENT DEFEATED", x, y, Gold); y += 24; }
         Text("Aim: " + _roagAim.Replace('_', ' '), x, y, Muted); y += 24;
         var supplies = hero.Tactics.Supplies;
         if (supplies.Utility != null) { Text(UtilityName(supplies.Utility.Kind) + " / U", x, y, Gold); y += 22; }
@@ -486,6 +494,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-work") title = "WORK AND CRAFTING";
         if (_panel == "dungeon-camp") title = "REST AND WATCH";
         if (_panel == "dungeon-needs") title = "SURVIVAL AND PROVISIONS";
+        if (_panel is "dungeon-specials" or "dungeon-special-confirm") title = "UNSTABLE LABYRINTHS";
         if (_panel == "dungeon-abandon-confirm") title = "ABANDON THIS COMPANION?";
         if (_panel == "dungeon-recruit") title = "AN ADVENTURER";
         if (_panel == "dungeon-chest-recipient") title = "CHOOSE THE OPENER";
@@ -504,6 +513,7 @@ internal sealed partial class WorldGame
         if (_panel == "dungeon-work") { DrawDungeonWorkPanel(box, x, y); return; }
         if (_panel == "dungeon-camp") { DrawDungeonCampPanel(box, x, y); return; }
         if (_panel == "dungeon-needs") { DrawDungeonNeedsPanel(box, x, y); return; }
+        if (_panel is "dungeon-specials" or "dungeon-special-confirm") { DrawSpecialDungeons(box, x, y); return; }
         if (_panel == "dungeon-abandon-confirm") { DrawDungeonAbandonPanel(box, x, y); return; }
         if (_panel == "dungeon-recruit") { DrawDungeonRecruitPanel(box, x, y); return; }
         if (_panel == "dungeon-chest-recipient")

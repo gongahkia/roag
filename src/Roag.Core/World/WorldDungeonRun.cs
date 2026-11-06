@@ -105,6 +105,7 @@ public sealed partial class WorldSession
             "use_stairs" => TacticalAction.UseStairs, "claim_chest" => TacticalAction.ClaimChest, "dungeon_route" => TacticalAction.DungeonRoute,
             "use_utility" => TacticalAction.UseUtility,
             "interact" => TacticalAction.Interact,
+            "activate_special" => TacticalAction.ActivateSpecialDungeon,
             "open_door" => TacticalAction.OpenDoor,
             "open_vault" => TacticalAction.OpenVault,
             "recruit" => TacticalAction.Recruit,

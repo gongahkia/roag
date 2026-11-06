@@ -96,6 +96,7 @@ public static class TacticalValidation
         EnemyEmbers.Validate(plan, world, actors, content);
         EnemyMirrors.Validate(plan, world, actors, content);
         CampaignBossValidation.Validate(plan, world);
+        Roag.Core.Dungeons.SpecialDungeonRules.Validate(plan, world);
         var fragments = new Dictionary<long, int>();
         foreach (var actor in world.Actors)
             if (actor.Tactics is { DefinitionId: "core:enemy/bone_fragment" } fragment)
@@ -281,7 +282,8 @@ public static class TacticalValidation
             throw new InvalidDataException("Invalid native survival cadence.");
         foreach (var work in queue.Pending)
         {
-            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact or ScheduledKind.GateClosure or ScheduledKind.CampaignBossPulse) continue;
+            if (work.Kind is ScheduledKind.Survival or ScheduledKind.TerrainCycle or ScheduledKind.FixtureImpact or ScheduledKind.GateClosure or ScheduledKind.CampaignBossPulse
+                or ScheduledKind.StagePressure or ScheduledKind.StageDeadline or ScheduledKind.SpecialPursuerArrival) continue;
             if (!state.Participants.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.ActorReady && work.PlayerControlled != world.Party.Contains(work.ActorId)
                 || work.Kind == ScheduledKind.Impact && !state.Attacks.Any(a => a.Id == work.ReferenceId)
