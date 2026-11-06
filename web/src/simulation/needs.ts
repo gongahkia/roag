@@ -68,6 +68,7 @@ function care(w:World,p:Person,r:Routine):void {
     if(!patient||patient.life==='dead'||patient.life==='alive'&&patient.body.health===100){endRoutine(w,p);return;}
     if(!obtain(w,p,r,'medicine'))return;
     if(patient.life==='alive'){
+      if(patient.body.routine?.kind!=='treatment'){endRoutine(w,p);return;}
       const facility=w.structures.find(s=>s.id===patient.body.routine?.facility&&s.kind==='infirmary');
       if(!facility||patient.next||distance(patient,facility)>1){r.status='Waiting for patient to reach infirmary';return;}
     }
@@ -78,7 +79,6 @@ function care(w:World,p:Person,r:Routine):void {
     if(patient.life==='downed'){
       patient.life='alive';patient.body.health=40;patient.body.deathAt=0;
       // Stabilization permits the patient to walk to treatment; never move their coordinates remotely.
-      patient.body.hunger=Math.min(patient.body.hunger,N.starveAt-200);patient.body.fatigue=Math.min(patient.body.fatigue,N.exhaustedAt-200);
       w.statistics.rescues++;patient.body.status='Stabilized; seeking infirmary';
     }else{patient.body.health=100;patient.body.recoverAt=w.tick+N.recoveryTicks;w.statistics.treatments++;}
     endRoutine(w,p);return;
@@ -101,7 +101,7 @@ export function advanceNeeds(w:World):void {
     if(!b.routine){
       if(b.hunger>=N.mealAt&&hasFood(w))begin(w,p,'eat');
       else if(b.fatigue>=N.restAt&&w.structures.some(s=>s.kind==='bed'&&!w.people.some(a=>a.body.routine?.facility===s.id)))begin(w,p,'rest');
-      else if(b.health<100&&w.structures.some(s=>s.kind==='infirmary'&&!w.people.some(a=>a.body.routine?.facility===s.id)))begin(w,p,'treatment');
+      else if(b.health<100&&b.hunger<N.starveAt&&b.fatigue<N.exhaustedAt&&w.structures.some(s=>s.kind==='infirmary'&&!w.people.some(a=>a.body.routine?.facility===s.id)))begin(w,p,'treatment');
       else b.status=b.hunger>=N.starveAt?'Starving: health falling; produce accessible food':b.fatigue>=N.exhaustedAt?'Overworked: health falling; build accessible beds':b.hunger>=N.mealAt?'Hungry: no unreserved food; work at 50%':b.fatigue>=N.restAt?'Tired: no bed; work at 50%':b.health<100?'Injured: needs infirmary, healer and medicine':'Ready';
     }
     if(b.routine){care(w,p,b.routine);if(b.routine)b.status=(b.hunger>=N.starveAt?'Starving; ':b.fatigue>=N.exhaustedAt?'Overworked; ':'')+b.routine.status;}

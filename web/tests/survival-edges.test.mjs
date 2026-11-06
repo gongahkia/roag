@@ -39,5 +39,5 @@ test('overwork alone visibly damages a fed colony; a rebuilt bed and medical car
  const h=setup(),{w,cmd,until}=h;
  for(const s of [...w.structures].filter(s=>s.kind==='bed'))cmd({kind:'dismantle',structure:s.id});until(()=>!w.structures.some(s=>s.kind==='bed'),'remove beds');
  const p=w.people[0];until(()=>p.body.fatigue>=NEEDS.exhaustedAt&&p.body.health<100,'overwork injury',6000);assert.ok(p.body.hunger<NEEDS.starveAt);assert.ok(p.body.fatigue>=NEEDS.exhaustedAt);assert.match(p.body.status,/Overworked/);
- for(const x of [66,68,70])cmd({kind:'build',building:'bed',target:{x,y:68}});until(()=>p.body.fatigue<NEEDS.restAt&&p.body.health===100,'bed and medicine recovery',1000);save(w);
+ for(const x of [66,68,70])cmd({kind:'build',building:'bed',target:{x,y:68}});for(const recipe of ['ore','medicine'])cmd({kind:'produce',structure:w.structures.find(s=>s.kind===(recipe==='ore'?'workshop':'infirmary')).id,recipe});until(()=>w.people.every(a=>a.life==='alive'&&a.body.fatigue<NEEDS.restAt&&a.body.health===100),'bed and medicine recovery',2500);save(w);
 });
