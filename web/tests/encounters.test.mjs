@@ -7,13 +7,15 @@ import { chargeCells, rampartCells, heartReachable, inFront, lineReaches } from 
 import { index, spatial, walkable, same } from '../src/simulation/model.ts';
 import { shotCells } from '../src/simulation/combat-geometry.ts';
 import { emptyStock, WORK_CONTENT } from '../src/simulation/work-content.ts';
+import { step, enqueue } from '../src/simulation/step.ts';
+import { advanceCombat } from '../src/simulation/combat.ts';
 
 // Deliberately isolated encounter fixtures, never represented as ordinary colony balance.
 function fixture() {
   const w = createWorld(42, { scenario: 'work-lab' });
   w.combat.barricades ??= []; w.combat.phase = 'combat'; w.combat.wave = 3;
   for (let y = 45; y <= 85; y++) for (let x = 45; x <= 85; x++) w.terrain[index(x, y)] = 1;
-  w.people.forEach((p, i) => { p.x = 30 + i * 2; p.y = 30; });
+  w.people.forEach((p, i) => { p.x = 30 + i * 2; p.y = 30; for (const duty of Object.keys(p.body.duties)) p.body.duties[duty] = 0; });
   w.resources = w.resources.filter(r => r.x < 45 || r.x > 85 || r.y < 45 || r.y > 85);
   return w;
 }
@@ -145,4 +147,57 @@ test('mid-charge state and hit history continue exactly across a cloned checkpoi
   const restored = structuredClone(w), restoredApi = api(restored);
   for (let n = 0; n < 5; n++) { w.tick++; restored.tick++; advanceEncounters(w, engine); advanceEncounters(restored, restoredApi); }
   assert.deepEqual(restored, w); assert.equal(p.body.health, 80); assert.equal(restored.people[0].body.health, 80);
+});
+
+test('real tick ordering prevents charge from moving a colonist twice in one tick', () => {
+  const w = fixture(), r = actor(w, 'captain'), p = w.people[0];
+  p.x = 61; p.y = 59; p.next = { x: 61, y: 60 }; p.progress = 3; p.destination = { x: 61, y: 60 };
+  r.charge = { cells: chargeCells(r, 'east'), cursor: 0, hits: [] };
+  step(w);
+  assert.deepEqual({ x: p.x, y: p.y }, { x: 61, y: 60 }); assert.equal(p.body.health, 80);
+  assert.equal(r.x, 60); assert.equal(r.charge, null); assert.ok(r.exposedUntil > w.tick);
+});
+
+test('real charge shove preserves cargo and work intent while clearing travel', () => {
+  const w = fixture(), r = actor(w, 'captain'), p = w.people[0]; p.x = 61; p.y = 60; p.cargo.wood = 3;
+  r.charge = { cells: chargeCells(r, 'east'), cursor: 0, hits: [] };
+  step(w); assert.equal(r.x, 61); assert.equal(p.x, 62); assert.equal(p.body.health, 80); assert.equal(p.cargo.wood, 3);
+  assert.equal(p.next, null); assert.deepEqual(p.route, []); assert.equal(p.destination, null);
+});
+
+test('clear order physically approaches and strikes a barricade through three paid windups', () => {
+  const w = fixture(), owner = actor(w, 'captain', 80, 80), p = w.people[0]; p.x = 61; p.y = 60;
+  const b = { id: w.nextId++, owner: owner.id, x: 62, y: 60, health: E.rampart.health, expiresAt: 600 };
+  w.combat.barricades.push(b); w.terrainVersion++;
+  assert.equal(enqueue(w, { kind: 'battle', actor: p.id, mode: 'clear', target: { x: b.x, y: b.y } }), true);
+  step(w); assert.equal(b.health, 36); assert.ok(w.combat.attacks.some(a => a.source.id === p.id && a.due === 4));
+  while (w.tick < 4) step(w); assert.equal(b.health, 24);
+  while (w.tick < 14) step(w); assert.equal(b.health, 12);
+  while (w.tick < 24) step(w); assert.equal(w.combat.barricades.some(other => other.id === b.id), false);
+  assert.equal(w.combat.orders.some(o => o.actor === p.id), false); assert.equal(walkable(w, b), true);
+});
+
+function finiteTower(w, x, y) {
+  const tower = { id: w.nextId++, x, y, kind: 'tower', health: 100, open: false, inventory: emptyStock(), embodied: { ...WORK_CONTENT.buildings.tower.cost } };
+  tower.inventory.ammo = 1; w.structures.push(tower); return tower;
+}
+
+test('actual Captain death cancels windup and barricades and pays five wood exactly once', () => {
+  const w = fixture(), captain = actor(w, 'captain', 60, 60, { health: 1 }), engine = api(w);
+  actor(w, 'archer', 80, 80); finiteTower(w, 58, 60);
+  const barricade = { id: w.nextId++, owner: captain.id, x: 62, y: 59, health: 36, expiresAt: 600 }; w.combat.barricades.push(barricade);
+  engine.launch({ kind: 'raider', id: captain.id }, captain, { x: 64, y: 60 }, 'charge', 'hostile', 20, 20, { cells: chargeCells(captain, 'east') });
+  advanceCombat(w); for (let n = 0; n < 30; n++) step(w);
+  assert.equal(w.combat.raiders.some(r => r.id === captain.id), false); assert.equal(w.combat.attacks.some(a => a.source.id === captain.id), false); assert.equal(w.combat.barricades.length, 0);
+  assert.equal(w.combat.stats.bosses, 1); assert.equal(w.combat.stats.kills, 1); assert.equal(w.combat.lootWood, 5); assert.equal(w.produced.wood, 5);
+  assert.equal(w.piles.reduce((sum, p) => sum + p.inventory.wood, 0), 5); assert.equal(w.combat.stats.shots, 1); assert.equal(w.consumed.ammo, 1);
+});
+
+test('real tower death during a healer windup cannot resurrect the locked recipient', () => {
+  const w = fixture(), healer = actor(w, 'healer'), patient = actor(w, 'rusher', 62, 60, { health: 7, retryAt: 1000 }), engine = api(w);
+  patient.target = { kind: 'heart', id: w.heart.id }; finiteTower(w, 62, 58); encounterTurn(w, healer, engine);
+  const heal = w.combat.attacks.find(a => a.kind === 'heal'); assert.equal(heal.recipient, patient.id);
+  advanceCombat(w); for (let n = 0; n < 20; n++) step(w);
+  assert.equal(w.combat.raiders.some(r => r.id === patient.id), false); assert.equal(w.combat.stats.kills, 1); assert.equal(w.combat.lootWood, 1);
+  assert.equal(w.combat.attacks.some(a => a.id === heal.id), false);
 });
