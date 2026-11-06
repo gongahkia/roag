@@ -173,7 +173,9 @@ export class ColonyScene extends Phaser.Scene {
     for(const b of world.piles) if(total(b.inventory)) this.workMarks.fillStyle(0xe6ce85).fillRect((b.x+.3)*TILE,(b.y+.3)*TILE,5,5);
     for (const p of world.people) {
       const position = renderedPosition(p, this.controller.clock.paused ? 0 : this.controller.clock.alpha);
-      this.people.get(p.id)?.setVisible(p.life!=='dead');
+      this.people.get(p.id)?.setVisible(p.life!=='dead').setTint(p.life==='downed'?0xe36f62:p.body.health<70?0xe6ad85:0xffffff);
+      if(p.life==='downed')this.workMarks.lineStyle(1,0xe36f62).strokeCircle((position.x+.5)*TILE,(position.y+.5)*TILE,8);
+      if(p.body.routine)this.workMarks.fillStyle(p.body.routine.kind==='rest'?0x8fbcdc:p.body.routine.kind==='eat'?0x95cfa0:0xe36f62).fillRect((position.x+.1)*TILE,(position.y+.1)*TILE,3,3);
       if(total(p.cargo)) this.workMarks.fillStyle(0xe6ce85).fillRect((position.x+.8)*TILE,(position.y+.7)*TILE,3,3);
       this.people.get(p.id)?.setPosition((position.x + .5) * TILE, (position.y + .5) * TILE);
     }

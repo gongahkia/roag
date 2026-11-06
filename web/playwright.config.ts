@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import { resolve } from 'node:path';
 
-const evidence = resolve(import.meta.dirname, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P03');
+const evidence = resolve(import.meta.dirname, process.env.ROAG_EVIDENCE_DIR ?? '../artifacts/colony-web/P04');
 export default defineConfig({
   testDir: './tests/browser',
   outputDir: resolve(evidence, 'browser-results'),

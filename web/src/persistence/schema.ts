@@ -140,6 +140,7 @@ function validateWork(world: World, ids: Set<number>): void {
       const owned=j.site[k]+(p?.cargo[k]??0)+(j.reservation?.kind===k?j.reservation.count:0);assert(owned<=cost[k],'supplies exceed recipe');
       if(j.progress>0&&active(j))assert(j.site[k]===cost[k],'work before supplies delivered');
     } else assert(total(j.site)===0,'nonconstruction site supplies');
+    if(j.kind==='produce')assert(j.stage===0||j.stage===3,'recipe stage');
     if(j.kind==='farm'&&j.stage===2)assert(j.readyAt>0,'crop growth deadline');
     if(j.stage===3)assert(j.progress===0&&j.cycles>0&&j.reservation===null&&total(j.site)===0,'settled production cycle');
   }
@@ -159,9 +160,11 @@ function validateBodies(w:World):void {
     assert(p.life==='alive'?b.health>0&&b.deathAt===0:p.life==='downed'?b.health===0&&b.deathAt>w.tick&&b.deathAt<=w.tick+NEEDS.rescueWindow:b.health===0&&b.deathAt===0,'life deadline');
     assert(b.recoverAt<=w.tick+NEEDS.recoveryTicks,'recovery deadline');
     object(b.duties,[...DUTIES]);for(const n of Object.values(b.duties))assert(integer(n,0,3),'duty priority');
+    if(p.life!=='alive')assert(p.job===null&&p.next===null&&p.destination===null&&p.route.length===0&&b.routine===null,'inactive life ownership');
     const r=b.routine;if(!r)continue;
     object(r,['kind','facility','patient','reservation','cargo','progress','status','resume']);
-    assert(p.life==='alive'&&['eat','rest','treatment','rescue','watch'].includes(r.kind)&&integer(r.progress,0,10000)&&typeof r.status==='string'&&r.status.length<300,'routine');stock(r.cargo);assert(total(r.cargo)<=1,'care cargo capacity');if(r.resume)cell(r.resume);
+    assert(p.life==='alive'&&['eat','rest','treatment','rescue','watch'].includes(r.kind)&&integer(r.progress,0,10000)&&typeof r.status==='string'&&r.status.length<300,'routine');assert(r.kind==='eat'?r.progress<NEEDS.eatTicks:r.kind==='rescue'?r.progress<NEEDS.treatmentTicks:r.kind==='rest'?r.progress<=1000:r.progress===0,'routine progress');
+    stock(r.cargo);assert(total(r.cargo)<=1,'care cargo capacity');if(r.resume)cell(r.resume);
     for(const k of MATERIALS)assert(r.cargo[k]===0||(r.kind==='rescue'?k==='medicine':r.kind==='eat'&&(k==='food'||k==='meal')),'care cargo purpose');
     if(r.facility!==null){assert(w.structures.some(s=>s.id===r.facility&&s.kind===(r.kind==='rest'?'bed':r.kind==='treatment'?'infirmary':''))&&!facilities.has(r.facility),'facility claim');facilities.add(r.facility);}
     if(r.patient!==null){assert(r.kind==='rescue'&&r.patient!==p.id&&w.people.some(a=>a.id===r.patient&&a.life!=='dead')&&!patients.has(r.patient),'patient claim');patients.add(r.patient);}else assert(r.kind!=='rescue','rescue patient');

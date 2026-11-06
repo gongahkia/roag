@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      ROAG_EVIDENCE_DIR: ../artifacts/colony-web/P03
+      ROAG_EVIDENCE_DIR: ../artifacts/colony-web/P04
     defaults:
       run:
         working-directory: web
@@ -41,5 +41,5 @@ jobs:
         if: always()
         with:
           name: colony-web-P03
-          path: artifacts/colony-web/P03/
+          path: artifacts/colony-web/P04/
           retention-days: 14

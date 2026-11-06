@@ -119,7 +119,10 @@ export function approach(world: World, j: {status:string}, p: Person, at: Cell, 
   if (p.destination && distance(p.destination,at)<=1 && walkable(world,p.destination) && !(p.blocked && p.failures>=2 && p.retryAt<=world.tick)) {
     j.status = p.blocked ? `${activity}: ${p.blocked}` : activity; return false;
   }
-  const candidates = neighbors(at).filter(pos => walkable(world,pos)).sort((a,b) => distance(p,a)-distance(p,b) || a.y-b.y || a.x-b.x);
+  const occupied=spatial(world);
+  const all=[...neighbors(at),...(walkable(world,at)?[{x:at.x,y:at.y}]:[])].filter(pos=>walkable(world,pos));
+  const free=all.filter(pos=>!occupied.has(index(pos.x,pos.y))||occupied.get(index(pos.x,pos.y))===p.id);
+  const candidates = (free.length?free:all).sort((a,b) => distance(p,a)-distance(p,b) || a.y-b.y || a.x-b.x);
   if (!candidates.length) { j.status = 'No interaction tile; open access or cancel'; return false; }
   // Switch approach after failed searches; terrain-version changes invalidate the route immediately.
   const goal = candidates[Math.floor(p.failures/2) % candidates.length]!;
@@ -184,6 +187,9 @@ function perform(world: World, j: Job, p: Person): void {
     const facility=world.structures.find(s=>s.id===j.ref);
     if(!facility){finish(world,j,true);return;}
     if(j.stage===3){if(total(p.cargo)&&!deliver(world,j,p))return;j.stage=0;j.progress=0;release(world,j);j.retryAt=world.tick+10;return;}
+    const output=j.kind==='farm'?'food':j.recipe!, reserve=j.kind==='farm'?NEEDS.foodReserve:RECIPES[j.recipe!].reserve;
+    const existing=[...world.structures,...world.piles].reduce((n,s)=>n+s.inventory[output],0)+world.people.reduce((n,p)=>n+p.cargo[output],0);
+    if(j.stage===0&&j.progress===0&&total(j.site)===0&&total(p.cargo)===0&&existing>=reserve){j.status=`Reserve met: ${existing}/${reserve} ${output}`;release(world,j);j.retryAt=world.tick+50;return;}
     if(j.kind==='farm') {
       if(j.stage===2&&world.tick<j.readyAt){j.status=`Growing; ready at tick ${j.readyAt}`;release(world,j);j.retryAt=j.readyAt;return;}
       if(!approach(world,j,p,j,'Approaching farm'))return;

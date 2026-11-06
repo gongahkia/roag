@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {createHash} from 'node:crypto';
+import {establish} from '../tests/helpers/survival.mjs';
+import {NEEDS} from '../src/simulation/survival-content.ts';
+import {materialAudit} from '../src/simulation/jobs.ts';
+import {makeSave,encodeSave,parseSave} from '../src/persistence/schema.ts';
+import {canonical} from '../src/simulation/canonical.ts';
+import {createWorld} from '../src/simulation/world.ts';
+import {FixedClock} from '../src/platform/clock.ts';
+import {step,enqueue} from '../src/simulation/step.ts';
+const evidence=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P04');mkdirSync(evidence,{recursive:true});
+const h=establish(),{w,tick}=h,measurements=[];
+const hash=w=>createHash('sha256').update(canonical(w)).digest('hex');
+const record=label=>{makeSave(w,{manualPaused:true,speed:4});measurements.push({label,tick:w.tick,sha256:hash(w),population:w.people.map(p=>({id:p.id,life:p.life,...p.body})),statistics:{...w.statistics},recipes:{...w.recipeCounts},materials:materialAudit(w),jobs:structuredClone(w.jobs)});console.log(label,w.tick,w.statistics,w.people.map(p=>[p.life,p.body.health,p.body.meals,p.body.rests]));};
+record('established');
+for(let day=1;day<=3;day++){while(w.tick<day*NEEDS.dayTicks)tick();record(`day-${day}`);assert.ok(w.people.every(p=>p.life==='alive'&&p.body.health===100));}
+assert.ok(w.people.every(p=>p.body.meals>=3&&p.body.rests>=3));assert.ok(w.recipeCounts.meal>=9&&w.statistics.harvests>=3);
+const save=encodeSave(makeSave(w,{manualPaused:true,speed:4}));writeFileSync(resolve(evidence,'sustainable-colony.json'),save+'\n');const copy=parseSave(save).world;for(let i=0;i<500;i++){tick();step(copy);}assert.equal(hash(w),hash(copy));
+const replay=cadence=>{const w=createWorld(42),clock=new FixedClock();clock.setManual(false);const checkpoints=[];let f=0,at=0;while(w.tick<10800)clock.frame(cadence[f++%cadence.length],()=>{if(w.tick>=10800)return;while(h.commands[at]?.due===w.tick+1){const c=h.commands[at++];assert.ok(enqueue(w,c.input,c.due));}step(w);if(w.tick%600===0)checkpoints.push({tick:w.tick,sha256:hash(w),rng:{...w.rng}});});return {cadence,frames:f,checkpoints};};
+const cadences=[replay([16,33,10]),replay([125,7,900,250])];assert.deepEqual(cadences[0].checkpoints,cadences[1].checkpoints);assert.equal(cadences[0].checkpoints.at(-1).sha256,measurements.at(-1).sha256);
+writeFileSync(resolve(evidence,'survival-scenarios.json'),JSON.stringify({seed:42,scenario:'colony',dayTicks:NEEDS.dayTicks,commands:h.commands,measurements,replay:cadences,continuation:{ticks:500,uninterrupted:hash(w),restored:hash(copy)}},null,2)+'\n');

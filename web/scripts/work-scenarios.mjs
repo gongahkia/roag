@@ -10,7 +10,7 @@ import {makeSave,parseSave,encodeSave} from '../src/persistence/schema.ts';
 import {total} from '../src/simulation/work-content.ts';
 import {FixedClock} from '../src/platform/clock.ts';
 const hash=w=>createHash('sha256').update(canonical(w)).digest('hex');
-const evidence=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P03');mkdirSync(evidence,{recursive:true});
+const evidence=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P04');mkdirSync(evidence,{recursive:true});
 const logs=[];
 function scenario(seed=42){const w=createWorld(seed,{scenario:'work-lab'}),commands=[],checkpoints=[];logs.push({seed,commands,checkpoints});
  const record=label=>{for(const a of Object.values(materialAudit(w)))assert.equal(a.produced,a.accounted);checkpoints.push({label,tick:w.tick,sha256:hash(w),materials:materialAudit(w),jobs:structuredClone(w.jobs),people:structuredClone(w.people)});};

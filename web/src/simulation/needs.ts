@@ -95,20 +95,21 @@ export function advanceNeeds(w:World):void {
     if(w.tick%N.damageEvery===0&&(b.hunger>=N.starveAt||b.fatigue>=N.exhaustedAt))b.health=Math.max(0,b.health-1);
     if(!b.health){fall(w,p);continue;}
     if(b.routine?.kind==='watch'&&(b.hunger>=N.mealAt||b.fatigue>=N.restAt||b.health<70||b.duties.guard===0))endRoutine(w,p);
-    if(b.routine?.kind==='rest'&&b.hunger>=N.starveAt&&hasFood(w))begin(w,p,'eat');
+    if((b.routine?.kind==='rest'||b.routine?.kind==='treatment')&&b.hunger>=N.starveAt&&hasFood(w))begin(w,p,'eat');
     if(!b.routine){
       if(b.hunger>=N.mealAt&&hasFood(w))begin(w,p,'eat');
       else if(b.fatigue>=N.restAt&&w.structures.some(s=>s.kind==='bed'))begin(w,p,'rest');
-      else if(b.health<70&&w.structures.some(s=>s.kind==='infirmary'))begin(w,p,'treatment');
-      else b.status=b.hunger>=N.starveAt?'Starving: health falling; produce accessible food':b.fatigue>=N.exhaustedAt?'Overworked: health falling; build accessible beds':b.hunger>=N.mealAt?'Hungry: no unreserved food; work at 50%':b.fatigue>=N.restAt?'Tired: no bed; work at 50%':b.health<70?'Injured: needs infirmary, healer and medicine':'Ready';
+      else if(b.health<100&&w.structures.some(s=>s.kind==='infirmary'))begin(w,p,'treatment');
+      else b.status=b.hunger>=N.starveAt?'Starving: health falling; produce accessible food':b.fatigue>=N.exhaustedAt?'Overworked: health falling; build accessible beds':b.hunger>=N.mealAt?'Hungry: no unreserved food; work at 50%':b.fatigue>=N.restAt?'Tired: no bed; work at 50%':b.health<100?'Injured: needs infirmary, healer and medicine':'Ready';
     }
     if(b.routine){care(w,p,b.routine);if(b.routine)b.status=b.routine.status;}
   }
-  const patients=w.people.filter(p=>p.life==='downed'||p.life==='alive'&&p.body.health<70&&p.body.routine?.kind==='treatment').sort((a,b)=>(a.life==='downed'?0:1)-(b.life==='downed'?0:1)||a.body.deathAt-b.body.deathAt||a.id-b.id);
+  const patients=w.people.filter(p=>p.life==='downed'||p.life==='alive'&&p.body.health<100&&p.body.routine?.kind==='treatment').sort((a,b)=>(a.life==='downed'?0:1)-(b.life==='downed'?0:1)||a.body.deathAt-b.body.deathAt||a.id-b.id);
   for(const patient of patients){
     if(w.people.some(p=>p.body.routine?.patient===patient.id))continue;
     const healer=[...w.people].sort((a,b)=>b.body.duties.healer-a.body.duties.healer||a.id-b.id).find(p=>p!==patient&&p.life==='alive'&&p.body.duties.healer>0&&!p.body.routine&&p.body.health>=70&&p.body.hunger<N.starveAt&&p.body.fatigue<N.exhaustedAt);
-    if(healer){const r=begin(w,healer,'rescue');r.patient=patient.id;r.status='Rescue: collecting real medicine';}
+    const source=healer?[...w.structures,...w.piles].filter(s=>available(w,s.id,'medicine')>0).sort((a,b)=>distance(healer,a)-distance(healer,b)||a.id-b.id)[0]:undefined;
+    if(healer&&source){const r=begin(w,healer,'rescue');r.patient=patient.id;r.reservation={source:source.id,kind:'medicine',count:1};r.status='Rescue: collecting real medicine';}
   }
   for(const p of w.people)if(p.life==='alive'&&!p.job&&!p.body.routine&&!p.destination&&!p.next&&p.body.duties.guard>0&&p.body.duties.guard>Math.max(p.body.duties.builder,p.body.duties.cook,p.body.duties.gatherer,p.body.duties.healer))begin(w,p,'watch');
 }
