@@ -113,18 +113,165 @@ def split_crossing(client, walk, target, party):
                 limits='Initial stage1 floor only; no deep complex, special deadline, new boss, victory, profile final-death or package acceptance.')
 
 
-def verify(client, budget):
+def settle_rest_orders(client):
+    """Observe actual ordered turns, stopping on danger rather than skipping it."""
+    samples = []
+    for _ in range(400):
+        n = client.ui['nativeDungeon']
+        assert all(p['health'] > 0 for p in n['player']), 'A traveller fell during actual rest'
+        assert not [f for f in n['fighters'] if not f['friendly'] and f['health'] > 0], 'Actual nearby danger interrupted the rest journey'
+        busy = {a['id'] for a in n['activities'] if a['activity'] is not None}
+        if not busy:
+            break
+        samples.append(dict(clock=n['clock'], needs=n['needs'], activities=n['activities']))
+        if n['activeActor'] > 0 and n['activeActor'] not in busy:
+            client.key('t'); client.key('space')
+        else:
+            client.request('wait', seconds=.2)
+    else:
+        raise AssertionError('The actual finite rest did not finish within its observation budget')
+    return samples
+
+
+def rest_travellers(client, walk, party, records):
+    """Use finite paid rest and a carried-wood fire for the actual tired party."""
+    assert not [f for f in walk.native['fighters'] if not f['friendly'] and f['health'] > 0]
+    assert all(p['life'] == 'Alive' for p in walk.native['player'])
+    label = 'travel-rest-' + str(len(records))
+    initial = dict(clock=walk.native['clock'], needs=walk.native['needs'],
+                   inventory=client.ui['inventory'], player=walk.native['player'])
+    # Detach the companion freely so both can receive their own scheduled rest
+    # order. Starting rest never grants a group-wide recovery or teleports anyone.
+    client.key('2'); client.key('b'); client.control_click('dungeon:split'); client.key('Escape'); client.key('t')
+    assert client.ui['nativeDungeon']['clock'] == initial['clock']
+    client.key('n'); client.control_click('dungeon:camp')
+    fire = next(c for c in client.ui['controls'] if c['id'] == 'dungeon:campfire:light_fire')
+    assert fire['enabled'], 'The actual outdoor rest site does not allow the carried-wood fire'
+    client.capture(label + '-ordinary-fire-offer')
+    client.control_click('dungeon:campfire:light_fire')
+    assert client.ui['inventory']['wood'] == initial['inventory']['wood'] - 1
+    ordered = []
+    for _ in party:
+        client.key('t')
+        member = client.ui['nativeDungeon']['activeActor']
+        assert member in party and member not in ordered
+        client.key('n'); client.control_click('dungeon:camp')
+        rest = next(c for c in client.ui['controls'] if c['id'] == 'dungeon:activity:rest:60')
+        assert rest['enabled'], 'Ordinary rest was unavailable for the actual ready traveller'
+        client.control_click('dungeon:activity:rest:60')
+        ordered.append(member)
+    client.capture(label + '-two-person-paid-rest')
+    samples = settle_rest_orders(client)
+    walk.observe()
+    assert walk.native['clock'] >= initial['clock'] + 360000
+    assert all(n['fatigue'] < before['fatigue'] for n, before in zip(walk.native['needs'], initial['needs']))
+    assert [p['position'] for p in walk.native['player']] == [p['position'] for p in initial['player']]
+    # Restore the ordinary nearby following policy after both individual rests.
+    clock = walk.native['clock']
+    client.key('1'); client.key('b'); client.control_click('dungeon:regroup'); client.key('Escape'); client.key('t')
+    assert client.ui['nativeDungeon']['clock'] == clock
+    records.append(dict(initial=initial, final=dict(clock=clock, needs=client.ui['nativeDungeon']['needs'],
+                        inventory=client.ui['inventory'], player=client.ui['nativeDungeon']['player']),
+                        orderedMembers=ordered, samples=samples))
+    (client.output / 'travel-rests.json').write_text(json.dumps(records, indent=2) + '\n')
+    walk.checkpoint(label + '-completed')
+    exact(client, label + '-exact')
+
+
+def excavation_step(client, walk, target, dig_records):
+    """Walk/dig toward the public report using only adjacent observed terrain."""
+    dx, dy = target[0] - walk.at[0], target[1] - walk.at[1]
+    choices = [(abs(dx), (dx > 0) - (dx < 0), 0), (abs(dy), 0, (dy > 0) - (dy < 0))]
+    for extent, sx, sy in sorted(choices, reverse=True):
+        if not extent:
+            continue
+        cell = walk.at[0] + sx, walk.at[1] + sy, walk.at[2]
+        visible = walk.visible.get(cell)
+        if visible is None or cell in walk.blocked or cell == target:
+            continue
+        key = next(key for x, y, key in DIRECTIONS if (x, y) == (sx, sy))
+        if visible['groundOpen'] and not visible['material'].startswith('Stairs'):
+            client.key(key)
+            assert client.ui['notice'] == 'Action committed.'
+            return True
+        if visible['material'] != 'Rock':
+            continue
+        before_clock = walk.native['clock']
+        stock = dict(client.ui['inventory'])
+        client.key('j')
+        assert client.ui['panel'] == 'dungeon-work'
+        direction = {(0, -1): 'North', (1, 0): 'East', (0, 1): 'South', (-1, 0): 'West'}[(sx, sy)]
+        client.control_click('dungeon:work-target:' + direction)
+        assert position(client.ui['nativeDungeon']['workTarget']) == cell
+        control = next(c for c in client.ui['controls'] if c['id'] == 'dungeon:work-action:Dig')
+        if not control['enabled']:
+            reason = control['reason'] if 'reason' in control else control
+            raise AssertionError('Observed rock excavation unavailable: ' + str(reason))
+        assert client.ui['nativeDungeon']['clock'] == before_clock
+        label = 'excavation-' + str(len(dig_records))
+        client.capture(label + '-ordinary-offer')
+        client.control_click('dungeon:work-action:Dig')
+        samples = []
+        for _ in range(150):
+            n = client.ui['nativeDungeon']
+            assert all(p['health'] > 0 for p in n['player']), 'A traveller fell during real excavation'
+            jobs = [o for o in n['workOrders'] if position(o['target']) == cell]
+            if not jobs:
+                break
+            samples.append(dict(clock=n['clock'], orders=jobs, activities=n['activities']))
+            client.request('wait', seconds=.2)
+        else:
+            raise AssertionError('Actual excavation did not finish; preserve work/interruption state')
+        walk.observe()
+        changed = walk.visible.get(cell)
+        assert changed is not None and changed['material'] == 'Earth' and changed['groundOpen']
+        assert walk.native['clock'] > before_clock
+        assert client.ui['inventory'].get('stone', 0) > stock.get('stone', 0)
+        dig_records.append(dict(target=cell, beforeMaterial='Rock', afterMaterial=changed['material'],
+                                startClock=before_clock, endClock=walk.native['clock'],
+                                beforeInventory=stock, afterInventory=client.ui['inventory'], samples=samples))
+        (client.output / 'excavations.json').write_text(json.dumps(dig_records, indent=2) + '\n')
+        walk.checkpoint(label + '-completed')
+        if len(dig_records) == 1:
+            exact(client, label + '-terrain-exact')
+            walk.observe()
+            assert walk.visible[cell]['material'] == 'Earth'
+        return True
+    return False
+
+
+def verify(client, budget, excavate=False):
     start = exact(client, '00-exact-continuation')
+    assert json.loads(client.slot.read_text()) == json.loads((client.continuation / 'control/campaign.json').read_text())
     party = start['party']
     assert len(party) == 2 and all(a['life'] == 0 for a in start['actors'] if a['id'] in party)
+    walk = Walk(client)
+    client.travel_walk = walk
+    if any(a['activity'] is not None for a in walk.native['activities']):
+        assert all(a['activity'] is None or a['activity']['kind'] == 0 for a in walk.native['activities'])
+        client.capture('01-retained-paid-rest-before-continuation')
+        before = walk.native['clock']
+        client.control_click('dungeon:close')
+        samples = settle_rest_orders(client)
+        walk.observe()
+        (client.output / 'retained-rest-completion.json').write_text(json.dumps(dict(
+            initialClock=before, finalClock=walk.native['clock'], samples=samples, needs=walk.native['needs']), indent=2) + '\n')
+        walk.checkpoint('01-retained-paid-rest-completed')
+        exact(client, '01-retained-rest-exact')
     client.key('t')
     report = observe_report(client)
     target = position(report['position'])
-    walk = Walk(client)
-    client.travel_walk = walk
+    walk.observe()
     fight = TravelFight(client)
     fight.last_floor = 0
     stalls = 0
+    history = deque(maxlen=100)
+    dig_records = []
+    rest_records = []
+    # This is prior public input evidence, never saved hidden geometry.
+    if excavate and (client.continuation / 'inputs.jsonl').exists():
+        history.extend(distance(position(json.loads(line)['position']), target)
+                       for line in (client.continuation / 'inputs.jsonl').read_text().splitlines()[-100:])
     for step in range(budget):
         # The existing bridge deliberately caps each process at 1024 requests.
         # Count free controls too; preserve the complete actual state well before
@@ -142,8 +289,16 @@ def verify(client, budget):
         if walk.native['activeActor'] != party[0]:
             client.key('space')
             continue
+        if excavate and any(n['fatigue'] >= 70 for n in walk.native['needs']):
+            if client.sequence >= 200:
+                walk.checkpoint('rest-bridge-boundary-' + str(step))
+                exact(client, 'rest-bridge-boundary-' + str(step) + '-exact')
+                walk.observe()
+            rest_travellers(client, walk, party, rest_records)
+            continue
         if distance(walk.at, target) == 1:
             return split_crossing(client, walk, target, party)
+        history.append(distance(walk.at, target))
         follower = next(p for p in walk.native['player'] if p['id'] == party[1])
         if distance(walk.at, position(follower['position'])) > 6:
             client.key('space')
@@ -151,6 +306,14 @@ def verify(client, budget):
             assert stalls < 100, 'Follower did not make physical progress during paid cohesion waits'
         else:
             stalls = 0
+            plateau = excavate and len(history) >= 75 and min(list(history)[-25:]) >= min(list(history)[:50]) - 15
+            if plateau and client.sequence >= 500:
+                # Reserve room for up to 150 ordinary work-observation waits.
+                walk.checkpoint('work-bridge-boundary-' + str(step))
+                exact(client, 'work-bridge-boundary-' + str(step) + '-exact')
+                walk.observe()
+            if plateau and excavation_step(client, walk, target, dig_records):
+                continue
             route = navigation(walk, target)
             first_key = route[0][1]
             dash = len(route) >= 3 and all(key == first_key and p in walk.visible
@@ -166,6 +329,8 @@ def verify(client, budget):
     return dict(passed=False, outcome='bounded-travel-checkpoint', scope='actual continuing paid surface travel',
                 clock=client.ui['nativeDungeon']['clock'], report=report,
                 remaining=distance(position(client.ui['position']), target), party=party,
+                completedExcavations=len(dig_records),
+                completedIndividualRestCycles=len(rest_records),
                 limits='Entrance not yet reached; continue this latest ordinary checkpoint without reroll or rollback.')
 
 
@@ -262,12 +427,13 @@ def main():
     parser.add_argument('--continue-from', type=Path, required=True)
     parser.add_argument('--budget', type=int, default=1000)
     parser.add_argument('--recover-accepted', action='store_true')
+    parser.add_argument('--excavate', action='store_true')
     args = parser.parse_args()
     client = WorldClient.__new__(WorldClient)
     try:
         client.__init__(args.output.resolve(), 42, runtime_source=args.runtime.resolve(),
                         continuation=args.continue_from.resolve(), window_size='1024x720', scene='world-campaign')
-        result = recover_accepted(client, args.continue_from.resolve()) if args.recover_accepted else verify(client, args.budget)
+        result = recover_accepted(client, args.continue_from.resolve()) if args.recover_accepted else verify(client, args.budget, args.excavate)
         (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)
         client.request('stop'); client.process.wait(timeout=15)
