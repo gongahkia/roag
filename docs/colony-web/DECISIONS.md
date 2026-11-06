@@ -8,10 +8,10 @@ Recorded 2026-11-06. User instructions in the current conversation take preceden
 | D02 | TypeScript + Phaser + Vite; browser execution with static hosting. | Explicitly accepted by the user. |
 | D03 | Preserve the entire assets directory, docs/images, catalog tools and tests; preserve reusable designs/content. | Explicitly accepted by the user. |
 | D04 | Defeat when the colony heart is destroyed OR every colonist dies. | Explicit answer to the clarification question in this conversation. |
-| D05 | Preserve first, then implement in separate goal/report/review rounds. | Explicit workflow request. This preparation round does not implement the game. |
+| D05 | Preserve first; coordinator now implements and reviews P05–P09 internally using isolated agent worktrees, then integrates tested local and remote main. | User explicitly replaced the manual goal/report handoff after P04. Keep milestone reports and acceptance gates. |
 | D06 | Existing gameplay code may eventually be replaced; archive it before removal. | User wants a fresh implementation. Removal is sequenced at release cutover, after recovery checks. |
 | D07 | Real time with pause and speed controls; autonomous workers and indirect orders. | Recommended in the accepted analysis; working product default. |
-| D08 | GitHub Pages is the default release target; Vercel is an alternative deployment of the same static output. | User accepts both. Actual account/project and publication destination are not selected yet. |
+| D08 | Vercel is the selected public release target. Keep root and subpath static-build compatibility. | User selected Vercel on 2026-11-07; account/project details requested and pending. |
 
 The following are initial implementation defaults, not separately approved product
 requirements. Implementers may tune them with evidence and record changes here:

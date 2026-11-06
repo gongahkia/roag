@@ -10,7 +10,7 @@ isolated combat, presentation and persistence worktrees with coordinator-owned
 shared integration. The user authorized internal implementation/review through
 P09 and eventual synchronization of local and remote main; see
 [orchestration](ORCHESTRATION.md). Nothing from this orchestration has been pushed
-or deployed yet. Hosting preference is pending.
+or deployed yet. Vercel is selected; account/project details are pending.
 
 | Phase | State | Evidence / next action |
 | --- | --- | --- |
