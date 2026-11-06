@@ -4,9 +4,9 @@ import type { Cell, World } from '../simulation/model.ts';
 import type { CombatRef } from '../simulation/combat-model.ts';
 import { breachable } from '../simulation/combat-navigation.ts';
 import { ENCOUNTER_CONTENT as E } from '../simulation/encounter-content.ts';
-import { RAID_KINDS, RAID_EDGES } from '../simulation/raid-model.ts';
+import { RAID_KINDS, RAID_EDGES, isBossKind } from '../simulation/raid-model.ts';
 import type { RaidKind, RaidEdge } from '../simulation/raid-model.ts';
-import { RAID_CONTENT, RAID_COST, waveBudget } from '../simulation/raid-director.ts';
+import { RAID_CONTENT, RAID_COST, waveBudget, bossForWave } from '../simulation/raid-director.ts';
 
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(`Invalid save: ${message}`);
@@ -28,7 +28,8 @@ function reference(world: World, value: unknown): asserts value is CombatRef {
     : value.kind === 'person' ? world.people.some(p => p.id === value.id)
       : value.kind === 'raider' ? world.combat.raiders.some(r => r.id === value.id)
         : value.kind === 'structure' ? world.structures.some(s => s.id === value.id)
-          : value.kind === 'barricade' && world.combat.barricades.some(b => b.id === value.id), 'combat reference');
+          : value.kind === 'barricade' ? world.combat.barricades.some(b => b.id === value.id)
+            : value.kind === 'feature' && world.bosses.features.some(f => f.id === value.id), 'combat reference');
 }
 function unobstructedRay(origin: Cell, target: Cell): Cell[] {
   const cells: Cell[] = [];
@@ -60,7 +61,7 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   assert(Array.isArray(combat.orders) && combat.orders.length <= world.people.length && Array.isArray(combat.cooldowns) && combat.cooldowns.length <= world.people.length, 'actor combat limits');
   assert(Array.isArray(combat.defenses) && combat.defenses.length <= world.structures.length, 'defense limit');
   // Reference checks below inspect these arrays before their detailed loops.
-  for (const raider of combat.raiders) object(raider, ['id', 'kind', 'x', 'y', 'health', 'facing', 'squadId', 'leaderId', 'loweredUntil', 'exposedUntil', 'specialCount', 'charge', 'next', 'progress', 'route', 'routeVersion', 'retryAt', 'cooldown', 'target']);
+  for (const raider of combat.raiders) object(raider, ['id', 'kind', 'x', 'y', 'health', 'facing', 'squadId', 'leaderId', 'loweredUntil', 'exposedUntil', 'specialCount', 'charge', 'next', 'progress', 'moveTicks', 'route', 'routeVersion', 'retryAt', 'cooldown', 'target']);
   for (const defense of combat.defenses) object(defense, ['structure', 'cooldown']);
   for (const cooldown of combat.cooldowns) object(cooldown, ['actor', 'until']);
   object(combat.stats, ['spawned', 'kills', 'shots', 'traps', 'heartDamage', 'colonyDamage', 'structuresLost', 'repairs', 'bosses']);
@@ -104,7 +105,7 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
     occupied.add(key);
   }
   for (const raider of combat.raiders) {
-    object(raider, ['id', 'kind', 'x', 'y', 'health', 'facing', 'squadId', 'leaderId', 'loweredUntil', 'exposedUntil', 'specialCount', 'charge', 'next', 'progress', 'route', 'routeVersion', 'retryAt', 'cooldown', 'target']);
+    object(raider, ['id', 'kind', 'x', 'y', 'health', 'facing', 'squadId', 'leaderId', 'loweredUntil', 'exposedUntil', 'specialCount', 'charge', 'next', 'progress', 'moveTicks', 'route', 'routeVersion', 'retryAt', 'cooldown', 'target']);
     addId(raider.id); squad(raider);
     assert(RAID_KINDS.includes(raider.kind) && RAID_EDGES.includes(raider.facing), 'raider kind/facing');
     const tuning = profile(raider.kind); remainingCost += RAID_COST[raider.kind];
@@ -113,10 +114,10 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
     assert(integer(raider.loweredUntil, 0, world.tick + E.shield.loweredTicks) && (raider.kind === 'shield' || raider.loweredUntil === 0), 'shield recovery');
     assert(integer(raider.exposedUntil, 0, world.tick + E.captain.exposureTicks) && (raider.kind === 'captain' || raider.exposedUntil === 0), 'Captain exposure');
     assert(integer(raider.specialCount) && (raider.kind === 'captain' || raider.specialCount === 0), 'Captain special sequence');
-    assert(integer(raider.progress, 0, MOVE_TICKS - 1) && integer(raider.routeVersion, 0, world.terrainVersion) && integer(raider.retryAt), 'raider movement counters');
+    assert(integer(raider.moveTicks) && [4,6,8].includes(raider.moveTicks) && integer(raider.progress, 0, raider.moveTicks - 1) && integer(raider.routeVersion, 0, world.terrainVersion) && integer(raider.retryAt), 'raider movement counters');
     assert(integer(raider.cooldown, 0, world.tick + Math.max(tuning.cooldown, raider.kind === 'healer' ? E.heal.cooldown : 0)), 'raider cooldown');
     if (raider.next) { cell(raider.next); assert(distance(raider, raider.next) === 1 && walkable(world, raider.next), 'raider movement edge'); }
-    else assert(raider.next === null && raider.progress === 0, 'raider progress without edge');
+    else assert(raider.next === null && raider.progress === 0 && raider.moveTicks === MOVE_TICKS, 'raider progress or duration without edge');
     assert(Array.isArray(raider.route) && raider.route.length <= world.width * world.height, 'raider route');
     let previous: Cell = raider.next ?? raider;
     for (const position of raider.route) {
@@ -143,9 +144,10 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   const deaths = combat.stats.kills - start.kills;
   assert(combat.stats.spawned - start.spawned + combat.pending.length <= RAID_CONTENT.maxPending && remainingCost + deaths <= combat.spent && combat.spent <= remainingCost + deaths * RAID_COST.captain, 'finite wave expenditure');
   if (world.scenario === 'colony') {
-    const remainingCaptains = [...combat.pending, ...combat.raiders].filter(r => r.kind === 'captain').length;
-    const plannedCaptains = Math.floor(combat.wave / 4);
-    assert(remainingCaptains <= (combat.wave > combat.completed && combat.wave % 4 === 0 ? 1 : 0) && combat.stats.bosses + remainingCaptains === plannedCaptains, 'director Captain lifetime ledger');
+    const remainingBosses = [...combat.pending, ...combat.raiders].filter(r => isBossKind(r.kind));
+    const plannedBosses = Math.floor(combat.wave / 4);
+    assert(remainingBosses.length <= (combat.wave > combat.completed && combat.wave % 4 === 0 ? 1 : 0) && combat.stats.bosses + remainingBosses.length === plannedBosses, 'director boss lifetime ledger');
+    assert(remainingBosses.every(r => r.kind === bossForWave(world.seed, combat.wave)), 'director seeded boss kind');
   }
   for (const member of [...combat.pending, ...combat.raiders]) {
     const leader = [...combat.pending, ...combat.raiders].find(other => other.id === member.leaderId);
@@ -212,7 +214,7 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   for (const order of combat.orders) {
     object(order, ['actor', 'mode', 'target', 'resume']);
     assert(world.people.some(p => p.id === order.actor && p.life === 'alive') && !actors.has(order.actor), 'battle order owner'); actors.add(order.actor);
-    assert(['rally', 'retreat', 'shelter', 'clear'].includes(order.mode), 'battle order mode');
+    assert(['rally', 'retreat', 'shelter', 'clear', 'strike', 'drain', 'cut', 'ignite'].includes(order.mode), 'battle order mode');
     cell(order.target); if (order.resume !== null) cell(order.resume);
   }
   const defenseIds = new Set<number>();
@@ -230,7 +232,7 @@ export function validateCombat(world: World, ids: Set<number>, occupied: Set<num
   }
 }
 
-function profile(kind: RaidKind) { return kind === 'raider' || kind === 'breacher' ? C[kind] : E.profiles[kind]; }
+function profile(kind: RaidKind) { return C[kind]; }
 function vector(facing: RaidEdge): Cell { return facing === 'north' ? { x: 0, y: -1 } : facing === 'east' ? { x: 1, y: 0 } : facing === 'south' ? { x: 0, y: 1 } : { x: -1, y: 0 }; }
 function chargeCells(origin: Cell, facing: RaidEdge): Cell[] {
   const v = vector(facing);

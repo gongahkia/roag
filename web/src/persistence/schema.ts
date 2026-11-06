@@ -9,8 +9,10 @@ import { BUILDINGS, MATERIALS, total, WORK_CONTENT } from '../simulation/work-co
 import type { Stock } from '../simulation/work-content.ts';
 import { terminalReason } from '../simulation/step.ts';
 import { validateCombat } from './combat-schema.ts';
+import { biomeForSeed, ENVIRONMENT } from '../simulation/biome.ts';
+import { validateBossPreflight, validateBosses } from './boss-schema.ts';
 export type Controls = { manualPaused:boolean; speed:1|2|4 };
-export type Save = { format:'roag-colony'; version:5; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
+export type Save = { format:'roag-colony'; version:6; contentVersion:typeof CONTENT_VERSION; world:World; controls:Controls };
 export const MAX_SAVE_BYTES=2_000_000;
 function assert(ok:unknown,message:string):asserts ok {if(!ok)throw new Error(`Invalid save: ${message}`);}
 function object(value:unknown,keys:string[]):asserts value is Record<string,unknown> {
@@ -21,18 +23,20 @@ const integer=(n:unknown,min=0,max=1e9):n is number=>Number.isSafeInteger(n)&&Nu
 function cell(value:unknown):asserts value is Cell {object(value,['x','y']);assert(integer(value.x,0,WIDTH-1)&&integer(value.y,0,HEIGHT-1),'cell outside world');}
 export function validateSave(value:unknown):Save {
   object(value,['format','version','contentVersion','world','controls']);
-  assert(value.format==='roag-colony'&&value.version===5&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
+  assert(value.format==='roag-colony'&&value.version===6&&value.contentVersion===CONTENT_VERSION,'unsupported format, schema or content version');
   object(value.controls,['manualPaused','speed']);assert(typeof value.controls.manualPaused==='boolean'&&[1,2,4].includes(Number(value.controls.speed))&&typeof value.controls.speed==='number','controls');
-  const v=value.world;object(v,['combat','seed','tick','nextId','nextSequence','rng','width','height','terrain','terrainVersion','scenario','generation','heart','people','resources','pending','terminal','jobs','structures','piles','spent','lost','sourceRemoved','produced','consumed','statistics','recipeCounts']);
+  const v=value.world;object(v,['combat','bosses','environment','seed','tick','nextId','nextSequence','rng','width','height','terrain','terrainVersion','scenario','generation','heart','people','resources','pending','terminal','jobs','structures','piles','spent','lost','sourceRemoved','produced','consumed','statistics','recipeCounts']);
   assert(validSeed(Number(v.seed))&&typeof v.seed==='number'&&integer(v.tick)&&integer(v.nextId,8)&&integer(v.nextSequence,1)&&integer(v.terrainVersion),'counters/seed');
   assert(v.width===WIDTH&&v.height===HEIGHT&&Array.isArray(v.terrain)&&v.terrain.length===WIDTH*HEIGHT&&v.terrain.every(n=>integer(n,0,2)),'terrain');
   assert(v.scenario==='colony'||v.scenario==='routing-lab'||v.scenario==='work-lab','scenario');
+  validateEnvironment(v.environment,v.seed as number);
   object(v.rng,[...STREAMS]);for(const label of STREAMS)assert(typeof v.rng[label]==='number'&&validSeed(v.rng[label] as number),'RNG stream');
   object(v.generation,['attempts','fallback']);assert(integer(v.generation.attempts,0,3)&&typeof v.generation.fallback==='boolean','generation');
   object(v.heart,['id','x','y','health']);assert(v.heart.id===1&&v.heart.x===64&&v.heart.y===64&&integer(v.heart.health,0,100),'heart');
   assert(Array.isArray(v.people)&&v.people.length===6&&Array.isArray(v.resources)&&v.resources.length===18&&Array.isArray(v.pending)&&v.pending.length<=128,'entity counts');
   assert(Array.isArray(v.jobs)&&v.jobs.length<=256&&Array.isArray(v.structures)&&v.structures.length<=256&&Array.isArray(v.piles)&&v.piles.length<=2048,'work entity counts');
   const world=v as unknown as World;
+  validateBossPreflight(world);
   // walkable is used before the full combat validator; reject malformed blocker
   // arrays here so imports cannot throw raw errors while inspecting founders.
   assert(typeof v.combat==='object'&&v.combat!==null&&!Array.isArray(v.combat),'combat object');
@@ -42,16 +46,16 @@ export function validateSave(value:unknown):Save {
   assert(world.jobs.filter(active).length<=128&&world.structures.length+world.jobs.filter(j=>active(j)&&j.kind==='build').length<=256,'active work / future structure budget');
   const ids=new Set<number>([1]),occupied=new Set<number>();
   for(let i=0;i<v.people.length;i++) {
-    const p=v.people[i];object(p,['id','founder','life','x','y','destination','next','progress','route','routeVersion','retryAt','blocked','job','cargo','yieldTo','yieldUntil','failures','body']);
+    const p=v.people[i];object(p,['id','founder','life','x','y','destination','next','progress','moveTicks','route','routeVersion','retryAt','blocked','job','cargo','yieldTo','yieldUntil','failures','body']);
     assert(p.id===i+2&&p.founder===i&&typeof p.life==='string'&&['alive','downed','dead'].includes(p.life),'founder identity/life');ids.add(p.id as number);
     assert(integer(p.x,0,127)&&integer(p.y,0,127)&&(p.life==='dead'||walkable(world,p as unknown as Cell)),'person location');
-    assert(integer(p.progress,0,MOVE_TICKS-1)&&integer(p.routeVersion,0,world.terrainVersion)&&integer(p.retryAt),'movement counters');
+    assert(integer(p.moveTicks)&&[4,6,8].includes(p.moveTicks)&&integer(p.progress,0,p.moveTicks-1)&&integer(p.routeVersion,0,world.terrainVersion)&&integer(p.retryAt),'movement counters');
     assert(p.blocked===null||typeof p.blocked==='string'&&['Destination is blocked','Route search budget reached; retrying','No route; waiting for access','Occupied; yielding','Yielding to traffic'].includes(p.blocked),'blocked reason');
     if(p.destination!==null)cell(p.destination);
     if(p.yieldTo!==null)cell(p.yieldTo);
     assert(integer(p.yieldUntil)&&integer(p.failures)&& (p.job===null||integer(p.job,8)), 'worker scheduling');stock(p.cargo);assert(total(p.cargo as Stock)<=WORK_CONTENT.cargoCapacity,'cargo capacity');
     if(p.next!==null){cell(p.next);assert(distance(p as unknown as Cell,p.next)===1&&walkable(world,p.next),'movement edge');}
-    else assert(p.progress===0,'progress without a step');
+    else assert(p.progress===0&&p.moveTicks===MOVE_TICKS,'progress or duration without a step');
     assert(Array.isArray(p.route)&&p.route.length<=WIDTH*HEIGHT,'route length');
     let previous=(p.next??p) as Cell;
     for(const next of p.route){cell(next);assert(distance(previous,next)===1,'route adjacency');if(p.routeVersion===world.terrainVersion)assert(walkable(world,next),'route crosses solid terrain');previous=next;}
@@ -60,10 +64,11 @@ export function validateSave(value:unknown):Save {
     if(p.life!=='dead')for(const pos of [p as unknown as Cell,...(p.next?[p.next as Cell]:[])]){const key=index(pos.x,pos.y);assert(!occupied.has(key),'duplicate occupied/reserved cell');occupied.add(key);}
   }
   const resourceCells=new Set<number>();
-  for(const r of v.resources){object(r,['id','kind','x','y','initial','remaining']);assert(integer(r.id,8,world.nextId-1)&&!ids.has(r.id),'resource ID');ids.add(r.id as number);assert(typeof r.kind==='string'&&['wood','stone','food'].includes(r.kind)&&integer(r.x,1,126)&&integer(r.y,1,126)&&integer(r.initial,1,81)&&integer(r.remaining,0,r.initial as number),'resource');const key=index(r.x as number,r.y as number);assert(!resourceCells.has(key),'duplicate resource');resourceCells.add(key);if(r.kind!=='food'&&Number(r.remaining)>0)assert(world.terrain[key]===2,'solid resource');}
+  for(const r of v.resources){object(r,['id','kind','x','y','initial','remaining']);assert(integer(r.id,8,world.nextId-1)&&!ids.has(r.id),'resource ID');ids.add(r.id as number);assert(typeof r.kind==='string'&&['wood','stone','food'].includes(r.kind)&&integer(r.x,1,126)&&integer(r.y,1,126)&&integer(r.initial,10,81)&&integer(r.remaining,0,r.initial as number),'resource');const key=index(r.x as number,r.y as number);assert(!resourceCells.has(key),'duplicate resource');resourceCells.add(key);if(r.kind!=='food'&&Number(r.remaining)>0)assert(world.terrain[key]===2,'solid resource');}
   validateCombat(world,ids,occupied);
   validateBodies(world);
   validateWork(world,ids);
+  validateBosses(world,ids,occupied);
   assert(Math.max(...ids)<world.nextId,'next ID');
   let lastDue=-1,lastSequence=0;const sequences=new Set<number>();
   for(const c of v.pending){object(c,['sequence','due','input']);assert(integer(c.sequence,1,world.nextSequence-1)&&!sequences.has(c.sequence)&&integer(c.due,world.tick+1),'pending command identity/time');sequences.add(c.sequence);assert((c.due as number)>lastDue||c.due===lastDue&&(c.sequence as number)>lastSequence,'command order');lastDue=c.due as number;lastSequence=c.sequence as number;
@@ -72,7 +77,7 @@ export function validateSave(value:unknown):Save {
   assert(world.terminal===terminalReason(world),'terminal consistency');
   return structuredClone(value) as unknown as Save;
 }
-export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:5,contentVersion:CONTENT_VERSION,world,controls});}
+export function makeSave(world:World,controls:Controls):Save {return validateSave({format:'roag-colony',version:6,contentVersion:CONTENT_VERSION,world,controls});}
 export function encodeSave(save:Save):string {return canonical(validateSave(save));}
 export function parseSave(text:string):Save {
   if(text.length>MAX_SAVE_BYTES)throw new Error('Save file is too large');
@@ -82,11 +87,26 @@ export function parseSave(text:string):Save {
 function stock(value: unknown): asserts value is Stock {
   object(value,[...MATERIALS]);for(const k of MATERIALS)assert(integer(value[k],0,100000),'material quantity');
 }
+function validateEnvironment(value:unknown,seed:number):void {
+  object(value,['biome','wet','ash']);
+  assert(value.biome===biomeForSeed(seed),'environment biome');
+  assert(Array.isArray(value.wet)&&value.wet.length<=ENVIRONMENT.maxCells&&Array.isArray(value.ash)&&value.ash.length<=ENVIRONMENT.maxCells,'environment limits');
+  assert((value.biome==='marsh'||value.wet.length===0)&&(value.biome==='ash'||value.ash.length===0),'environment biome cells');
+  const occupied=new Set<number>();
+  for(const position of [...value.wet,...value.ash]){
+    cell(position);const key=index(position.x,position.y);
+    const radius=Math.max(Math.abs(position.x-64),Math.abs(position.y-64));
+    assert(integer(position.x,2,125)&&integer(position.y,2,125)&&radius>12&&radius<=48,'environment safe footprint');
+    assert(!occupied.has(key),'duplicate environment cell');occupied.add(key);
+  }
+  // These are saved authored ground cells. Buildings and ground edits may change
+  // their current access; never regenerate or erase them while validating a save.
+}
 function commandShape(world: World, value: unknown): void {
   assert(value!==null&&typeof value==='object','command');const v=value as Record<string,unknown>;
   const ref=(list:{id:number}[],id:unknown)=>list.some(p=>p.id===id);
   switch(v.kind) {
-    case 'battle': object(v,['kind','actor','mode','target']);cell(v.target);assert((v.actor===0||ref(world.people,v.actor))&&['rally','retreat','shelter','clear','release'].includes(String(v.mode)),'battle command');break;
+    case 'battle': object(v,['kind','actor','mode','target']);cell(v.target);assert((v.actor===0||ref(world.people,v.actor))&&typeof v.mode==='string'&&['rally','retreat','shelter','clear','strike','drain','cut','ignite','release'].includes(v.mode),'battle command');break;
     case 'reload': object(v,['kind','structure']);assert(world.structures.some(s=>s.id===v.structure&&(s.kind==='tower'||s.kind==='trap')),'reload reference');break;
     case 'move': object(v,['kind','actor','target']);cell(v.target);assert(ref(world.people,v.actor),'actor reference');break;
     case 'edit': object(v,['kind','target','solid']);cell(v.target);assert(world.scenario==='routing-lab'&&typeof v.solid==='boolean','edit command');break;
