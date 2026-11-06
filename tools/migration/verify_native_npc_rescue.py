@@ -189,7 +189,24 @@ def main():
         scene='world-campaign' if args.world_campaign else None,
         runtime_source=args.runtime.resolve() if args.runtime else None)
     try: verify(client, args.world_campaign)
-    finally: client.close()
+    finally:
+        saved, error = False, None
+        try:
+            if client.process.poll() is None:
+                if client.sequence:
+                    pending = 'journey-' + str(client.sequence)
+                    client.until(lambda: (r if (r := client.read('response.json')) and r['id'] == pending else None))
+                    client.ui = client.read('observation.json')['ui']
+                client.control_click('dungeon:save')
+                saved = True
+        except Exception as failure:
+            error = str(failure)
+            print('Final rescue checkpoint failed:', error, flush=True)
+        finally:
+            (client.output / 'handoff.json').write_text(json.dumps(dict(checkpointSaved=saved, checkpointError=error,
+                clock=client.ui['nativeDungeon']['clock'], position=client.ui['position'],
+                player=client.ui['nativeDungeon']['player']), indent=2) + '\n')
+            client.close()
 
 
 if __name__ == '__main__': main()
