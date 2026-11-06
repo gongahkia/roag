@@ -44,3 +44,18 @@ select { max-width: 100%; min-width: 0; color: #e8e6d6; background: #1b2720; bor
 #raiders li button { flex-shrink:0; font-size:11px; }
 #attack-summary { overflow-wrap:anywhere; }
 @media(max-width:760px) { .defense-columns { grid-template-columns:1fr; } #raiders li { flex-wrap:wrap; gap:6px; } .raid-banner { font-size:11px; } }
+#raiders li > span, #barricades li > span { white-space:pre-line; line-height:1.7; min-width:0; overflow-wrap:anywhere; }
+#raiders li[data-role="captain"] { border-left:3px solid var(--gold); padding-left:10px; }
+.barricade-panel, .raid-history-panel { margin-top:24px; border-top:1px solid var(--line); padding-top:18px; min-width:0; }
+#barricades { list-style:none; padding:0; margin:12px 0; }
+#barricades li { display:flex; align-items:center; justify-content:space-between; gap:14px; font-size:12px; padding:10px 0; border-bottom:1px solid var(--line); }
+.barricade-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.barricade-actions button { font-size:11px; }
+#barricade-empty { color:var(--muted); font-size:12px; }
+.raid-history-scroll { overflow:auto; max-width:100%; margin-top:12px; border:1px solid var(--line); border-radius:4px; }
+.raid-history-scroll:focus-visible { outline:2px solid var(--gold); outline-offset:3px; }
+#raid-history { width:100%; border-collapse:collapse; text-align:left; font-size:12px; font-variant-numeric:tabular-nums; }
+#raid-history caption { padding:10px; text-align:left; color:var(--muted); font-size:11px; }
+#raid-history th, #raid-history td { padding:10px 12px; border-top:1px solid var(--line); white-space:nowrap; }
+#raid-history th { color:var(--muted); font-weight:500; }
+@media(max-width:760px) { #barricades li { align-items:flex-start; flex-direction:column; gap:8px; } #battle-mode { max-width:220px; } }
