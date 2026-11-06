@@ -59,17 +59,22 @@ def main():
     parser.add_argument('--hours', type=int, default=24)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--continue-from', type=Path)
+    parser.add_argument('--runtime', type=Path)
     args = parser.parse_args()
     assert 24 <= args.hours <= 72
     previous = args.continue_from.resolve() if args.continue_from else None
     if previous:
         assert (previous / 'control/campaign.json').is_file(), 'No durable continuing save exists in that probe'
-    client = Client(args.output.resolve(), args.seed, scene='world-campaign', window_size='1024x720', continuation=previous)
+    client = Client(args.output.resolve(), args.seed, scene='world-campaign', window_size='1024x720', continuation=previous,
+        runtime_source=args.runtime.resolve() if args.runtime else None)
     completed = 0
     start = start_clock = None
     try:
         if previous:
             saved = json.loads((previous / 'handoff.json').read_text())
+            before = json.loads(client.slot.read_text())
+            client.control_click('dungeon:save')
+            assert before == json.loads(client.slot.read_text()), 'Continuation changed the world before a paid action'
             completed = saved['hoursCompleted']
             knowledge = previous / 'calendar-knowledge.json'
             if knowledge.exists():
