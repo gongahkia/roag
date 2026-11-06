@@ -181,6 +181,8 @@ Mirror Dividend preserves the original executed behavior: a reflected sentry sho
 - Dungeons persist through retreat and revisiting, subject to explicitly activated special-dungeon consequences.
 - On permanent member death, their equipped gear remains on their body for recovery. Globally shared supplies remain available to survivors. Site destruction can affect physical recovery according to its announced consequences.
 
+Physical route decision (2026-11-06): the user confirmed **the chosen passage opens; other prebuilt branches can be dug into**. Preserve the original eligible route offers/paid choice and elite progression, while giving all alternatives fixed world coordinates before exploration. Choosing a route opens its physical passage; ordinary excavation may bypass the remaining walls. Opening/revisiting must not repaint explored or player-modified regions. This resolves the physical branch-opening clarification.
+
 ### Special dungeons and campaign objectives
 
 - Only a randomly selected special subset has Roag extraction pressure/pursuers.
