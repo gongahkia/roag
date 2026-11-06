@@ -10,6 +10,9 @@ import { constrain, zoomAt, TILE, WORLD, MAX_ZOOM, minZoom } from './view.ts';
 import type { View, Size } from './view.ts';
 import type { UiCommand } from '../ui/panels.ts';
 import { element } from '../ui/panels.ts';
+import { COMBAT_CONTENT } from '../simulation/combat-content.ts';
+import { ENCOUNTER_CONTENT } from '../simulation/encounter-content.ts';
+import { facingVector } from '../simulation/encounter-geometry.ts';
 
 export class ColonyScene extends Phaser.Scene {
   private view: View = { x: 64.5 * TILE, y: 64.5 * TILE, zoom: 3 };
@@ -197,20 +200,49 @@ export class ColonyScene extends Phaser.Scene {
     const world=this.controller.world, combat=world.combat, marks=this.combatMarks;
     marks.clear();
     const alpha=this.controller.clock.paused?0:this.controller.clock.alpha;
+    for(const barrier of combat.barricades){
+      const x=barrier.x*TILE,y=barrier.y*TILE;
+      marks.fillStyle(0x614879,.9).fillRect(x+1,y+1,TILE-2,TILE-2).lineStyle(1,0xc3a0e1).strokeRect(x+1,y+1,TILE-2,TILE-2);
+      marks.lineBetween(x+2,y+4,x+10,y+4).lineBetween(x+2,y+8,x+10,y+8).lineBetween(x+5,y+1,x+5,y+4).lineBetween(x+8,y+4,x+8,y+8);
+      marks.fillStyle(0x1b1623).fillRect(x+1,y-2,TILE-2,2).fillStyle(0xc3a0e1).fillRect(x+1,y-2,(TILE-2)*barrier.health/ENCOUNTER_CONTENT.rampart.health,2);
+    }
     for(const enemy of combat.raiders){
       const ratio=enemy.next?Math.min(1,(enemy.progress+alpha)/MOVE_TICKS):0;
       const x=(enemy.x+(enemy.next?enemy.next.x-enemy.x:0)*ratio+.5)*TILE;
       const y=(enemy.y+(enemy.next?enemy.next.y-enemy.y:0)*ratio+.5)*TILE;
+      const v=facingVector(enemy.facing), side={x:-v.y,y:v.x};
+      const committed=Boolean(enemy.charge)||combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===enemy.id);
+      const protectedFront=enemy.kind==='shield'?enemy.loweredUntil<=world.tick:enemy.kind==='captain'&&enemy.exposedUntil<=world.tick&&!committed;
+      if(protectedFront)marks.fillStyle(enemy.kind==='captain'?0xe6ce85:0x8fbcdc,.24).fillTriangle(x,y,x+v.x*9+side.x*9,y+v.y*9+side.y*9,x+v.x*9-side.x*9,y+v.y*9-side.y*9);
+      if(enemy.kind==='captain'&&enemy.exposedUntil>world.tick)marks.lineStyle(1,0xffe49a).strokeCircle(x,y,8);
       if(enemy.kind==='breacher')marks.fillStyle(0xf0a45e).fillRect(x-5,y-5,10,10).lineStyle(1,0x381c17).strokeRect(x-5,y-5,10,10).lineBetween(x-3,y-3,x+3,y+3);
+      else if(enemy.kind==='shield')marks.fillStyle(0x8fbcdc).fillPoints([{x:x-4,y:y-5},{x:x+4,y:y-5},{x:x+4,y:y+2},{x,y:y+6},{x:x-4,y:y+2}],true).lineStyle(1,0x152c3c).lineBetween(x,y-3,x,y+3);
+      else if(enemy.kind==='archer')marks.fillStyle(0xc79de5).fillTriangle(x,y-5,x+5,y+5,x-5,y+5).lineStyle(1,0x3d254d).lineBetween(x-3,y+3,x+3,y+3);
+      else if(enemy.kind==='healer')marks.fillStyle(0x85d4a1).fillRect(x-2,y-5,4,10).fillRect(x-5,y-2,10,4);
+      else if(enemy.kind==='rusher')marks.fillStyle(0xfb7c8b).fillTriangle(x+v.x*6,y+v.y*6,x-v.x*4+side.x*4,y-v.y*4+side.y*4,x-v.x*4-side.x*4,y-v.y*4-side.y*4);
+      else if(enemy.kind==='captain')marks.fillStyle(0xe6ce85).fillPoints([{x:x-5,y:y+4},{x:x-6,y:y-4},{x:x-2,y:y-1},{x,y:y-6},{x:x+2,y:y-1},{x:x+6,y:y-4},{x:x+5,y:y+4}],true).lineStyle(1,0x5f4b20).lineBetween(x-4,y+2,x+4,y+2);
       else marks.fillStyle(0xf07565).fillPoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true).lineStyle(1,0x381c17).strokePoints([{x,y:y-5},{x:x+5,y},{x,y:y+5},{x:x-5,y}],true);
+      marks.lineStyle(1,0xffffff,.9).lineBetween(x+v.x*4,y+v.y*4,x+v.x*7,y+v.y*7);
+      marks.fillStyle(0x301b1b).fillRect(x-5,y-9,10,2).fillStyle(0xb4d38b).fillRect(x-5,y-9,10*enemy.health/COMBAT_CONTENT[enemy.kind].health,2);
+      if(enemy.charge)for(const cell of enemy.charge.cells.slice(enemy.charge.cursor))marks.lineStyle(1,0xf0a45e,.8).strokeRect(cell.x*TILE+2,cell.y*TILE+2,TILE-4,TILE-4);
     }
     for(const attack of combat.attacks){
-      const color=attack.faction==='hostile'?0xff796b:0xffd877;
-      for(const cell of attack.cells)marks.fillStyle(color,.2).fillRect(cell.x*TILE,cell.y*TILE,TILE,TILE).lineStyle(1,color).strokeRect(cell.x*TILE+1,cell.y*TILE+1,TILE-2,TILE-2);
+      const color=attack.faction==='colony'?0xffd877:attack.kind==='heal'?0x85d4a1:attack.kind==='arrow'?0xc79de5:attack.kind==='charge'?0xf0a45e:attack.kind==='rampart'?0xc3a0e1:0xff796b;
+      for(const cell of attack.cells){
+        const x=cell.x*TILE,y=cell.y*TILE;
+        marks.fillStyle(color,.2).fillRect(x,y,TILE,TILE).lineStyle(1,color).strokeRect(x+1,y+1,TILE-2,TILE-2);
+        if(attack.kind==='heal')marks.lineBetween(x+6,y+3,x+6,y+9).lineBetween(x+3,y+6,x+9,y+6);
+        else if(attack.kind==='rampart')marks.lineBetween(x+2,y+5,x+5,y+2).lineBetween(x+2,y+10,x+10,y+2).lineBetween(x+7,y+10,x+10,y+7);
+        else if(attack.kind==='charge'){
+          const first=attack.cells[0]!,dx=Math.sign(first.x-attack.origin.x),dy=Math.sign(first.y-attack.origin.y);
+          marks.lineBetween(x+6-dy*3,y+6+dx*3,x+6+dx*3,y+6+dy*3).lineBetween(x+6+dy*3,y+6-dx*3,x+6+dx*3,y+6+dy*3);
+        }else if(attack.kind==='melee'||attack.kind==='trap')marks.lineBetween(x+3,y+3,x+9,y+9).lineBetween(x+3,y+9,x+9,y+3);
+      }
       marks.lineStyle(1,color,.45).lineBetween((attack.origin.x+.5)*TILE,(attack.origin.y+.5)*TILE,(attack.target.x+.5)*TILE,(attack.target.y+.5)*TILE);
       let label=this.attackLabels.get(attack.id);
       if(!label){label=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'7px',color:'#ffffff',backgroundColor:'#251d18'}).setOrigin(.5,1).setDepth(6);this.attackLabels.set(attack.id,label);}
-      label.setPosition((attack.target.x+.5)*TILE,attack.target.y*TILE).setText(String(Math.max(0,attack.due-world.tick)));
+      const symbol=attack.kind==='charge'?'C':attack.kind==='rampart'?'W':attack.kind==='heal'?'H':attack.kind==='arrow'?'A':'';
+      label.setPosition((attack.target.x+.5)*TILE,attack.target.y*TILE).setText(`${symbol}${Math.max(0,attack.due-world.tick)}`);
     }
     for(const [id,label] of this.attackLabels)if(!combat.attacks.some(attack=>attack.id===id)){label.destroy();this.attackLabels.delete(id);}
   }
