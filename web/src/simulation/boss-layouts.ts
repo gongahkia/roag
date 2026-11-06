@@ -23,7 +23,7 @@ const EDGES: readonly string[] = ['north', 'east', 'south', 'west'];
 const copy = (cell: Cell): Cell => ({ x: cell.x, y: cell.y });
 const key = (cell: Cell): number => index(cell.x, cell.y);
 
-function shape(kind: BossKind, center: Cell): BossLayout {
+export function bossLayoutShape(kind: BossKind, center: Cell): BossLayout {
   const at = (x: number, y: number): Cell => ({ x: center.x + x, y: center.y + y });
   const layout: BossLayout = { kind, center: copy(center), resonators: [], channels: [], anchors: [], webs: [] };
   if (kind === 'bellkeeper') layout.resonators = [at(-3, -2), at(3, -2), at(0, 3)];
@@ -82,6 +82,7 @@ function context(world: World): Context {
   for (const source of world.resources) protect(source);
   for (const pile of world.piles) protect(pile);
   for (const barricade of world.combat.barricades) { protect(barricade); close(barricade); }
+  for (const feature of world.bosses.features) { protect(feature); if (feature.kind === 'resonator' || feature.kind === 'anchor') close(feature); }
   const components: Component[] = [], empty = new Set<number>();
   for (const seed of neighbors(world.heart).map(key)) {
     if (!open[seed] || components.some(component => component.reachable[seed])) continue;
@@ -98,7 +99,7 @@ function context(world: World): Context {
 }
 function assess(ctx: Context, kind: BossKind, center: Cell): BossPlacement {
   const fail = (reason: BossPlacementReason): BossPlacement => ({ layout: null, reason, attempts: 1 });
-  const layout = shape(kind, center), footprint = bossLayoutCells(layout);
+  const layout = bossLayoutShape(kind, center), footprint = bossLayoutCells(layout);
   if (!footprint.every(cell => inside(cell) && cell.x > 0 && cell.y > 0 && cell.x < WIDTH - 1 && cell.y < HEIGHT - 1)) return fail('Candidate extends outside playable ground');
   if (footprint.some(cell => !ctx.open[key(cell)] || ctx.protected.has(key(cell)))) return fail('Candidate overlaps protected or occupied ground');
   const base = ctx.components[0];
@@ -144,4 +145,19 @@ export function findBossLayout(world: World, kind: BossKind, approach: RaidEdge)
     }
   }
   return { layout: null, reason: 'No safe site within the bounded search', attempts };
+}
+
+/** Re-created overlays preserve prior routes and avoid occupied colony footprints. */
+export function bossFeaturePlacementAllowed(world: World, cell: Cell, blocking: boolean): boolean {
+  if (!inside(cell) || cell.x <= 0 || cell.y <= 0 || cell.x >= WIDTH - 1 || cell.y >= HEIGHT - 1) return false;
+  const ctx = context(world), id = key(cell), base = ctx.components[0];
+  if (!base || !ctx.open[id] || ctx.protected.has(id) || !base.reachable[id]) return false;
+  if (!blocking) return true;
+  const blocked = new Set([id]);
+  for (const component of ctx.components) {
+    const after = flood(ctx.open, component.seed, blocked);
+    for (let n = 0; n < component.reachable.length; n++) if (n !== id && component.reachable[n] && !after[n]) return false;
+    if (component === base && !neighbors(cell).some(adjacent => after[key(adjacent)])) return false;
+  }
+  return true;
 }

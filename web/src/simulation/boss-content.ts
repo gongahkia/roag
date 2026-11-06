@@ -16,7 +16,7 @@ export const BOSS_CONTENT = {
   surge: { windup: 20, damage: 12 },
   feast: { windup: 30, heal: 24, travelTicks: 120 },
   partition: { windup: 20 },
-  reel: { windup: 20, damage: 12, range: 16, pull: 2, bleedTicks: 120 },
+  reel: { windup: 20, damage: 12, range: 16, pull: 1, bleedTicks: 120 },
   fire: { windup: 8, gap: 4, damage: 6, maxDelay: 200 },
   movement: { ordinary: 4, wet: 6, web: 8 },
 } as const;
