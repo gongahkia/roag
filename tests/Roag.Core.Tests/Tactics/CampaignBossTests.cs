@@ -747,6 +747,23 @@ public sealed class CampaignBossTests
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SurgeCanPushFromTheWetChannelEndOntoActualOpenDryGround(bool final)
+    {
+        using var a = new Encounter(CampaignBossKind.SluiceMaw, final: final);
+        var channel = a.Arena.Channels[0]; var end = channel.Pool;
+        var dry = end.Offset(1, 0);
+        Assert.Equal(Material.Water, a.World.Chunks.At(end)); Assert.True(a.World.GroundOpen(dry));
+        a.Hero.Position = a.World.State.Position = end; a.World.Reveal();
+        a.Resolve(a.Cast(0));
+        Assert.Equal(dry, a.Hero.Position);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "Displaced" && e.Target == a.Hero.Id && e.Position == dry);
+        Assert.False(a.Combat.Preview(new(TacticalAction.Move, Facing.West)).Valid);
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
     [Fact]
     public void NewWallStopsChargeDamageAndMovementBeforeBodiesBeyondTheObstruction()
     {

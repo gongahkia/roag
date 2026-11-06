@@ -241,7 +241,7 @@ public sealed partial class TacticalCombat
                 foreach (var occupant in occupants)
                     for (int i = 0; i < (arena.FinalRole ? 2 : 1); i++)
                         if (!TryShove(occupant, cast.Facing, boss.Id, attack.Id, p =>
-                            arena.Channels[cast.Feature].Cells.Contains(p) && _world.Chunks.At(p) is Material.Water or Material.Bridge or Material.Floor
+                            _world.GroundOpen(p) || arena.Channels[cast.Feature].Cells.Contains(p) && _world.Chunks.At(p) == Material.Water
                                 && _world.ObjectAt(p) is not { Solid: true } && !_world.TacticalBlockAt(p))) break;
                 return true;
             case CampaignBossMove.ShieldAdvance:
