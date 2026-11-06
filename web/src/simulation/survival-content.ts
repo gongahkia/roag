@@ -1,4 +1,4 @@
-import { emptyStock, total } from './work-content.ts';
+import { emptyStock, total, MATERIALS } from './work-content.ts';
 import type { Stock } from './work-content.ts';
 export const DUTIES = ['gatherer','builder','cook','healer','guard'] as const;
 export type Duty = typeof DUTIES[number];
@@ -17,6 +17,7 @@ export const RECIPES = {
 export type Recipe = keyof typeof RECIPES;
 export function validateSurvivalContent(n:typeof NEEDS=NEEDS,r:typeof RECIPES=RECIPES):void {
   if(Object.values(n).some(v=>!Number.isSafeInteger(v)||v<1||v>10000)||n.mealAt>=n.starveAt||n.restAt>=n.exhaustedAt||n.restTarget>=n.restAt)throw Error('Invalid survival tuning');
-  for(const recipe of Object.values(r))if(!Number.isSafeInteger(recipe.reserve)||recipe.reserve<1||recipe.reserve>100||!DUTIES.includes(recipe.duty)||!Number.isSafeInteger(recipe.ticks)||recipe.ticks<1||total(recipe.cost)<1||total(recipe.output)<1||total(recipe.output)>5||[...Object.values(recipe.cost),...Object.values(recipe.output)].some(v=>!Number.isSafeInteger(v)||v<0||v>100))throw Error('Invalid production recipe');
+  if(Object.keys(r).sort().join()!==Object.keys(RECIPES).sort().join())throw Error('Invalid recipe catalog');
+  for(const recipe of Object.values(r))if(!['kitchen','workshop','infirmary'].includes(recipe.facility)||Object.keys(recipe.cost).sort().join()!==[...MATERIALS].sort().join()||Object.keys(recipe.output).sort().join()!==[...MATERIALS].sort().join()||recipe.ticks>1000||!Number.isSafeInteger(recipe.reserve)||recipe.reserve<1||recipe.reserve>100||!DUTIES.includes(recipe.duty)||!Number.isSafeInteger(recipe.ticks)||recipe.ticks<1||total(recipe.cost)<1||total(recipe.output)<1||total(recipe.output)>5||[...Object.values(recipe.cost),...Object.values(recipe.output)].some(v=>!Number.isSafeInteger(v)||v<0||v>100))throw Error('Invalid production recipe');
 }
 validateSurvivalContent();

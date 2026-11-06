@@ -18,7 +18,7 @@ const save=w=>encodeSave(makeSave(w,{manualPaused:true,speed:4}));
 function continuation(w,n=500){const copy=parseSave(save(w)).world,original=structuredClone(w);for(let i=0;i<n;i++){step(copy);step(original);}assert.equal(canonical(copy),canonical(original));for(const a of Object.values(materialAudit(copy)))assert.equal(a.produced,a.accounted);continuations.push({savedTick:w.tick,ticks:n,savedHash:hash(w),uninterruptedHash:hash(original),restoredHash:hash(copy),routines:structuredClone(w.people.map(p=>({id:p.id,job:p.job,cargo:p.cargo,body:p.body}))),materials:materialAudit(copy)});return copy;}
 test('survival tuning rejects invalid thresholds, times, capacities and recipe output',()=>{
  validateSurvivalContent();for(const f of [n=>n.dayTicks=0,n=>n.mealAt=n.starveAt,n=>n.restTarget=n.restAt]){const n=structuredClone(NEEDS);f(n);assert.throws(()=>validateSurvivalContent(n));}
- for(const f of [r=>r.meal.output.meal=6,r=>r.medicine.cost.ore=-1,r=>r.tool.reserve=0]){const r=structuredClone(RECIPES);f(r);assert.throws(()=>validateSurvivalContent(NEEDS,r));}
+ for(const f of [r=>r.meal.output.meal=6,r=>r.medicine.cost.ore=-1,r=>r.tool.reserve=0,r=>delete r.medicine.cost.wood,r=>r.ore.facility='unknown']){const r=structuredClone(RECIPES);f(r);assert.throws(()=>validateSurvivalContent(NEEDS,r));}
 });
 test('ordinary production and three days sustain six founders with physical food, repeated rest and exact save',()=>{
  const h=establish(),{w}=h;while(w.tick<NEEDS.dayTicks*3)h.tick();assert.ok(w.people.every(p=>p.life==='alive'&&p.body.health===100&&p.body.meals>=5&&p.body.rests>=3));assert.ok(w.statistics.harvests>=3&&w.recipeCounts.meal>=9&&w.recipeCounts.medicine>=2&&w.recipeCounts.ore>=3&&w.recipeCounts.tool>=1);continuation(w);

@@ -102,7 +102,7 @@ export function advanceNeeds(w:World):void {
       if(b.hunger>=N.mealAt&&hasFood(w))begin(w,p,'eat');
       else if(b.fatigue>=N.restAt&&w.structures.some(s=>s.kind==='bed'&&!w.people.some(a=>a.body.routine?.facility===s.id)))begin(w,p,'rest');
       else if(b.health<100&&b.hunger<N.starveAt&&b.fatigue<N.exhaustedAt&&w.structures.some(s=>s.kind==='infirmary'&&!w.people.some(a=>a.body.routine?.facility===s.id)))begin(w,p,'treatment');
-      else b.status=b.hunger>=N.starveAt?'Starving: health falling; produce accessible food':b.fatigue>=N.exhaustedAt?'Overworked: health falling; build accessible beds':b.hunger>=N.mealAt?'Hungry: no unreserved food; work at 50%':b.fatigue>=N.restAt?'Tired: no bed; work at 50%':b.health<100?'Injured: needs infirmary, healer and medicine':'Ready';
+      else b.status=b.hunger>=N.starveAt?'Starving: health falling; produce accessible food':b.fatigue>=N.exhaustedAt?'Overworked: health falling; build accessible beds':b.hunger>=N.mealAt?'Hungry: no unreserved food; work at 50%':b.fatigue>=N.restAt?'Tired: beds busy or absent; work at 50%':b.health<100?'Injured: needs free infirmary, healer and medicine':'Ready';
     }
     if(b.routine){care(w,p,b.routine);if(b.routine)b.status=(b.hunger>=N.starveAt?'Starving; ':b.fatigue>=N.exhaustedAt?'Overworked; ':'')+b.routine.status;}
   }

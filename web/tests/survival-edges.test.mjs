@@ -1,6 +1,8 @@
-import test from 'node:test';
+import test,{after} from 'node:test';
+import {writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
-import {establish,harness} from './helpers/survival.mjs';
+import {establish,harness,scenarioRuns} from './helpers/survival.mjs';
 import {NEEDS} from '../src/simulation/survival-content.ts';
 import {index,neighbors} from '../src/simulation/model.ts';
 import {total} from '../src/simulation/work-content.ts';
@@ -40,4 +42,16 @@ test('overwork alone visibly damages a fed colony; a rebuilt bed and medical car
  for(const s of [...w.structures].filter(s=>s.kind==='bed'))cmd({kind:'dismantle',structure:s.id});until(()=>!w.structures.some(s=>s.kind==='bed'),'remove beds');
  const p=w.people[0];until(()=>p.body.fatigue>=NEEDS.exhaustedAt&&p.body.health<100,'overwork injury',6000);assert.ok(p.body.hunger<NEEDS.starveAt);assert.ok(p.body.fatigue>=NEEDS.exhaustedAt);assert.match(p.body.status,/Overworked/);
  for(const x of [66,68,70])cmd({kind:'build',building:'bed',target:{x,y:68}});for(const recipe of ['ore','medicine'])cmd({kind:'produce',structure:w.structures.find(s=>s.kind===(recipe==='ore'?'workshop':'infirmary')).id,recipe});until(()=>w.people.every(a=>a.life==='alive'&&a.body.fatigue<NEEDS.restAt&&a.body.health===100),'bed and medicine recovery',2500);save(w);
+});
+
+test('ready jobs honor a higher per-worker duty preference before taking a lower duty',()=>{
+ const h=setup(),{w,cmd,until,tick}=h;until(()=>w.statistics.eatenMeals>=12,'meal reserve below target',2000);cmd({kind:'duty',actor:2,duty:'cook',value:3});
+ for(const p of w.people)if(p.job)cmd({kind:'work',job:p.job,action:'cancel'});
+ until(()=>w.people.every(p=>!p.next&&!p.destination&&!p.body.routine),'idle ready founders',500);
+ assert.ok(enqueue(w,{kind:'gather',source:8}));assert.ok(enqueue(w,{kind:'produce',structure:w.structures.find(s=>s.kind==='kitchen').id,recipe:'meal'}));tick();
+ assert.equal(w.jobs.find(j=>j.kind==='produce'&&j.recipe==='meal'&&j.state==='active').worker,2);assert.notEqual(w.jobs.find(j=>j.kind==='gather'&&j.ref===8).worker,2);save(w);
+});
+after(()=>{const dir=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P04');mkdirSync(dir,{recursive:true});writeFileSync(resolve(dir,`edge-scenarios-${process.pid}.json`),JSON.stringify({scenarioRuns},null,2)+'\n');});
+test('a deceased founder record does not make a legally placed blueprint unsaveable',()=>{
+ const h=setup(),{w,cmd,until}=h,p=w.people[0];cmd({kind:'move',actor:p.id,target:{x:72,y:64}});until(()=>p.x===72&&p.y===64&&!p.next&&!p.destination,'clear future site');cmd({kind:'dev',action:'kill',id:p.id});cmd({kind:'build',building:'wall',target:{x:72,y:64}});assert.doesNotThrow(()=>save(w));const j=w.jobs.find(j=>j.kind==='build'&&j.x===72&&j.y===64);until(()=>j.state==='done','build on vacated cell');save(w);
 });

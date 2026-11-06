@@ -31,7 +31,7 @@ export function setupWork(controller:ColonyController,send:(c:UiCommand)=>void):
   return ()=>{
     const w=controller.world;
     element('survival-summary').textContent=`Day ${Math.floor(w.tick/NEEDS.dayTicks)+1} · ${w.people.filter(p=>p.life==='alive').length} capable / ${w.people.filter(p=>p.life==='downed').length} downed / ${w.people.filter(p=>p.life==='dead').length} dead · ${w.statistics.harvests} harvests · ${w.statistics.eatenMeals} meals + ${w.statistics.eatenFood} raw food eaten · ${w.people.reduce((n,p)=>n+p.body.rests,0)} rest cycles · ${w.statistics.rescues} rescues${w.terminal?' · DEFEAT: '+w.terminal:''}`;
-    w.people.forEach((p,i)=>{const row=dutyRows[i]!;row.status.textContent=`${p.life} · Health ${p.body.health}% · Hunger ${p.body.hunger}/${NEEDS.starveAt} · Fatigue ${p.body.fatigue}/${NEEDS.exhaustedAt} · Mood ${p.body.mood}% · ${p.body.status}`;DUTIES.forEach((d,k)=>{row.selects[k]!.value=String(p.body.duties[d]);row.selects[k]!.disabled=p.life!=='alive';});});
+    w.people.forEach((p,i)=>{const row=dutyRows[i]!;row.status.textContent=`${p.life} · Health ${p.body.health}% · Hunger ${Math.min(100,Math.floor(p.body.hunger/NEEDS.starveAt*100))}% · Fatigue ${Math.min(100,Math.floor(p.body.fatigue/NEEDS.exhaustedAt*100))}% · Mood ${p.body.mood}% · ${p.body.status}`;DUTIES.forEach((d,k)=>{row.selects[k]!.value=String(p.body.duties[d]);row.selects[k]!.disabled=p.life!=='alive';});});
     if(w!==lastWorld){element('jobs').replaceChildren();element('structures').replaceChildren();rows.clear();structures.clear();source.replaceChildren();lastWorld=w;}
     const chosen=source.value;
     for(const r of [...w.resources].sort((a,b)=>Math.abs(a.x-64)+Math.abs(a.y-64)-Math.abs(b.x-64)-Math.abs(b.y-64)||a.id-b.id)){

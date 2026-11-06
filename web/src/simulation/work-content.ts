@@ -14,9 +14,9 @@ export const WORK_CONTENT = {
     door: { cost: { wood: 3, stone: 1, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'cottage' },
     storage: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 24, capacity: 60, sprite: 'wood' },
     workshop: { cost: { wood: 6, stone: 4, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
-    farm: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 20, capacity: 0, sprite: 'apple' },
+    farm: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 20, capacity: 0, sprite: 'wheat' },
     kitchen: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'hearth' },
-    bed: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'cottage' },
+    bed: { cost: { wood: 2, stone: 0, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 16, capacity: 0, sprite: 'bed' },
     infirmary: { cost: { wood: 4, stone: 2, food: 0, meal: 0, ore: 0, medicine: 0, tool: 0 }, ticks: 30, capacity: 0, sprite: 'cottage' },
   },
 } as const;

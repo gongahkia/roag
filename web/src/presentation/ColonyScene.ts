@@ -169,6 +169,7 @@ export class ColonyScene extends Phaser.Scene {
     const world = this.controller.world;
     this.workMarks.clear();
     for(const s of world.structures) if(s.kind==='stockpile') this.workMarks.lineStyle(1,0x95cfa0,.9).strokeRect(s.x*TILE+1,s.y*TILE+1,TILE-2,TILE-2);
+    for(const s of world.structures)if(s.kind==='infirmary')this.workMarks.fillStyle(0xffffff).fillRect((s.x+.42)*TILE,(s.y+.2)*TILE,2,8).fillRect((s.x+.23)*TILE,(s.y+.39)*TILE,8,2);
     for(const j of world.jobs) if(j.kind==='build'&&active(j)) this.workMarks.lineStyle(1,j.state==='suspended'?0x999999:0xe6ce85,.9).strokeRect(j.x*TILE+1,j.y*TILE+1,TILE-2,TILE-2);
     for(const b of world.piles) if(total(b.inventory)) this.workMarks.fillStyle(0xe6ce85).fillRect((b.x+.3)*TILE,(b.y+.3)*TILE,5,5);
     for (const p of world.people) {

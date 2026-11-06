@@ -127,7 +127,7 @@ function validateWork(world: World, ids: Set<number>): void {
       if(j.kind==='haul')assert(world.piles.some(b=>b.id===j.ref&&same(b,j)),'bundle reference');
       if(j.kind==='repair'||j.kind==='dismantle')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&(s.kind==='stockpile'?j.building===null:j.building===s.kind)),'structure work reference');
       if(j.kind==='farm'||j.kind==='produce')assert(world.structures.some(s=>s.id===j.ref&&same(s,j)&&s.kind===(j.kind==='farm'?'farm':RECIPES[j.recipe!].facility)),'production reference');
-      if(j.kind==='build') {const key=index(j.x,j.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>same(p,j)||p.next&&same(p.next,j)),'site footprint');positions.add(key);}
+      if(j.kind==='build') {const key=index(j.x,j.y);assert(!positions.has(key)&&world.terrain[key]!==2&&!same(j,world.heart)&&!world.resources.some(r=>r.remaining>0&&same(r,j))&&!world.people.some(p=>p.life!=='dead'&&(same(p,j)||p.next&&same(p.next,j))),'site footprint');positions.add(key);}
     }
     if(j.reservation) {
       const r=j.reservation;object(r,['source','kind','count']);assert(MATERIALS.includes(r.kind)&&integer(r.count,1,WORK_CONTENT.cargoCapacity)&&j.worker!==null&&j.state==='active','reservation');

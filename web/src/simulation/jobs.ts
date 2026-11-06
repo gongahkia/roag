@@ -241,7 +241,7 @@ export function advanceJobs(world: World): void {
   for (const j of [...world.jobs].sort((a,b) => b.priority-a.priority || a.id-b.id)) {
     if (j.state !== 'active' || j.retryAt>world.tick) continue;
     if (!j.worker) {
-      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !p.body.routine && p.body.recoverAt<=world.tick && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id));
+      const p = [...world.people].sort((a,b)=>b.body.duties[jobDuty(j)]-a.body.duties[jobDuty(j)]||a.id-b.id).find(p => p.life === 'alive' && !p.body.routine && p.body.recoverAt<=world.tick && p.body.duties[jobDuty(j)]>0 && p.body.duties[jobDuty(j)]>=p.body.duties.guard && p.job === null && !p.destination && !p.next && (j.requested === null || j.requested === p.id) && (j.requested!==null || !world.jobs.some(other=>other!==j&&other.state==='active'&&other.worker===null&&other.retryAt<=world.tick&&other.priority>=j.priority&&(other.requested===null||other.requested===p.id)&&p.body.duties[jobDuty(other)]>p.body.duties[jobDuty(j)])));
       if (!p) { j.status = j.requested ? 'Assigned worker unavailable' : 'Waiting for free worker with enabled duty'; continue; }
       j.worker = p.id; p.job = j.id;
     }

@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {canonical} from '../../src/simulation/canonical.ts';
 import assert from 'node:assert/strict';
 import { createWorld } from '../../src/simulation/world.ts';
 import { enqueue,step } from '../../src/simulation/step.ts';
@@ -5,7 +7,7 @@ import { materialAudit,workCommandReason } from '../../src/simulation/jobs.ts';
 import { makeSave } from '../../src/persistence/schema.ts';
 export const scenarioRuns=[];
 export function harness(scenario='colony',initial=null) {
- const w=initial??createWorld(42,{scenario}),commands=[];scenarioRuns.push({seed:w.seed,scenario:w.scenario,initialTick:w.tick,commands});
+ const w=initial??createWorld(42,{scenario}),commands=[];const initialTick=w.tick,initialHash=createHash('sha256').update(canonical(w)).digest('hex');scenarioRuns.push({toJSON:()=>({seed:w.seed,scenario:w.scenario,initialTick,initialHash,commands,final:{tick:w.tick,hash:createHash('sha256').update(canonical(w)).digest('hex'),statistics:w.statistics,people:w.people,materials:materialAudit(w)}})});
  const audit=()=>{for(const [k,a]of Object.entries(materialAudit(w)))assert.equal(a.produced,a.accounted,k);};
  const tick=(n=1)=>{for(let i=0;i<n;i++){const before=w.people.map(p=>({x:p.x,y:p.y}));step(w);audit();w.people.forEach((p,j)=>assert.ok(Math.abs(p.x-before[j].x)+Math.abs(p.y-before[j].y)<=1,'physical movement'));}};
  const cmd=input=>{assert.ok(enqueue(w,input),JSON.stringify({input,reason:workCommandReason(w,input)}));commands.push({due:w.tick+1,input:structuredClone(input)});tick();};
