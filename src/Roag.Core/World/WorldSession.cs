@@ -331,6 +331,15 @@ public sealed partial class WorldSession : IGameSession, IDisposable
     internal HashSet<WorldPosition> VisionFrom(WorldPosition origin)
     {
         var vision = new HashSet<WorldPosition>();
+        // This synchronous sight query cannot change constructs. Read their
+        // physical positions once instead of scanning the complete actor roster
+        // at every step of every ray. A later query reads replacement/expiry
+        // immediately; nothing is cached across actions or observers.
+        HashSet<WorldPosition>? bulwarks = null;
+        if (State.Tactics != null)
+            for (int i = 0; i < State.Actors.Count; i++)
+                if (State.Actors[i].Tactics?.Resources.Bulwark is { } block)
+                    (bulwarks ??= []).Add(block.Position);
         int radius = SightRadiusAt(origin);
         for (int dy = -radius; dy <= radius; dy++) for (int dx = -radius; dx <= radius; dx++)
         {
@@ -341,7 +350,7 @@ public sealed partial class WorldSession : IGameSession, IDisposable
                 var p = origin.Offset(length == 0 ? 0 : (int)Math.Round(dx * step / (double)length), length == 0 ? 0 : (int)Math.Round(dy * step / (double)length));
                 if (!Plan.Contains(p)) break;
                 vision.Add(p);
-                if (p != origin && (Materials.Opaque(Chunks.At(p)) || DungeonMistBlocks(p) || TacticalBlockAt(p))) break;
+                if (p != origin && (Materials.Opaque(Chunks.At(p)) || DungeonMistBlocks(p) || bulwarks?.Contains(p) == true)) break;
             }
         }
         return vision;

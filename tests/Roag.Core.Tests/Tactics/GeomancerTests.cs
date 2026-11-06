@@ -23,6 +23,10 @@ public sealed partial class ClassActionTests
         Assert.True(a.World.ObjectAt(cell)!.Solid);
         Assert.Contains(cell, a.World.Visible);
         Assert.DoesNotContain(a.Enemy.Position, a.World.Visible);
+        string afterPlacement = JsonSerializer.Serialize(a.World.State);
+        Assert.DoesNotContain(a.Enemy.Position, a.World.VisionFrom(a.Hero.Position));
+        Assert.DoesNotContain(a.Hero.Position, a.World.VisionFrom(a.Enemy.Position));
+        Assert.Equal(afterPlacement, JsonSerializer.Serialize(a.World.State));
         a.Next();
         Assert.Equal(153, a.Combat.Clock);
         Assert.False(a.Combat.Preview(new(TacticalAction.Move, Facing.East)).Valid);
