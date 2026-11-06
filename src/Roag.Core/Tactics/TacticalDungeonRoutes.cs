@@ -1,4 +1,5 @@
 using Roag.Core.World;
+using Roag.Core.Dungeons;
 
 namespace Roag.Core.Tactics;
 
@@ -6,15 +7,22 @@ public sealed partial class TacticalCombat
 {
     private void ActivateDungeonElites()
     {
-        if (_world.State.Dungeon is not { } run) return;
-        foreach (var floor in run.Floors.Where(f => f.Boss > 0 && f.Stage < 4))
+        if (_world.State.Dungeon is { } bounded) Activate(bounded);
+        if (_world.State.NativeCampaign?.Complexes is { } complexes)
+            foreach (var complex in complexes) if (complex.Populated) Activate(complex.Run);
+
+        void Activate(DungeonRunState run)
         {
-            var boss = Actor(floor.Boss);
-            if (boss is not { Life: LifeState.Alive, Tactics.Enemy: { Dormant: true } memory }
-                || !_world.Party.Any(a => a.Life == LifeState.Alive && a.Position.Distance(boss.Position) <= 7)) continue;
-            memory.Dormant = false;
-            State.Queue.Schedule(ScheduledKind.ActorReady, Clock, boss.Id);
-            Emit("EliteEngaged", boss.Id, boss.Id, 0, boss.Position);
+            foreach (var floor in run.Floors)
+            {
+                if (floor.Boss <= 0 || floor.Stage >= 4) continue;
+                var boss = Actor(floor.Boss);
+                if (boss is not { Life: LifeState.Alive, Tactics.Enemy: { Dormant: true } memory }
+                    || !_world.Party.Any(a => a.Life == LifeState.Alive && a.Position.Distance(boss.Position) <= 7)) continue;
+                memory.Dormant = false;
+                State.Queue.Schedule(ScheduledKind.ActorReady, Clock, boss.Id);
+                Emit("EliteEngaged", boss.Id, boss.Id, 0, boss.Position);
+            }
         }
     }
 
@@ -28,7 +36,7 @@ public sealed partial class TacticalCombat
 
     private void ResolveDungeonBossDeath(BoonEvent e)
     {
-        if (e.Kind != BoonTrigger.EntityKilled || e.TargetId is not { } victim || _world.State.Dungeon is not { } run) return;
+        if (e.Kind != BoonTrigger.EntityKilled || e.TargetId is not { } victim || _world.DungeonBossOwner(victim) is not { } run) return;
         var floor = run.Floors.FirstOrDefault(f => f.Boss == victim);
         if (floor == null || !run.BossExitReceipts.Add(victim)) return;
         var corpse = Actor(victim).Position;
@@ -44,7 +52,7 @@ public sealed partial class TacticalCombat
 
     private bool TryPlaceEliteReward(long victim, long action)
     {
-        var run = _world.State.Dungeon!; var floor = run.Floors.Single(f => f.Boss == victim); var corpse = Actor(victim).Position;
+        var run = _world.DungeonBossOwner(victim)!; var floor = run.Floors.Single(f => f.Boss == victim); var corpse = Actor(victim).Position;
         // Keep the receipt when bodies/fixtures temporarily occupy all nearby ground.
         // Walking away can expose a real landing later; no object is erased to fit it.
         for (int radius = 1; radius <= 5; radius++)
@@ -52,7 +60,9 @@ public sealed partial class TacticalCombat
             {
                 var cell = corpse.Offset(dx, dy);
                 if (Math.Abs(dx) + Math.Abs(dy) != radius || !ChestCellOpen(cell)) continue;
-                SpawnBoonChest("core:chest/free_elite", "elite:stage:" + floor.Stage, cell);
+                string marker = _world.State.Dungeon == run ? "elite:stage:" + floor.Stage
+                    : $"elite:complex:{_world.State.NativeCampaign!.Complexes!.Single(c => c.Run == run).Parcel.Id}/branch:{floor.Branch}";
+                SpawnBoonChest("core:chest/free_elite", marker, cell);
                 run.PendingEliteRewards.Remove(victim);
                 Emit("EliteRewardPlaced", 0, victim, action, cell);
                 return true;
@@ -62,8 +72,14 @@ public sealed partial class TacticalCombat
 
     private void SettlePendingEliteRewards()
     {
-        if (_world.State.Dungeon is not { } run || run.PendingEliteRewards.Count == 0) return;
-        foreach (long id in run.PendingEliteRewards.Order().ToArray()) TryPlaceEliteReward(id, 0);
+        if (_world.State.Dungeon is { } bounded) Settle(bounded);
+        if (_world.State.NativeCampaign?.Complexes is { } complexes)
+            foreach (var complex in complexes) Settle(complex.Run);
+        void Settle(DungeonRunState run)
+        {
+            if (run.PendingEliteRewards.Count == 0) return;
+            foreach (long id in run.PendingEliteRewards.Order().ToArray()) TryPlaceEliteReward(id, 0);
+        }
     }
 
     private void SettleDungeonVictory()

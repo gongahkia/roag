@@ -47,7 +47,7 @@ public sealed partial class WorldSession
             long target = 0;
             var enemy = branch.Nodes.SingleOrDefault(n => n.Kind == DungeonBranchNodeKind.Enemy);
             if (enemy != null) target = SpawnDungeonEnemy(combat, species[serial++ % species.Length], origin.Offset(enemy.Position.X, enemy.Position.Y)).Id;
-            combat.SpawnCorridorQuest($"floor:{origin.Floor}/branch:{branch.Corridor}", branch, origin, target);
+            combat.SpawnCorridorQuest(population.Marker($"floor:{origin.Floor}/branch:{branch.Corridor}"), branch, origin, target);
         }
         return serial;
     }

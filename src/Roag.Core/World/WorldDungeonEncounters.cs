@@ -41,7 +41,7 @@ public sealed partial class WorldSession
                 var points = offsets.Take(followers + 1).Select(d => center.Offset(d.X, d.Y)).ToArray();
                 if (kind == EnemySquadKind.WardedBodyguards && !DungeonFormationCanBeFlanked(floor, points)) continue;
                 var leader = SpawnDungeonEnemy(combat, roster.Leader, points[0]);
-                var squad = new EnemySquad($"floor:{origin.Floor}/squad:{room.Index}", kind, leader.Id, center);
+                var squad = new EnemySquad(population.Marker($"floor:{origin.Floor}/squad:{room.Index}"), kind, leader.Id, center);
                 leader.Tactics!.Enemy!.Squad = squad;
                 foreach (var cell in points.Skip(1)) SpawnDungeonEnemy(combat, roster.Follower, cell).Tactics!.Enemy!.Squad = squad;
                 return;
@@ -73,7 +73,7 @@ public sealed partial class WorldSession
         var selection = DungeonEncounterSelection.Idea(population.Seed, sourceFloor);
         if (selection.Definition is not { } definition) return;
         int seed = selection.Seed;
-        var choices = State.Actors.Where(a => a.Life == LifeState.Alive && a.Position.Floor == floor.Origin.Floor
+        var choices = State.Actors.Where(a => a.Life == LifeState.Alive && floor.Contains(a.Position)
                 && a.Tactics?.Enemy is { Squad: null, Retained: null } && a.Position.Distance(floor.Entry) >= 8
                 && EnemyCatalog.Default.Get(a.Tactics.DefinitionId).Ai is EnemyBrainKind.Guard or EnemyBrainKind.Skitter or EnemyBrainKind.ExpansionRegular)
             .OrderBy(a => a.Id).ToArray();

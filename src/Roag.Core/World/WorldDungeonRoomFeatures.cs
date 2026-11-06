@@ -28,7 +28,7 @@ public sealed partial class WorldSession
                 .OrderBy(c => RoagRandom.Derive(seed, kind + ":" + variant + ":" + c.Position.X + "," + c.Position.Y)))
             {
                 var p = candidate.Position;
-                string marker = $"floor:{origin.Floor}/feature:{kind}/{variant}/{p.X},{p.Y}";
+                string marker = population.Marker($"floor:{origin.Floor}/feature:{kind}/{variant}/{p.X},{p.Y}");
                 if (!Safe(p) || kind == DungeonRoomFeatureKind.Pillar && EncounterDirections.Count(d => Materials.Walkable(Chunks.At(p.Offset(d.X, d.Y)))) != 4
                     || !combat.CanPlaceRoomFeature(kind, marker, p)) continue;
                 combat.SpawnRoomFeature(kind, marker, p, variant); return true;
@@ -42,7 +42,7 @@ public sealed partial class WorldSession
             bool placed = false;
             foreach (var (dx, dy) in EncounterDirections)
             {
-                var plate = gate.Offset(dx, dy); string marker = $"floor:{origin.Floor}/timed-gate/{gate.X},{gate.Y}";
+                var plate = gate.Offset(dx, dy); string marker = population.Marker($"floor:{origin.Floor}/timed-gate/{gate.X},{gate.Y}");
                 if (!Safe(plate) || !combat.CanPlaceTimedGate(marker, gate, plate)) continue;
                 combat.SpawnTimedGate(marker, gate, plate); placed = true; break;
             }
@@ -62,7 +62,7 @@ public sealed partial class WorldSession
             for (int i = 0; i < room.Shape.Structures.Length; i++)
             {
                 var structure = room.Shape.Structures[i]; var point = room.At(new(structure.X, structure.Y)); var p = origin.Offset(point.X, point.Y);
-                string marker = $"floor:{origin.Floor}/structure:{room.Index}/{i + 1}";
+                string marker = population.Marker($"floor:{origin.Floor}/structure:{room.Index}/{i + 1}");
                 if (RoagRandom.Derive(seed, marker) % 100 >= 42 || !Safe(p)) continue;
                 var kind = structure.Kind switch { "pillar" => DungeonRoomFeatureKind.Pillar, "brazier" => DungeonRoomFeatureKind.Brazier,
                     "ward" => DungeonRoomFeatureKind.Ward, "mushroom" => DungeonRoomFeatureKind.Mushroom, "crystal" => DungeonRoomFeatureKind.Crystal,

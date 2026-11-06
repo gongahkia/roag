@@ -23,7 +23,7 @@ public sealed class DungeonQuestState
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {
-        if (NextQuest <= 0 || Nodes == null || Nodes.Any(n => n == null) || Nodes.Count > 64
+        if (NextQuest <= 0 || Nodes == null || Nodes.Any(n => n == null) || Nodes.Count > WorldSession.DungeonContentLimit(world, 64)
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count)
             throw new InvalidDataException("Invalid corridor quest registry.");
         using var chunks = Nodes.Count == 0 ? null : new ChunkCache(plan, world, content ?? ContentCatalog.Default);

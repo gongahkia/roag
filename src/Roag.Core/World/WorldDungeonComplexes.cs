@@ -1,9 +1,13 @@
 using Roag.Core.Dungeons;
+using Roag.Core.Tactics;
 
 namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
+    internal static int DungeonContentLimit(WorldState world, int perComplex)
+        => checked(perComplex * Math.Max(1, world.NativeCampaign?.Complexes?.Count ?? 0));
+
     internal static DungeonComplexState? SnapshotComplexAt(WorldState world, WorldPosition position)
     {
         if (world.NativeCampaign?.Complexes is not { } complexes) return null;
@@ -15,6 +19,18 @@ public sealed partial class WorldSession
         => world.Dungeon ?? SnapshotComplexAt(world, position)?.Run;
 
     internal DungeonRunState? DungeonAt(WorldPosition position) => SnapshotDungeonAt(State, position);
+    internal static DungeonFloorState? SnapshotDungeonFloorAt(WorldState world, WorldPosition position)
+        => SnapshotDungeonAt(world, position)?.Floors.FirstOrDefault(f => f.Contains(position));
+    internal DungeonFloorState? DungeonFloorAt(WorldPosition position) => SnapshotDungeonFloorAt(State, position);
+
+    internal DungeonRunState? DungeonBossOwner(long actor)
+    {
+        if (State.Dungeon is { } bounded && bounded.Floors.Any(f => f.Boss == actor)) return bounded;
+        if (State.NativeCampaign?.Complexes is { } complexes)
+            for (int i = 0; i < complexes.Count; i++)
+                if (complexes[i].Run.Floors.Any(f => f.Boss == actor)) return complexes[i].Run;
+        return null;
+    }
 
     internal static WorldRoomId? SnapshotAuthoredRoomAt(WorldState world, WorldPosition position)
         => world.Dungeon is { } bounded ? bounded.RoomAt(position) : SnapshotComplexAt(world, position)?.RoomAt(position);
@@ -31,6 +47,32 @@ public sealed partial class WorldSession
         if (world.Dungeon is { } bounded) return bounded.RoomAt(position);
         if (SnapshotComplexAt(world, position) is { } complex) return complex.RoomAt(position);
         return generator.RoomAt(position);
+    }
+
+    internal DungeonComplexState InstallDungeonComplex(DungeonComplexBlueprint blueprint)
+    {
+        var complex = InstallDungeonComplexTerrain(blueprint);
+        PopulateDungeonComplex(blueprint, complex);
+        return complex;
+    }
+
+    internal void PopulateDungeonComplex(DungeonComplexBlueprint blueprint, DungeonComplexState complex)
+    {
+        if (State.NativeCampaign?.Complexes?.Contains(complex) != true || complex.Parcel != blueprint.Parcel
+            || complex.Seed != blueprint.Seed || complex.Populated || State.Tactics is not { NextAction: 1 } tactics
+            || tactics.Queue.Clock != State.NativeCampaign.StartedAt * tactics.Tuning.UnitsPerWorldTick)
+            throw new InvalidOperationException("Only a new, registered physical complex can receive its initial contents.");
+        var combat = DungeonCombat;
+        foreach (var planned in blueprint.Floors)
+        {
+            var floor = complex.Run.Floors.Single(f => f.Branch == planned.Branch && f.Origin.Floor == planned.Origin.Floor);
+            PopulateDungeonFloor(planned.Layout, new(complex.Run, floor, complex.Seed, complex.Parcel.Id), combat, planned.Elite);
+        }
+        int finalIndex = complex.Run.Floors.FindIndex(f => f.Stage == 4);
+        var finale = complex.Run.Floors[finalIndex];
+        var regent = SpawnDungeonEnemy(combat, "core:enemy/hollow_regent", finale.Exit);
+        complex.Run.Floors[finalIndex] = finale with { Boss = regent.Id };
+        complex.Populated = true;
     }
 
     /// <summary>Initial construction only; never called on route choice or reentry.</summary>

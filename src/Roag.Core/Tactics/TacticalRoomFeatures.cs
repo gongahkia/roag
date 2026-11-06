@@ -22,7 +22,7 @@ public sealed class DungeonRoomFeatureState
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {
-        if (NextFeature <= 0 || Nodes == null || Nodes.Count > 1024 || Nodes.Any(n => n == null)
+        if (NextFeature <= 0 || Nodes == null || Nodes.Count > WorldSession.DungeonContentLimit(world, 1024) || Nodes.Any(n => n == null)
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count
             || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count
             || Nodes.Select(n => n.Position).Distinct().Count() != Nodes.Count)

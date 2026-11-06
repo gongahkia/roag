@@ -15,7 +15,7 @@ public sealed partial class WorldSession
 
     internal Actor? SpawnVaultAmbush(TacticalCombat combat, WorldPosition vault)
     {
-        var floor = State.Dungeon!.Floors.Single(f => f.Contains(vault));
+        var floor = DungeonFloorAt(vault) ?? throw new InvalidOperationException("The vault has no owning dungeon floor.");
         string definition = DungeonCatalog.Default.Biomes.FirstOrDefault(b => b.Id == floor.Biome)?.EnemyIds[0] ?? "core:enemy/mossbound_guard";
         foreach (var (dx, dy) in EncounterDirections)
         {
@@ -60,7 +60,7 @@ public sealed partial class WorldSession
                 .OrderBy(p => RoagRandom.Derive(seed, "vault:" + p.X + "," + p.Y)))
             {
                 if (EncounterDirections.Count(d => Materials.Walkable(Chunks.At(candidate.Offset(d.X, d.Y)))) < 3) continue;
-                string marker = $"floor:{origin.Floor}/vault:{candidate.X},{candidate.Y}";
+                string marker = population.Marker($"floor:{origin.Floor}/vault:{candidate.X},{candidate.Y}");
                 var eligible = keys.Where(k => k.Distance(candidate) >= 8).Select(k => (WorldPosition?)k).FirstOrDefault();
                 if (eligible is not { } key || !combat.CanPlaceVault(marker, candidate, key)) continue;
                 combat.SpawnVault(marker, candidate, key); return;

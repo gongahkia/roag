@@ -19,7 +19,7 @@ public sealed partial class DungeonServiceState
 
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog? content)
     {
-        if (NextService < 1 || Nodes == null || Nodes.Count > 128 || Nodes.Any(n => n == null)
+        if (NextService < 1 || Nodes == null || Nodes.Count > WorldSession.DungeonContentLimit(world, 128) || Nodes.Any(n => n == null)
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count
             || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count
             || Nodes.Select(n => n.Position).Distinct().Count() != Nodes.Count)
@@ -69,7 +69,7 @@ public sealed partial class TacticalCombat
         }
         if (kind == DungeonServiceKind.ArchiveContract)
         {
-            if (_world.State.Dungeon == null || _world.RoomAt(position) is not { Area: RoomArea.Dungeon } room)
+            if (_world.DungeonAt(position) == null || _world.RoomAt(position) is not { Area: RoomArea.Dungeon } room)
                 throw new ArgumentException("A room contract needs an authored dungeon room.");
             var targets = DungeonContractTargets(room);
             if (targets.Length == 0) throw new ArgumentException("A room contract needs actual eligible living targets.");

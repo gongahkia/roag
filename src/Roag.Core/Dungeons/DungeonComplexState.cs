@@ -1,10 +1,13 @@
 using Roag.Core.World;
+using System.Text.Json.Serialization;
 
 namespace Roag.Core.Dungeons;
 
 /// <summary>Physical complex ownership. Live tiles and actors remain in the shared world.</summary>
 public sealed record DungeonComplexState(DungeonParcel Parcel, int Seed, DungeonRunState Run)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Populated { get; set; }
     public bool Contains(WorldPosition position) => position.Floor is >= 1 and <= 7 && Parcel.Contains(position);
 
     public WorldRoomId? RoomAt(WorldPosition position) => Contains(position) ? Run.RoomAt(position, Parcel.Id) : null;
@@ -34,6 +37,7 @@ public sealed record DungeonComplexState(DungeonParcel Parcel, int Seed, Dungeon
                 || actual.Width != expected.Width || actual.Height != expected.Height || actual.Entry != expected.Entry
                 || actual.Exit != expected.Exit || actual.Branch != expected.Branch || actual.Rooms == null
                 || !actual.Rooms.SequenceEqual(expected.Rooms) || actual.Boss < 0
+                || (actual.Boss > 0) != (Populated && (actual.Origin.Floor % 2 == 0 || actual.Stage == 4))
                 || actual.Boss > 0 && (actual.Origin.Floor % 2 != 0 && actual.Stage != 4
                     || !actors.TryGetValue(actual.Boss, out var boss) || boss.Tactics?.Enemy == null
                     || boss.Tactics.DefinitionId != (actual.Stage == 4 ? "core:enemy/hollow_regent"

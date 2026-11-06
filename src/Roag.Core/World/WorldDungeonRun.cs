@@ -128,13 +128,19 @@ public sealed partial class WorldSession
             if (layout.Rows[y][x] is 'b' or 'g' or 'i' or 'm' or 'c')
                 run.Terrain[DungeonRunState.CellKey(new(origin.X + x, origin.Y + y, origin.Floor))] = layout.Rows[y][x];
         }
-        var biome = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome);
         var rooms = layout.Rooms.Select(r => new DungeonRoomSite(r.Index, r.Shape.Id, new(origin.X + r.X, origin.Y + r.Y, origin.Floor),
             r.Shape.Width, r.Shape.Height, r.Shape.Turns, r.Shape.Mirror, r.Role, layout.CriticalRooms.Contains(r.Index))).ToArray();
         var floor = new DungeonFloorState(run.Stage, layout.Biome, origin, layout.Width, layout.Height, rooms, At(layout.Start), At(layout.Elite));
         run.Floors.Add(floor);
-        var population = new DungeonPopulation(run, floor, dungeonSeed);
-        foreach (var door in layout.Doors) combat.SpawnDoor($"floor:{origin.Floor}/door:room:{door.Room}", At(door.Position));
+        PopulateDungeonFloor(layout, new(run, floor, dungeonSeed), combat, boss);
+    }
+
+    private void PopulateDungeonFloor(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat, bool boss)
+    {
+        var floor = population.Floor; var origin = floor.Origin; var run = population.Run;
+        WorldPosition At(RoomPoint point) => origin.Offset(point.X, point.Y);
+        var biome = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome);
+        foreach (var door in layout.Doors) combat.SpawnDoor(population.Marker($"floor:{origin.Floor}/door:room:{door.Room}"), At(door.Position));
         int serial = 0;
         var chestSites = layout.Rooms.Where(r => r.Role is not ("start" or "elite") && r.Shape.Markers.GetValueOrDefault("chest") is { Length: > 0 })
             .Select(r => (Room: r, Position: At(r.At(r.Shape.Markers["chest"][0])))).Where(p => CanEnter(p.Position)).ToArray();
@@ -143,7 +149,7 @@ public sealed partial class WorldSession
         for (int i = 0; i < chestCount; i++)
         {
             var site = chestSites[i * (chestSites.Length - 1) / (chestCount - 1)];
-            combat.SpawnBoonChest("core:chest/standard", $"floor:{origin.Floor}/room:{site.Room.Index}/chest:0", site.Position);
+            combat.SpawnBoonChest("core:chest/standard", population.Marker($"floor:{origin.Floor}/room:{site.Room.Index}/chest:0"), site.Position);
         }
         foreach (var room in layout.Rooms)
         {
@@ -160,6 +166,7 @@ public sealed partial class WorldSession
             combat.State.Queue.CancelActor(actor.Id, ScheduledKind.ActorReady);
             int index = run.Floors.IndexOf(floor);
             run.Floors[index] = floor with { Boss = actor.Id };
+            population = population with { Floor = run.Floors[index] };
         }
         PopulateDungeonSecrets(layout, population, combat);
         PopulateDungeonOptionalTerrain(layout, population, combat);
@@ -171,7 +178,11 @@ public sealed partial class WorldSession
 
     // Every placement helper receives its physical floor and owning progression
     // explicitly; no helper infers a floor from whichever member is selected.
-    private sealed record DungeonPopulation(DungeonRunState Run, DungeonFloorState Floor, int Seed);
+    private sealed record DungeonPopulation(DungeonRunState Run, DungeonFloorState Floor, int Seed, int Place = 0)
+    {
+        public string Marker(string marker) => Place == 0 ? marker : $"complex:{Place}/branch:{Floor.Branch}/" + marker;
+        public WorldRoomId Room(int index) => new(RoomArea.Dungeon, Place, Floor.Origin.Floor, Floor.Branch * 16 + index + 1);
+    }
 
     private Actor SpawnDungeonEnemy(TacticalCombat combat, string definition, WorldPosition position)
     {

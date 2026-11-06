@@ -41,14 +41,14 @@ public sealed partial class WorldSession
             {
                 if (used.Contains(candidate.Room) || !Available(candidate.Cell)
                     || kind == DungeonServiceKind.ArchiveContract && !combat.HasDungeonContractTargets(RoomAt(candidate.Cell)!.Value)) continue;
-                combat.SpawnDungeonService(kind, $"floor:{origin.Floor}/service:{kind}/{candidate.Cell.X},{candidate.Cell.Y}", candidate.Cell);
+                combat.SpawnDungeonService(kind, population.Marker($"floor:{origin.Floor}/service:{kind}/{candidate.Cell.X},{candidate.Cell.Y}"), candidate.Cell);
                 used.Add(candidate.Room); break;
             }
         }
         foreach (var candidate in candidates)
         {
             if (used.Contains(candidate.Room) || !Available(candidate.Cell)) continue;
-            string marker = $"floor:{origin.Floor}/assembly:{candidate.Room}/{candidate.Cell.X},{candidate.Cell.Y}";
+            string marker = population.Marker($"floor:{origin.Floor}/assembly:{candidate.Room}/{candidate.Cell.X},{candidate.Cell.Y}");
             if (seed % 2 == 0)
             {
                 if (!combat.CanPlaceBellPuzzle(marker, candidate.Cell)) continue;
@@ -80,8 +80,8 @@ public sealed partial class WorldSession
             }
             if (direction == null) break;
             string hint = target.Role switch { "treasure" => "Treasure", "supply" => "Supplies", _ => "Rooms / danger" };
-            combat.SpawnDungeonService(DungeonServiceKind.RouteSign, $"floor:{origin.Floor}/sign:{candidate.Room}", candidate.Cell,
-                sign: new(direction.Value, hint, new(RoomArea.Dungeon, 0, origin.Floor, target.Index + 1)));
+            combat.SpawnDungeonService(DungeonServiceKind.RouteSign, population.Marker($"floor:{origin.Floor}/sign:{candidate.Room}"), candidate.Cell,
+                sign: new(direction.Value, hint, population.Room(target.Index)));
             break;
         }
     }

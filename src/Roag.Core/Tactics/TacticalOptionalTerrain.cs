@@ -17,7 +17,7 @@ public sealed class OptionalTerrainState
     {
         var tactics = world.Tactics!;
         var timeline = tactics.Queue.Snapshot();
-        if (NextNode <= 0 || Nodes == null || Nodes.Count > 192 || Nodes.Any(n => n == null)
+        if (NextNode <= 0 || Nodes == null || Nodes.Count > WorldSession.DungeonContentLimit(world, 192) || Nodes.Any(n => n == null)
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count
             || Nodes.Select(n => n.Position).Distinct().Count() != Nodes.Count
             || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count)

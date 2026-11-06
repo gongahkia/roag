@@ -17,21 +17,24 @@ public sealed partial class TacticalCombat
             tactics.Enemy!.PursuitBoundary = pursuitBoundary;
         }
         Register(actor, tactics, readyAt);
-        if (_world.State.Dungeon != null) actor.SpriteId = NativeAppearance.ForEnemy(definitionId);
+        if (_world.HasNativeParty) actor.SpriteId = NativeAppearance.ForEnemy(definitionId);
     }
 
     private ActorTactics CreateEnemyTactics(Actor actor, string id, bool health, bool exempt)
     {
         var definition = EnemyCatalog.Default.Get(id);
-        if (_world.State.Dungeon != null && !exempt)
+        var complex = WorldSession.SnapshotComplexAt(_world.State, actor.Position);
+        bool dungeon = _world.State.Dungeon != null || complex != null;
+        int seed = complex?.Seed ?? _world.DungeonSeed;
+        if (dungeon && !exempt)
             health |= definition.Ai is EnemyBrainKind.Warden or EnemyBrainKind.BiomeElite
                 || definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer)
-                    && RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
+                    && RoagRandom.Derive(seed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100 < 5;
         var tactics = definition.CreateTactics(health, exempt);
-        if (_world.State.Dungeon != null && Tuning.EnableSurvival && !exempt && !health
+        if (dungeon && Tuning.EnableSurvival && !exempt && !health
             && definition.Ai is not (EnemyBrainKind.HollowRegent or EnemyBrainKind.Pursuer))
         {
-            int roll = RoagRandom.Derive(_world.DungeonSeed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100;
+            int roll = RoagRandom.Derive(seed, "supply:" + actor.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)) % 100;
             tactics.FoodDrop = roll is >= 5 and < 27;
         }
         return tactics;
@@ -39,7 +42,7 @@ public sealed partial class TacticalCombat
 
     internal void ReplaceUnactedEnemy(Actor actor, string definition)
     {
-        if (_world.State.Dungeon == null || actor is not { Life: LifeState.Alive, Tactics.Enemy: not null }
+        if (_world.DungeonAt(actor.Position) == null || actor is not { Life: LifeState.Alive, Tactics.Enemy: not null }
             || actor.Health != actor.MaxHealth || actor.Tactics.Enemy.Attacks != 0 || actor.Tactics.Enemy.Squad != null
             || actor.Tactics.Enemy.Awareness != null || actor.Tactics.RewardsClaimed
             || State.Queue.Snapshot().Pending.Count(w => w.Kind == ScheduledKind.ActorReady && w.ActorId == actor.Id) != 1

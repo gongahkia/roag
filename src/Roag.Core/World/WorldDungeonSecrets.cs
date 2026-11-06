@@ -16,7 +16,7 @@ public sealed partial class WorldSession
         foreach (var room in optional)
         {
             var anchor = At(room.At(room.Shape.Markers["secret_anchor"][0]));
-            string marker = $"floor:{origin.Floor}/secret:room:{room.Index}";
+            string marker = population.Marker($"floor:{origin.Floor}/secret:room:{room.Index}");
             // Original paired floors carry a cracked cache upstairs and a movement sigil downstairs.
             if (origin.Floor % 2 == 0)
             {

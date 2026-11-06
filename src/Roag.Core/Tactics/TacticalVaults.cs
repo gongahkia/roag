@@ -18,7 +18,7 @@ public sealed class DungeonVaultState
     {
         if (NextVault <= 0 || Nodes == null || Nodes.Any(n => n == null)
             || Nodes.Select(n => n.Id).Distinct().Count() != Nodes.Count || Nodes.Select(n => n.Marker).Distinct(StringComparer.Ordinal).Count() != Nodes.Count
-            || Nodes.Select(n => n.Position.Floor).Distinct().Count() != Nodes.Count)
+            || Nodes.Select(n => WorldSession.SnapshotDungeonFloorAt(world, n.Position)).Distinct().Count() != Nodes.Count)
             throw new InvalidDataException("Invalid keyed vault registry.");
         var dropReceipts = Nodes.SelectMany(v => new[] { v.CurrencyDrop, v.HealthDrop }).Where(id => id > 0).ToArray();
         var ambushReceipts = Nodes.Where(v => v.Ambush > 0).Select(v => v.Ambush).ToArray();
@@ -29,11 +29,12 @@ public sealed class DungeonVaultState
         foreach (var vault in Nodes)
         {
             var ambush = world.Actors.FirstOrDefault(a => a.Id == vault.Ambush);
-            var biome = world.Dungeon?.Floors.FirstOrDefault(f => f.Contains(vault.Position))?.Biome;
+            var floor = WorldSession.SnapshotDungeonFloorAt(world, vault.Position);
+            var biome = floor?.Biome;
             string enemy = DungeonCatalog.Default.Biomes.FirstOrDefault(b => b.Id == biome)?.EnemyIds[0] ?? "core:enemy/mossbound_guard";
             if (vault.Id <= previous || vault.Id >= NextVault || string.IsNullOrWhiteSpace(vault.Marker)
                 || !plan.Contains(vault.Position) || !plan.Contains(vault.KeyPosition) || vault.Position.Floor != vault.KeyPosition.Floor
-                || vault.Position.Distance(vault.KeyPosition) < 8 || world.Dungeon != null && (!world.Dungeon.Contains(vault.Position) || !world.Dungeon.Contains(vault.KeyPosition))
+                || vault.Position.Distance(vault.KeyPosition) < 8 || floor == null || !floor.Contains(vault.KeyPosition)
                 || chunks!.At(vault.Position) != Material.Floor || chunks.At(vault.KeyPosition) != Material.Floor
                 || vault.Seed <= 0 || vault.Seed >= RoagRandom.Modulus || vault.Opened != vault.Outcome.HasValue || vault.Opened && !vault.KeyCollected
                 || vault.Outcome is { } outcome && (!Enum.IsDefined(outcome) || (int)outcome != vault.Seed % 4)
@@ -60,8 +61,8 @@ public sealed class DungeonVaultState
 public sealed partial class TacticalCombat
 {
     public bool CanPlaceVault(string marker, WorldPosition position, WorldPosition key)
-        => _world.State.Dungeon != null && !string.IsNullOrWhiteSpace(marker) && position.Floor == key.Floor && position.Distance(key) >= 8
-            && !State.Vaults.Nodes.Any(v => v.Marker == marker || v.Position.Floor == position.Floor)
+        => _world.DungeonFloorAt(position) is { } floor && !string.IsNullOrWhiteSpace(marker) && floor.Contains(key) && position.Distance(key) >= 8
+            && !State.Vaults.Nodes.Any(v => v.Marker == marker || floor.Contains(v.Position))
             && VaultGroundOpen(position) && VaultGroundOpen(key) && TerrainRemovalPreservesRoutes(position, includeTimedGates: false);
 
     private bool VaultGroundOpen(WorldPosition p) => _world.CanEnter(p) && _world.Chunks.At(p) == Material.Floor
@@ -113,7 +114,8 @@ public sealed partial class TacticalCombat
                 break;
             case DungeonVaultOutcome.Clue:
                 vault = vault with { CurrencyDrop = SpawnLoot(GroundLootKind.Currency, 4, vault.Position, actor.Id, action).Id };
-                var secret = State.Secrets.Nodes.FirstOrDefault(s => !s.Revealed && s.Position.Floor == vault.Position.Floor);
+                var floor = _world.DungeonFloorAt(vault.Position);
+                var secret = State.Secrets.Nodes.FirstOrDefault(s => !s.Revealed && floor?.Contains(s.Position) == true);
                 if (secret != null)
                 {
                     int dx = secret.Position.X - actor.Position.X, dy = secret.Position.Y - actor.Position.Y;

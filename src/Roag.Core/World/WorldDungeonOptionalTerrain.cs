@@ -43,7 +43,7 @@ public sealed partial class WorldSession
                     if (!clear) continue;
                     direction = (Facing)((candidate.Score % 4) * 2);
                 }
-                string marker = $"floor:{origin.Floor}/terrain:{kind}/{p.X},{p.Y}";
+                string marker = population.Marker($"floor:{origin.Floor}/terrain:{kind}/{p.X},{p.Y}");
                 if (!combat.CanPlaceOptionalTerrain(kind, marker, p, direction)) continue;
                 combat.PlaceOptionalTerrain(kind, marker, p, direction); usedRooms.Add(room.Index); break;
             }
@@ -51,7 +51,7 @@ public sealed partial class WorldSession
         foreach (var candidate in layout.OptionalShortcuts.OrderBy(p => RoagRandom.Derive(seed, $"shortcut:{p.X},{p.Y}")))
         {
             var position = origin.Offset(candidate.X, candidate.Y);
-            string marker = $"floor:{origin.Floor}/terrain:FragileCrossing/{position.X},{position.Y}";
+            string marker = population.Marker($"floor:{origin.Floor}/terrain:FragileCrossing/{position.X},{position.Y}");
             if (!Available(position) || !combat.CanPlaceOptionalTerrain(OptionalTerrainKind.FragileCrossing, marker, position)) continue;
             combat.PlaceOptionalTerrain(OptionalTerrainKind.FragileCrossing, marker, position); break;
         }

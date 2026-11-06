@@ -68,8 +68,9 @@ public static class TacticalValidation
         foreach (var actor in world.Actors)
         {
             if (actor.Tactics?.Enemy is not { } memory) continue;
-            if (memory.Dormant && (actor.Life != LifeState.Alive || world.Dungeon == null
-                || !world.Dungeon.Floors.Any(f => f.Boss == actor.Id && f.Stage < 4)
+            if (memory.Dormant && (actor.Life != LifeState.Alive
+                || world.Dungeon?.Floors.Any(f => f.Boss == actor.Id && f.Stage < 4) != true
+                    && world.NativeCampaign?.Complexes?.Any(c => c.Run.Floors.Any(f => f.Boss == actor.Id && f.Stage < 4)) != true
                 || state.ActiveActor == actor.Id || memory.Attacks != 0))
                 throw new InvalidDataException("Invalid dormant dungeon elite.");
             if (memory.PursuitBoundary is { } boundary)

@@ -54,7 +54,8 @@ public sealed partial class WorldSession
         foreach (var p in sites)
         {
             if (occupied.Any(other => p.Distance(other) < 2)) continue;
-            var actor = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, p, 0);
+            int home = population.Place == 0 ? 0 : Plan.Towns.MinBy(t => Math.Abs(t.Center.X - p.X) + Math.Abs(t.Center.Y - p.Y))!.Id;
+            var actor = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, p, home);
             var kind = (ClassKind)(RoagRandom.Derive(population.Seed, "recruit-class:" + actor.Id) % Enum.GetValues<ClassKind>().Length);
             actor.Job = "adventurer"; actor.CombatTrait = ""; actor.Equipment.Clear(); actor.Talents.Clear();
             actor.Body.Hunger = actor.Body.Fatigue = 0; actor.Body.Wounds = 0;
@@ -63,7 +64,8 @@ public sealed partial class WorldSession
             // This is seeded at creation, never spawned when someone falls.
             if (RoagRandom.Derive(population.Seed, "recruit-medicine:" + actor.Id) % 100 < State.Tactics!.Rescue.MedicineCarrierPercent)
                 actor.Cargo["medicine"] = 1;
-            State.Actors.Add(actor); population.Run.Recruits.Add(new(actor.Id, kind));
+            State.Actors.Add(actor);
+            (population.Place == 0 ? population.Run.Recruits : State.NativeCampaign!.Recruits).Add(new(actor.Id, kind));
             occupied.Add(p);
             if (occupied.Count == count) return;
         }
