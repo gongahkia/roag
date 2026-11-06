@@ -12,13 +12,13 @@ public sealed record RetainedGuardianHome(long Actor, int SourceSite, int SiteId
 /// <summary>Generation receipts and final identity. Actors and chunks own all live combat state.</summary>
 public sealed class GeneratedCampaignFinale
 {
-    public int Version { get; set; } = 1;
-    public CampaignFinalRole Role { get; set; }
-    public long FinalActor { get; set; }
-    public int FinalSite { get; set; }
-    public int RegentComplex { get; set; }
-    public List<GeneratedBossSite> BossSites { get; set; } = [];
-    public List<RetainedGuardianHome> Guardians { get; set; } = [];
+    [JsonRequired] public int Version { get; set; } = 1;
+    [JsonRequired] public CampaignFinalRole Role { get; set; }
+    [JsonRequired] public long FinalActor { get; set; }
+    [JsonRequired] public int FinalSite { get; set; }
+    [JsonRequired] public int RegentComplex { get; set; }
+    [JsonRequired] public List<GeneratedBossSite> BossSites { get; set; } = [];
+    [JsonRequired] public List<RetainedGuardianHome> Guardians { get; set; } = [];
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? VictoryAt { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -47,7 +47,8 @@ public sealed class GeneratedCampaignFinale
     internal void Validate(WorldPlan plan, WorldState world, ContentCatalog content, IReadOnlyDictionary<long, Actor> actors)
     {
         if (Version != 1 || !Enum.IsDefined(Role) || Role != SelectRole(plan.Seed) || world.NativeCampaign == null
-            || world.Dungeon != null || world.Tactics == null || FinalActor <= 0 || FinalSite is < 0 or >= 48
+            || world.Dungeon != null || world.Tactics == null || world.NativeCampaign.Complexes is not { Count: 4 }
+            || FinalActor <= 0 || FinalSite is < 0 or >= 48
             || world.Endgame == null || world.Endgame.ActorId != FinalActor || world.Endgame.SiteId != FinalSite
             || !actors.TryGetValue(FinalActor, out var final) || final.Tactics?.Enemy == null || world.Party.Contains(FinalActor)
             || BossSites == null || BossSites.Count != 4 || BossSites.Any(s => s == null)
@@ -93,6 +94,7 @@ public sealed class GeneratedCampaignFinale
             var complexes = world.NativeCampaign.Complexes?.OrderBy(c => c.Parcel.Id).ToArray();
             if (complex?.Populated != true || !complex.Run.Floors.Any(f => f.Stage == 4 && f.Boss == FinalActor)
                 || complexes == null || complexes[SeedFor(plan.Seed, "campaign-final-regent:v1") % complexes.Length] != complex
+                || FinalSite != plan.Sites.OrderBy(s => s.Center.Distance(complex.Run.Floors.Single(f => f.Stage == 4).Exit with { Floor = 0 })).ThenBy(s => s.Id).First().Id
                 || finalArenas.Length != 0 || final.Tactics.DefinitionId != "core:enemy/hollow_regent"
                 || final.Tactics.Enemy.Retained != null || final.Tactics.Enemy.CampaignBoss != null
                 || final.Tactics.InnateStats != FinalRegentDefinition.CreateTactics().InnateStats

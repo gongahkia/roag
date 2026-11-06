@@ -231,7 +231,7 @@ public sealed partial class WorldSession
     public string CommandBlockReason(WorldCommand command, bool nativeWork = false)
     {
         if (DeathPending) return "Save the recorded deaths before continuing.";
-        if (State.Endgame.Victory || State.AwaitingContinuation) return "This expedition has ended.";
+        if (ExpeditionEndedByVictory || State.AwaitingContinuation) return "This expedition has ended.";
         if (!nativeWork && IsInCombat) return "Finish the encounter first.";
         var actor = State.Actors.FirstOrDefault(a => a.Id == command.ActorId);
         switch (command.Kind)
