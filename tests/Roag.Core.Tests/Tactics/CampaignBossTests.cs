@@ -468,6 +468,181 @@ public sealed class CampaignBossTests
         TacticalValidation.Validate(a.World.Plan, a.World.State);
     }
 
+    [Theory]
+    [InlineData(CampaignBossKind.Bellkeeper)]
+    [InlineData(CampaignBossKind.SluiceMaw)]
+    [InlineData(CampaignBossKind.Threadmother)]
+    [InlineData(CampaignBossKind.OssuaryCaptain)]
+    public void ArenaGuardsChooseInsidePreyEvenWhenAnOutsideMemberIsNearer(CampaignBossKind kind)
+    {
+        using var a = new Encounter(kind, members: 2);
+        a.Boss.Position = a.Arena.Center.Offset(0, -6);
+        a.Hero.Position = a.World.State.Position = a.Arena.Center.Offset(0, -8);
+        a.World.Chunks.Edit(a.Hero.Position, Material.Floor);
+        var friend = a.World.Party.First(m => m.Id != a.Hero.Id); friend.Position = a.Arena.Center.Offset(5, -5);
+        a.World.Reveal();
+        Assert.True(a.Boss.Position.Distance(a.Hero.Position) < a.Boss.Position.Distance(friend.Position));
+        Assert.Contains(a.Hero.Position, a.World.VisionFrom(a.Boss.Position));
+        string before = JsonSerializer.Serialize(a.World.State);
+        Assert.Equal(friend.Id, a.Combat.SelectEnemyTarget(a.Boss.Id));
+        Assert.Contains("Guards this arena", a.Combat.CampaignBossDescription(a.Boss.Id));
+        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+        TacticalValidation.Validate(a.World.Plan, a.World.State);
+    }
+
+    [Theory]
+    [InlineData(CampaignBossKind.Bellkeeper)]
+    [InlineData(CampaignBossKind.SluiceMaw)]
+    [InlineData(CampaignBossKind.Threadmother)]
+    [InlineData(CampaignBossKind.OssuaryCaptain)]
+    public void RetreatSaveAndReentryRetainTheActualBossAndPendingWorldConsequences(CampaignBossKind kind)
+    {
+        using var a = new Encounter(kind, members: 2);
+        _ = a.Cast(1); a.Boss.Health -= 7;
+        a.Hero.Position = a.World.State.Position = a.Arena.Center.Offset(0, 8);
+        a.World.Chunks.Edit(a.Hero.Position, Material.Floor);
+        var friend = a.World.Party.First(m => m.Id != a.Hero.Id);
+        friend.Position = a.Hero.Position.Offset(1, 0); a.World.Chunks.Edit(friend.Position, Material.Floor); a.World.Reveal();
+        Assert.Null(a.Combat.SelectEnemyTarget(a.Boss.Id));
+        string directory = Path.Combine(Path.GetTempPath(), "roag-boss-retreat-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "slot"); a.World.Save(slot);
+            using var loaded = WorldSession.Load(slot); var resumed = new TacticalCombat(loaded, _ => { });
+            for (int i = 0; i < 6; i++)
+            {
+                a.Act(new(TacticalAction.Wait)); a.NextHero();
+                Assert.True(resumed.Commit(new(TacticalAction.Wait)).Success);
+                for (int turns = 0; turns < 100; turns++)
+                {
+                    var actor = resumed.AdvanceToDecision(); Assert.NotNull(actor);
+                    if (actor.Id == a.Hero.Id) break;
+                    if (actor.Tactics!.Enemy != null) resumed.CommitWorldEnemyTurn();
+                    else Assert.True(resumed.Commit(new(TacticalAction.Wait)).Success);
+                }
+                Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+                Assert.Equal(a.Boss.Health, loaded.ActorById(a.Boss.Id).Health);
+                Assert.True(a.Arena.Contains(a.Boss.Position));
+            }
+            long moves = a.Boss.Tactics!.Enemy!.CampaignBoss!.Moves;
+            int hp = a.Boss.Health; var position = a.Boss.Position;
+            string fixtures = JsonSerializer.Serialize(a.Arena.Fixtures);
+            a.Hero.Position = a.World.State.Position = a.Arena.Center.Offset(0, 6); a.World.Reveal();
+            Assert.Equal(a.Boss.Id, a.Arena.Boss); Assert.Equal(hp, a.Boss.Health); Assert.Equal(position, a.Boss.Position);
+            Assert.Equal(fixtures, JsonSerializer.Serialize(a.Arena.Fixtures));
+            a.Act(new(TacticalAction.Wait)); a.NextHero();
+            Assert.True(a.Boss.Tactics.Enemy.CampaignBoss.Moves > moves);
+            TacticalValidation.Validate(a.World.Plan, a.World.State); TacticalValidation.Validate(loaded.Plan, loaded.State);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Theory]
+    [InlineData(CampaignBossKind.Bellkeeper, false)]
+    [InlineData(CampaignBossKind.Bellkeeper, true)]
+    [InlineData(CampaignBossKind.SluiceMaw, false)]
+    [InlineData(CampaignBossKind.SluiceMaw, true)]
+    [InlineData(CampaignBossKind.Threadmother, false)]
+    [InlineData(CampaignBossKind.Threadmother, true)]
+    [InlineData(CampaignBossKind.OssuaryCaptain, false)]
+    [InlineData(CampaignBossKind.OssuaryCaptain, true)]
+    public void CanonicalShoveThroughAnOpenExitSavesOutsideAndReturnsOnlyByPaidPhysicalSteps(CampaignBossKind kind, bool blocked)
+    {
+        using var a = new Encounter(kind);
+        var exit = a.Arena.Center.Offset(0, -7); var outside = exit.Offset(0, -1);
+        a.World.Chunks.Edit(outside, Material.Floor);
+        foreach (var p in new[] { outside.Offset(-1, 0), outside.Offset(1, 0), outside.Offset(0, -1) })
+            a.World.Chunks.Edit(p, Material.Wall);
+        a.Hero.Position = a.World.State.Position = exit;
+        var rammer = ActorFactory.Create(a.World.Content, a.World.Content.Game.Raider, 42,
+            a.World.State.NextActorId++, exit.Offset(0, 1), 0);
+        a.World.State.Actors.Add(rammer); a.Combat.RegisterEnemy(rammer, "core:enemy/heavy_rammer", 0);
+        a.World.Reveal(); a.Act(new(TacticalAction.Wait)); Assert.Same(rammer, a.Combat.AdvanceToDecision());
+        a.Combat.CommitEnemyTurn(a.Hero.Id, (_, _) => null);
+        var ram = Assert.Single(a.Combat.State.Attacks); Assert.NotNull(ram.Shove);
+        a.NextHero();
+        a.Hero.Position = a.World.State.Position = exit.Offset(1, 1); a.Boss.Position = exit; a.World.Reveal();
+        a.Act(new(TacticalAction.Wait)); a.NextHero();
+        Assert.Equal(outside, a.Boss.Position);
+        Assert.Contains(a.Combat.State.Events, e => e.Kind == "Displaced" && e.Source == rammer.Id && e.Target == a.Boss.Id && e.Position == outside);
+        if (blocked) a.World.Chunks.Edit(exit, Material.Wall);
+        string directory = Path.Combine(Path.GetTempPath(), "roag-boss-outside-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string slot = Path.Combine(directory, "slot"); a.World.Save(slot);
+            using var loaded = WorldSession.Load(slot); var resumed = new TacticalCombat(loaded, _ => { });
+            Assert.Equal(outside, loaded.ActorById(a.Boss.Id).Position);
+            Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+            bool sawBlocked = false, returned = false;
+            for (int turn = 0; turn < 8 && !returned; turn++)
+            {
+                a.Act(new(TacticalAction.Wait)); Assert.True(resumed.Commit(new(TacticalAction.Wait)).Success);
+                for (int work = 0; work < 20; work++)
+                {
+                    var actor = a.Combat.AdvanceToDecision(); var restored = resumed.AdvanceToDecision();
+                    Assert.NotNull(actor); Assert.NotNull(restored); Assert.Equal(actor.Id, restored.Id);
+                    if (actor.Id == a.Hero.Id) break;
+                    bool returnStep = actor.Id == a.Boss.Id && !a.Arena.Contains(actor.Position);
+                    int hp = a.Boss.Health; long moves = a.Boss.Tactics!.Enemy!.CampaignBoss!.Moves;
+                    string fixtures = JsonSerializer.Serialize(a.Arena.Fixtures);
+                    if (returnStep)
+                    {
+                        string before = JsonSerializer.Serialize(a.World.State);
+                        Assert.Equal(blocked && !sawBlocked ? EnemyIntentKind.Wait : EnemyIntentKind.Move, a.Combat.PreviewWorldEnemyTurn().Kind);
+                        Assert.Equal(before, JsonSerializer.Serialize(a.World.State));
+                    }
+                    a.Combat.CommitWorldEnemyTurn(); resumed.CommitWorldEnemyTurn();
+                    if (returnStep)
+                    {
+                        Assert.Equal(hp, a.Boss.Health); Assert.Equal(moves, a.Boss.Tactics.Enemy.CampaignBoss.Moves);
+                        Assert.Equal(fixtures, JsonSerializer.Serialize(a.Arena.Fixtures));
+                        Assert.DoesNotContain(a.Combat.State.Attacks, w => w.Source == a.Boss.Id);
+                        Assert.Equal(a.Combat.Clock + ActionTiming.Recovery(a.Boss.Tactics.MoveCost, a.Boss.Speed),
+                            a.Combat.State.Queue.Snapshot().Pending.Single(w => w.ActorId == a.Boss.Id && w.Kind == ScheduledKind.ActorReady).Due);
+                        if (blocked && !sawBlocked)
+                        {
+                            Assert.Equal(outside, a.Boss.Position); sawBlocked = true;
+                            a.World.Chunks.Edit(exit, Material.Floor); loaded.Chunks.Edit(exit, Material.Floor);
+                        }
+                        else
+                        { Assert.Equal(exit, a.Boss.Position); Assert.Equal(1, outside.Distance(a.Boss.Position)); returned = true; }
+                    }
+                }
+                Assert.Equal(a.Boss.Position, loaded.ActorById(a.Boss.Id).Position);
+                Assert.Equal(JsonSerializer.Serialize(a.Combat.State), JsonSerializer.Serialize(resumed.State));
+            }
+            Assert.True(returned); Assert.Equal(blocked, sawBlocked);
+            TacticalValidation.Validate(a.World.Plan, a.World.State); TacticalValidation.Validate(loaded.Plan, loaded.State);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void FinalThreadmotherPartitionsHaveIndependentAnchorsAndFireNetworks(int variation)
+    {
+        using var cut = new Encounter(CampaignBossKind.Threadmother, final: true, variation: variation);
+        cut.Resolve(cut.Cast(0));
+        var groups = cut.Arena.Fixtures.GroupBy(f => f.Group).ToArray(); Assert.Equal(2, groups.Length);
+        var anchor = groups[0].First(f => f.Kind == CampaignBossFixtureKind.WebAnchor);
+        var remaining = groups[1].Select(f => f.Id).ToArray();
+        cut.Hit(anchor.Position);
+        Assert.Equal(remaining, cut.Arena.Fixtures.Select(f => f.Id));
+        Assert.All(cut.Arena.Fixtures, f => Assert.False(cut.World.GroundOpen(f.Position)));
+        TacticalValidation.Validate(cut.World.Plan, cut.World.State);
+        using var burn = new Encounter(CampaignBossKind.Threadmother, final: true, variation: variation);
+        burn.Resolve(burn.Cast(0));
+        var strand = burn.Arena.Fixtures.First(f => f.Kind == CampaignBossFixtureKind.WebStrand);
+        var connected = burn.Arena.Fixtures.Where(f => f.Group == strand.Group).Select(f => f.Id).ToHashSet();
+        burn.Hit(strand.Position, 1, DamageElement.Fire);
+        Assert.NotEmpty(burn.Combat.State.CampaignBosses!.Pulses);
+        Assert.All(burn.Combat.State.CampaignBosses.Pulses, p => Assert.Contains(p.Fixture, connected));
+        Assert.All(burn.Arena.Fixtures.Where(f => f.Group != strand.Group), f => Assert.Equal(5, f.Health));
+        TacticalValidation.Validate(burn.World.Plan, burn.World.State);
+    }
+
     [Fact]
     public void CaptainProtectsFrontAndDiagonalsWhileFlanksAndChargeRecoveryExposeIt()
     {

@@ -48,6 +48,7 @@ public sealed partial class TacticalCombat
     {
         if (!_world.Plan.Contains(p)) return false;
         var memory = enemy.Tactics!.Enemy!;
+        if (memory.CampaignBoss != null && !BossArena(enemy).Contains(p)) return false;
         if (EnemyDefinitionFor(enemy).Ai == EnemyBrainKind.Pursuer
             && (memory.PursuitBoundary is not { } boundary || !boundary.Contains(p))) return false;
         return _world.Ecology(enemy) is not { } ecology || enemy.Habitat is not { } home
@@ -76,6 +77,7 @@ public sealed partial class TacticalCombat
         var enemy = Active;
         if (_world.State.AwaitingContinuation || enemy is not { Life: LifeState.Alive, Tactics.Enemy: not null } || Friendly(enemy))
             throw new InvalidOperationException("A living native enemy must be ready.");
+        if (enemy.Tactics.Enemy.CampaignBoss != null && !BossArena(enemy).Contains(enemy.Position)) return PlanCampaignBossReturn(enemy);
         if (CampFireIntent(enemy) is { } fireIntent) return fireIntent;
         var observed = ObservedEnemyTarget(enemy);
         var awareness = observed ?? RememberedEnemyTarget(enemy);

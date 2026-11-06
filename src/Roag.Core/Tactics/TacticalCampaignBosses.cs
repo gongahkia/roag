@@ -56,9 +56,26 @@ public sealed partial class TacticalCombat
         && boss.Tactics!.Enemy!.CampaignBoss is { LastNoise: { } noise } memory
         && Clock - memory.NoiseAt <= 500 && BossArena(boss).Contains(noise);
 
+    private EnemyIntent PlanCampaignBossReturn(Actor boss)
+    {
+        var arena = BossArena(boss);
+        var goals = new HashSet<WorldPosition>();
+        for (int y = -CampaignBossArena.Radius; y <= CampaignBossArena.Radius; y++)
+            for (int x = -CampaignBossArena.Radius; x <= CampaignBossArena.Radius; x++)
+            {
+                var p = arena.Center.Offset(x, y);
+                if (_world.CanEnter(p, boss.Id)) goals.Add(p);
+            }
+        // Forced movement remains ordinary physical counterplay. Returning spends
+        // the same scheduled steps as pursuit and cannot cross blocked ground.
+        var step = _world.Navigate(boss, goals, p => p.Floor == arena.Center.Floor && _world.Plan.Contains(p));
+        return step == null ? new(EnemyIntentKind.Wait) : new(EnemyIntentKind.Move, step.Facing);
+    }
+
     private EnemyIntent PlanCampaignBossTurn(Actor boss, Actor? target, Func<WorldPosition, IReadOnlySet<WorldPosition>, Facing?> nextStep)
     {
         var arena = BossArena(boss); var memory = boss.Tactics!.Enemy!.CampaignBoss!;
+        if (!arena.Contains(boss.Position)) return PlanCampaignBossReturn(boss);
         bool heardNoise = HasCampaignBossNoise(boss);
         if (!heardNoise && (target == null || !arena.Contains(target.Position))) return new(EnemyIntentKind.Wait);
         var aim = target == null ? memory.LastNoise!.Value : EnemyAim(target, boss.Position.Floor);
@@ -184,13 +201,21 @@ public sealed partial class TacticalCombat
             case CampaignBossMove.PartitionWeb:
             case CampaignBossMove.BoneRampart:
                 var fixtureKind = cast.Move == CampaignBossMove.PartitionWeb ? CampaignBossFixtureKind.WebStrand : CampaignBossFixtureKind.BoneRampart;
+                var partitions = new Dictionary<int, long>();
                 foreach (var p in attack.Cells)
                 {
                     if (arena.Fixtures.Count(f => f.Health > 0) >= 48 || !_world.CanEnter(p) || ProtectedForcedLanding(p)
                         || _world.ObjectAt(p) != null || !BossCell(arena, p) || p == arena.Center || Math.Abs(p.X - arena.Center.X) > 5 || Math.Abs(p.Y - arena.Center.Y) > 5) continue;
                     // Endpoints are anchors; all groups have a permanent central walking gap.
                     bool anchor = fixtureKind == CampaignBossFixtureKind.WebStrand && Math.Max(Math.Abs(p.X - arena.Center.X), Math.Abs(p.Y - arena.Center.Y)) == 4;
-                    arena.AddFixture(anchor ? CampaignBossFixtureKind.WebAnchor : fixtureKind, p, arena.FinalRole ? 5 : 3, attack.Id);
+                    long group = attack.Id;
+                    if (fixtureKind == CampaignBossFixtureKind.WebStrand)
+                    {
+                        int axis = arena.Variation == 1 ? p.Y : p.X;
+                        if (!partitions.TryGetValue(axis, out group))
+                        { group = partitions.Count == 0 ? attack.Id : State.NextAction++; partitions.Add(axis, group); }
+                    }
+                    arena.AddFixture(anchor ? CampaignBossFixtureKind.WebAnchor : fixtureKind, p, arena.FinalRole ? 5 : 3, group);
                 }
                 CompactBossFixtures(arena);
                 Emit(cast.Move == CampaignBossMove.PartitionWeb ? "BossWebRaised" : "BossRampartRaised", boss.Id, 0, attack.Id, boss.Position); return true;

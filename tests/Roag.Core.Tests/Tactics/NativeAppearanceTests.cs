@@ -8,6 +8,29 @@ namespace Roag.Core.Tests.Tactics;
 public sealed class NativeAppearanceTests
 {
     [Fact]
+    public void AdditionalBossesAndTheirPhysicalFixturesUseTheReviewedUniversalCrops()
+    {
+        using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);
+        var expected = new[]
+        {
+            ("roag-enemy-bellkeeper", "urizen-onebit-r42-c110", 1431, 547),
+            ("roag-enemy-sluice-maw", "urizen-onebit-r42-c108", 1405, 547),
+            ("roag-enemy-threadmother", "urizen-onebit-r15-c002", 27, 196),
+            ("roag-enemy-ossuary-captain", "urizen-onebit-r10-c104", 1353, 131),
+            ("roag-boss-resonator", "urizen-onebit-r25-c036", 469, 326),
+            ("roag-boss-valve", "urizen-onebit-r00-c068", 885, 1),
+            ("roag-boss-web", "urizen-onebit-r39-c004", 53, 508)
+        };
+        foreach (var (binding, sprite, x, y) in expected)
+        {
+            Assert.Equal(sprite, manifest.RootElement.GetProperty("bindings").GetProperty(binding).GetString());
+            var crop = manifest.RootElement.GetProperty("sprites").GetProperty(sprite);
+            Assert.Equal("urizen/urizen_onebit_tileset__v2d0.png", crop.GetProperty("source").GetString());
+            Assert.Equal(new[] { x, y, 12, 12 }, crop.GetProperty("rect").EnumerateArray().Select(v => v.GetInt32()));
+        }
+    }
+
+    [Fact]
     public void EveryBoonHasAStoredIconFromTheImportedUniversalAtlas()
     {
         using var manifest = JsonDocument.Parse(typeof(NativeAppearance).Assembly.GetManifestResourceStream("Roag.ContentSprites.json")!);

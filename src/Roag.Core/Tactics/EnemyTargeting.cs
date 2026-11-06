@@ -49,10 +49,12 @@ public sealed partial class TacticalCombat
         if (!_world.IsHostile(enemy) || enemy.Tactics.Enemy.Dormant) return null;
         if (enemy.Tactics.Enemy.Retained != null) return SelectRetainedEnemyTarget(enemy, mistBlocks);
         var priority = EnemyDefinitionFor(enemy).TargetPriority;
+        var arena = enemy.Tactics.Enemy.CampaignBoss == null ? null : BossArena(enemy);
         var ecology = _world.Ecology(enemy);
         bool InTerritory(Actor p) => ecology == null || enemy.Habitat is not { } home
             || p.Position.Distance(home) <= (enemy.ProvokedUntil > _world.State.Tick ? ecology.Leash : ecology.Notice);
         var nearby = _world.Party.Where(p => p.Life != LifeState.Dead && State.Participants.Contains(p.Id)
+                && (arena == null || arena.Contains(p.Position))
                 && p.Position.Floor == enemy.Position.Floor && InTerritory(p)
                 && (enemy.Tactics.Enemy!.PursuitBoundary is not { } boundary || boundary.Contains(p.Position))
                 && Math.Abs(p.Position.X - enemy.Position.X) <= 11 && Math.Abs(p.Position.Y - enemy.Position.Y) <= 11).ToArray();

@@ -222,7 +222,7 @@ public sealed partial class TacticalCombat
             ? "Downed prey first, then lowest HP percentage; nearer prey breaks ties. "
             : arena.Kind == CampaignBossKind.Bellkeeper ? "Recent sound first; otherwise nearby standing threats before downed prey. "
             : "Nearby standing threats before downed prey. ";
-        return warning + priority + mechanics + (arena.FinalRole ? " Final guardian: greater health, power and denser mechanics. " : " Major guardian: fixed world role. ")
+        return warning + "Guards this arena; after displacement outside, returns along open ground on its scheduled turns. " + priority + mechanics + (arena.FinalRole ? " Final guardian: greater health, power and denser mechanics. " : " Major guardian: fixed world role. ")
             + variation + "." + (memory.ExposedUntil > Clock ? $" Exposed for {(memory.ExposedUntil - Clock) / 100d:0.00}s: takes 50% extra damage." : "");
     }
 }
