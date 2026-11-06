@@ -106,7 +106,7 @@ test('dismantling a passable stockpile physically clears its own worker or an id
 });
 test('import cannot reserve a future colony larger than the live placement budget',()=>{
  const w=createWorld(42),cells=[];
- for(let y=1;y<127;y++)for(let x=1;x<127;x++)if(walkable(w,{x,y})&&!spatial(w).has(index(x,y))&&!w.resources.some(r=>r.x===x&&r.y===y))cells.push({x,y});
+ for(let y=2;y<126;y++)for(let x=2;x<126;x++)if(walkable(w,{x,y})&&!spatial(w).has(index(x,y))&&!w.resources.some(r=>r.x===x&&r.y===y))cells.push({x,y});
  const empty=emptyStock;
  for(let i=0;i<200;i++)w.structures.push({...cells.shift(),id:w.nextId++,kind:'stockpile',health:100,open:true,inventory:empty(),embodied:empty()});
  for(let i=0;i<57;i++)w.jobs.push({...cells.shift(),id:w.nextId++,kind:'build',ref:null,building:'wall',state:'active',priority:2,worker:null,requested:null,progress:0,site:empty(),reservation:null,delivery:null,status:'Waiting for worker',completions:0,retryAt:0,recipe:null,stage:0,readyAt:0,cycles:0});
