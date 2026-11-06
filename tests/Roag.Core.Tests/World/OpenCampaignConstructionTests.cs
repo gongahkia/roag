@@ -2,17 +2,21 @@ using Roag.Core.Dungeons;
 using Roag.Core.Tactics;
 using Roag.Core.World;
 using System.Text.Json;
+using System.Diagnostics;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Roag.Core.Tests.World;
 
-public sealed class OpenCampaignConstructionTests
+public sealed class OpenCampaignConstructionTests(ITestOutputHelper output)
 {
     [Fact]
     public void FreshWorldConstructsAllFourFullComplexesAndRetainsTheOriginalLivingWorldWithoutRevealingThem()
     {
         using var reference = WorldSession.CreateNativeCampaign(42);
+        var startup = Stopwatch.StartNew();
         using var world = WorldSession.CreateOpenCampaign(42);
+        startup.Stop();
         Assert.Equal(JsonSerializer.Serialize(reference.Plan), JsonSerializer.Serialize(world.Plan));
         Assert.Null(world.State.Dungeon);
         Assert.Equal(reference.DungeonMember.Position, world.DungeonMember.Position);
@@ -39,6 +43,17 @@ public sealed class OpenCampaignConstructionTests
             Assert.Equal(old.Kind, actual.Kind); Assert.Equal(old.Name, actual.Name);
         });
         Assert.True(world.ChooseDungeonClass(ClassKind.Hookrunner).Success);
+        var waits = Stopwatch.StartNew();
+        for (int i = 0; i < 4; i++)
+        {
+            long clock = world.DungeonCombat.Clock;
+            var preview = world.DungeonCombat.Preview(new(TacticalAction.Wait));
+            Assert.True(world.SubmitDungeon(new(TacticalAction.Wait)).Success);
+            Assert.Equal(clock + preview.Recovery, world.DungeonCombat.Clock);
+            Assert.Equal(world.DungeonMember.Id, world.State.Tactics.ActiveActor);
+        }
+        waits.Stop();
+        output.WriteLine($"full_world_startup_ms={startup.Elapsed.TotalMilliseconds:F2}; four_paid_waits_ms={waits.Elapsed.TotalMilliseconds:F2}; actors={world.State.Actors.Count}; participants={world.State.Tactics.Participants.Count}");
         TacticalValidation.Validate(world.Plan, world.State);
     }
 }
