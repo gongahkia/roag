@@ -1,4 +1,4 @@
-# Roag colony web — P05 (integration)
+# Roag colony web — P06
 
 From the repository root:
 
@@ -90,7 +90,7 @@ require arrival. This is new farming behavior, independent of finite forage node
 | Ammunition | Workshop | 1 wood + 1 stone → 4 rounds | 24 | 36 rounds outside magazines |
 
 Farms pause at a 20-food reserve. Targets count existing storage, bundles and work
-cargo; an in-progress batch finishes. Tools are stored products in P05, with no
+cargo; an in-progress batch finishes. Tools are stored products, with no
 equipment bonus yet. Ore is processed from finite stone, not an invented free stock.
 Recipes take delivered inputs once, generate one output batch, and physically deliver
 it before starting another. Full storage retains cargo and explains the wait.
@@ -141,7 +141,7 @@ you can change or release those orders. Rallied founders strike adjacent attacke
 Attacks warn on locked cells and never follow a moving target. Walls and friendly
 bodies block tower shots; friendly bodies take no damage from colony shots. A round
 is consumed at launch even if its source is destroyed and the unresolved attack is
-cancelled. Each defeated attacker leaves one recoverable wood unit exactly once.
+cancelled. Each ordinary defeated attacker leaves one recoverable wood unit exactly once; the Captain leaves five.
 
 After the raid, rescue and treatment use the same physical medicine chain. Repair
 surviving damaged defenses with actual supplies, reload, and resume production.
@@ -157,6 +157,41 @@ the warning. The forward tower at **70,62** can draw breacher attacks while the
 leaves the forward tower unloaded to exercise recovery from imperfect preparation. The headless ordinary-command probe is
 `node scripts/defense-probe.mjs`; its outputs are integration evidence, not a
 replacement for production browser acceptance.
+
+## Endless raids and the Captain
+
+After a wave is defeated, the next warning begins **1,200 ticks** later and arrival
+follows **600 ticks** after that. Wave budgets rise from seven by three per wave,
+capped at 60. Composition, approach, squad identities and entry offsets commit at
+announcement; saving cannot reroll them. Blocked entry or a full battlefield retains
+the pending queue. The outermost approach lane cannot receive colony blueprints.
+
+Shield guards reduce damage from their front until they lower their shield to
+strike. Archers commit cardinal shots that can be blocked or dodged. Healers spend
+12 ticks on a locked patient tile; wounded rushers retreat and hold near their
+living healer unless threatened. Interrupting the healer changes that support.
+The defense panel and map show roles, facing, support and committed impact cells.
+
+Every fourth wave brings the **Ossuary Captain**. Its front reduces damage by 80%
+while protected; turning and recovery expose it to 50% additional damage. A visible
+four-cell charge commits before moving and cannot pass through a new obstruction.
+The alternating rampart leaves a walking gap. Its barricades have 36 health and
+expire after 600 ticks; select one and order a founder or the group to **Clear**.
+Workers must physically approach and strike it. The Captain's death removes its
+remaining barricades. No arena is painted over the colony.
+
+For the ordinary five-wave seed-42 example, add storage at **54/55,66/67**, designate
+wood **#8** and stone **#14/#16**, add an ore workshop at **72,70**, and cover other
+approaches with towers at **60,59**, **69,58**, **59,69**. Keep magazines supplied.
+Ivo and Nell can guard while civilians are released to work under cover. Avoid
+chasing enemies out to the map edge; withdraw wounded guards for real treatment.
+The scenario in `npm run test:raids` records every ordinary command, exact reload
+checkpoints and five completed waves followed by six fully healed founders. This
+is one demonstrated strategy/seed, not a claim that all placements are balanced.
+
+The last 16 wave summaries retain losses, ammunition use and repairs. Live enemies
+and queued entries each cap at 150; committed attacks at 256 and barricades at eight.
+The artificial cap workload tests bounded behavior, not ordinary late-wave balance.
 
 ## Movement, saves and checks
 
@@ -174,7 +209,7 @@ while retaining backlog. Render/UI reads never advance the simulation themselves
 transactional IndexedDB; invalid imports and failed writes preserve the current world
 and valid slot. Unavailable storage is visible and JSON export still works. Reload
 restores the last successful save; there is no autosave or offline simulation.
-Schema **4**, content **colony-p05-1**, rejects earlier schemas and legacy saves without replacing
+Schema **5**, content **colony-p06-1**, rejects earlier schemas and legacy saves without replacing
 them. No migration is claimed. Export older slots with their older build before an
 explicit fresh run. The 2 MB validation limit covers all needs, crop stages, claims,
 cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
@@ -182,11 +217,12 @@ cargo, deadlines, job/movement progress, IDs, RNG and pending commands.
 From `web/`:
 
 ```sh
-export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P05
+export ROAG_EVIDENCE_DIR=../artifacts/colony-web/P06
 fnm exec --using=24.21.0 npm run assets:check
 fnm exec --using=24.21.0 npm run typecheck
 fnm exec --using=24.21.0 npm test
 fnm exec --using=24.21.0 npm run test:scenarios
+fnm exec --using=24.21.0 npm run test:raids
 fnm exec --using=24.21.0 npm run build
 fnm exec --using=24.21.0 npm run test:browser
 python3 -B ../tools/verify_preservation.py
@@ -195,7 +231,7 @@ python3 -B ../tools/verify_preservation.py
 Install Chromium if absent with `fnm exec --using=24.21.0 npx playwright install chromium`
 (or `--with-deps chromium` on minimal Linux). Native visibility tests use full Chromium
 through CDP, actual tab transitions, and no synthetic visibility override. Browser
-checks build and serve both `/` and `/roag/` on ports 4173/4174. To inspect those outputs:
+checks generate ordinary raid fixtures unless `ROAG_RAID_FIXTURE_DIR` points to an existing validated scenario directory, then build and serve both `/` and `/roag/` on ports 4173/4174. To inspect those outputs:
 
 ```sh
 fnm exec --using=24.21.0 node scripts/serve-production.mjs root
@@ -213,6 +249,6 @@ terrain-edit corridor. Neither is the three-day sustainable-colony evidence.
 The original 27 selected sprite crops/provenance/credits remain intact. Only four
 compact generated runtime asset files ship; no full research catalog/atlas, archives,
 legacy runtime or source maps. Original artwork and legacy sources are untouched.
-P05 has one finite announced raid. Endless raids, bosses, recruitment and seasonal/social simulation arrive in later phases.
+P06 has endless budgeted raids, two support squads and the Ossuary Captain. More bosses, biomes, recruitment and seasonal/social simulation follow in later phases.
 Six founders/one-tile structures are supported; large-colony performance, Firefox,
 Safari, touch work journeys and long-run survival balance are not claimed.
