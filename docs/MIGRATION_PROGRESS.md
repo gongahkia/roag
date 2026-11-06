@@ -1,8 +1,8 @@
 # Migration implementation progress
 
-Status: **temporarily paused by explicit user request (2026-11-06); remaining migration Tranche A/B scope retained**. The user activated both A (items 9–16, including the remaining NPC rescue portion of 10) and B (17–20) in the attached goal objective. This supersedes the party playtest stop for the new scope. Verify A then continue directly to B. Preserve delivered solo/party behavior; make atomic commits; keep automated gameplay muted. All eight full-migration gates remain open; Windows/full authoring parity and unrelated expansions remain excluded.
+Status: **resumed after the requested temporary pause (2026-11-06); Tranche A/B scope retained**. The user activated both A (items 9–16, including the remaining NPC rescue portion of 10) and B (17–20) in the attached goal objective. This supersedes the party playtest stop for the new scope. Verify A then continue directly to B. Preserve delivered solo/party behavior; make atomic commits; keep automated gameplay muted. All eight full-migration gates remain open; Windows/full authoring parity and unrelated expansions remain excluded.
 
-Pause/resume handoff: [MIGRATION_PAUSE.md](MIGRATION_PAUSE.md) records all three worktrees, committed/uncommitted boundaries, verification limits and the safely stopped calendar probe. Resume the same objective with `/goal resume`; no replacement goal is needed. Boss/profile branches are isolated and not integrated. No scope or acceptance gate is dropped by this pause.
+Resume audit: [MIGRATION_PAUSE.md](MIGRATION_PAUSE.md) retains the historical pause checkpoint. The goal is now active again; both original worker agents have resumed their existing WIP. Main reruns the interrupted ten route/seal cases from the unchanged, hash-verified source/runner, while the calendar probe continues the actual 47-hour checkpoint in a new v3 output directory. Boss/profile branches are isolated and not integrated. No scope or acceptance gate is dropped by this pause.
 
 ## Current numbered scope and limits — 2026-11-06
 

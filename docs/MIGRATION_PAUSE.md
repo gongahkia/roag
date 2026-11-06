@@ -1,5 +1,7 @@
 # Migration pause checkpoint — 2026-11-06
 
+Historical checkpoint: the same goal and existing workers were explicitly resumed later on 2026-11-06. See current MIGRATION_PROGRESS/PARALLEL status before treating this file as an active pause.
+
 The user explicitly requested a temporary pause. Resume this same orchestrated objective with `/goal resume` in the same conversation; no replacement goal prompt is needed. Do not resume feature work merely because this file is read. The authoritative objective remains `/home/gongahkia/.codex/attachments/8ba90282-fe56-4de0-bbf8-a2fd4b85d637/goal-objective.md`: complete A (9–16 including remaining 10), then B (17–20), final verification/delivery, then stop for playtest. All eight full-game gates remain OPEN. Latest packaged Linux delivery remains bounded-party cd49a638. This pause closes no gate and drops no scope.
 
 ## Preserved streams
@@ -24,7 +26,7 @@ No worker implementation has been merged/cherry-picked onto main. Preserve every
 
 `artifacts/migration/verification/native-calendar/rendered-three-days-v2` was cooperatively stopped using its `stop-requested` boundary, never by interrupting in-flight client input. It completed **47 full hours**, then saved the actual partial next rest at clock **19,093,400**, position **(316,530,0)**, founder alive **24/24 HP**, food **12**. `handoff.json` reports `checkpointSaved: true`, `checkpointError: null`; the driver/client exited **1** for the requested stop, and process inspection confirms neither remains running. This is an intentionally interrupted **72-hour** probe, not a passed 72-hour result. Its frozen runtime predates the later pack-accounting/complex changes, and its previously failed night-accounting audit remains failed and retained.
 
-On explicit resume, inspect the actual control save, handoff, logs/runtime identities before continuing. A new output directory can continue the exact v2 save through `verify_native_calendar.py --hours 72 --continue-from <v2> --provision --runtime <v2>/runtime`, with null audio/software rendering and Xvfb. Keep the old evidence unchanged. Do not inject time/resources, replay completed purchases or treat a safe-town calendar probe as natural wildlife/season/campaign acceptance.
+On explicit resume, inspect the actual control save, handoff, logs/runtime identities before continuing. A new output directory can continue the exact v2 save through `verify_native_calendar.py --hours 72 --continue-from <v2> --runtime <v2>/runtime`, with null audio/software rendering and Xvfb. The 47-hour save already has twelve real provisions; omit `--provision` so completed provisioning is not replayed. Keep the old evidence unchanged. Do not inject time/resources, replay completed purchases or treat a safe-town calendar probe as natural wildlife/season/campaign acceptance.
 
 ## Agreed interfaces to preserve on integration
 
