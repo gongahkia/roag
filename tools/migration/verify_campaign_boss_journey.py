@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 
 from verify_native_journey import Client, Journey, DIRECTIONS, distance, position
 
@@ -43,23 +44,31 @@ class CampaignClient(Client):
                     raise
 
 
+def hold(client):
+    if not client.ui['panel']:
+        client.control_click('dungeon:menu')
+
+
 def exact(client, label):
+    hold(client)
     client.control_click('dungeon:save')
     before = json.loads(client.slot.read_text())
+    (client.output / (label + '-before-campaign.json')).write_text(json.dumps(before, indent=2) + '\n')
     chunks = Path(str(client.slot) + '.chunks')
     hashes = {p.relative_to(chunks).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(chunks.rglob('*')) if p.is_file()}
     client.resume()
     client.control_click('dungeon:save')
     after = json.loads(client.slot.read_text())
+    (client.output / (label + '-after-campaign.json')).write_text(json.dumps(after, indent=2) + '\n')
     current = {p.relative_to(chunks).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
                for p in sorted(chunks.rglob('*')) if p.is_file()}
-    assert before == after, 'Ordinary reload changed the complete continuing manifest'
-    assert hashes == current, 'Ordinary reload changed the saved chunk files'
     (client.output / (label + '-exact.json')).write_text(json.dumps(dict(
-        matched=True, clock=client.ui['nativeDungeon']['clock'],
+        matched=before == after and hashes == current, clock=client.ui['nativeDungeon']['clock'],
         manifestSha256=hashlib.sha256(client.slot.read_bytes()).hexdigest(),
         chunks=hashes, profile=after['state']['tactics'].get('profile')), indent=2) + '\n')
+    assert before == after, 'Ordinary reload changed the complete continuing manifest'
+    assert hashes == current, 'Ordinary reload changed the saved chunk files'
     return after['state']
 
 
@@ -133,6 +142,7 @@ class CampaignJourney(Journey):
             self.goal = old['goal']
             self.report = old['report']
             self.valves = {tuple(p) for p in old['valves']}
+            self.receipts.update(old.get('receipts', []))
 
     def observe(self):
         self.ui = self.client.ui
@@ -158,7 +168,10 @@ class CampaignJourney(Journey):
             if effect['kind'] == 'Died' and position(effect['position']) not in self.death_effects:
                 for f in self.previous_fighters.values():
                     if not f['friendly'] and position(f['position']) == position(effect['position']):
-                        self.defeated.add(f['class'])
+                        if f['class'] in ('core:enemy/' + k for k in CLASS_KEYS.values()):
+                            self.audit_observed_death(f)
+                        else:
+                            self.defeated.add(f['class'])
         self.death_effects = death_effects
         for f in self.fighters:
             if any(key in f['class'] for key in ('bellkeeper', 'sluice_maw', 'threadmother', 'ossuary_captain', 'hollow_regent')):
@@ -175,6 +188,29 @@ class CampaignJourney(Journey):
                     self.saved_casts.add(f['class'])
                     self.receipts.add('visible-locked-warning-exact-' + f['class'])
         self.previous_fighters = {f['id']: f for f in self.state['fighters']}
+
+    def audit_observed_death(self, observed):
+        self.client.capture('observed-death-' + str(observed['id']))
+        hold(self.client)
+        self.client.control_click('dungeon:save')
+        state = json.loads(self.client.slot.read_text())['state']
+        # Verification of this visually observed outcome only. These saved
+        # coordinates and other unobserved actors never guide later navigation.
+        actor = next(a for a in state['actors'] if a['id'] == observed['id'])
+        assert actor['life'] == 2 and actor['health'] <= 0
+        assert actor['tactics']['definitionId'] == observed['class']
+        assert actor['tactics']['rewardsClaimed']
+        arenas = (state['tactics'].get('campaignBosses') or {}).get('arenas', [])
+        arena = next((a for a in arenas if a['boss'] == observed['id']), None)
+        if 'hollow_regent' not in observed['class']:
+            assert arena is not None and CLASS_KEYS[KINDS[arena['kind']]] in observed['class']
+        (self.client.output / ('observed-death-' + str(observed['id']) + '-receipt.json')).write_text(json.dumps(dict(
+            observedId=observed['id'], observedClass=observed['class'],
+            dead=actor['life'] == 2, rewardsClaimed=actor['tactics']['rewardsClaimed'],
+            arena=arena['id'] if arena else None, clock=state['tactics']['timeline']['clock']), indent=2) + '\n')
+        self.defeated.add(observed['class'])
+        self.receipts.add('observed-dead-reward-audit-' + observed['class'])
+        self.client.key('Escape')
 
     def aligned(self, a, b):
         limit = RANGES.get(self.player['classId'], 1)
@@ -224,12 +260,14 @@ class CampaignJourney(Journey):
         return True
 
     def checkpoint(self, label='checkpoint', reload=False):
+        hold(self.client)
         self.client.control_click('dungeon:save')
         (self.client.output / 'campaign-knowledge.json').write_text(json.dumps(dict(
             members=self.members, targetOption=self.target_option, home=self.home,
             cells=list(self.known.values()), visits=[dict(position=p, count=n) for p, n in self.visits.items()],
             defeated=sorted(self.defeated), encountered=sorted(self.encountered), completed=self.completed,
-            stage=self.stage, goal=self.goal, report=self.report, valves=sorted(self.valves)), indent=2) + '\n')
+            stage=self.stage, goal=self.goal, report=self.report, valves=sorted(self.valves),
+            receipts=sorted(self.receipts)), indent=2) + '\n')
         (self.client.output / 'handoff.json').write_text(json.dumps(dict(position=self.client.ui['position'],
             clock=self.client.ui['nativeDungeon']['clock'], player=self.client.ui['nativeDungeon']['player'],
             rollback=False)) + '\n')
@@ -461,10 +499,6 @@ class CampaignJourney(Journey):
         else:
             target = tuple(self.report['finalDestination']) if self.goal['final'] else entrance
         self.route_history.append(abs(target[0] - self.at[0]) + abs(target[1] - self.at[1]))
-        if self.at[2] == 0:
-            choices = [p for p in self.neighbors(self.at) if self.open(p, True) and distance(p, target) < distance(self.at, target)]
-            if choices:
-                return self.move(min(choices, key=lambda p: (distance(p, target), self.failed[p], self.visits[p])))
         goals = [target] if target[2] == self.at[2] else []
         if goals and self.go(goals, True):
             return True
@@ -479,6 +513,8 @@ class CampaignJourney(Journey):
     def verify_victory(self):
         self.client.capture('canonical-campaign-victory')
         state = exact(self.client, 'victory')
+        if self.client.ui['panel']:
+            self.client.key('Escape')
         receipt = state['nativeCampaign']['finale']
         assert receipt.get('victoryAt') is not None and receipt.get('victor', 0) > 0
         before = self.client.ui['nativeDungeon']['clock']
@@ -509,6 +545,8 @@ class CampaignJourney(Journey):
             self.travel_dash = False
             if self.client.sequence >= 650:
                 self.checkpoint('protocol-boundary-' + str(self.steps), reload=True)
+            if self.client.ui['panel']:
+                self.client.key('Escape')
             if self.client.ui['nativeDungeon']['controlledActor'] != self.client.ui['nativeDungeon']['activeActor']:
                 self.client.key('t')
             self.observe()
@@ -561,8 +599,10 @@ class CampaignJourney(Journey):
                 self.client.capture('observed-defeat-' + self.goal['name'].replace(' ', '-'))
                 self.goal['returning'] = True
                 self.checkpoint('boss-receipt-' + str(len(self.completed)), reload=True)
+                continue
             if self.steps % 40 == 0:
                 self.checkpoint('progress-' + str(self.steps))
+                self.client.key('Escape')
                 print('progress', self.steps, self.at, self.goal['name'], self.state['clock'], flush=True)
             # Each ready member pays a real turn. Preserve normal follower policy.
             leader = self.state['player'][0]
@@ -641,6 +681,12 @@ def main():
                               save=str(client.slot), pendingRequest='journey-' + str(client.sequence))
                 (client.output / 'live-client.json').write_text(json.dumps(result, indent=2) + '\n')
             (client.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+            if keep_live:
+                print('LIVE CLIENT AND DISPLAY RETAINED', json.dumps(result), flush=True)
+                # xvfb-run owns the display. Keep its Python supervisor alive,
+                # without replaying or sending further gameplay input.
+                while client.process.poll() is None:
+                    time.sleep(1)
         raise
     finally:
         if hasattr(client, 'journal') and hasattr(client, 'log'):
