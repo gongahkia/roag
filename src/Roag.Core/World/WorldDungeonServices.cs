@@ -11,12 +11,13 @@ public sealed partial class WorldSession
         DungeonServiceKind.CharmWell, DungeonServiceKind.AttunementForge, DungeonServiceKind.TravellingTrader,
         DungeonServiceKind.Memorial, DungeonServiceKind.Camp, DungeonServiceKind.ArchiveContract];
 
-    private void PopulateDungeonServices(DungeonLayout layout, WorldPosition origin, TacticalCombat combat)
+    private void PopulateDungeonServices(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat)
     {
-        var floor = State.Dungeon!.Floors.Single(f => f.Origin.Floor == origin.Floor);
+        var origin = population.Floor.Origin;
+        var floor = population.Floor;
         string sourceFloor = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome).FloorId
             + "/stage/" + floor.Stage + "/depth/" + (origin.Floor % 2 == 1 ? 1 : 2);
-        int seed = RoagRandom.Derive(DungeonSeed, sourceFloor + ":interactions");
+        int seed = RoagRandom.Derive(population.Seed, sourceFloor + ":interactions");
         bool Available(WorldPosition p) => CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
             && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 4 && p.Distance(floor.Exit) >= 4

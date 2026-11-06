@@ -39,8 +39,9 @@ public sealed partial class WorldSession
         return new(true, "Eating policy saved. Automatic meals spend this member's scheduled turns.");
     }
 
-    private void PopulateDungeonRecruits(DungeonFloorState floor)
+    private void PopulateDungeonRecruits(DungeonPopulation population)
     {
+        var floor = population.Floor;
         var room = floor.Rooms.Single(r => r.Role == "start");
         int count = floor.Origin.Floor == 1 ? 3 : 1;
         var occupied = new List<WorldPosition>();
@@ -49,20 +50,20 @@ public sealed partial class WorldSession
             .Where(p => p != floor.Entry && p != floor.Exit && CanEnter(p) && ObjectAt(p) == null
                 && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null
                 && EncounterDirections.Count(d => GroundOpen(p.Offset(d.X, d.Y))) >= 3)
-            .OrderBy(p => RoagRandom.Derive(DungeonSeed, $"recruit-cell:{floor.Origin.Floor}:{p.X},{p.Y}"));
+            .OrderBy(p => RoagRandom.Derive(population.Seed, $"recruit-cell:{floor.Origin.Floor}:{p.X},{p.Y}"));
         foreach (var p in sites)
         {
             if (occupied.Any(other => p.Distance(other) < 2)) continue;
             var actor = ActorFactory.Create(Content, Content.Game.Traveller, Seed, State.NextActorId++, p, 0);
-            var kind = (ClassKind)(RoagRandom.Derive(DungeonSeed, "recruit-class:" + actor.Id) % Enum.GetValues<ClassKind>().Length);
+            var kind = (ClassKind)(RoagRandom.Derive(population.Seed, "recruit-class:" + actor.Id) % Enum.GetValues<ClassKind>().Length);
             actor.Job = "adventurer"; actor.CombatTrait = ""; actor.Equipment.Clear(); actor.Talents.Clear();
             actor.Body.Hunger = actor.Body.Fatigue = 0; actor.Body.Wounds = 0;
             actor.SpriteId = NativeAppearance.ForClass(kind);
             // Existing adventurers may carry a real, finite rescue provision.
             // This is seeded at creation, never spawned when someone falls.
-            if (RoagRandom.Derive(DungeonSeed, "recruit-medicine:" + actor.Id) % 100 < State.Tactics!.Rescue.MedicineCarrierPercent)
+            if (RoagRandom.Derive(population.Seed, "recruit-medicine:" + actor.Id) % 100 < State.Tactics!.Rescue.MedicineCarrierPercent)
                 actor.Cargo["medicine"] = 1;
-            State.Actors.Add(actor); State.Dungeon!.Recruits.Add(new(actor.Id, kind));
+            State.Actors.Add(actor); population.Run.Recruits.Add(new(actor.Id, kind));
             occupied.Add(p);
             if (occupied.Count == count) return;
         }

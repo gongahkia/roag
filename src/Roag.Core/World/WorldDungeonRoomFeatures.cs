@@ -5,10 +5,11 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
-    private void PopulateDungeonRoomFeatures(DungeonLayout layout, WorldPosition origin, TacticalCombat combat)
+    private void PopulateDungeonRoomFeatures(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat)
     {
-        var floor = State.Dungeon!.Floors.Single(f => f.Origin == origin);
-        int seed = RoagRandom.Derive(DungeonSeed, $"floor:{origin.Floor}/room-features");
+        var origin = population.Floor.Origin;
+        var floor = population.Floor;
+        int seed = RoagRandom.Derive(population.Seed, $"floor:{origin.Floor}/room-features");
         bool Safe(WorldPosition p) => !DungeonQuestCell(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null && CanEnter(p) && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 4 && p.Distance(floor.Exit) >= 3
             && !combat.State.Chests.Chests.Any(n => n.Position.Distance(p) < 2)

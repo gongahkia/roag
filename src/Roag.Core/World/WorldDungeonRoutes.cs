@@ -26,11 +26,11 @@ public sealed partial class WorldSession
             var first = DungeonLayoutGenerator.Generate(seed, biome);
             var second = DungeonLayoutGenerator.Generate(RoagRandom.Derive(seed, "lower"), biome);
             var origin = new WorldPosition(landing.X - first.Start.X, landing.Y - first.Start.Y, landing.Floor);
-            PaintDungeonFloor(first, origin, combat, boss: false);
+            PaintDungeonFloor(first, origin, combat, run, DungeonSeed, boss: false);
             var upperExit = origin.Offset(first.Elite.X, first.Elite.Y);
             var lowerLanding = upperExit.Offset(-4, 0) with { Floor = upperExit.Floor + 1 };
             var lowerOrigin = new WorldPosition(lowerLanding.X - second.Start.X, lowerLanding.Y - second.Start.Y, lowerLanding.Floor);
-            PaintDungeonFloor(second, lowerOrigin, combat, boss: true);
+            PaintDungeonFloor(second, lowerOrigin, combat, run, DungeonSeed, boss: true);
             Chunks.Edit(upperExit, Material.StairsDown); Chunks.Edit(lowerLanding, Material.StairsUp);
         }
         else

@@ -5,9 +5,10 @@ namespace Roag.Core.World;
 
 public sealed partial class WorldSession
 {
-    private void PopulateDungeonSecrets(DungeonLayout layout, WorldPosition origin, TacticalCombat combat)
+    private void PopulateDungeonSecrets(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat)
     {
-        int seed = RoagRandom.Derive(DungeonSeed, $"floor:{origin.Floor}/secrets");
+        var origin = population.Floor.Origin;
+        int seed = RoagRandom.Derive(population.Seed, $"floor:{origin.Floor}/secrets");
         WorldPosition At(RoomPoint p) => origin.Offset(p.X, p.Y);
         var optional = layout.Rooms.Where(r => !layout.CriticalRooms.Contains(r.Index)
             && r.Shape.Markers.GetValueOrDefault("secret_anchor") is { Length: > 0 })

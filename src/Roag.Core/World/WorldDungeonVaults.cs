@@ -25,10 +25,11 @@ public sealed partial class WorldSession
         return null;
     }
 
-    private void PopulateDungeonVault(DungeonLayout layout, WorldPosition origin, TacticalCombat combat)
+    private void PopulateDungeonVault(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat)
     {
-        var floor = State.Dungeon!.Floors.Single(f => f.Origin == origin);
-        int seed = RoagRandom.Derive(DungeonSeed, $"floor:{origin.Floor}/vault");
+        var origin = population.Floor.Origin;
+        var floor = population.Floor;
+        int seed = RoagRandom.Derive(population.Seed, $"floor:{origin.Floor}/vault");
         bool Safe(WorldPosition p) => !DungeonQuestCell(p) && CanEnter(p) && Chunks.At(p) == Material.Floor && DungeonTerrainAt(p) == null && ObjectAt(p) == null
             && p.Distance(floor.Entry) >= 4 && p.Distance(floor.Exit) >= 3
             && !combat.State.Chests.Chests.Any(c => c.Position.Distance(p) < 2)

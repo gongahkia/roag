@@ -28,8 +28,9 @@ public sealed partial class WorldSession
         return null;
     }
 
-    private int PopulateDungeonCorridors(DungeonLayout layout, WorldPosition origin, TacticalCombat combat, string[] species, int serial)
+    private int PopulateDungeonCorridors(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat, string[] species, int serial)
     {
+        var origin = population.Floor.Origin;
         // Quest cells belong to the optional branch; ordinary alcove encounters
         // and later fixtures cannot replace them or their target.
         int count = 0;

@@ -7,18 +7,20 @@ public sealed partial class WorldSession
 {
     private static readonly (int X, int Y)[] EncounterDirections = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
-    private void PopulateDungeonEncounters(DungeonLayout layout, WorldPosition origin, TacticalCombat combat)
+    private void PopulateDungeonEncounters(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat)
     {
-        var floor = State.Dungeon!.Floors.Single(f => f.Origin.Floor == origin.Floor);
+        var origin = population.Floor.Origin;
+        var floor = population.Floor;
         string sourceFloor = DungeonCatalog.Default.Biomes.Single(b => b.Id == layout.Biome).FloorId
             + "/stage/" + floor.Stage + "/depth/" + (origin.Floor % 2 == 1 ? 1 : 2);
-        PopulateDungeonSquad(layout, origin, floor, combat, sourceFloor);
-        PopulateDungeonIdea(floor, combat, sourceFloor);
+        PopulateDungeonSquad(layout, population, combat, sourceFloor);
+        PopulateDungeonIdea(population, combat, sourceFloor);
     }
 
-    private void PopulateDungeonSquad(DungeonLayout layout, WorldPosition origin, DungeonFloorState floor, TacticalCombat combat, string sourceFloor)
+    private void PopulateDungeonSquad(DungeonLayout layout, DungeonPopulation population, TacticalCombat combat, string sourceFloor)
     {
-        var selection = DungeonEncounterSelection.Squad(DungeonSeed, layout.Biome, sourceFloor);
+        var floor = population.Floor; var origin = floor.Origin;
+        var selection = DungeonEncounterSelection.Squad(population.Seed, layout.Biome, sourceFloor);
         var kind = selection.Kind; var roster = EnemySquads.Roster(kind); int followers = selection.Followers;
         (int X, int Y)[] offsets = [(0, 0), (-1, 1), (1, 1), (-1, 0), (1, 0), (0, 1)];
         foreach (var room in layout.Rooms.Where(r => r.Role is not ("start" or "elite")))
@@ -65,9 +67,10 @@ public sealed partial class WorldSession
         return false;
     }
 
-    private void PopulateDungeonIdea(DungeonFloorState floor, TacticalCombat combat, string sourceFloor)
+    private void PopulateDungeonIdea(DungeonPopulation population, TacticalCombat combat, string sourceFloor)
     {
-        var selection = DungeonEncounterSelection.Idea(DungeonSeed, sourceFloor);
+        var floor = population.Floor;
+        var selection = DungeonEncounterSelection.Idea(population.Seed, sourceFloor);
         if (selection.Definition is not { } definition) return;
         int seed = selection.Seed;
         var choices = State.Actors.Where(a => a.Life == LifeState.Alive && a.Position.Floor == floor.Origin.Floor
