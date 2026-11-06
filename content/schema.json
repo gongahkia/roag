@@ -250,16 +250,14 @@
             "null"
           ],
           "properties": {
-            "activity": {
-              "enum": ["always", "day", "night"]
-            },
-            "sleepingNotice": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 8
-            },
             "behavior": {
               "type": "string"
+            },
+            "activity": {
+              "type": "string"
+            },
+            "sleepingNotice": {
+              "type": "integer"
             },
             "biomes": {
               "type": "array",
