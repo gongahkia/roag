@@ -1,0 +1,21 @@
+{
+  "baseline_commit": "4d89585c13cfcb6874e48a0d8ef64c3a2a1001df",
+  "baseline_tag": "archive/pre-web-colony-2026-11-06",
+  "protected_files": 1163,
+  "workbench_source_files": 1164,
+  "local_only": true,
+  "archives": [
+    {
+      "path": "artifacts/preservation/2026-11-06-pre-web/legacy-source.tar.gz",
+      "bytes": 14589324,
+      "sha256": "64fb1f16166f4c54a1c57f66f794af8700b02569e93019c7b46266d8db3c7642",
+      "verified_source_files": 2393
+    },
+    {
+      "path": "artifacts/preservation/2026-11-06-pre-web/asset-workbench.tar.gz",
+      "bytes": 14440935,
+      "sha256": "cf20fed7ad36c0aca4a8322f671b6db9b0325795e7a393c128e3db7592a8e26c",
+      "verified_source_files": 1164
+    }
+  ]
+}
