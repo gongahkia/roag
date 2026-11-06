@@ -64,7 +64,7 @@ internal sealed partial class WorldGame
             "SocialInteractionCompleted" => "TALK",
             "BossChorusBroken" => "CHORUS BROKEN", "BossExposed" => "EXPOSED", "BossShieldBlocked" => "SHIELD",
             "BossFeastAnnounced" => "FEAST #" + e.Amount, "BossSurgeAnnounced" => "SURGE #" + e.Amount,
-            "BossValveDrained" => "DRAINED", "BossFeastDenied" => "FEAST DENIED", "BossReservoirFeast" => "+" + e.Amount,
+            "BossValveDrained" => "DRAINED", "BossFeastDenied" => "FEAST DENIED", "BossReservoirFeast" => "FEAST",
             "BossWebRaised" => "WEB", "BossWebIgnited" => "BURNING WEB", "BossReelEvaded" => "LINE BROKEN",
             "BossRampartRaised" => "RAMPART",
             "RetainedSkillUsed" => "SKILL", "Stunned" => "STUN",
