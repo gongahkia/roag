@@ -190,9 +190,10 @@ function raidSchedule(w: World): void {
   if(c.phase!=='combat'||!c.pending.length)return;
   const occupied=spatial(w),spawn=nextSpawn(c.pending,c.raiders.length,p=>walkable(w,p)&&!occupied.has(index(p.x,p.y)));
   if(spawn.ticket&&spawn.cell){
-    if(['bellkeeper','sluice','threadmother'].includes(spawn.ticket.kind)){
-      if(!w.bosses.encounters.some(e=>e.owner===spawn.ticket.id)&&w.tick%20!==0)return;
-      if(!prepareBossSpawn(w,spawn.ticket)){c.status=w.bosses.status;return;}
+    const ticket=spawn.ticket;
+    if(['bellkeeper','sluice','threadmother'].includes(ticket.kind)){
+      if(!w.bosses.encounters.some(e=>e.owner===ticket.id)&&w.tick%20!==0)return;
+      if(!prepareBossSpawn(w,ticket)){c.status=w.bosses.status;return;}
     }
     c.pending=spawn.remaining;c.raiders.push(createRaider(w,spawn.ticket,spawn.cell));c.stats.spawned++;}
   else c.status=`Raid waits at the ${c.edge} edge or actor cap. Pending attackers and their identities are retained.`;
@@ -220,10 +221,19 @@ function encounterApi(w: World,move: EncounterApi['move']=()=>{},movedPeople=new
     },
   };
 }
-function bossApi(w: World,move: BossApi['move']=()=>{},movedPeople=new Set<number>()): BossApi {
+function bossApi(w: World,move: BossApi['move']=()=>{},movedPeople=new Set<number>(),movedRaiders=new Set<number>()): BossApi {
   const ordinary=encounterApi(w,move,movedPeople);
   return {
     move,shove:ordinary.shove,
+    shoveRaider:(id,delta)=>{
+      const r=w.combat.raiders.find(r=>r.id===id);if(!r||r.next||movedRaiders.has(id)||Math.abs(delta.x)+Math.abs(delta.y)!==1)return false;
+      const next={x:r.x+delta.x,y:r.y+delta.y};if(!walkable(w,next)||spatial(w).has(index(next.x,next.y)))return false;
+      // Forced movement interrupts a stationary commitment; its locked origin
+      // cannot silently follow the source. Spent ammunition is never refunded.
+      w.combat.attacks=w.combat.attacks.filter(a=>a.source.kind!=='raider'||a.source.id!==id);
+      if(r.charge){r.charge=null;r.exposedUntil=Math.max(r.exposedUntil,w.tick+E.captain.exposureTicks);}
+      r.x=next.x;r.y=next.y;r.route=[];r.retryAt=w.tick;movedRaiders.add(id);return true;
+    },
     damage:(ref,amount,origin)=>damage(w,ref,amount,ref.kind==='raider'?'colony':'hostile',origin),
     approach:(p,target)=>{const status={status:'Approaching environmental counter'};approach(w,status,p,target,status.status);p.body.status=status.status;},
     release:(actor)=>{const order=w.combat.orders.find(o=>o.actor===actor);if(order)releaseOrder(w,order);},
@@ -236,7 +246,7 @@ function face(r: Raider,cell: Cell,tick: number): void {
   r.facing=direction;
 }
 function moveRaiders(w: World,movedPeople: Set<number>): void {
-  const occupied=spatial(w);let searches=0;
+  const occupied=spatial(w),movedRaiders=new Set<number>();let searches=0;
   const requests:{raider:Raider;cell:Cell;adjacent:boolean;waitingSince:number;allowedCells?:Cell[]}[]=[];
   const enterRoute=(r:Raider):void=>{
     const next=r.route[0];if(!next)return;
@@ -256,10 +266,10 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
     }
     enterRoute(r);
   };
-  const api=encounterApi(w,move,movedPeople), environmental=bossApi(w,move,movedPeople);
+  const api=encounterApi(w,move,movedPeople), environmental=bossApi(w,move,movedPeople,movedRaiders);
   for(const r of [...w.combat.raiders].sort((a,b)=>a.id-b.id)){
     if(r.charge||w.combat.attacks.some(a=>a.source.kind==='raider'&&a.source.id===r.id))continue;
-    if(r.next){r.progress++;if(r.progress>=r.moveTicks){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;r.next=null;r.progress=0;r.moveTicks=4;}else continue;}
+    if(r.next){r.progress++;if(r.progress>=r.moveTicks){occupied.delete(index(r.x,r.y));r.x=r.next.x;r.y=r.next.y;movedRaiders.add(r.id);r.next=null;r.progress=0;r.moveTicks=4;}else continue;}
     if(bossTurn(w,r,environmental)||encounterTurn(w,r,api))continue;
     const target=selectTarget(w,r),cell=refCell(w,target)!;
     if(!r.target||r.target.kind!==target.kind||r.target.id!==target.id){r.target=target;r.route=[];r.retryAt=Math.min(r.retryAt,w.tick);}
@@ -278,7 +288,9 @@ function moveRaiders(w: World,movedPeople: Set<number>): void {
     r.routeVersion=w.terrainVersion;r.retryAt=w.tick+10;
     enterRoute(r);
   }
+  const beforeCharges=new Map(w.combat.raiders.map(r=>[r.id,{x:r.x,y:r.y}]));
   advanceEncounters(w,api);
+  for(const r of w.combat.raiders)if(!same(r,beforeCharges.get(r.id)!))movedRaiders.add(r.id);
   advanceBossEffects(w,environmental);
 }
 export function advanceCombat(w: World,movedPeople=new Set<number>()): void {
