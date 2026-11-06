@@ -51,7 +51,7 @@ test('ready jobs honor a higher per-worker duty preference before taking a lower
  assert.ok(enqueue(w,{kind:'gather',source:8}));assert.ok(enqueue(w,{kind:'produce',structure:w.structures.find(s=>s.kind==='kitchen').id,recipe:'meal'}));tick();
  assert.equal(w.jobs.find(j=>j.kind==='produce'&&j.recipe==='meal'&&j.state==='active').worker,2);assert.notEqual(w.jobs.find(j=>j.kind==='gather'&&j.ref===8).worker,2);save(w);
 });
-after(()=>{const dir=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P04');mkdirSync(dir,{recursive:true});writeFileSync(resolve(dir,`edge-scenarios-${process.pid}.json`),JSON.stringify({scenarioRuns},null,2)+'\n');});
+after(()=>{const dir=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P05');mkdirSync(dir,{recursive:true});writeFileSync(resolve(dir,`edge-scenarios-${process.pid}.json`),JSON.stringify({scenarioRuns},null,2)+'\n');});
 test('a deceased founder record does not make a legally placed blueprint unsaveable',()=>{
  const h=setup(),{w,cmd,until}=h,p=w.people[0];cmd({kind:'move',actor:p.id,target:{x:72,y:64}});until(()=>p.x===72&&p.y===64&&!p.next&&!p.destination,'clear future site');cmd({kind:'dev',action:'kill',id:p.id});cmd({kind:'build',building:'wall',target:{x:72,y:64}});assert.doesNotThrow(()=>save(w));const j=w.jobs.find(j=>j.kind==='build'&&j.x===72&&j.y===64);until(()=>j.state==='done','build on vacated cell');save(w);
 });

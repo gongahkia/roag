@@ -80,4 +80,4 @@ test('duty priorities dispatch real workers and guard watch is a physical noncom
  cmd({kind:'duty',actor:7,duty:'guard',value:3});cmd({kind:'duty',actor:7,duty:'builder',value:1});until(()=>w.people[5].body.routine?.status.includes('Watching'),'watch post');cmd({kind:'duty',actor:7,duty:'guard',value:0});assert.equal(w.people[5].body.routine,null);save(w);
 });
 
-after(()=>{const dir=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P04');mkdirSync(dir,{recursive:true});writeFileSync(resolve(dir,`needs-checkpoints-${process.pid}.json`),JSON.stringify({continuations,scenarioRuns},null,2)+'\n');});
+after(()=>{const dir=resolve(import.meta.dirname,'..',process.env.ROAG_EVIDENCE_DIR??'../artifacts/colony-web/P05');mkdirSync(dir,{recursive:true});writeFileSync(resolve(dir,`needs-checkpoints-${process.pid}.json`),JSON.stringify({continuations,scenarioRuns},null,2)+'\n');});
