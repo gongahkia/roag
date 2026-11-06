@@ -162,12 +162,18 @@ public sealed partial class TacticalCombat
         PruneEmbers();
         PruneMirrors();
         PruneOaths();
-        var retained = State.BoonEffects.Echoes.Values.Select(e => e.Activation.ChainId)
-            .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Activation != null).Select(a => a.Tactics!.Burning!.Activation!.ChainId))
-            .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Native != null).Select(a => a.Tactics!.Burning!.Native!.Action))
-            .Concat(_world.State.Actors.Where(a => a.Tactics != null).SelectMany(a => a.Tactics!.Conditions.Select(c => c.Action)))
-            .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
-        State.BoonEffects.Dispatch.Prune(retained);
+        // Idle native turns usually have no causal history at all. There is
+        // nothing to retain/remove then; avoid constructing iterators and
+        // scanning every world actor three times for the empty dictionary.
+        if (State.BoonEffects.Dispatch.Chains.Count > 0)
+        {
+            var retained = State.BoonEffects.Echoes.Values.Select(e => e.Activation.ChainId)
+                .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Activation != null).Select(a => a.Tactics!.Burning!.Activation!.ChainId))
+                .Concat(_world.State.Actors.Where(a => a.Tactics?.Burning?.Native != null).Select(a => a.Tactics!.Burning!.Native!.Action))
+                .Concat(_world.State.Actors.Where(a => a.Tactics != null).SelectMany(a => a.Tactics!.Conditions.Select(c => c.Action)))
+                .Concat(State.Attacks.Where(a => !a.ClassGenerated).Select(a => a.Causality?.ChainId ?? a.Id));
+            State.BoonEffects.Dispatch.Prune(retained);
+        }
     }
 
     private bool HasWaitSubscriber(BoonEvent e)
