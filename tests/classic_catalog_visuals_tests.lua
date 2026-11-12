@@ -91,10 +91,22 @@ return function(test,equal)
                 local base=assert(Data.bindings[id:gsub('/[^/]+$','')])
                 assert(row.id==base.id and row.source==base.source and row.x==base.x and row.y==base.y,
                     'static pose alias became an inferred animation: '..id)
+                assert(row.flip_x==base.flip_x,'static pose alias changed facing: '..id)
             end
         end
         for _=1,12 do for id in pairs(Data.bindings)do assert(renderer:resolve(id))end end
         assert(loads==initial,'lookup decoded or allocated another texture')
+    end)
+    test('shared source crops keep independent facing corrections across local roles',function()
+        local renderer=assert(build(changed_data([[
+local base=data.bindings['core:actor/adventurer']
+local pose=data.bindings['core:actor/adventurer/attack']
+base.flip_x=true;pose.flip_x=false
+]])))
+        local base=renderer:resolve('core:actor/adventurer')
+        local pose=renderer:resolve('core:actor/adventurer/attack')
+        assert(base~=pose and base.flip_x and not pose.flip_x)
+        assert(base.texture==pose.texture and base.catalog_id==pose.catalog_id)
     end)
     test('missing corrupt and wrong-sized required catalogue sources fail closed without old-pack fallback',function()
         local paths={};for path in pairs(Data.sources)do paths[#paths+1]=path end;table.sort(paths)
@@ -111,6 +123,7 @@ return function(test,equal)
         rejected(changed_data("data.bindings['core:actor/adventurer']=nil"))
         rejected(changed_data("data.bindings['core:actor/adventurer'].x=100000"))
         rejected(changed_data("data.bindings['core:actor/adventurer'].source='assets/unknown.png'"))
+        rejected(changed_data("data.bindings['core:actor/adventurer'].flip_x='false'"))
         local at
         for i,id in ipairs(Data.requirements)do if id=='core:actor/adventurer' then at=i end end
         assert(at)

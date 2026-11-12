@@ -76,8 +76,12 @@ def resolve_bindings(document, inventory, catalog, catalog_hash, assets_dir, bin
     decoded, resolved, sources, crops = {}, {}, {}, {}
     assets_dir = Path(assets_dir).resolve()
     for role, binding in sorted(bindings.items()):
-        if not isinstance(binding, dict) or set(binding) != {'sprite', 'notes'}:
-            raise ValueError(f'{role}: explicit sprite and notes required; aliases are unsupported')
+        if (not isinstance(binding, dict) or not {'sprite', 'notes'} <= binding.keys()
+                or binding.keys() - {'sprite', 'notes', 'flipX'}):
+            raise ValueError(f'{role}: explicit sprite and notes required; only optional flipX is supported')
+        flip_x = binding.get('flipX', False)
+        if type(flip_x) is not bool:
+            raise ValueError(f'{role}: flipX must be a boolean')
         sprite, notes = binding['sprite'], binding['notes']
         if not isinstance(sprite, str) or not isinstance(notes, str) or not notes.strip():
             raise ValueError(f'{role}: sprite and nonempty local casting notes required')
@@ -138,6 +142,8 @@ def resolve_bindings(document, inventory, catalog, catalog_hash, assets_dir, bin
             'identity_basis': identity.get('basis', 'unconfirmed'),
             'subjects': asset['subjects'], 'composition': asset['composition'],
         }
+        if flip_x:
+            resolved[role]['flip_x'] = True
     return {'schema_version': 1, 'catalog_sha256': catalog_hash, 'bindings_sha256': bindings_hash,
             'requirements': sorted(required), 'requirement_count': len(required),
             'sources': sources, 'bindings': resolved}

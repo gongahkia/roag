@@ -98,6 +98,21 @@ class ClassicFixtureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.resolve()
 
+    def test_optional_horizontal_flip_is_local_boolean_metadata_not_changed_source_pixels(self):
+        original = self.resolve()
+        self.document['bindings']['core:fixture']['flipX'] = True
+        self.document['bindings']['core:fixture/attack']['flipX'] = False
+        resolved = self.resolve()
+        self.assertIs(resolved['bindings']['core:fixture']['flip_x'], True)
+        self.assertNotIn('flip_x', resolved['bindings']['core:fixture/attack'])
+        for key in ['sources', 'catalog_sha256']:
+            self.assertEqual(original[key], resolved[key])
+        self.assertEqual(resolved['bindings']['core:fixture']['rgba_sha256'], sha256(self.rgba))
+        for invalid in ['true', 'false', 1, 0, None, [], {}]:
+            self.document['bindings']['core:fixture']['flipX'] = invalid
+            with self.assertRaisesRegex(ValueError, 'flipX must be a boolean'):
+                self.resolve()
+
     def test_empty_guide_unsupported_pack_and_foreground_mismatch_fail(self):
         original = copy.deepcopy(self.record)
         for changes in [{'kind': 'guide'}, {'foreground_pixels': 0}, {'pack': 'kenney'}, {'foreground_pixels': 1}]:

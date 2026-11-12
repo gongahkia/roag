@@ -50,15 +50,18 @@ function C.new(read,make_texture,make_quad)
     end
     local shared={}
     for role,entry in pairs(Data.bindings)do
+        assert(entry.flip_x==nil or type(entry.flip_x)=='boolean','Invalid catalog facing: '..role)
         local source=assert(Data.sources[entry.source],'Unknown catalogue source')
         assert(entry.x>=0 and entry.y>=0 and entry.width>0 and entry.height>0
             and entry.x+entry.width<=source.width and entry.y+entry.height<=source.height,'Catalog crop outside image: '..role)
-        local h=shared[entry.id]
+        local key=entry.id..':'..tostring(entry.flip_x==true)
+        local h=shared[key]
         if not h then
             h={texture=self.textures[entry.source],quad=make_quad(entry.x,entry.y,entry.width,entry.height,source.width,source.height),
                 width=entry.width,height=entry.height,offset_x=entry.x,offset_y=entry.y,
-                source='catalog',catalog_id=entry.id,catalog_source=entry.source,identity_confidence=entry.identity_confidence}
-            shared[entry.id]=h
+                source='catalog',catalog_id=entry.id,catalog_source=entry.source,identity_confidence=entry.identity_confidence,
+                flip_x=entry.flip_x==true}
+            shared[key]=h
         end
         self.handles[role]=h
     end

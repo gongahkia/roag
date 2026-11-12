@@ -2,16 +2,17 @@
 -- This contact sheet is not a generated-floor or gameplay-journey claim.
 return function(production_draw,output)
     local g=love.graphics
-    local visited,renderer={}
+    local visited,renderer,draw_visual={}
     local function inspect(fn)
         if visited[fn]then return end;visited[fn]=true
         for i=1,200 do
             local name,value=debug.getupvalue(fn,i);if not name then break end
             if name=='visual_assets' and value then renderer=value.generated end
+            if name=='draw_visual' then draw_visual=value end
             if type(value)=='function'then inspect(value)end
         end
     end
-    inspect(production_draw);assert(renderer and renderer.style=='catalog')
+    inspect(production_draw);assert(renderer and renderer.style=='catalog' and draw_visual)
     local data=renderer.data
     local function write(name,bytes)
         local f=assert(io.open(output..'/'..name,'wb'));f:write(bytes);f:close()
@@ -43,6 +44,57 @@ return function(production_draw,output)
         assert(foreground>0 and empty>0,'crop is blank or lost transparent silhouette')
         actual:release();examples[#examples+1]={label=role:gsub('core:',''),handle=handle}
     end
+    -- Exercise the same draw function used by class portraits, moving actors and
+    -- attack/hurt playback, against independently selected source pixel columns.
+    local corrected={berserker=true,alchemist=true,hookrunner=true,trapper=true,
+        duelist=true,geomancer=true,spiritbinder=true,tinkerer=true,stormcaller=true,
+        wayfinder=true,shade=true}
+    local facing_comparisons=0
+    for _,role in ipairs(require('src.classes').order)do
+        local flip=corrected[role:match('/([^/]+)$')]==true
+        if role=='core:actor/shade' then
+            assert(data.bindings[role].id=='urizen-onebit-r05-c108','Shade replacement missing')
+        end
+        for _,suffix in ipairs({'','/attack','/hurt'})do
+            local entry=data.bindings[role..suffix];local handle=renderer:resolve(role..suffix)
+            assert(handle.flip_x==flip,'unexpected class orientation: '..role..suffix)
+            for _,left in ipairs({false,true})do
+                local canvas=g.newCanvas(entry.width,entry.height)
+                g.push('all');g.setCanvas(canvas);g.clear(0,0,0,0);g.setShader()
+                g.setBlendMode('replace','premultiplied')
+                draw_visual(handle,0,0,entry.width,entry.height,1,left)
+                g.pop();local actual=canvas:newImageData();canvas:release()
+                local original=source(entry.source)
+                for y=0,entry.height-1 do for x=0,entry.width-1 do
+                    local column=(flip~=left) and entry.width-1-x or x
+                    local r,b,c,a=original:getPixel(entry.x+column,entry.y+y)
+                    local rr,gg,bb,aa=actual:getPixel(x,y)
+                    if math.max(r,b,c)<=8/255 then near(aa,0)
+                    else near(aa,a);near(rr,1);near(gg,1);near(bb,1)end
+                    facing_comparisons=facing_comparisons+1
+                end end
+                actual:release()
+            end
+        end
+    end
+    local actors=g.newCanvas(1080,884)
+    g.push('all');g.setCanvas(actors);g.clear(.035,.035,.035,1);g.setShader();g.setColor(1,1,1,1)
+    g.print('CLASS FACING REVIEW — production portrait / actor / pose draw function',20,12)
+    g.print('Source crop | corrected right | corrected left. Shade uses a new masked-looking figure.',20,34)
+    for i,role in ipairs(require('src.classes').order)do
+        local x,y=20+((i-1)%3)*354,70+math.floor((i-1)/3)*160
+        local h=renderer:resolve(role)
+        g.setColor(1,1,1,1);g.print(role:match('/([^/]+)$'),x,y)
+        g.draw(h.texture,h.quad,x+8,y+26,0,4,4)
+        draw_visual(h,x+108,y+26,48,48,1,false)
+        draw_visual(h,x+208,y+26,48,48,1,true)
+        g.setColor(1,1,1,1);g.print('source        right         left',x+4,y+88)
+        g.print(h.catalog_id,x+4,y+108)
+    end
+    g.pop();local actor_capture=actors:newImageData()
+    write('class-facing-review.png',actor_capture:encode('png'):getString())
+    write('class-facing-checks.txt',('PASS production class facing\nclasses=15\nposesPerClass=3\ndirections=2\npixelComparisons=%d\nShade=urizen-onebit-r05-c108\n'):format(facing_comparisons))
+    actor_capture:release();actors:release()
     local around={{0,-1,1},{1,0,2},{0,1,4},{-1,0,8},{1,-1,16},{1,1,32},{-1,1,64},{-1,-1,128}}
     local surfaces={}
     for _,case in ipairs({{'floor',255},{'wall',255},{'wall',0},{'wall',127},{'water',255},{'water',0}})do

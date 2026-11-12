@@ -1602,6 +1602,8 @@ end
 
 local function draw_visual(handle,x,y,w,h,alpha,flip_x,ink)
     if not handle then return false end
+    -- Normalize each source pose before applying movement/attack facing.
+    if handle.flip_x then flip_x=not flip_x end
     ink=ink or handle.ink
     local previous,applied=onebit_filter:set_ink(love.graphics,ink)
     local tint=handle.tint

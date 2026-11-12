@@ -16,15 +16,18 @@
     },
     "core:actor/alchemist": {
       "sprite": "urizen-onebit-r09-c112",
-      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/alchemist/attack": {
       "sprite": "urizen-onebit-r09-c112",
-      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/alchemist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/alchemist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/alchemist/hurt": {
       "sprite": "urizen-onebit-r09-c112",
-      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/alchemist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 09, profession column 08: small vessel (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-alchemist; 'alchemist' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/alchemist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/arcanist": {
       "sprite": "urizen-onebit-r00-c187",
@@ -40,51 +43,63 @@
     },
     "core:actor/berserker": {
       "sprite": "urizen-onebit-r03-c180",
-      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/berserker/attack": {
       "sprite": "urizen-onebit-r03-c180",
-      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/berserker; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/berserker; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/berserker/hurt": {
       "sprite": "urizen-onebit-r03-c180",
-      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/berserker; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 03, profession column 76: broad axe-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-berserker; 'berserker' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/berserker; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/duelist": {
       "sprite": "urizen-onebit-r12-c192",
-      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/duelist/attack": {
       "sprite": "urizen-onebit-r12-c192",
-      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/duelist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/duelist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/duelist/hurt": {
       "sprite": "urizen-onebit-r12-c192",
-      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/duelist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 12, profession column 88: diagonal blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-duelist; 'duelist' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/duelist; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/geomancer": {
       "sprite": "urizen-onebit-r19-c174",
-      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/geomancer/attack": {
       "sprite": "urizen-onebit-r19-c174",
-      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/geomancer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/geomancer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/geomancer/hurt": {
       "sprite": "urizen-onebit-r19-c174",
-      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/geomancer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 19, profession column 70: large hammer-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-geomancer; 'geomancer' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/geomancer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/hookrunner": {
       "sprite": "urizen-onebit-r02-c196",
-      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/hookrunner/attack": {
       "sprite": "urizen-onebit-r02-c196",
-      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/hookrunner; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/hookrunner; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/hookrunner/hurt": {
       "sprite": "urizen-onebit-r02-c196",
-      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/hookrunner; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 92: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-hookrunner; 'hookrunner' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/hookrunner; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/ranger": {
       "sprite": "urizen-onebit-r01-c119",
@@ -111,76 +126,94 @@
       "notes": "Source identity: Figure row 00, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-sentinel; 'sentinel' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/sentinel; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
     },
     "core:actor/shade": {
-      "sprite": "urizen-onebit-r13-c107",
-      "notes": "Source identity: Figure row 13, profession column 03: short blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-shade; 'shade' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "sprite": "urizen-onebit-r05-c108",
+      "notes": "Source identity: Figure row 05, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Visually reviewed compact masked-looking figure, replacing the previous broad Shade silhouette. 'Shade' is local ROAG casting, not a verified publisher identity or profession. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to face right; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/shade/attack": {
-      "sprite": "urizen-onebit-r13-c107",
-      "notes": "Source identity: Figure row 13, profession column 03: short blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-shade; 'shade' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/shade; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "sprite": "urizen-onebit-r05-c108",
+      "notes": "Source identity: Figure row 05, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Visually reviewed compact masked-looking figure, replacing the previous broad Shade silhouette. 'Shade' is local ROAG casting, not a verified publisher identity or profession. Explicit attack alias of core:actor/shade; same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to face right; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/shade/hurt": {
-      "sprite": "urizen-onebit-r13-c107",
-      "notes": "Source identity: Figure row 13, profession column 03: short blade-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-shade; 'shade' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/shade; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "sprite": "urizen-onebit-r05-c108",
+      "notes": "Source identity: Figure row 05, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Visually reviewed compact masked-looking figure, replacing the previous broad Shade silhouette. 'Shade' is local ROAG casting, not a verified publisher identity or profession. Explicit hurt alias of core:actor/shade; same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to face right; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/spiritbinder": {
       "sprite": "urizen-onebit-r17-c169",
-      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/spiritbinder/attack": {
       "sprite": "urizen-onebit-r17-c169",
-      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/spiritbinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/spiritbinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/spiritbinder/hurt": {
       "sprite": "urizen-onebit-r17-c169",
-      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/spiritbinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 17, profession column 65: unidentified held prop / stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-spiritbinder; 'spiritbinder' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/spiritbinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/stormcaller": {
       "sprite": "urizen-onebit-r07-c187",
-      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/stormcaller/attack": {
       "sprite": "urizen-onebit-r07-c187",
-      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/stormcaller; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/stormcaller; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/stormcaller/hurt": {
       "sprite": "urizen-onebit-r07-c187",
-      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/stormcaller; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 07, profession column 83: raised staff-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-stormcaller; 'stormcaller' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/stormcaller; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/tinkerer": {
       "sprite": "urizen-onebit-r02-c105",
-      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/tinkerer/attack": {
       "sprite": "urizen-onebit-r02-c105",
-      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/tinkerer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/tinkerer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/tinkerer/hurt": {
       "sprite": "urizen-onebit-r02-c105",
-      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/tinkerer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 02, profession column 01: hammer-like hand tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-tinkerer; 'tinkerer' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/tinkerer; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/trapper": {
       "sprite": "urizen-onebit-r15-c119",
-      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/trapper/attack": {
       "sprite": "urizen-onebit-r15-c119",
-      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/trapper; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/trapper; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/trapper/hurt": {
       "sprite": "urizen-onebit-r15-c119",
-      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/trapper; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 15, profession column 15: curved bow-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-trapper; 'trapper' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/trapper; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/wayfinder": {
       "sprite": "urizen-onebit-r21-c108",
-      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/wayfinder/attack": {
       "sprite": "urizen-onebit-r21-c108",
-      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/wayfinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:actor/wayfinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:actor/wayfinder/hurt": {
       "sprite": "urizen-onebit-r21-c108",
-      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/wayfinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 21, profession column 04: long pole-like tool (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-class-wayfinder; 'wayfinder' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:actor/wayfinder; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:boon/aftershock/detail": {
       "sprite": "godot-white-thunder",
