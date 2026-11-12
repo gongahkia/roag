@@ -60,6 +60,22 @@ and the catalogue remain unchanged. `make assets-check catalog-test preservation
 checks the mapping, original pixels and recoverability of the retired art. Adjacent
 crops are not assumed to be animation frames; some roles intentionally share a crop.
 
+### Preview levels
+
+Run `make spectator` to explore disposable, fully revealed maps with an
+invulnerable character. Your normal save and progression are unaffected.
+
+| Key | Spectator action |
+| --- | --- |
+| `G` | Toggle playable character / free camera |
+| `J` | Next biome |
+| `K` | Switch between the biome's two floors |
+| `L` | Next character class |
+| `M` | Generate a new map seed |
+| `N` | Restart the current seed |
+| `W` / `A` / `S` / `D` or arrows, Shift | Pan in free camera; hold Shift to pan faster |
+| Escape | Close an inspection menu, or quit |
+
 ## Controls
 
 | Key | Action |

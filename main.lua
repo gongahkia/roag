@@ -454,7 +454,7 @@ function love.load(args)
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
             selected_class_id)
-        notice=generated and 'SPECTATOR · catalog artwork loaded · F6 camera' or
+        notice=generated and 'SPECTATOR · catalog artwork loaded · G camera' or
             ('SPECTATOR · art fallback: '..tostring(generated_status))
         reset_camera()
     elseif os.getenv("ROAG_GUI_AUTOSTART") == "1" then
@@ -1226,7 +1226,7 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if spectator_enabled and state then
-        if key=='f6' then
+        if key=='g' then
             spectator_free=not spectator_free
             if spectator_free then
                 targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
@@ -1234,15 +1234,15 @@ function love.keypressed(key, _, isrepeat)
             local p=Game.player(state).position
             spectator_focus={x=p.x,y=p.y}
             Camera.set_tile(camera,TILE,p.x,p.y)
-            notice=spectator_free and 'FREE CAMERA · WASD pan · Shift fast · F6 return' or
-                'GOD PLAY · invulnerable · F6 free camera'
+            notice=spectator_free and 'FREE CAMERA · WASD pan · Shift fast · G return' or
+                'GOD PLAY · invulnerable · G free camera'
             return
-        elseif key=='f7' then
+        elseif key=='j' then
             spectator_biome_index=Spectator.next_index(Biomes.order,
                 spectator_biome_index)
             spectator_restart()
             return
-        elseif key=='f8' then
+        elseif key=='k' then
             local ok,reason=Spectator.switch_floor(state)
             if ok then
                 playback=Playback.new()
@@ -1253,7 +1253,7 @@ function love.keypressed(key, _, isrepeat)
                     state.active_floor_index or 1)
             else notice='Spectator floor: '..tostring(reason) end
             return
-        elseif key=='f9' then
+        elseif key=='l' then
             local index=1
             for i,id in ipairs(Classes.order) do
                 if id==selected_class_id then index=i;break end
@@ -3616,7 +3616,7 @@ function love.draw()
             VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-72)
         love.graphics.setColor(0.72,0.86,0.82)
         love.graphics.print(tile_info,VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-50)
-        love.graphics.print('F6 camera/play  F7 biome  F8 floor  F9 class  M seed  Esc quit',
+        love.graphics.print('G camera/play  J biome  K floor  L class  M seed  Esc quit',
             VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-28)
     end
     if persistence_message~="" and not pause_menu and not confirm_reset_seed

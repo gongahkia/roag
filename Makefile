@@ -5,6 +5,7 @@ PYTHON ?= python3
 .PHONY: help game test gui assets assets-check catalog-test preservation package spectator
 help:
 	@printf '%s\n' 'make game          Play the Lua/LÖVE roguelike' \
+	 'make spectator     Preview biomes/floors/classes with G/J/K/L/M' \
 	 'make test          Run gameplay and current-art regression tests' \
 	 'make gui           Verify actual LÖVE input, artwork and save/Continue' \
 	 'make assets-check  Verify deterministic catalogue bindings' \
