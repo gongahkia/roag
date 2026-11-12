@@ -5,6 +5,9 @@
 no implicit fallback, generated coordinate, or `aliasOf` reference. Each entry
 has a catalog sprite ID and notes separating the source identification from
 ROAG's local casting. The catalog and original PNG files are unchanged.
+An optional boolean `flipX` corrects a crop's default facing in the local
+binding. The renderer applies this correction before movement/attack facing;
+portraits and static attack/hurt aliases use the same correction.
 
 The mapping uses 237 distinct crops from 67 source PNGs: Urizen's main sheet,
 65 Godot white icon PNGs, and one input-prompt sheet. Every selected crop was
@@ -25,8 +28,16 @@ catalog and are copied by the runtime exporter rather than duplicated here.
 | Interface, effects and status cues | 62 |
 | **Total** | **599** |
 
-All fifteen class and fifty classic enemy castings reuse
-`catalog.game_bindings.rpg`. The four additional colony-era boss castings are
+Fourteen class and all fifty classic enemy castings reuse
+`catalog.game_bindings.rpg`. Shade instead uses `urizen-onebit-r05-c108`, a
+visually reviewed compact masked-looking figure replacing its broad previous
+silhouette. This is a local casting override; the catalog's low-confidence
+source identity (figure with a thin pole-like implement) remains unchanged.
+Berserker, Alchemist, Hookrunner, Trapper, Duelist, Geomancer, Spiritbinder,
+Tinkerer, Stormcaller and Wayfinder are mirrored to correct their default
+orientation. The replacement Shade is also normalized to face right. These
+corrections apply to each base, attack and hurt binding.
+The four additional colony-era boss castings are
 not new requirements of the restored classic game. A class or enemy name is a
 local gameplay assignment, not a newly verified publisher identity. Most of
 the character-sheet assignments retain low identification confidence: a visible
