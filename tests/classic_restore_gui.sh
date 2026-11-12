@@ -1,5 +1,5 @@
 #!/bin/sh
-# Real LÖVE rendering and two fresh processes; never touches a player's save.
+# Real LÖVE rendering, save/Continue and preview launch; isolated player data.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 output=${1:-$(mktemp -d "${TMPDIR:-/tmp}/roag-classic-gui-XXXXXX")}
@@ -28,7 +28,7 @@ while IFS= read -r path; do
 done < "$output/sources.txt"
 for mode in save load; do
     ROAG_CLASSIC_GUI_OUTPUT="$output" ROAG_CLASSIC_GUI_MODE="$mode" \
-    ROAG_GUI_AUTOSTART=0 XDG_DATA_HOME="$output/data" \
+    ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 XDG_DATA_HOME="$output/data" \
     timeout -k 3s 60s love "$output/app" > "$output/$mode.log" 2>&1 || {
         cat "$output/$mode.log";exit 1;
     }
@@ -39,4 +39,25 @@ test -s "$output/save-aim.png"
 test -s "$output/save-boons.png"
 test -s "$output/load-continued.png"
 cmp "$output/continued.snapshot" "$output/expected-next.snapshot"
+python3 - "$output" <<'PY'
+import hashlib,json,sys
+from pathlib import Path
+root=Path(sys.argv[1]);data=root/'data'
+(root/'before-preview-storage.json').write_text(json.dumps({str(p.relative_to(data)): hashlib.sha256(p.read_bytes()).hexdigest() for p in data.rglob('*') if p.is_file()},sort_keys=True))
+PY
+ROAG_CLASSIC_GUI_OUTPUT="$output" ROAG_CLASSIC_GUI_MODE=preview \
+ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 XDG_DATA_HOME="$output/data" \
+timeout -k 3s 60s love "$output/app" --spectator > "$output/preview.log" 2>&1 || {
+    cat "$output/preview.log";exit 1;
+}
+test -s "$output/preview-result.txt"
+python3 - "$output" <<'PY'
+import hashlib,json,sys
+from pathlib import Path
+root=Path(sys.argv[1]);data=root/'data'
+before=json.loads((root/'before-preview-storage.json').read_text())
+after={str(p.relative_to(data)): hashlib.sha256(p.read_bytes()).hexdigest() for p in data.rglob('*') if p.is_file()}
+assert before==after,'Preview changed the normal save/profile/settings files'
+PY
+printf 'PASS classic GUI preview launch, keys and save isolation\n'
 printf 'Classic LÖVE catalog GUI evidence: %s\n' "$output"

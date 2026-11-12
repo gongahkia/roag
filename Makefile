@@ -16,7 +16,7 @@ help:
 game: assets-check
 	"$(LOVE_BIN)" .
 spectator: assets-check
-	env ROAG_SPECTATOR=1 "$(LOVE_BIN)" .
+	"$(LOVE_BIN)" . --spectator
 assets:
 	$(PYTHON) -B tools/build_classic_assets.py
 assets-check:

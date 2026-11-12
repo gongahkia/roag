@@ -64,6 +64,12 @@ crops are not assumed to be animation frames; some roles intentionally share a c
 
 Run `make spectator` to explore disposable, fully revealed maps with an
 invulnerable character. Your normal save and progression are unaffected.
+Equivalent launches are `./dev preview`, `./roag.sh --spectator`, or
+`love dist/roag.love --spectator` for the packaged game. Completely close an
+already running game before relaunching; refreshing artwork does not reload code.
+Look for **SPECTATOR** and the G/J/K/L hints at the bottom of the map. These
+shortcuts are for preview mode; `make game` starts ordinary play, where `M`
+instead asks to replace your current run.
 
 | Key | Spectator action |
 | --- | --- |

@@ -5,11 +5,12 @@ local Game=require('src.game')
 local Codec=require('src.persistence')
 local output=assert(os.getenv('ROAG_CLASSIC_GUI_OUTPUT'))
 local mode=assert(os.getenv('ROAG_CLASSIC_GUI_MODE'))
-local tracked,actions
+local tracked,actions,created_seed
 actions={}
 local capture_continue=false
 local new,restore,submit=Game.new_stage,Game.restore,Game.submit
 function Game.new_stage(...)
+    created_seed=select(1,...)
     tracked=new(...)
     return tracked
 end
@@ -33,7 +34,8 @@ assert(love.filesystem.load('roag_main.lua'))()
 local load,update,draw=love.load,love.update,love.draw
 local phase,pending,failed,frames=1,false,false,0
 local stable_bytes,expected_clock,move,attack,loaded
-local screenshot_names=mode=='save' and
+local screenshot_names=mode=='preview' and
+    {'initial','biome','floor','class','seed','free-camera','camera-pan','god-play'} or mode=='save' and
     {'title','class-geomancer','new-run','idle','paid-move','wait','aim','attack','boons','pause'} or
     {'continue-title','continued','continued-idle','continued-wait'}
 
@@ -81,7 +83,11 @@ function love.load(...)
     local args={...}
     local ok,why=pcall(function()
         load(unpack(args));love.mouse.setPosition(8,8)
-        assert(love.roagUIState().page=='home','expected ordinary title')
+        assert(love.roagUIState().page==(mode=='preview' and 'game' or 'home'),'incorrect launch mode')
+        if mode=='preview' then
+            assert(os.getenv('ROAG_SPECTATOR')~='1','preview test must use the command-line flag')
+            assert(tracked and Game.player(tracked).invulnerable and not tracked.meta.eligible)
+        end
         assert_catalog()
     end)
     if not ok then fail(why)end
@@ -175,6 +181,37 @@ local function advance_load()
         assert(loaded);write('continued.snapshot',snapshot());record();love.event.quit()
     end
 end
+local function advance_preview()
+    assert(Game.player(tracked).invulnerable and not tracked.meta.eligible)
+    assert(tracked.clock==0,'preview control spent world time')
+    if phase==1 then
+        local before=snapshot()
+        for _,key in ipairs({'f6','f7','f8','f9'})do press(key);assert(snapshot()==before)end
+        press('j');assert(tracked.generated_map.biome_id==require('src.biomes').order[2])
+    elseif phase==2 then
+        press('k');assert(tracked.active_floor_index==2)
+    elseif phase==3 then
+        press('k');assert(tracked.active_floor_index==1)
+        press('l');assert(Game.player(tracked).definition_id==require('src.classes').order[2])
+    elseif phase==4 then
+        local seed=created_seed;press('m');assert(created_seed==seed+1)
+        stable_bytes=snapshot();press('n');unchanged('same-seed preview restart')
+    elseif phase==5 then
+        press('g');unchanged('free camera toggle')
+    elseif phase==6 then
+        for _,key in ipairs({'d','w','a','s','space'})do press(key);unchanged('free camera input')end
+    elseif phase==7 then
+        press('g');unchanged('god play toggle')
+    else
+        local before=#actions
+        press('space')
+        local action=actions[#actions]
+        assert(#actions==before+1 and action.intent.kind=='wait' and action.committed and tracked.clock>0,
+            'G did not restore paid character actions')
+        write('preview-result.txt','PASS --spectator launch without environment flag; J/K/L/M/N/G; free camera; normal controls restored\n')
+        love.event.quit()
+    end
+end
 function love.draw(...)
     if failed then return end
     local args={...}
@@ -185,7 +222,8 @@ function love.draw(...)
         love.graphics.captureScreenshot(function(image)
             local good,reason=pcall(function()
                 write(mode..'-'..screenshot_names[phase]..'.png',image:encode('png'):getString())
-                if mode=='save' then advance_save()else advance_load()end
+                if mode=='preview' then advance_preview()
+                elseif mode=='save' then advance_save()else advance_load()end
                 phase=phase+1;pending=false
             end)
             if not good then fail(reason)end

@@ -6,5 +6,6 @@ case "${1:-help}" in
     gui) exec make gui ;;
     assets) exec make assets ;;
     game|play) exec ./roag.sh ;;
+    spectator|preview) exec ./roag.sh --spectator ;;
     *) exec make help ;;
 esac

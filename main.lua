@@ -416,6 +416,10 @@ local function build_selected_visuals(read)
 end
 
 function love.load(args)
+    -- An argument also works when a launcher does not forward shell variables.
+    for _,argument in ipairs(args or {})do
+        if argument=='--spectator' then spectator_enabled=true end
+    end
     presentation_settings=PresentationSettings.load(storage)
     ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
         presentation_settings.font,presentation_settings.text_size)
@@ -1223,6 +1227,11 @@ function love.keypressed(key, _, isrepeat)
     if key=="f3" then
         if diagnostics then diagnostics=nil
         else diagnostics=require("src.diagnostics").new() end
+        return
+    end
+    if not spectator_enabled and state and
+        (key=='g' or key=='j' or key=='k' or key=='l')then
+        notice='Preview keys: quit and run make spectator'
         return
     end
     if spectator_enabled and state then
