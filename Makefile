@@ -1,104 +1,32 @@
-# Native Roag gameplay. Explicit reference-* targets retain the archived Lua checks.
-OS := $(shell uname -s)
-LUAJIT ?= luajit
-ifeq ($(OS),Darwin)
-LOVE_BIN ?= $(HOME)/Applications/ROAG-Love-11.5.app/Contents/MacOS/love
-LOVE_RUN = /usr/bin/arch -x86_64 "$(LOVE_BIN)"
-GUI_RUN = env PATH="$(CURDIR)/tests/mac-bin:$(PATH)" ROAG_LOVE_BIN="$(LOVE_BIN)"
-else
+# ROAG: Lua/LÖVE turn-based roguelike with catalogue-backed artwork.
 LOVE_BIN ?= love
-LOVE_RUN = "$(LOVE_BIN)"
-GUI_RUN = env
-endif
-
-.PHONY: help game package-linux reference-game reference-test reference-gui spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-ideas sprite-ideas-check sprite-ideas-test item-room-review item-room-review-check item-room-review-test enemy-review enemy-review-check review-test room-expansion room-expansion-check environment-preview environment-preview-check test gui gui-game gui-expansion gui-enemy-squads
+LUAJIT ?= luajit
+PYTHON ?= python3
+.PHONY: help game test gui assets assets-check catalog-test preservation package spectator
 help:
-	@printf '%s\n' \
-	 'make game             Play the native C# dungeon game' \
-	 'make package-linux    Build a self-contained Linux x64 archive' \
-	 'make reference-game   Run the archived Lua/LÖVE game' \
-	 'make reference-test   Run archived Lua reference tests' \
-	 'make spectator        Inspect Kenney art without saves' \
-	 'make sprite-audit     Rebuild current coverage and unused-art catalogue' \
-	 'make sprite-audit-check Check saved catalogue freshness without writing' \
-	 'make surplus-audit    Verify the frozen unused-art visual shortlist' \
-	 'make surplus-audit-check Check the archived shortlist and source hashes' \
-	 'make sprite-ideas     Verify the frozen idea approval archive' \
-	 'make sprite-ideas-test Check approved coverage, feedback and archive' \
-	 'make item-room-review Verify the frozen item/room approval archive' \
-	 'make item-room-review-test Check the approved review and feedback safety' \
-	 'make enemy-review     Verify the frozen enemy-combination archive' \
-	 'make review-test      Check the archived review data and client' \
-	 'make room-expansion   Compile the approved room layouts for the game' \
-	 'make room-expansion-check Verify compiled layouts without writing' \
-	 'make environment-preview Rebuild offline source-pixel room previews (no LÖVE)' \
-	 'make environment-preview-check Check exact generated preview pixels' \
-	 'make test             Run native C# and archived prototype regression' \
-	 'make reference-gui    Run archived Lua/LÖVE GUI smoke groups' \
-	 'make gui-enemy-squads  Check approved squads with the fixed 1-Bit artwork' \
-	 'Title Settings or Esc -> 3       Sound, effects and accessibility'
-game:
-	./roag.sh
-package-linux:
-	python3 tools/package-linux.py
-reference-game:
-	$(LOVE_RUN) .
-sprite-audit:
-	python3 tools/sprite_audit.py
-sprite-audit-check:
-	python3 tools/sprite_audit.py --check
-surplus-audit: sprite-audit-check
-	python3 tools/build_sprite_surplus.py
-surplus-audit-check: sprite-audit-check
-	python3 tools/build_sprite_surplus.py --check
-sprite-ideas: sprite-audit-check
-	python3 tools/build_sprite_ideas.py
-sprite-ideas-check: sprite-audit-check
-	python3 tools/build_sprite_ideas.py --check
-sprite-ideas-test: sprite-ideas-check
-	node tests/sprite_ideas_page_test.js
-item-room-review: sprite-audit-check
-	python3 tools/build_item_room_review.py
-item-room-review-check: sprite-audit-check
-	python3 tools/build_item_room_review.py --check
-item-room-review-test: item-room-review-check
-	node tests/item_room_review_page_test.js
-enemy-review:
-	python3 tools/build_enemy_review.py
-enemy-review-check:
-	python3 tools/build_enemy_review.py --check
-review-test: enemy-review-check
-	node tests/enemy_review_page_test.js
-room-expansion:
-	python3 tools/write_room_expansion.py
-room-expansion-check:
-	python3 tools/write_room_expansion.py --check
-environment-preview:
-	python3 tools/environment_preview.py
-environment-preview-check:
-	python3 tools/environment_preview.py --check
-spectator:
-	env ROAG_SPECTATOR=1 $(LOVE_RUN) .
-test:
-	./tools/dotnet.sh test tests/Roag.Core.Tests/Roag.Core.Tests.csproj
-reference-test: sprite-audit-check
-	$(LUAJIT) tests/run.lua
-reference-gui: gui-game gui-expansion gui-enemy-squads
-gui-enemy-squads:
-	@$(GUI_RUN) sh tests/enemy_squad_gui_smoke.sh
-gui-game:
-	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
-	@$(GUI_RUN) sh tests/menu_gui_smoke.sh
-	@$(GUI_RUN) sh tests/attack_preview_gui_smoke.sh
-	@$(GUI_RUN) sh tests/visual_juice_gui_smoke.sh
-	@$(GUI_RUN) sh tests/onebit_gui_smoke.sh
-	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
-	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
-gui-expansion:
-	@set -e; for suite in expansion_floor_gui_smoke expansion_terrain_gui_smoke \
-	 expansion_biome_gui_smoke expansion_encounter_gui_smoke \
-	 expansion_class_gui_smoke expansion_boon_gui_smoke \
-	 expansion_gamepad_gui_smoke; do \
-	 printf 'RUN expansion %s\n' "$$suite"; \
-	 $(GUI_RUN) sh "tests/$$suite.sh"; \
-	 done
+	@printf '%s\n' 'make game          Play the Lua/LÖVE roguelike' \
+	 'make test          Run gameplay and current-art regression tests' \
+	 'make gui           Verify actual LÖVE input, artwork and save/Continue' \
+	 'make assets-check  Verify deterministic catalogue bindings' \
+	 'make assets        Regenerate the small Lua artwork manifest' \
+	 'make catalog-test  Check the preserved catalogue and its tools' \
+	 'make preservation  Verify retained originals and archived old art' \
+	 'make package       Build dist/roag.love using only current artwork'
+game: assets-check
+	"$(LOVE_BIN)" .
+spectator: assets-check
+	env ROAG_SPECTATOR=1 "$(LOVE_BIN)" .
+assets:
+	$(PYTHON) -B tools/build_classic_assets.py
+assets-check:
+	$(PYTHON) -B tools/build_classic_assets.py --check
+test: assets-check
+	$(LUAJIT) tests/classic_run.lua
+catalog-test:
+	$(PYTHON) -B -m unittest discover -s tests/catalog -v
+gui: assets-check
+	sh tests/classic_restore_gui.sh
+preservation:
+	$(PYTHON) -B tools/verify_classic_preservation.py
+package: assets-check
+	$(PYTHON) -B tools/package_classic.py

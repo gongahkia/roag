@@ -26,7 +26,7 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
-local OneBitVisuals = require("src.onebit_visuals")
+local CatalogVisuals = require("src.catalog_visuals")
 local Terrain = require("src.terrain")
 local TerrainIdeas=require('src.idea_terrain')
 local Environment=require('src.idea_environment')
@@ -50,7 +50,7 @@ local StudioWorldRuntime = require("src.studio_world_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
 local AudioCues = require("src.audio_cues")
 
-local TILE=40 -- Fixed 5× native Kenney pixels; presentation only.
+local TILE=48 -- Integer 4× scaling for the current 12px world artwork.
 local VIEWPORT = { x = 16, y = 16, width = 992, height = 520 }
 local inventory_open,inventory_selection=false,1
 local interaction_ui={controller=InteractionMenu}
@@ -356,30 +356,45 @@ local function visual_fingerprint(visuals,world)
 end
 
 local function load_native_visuals(read)
-    local ok,visuals,status=pcall(OneBitVisuals.new,read,
-        function(bytes,path,transparent)
+    local ok,visuals,status=pcall(CatalogVisuals.new,read,
+        function(bytes,path,options)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
-            if type(transparent)=='table' and transparent.environment then
-                local source=pixels
-                pixels=Environment.surface_sheet(source,transparent.sheet,transparent.style)
-                source:release()
-            elseif transparent=='onebit-surfaces' then
-                local source=pixels
-                pixels=OneBitVisuals.surface_sheet(source)
-                source:release()
-            elseif transparent=='approved-monochrome'then
+            local surface=options and options.catalog_surface
+            if surface then
+                local original=pixels
+                pixels=love.image.newImageData(surface.width,surface.height)
+                local function has(bit)return math.floor(surface.mask/bit)%2==1 end
+                for y=0,surface.height-1 do for x=0,surface.width-1 do
+                    local r,g,b,a=original:getPixel(surface.x+x,surface.y+y)
+                    local light=surface.kind=='floor' and .22 or surface.kind=='water' and .48 or .58
+                    local base=surface.kind=='water' and .065 or .045
+                    r,g,b=base+r*a*light,base+g*a*light,base+b*a*light
+                    local edge=surface.kind~='floor' and ((not has(1) and y==0)
+                        or (not has(2) and x==surface.width-1)or (not has(4) and y==surface.height-1)
+                        or (not has(8) and x==0))
+                    if surface.kind~='floor'then
+                        for _,corner in ipairs({{1,8,128,0,0},{1,2,16,surface.width-2,0},
+                            {4,2,32,surface.width-2,surface.height-2},{4,8,64,0,surface.height-2}})do
+                            if has(corner[1]) and has(corner[2]) and not has(corner[3])
+                                and x>=corner[4] and x<corner[4]+2 and y>=corner[5] and y<corner[5]+2 then edge=true end
+                        end
+                    end
+                    if edge then r,g,b=math.max(r,.38),math.max(g,.38),math.max(b,.38)end
+                    pixels:setPixel(x,y,r,g,b,1)
+                end end
+                original:release()
+            elseif options and options.background=='black_to_transparent' then
+                local limit=(options.black_threshold or 8)/255
                 pixels:mapPixel(function(x,y,r,g,b,a)
-                    return require('src.visual_monochrome').pixel(r,g,b,a)
-                end)
-            elseif transparent then
-                pixels:mapPixel(function(x,y,r,g,b,a)
-                    if math.floor(r*255+.5)==34 and math.floor(g*255+.5)==35
-                        and math.floor(b*255+.5)==35 then return 0,0,0,0 end
-                    return r,g,b,a
+                    if math.max(r,g,b)<=limit then return 0,0,0,0 end
+                    -- Runtime alpha mask keeps dark-coloured one-bit actors
+                    -- legible under the classic semantic-ink palette.
+                    return 1,1,1,a
                 end)
             end
             local image=love.graphics.newImage(pixels)
+            pixels:release()
             image:setFilter('nearest','nearest')
             return image
         end)
@@ -425,7 +440,7 @@ function love.load(args)
     local generated,generated_status=visual_assets.generated,art_status
     set_visual_style()
     if generated_status~='loaded' then
-        print('1-Bit artwork fallback: '..tostring(generated_status))
+        print('Catalog artwork fallback: '..tostring(generated_status))
     end
     local world_pack
     world_pack,studio_world_status=StudioWorldRuntime.inspect(function(path)
@@ -439,7 +454,7 @@ function love.load(args)
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
             selected_class_id)
-        notice=generated and 'SPECTATOR · Kenney 1-Bit art loaded · F6 camera' or
+        notice=generated and 'SPECTATOR · catalog artwork loaded · F6 camera' or
             ('SPECTATOR · art fallback: '..tostring(generated_status))
         reset_camera()
     elseif os.getenv("ROAG_GUI_AUTOSTART") == "1" then
@@ -486,7 +501,7 @@ local function refresh_visuals()
     local ok,candidate,world,world_status,generated_status=pcall(function()
         local visuals,status=build_selected_visuals(read)
         assert(status=='loaded' or (status=='absent' and not visual_assets.generated),
-            '1-Bit artwork: '..tostring(status))
+            'Catalog artwork: '..tostring(status))
         local new_world,new_status=StudioWorldRuntime.inspect(read)
         assert(new_status=='loaded' or new_status=='absent' or tostring(new_status):match('^recovered'),
             'world: '..tostring(new_status))
@@ -2151,7 +2166,7 @@ local function draw_rewards()
                 entity.controller=='review_pillar') then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
             local onebit=visual_assets and visual_assets.generated and
-                visual_assets.generated.style=='onebit'
+                (visual_assets.generated.style=='onebit' or visual_assets.generated.style=='catalog')
             local kind=entity.controller
             if kind=='review_pillar' then
                 local variant=entity.id%2==0 and 'a' or 'b'
@@ -2160,7 +2175,8 @@ local function draw_rewards()
                     local art=bound_visual('core:object/env_column_'..variant..'_'..name)
                     return art and draw_visual(art,x,y+dy*TILE,TILE,TILE) or review_sprite('pillar_'..name,x,y+dy*TILE)
                 end
-                local drawn=part('bottom',0);part('middle',-1);part('top',-2)
+                local drawn=part('bottom',0)
+                if not (visual_assets and visual_assets.generated and visual_assets.generated.style=='catalog')then part('middle',-1);part('top',-2)end
                 if not drawn then
                     love.graphics.setColor(.62,.59,.51)
                     love.graphics.rectangle('fill',x+10,y+3,TILE-20,TILE-6)
@@ -2695,7 +2711,7 @@ local function draw_world()
                 if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
             end
             local kenney=visual_assets and visual_assets.generated and
-                (visual_assets.generated.style=='kenney' or visual_assets.generated.style=='onebit')
+                visual_assets.generated.terrain_renderer
             local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
                 tile=='.' and 'floor' or nil
             if terrain_mode=='tiled' then
@@ -3445,7 +3461,7 @@ local function draw_settings()
         end
     end
     local info=settings_message~='' and settings_message or
-        (art_status=='loaded' and 'Artwork: Kenney 1-Bit · fixed appearance' or 'Artwork unavailable · emergency fallback · F5 retry')
+        (art_status=='loaded' and 'Artwork: Urizen catalog · fixed appearance' or 'Artwork unavailable · emergency fallback · F5 retry')
     PixelUI.center(info,501,ui_menu_font,PixelUI.colors.muted,130,764)
     PixelUI.center(settings_page==1 and
         'Click / drag volume · ←→ adjust · Tab category · Esc back' or
@@ -3653,7 +3669,7 @@ end
 function love.draw()
     PixelUI.begin_frame(love.roagUIState().page,presentation_settings.combat_effects)
     local previous_shader,shader_applied=onebit_filter:begin(love.graphics,function(reason)
-        print('1-Bit palette filter unavailable; safe unshaded rendering: '..tostring(reason))
+        print('Palette filter unavailable; safe unshaded rendering: '..tostring(reason))
     end)
     if not diagnostics then
         ordinary_draw()

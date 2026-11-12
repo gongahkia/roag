@@ -1,54 +1,34 @@
-name: Roag RPG and artwork checks
-
+name: Classic roguelike and artwork
 on:
   push:
   pull_request:
-
 permissions:
   contents: read
-
 jobs:
   check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.402'
-          cache: true
-          cache-dependency-path: '**/packages.lock.json'
-      - run: dotnet restore Roag.sln --locked-mode
-      - run: dotnet build Roag.sln --configuration Release --no-restore
-      - run: dotnet test Roag.sln --configuration Release --no-build
-      - name: Replay declarative game scenarios and save continuation
-        run: dotnet run --project src/Roag.Tools --configuration Release --no-build -- scenario suite devtools/scenarios --output artifacts/scenarios.json
-      - name: Check durable agent workflows
-        if: matrix.os == 'ubuntu-latest'
-        run: python3 -m unittest discover -s tests/agent -v
-      - name: Exercise generated companions construction trade and fixed simulation
-        run: dotnet run --project src/Roag.Client --configuration Release --no-build -- --world-headless
-      - name: Validate finite world macro geography
-        run: dotnet run --project src/Roag.Client --configuration Release --no-build -- --validate-worlds 1000 --seed -500
-      - name: Report all procedural town and dungeon footprints
-        run: dotnet run --project src/Roag.Client --configuration Release --no-build -- --world-report
-      - name: Complete the actual RPG quest without graphics
-        run: dotnet run --project src/Roag.Client --configuration Release --no-build -- --headless
-      - name: Validate procedural quest routes
-        run: dotnet run --project src/Roag.Client --configuration Release --no-build -- --validate-seeds 256 --seed -128
-      - name: Check catalog freshness and original artwork hashes
-        if: matrix.os == 'ubuntu-latest'
-        run: python3 tools/build_game_catalog.py --check
-      - name: Check generic metadata and exports
-        if: matrix.os == 'ubuntu-latest'
-        run: python3 -m unittest discover -s tests/catalog -v
-      - name: Check offline atlas interactions and downloads
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          python3 -m venv artifacts/atlas-browser
-          artifacts/atlas-browser/bin/python -m pip install playwright==1.64.0
-          artifacts/atlas-browser/bin/python -m playwright install --with-deps chromium
-          artifacts/atlas-browser/bin/python tools/verify_asset_atlas.py
+          fetch-depth: 0
+      - name: Install desktop game and test tools
+        run: sudo apt-get update && sudo apt-get install -y love luajit xvfb xauth
+      - name: Check catalogue export and original artwork
+        run: make assets-check catalog-test preservation
+      - name: Run turn-based gameplay regressions
+        run: make test
+      - name: Exercise the actual game and continuing save
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          ALSOFT_DRIVERS: 'null'
+        run: xvfb-run -a make gui
+      - name: Package only the Lua game and current artwork
+        run: make package
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: classic-roag
+          path: |
+            dist/roag.love
+            artifacts/classic-restoration/

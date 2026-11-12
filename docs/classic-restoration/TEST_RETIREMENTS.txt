@@ -1,0 +1,69 @@
+CLASSIC ACTIVE TEST AUDIT
+Archived image-only cases: 30
+All original gameplay cases retained. No assertions deleted from active mixed cases.
+
+tests.fixed_visuals_tests :: fixed artwork preserves all existing and additive boon bindings and exactly thirteen approved cross-sheet counterparts
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: all 256 neighbor cases resolve canonical connected environment walls and hide unknown connections
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: approved room materials and foreground art have distinct stable IDs and bounded native regions
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: derived material layouts are deterministic, bounded and nonoverlapping across cached pages
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: environment handles cache every texture and Quad instead of decoding them per tile or frame
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: fully connected wall pixels sample the correct native center at untrimmed local coordinates
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: missing optional colored counterparts preserve native actors/material fallback and a distinct refresh signature
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: monochrome environment surfaces contain neutral opaque pixels and keep native originals immutable
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: saved catalogue covers all environment and boon IDs without changing class bodies
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_environment_tests :: water exterior and concave corners use the inspected RPG bank family rather than stray floor sprites
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.idea_terrain_tests :: the fixed renderer resolves all new terrain and the permitted vent derivative preserves neutral pixels and alpha
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_terrain_tests :: Caves native source validates 16px regions with 1px gutters and rejects damaged inputs
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_terrain_tests :: Caves surface assembly preserves native quarter pixels and leaves source untouched
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_terrain_tests :: all biomes cover every wall/water neighborhood without disclosing unknown geometry
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: Caves floors use only native ground, never door frames or wall props
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: Kenney connected walls and water select native edges without revealing unknown cells
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: Kenney native packed regions cover classes, enemies, props and all biomes
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: Kenney reads exact checked source and fails closed on missing or corrupt sheet
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: Kenney supplement rejects missing, corrupt, wrong-sized and out-of-range inputs
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: all boons have deliberate native icons and matching details
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: all six mechanical terrains have legible native art with exact integer inset scaling
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.kenney_visuals_tests :: historical mixed fixture cannot be selected by the fixed game resolver
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.onebit_visuals_tests :: 1-Bit sheet ink and composed surface background are neutral
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.onebit_visuals_tests :: fixed 1-Bit construction has no saved-choice dependency and leaves the run intact
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.onebit_visuals_tests :: standalone 1-Bit covers every actor, prop, boon and terrain sprite using only its own PNG
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.onebit_visuals_tests :: standalone 1-Bit fails closed on absent, corrupt or wrongly sized art
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.onebit_visuals_tests :: standalone 1-Bit neighbor lookup, opacity and source composition remain deterministic
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.sprite_audit_tests :: native sprite inventory checks runtime coverage and distinguishes shared/static poses
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.sprite_audit_tests :: saved sprite inventory matches the current resolver mappings
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+tests.sprite_audit_tests :: sprite audit is deterministic and read only across repeated scans
+  Retired Kenney source pixels/layout; replaced by classic catalogue contract and real LÖVE GUI checks
+
+ADAPTED MIXED MODULES
+tests.fixed_visuals_tests: actual loader, settings and refresh use catalogue; shader/fallback assertions unchanged
+tests.idea_environment_tests: same planning/fog/world/HUD/actual-hit assertions use catalogue resources and derived-surface sizes
+tests.visual_packs_tests: fixed style/label/backing expectation changed to catalogue; all four assertions/cases retained

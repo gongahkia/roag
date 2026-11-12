@@ -1,3 +1,15 @@
+# Historical colony migration — superseded
+
+The user paused this direction on 2026-11-12 and explicitly chose to restore the
+classic Lua/LÖVE roguelike, dropping web support. The current game and instructions
+are in the repository [README](../../README.md). This document and the reports below
+remain historical records; they are not the current product plan. P06/P07 browser
+verification was interrupted at the user's request. P08 was incomplete. Paused
+worktrees and uncommitted P08 source were retained; the committed checkpoint is
+`archive/colony-paused-2026-11-12` (`f7589d81`).
+
+---
+
 # Colony web migration status
 
 Updated 2026-11-07. Source baseline:
