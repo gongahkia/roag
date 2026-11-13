@@ -61,17 +61,21 @@ local function basic_at(x,y)
     local s=host.state();local p=Game.player(s).position;local dx,dy=x-p.x,y-p.y
     local enemy=false
     for _,e in ipairs(s.entities)do if e.faction=='enemy' and e.hp and e.hp>0 and e.position.x==x and e.position.y==y then enemy=true end end
+    if math.max(math.abs(dx),math.abs(dy))~=1 then return end
     if enemy and math.max(math.abs(dx),math.abs(dy))==1 then
         return {kind='trial_basic',action='basic_attack',dx=dx,dy=dy}
     end
-    return {kind='trial_basic',action='move',dx=dx,dy=dy}
+    if dx==0 or dy==0 then return {kind='trial_basic',action='move',dx=dx,dy=dy}end
 end
 local function aim_at(x,y)
     if U.armed then local intent=technique(U.armed);intent.x,intent.y=x,y;set_preview(intent)
     elseif U.basic_aim then
         local p=Game.player(host.state()).position
         set_preview({kind='trial_basic',action='basic_attack',dx=x-p.x,dy=y-p.y})
-    else set_preview(basic_at(x,y))end
+    else
+        local intent=basic_at(x,y)
+        if intent then set_preview(intent)else U.aim=nil;U.preview=nil;U.forecast=nil end
+    end
 end
 local function keyboard_aim(key)
     local s=host.state();local d=dirs[key];local p=Game.player(s).position
@@ -188,7 +192,10 @@ function U.keypressed(key,isrepeat)
         if U.armed or U.basic_aim then keyboard_aim(key)
         elseif dirs[key][1]==0 or dirs[key][2]==0 then
             commit({kind='trial_basic',action='move',dx=dirs[key][1],dy=dirs[key][2]})
-        else commit(basic_at(Game.player(host.state()).position.x+dirs[key][1],Game.player(host.state()).position.y+dirs[key][2]))end
+        else
+            local intent=basic_at(Game.player(host.state()).position.x+dirs[key][1],Game.player(host.state()).position.y+dirs[key][2])
+            if intent then commit(intent)end
+        end
     end
     return true -- no classic utility, reset or B loadout escape routes
 end
@@ -258,7 +265,7 @@ function U.mousepressed(x,y,button)
     elseif y>=506 and x>=672 then U.keypressed(x<834 and 'i' or 'escape')
     else
         local cx,cy=host.cell(x,y)
-        if cx then U.mousemoved(x,y);if U.aim then commit(U.aim)end end
+        if cx then U.mousemoved(x,y);if U.aim then commit(U.aim)else U.message='Choose an adjacent tile or adjacent foe.'end end
     end
     return true
 end
@@ -340,7 +347,7 @@ function U.draw_sidebar()
     Pixel.frame('CARD TRIAL',656,22,352,514,display)
     text(C.presets[t.preset].name..' · seed '..t.seed,672,52,body)
     text('Fight '..t.fight..'/2 · '..C.fights[t.fight].name,672,72,body)
-    text(t.healing_charges==0 and 'MEND EXHAUSTED · card retired' or 'Mend charges: '..t.healing_charges..'/2 · both fights',672,92,body)
+    text(t.healing_charges==0 and 'MEND EXHAUSTED · card retired' or 'Mend charges: '..t.healing_charges..'/'..C.healing_charges..' · both fights',672,92,body)
     text('Step: WASD/arrows or adjacent click.\nStrike: click adjacent foe, or F to aim.',672,112,body,Pixel.colors.text,320)
     text('TECHNIQUES · hover to inspect · 1 / 2 / 3',672,148,body,Pixel.colors.muted)
     for slot,id in ipairs(t.cards.hand)do
@@ -442,8 +449,10 @@ function U.draw_preview()
             if kind=='basic_attack' or kind=='sweeping_slash' or p.bump then
                 for _,hit in ipairs(U.forecast or {})do
                     local x,y=host.screen(hit.x,hit.y);local body=host.fonts()
+                    love.graphics.setColor(.025,.025,.025,.9);love.graphics.rectangle('fill',x+2,y+31,44,15)
                     text('HIT '..hit.loss,x+3,y+32,body,Pixel.colors.selected)
                 end
+                love.graphics.setColor(.025,.025,.025,.9);love.graphics.rectangle('fill',68,520,518,20)
                 local body=host.fonts();text('Primary HP loss shown · boon chains / later ticks extra',72,524,body,Pixel.colors.text)
             end
         else

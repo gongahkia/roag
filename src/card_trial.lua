@@ -61,6 +61,7 @@ function Trial.preview(s,intent,preview,effective_cost)
     if intent.vow~=nil or intent.steps~=nil or intent.cards~=nil then return invalid('Unsupported trial action option')end
     local p=player(s);local kind,card
     if intent.kind=='trial_basic' then
+        if intent.card_id~=nil then return invalid('Basic actions do not use a card')end
         if intent.action~='move' and intent.action~='basic_attack' then return invalid('Choose Step or Strike')end
         kind=intent.action
     elseif intent.kind=='technique' or intent.kind=='replace_card' then

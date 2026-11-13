@@ -37,6 +37,9 @@ r=Path(sys.argv[1]);d=r/'data'
 PY
 ROAG_CARD_GUI_OUTPUT="$output" XDG_DATA_HOME="$output/data" ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 \
     timeout -k 3s 260s love "$output/app"
+cp "$project_dir/tests/card_trial_preview_gui.lua" "$output/app/main.lua"
+ROAG_CARD_GUI_OUTPUT="$output" XDG_DATA_HOME="$output/data" ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 \
+    timeout -k 3s 50s love "$output/app" --card-trial --trial-seed=202
 python3 - "$output" <<'PY'
 import hashlib,json,sys
 from pathlib import Path
@@ -44,7 +47,9 @@ r=Path(sys.argv[1]);d=r/'data'
 after={str(p.relative_to(d)):hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()}
 assert json.loads((r/'storage-before.json').read_text())==after,'Normal saves/profile/settings changed'
 assert (r/'gui-results.txt').is_file(),'missing GUI completion'
+assert (r/'preview-results.txt').is_file(),'missing preview fixture completion'
 print((r/'gui-results.txt').read_text())
+print((r/'preview-results.txt').read_text())
 print('PASS normal active run, profile and presentation files unchanged')
 print('Screenshots and action receipts:',r)
 PY

@@ -2912,7 +2912,7 @@ local function draw_world()
             end
         end
     end
-    draw_preview()
+    if not state.card_trial then draw_preview()end
     for _,object in ipairs(state.entities)do
         local p=object.position
         if (object.controller==Geo.controller or object.controller==Comp.controller) and p.floor_id==state.active_floor_id and visible_at(p.x,p.y)then
@@ -3036,6 +3036,7 @@ local function draw_world()
             VIEWPORT.width-2,VIEWPORT.height-2)
     end
     if presentation_settings.damage_numbers then draw_combat_numbers() end
+    if state.card_trial then draw_preview()end -- keep intent/primary labels above actor sprites
     if spectator_enabled and spectator_free and spectator_focus then
         local cx,cy=Camera.tile_top_left(camera,spectator_focus.x,
             spectator_focus.y)

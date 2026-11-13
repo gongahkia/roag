@@ -82,6 +82,8 @@ test('invalid card, legacy poker, raw actions and malformed targets are atomic r
   {kind='technique',card_id=1,action='heal',x=8,y=8},{kind='card_action',cards={1}},
   {kind='move',dx=1,dy=0},{kind='dash',dx=1,dy=0},{kind='wait'},{kind='use_utility'},
   {kind='trial_basic',action='wait'},{kind='technique',card_id=1,x=7,y=8},
+  {kind='trial_basic',action='move',dx=-1,dy=0,card_id=1},
+  {kind='trial_basic',action='move',dx=-1,dy=0,card_id=2},
   {kind='technique',card_id=5,x=8,y=8},{kind='replace_card',card_id=77},
   {kind='trial_basic',action='move',dx=1,dy=1}})do unchanged(s,i)end
 end)
@@ -296,6 +298,12 @@ test('Knight Boots reward keeps chest feedback and a presentation input gate',fu
  local P=require('src.playback');local p=P.new();P.add(p,e,s.player_id);assert(P.busy(p))
  local J=require('src.visual_juice');local j=J.new();J.add(j,e,s.player_id,s.active_floor_id,true)
  assert(#j.items==1 and j.items[1].binding==C.upgrade.icon)
+end)
+test('hovering the origin or a distant basic tile does not display a failed action or mutate state',function()
+ local s=fresh();quiet(s);local U=input_fixture(s);local before=G.snapshot(s)
+ U.mousemoved(6,8);assert(not U.aim and not U.preview)
+ U.mousemoved(2,2);assert(not U.aim and not U.preview)
+ U.mousepressed(2,2,1);same(before,s)
 end)
 print(('Card Trial: %d passed, %d failed'):format(passed,failed))
 if failed>0 then os.exit(1)end
