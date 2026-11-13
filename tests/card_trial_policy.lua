@@ -40,7 +40,8 @@ function P.choose(s)
  end
  local old_hp,old_n=enemies(s);local old_p=G.player(s).hp;local old_d=distance(s)
  local best,best_score,best_state,best_events
- for _,i in ipairs(candidates)do if G.card_preview(s,i).valid then
+ for _,i in ipairs(candidates)do local preview=G.card_preview(s,i)
+ if preview.valid and not (i.action=='move' and preview.bump)then
   local probe=G.snapshot(s);local ok,_,e=G.submit(probe,i);assert(ok)
   local hp,n=enemies(probe);local p=G.player(probe)
   local score=(old_hp-hp)*2+(old_n-n)*9-(old_p-p.hp)*5+(old_d-distance(probe))*1.1-(probe.clock-s.clock)*.003

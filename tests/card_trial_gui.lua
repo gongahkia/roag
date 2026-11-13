@@ -1,224 +1,173 @@
--- Actual LÖVE rendering + production keyboard/mouse/gamepad callbacks. The
--- policy observes snapshots and proposes legal inputs; it never injects state.
+-- Real renderer and public LÖVE callbacks. No live model edits to win fights.
 local G=require('src.game')
 local T=require('src.card_trial')
+local Cards=require('src.cards')
 local Codec=require('src.persistence')
 local Policy=require('tests.card_trial_policy')
 local original_submit=G.submit
 local out=assert(os.getenv('ROAG_CARD_GUI_OUTPUT'))
-local actions,flags,results,procs={}, {}, {}, {}
-local classic_state
-local ordinary_restore=G.restore
-function G.restore(...)
-    local s=ordinary_restore(...);classic_state=s;return s
-end
+local ordinary_restore=G.restore;local classic
+function G.restore(...)local s=ordinary_restore(...);classic=s;return s end
 assert(love.filesystem.load('roag_main.lua'))()
 local load,update,draw=love.load,love.update,love.draw
-local phase,case,step,frames='title',1,0,0
-local pending_capture,delay,started=nil,0,0
-local pending_action
+local phase,frames,delay,steps,case='title',0,4,0,1
+local pending_capture,pending
+local flags,receipts,results={}, {}, {}
 local presets={'movement','burning','bare'}
-local function same(a,b,path)
-    path=path or 'state';assert(type(a)==type(b),path..' type differs in '..phase)
-    if type(a)~='table'then assert(a==b,path..' differs in '..phase..': '..tostring(a)..' / '..tostring(b));return end
-    for k,v in pairs(a)do same(v,b[k],path..'.'..tostring(k))end
-    for k in pairs(b)do assert(a[k]~=nil,path..' extra '..tostring(k))end
-end
-local function capture(name)pending_capture=name end
-local function snapshot()return assert(love.roagCardTrialState(),'trial is not active')end
+local function same(a,b)assert(Codec.encode(a)==Codec.encode(b),'GUI and model states differ in '..phase)end
+local function state()return assert(love.roagCardTrialState(),'trial inactive')end
 local function key(k)love.keypressed(k)end
-local function prefix(s)
-    local h=s.card_trial.cards.hand
-    local function i(a,slots,dx,dy)local ids={};for _,slot in ipairs(slots)do ids[#ids+1]=h[slot]end
-        return {kind='card_action',action=a,cards=ids,dx=dx,dy=dy}end
-    if case==1 then
-        if step==0 then return i('move',{1},-1,0)
-        elseif step==1 then return i('move',{3},0,-1)
-        elseif step==2 then return i('redraw',{4})
-        elseif step==3 then return i('move',{5},0,1)
-        elseif step==4 then return i('attack',{3},-1,-1)end
-    elseif case==2 then
-        if step==0 then return i('move',{1},-1,0)
-        elseif step==1 then return i('move',{3},0,-1)
-        elseif step==2 then return i('attack',{1,2},-1,-1)end
-    end
+local function capture(n)pending_capture=n;delay=3 end
+local function ui()return require('src.card_trial_ui')end
+local function cell(x,y)return 64+(x-1)*48+24,16+(y-1)*48+24 end
+local function hover_card(slot,replace)love.mousemoved(700+(slot-1)*108,replace and 310 or 220)end
+local function slot_of(s,id)for i,v in ipairs(s.card_trial.cards.hand)do if v==id then return i end end;error('missing card')end
+local function perform(i,mouse)
+ local before=state();local expected=G.snapshot(before);local ok,why,e=original_submit(expected,i);assert(ok,why)
+ key('escape') -- clear stale hover/aim; may open menu if already empty
+ if ui().menu then key('escape')end
+ key('backspace');if ui().menu then key('escape')end
+ if i.kind=='trial_basic'then
+  if mouse then
+   local p=G.player(before).position;local x,y=cell(p.x+i.dx,p.y+i.dy);love.mousemoved(x,y)
+  elseif i.action=='basic_attack'then key('f');local d=({['0,-1']='w',['1,-1']='e',['1,0']='d',['1,1']='c',['0,1']='s',['-1,1']='z',['-1,0']='a',['-1,-1']='q'})[i.dx..','..i.dy];key(d)end
+ else
+  local slot=slot_of(before,i.card_id);hover_card(slot,i.kind=='replace_card')
+  if i.kind=='technique' and not Cards.card(before.card_trial.cards,i.card_id).heal then
+   if mouse then love.mousepressed(700+(slot-1)*108,220,1)else key(tostring(slot))end
+   love.mousemoved(cell(i.x,i.y))
+  end
+ end
+ same(before,state());pending={i=i,mouse=mouse,before=before,expected=expected,events=e}
+ capture('before-'..case..'-'..steps)
 end
-local direction_keys={['0,-1']='w',['1,-1']='e',['1,0']='d',['1,1']='c',
-    ['0,1']='s',['-1,1']='z',['-1,0']='a',['-1,-1']='q'}
-local function perform(intent,mouse)
-    local before=snapshot();local expected=G.snapshot(before)
-    local ok,why,events=original_submit(expected,intent);assert(ok,why)
-    key('backspace')
-    for _,id in ipairs(intent.cards)do for slot,held in ipairs(before.card_trial.cards.hand)do
-        if held==id then
-            if mouse then love.mousepressed(690+(slot-1)*66,122,1)else key(tostring(slot))end
-        end
-    end end
-    local name=intent.action..(#intent.cards==2 and '_pair' or '_single')
-    if mouse then
-        local index=({move=1,attack=2,heal=3,redraw=4})[intent.action]
-        love.mousepressed(820,268+(index-1)*40,1)
-    else key(({move='m',attack='f',heal='h',redraw='space'})[intent.action])end
-    if intent.dx then
-        if mouse then
-            local p=G.player(before).position
-            love.mousepressed(64+(p.x+intent.dx-1)*48+24,16+(p.y+intent.dy-1)*48+24,1)
-        else key(direction_keys[intent.dx..','..intent.dy])end
-    end
-    same(before,snapshot()) -- selecting/aiming is pure
-    if not flags[name]then capture(name..'-preview')end
-    pending_action={before=before,expected=expected,events=events,intent=intent,mouse=mouse,name=name}
-    delay=2
+local function finish()
+ local a=pending;pending=nil;local i=a.i
+ if i.kind=='trial_basic'then
+  if a.mouse then local p=G.player(a.before).position;local x,y=cell(p.x+i.dx,p.y+i.dy);love.mousepressed(x,y,1)
+  elseif i.action=='basic_attack'then key('return')
+  else local d=({['0,-1']='w',['1,0']='d',['0,1']='s',['-1,0']='a'})[i.dx..','..i.dy];key(d)end
+ elseif i.kind=='replace_card'then
+  local slot=slot_of(a.before,i.card_id);love.mousepressed(700+(slot-1)*108,310,1);flags.replace=true
+ else
+  local def=Cards.card(a.before.card_trial.cards,i.card_id)
+  if def.heal then love.mousepressed(700+(slot_of(a.before,i.card_id)-1)*108,220,1)
+  elseif a.mouse then local x,y=cell(i.x,i.y);love.mousepressed(x,y,1)
+  else key('return')end
+  flags[def.name]=true
+ end
+ same(a.expected,state())
+ if love.roagPlaybackPending()then
+  key('b');key('w');key('return');love.keypressed('return',nil,true)
+  love.mousepressed(700,310,1);love.gamepadpressed(nil,'a');same(a.expected,state());flags.input_lock=true
+ end
+ assert(Cards.validate(state().card_trial.cards))
+ receipts[#receipts+1]={intent=i,clock=state().clock,hand=state().card_trial.cards.hand}
+ steps=steps+1;delay=3
+ if phase=='prefix'then capture('after-'..steps)end
 end
-local function finish_action()
-    local a=pending_action;pending_action=nil
-    local before,expected,events,intent,mouse,name=a.before,a.expected,a.events,a.intent,a.mouse,a.name
-    if mouse then love.mousepressed(820,450,1)else key('return')end
-    same(expected,snapshot())
-    -- Repeat key, click, classic shortcut and controller input during playback.
-    if love.roagPlaybackPending()then
-        key('return');love.keypressed('return',nil,true)
-        key('b');key('w');key('x');key('u');love.gamepadpressed(nil,'a')
-        love.mousepressed(820,450,1);same(expected,snapshot());flags.input_lock=true
-    end
-    flags[name]=true
-    local kept=0
-    for _,id in ipairs(before.card_trial.cards.hand)do
-        local used=false;for _,v in ipairs(intent.cards)do if v==id then used=true end end
-        if not used then kept=kept+1 end
-    end
-    if kept>0 then flags.retention=true end
-    for _,e in ipairs(events)do
-        if e.kind=='BoonActivated'then procs[e.boon_id]=(procs[e.boon_id]or 0)+1 end
-        if e.kind=='RingReversalPrimed' or e.kind=='RingReversalSpent'then flags[e.kind]=true end
-        if e.kind=='BoonActivated' and (e.boon_id=='core:boon/shared_agony' or e.boon_id=='core:boon/rhythm_of_steel')then
-            capture(presets[case]..'-synergy')
-        end
-    end
-    actions[#actions+1]={preset=presets[case],fight=before.card_trial.fight,intent=intent,
-        hp_before=G.player(before).hp,hp_after=G.player(expected).hp,time=expected.clock,events=events}
-    delay=2
-end
-function love.load(args)
-    started=love.timer.getTime();load(args)
-    local body=love.graphics.getFont();assert(body:hasGlyphs('ASHCD234567890JQK'),'ASCII card labels unavailable')
-end
+function love.load(args)load(args);assert(love.graphics.getWidth()==1024 and love.graphics.getHeight()==640)end
 local function advance()
-    if phase=='title'then
-        assert(love.roagUIState().page=='home');capture('title-entry');phase='enter';delay=3;return
-    elseif phase=='enter'then
-        key('t');assert(require('src.card_trial_ui').setup);key('escape')
-        love.mousepressed(512,414,1);assert(require('src.card_trial_ui').setup)
-        key('right') -- default 101 -> 202; held opening pair is earned by the first step
-        key('2');key('return');phase='fight';delay=3
-        local s=snapshot();assert(s.card_trial.seed==202 and s.card_trial.preset=='movement')
-        local before=G.snapshot(s)
-        for _,k in ipairs({'w','a','s','d','f','r','x','space','b','n','m','u','e','return','escape','backspace'})do key(k)end
-        for _,b in ipairs({'x','y','rightshoulder','leftshoulder','a','rightstick','leftstick','b'})do love.gamepadpressed(nil,b)end
-        if require('src.card_trial_ui').menu then key('escape')end
-        key('backspace');same(before,snapshot());flags.bypass_guard=true
-        key('1');key('m');key('a');key('escape');key('backspace')
-        same(before,snapshot());flags.cancellation=true
-        return
-    end
-    if phase=='fight'then
-        local s=snapshot();local t=s.card_trial
-        if t.phase=='reward'then
-            capture(presets[case]..'-reward');phase='reward';delay=4;return
-        elseif t.phase=='victory' or t.phase=='death'then
-            assert(t.phase=='victory',presets[case]..' policy died')
-            capture(presets[case]..'-victory')
-            results[#results+1]={preset=presets[case],seed=t.seed,actions=t.commits,hp=G.player(s).hp,
-                charges=t.healing_charges,time=s.clock};phase='result';delay=4;return
-        end
-        assert(step<100,'trial policy exceeded action budget')
-        local intent=prefix(s)or Policy.choose(s,flags)
-        perform(intent,step%3==1);step=step+1
-        if t.fight==2 and not flags['later_'..presets[case]]then
-            flags['later_'..presets[case]]=true;capture(presets[case]..'-fight-2')
-        end
-    elseif phase=='reward'then
-        local before=snapshot()
-        key('escape');key('w');key('h');key('space');key('return') -- reopen only
-        same(before,snapshot());flags.reward_lock=true
-        key('2');key('return')
-        local after=snapshot();assert(after.card_trial.fight==2)
-        same(before.card_trial.cards,after.card_trial.cards)
-        assert(before.card_trial.healing_charges==after.card_trial.healing_charges)
-        assert(G.player(before).hp==G.player(after).hp and before.clock==after.clock)
-        phase='fight';delay=3
-    elseif phase=='result'then
-        if case<3 then
-            case=case+1;step=0;key('p');key(tostring(({movement=2,burning=3,bare=1})[presets[case]]));key('return')
-            phase='fight';delay=3
-        else
-            key('return');same(T.new(G,202,'bare'),snapshot());flags.replay=true
-            key('escape');key('p');key('left');key('left') -- 202 -> 101 -> 303
-            key('1');key('return');phase='healing';step=0;delay=2
-        end
-    elseif phase=='healing'then
-        local s=snapshot();local p=G.player(s)
-        if s.game_over then
-            -- A deliberate stationary redraw exercise also verifies death.
-            assert(s.card_trial.phase=='death');capture('death');flags.death=true
-            key('return');same(T.new(G,s.card_trial.seed,'bare'),snapshot())
-            key('escape');key('p');key('escape');phase='classic';delay=3;return
-        end
-        local h=s.card_trial.cards.hand;local pair
-        for i=1,4 do for j=i+1,5 do if require('src.cards').card(h[i]).rank==require('src.cards').card(h[j]).rank then pair={h[i],h[j]}end end end
-        local intent
-        if p.hp<=16 and pair and not flags.heal_pair_exercise then
-            intent={kind='card_action',action='heal',cards=pair};flags.heal_pair_exercise=true
-        elseif p.hp<=20 and s.card_trial.healing_charges>0 and flags.heal_pair_exercise and not flags.heal_single_exercise then
-            intent={kind='card_action',action='heal',cards={h[1]}};flags.heal_single_exercise=true
-        else
-            local ids={};for _,id in ipairs(h)do if not pair or id~=pair[1]and id~=pair[2]then ids[#ids+1]=id end end
-            intent={kind='card_action',action='redraw',cards=ids}
-        end
-        perform(intent,step%2==0);step=step+1
-        if snapshot().card_trial.healing_charges==0 then flags.charges_exhausted=true end
-        assert(step<100,'death exercise exceeded budget')
-    elseif phase=='classic'then
-        assert(love.roagUIState().page=='home');key('c');phase='classic-action';delay=3
-    elseif phase=='classic-action'then
-        key('d');phase='classic-wait';delay=3
-    elseif phase=='classic-wait'then
-        key('space');phase='classic-attack';delay=3
-    elseif phase=='classic-attack'then
-        key('f');key('d');key('return');phase='finish';delay=4
-    elseif phase=='finish'then
-        assert(classic_state and classic_state.clock==300,'classic callbacks failed')
-        capture('classic-controls');flags.classic=true
-        assert(flags.move_single and flags.attack_single and flags.move_pair and flags.attack_pair)
-        assert(flags.heal_single and flags.heal_pair and flags.charges_exhausted and flags.redraw_single,
-            'healing/redraw coverage: '..tostring(flags.heal_single)..'/'..tostring(flags.heal_pair)..'/'..tostring(flags.charges_exhausted))
-        assert(flags.RingReversalPrimed and flags.RingReversalSpent and procs['core:boon/shared_agony'])
-        local f=assert(io.open(out..'/gui-results.txt','wb'))
-        for _,r in ipairs(results)do f:write(('%s seed %d: VICTORY, %d actions, HP %d, charges %d, time %d\n'):format(r.preset,r.seed,r.actions,r.hp,r.charges,r.time))end
-        local names={};for k in pairs(flags)do names[#names+1]=k end;table.sort(names)
-        f:write('Verified: '..table.concat(names,', ')..'\n');f:close()
-        local f=assert(io.open(out..'/gui-actions.roag','wb'));f:write(Codec.encode(actions));f:close()
-        print('PASS real Card Trial GUI: three victories, curated synergies, healing, death/replay, classic controls')
-        phase='quit';delay=4
-    elseif phase=='quit'then love.event.quit()end
+ if pending then finish();return end
+ if phase=='title'then
+  assert(love.roagUIState().page=='home');capture('title-entry');phase='enter';return
+ elseif phase=='enter'then
+  love.mousepressed(512,414,1);key('right');key('2');key('return')
+  same(T.new(G,202,'movement'),state());phase='prefix';steps=0;capture('opening');return
+ elseif phase=='prefix'then
+  local s=state();local p=G.player(s).position
+  if steps==0 then perform({kind='trial_basic',action='move',dx=-1,dy=0},false);flags.opening_step=true;return
+  elseif steps==1 then
+   local before=state();hover_card(1);assert(#ui().targets>0);same(before,state());capture('dash-hover');phase='hover-sweep';return
+  end
+ elseif phase=='hover-sweep'then
+  local before=state();hover_card(2);assert(#ui().targets==8);same(before,state());capture('sweep-hover');phase='hover-mend';return
+ elseif phase=='hover-mend'then
+  local before=state();hover_card(3);assert(ui().preview.reason=='Full health');love.mousepressed(916,220,1);same(before,state())
+  capture('mend-full-health');phase='dash';return
+ elseif phase=='dash'then
+  local s=state();local p=G.player(s).position
+  perform({kind='technique',card_id=1,x=p.x-2,y=p.y},true);phase='replace';return
+ elseif phase=='replace'then
+  local s=state();local before=G.snapshot(s);hover_card(3,true);same(before,state());capture('replace-hover')
+  phase='replace-commit';return
+ elseif phase=='replace-commit'then perform({kind='replace_card',card_id=state().card_trial.cards.hand[3]},true);phase='fight';return
+ elseif phase=='fight'then
+  local s=state()
+  if s.card_trial.phase=='death'then error('policy died in '..presets[case])end
+  if s.card_trial.phase=='reward'then capture(presets[case]..'-reward');phase='reward';return end
+  if s.card_trial.phase=='victory'then
+   results[#results+1]=presets[case]..' seed 202 VICTORY: '..steps..' actions, HP '..G.player(s).hp
+   capture(presets[case]..'-victory');phase='next';return
+  end
+  if steps>140 then error('policy stalled')end
+  if s.card_trial.knight_boots and not flags['Knight Hop']then
+   for _,id in ipairs(s.card_trial.cards.hand)do if Cards.card(s.card_trial.cards,id).action=='knight_hop'then
+    local at=G.card_targets(s,{kind='technique',card_id=id})[1]
+    if at then perform({kind='technique',card_id=id,x=at.x,y=at.y},true);return end
+   end end
+  end
+  perform(Policy.choose(s),steps%2==0);return
+ elseif phase=='reward'then
+  local before=state();key('escape');key('return');same(before,state());key('1')
+  capture('knight-boots-choice');phase='claim';return
+ elseif phase=='claim'then
+  local before=state();key('return');local s=state();assert(s.card_trial.knight_boots and s.card_trial.fight==2)
+  for _,pile in ipairs({'hand','draw','discard','retired'})do same(before.card_trial.cards[pile],s.card_trial.cards[pile])end
+  same(before.card_trial.cards.rng,s.card_trial.cards.rng);flags.reward=true;capture('knight-boots-applied');phase='hop-inspect';return
+ elseif phase=='hop-inspect'then
+  local s=state();local id
+  for _,v in ipairs(s.card_trial.cards.hand)do if Cards.card(s.card_trial.cards,v).action=='knight_hop'then id=v;break end end
+  if id then
+   local before=state();local slot=slot_of(s,id);hover_card(slot);key(tostring(slot))
+   local at=G.card_targets(s,{kind='technique',card_id=id})[1];assert(at)
+   love.mousemoved(cell(at.x,at.y));same(before,state());capture('knight-hop-preview');phase='hop-invalid';return
+  end
+  phase='fight';return
+ elseif phase=='hop-invalid'then
+  local before=state();love.mousemoved(cell(6,5));love.mousepressed(64+5*48+24,16+4*48+24,1)
+  same(before,state());flags.invalid_landing=true;capture('invalid-landing');key('escape');phase='fight';return
+ elseif phase=='next'then
+  if case<3 then
+   case=case+1;steps=0;key('p');key(tostring(({movement=2,burning=3,bare=1})[presets[case]]));key('return');phase='fight';return
+  end
+  key('return');same(T.new(G,202,'bare'),state());flags.replay=true
+  phase='exhaust';steps=0;return
+ elseif phase=='exhaust'then
+  local s=state();local p=G.player(s)
+  if s.card_trial.phase=='death'then capture('death');key('return');same(T.new(G,202,'bare'),state());flags.death=true
+   key('escape');if not ui().menu then key('escape')end;key('t');phase='classic';return end
+  local mend
+  for _,id in ipairs(s.card_trial.cards.hand)do if Cards.card(s.card_trial.cards,id).heal then mend=id end end
+  if s.card_trial.healing_charges==0 then assert(#s.card_trial.cards.retired==1);flags.mend_retired=true end
+  if mend and p.hp<24 then perform({kind='technique',card_id=mend},true);return end
+  perform({kind='replace_card',card_id=s.card_trial.cards.hand[1]},true);return
+ elseif phase=='classic'then
+  assert(love.roagUIState().page=='home');key('c');key('return');phase='classic-actions';return
+ elseif phase=='classic-actions'then
+  assert(classic and not classic.card_trial);key('d');phase='classic-wait';return
+ elseif phase=='classic-wait'then key('space');phase='classic-strike';return
+ elseif phase=='classic-strike'then key('f');key('d');key('return');phase='done';return
+ elseif phase=='done'then
+  assert(classic.clock==300);capture('classic-controls');flags.classic=true
+  assert(flags.opening_step and flags.replace and flags.Dash and flags['Knight Hop'] and flags.reward and flags.invalid_landing and flags.mend_retired and flags.death and flags.replay and flags.input_lock)
+  local f=assert(io.open(out..'/gui-results.txt','wb'));f:write(table.concat(results,'\n')..'\nPASS hover/target-click, Replace, upgrade/jump, invalid landing, healing retirement, replay and classic controls\n');f:close()
+  f=assert(io.open(out..'/gui-actions.roag','wb'));f:write(Codec.encode(receipts));f:close();phase='quit';delay=4;return
+ elseif phase=='quit'then print('PASS real LÖVE named-technique GUI');love.event.quit()end
 end
 function love.update(dt)
-    local ok,why=pcall(function()
-        update(dt);frames=frames+1
-        assert(love.timer.getTime()-started<240,'GUI timeout')
-        if love.roagPlaybackPending()then return end
-        if delay>0 then delay=delay-1;return end
-        if pending_action then finish_action();return end
-        advance()
-    end)
-    if not ok then io.stderr:write('FAIL Card Trial GUI: '..tostring(why)..'\n');love.event.quit(1)end
+ update(dt);frames=frames+1
+ if frames>24000 then error('GUI timed out')end
+ if delay>0 then delay=delay-1;return end
+ if love.roagPlaybackPending()then return end
+ advance()
 end
 function love.draw()
-    draw()
-    if pending_capture then
-        local name=pending_capture;pending_capture=nil
-        love.graphics.captureScreenshot(function(data)
-            local bytes=data:encode('png'):getString();local f=assert(io.open(out..'/'..name..'.png','wb'));f:write(bytes);f:close()
-        end)
-    end
+ draw()
+ if pending_capture then
+  local name=pending_capture;pending_capture=nil
+  love.graphics.captureScreenshot(function(image)
+   local data=image:encode('png');local f=assert(io.open(out..'/'..name..'.png','wb'));f:write(data:getString());f:close()
+  end)
+ end
 end

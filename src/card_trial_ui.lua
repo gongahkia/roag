@@ -175,7 +175,7 @@ function U.keypressed(key,isrepeat)
     if phase=='reward'then reward_key(key);return true end
     if tonumber(key) and tonumber(key)>=1 and tonumber(key)<=3 then activate(tonumber(key))
     elseif key=='tab'then
-        U.focus=U.focus%3+1;inspect_card(host.state().card_trial.cards.hand[U.focus]);U.message='Enter selects; R replaces for one Wait.'
+        clear();U.focus=U.focus%3+1;inspect_card(host.state().card_trial.cards.hand[U.focus]);U.message='Enter selects; R replaces for one Wait.'
     elseif key=='r'then
         local id=U.armed or host.state().card_trial.cards.hand[U.focus]
         commit({kind='replace_card',card_id=id})
@@ -348,8 +348,8 @@ function U.draw_sidebar()
         g.rectangle('fill',x,168,100,160);g.setColor(.065,.065,.065);g.rectangle('fill',x+2,170,96,156)
         text(slot..' '..def.name,x+4,176,body,active and Pixel.colors.selected or Pixel.colors.text,94)
         host.visual(def.icon,x+34,207,32,32)
-        local summary=({dash='Up to 2 tiles\nStraight line',knight_hop='L-shaped jump\nIgnores middle',sweep='3-cell arc\n3 base damage',mend='Restore 4 HP\n1 charge'})[c.kind]
-        if c.kind=='mend' and Game.player(s).hp==Game.player(s).max_hp then summary='Restore 4 HP\nFull health'end
+        local summary=({dash='Straight\n2 tiles max',knight_hop='L jump\nSkip middle',sweep='3-cell arc\n3 base dmg',mend='4 HP\n1 charge'})[c.kind]
+        if c.kind=='mend' and Game.player(s).hp==Game.player(s).max_hp then summary='4 HP\nFull health'end
         text(summary,x+5,246,body,Pixel.colors.text,90)
         g.setColor(U.replacing and U.hover==id and Pixel.colors.text or Pixel.colors.edge)
         g.rectangle('line',x+4,296,92,28)
@@ -372,6 +372,7 @@ function U.draw_sidebar()
             local l=U.preview.landing;local terrain=Terrain.at(Content.map_for(s),l.x,l.y)
             detail='Landing '..l.x..','..l.y..': '..(terrain and terrain.name or 'Floor')
             if terrain and terrain.contact_damage then detail=detail..' · contact damage '..terrain.contact_damage end
+            detail=detail..'\nClick / Enter plays · Esc cancels'
         elseif U.armed then detail=def.action=='knight_hop' and 'Click a landing. Arrows cycle; Enter jumps.' or 'Click highlighted target. Directions aim; Enter plays.'
         else detail='Select card, then click a highlighted target.'end
         text(detail,672,442,body,Pixel.colors.muted,320)
