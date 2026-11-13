@@ -132,6 +132,7 @@ local function reward_key(key)
         if host.submit({kind='trial_reward',offer_index=U.reward_selection})then
             host.hide_reward();clear();U.last_boon=nil
             U.message='Fight 2: enemies enter from new flanks. HP, hand and charges carried.'
+            if host.state().card_trial.knight_boots then U.last_boon='Knight Boots: all Dash cards are now Knight Hop' end
         end
     end
 end
