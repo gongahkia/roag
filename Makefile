@@ -2,10 +2,13 @@
 LOVE_BIN ?= love
 LUAJIT ?= luajit
 PYTHON ?= python3
-.PHONY: help game test gui assets assets-check catalog-test preservation package spectator
+.PHONY: help game test gui assets assets-check catalog-test preservation package spectator card-trial card-test card-gui
 help:
 	@printf '%s\n' 'make game          Play the Lua/LÖVE roguelike' \
 	 'make spectator     Preview biomes/floors/classes with G/J/K/L/M' \
+	 'make card-trial    Open the nonpersistent two-fight Card Trial' \
+	 'make card-test     Run focused card/action boundary tests' \
+	 'make card-gui      Play trials through actual LÖVE callbacks (needs display)' \
 	 'make test          Run gameplay and current-art regression tests' \
 	 'make gui           Verify actual LÖVE input, artwork and save/Continue' \
 	 'make assets-check  Verify deterministic catalogue bindings' \
@@ -17,6 +20,12 @@ game: assets-check
 	"$(LOVE_BIN)" .
 spectator: assets-check
 	"$(LOVE_BIN)" . --spectator
+card-trial: assets-check
+	"$(LOVE_BIN)" . --card-trial
+card-test:
+	$(LUAJIT) tests/card_trial_tests.lua
+card-gui: assets-check
+	sh tests/card_trial_gui.sh
 assets:
 	$(PYTHON) -B tools/build_classic_assets.py
 assets-check:

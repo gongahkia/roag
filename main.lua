@@ -3948,7 +3948,10 @@ require('src.card_trial_ui').attach({
         if not profile_status then profile_status=profile_service:inspect();profile=profile_status.profile end
         persistence_message=''
     end,
-    target=function(value)targeting=value end,
+    target=function(value)
+        targeting=value
+        if value and value.dx then player_facing=VisualSlots.facing(player_facing,value.dx)end
+    end,
     submit=submit,
     inspection=function()return inventory_open or boon_detail_id~=nil end,
     inspect=function()inventory_open=true;inventory_selection=1 end,

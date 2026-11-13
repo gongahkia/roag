@@ -63,16 +63,22 @@ function U.on_events(events)
     local reasons={rhythm_of_steel='primary hit after moving',ring_of_reversal='hit the attacker you escaped',
         emberbrand='direct weapon hit',shared_agony='damage beside another Burning foe',
         pulse_step='entered beside at least two foes',detonation_bloom='credited kill',grave_dividend='credited kill'}
-    local kinds={};for _,e in ipairs(events)do kinds[e.id]=e.kind end
+    local kinds,messages={},{}
+    for _,e in ipairs(events)do kinds[e.id]=e.kind end
+    local function show(message)
+        messages[#messages+1]=message
+        if #messages>2 then table.remove(messages,1)end
+    end
     for _,e in ipairs(events)do
         if e.kind=='BoonActivated'then
             local reason=reasons[e.boon_id:match('/([^/]+)$')] or 'triggered'
             if e.boon_id=='core:boon/rhythm_of_steel' and kinds[e.trigger_event_id]=='Moved'then reason='movement primed the next primary hit'end
-            U.last_boon=Catalog.get(e.boon_id).name..': '..reason
-        elseif e.kind=='RingReversalPrimed'then U.last_boon='Ring of Reversal: escaped a locked attack; next hit on that foe gains damage'
-        elseif e.kind=='RingReversalSpent'then U.last_boon='Ring of Reversal: bonus damage on the attacker you escaped'
+            show(Catalog.get(e.boon_id).name..': '..reason)
+        elseif e.kind=='RingReversalPrimed'then show('Ring of Reversal: escaped locked attack; next hit on that foe gains damage')
+        elseif e.kind=='RingReversalSpent'then show('Ring of Reversal: bonus damage on the attacker you escaped')
         end
     end
+    if #messages>0 then U.last_boon=table.concat(messages,' / ')end
 end
 function U.update()
     if not U.active()then return end
@@ -103,6 +109,7 @@ local function reward_key(key)
 end
 function U.keypressed(key,isrepeat)
     if not host then return false end
+    if key=='return' or key=='kpenter'then Pixel.press()end
     if U.setup then
         if isrepeat then return true end
         if key=='escape'then U.setup=false;host.exit()
@@ -290,7 +297,7 @@ function U.draw_sidebar()
     end
     text(('Draw %d · Discard %d · retain unplayed'):format(#t.cards.draw,#t.cards.discard),672,190,body)
     local sel=Cards.selection(t.cards,U.ids())
-    local recipe=sel and (sel.recipe or 'invalid for techniques') or 'none'
+    local recipe=sel and (sel.recipe or 'invalid') or 'none'
     text('Selected '..(sel and sel.count or 0)..' · '..recipe:upper(),672,212,menu,Pixel.colors.selected)
     local p=Game.player(s);local class=Classes.for_player(p);local speed=p.speed+Boons.speed_bonus(s,p)
     for i,a in ipairs({'move','attack','heal','redraw'})do
@@ -311,7 +318,9 @@ function U.draw_sidebar()
     local valid=preview and preview.valid
     Pixel.option(t.phase=='reward' and 'REOPEN REWARD' or valid and 'ENTER / CLICK TO CONFIRM' or 'CHOOSE CARDS / TARGET',
         672,448,320,valid,body,not valid and t.phase~='reward')
-    local hint=U.message~='' and U.message or preview and (preview.valid and
+    local selection_error=sel and not sel.recipe and U.action~='redraw'
+    local hint=preview and not preview.valid and (selection_error or U.dx or U.action=='heal' or U.action=='redraw') and preview.reason
+        or U.message~='' and U.message or preview and (preview.valid and
         (preview.heal and ('Recover '..preview.heal..' HP; one charge.') or 'Footprint shown on board.') or preview.reason) or
         'One card = Single. Two equal ranks = Pair.'
     text(hint,672,476,body,Pixel.colors.muted,320)
@@ -321,14 +330,17 @@ function U.draw_hud()
     local s=host.state();local p=Game.player(s);local body,menu=host.fonts()
     local g=love.graphics;g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
     g.setColor(Pixel.colors.edge);g.rectangle('fill',16,544,992,2)
-    text(('HP %d/%d     TIME %d     FIGHT %d/2     SEED %d'):format(p.hp,p.max_hp,s.clock,s.card_trial.fight,s.card_trial.seed),28,552,menu)
+    text(('HP %d/%d'):format(p.hp,p.max_hp),28,552,menu)
+    text('TIME '..s.clock,206,552,menu)
+    text('FIGHT '..s.card_trial.fight..'/2',398,552,menu)
+    text('SEED '..s.card_trial.seed,590,552,menu)
     local incoming={}
     for _,strike in ipairs(Game.pending_strikes(s))do
         incoming[#incoming+1]=Content.ability_name(strike.ability_id)..' +'..math.max(0,strike.due-s.clock)
     end
     text(host.busy() and 'RESOLVING · card input locked' or #incoming>0 and 'INCOMING: '..table.concat(incoming,' / ') or
         '1-5 cards · M Move · F Attack · H Heal · Space Redraw · direction · Enter',28,578,body)
-    text(U.last_boon or 'Boons react to real movement, weapon hits and kills.',28,602,body,Pixel.colors.selected)
+    text(U.last_boon or 'Boons react to real movement, weapon hits and kills.',28,596,body,Pixel.colors.selected,960)
 end
 function U.draw_overlay()
     if not U.active() or host.busy() or host.inspection()then return end

@@ -16,8 +16,14 @@ assert(love.filesystem.load('roag_main.lua'))()
 local load,update,draw=love.load,love.update,love.draw
 local phase,case,step,frames='title',1,0,0
 local pending_capture,delay,started=nil,0,0
+local pending_action
 local presets={'movement','burning','bare'}
-local function same(a,b)assert(Codec.encode(a)==Codec.encode(b),'GUI and authoritative action differ')end
+local function same(a,b,path)
+    path=path or 'state';assert(type(a)==type(b),path..' type differs in '..phase)
+    if type(a)~='table'then assert(a==b,path..' differs in '..phase..': '..tostring(a)..' / '..tostring(b));return end
+    for k,v in pairs(a)do same(v,b[k],path..'.'..tostring(k))end
+    for k in pairs(b)do assert(a[k]~=nil,path..' extra '..tostring(k))end
+end
 local function capture(name)pending_capture=name end
 local function snapshot()return assert(love.roagCardTrialState(),'trial is not active')end
 local function key(k)love.keypressed(k)end
@@ -61,6 +67,12 @@ local function perform(intent,mouse)
     end
     same(before,snapshot()) -- selecting/aiming is pure
     if not flags[name]then capture(name..'-preview')end
+    pending_action={before=before,expected=expected,events=events,intent=intent,mouse=mouse,name=name}
+    delay=2
+end
+local function finish_action()
+    local a=pending_action;pending_action=nil
+    local before,expected,events,intent,mouse,name=a.before,a.expected,a.events,a.intent,a.mouse,a.name
     if mouse then love.mousepressed(820,450,1)else key('return')end
     same(expected,snapshot())
     -- Repeat key, click, classic shortcut and controller input during playback.
@@ -93,14 +105,20 @@ function love.load(args)
 end
 local function advance()
     if phase=='title'then
-        assert(love.roagUIState().page=='home');capture('title-entry');key('t')
+        assert(love.roagUIState().page=='home');capture('title-entry');phase='enter';delay=3;return
+    elseif phase=='enter'then
+        key('t');assert(require('src.card_trial_ui').setup);key('escape')
+        love.mousepressed(512,414,1);assert(require('src.card_trial_ui').setup)
         key('right') -- default 101 -> 202; held opening pair is earned by the first step
         key('2');key('return');phase='fight';delay=3
         local s=snapshot();assert(s.card_trial.seed==202 and s.card_trial.preset=='movement')
         local before=G.snapshot(s)
         for _,k in ipairs({'w','a','s','d','f','r','x','space','b','n','m','u','e','return','escape','backspace'})do key(k)end
         for _,b in ipairs({'x','y','rightshoulder','leftshoulder','a','rightstick','leftstick','b'})do love.gamepadpressed(nil,b)end
-        key('escape');key('backspace');same(before,snapshot());flags.bypass_guard=true
+        if require('src.card_trial_ui').menu then key('escape')end
+        key('backspace');same(before,snapshot());flags.bypass_guard=true
+        key('1');key('m');key('a');key('escape');key('backspace')
+        same(before,snapshot());flags.cancellation=true
         return
     end
     if phase=='fight'then
@@ -135,9 +153,7 @@ local function advance()
             phase='fight';delay=3
         else
             key('return');same(T.new(G,202,'bare'),snapshot());flags.replay=true
-            key('p');key('left');key('left') -- 202 -> 101 -> 303
-            -- Select seed 2 through the ordinary launch argument in a separate
-            -- exercise below? Instead use the exposed seed carousel's 303 hand.
+            key('escape');key('p');key('left');key('left') -- 202 -> 101 -> 303
             key('1');key('return');phase='healing';step=0;delay=2
         end
     elseif phase=='healing'then
@@ -146,14 +162,14 @@ local function advance()
             -- A deliberate stationary redraw exercise also verifies death.
             assert(s.card_trial.phase=='death');capture('death');flags.death=true
             key('return');same(T.new(G,s.card_trial.seed,'bare'),snapshot())
-            key('p');key('escape');phase='classic';delay=3;return
+            key('escape');key('p');key('escape');phase='classic';delay=3;return
         end
         local h=s.card_trial.cards.hand;local pair
         for i=1,4 do for j=i+1,5 do if require('src.cards').card(h[i]).rank==require('src.cards').card(h[j]).rank then pair={h[i],h[j]}end end end
         local intent
-        if p.hp<=16 and pair and not flags.heal_pair then
-            intent={kind='card_action',action='heal',cards=pair}
-        elseif p.hp<=20 and s.card_trial.healing_charges>0 and flags.heal_pair and not flags.heal_single_exercise then
+        if p.hp<=16 and pair and not flags.heal_pair_exercise then
+            intent={kind='card_action',action='heal',cards=pair};flags.heal_pair_exercise=true
+        elseif p.hp<=20 and s.card_trial.healing_charges>0 and flags.heal_pair_exercise and not flags.heal_single_exercise then
             intent={kind='card_action',action='heal',cards={h[1]}};flags.heal_single_exercise=true
         else
             local ids={};for _,id in ipairs(h)do if not pair or id~=pair[1]and id~=pair[2]then ids[#ids+1]=id end end
@@ -174,7 +190,8 @@ local function advance()
         assert(classic_state and classic_state.clock==300,'classic callbacks failed')
         capture('classic-controls');flags.classic=true
         assert(flags.move_single and flags.attack_single and flags.move_pair and flags.attack_pair)
-        assert(flags.heal_single and flags.heal_pair and flags.charges_exhausted and flags.redraw_single)
+        assert(flags.heal_single and flags.heal_pair and flags.charges_exhausted and flags.redraw_single,
+            'healing/redraw coverage: '..tostring(flags.heal_single)..'/'..tostring(flags.heal_pair)..'/'..tostring(flags.charges_exhausted))
         assert(flags.RingReversalPrimed and flags.RingReversalSpent and procs['core:boon/shared_agony'])
         local f=assert(io.open(out..'/gui-results.txt','wb'))
         for _,r in ipairs(results)do f:write(('%s seed %d: VICTORY, %d actions, HP %d, charges %d, time %d\n'):format(r.preset,r.seed,r.actions,r.hp,r.charges,r.time))end
@@ -191,6 +208,7 @@ function love.update(dt)
         assert(love.timer.getTime()-started<240,'GUI timeout')
         if love.roagPlaybackPending()then return end
         if delay>0 then delay=delay-1;return end
+        if pending_action then finish_action();return end
         advance()
     end)
     if not ok then io.stderr:write('FAIL Card Trial GUI: '..tostring(why)..'\n');love.event.quit(1)end
