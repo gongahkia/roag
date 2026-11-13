@@ -63,9 +63,12 @@ function U.on_events(events)
     local reasons={rhythm_of_steel='primary hit after moving',ring_of_reversal='hit the attacker you escaped',
         emberbrand='direct weapon hit',shared_agony='damage beside another Burning foe',
         pulse_step='entered beside at least two foes',detonation_bloom='credited kill',grave_dividend='credited kill'}
+    local kinds={};for _,e in ipairs(events)do kinds[e.id]=e.kind end
     for _,e in ipairs(events)do
         if e.kind=='BoonActivated'then
-            U.last_boon=Catalog.get(e.boon_id).name..': '..(reasons[e.boon_id:match('/([^/]+)$')] or 'triggered')
+            local reason=reasons[e.boon_id:match('/([^/]+)$')] or 'triggered'
+            if e.boon_id=='core:boon/rhythm_of_steel' and kinds[e.trigger_event_id]=='Moved'then reason='movement primed the next primary hit'end
+            U.last_boon=Catalog.get(e.boon_id).name..': '..reason
         elseif e.kind=='RingReversalPrimed'then U.last_boon='Ring of Reversal: escaped a locked attack; next hit on that foe gains damage'
         elseif e.kind=='RingReversalSpent'then U.last_boon='Ring of Reversal: bonus damage on the attacker you escaped'
         end
@@ -168,6 +171,7 @@ function U.mousepressed(x,y,button)
         return true
     end
     if host.busy()then return true end
+    if U.help then U.help=false;return true end
     local phase=host.state().card_trial.phase
     if U.menu or phase=='death' or phase=='victory' then
         if y>=292 and y<332 then U.keypressed(U.menu and 'return' or 'r')
@@ -181,6 +185,11 @@ function U.mousepressed(x,y,button)
         if row then reward_key(tostring(row))
         elseif x>=568 and x<=944 and y>=438 and y<=480 then reward_key('return')
         elseif y>=500 then reward_key('escape')end
+        return true
+    end
+    if phase=='reward'then
+        if x>=672 and x<992 and y>=440 and y<476 then reward_key('return')
+        elseif y>=506 and x>=672 then U.keypressed(x<834 and 'i' or 'escape')end
         return true
     end
     if x>=672 and x<996 and y>=100 and y<180 then

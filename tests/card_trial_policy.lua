@@ -25,7 +25,7 @@ local function distance(s)
     return 0
 end
 local function pairs_in(hand)
-    local ranks={},0
+    local ranks={}
     for _,id in ipairs(hand)do local rank=Cards.card(id).rank;ranks[rank]=(ranks[rank]or 0)+1 end
     local n=0;for _,v in pairs(ranks)do n=n+math.floor(v/2)end;return n
 end
