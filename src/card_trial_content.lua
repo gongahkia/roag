@@ -4,7 +4,7 @@ local C={version=2,seed=101,seeds={101,202,303},hand_size=3,healing_charges=2,
     opening={'dash','sweep','mend'},
     techniques={
         dash={name='Dash',action='dash',icon='core:ui/ability_move_icon',
-            description='Travel up to 2 tiles in a straight line. Stops at blockers.'},
+            description='Travel 2 tiles straight, stopping at blockers. Terrain may extend travel.'},
         sweep={name='Sweep',action='sweeping_slash',icon='core:ui/ability_slash_icon',
             description='Strike a three-cell arc. Base damage 3 before defence.'},
         mend={name='Mend',action='trial_heal',heal=4,icon='core:ui/status_heal_icon',

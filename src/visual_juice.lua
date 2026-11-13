@@ -115,7 +115,7 @@ function J.add(model,events,player_id,floor_id,enabled)
             elseif e.kind=='WardFlaskCollected' or e.kind=='VaultKeyCollected' then
                 binding,kind='core:object/review_'..(e.kind=='WardFlaskCollected' and 'ward' or 'key'),'utility'
             elseif e.kind=='ChestClaimed' or e.kind=='BoonGranted' and not e.chest_id then
-                binding,kind=e.boon_id..'/icon','boon'
+                binding,kind=e.reward_icon or e.boon_id and e.boon_id..'/icon','boon'
             end
             local p=e.source_position
             local x,y=e.x or p and p.x,e.y or p and p.y

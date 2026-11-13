@@ -9,6 +9,10 @@ local out=assert(os.getenv('ROAG_CARD_GUI_OUTPUT'))
 local ordinary_restore=G.restore;local classic
 function G.restore(...)local s=ordinary_restore(...);classic=s;return s end
 assert(love.filesystem.load('roag_main.lua'))()
+function love.errorhandler(message)
+ io.stderr:write(tostring(message)..'\n'..debug.traceback()..'\n')
+ return function()return 1 end
+end
 local load,update,draw=love.load,love.update,love.draw
 local phase,frames,delay,steps,case='title',0,4,0,1
 local pending_capture,pending

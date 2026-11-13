@@ -13,6 +13,7 @@ local durations = {
     DelayedEffectScheduled = 0.18,
     DelayedEffectResolved = 0.28,
     BoonGranted = 0.28,
+    TechniqueUpgradeGranted = 0.28,
     StatusApplied = 0.12,
     StatusTick = 0.12,
     SecretDiscovered = 0.48,

@@ -1968,6 +1968,7 @@ function Game.submit(state, intent)
                 state.card_trial.knight_boots=true;chest.claimed=true;chest.blocks_movement=false
                 reward_emit('TechniqueUpgradeGranted',{upgrade_id=offer.upgrade_id},state.player_id)
                 reward_emit('ChestClaimed',{chest_id=chest.id,upgrade_id=offer.upgrade_id,
+                    reward_icon=CardTrial.content.upgrade.icon,
                     offer_index=intent.offer_index,floor_id=chest.position.floor_id,x=chest.position.x,y=chest.position.y},state.player_id)
             else Rewards.claim(state,chest,intent.offer_index,reward_emit)end
             drain_effects(state,output)

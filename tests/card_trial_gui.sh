@@ -1,6 +1,7 @@
 #!/bin/sh
 # Real game callbacks, source crops and disk-isolation check; disposable app/data.
 set -eu
+readme_hash=$(sha256sum "$(dirname "$0")/../README.md" | cut -d ' ' -f 1)
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 output=${1:-$(mktemp -d "${TMPDIR:-/tmp}/roag-card-gui-XXXXXX")}
 mkdir -p "$output/app/src" "$output/app/assets" "$output/app/tests" "$output/data/love/roag-foundation"
@@ -47,3 +48,6 @@ print((r/'gui-results.txt').read_text())
 print('PASS normal active run, profile and presentation files unchanged')
 print('Screenshots and action receipts:',r)
 PY
+test "$readme_hash" = "$(sha256sum "$project_dir/README.md" | cut -d ' ' -f 1)"
+printf '%s\n' 'PASS README hash unchanged'
+

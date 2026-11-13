@@ -264,5 +264,38 @@ test('trial persistence rejection performs zero writes; ordinary save/restore/ac
  submit(restored,{kind='move',dx=1,dy=0});submit(restored,{kind='basic_attack',dx=1,dy=0});submit(restored,{kind='wait'})
  assert(restored.clock==300);unchanged(restored,{kind='technique',card_id=1,x=3,y=2})
 end)
+local function input_fixture(s)
+ local U=require('src.card_trial_ui')
+ U.attach({state=function()return s end,busy=function()return false end,inspection=function()return false end,
+  target=function()end,setup=function()end,start=function()end,
+  submit=function(i)return G.submit(s,i)end,cell=function(x,y)return x,y end})
+ U.open(202);U.start();return U
+end
+test('direct keyboard bump uses ordinary move/bump semantics and retains the hand',function()
+ local s=fresh();near(s,{{6,7},{9,3},{9,4}})
+ local expected=G.snapshot(s);submit(expected,basic(0,-1))
+ local U=input_fixture(s);U.keypressed('w');same(expected,s)
+ assert(s.last_action.bump and s.last_action.kind=='basic_attack')
+end)
+test('Replace hit region cannot activate Mend or leak into the board',function()
+ local s=fresh();quiet(s);G.player(s).hp=12
+ local expected=G.snapshot(s);submit(expected,{kind='replace_card',card_id=9})
+ local U=input_fixture(s);U.mousemoved(920,310);U.mousepressed(920,310,1);same(expected,s)
+ assert(G.player(s).hp==12 and s.card_trial.healing_charges==2)
+ local before=G.snapshot(s);U.mousepressed(1001,310,1);same(before,s)
+end)
+test('keyboard focus and cancellation show targets without advancing the model',function()
+ local s=fresh();quiet(s);local U=input_fixture(s);local before=G.snapshot(s)
+ U.keypressed('1');assert(U.armed==1 and #U.targets==4)
+ U.keypressed('right');assert(U.preview.valid and U.preview.landing.x==8)
+ U.keypressed('escape');same(before,s);assert(not U.armed)
+ U.keypressed('tab');assert(U.hover==5 and #U.targets==8);same(before,s)
+end)
+test('Knight Boots reward keeps chest feedback and a presentation input gate',function()
+ local s=fresh();resolve_first(s);local e=submit(s,{kind='trial_reward',offer_index=1})
+ local P=require('src.playback');local p=P.new();P.add(p,e,s.player_id);assert(P.busy(p))
+ local J=require('src.visual_juice');local j=J.new();J.add(j,e,s.player_id,s.active_floor_id,true)
+ assert(#j.items==1 and j.items[1].binding==C.upgrade.icon)
+end)
 print(('Card Trial: %d passed, %d failed'):format(passed,failed))
 if failed>0 then os.exit(1)end

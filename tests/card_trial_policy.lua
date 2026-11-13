@@ -22,7 +22,7 @@ local function distance(s)
    end
   end
  end end
- return best
+ return best==100 and 0 or best
 end
 function P.choose(s)
  local candidates={}
@@ -44,7 +44,7 @@ function P.choose(s)
  if preview.valid and not (i.action=='move' and preview.bump)then
   local probe=G.snapshot(s);local ok,_,e=G.submit(probe,i);assert(ok)
   local hp,n=enemies(probe);local p=G.player(probe)
-  local score=(old_hp-hp)*2+(old_n-n)*9-(old_p-p.hp)*5+(old_d-distance(probe))*1.1-(probe.clock-s.clock)*.003
+  local score=(old_hp-hp)*3+(old_n-n)*12-(old_p-p.hp)*1.5+(old_d-distance(probe))*3-(probe.clock-s.clock)*.003
   if i.kind=='technique'then score=score-.2 end
   if i.kind=='replace_card'then score=score-2 end
   if i.action=='basic_attack' and hp==old_hp then score=score-3 end
