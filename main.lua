@@ -2544,6 +2544,7 @@ local function draw_combat_numbers()
 end
 
 local function draw_preview()
+    if require('src.card_trial_ui').draw_preview()then return end
     if not targeting or targeting.dx == nil then return end
     local preview = targeting.card_intent and Game.card_preview(state,targeting.card_intent)
         or Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps,targeting)
@@ -3044,7 +3045,8 @@ local function draw_world()
     draw_minimap()
     love.graphics.setScissor()
     require('src.card_trial_ui').draw_sidebar()
-    if chest_menu then
+    if chest_menu and state.card_trial then require('src.card_trial_ui').draw_reward()
+    elseif chest_menu then
         PixelUI.dim(.55)
         menu_frame(chest_menu.name,80,120,472,360,ui_display_font)
         menu_frame('DETAILS',568,120,376,360,ui_display_font)
@@ -3891,6 +3893,7 @@ function love.mousepressed(x,y,button,istouch,presses)
     end
 end
 function love.mousemoved(x,y)
+    if require('src.card_trial_ui').mousemoved(x,y)then return end
     update_volume_drag(x)
 end
 function love.mousereleased(x,y,button)
@@ -3961,6 +3964,12 @@ require('src.card_trial_ui').attach({
     end,
     hide_reward=function()chest_menu=nil end,
     fonts=function()return ui_body_font,ui_menu_font,ui_display_font end,
+    screen=function(x,y)return Camera.tile_top_left(camera,x,y)end,
+    ghost=function(x,y)
+        local sx,sy=Camera.tile_top_left(camera,x,y)
+        local art=actor_visual(Game.player(state).definition_id,state.player_id)
+        draw_visual(art,sx,sy,TILE,TILE,.38,player_facing==-1)
+    end,
     visual=function(binding,x,y,w,h)draw_visual(bound_visual(binding),x,y,w,h)end,
     cell=function(x,y)
         if x<VIEWPORT.x or x>=VIEWPORT.x+VIEWPORT.width or y<VIEWPORT.y or y>=VIEWPORT.y+VIEWPORT.height then return end

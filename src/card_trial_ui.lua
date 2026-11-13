@@ -327,3 +327,159 @@ function U.draw_overlay()
     Pixel.option('P  Choose another preset',272,396,480,false,menu)
     Pixel.option('T  Return to title',272,444,480,false,menu)
 end
+local function cost_for(def)
+    local s=host.state();local p=Game.player(s);local base=Classes.for_player(p).costs[def.action=='knight_hop' and 'dash' or def.action] or 100
+    return Game.effective_cost(base,p.speed+Boons.speed_bonus(s,p))
+end
+function U.draw_sidebar()
+    if not U.active()then return end
+    local s=host.state();local t=s.card_trial;local body,menu,display=host.fonts();local g=love.graphics
+    Pixel.frame('CARD TRIAL',656,22,352,514,display)
+    text(C.presets[t.preset].name..' · seed '..t.seed,672,52,body)
+    text('Fight '..t.fight..'/2 · '..C.fights[t.fight].name,672,72,body)
+    text(t.healing_charges==0 and 'MEND EXHAUSTED · card retired' or 'Mend charges: '..t.healing_charges..'/2 · both fights',672,92,body)
+    text('Step: WASD/arrows or adjacent click.\nStrike: click adjacent foe, or F to aim.',672,112,body,Pixel.colors.text,320)
+    text('TECHNIQUES · hover to inspect · 1 / 2 / 3',672,148,body,Pixel.colors.muted)
+    for slot,id in ipairs(t.cards.hand)do
+        local def,c=Cards.card(t.cards,id);local x=672+(slot-1)*108
+        local active=U.armed==id;local focused=U.hover==id or slot==U.focus
+        g.setColor(active and Pixel.colors.selected or focused and Pixel.colors.text or Pixel.colors.edge)
+        g.rectangle('fill',x,168,100,160);g.setColor(.065,.065,.065);g.rectangle('fill',x+2,170,96,156)
+        text(slot..' '..def.name,x+4,176,body,active and Pixel.colors.selected or Pixel.colors.text,94)
+        host.visual(def.icon,x+34,207,32,32)
+        local summary=({dash='Up to 2 tiles\nStraight line',knight_hop='L-shaped jump\nIgnores middle',sweep='3-cell arc\n3 base damage',mend='Restore 4 HP\n1 charge'})[c.kind]
+        if c.kind=='mend' and Game.player(s).hp==Game.player(s).max_hp then summary='Restore 4 HP\nFull health'end
+        text(summary,x+5,246,body,Pixel.colors.text,90)
+        g.setColor(U.replacing and U.hover==id and Pixel.colors.text or Pixel.colors.edge)
+        g.rectangle('line',x+4,296,92,28)
+        text('Replace',x+12,304,body,Pixel.colors.text)
+        if active then text('ARMED',x+20,282,body,Pixel.colors.selected)end
+    end
+    local id=U.hover or U.armed;local def=id and Cards.card(t.cards,id)
+    if def then
+        text(U.replacing and 'Replace '..def.name or def.name,672,344,menu,Pixel.colors.selected)
+        local description=U.replacing and 'Discard this card and draw one. Enemies and scheduled effects advance.' or def.description
+        text(description,672,368,body,Pixel.colors.text,320)
+        local cost=U.preview and U.preview.cost or cost_for(def)
+        text('Time '..cost..(U.replacing and ' · one Wait' or def.heal and ' · 1 healing charge' or ' · enemies advance'),672,418,body)
+        local detail
+        if U.replacing then detail='Click Replace (or R) to pay and exchange.'
+        elseif def.heal then
+            detail=U.preview and not U.preview.valid and U.preview.reason or 'Recover '..(U.preview and U.preview.heal or 0)..' HP. Click card to Mend.'
+        elseif U.preview and U.aim and not U.preview.valid then detail=U.preview.reason
+        elseif U.preview and U.preview.landing then
+            local l=U.preview.landing;local terrain=Terrain.at(Content.map_for(s),l.x,l.y)
+            detail='Landing '..l.x..','..l.y..': '..(terrain and terrain.name or 'Floor')
+            if terrain and terrain.contact_damage then detail=detail..' · contact damage '..terrain.contact_damage end
+        elseif U.armed then detail=def.action=='knight_hop' and 'Click a landing. Arrows cycle; Enter jumps.' or 'Click highlighted target. Directions aim; Enter plays.'
+        else detail='Select card, then click a highlighted target.'end
+        text(detail,672,442,body,Pixel.colors.muted,320)
+    else
+        text(U.basic_aim and 'Strike ready' or 'Step & Strike ready',672,344,menu,Pixel.colors.selected)
+        text(U.message or 'Move now, or hover a technique.',672,370,body,Pixel.colors.text,320)
+        if U.preview then
+            text(U.preview.valid and ('Time '..U.preview.cost..' · keeps all technique cards') or U.preview.reason,672,418,body,Pixel.colors.muted,320)
+        end
+        if t.phase=='reward'then Pixel.option('REOPEN REWARD',672,448,320,true,body)end
+    end
+    text(('Draw %d · Discard %d · Retired %d'):format(#t.cards.draw,#t.cards.discard,#t.cards.retired),672,488,body)
+    text('I  Boons / Stats',672,516,body);text('Esc  Trial menu',850,516,body)
+end
+function U.draw_hud()
+    local s=host.state();local p=Game.player(s);local body,menu=host.fonts();local g=love.graphics
+    g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
+    g.setColor(Pixel.colors.edge);g.rectangle('fill',16,544,992,2)
+    text(('HP %d/%d'):format(p.hp,p.max_hp),28,550,menu)
+    text('TIME '..s.clock,206,550,menu);text('FIGHT '..s.card_trial.fight..'/2',398,550,menu);text('SEED '..s.card_trial.seed,590,550,menu)
+    g.setColor(Pixel.colors.edge);g.rectangle('line',28,570,154,7)
+    g.setColor(Pixel.colors.text);g.rectangle('fill',29,571,152*p.hp/p.max_hp,5)
+    local gain=U.preview and U.preview.heal or 0
+    if gain>0 then
+        local left=29+152*p.hp/p.max_hp;local width=152*gain/p.max_hp
+        g.setColor(1,.85,.5);g.rectangle('fill',left,571,width,5)
+        text('Mend +'..gain,206,569,body,Pixel.colors.selected)
+        text('1 charge -> '..(s.card_trial.healing_charges-1)..' left',398,569,body)
+    end
+    local incoming={}
+    for _,strike in ipairs(Game.pending_strikes(s))do incoming[#incoming+1]=Content.ability_name(strike.ability_id)..' in '..math.max(0,strike.due-s.clock)end
+    local line=host.busy() and 'RESOLVING · input locked' or #incoming>0 and 'INCOMING: '..table.concat(incoming,' / ') or 'Step: WASD/arrows · click foe: Strike · cards 1-3 · Tab inspect · R Replace · Esc cancel'
+    text(line,28,582,body)
+    text(U.last_boon or 'Hollow circles: possible targets · inner outline: exact effect · ghost: landing',28,601,body,Pixel.colors.selected,960)
+end
+local function marker(c,mode)
+    local x,y=host.screen(c.x,c.y);local g=love.graphics
+    if mode=='possible'then
+        g.setColor(.78,.78,.78,.8);g.circle('line',x+24,y+24,8)
+    else
+        g.setColor(mode=='invalid' and {1,.35,.28,.9} or {1,.9,.65,.95})
+        g.rectangle('line',x+5,y+5,38,38)
+    end
+end
+function U.draw_preview()
+    if not U.active()then return false end
+    if host.busy() or U.menu or U.help or host.inspection() or host.state().card_trial.phase~='combat'then return true end
+    for _,t in ipairs(U.targets or {})do marker(t,'possible')end
+    local p=U.preview
+    if U.aim and p then
+        if p.valid then
+            local kind=p.intent.kind
+            if p.landing then
+                if not p.jump then
+                    for i=1,p.distance do
+                        local c=p.cells[i];local x,y=host.screen(c.x,c.y);local g=love.graphics
+                        g.setColor(.5,.8,.65,.65);g.rectangle('line',x+12,y+12,24,24)
+                    end
+                end
+                marker(p.landing,'exact');host.ghost(p.landing.x,p.landing.y)
+            else for _,cell in ipairs(p.cells)do marker(cell,'exact')end end
+            for _,cell in ipairs(p.boon_cells or {})do
+                local x,y=host.screen(cell.x,cell.y);love.graphics.setColor(.7,.7,.7,.7);love.graphics.circle('line',x+24,y+24,16)
+            end
+            if kind=='basic_attack' or kind=='sweeping_slash' or p.bump then
+                for _,hit in ipairs(U.forecast or {})do
+                    local x,y=host.screen(hit.x,hit.y);local body=host.fonts()
+                    text('HIT '..hit.loss,x+3,y+32,body,Pixel.colors.selected)
+                end
+                local body=host.fonts();text('Primary HP loss shown · boon chains / later ticks extra',72,524,body,Pixel.colors.text)
+            end
+        else
+            local c=U.aim.x and {x=U.aim.x,y=U.aim.y}
+            if c then marker(c,'invalid')end
+        end
+    end
+    return true
+end
+local function pattern(cx,cy,kind,scale)
+    local g=love.graphics;g.setColor(Pixel.colors.muted)
+    for y=-2,2 do for x=-2,2 do g.rectangle('line',cx+x*scale,cy+y*scale,scale-2,scale-2)end end
+    g.setColor(Pixel.colors.text);g.rectangle('fill',cx+2,cy+2,scale-6,scale-6)
+    local points=kind=='knight_hop' and C.knight_offsets or {{0,-2},{2,0},{0,2},{-2,0}}
+    for _,p in ipairs(points)do g.rectangle('fill',cx+p[1]*scale+3,cy+p[2]*scale+3,scale-8,scale-8)end
+end
+function U.draw_reward()
+    if not U.active() or host.state().card_trial.phase~='reward' or U.reward_hidden then return end
+    local s=host.state();local offers=C.rewards;local body,menu,display=host.fonts()
+    Pixel.dim(.55);Pixel.frame('CARD TRIAL · CHOOSE ONE',80,120,472,360,display);Pixel.frame('DETAILS',568,120,376,360,display)
+    for i,o in ipairs(offers)do
+        local name=o.upgrade_id and C.upgrade.name or Catalog.get(o.boon_id).name
+        local icon=o.upgrade_id and C.upgrade.icon or o.boon_id..'/icon'
+        host.visual(icon,104,178+(i-1)*76,32,32)
+        Pixel.option(i..'. '..name,146,178+(i-1)*76,376,U.reward_selection==i,menu)
+        Pixel.center(o.upgrade_id and 'TECHNIQUE UPGRADE' or 'RARE',202+(i-1)*76,body,Pixel.colors.muted,146,376)
+    end
+    local o=offers[U.reward_selection]
+    if o.upgrade_id then
+        host.visual(C.upgrade.icon,724,146,48,48)
+        Pixel.center(C.upgrade.name,206,menu,Pixel.colors.selected,584,344)
+        text(C.upgrade.description..' Jump in an L; ignores intervening tiles. Free landing required.',592,238,body,Pixel.colors.text,328)
+        pattern(660,354,'dash',16);pattern(844,354,'knight_hop',16)
+        text('Dash',636,402,body);text('Knight Hop',804,402,body)
+    else
+        host.visual(o.boon_id..'/icon',724,152,64,64)
+        Pixel.center(Catalog.get(o.boon_id).name,230,menu,Pixel.colors.selected,584,344)
+        text(Catalog.offer_text(o.boon_id,o.rarity),592,266,menu,Pixel.colors.text,328)
+    end
+    Pixel.option('Enter claim',584,446,344,true,menu)
+    Pixel.center('Free · 1/2/3 or click choose · Enter claim · Esc close',516,body,Pixel.colors.muted)
+end
+return U
