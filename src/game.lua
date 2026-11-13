@@ -35,7 +35,6 @@ local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
 local World = require("src.world")
 local CardTrial = require('src.card_trial')
-local Cards = require('src.cards')
 
 local Game = {}
 local SCHEMA = "roag-run/11"
@@ -1954,6 +1953,8 @@ function Game.submit(state, intent)
     if type(intent) ~= "table" then return false, "invalid intent", {} end
     local card_plan
     if state.card_trial then
+        local handled,ok,why=CardTrial.bookkeeping(state,intent,Game.spawn_enemy)
+        if handled then return ok,why,{} end
         if intent.kind=='trial_reward' then
             local chest,why=CardTrial.reward(state,intent.offer_index)
             if not chest then return false,why,{} end
@@ -1964,7 +1965,6 @@ function Game.submit(state, intent)
             local function reward_emit(kind,fields,source)emit(state,output,kind,fields,source,action_id)end
             local offer=chest.offers[intent.offer_index]
             if offer.upgrade_id then
-                Cards.knight_boots(state.card_trial.cards)
                 state.card_trial.knight_boots=true;chest.claimed=true;chest.blocks_movement=false
                 reward_emit('TechniqueUpgradeGranted',{upgrade_id=offer.upgrade_id},state.player_id)
                 reward_emit('ChestClaimed',{chest_id=chest.id,upgrade_id=offer.upgrade_id,
@@ -1974,9 +1974,9 @@ function Game.submit(state, intent)
             drain_effects(state,output)
             -- Reinforcements enter the SAME arena and clock. Retain all player
             -- effects, delayed work, card state, HP and remaining resources.
-            state.card_trial.fight=2;state.card_trial.phase='combat'
             state.card_trial.reward_claimed=true
-            CardTrial.spawn_fight(state,Game.spawn_enemy)
+            if state.card_trial.mode=='fixed'then CardTrial.begin_second(state,Game.spawn_enemy)
+            else state.card_trial.phase='deck_reward' end
             state.last_action={kind='trial_reward',time=state.clock,cost=0}
             contexts[output]=nil
             return true,nil,output
@@ -1984,7 +1984,9 @@ function Game.submit(state, intent)
         card_plan=Game.card_preview(state,intent)
         if not card_plan.valid then return false,card_plan.reason,{},card_plan end
         intent=card_plan.intent
-    elseif intent.kind=='card_action' or intent.kind=='technique' or intent.kind=='replace_card'
+    elseif intent.kind=='trial_action' or intent.kind=='cash_hand' or intent.kind=='exchange_cards'
+        or intent.kind=='retain_cards' or intent.kind=='trial_deck_reward'
+        or intent.kind=='card_action' or intent.kind=='technique' or intent.kind=='replace_card'
         or intent.kind=='trial_basic' or intent.kind=='knight_hop' or intent.kind=='trial_reward' or intent.kind=='trial_heal' then
         return false,'This action requires Card Trial',{}
     end
@@ -2096,14 +2098,10 @@ function Game.submit(state, intent)
         or (preview.door_id and "open_door")
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
-    if card_plan and card_plan.card_id then
-        local retire=kind=='trial_heal' and state.card_trial.healing_charges==1
-        Cards.consume(state.card_trial.cards,card_plan.card_id,retire)
-        state.card_trial.commits=state.card_trial.commits+1
-        action.card_id=card_plan.card_id
-        emit(state,output,card_plan.replace and 'CardReplaced' or 'CardTechniqueCommitted',{card_id=action.card_id,
-            technique=kind,floor_id=position.floor_id},player.id,action_id)
-        if retire then emit(state,output,'TechniqueRetired',{card_id=action.card_id,reason='healing_exhausted'},player.id,action_id)end
+    if card_plan then
+        CardTrial.pay(state,card_plan)
+        action.stamina_cost=card_plan.stamina_cost
+        action.recover=card_plan.recover or nil
     end
     if preview.vow then
         local before=player.hp
@@ -2397,6 +2395,7 @@ function Game.submit(state, intent)
         CardTrial.after_action(state,function(kind,fields,source)
             emit(state,output,kind,fields,source,action_id)
         end)
+        if card_plan.recover then CardTrial.finish_recover(state)end
     end
     contexts[output] = nil
     return true, nil, output

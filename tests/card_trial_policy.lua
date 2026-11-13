@@ -1,7 +1,7 @@
--- Test-only legal-input policy. Copies the model for one-step scoring; never
--- modifies the live game, its hand, actors, rewards or schedule to win.
+-- Test-only one-action policy. Legal commands use the production resolver on copies.
 local G=require('src.game')
 local Cards=require('src.cards')
+local Poker=require('src.poker')
 local Content=require('src.content')
 local P={}
 local dirs={{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}}
@@ -25,34 +25,34 @@ local function distance(s)
  return best==100 and 0 or best
 end
 function P.choose(s)
+ if s.card_trial.resource_phase=='prepare'then return {kind='cash_hand'}end
  local candidates={}
  for _,d in ipairs(dirs)do
-  candidates[#candidates+1]={kind='trial_basic',action='move',dx=d[1],dy=d[2]}
-  candidates[#candidates+1]={kind='trial_basic',action='basic_attack',dx=d[1],dy=d[2]}
+  candidates[#candidates+1]={kind='trial_action',action='move',dx=d[1],dy=d[2]}
+  candidates[#candidates+1]={kind='trial_action',action='strike',dx=d[1],dy=d[2]}
  end
- for _,id in ipairs(s.card_trial.cards.hand)do
-  local def=Cards.card(s.card_trial.cards,id)
-  if def.heal then candidates[#candidates+1]={kind='technique',card_id=id}
-  else for _,at in ipairs(G.card_targets(s,{kind='technique',card_id=id}))do
-   candidates[#candidates+1]={kind='technique',card_id=id,x=at.x,y=at.y}
-  end end
-  candidates[#candidates+1]={kind='replace_card',card_id=id}
- end
+ for _,a in ipairs({'dash','sweep'})do for _,at in ipairs(G.card_targets(s,{kind='trial_action',action=a}))do
+  candidates[#candidates+1]={kind='trial_action',action=a,x=at.x,y=at.y}
+ end end
+ candidates[#candidates+1]={kind='trial_action',action='mend'}
+ candidates[#candidates+1]={kind='trial_action',action='recover'}
  local old_hp,old_n=enemies(s);local old_p=G.player(s).hp;local old_d=distance(s)
  local best,best_score,best_state,best_events
  for _,i in ipairs(candidates)do local preview=G.card_preview(s,i)
- if preview.valid and not (i.action=='move' and preview.bump)then
-  local probe=G.snapshot(s);local ok,_,e=G.submit(probe,i);assert(ok)
-  local hp,n=enemies(probe);local p=G.player(probe)
-  local score=(old_hp-hp)*3+(old_n-n)*12-(old_p-p.hp)*1.5+(old_d-distance(probe))*3-(probe.clock-s.clock)*.003
-  if i.kind=='technique'then score=score-.2 end
-  if i.kind=='replace_card'then score=score-2 end
-  if i.action=='basic_attack' and hp==old_hp then score=score-3 end
-  if G.card_preview(s,i).heal then score=score-9 end
-  if p.hp<=0 then score=score-10000 end
-  if probe.card_trial.phase=='reward' or probe.card_trial.phase=='victory'then score=score+50 end
-  if not best or score>best_score then best,best_score,best_state,best_events=i,score,probe,e end
- end end
+  if preview.valid and not (i.action=='move' and preview.bump)then
+   local probe=G.snapshot(s);local ok,_,e=G.submit(probe,i);assert(ok)
+   local hp,n=enemies(probe);local p=G.player(probe)
+   local budget=probe.card_trial.stamina
+   if probe.card_trial.resource_phase=='prepare'then budget=Poker.best(probe.card_trial.cards,probe.card_trial.cards.hand).stamina end
+   local score=(old_hp-hp)*3+(old_n-n)*12-(old_p-p.hp)*2+(old_d-distance(probe))*3-(probe.clock-s.clock)*.003+budget*.6
+   if i.action=='strike' and hp==old_hp then score=score-3 end
+   if i.action=='mend'then score=score-7 end
+   if i.action=='recover'then score=score-1 end
+   if p.hp<=0 then score=score-10000 end
+   if probe.card_trial.phase=='reward' or probe.card_trial.phase=='victory'then score=score+50 end
+   if not best or score>best_score then best,best_score,best_state,best_events=i,score,probe,e end
+  end
+ end
  assert(best,'no legal action');return best,best_state,best_events
 end
 return P

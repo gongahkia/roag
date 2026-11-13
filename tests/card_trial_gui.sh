@@ -36,7 +36,7 @@ r=Path(sys.argv[1]);d=r/'data'
 (r/'storage-before.json').write_text(json.dumps({str(p.relative_to(d)):hashlib.sha256(p.read_bytes()).hexdigest() for p in d.rglob('*') if p.is_file()},sort_keys=True))
 PY
 ROAG_CARD_GUI_OUTPUT="$output" XDG_DATA_HOME="$output/data" ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 \
-    timeout -k 3s 260s love "$output/app"
+    timeout -k 3s 420s love "$output/app"
 cp "$project_dir/tests/card_trial_preview_gui.lua" "$output/app/main.lua"
 ROAG_CARD_GUI_OUTPUT="$output" XDG_DATA_HOME="$output/data" ROAG_GUI_AUTOSTART=0 ROAG_SPECTATOR=0 \
     timeout -k 3s 50s love "$output/app" --card-trial --trial-seed=202

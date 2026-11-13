@@ -417,10 +417,11 @@ end
 
 function love.load(args)
     -- An argument also works when a launcher does not forward shell variables.
-    local trial_requested,trial_seed=false,require('src.card_trial_content').seed
+    local trial_requested,trial_seed,trial_mode=false,require('src.card_trial_content').seed,'poker'
     for _,argument in ipairs(args or {})do
         if argument=='--spectator' then spectator_enabled=true end
         if argument=='--card-trial' then trial_requested=true end
+        if argument=='--fixed-stamina' then trial_requested=true;trial_mode='fixed'end
         local value=argument:match('^%-%-trial%-seed=(%d+)$')
         if value then trial_seed=tonumber(value);require('src.rng').new(trial_seed)end
     end
@@ -459,7 +460,7 @@ function love.load(args)
     visual_signature=visual_fingerprint(visual_assets,world_pack)
     Generation.install_studio_pack(world_pack)
     if trial_requested then
-        require('src.card_trial_ui').open(trial_seed)
+        require('src.card_trial_ui').open(trial_seed,trial_mode)
     elseif spectator_enabled then
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
@@ -808,6 +809,7 @@ local function submit(intent)
     local committed, reason, events, preview = Game.submit(state, intent)
     if committed then
         if state.card_trial then require('src.card_trial_ui').on_events(events)end
+        if state.card_trial and #events==0 then return true end -- hand bookkeeping has no world action/playback
         if old_floor~=state.active_floor_id then
             playback=Playback.new() -- historical attacks belong to the retired floor.
             combat_numbers=CombatNumbers.new()
@@ -3932,8 +3934,8 @@ require('src.card_trial_ui').attach({
         inventory_open=false;boon_detail_id=nil;pause_menu=false;help_open=false
         persistence_message='';playback=Playback.new()
     end,
-    start=function(seed,preset)
-        state=require('src.card_trial').new(Game,seed,preset)
+    start=function(seed,preset,mode)
+        state=require('src.card_trial').new(Game,seed,preset,mode)
         VIEWPORT.width,VIEWPORT.height=624,528
         title=false;pause_menu=false;pause_settings=false;confirm_reset_seed=nil
         targeting=nil;chest_menu=nil;route_menu=nil;boon_detail_id=nil

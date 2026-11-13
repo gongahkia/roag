@@ -15,11 +15,12 @@ end
 function T.new(...)
  local s=original_new(...);fixture=s
  for _,e in ipairs(s.entities)do if e.controller=='ai'then S.remove_for_actor(s,e.id)end end
+ assert(G.submit(s,{kind='cash_hand'}));s.card_trial.stamina=8 -- funded renderer fixture
  local p=G.player(s);p.position.x,p.position.y=5,7
  local points={{4,7},{5,6},{9,3}}
  if mode==2 then
   p.position.x,p.position.y=5,6;points={{6,4},{8,5},{2,2}}
-  Cards.knight_boots(s.card_trial.cards);s.card_trial.knight_boots=true
+  s.card_trial.knight_boots=true
   B.set_stacks(p,'core:boon/pulse_step','rare',1)
   B.set_stacks(p,'core:boon/phantom_lunge','rare',1)
   tile(s,7,5,'b')
@@ -33,7 +34,7 @@ end
 local submit=G.submit
 function G.submit(s,i)
  local ok,why,e,p=submit(s,i)
- if s==fixture and ok then last_events=e;commits=commits+1 end
+ if s==fixture and ok and i.kind=='trial_action' then last_events=e;commits=commits+1 end
  return ok,why,e,p
 end
 assert(love.filesystem.load('roag_main.lua'))()
@@ -53,15 +54,15 @@ function love.update(dt)
  if love.roagPlaybackPending()then return end
  local U=require('src.card_trial_ui')
  if stage==0 then
-  local before=snap();love.mousemoved(820,220);key('2');love.mousemoved(cell(4,6));same(before,snap())
+  local before=snap();love.mousemoved(910,414);key('r');love.mousemoved(cell(4,6));same(before,snap())
   assert(U.preview.valid and #U.preview.cells==3 and #U.forecast==2 and U.forecast[1].loss==2)
   shot('sweep-primary-preview');stage=1
  elseif stage==1 then
-  local x,y=cell(4,6);love.mousepressed(x,y,1);assert(commits==1 and snap().clock==150)
+  local x,y=cell(4,6);love.mousepressed(x,y,1);assert(commits==1 and snap().clock==150 and snap().card_trial.stamina==5)
   shot('sweep-after');stage=2
  elseif stage==2 then
   mode=2;U.open(202);key('2');key('return');assert(snap().card_trial.knight_boots)
-  local before=snap();love.mousemoved(710,220);key('1');love.mousemoved(cell(7,5));same(before,snap())
+  local before=snap();love.mousemoved(748,414);key('x');love.mousemoved(cell(7,5));same(before,snap())
   assert(U.preview.jump and #U.preview.cells==1 and U.preview.landing.x==7)
   shot('pillar-hop-preview');stage=3
  elseif stage==3 then
@@ -70,7 +71,7 @@ function love.update(dt)
   shot('pillar-hop-invalid');stage=4
  elseif stage==4 then
   local x,y=cell(7,5);love.mousemoved(x,y);love.mousepressed(x,y,1)
-  local s=snap();assert(commits==2 and s.clock==130 and G.player(s).hp==23 and s.currency==3)
+  local s=snap();assert(commits==2 and s.clock==130 and G.player(s).hp==23 and s.currency==3 and s.card_trial.stamina==6)
   assert(G.player(s).position.x==7 and G.player(s).position.y==5)
   local entered,moved,pulse,rhythm,path=0,0,0,0,0
   for _,e in ipairs(last_events)do
