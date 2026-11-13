@@ -249,7 +249,10 @@ function Rewards.validate_chest(chest)
 end
 
 function Rewards.chest_options(state, chest)
-    Rewards.validate_chest(chest)
+    -- Only the in-memory trial reward contains a non-boon technique upgrade.
+    if not (state.card_trial and chest.trial_reward and chest.id==state.card_trial.reward_id)then
+        Rewards.validate_chest(chest)
+    end
     if chest.claimed then return nil, "chest already claimed" end
     local actor = player(state)
     local a, b = actor.position, chest.position

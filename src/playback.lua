@@ -100,7 +100,7 @@ local function motion(event)
         path[#path+1] = {x=event.x, y=event.y}
     end
     -- Multi-cell displacement has no authoritative traversed path.
-    local snap = event.kind == "Displaced" and
+    local snap = (event.kind == "Displaced" or event.movement_kind=='jump') and
         math.abs(event.x-event.from_x)+math.abs(event.y-event.from_y) > 1
     return id, {floor_id=event.floor_id, path=path, snap=snap}
 end

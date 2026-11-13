@@ -517,6 +517,9 @@ end
 function Game.card_preview(state,intent)
     return CardTrial.preview(state,intent,Game.preview,Game.effective_cost)
 end
+function Game.card_targets(state,intent)
+    return CardTrial.targets(state,intent,Game.card_preview)
+end
 
 function Game.chest_options(state, chest_id)
     local chest = Game.entity(state, chest_id)
@@ -1958,9 +1961,15 @@ function Game.submit(state, intent)
             contexts[output]={events={},event_head=1,effects={},effect_head=1}
             local action_id=state.next_action_id
             state.next_action_id=action_id+1
-            Rewards.claim(state,chest,intent.offer_index,function(kind,fields,source)
-                emit(state,output,kind,fields,source,action_id)
-            end)
+            local function reward_emit(kind,fields,source)emit(state,output,kind,fields,source,action_id)end
+            local offer=chest.offers[intent.offer_index]
+            if offer.upgrade_id then
+                Cards.knight_boots(state.card_trial.cards)
+                state.card_trial.knight_boots=true;chest.claimed=true;chest.blocks_movement=false
+                reward_emit('TechniqueUpgradeGranted',{upgrade_id=offer.upgrade_id},state.player_id)
+                reward_emit('ChestClaimed',{chest_id=chest.id,upgrade_id=offer.upgrade_id,
+                    offer_index=intent.offer_index,floor_id=chest.position.floor_id,x=chest.position.x,y=chest.position.y},state.player_id)
+            else Rewards.claim(state,chest,intent.offer_index,reward_emit)end
             drain_effects(state,output)
             -- Reinforcements enter the SAME arena and clock. Retain all player
             -- effects, delayed work, card state, HP and remaining resources.
@@ -1974,7 +1983,8 @@ function Game.submit(state, intent)
         card_plan=Game.card_preview(state,intent)
         if not card_plan.valid then return false,card_plan.reason,{},card_plan end
         intent=card_plan.intent
-    elseif intent.kind=='card_action' or intent.kind=='trial_reward' or intent.kind=='trial_heal' then
+    elseif intent.kind=='card_action' or intent.kind=='technique' or intent.kind=='replace_card'
+        or intent.kind=='trial_basic' or intent.kind=='knight_hop' or intent.kind=='trial_reward' or intent.kind=='trial_heal' then
         return false,'This action requires Card Trial',{}
     end
     if intent.vow~=nil and type(intent.vow)~='boolean' then
@@ -2054,7 +2064,7 @@ function Game.submit(state, intent)
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
-    elseif intent.kind=='trial_heal' and card_plan then
+    elseif (intent.kind=='trial_heal' or intent.kind=='knight_hop') and card_plan then
         preview=card_plan
     elseif intent.kind=='interact'then
         preview=Interactions.preview(state,intent)
@@ -2085,12 +2095,14 @@ function Game.submit(state, intent)
         or (preview.door_id and "open_door")
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
-    if card_plan then
-        Cards.spend(state.card_trial.cards,card_plan.selection)
+    if card_plan and card_plan.card_id then
+        local retire=kind=='trial_heal' and state.card_trial.healing_charges==1
+        Cards.consume(state.card_trial.cards,card_plan.card_id,retire)
         state.card_trial.commits=state.card_trial.commits+1
-        action.cards=copy(card_plan.selection.ids);action.recipe=card_plan.recipe
-        emit(state,output,'CardTechniqueCommitted',{cards=action.cards,recipe=action.recipe,
+        action.card_id=card_plan.card_id
+        emit(state,output,card_plan.replace and 'CardReplaced' or 'CardTechniqueCommitted',{card_id=action.card_id,
             technique=kind,floor_id=position.floor_id},player.id,action_id)
+        if retire then emit(state,output,'TechniqueRetired',{card_id=action.card_id,reason='healing_exhausted'},player.id,action_id)end
     end
     if preview.vow then
         local before=player.hp
@@ -2114,6 +2126,16 @@ function Game.submit(state, intent)
         emit(state,output,'TileEntered',{floor_id=position.floor_id,from_x=x,from_y=y,x=b.x,y=b.y,forced=true},player.id,action_id)
         Rewards.pickup_at(state,player,b.x,b.y,function(kind,fields,source_id)emit(state,output,kind,fields,source_id,action_id)end)
         emit(state,output,'BeaconReturned',{floor_id=position.floor_id,x=b.x,y=b.y},player.id,action_id)
+    elseif kind=='knight_hop' then
+        local from_x,from_y=position.x,position.y
+        position.x,position.y=preview.landing.x,preview.landing.y
+        action.dx,action.dy=intent.dx,intent.dy
+        emit(state,output,'Moved',{floor_id=position.floor_id,from_x=from_x,from_y=from_y,
+            x=position.x,y=position.y,ability_id='trial:ability/knight_hop',movement_kind='jump'},player.id,action_id)
+        emit(state,output,'TileEntered',{floor_id=position.floor_id,from_x=from_x,from_y=from_y,
+            x=position.x,y=position.y,jump=true,
+            source_position={floor_id=position.floor_id,x=position.x,y=position.y}},player.id,action_id)
+        Rewards.pickup_at(state,player,position.x,position.y,interaction_emit)
     elseif kind == "move" or kind == "dash" or kind=='use_utility' and preview.utility_move then
         local from_x, from_y = position.x, position.y
         local travel_dx=(preview.swap or preview.utility_return) and preview.cells[1].x-from_x or intent.dx

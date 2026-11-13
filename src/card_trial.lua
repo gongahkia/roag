@@ -57,31 +57,67 @@ local function invalid(reason)return {valid=false,reason=reason,cells={}}end
 function Trial.preview(s,intent,preview,effective_cost)
     local t=s.card_trial
     if not t or t.phase~='combat' or s.game_over then return invalid('The fight is resolved; choose a reward or replay')end
-    if type(intent)~='table' or intent.kind~='card_action' then return invalid('Card Trial requires a card action')end
-    if intent.vow~=nil or intent.steps~=nil then return invalid('Unsupported trial action option')end
-    local selection,why=Cards.selection(t.cards,intent.cards)
-    if not selection then return invalid(why)end
-    local equipment=C.equipment[intent.action]
-    if not equipment and intent.action~='redraw'then return invalid('Choose Move, Attack, Heal or Wait & Redraw')end
-    if intent.action~='redraw' and not selection.recipe then return invalid('Use one card, or exactly two cards of equal rank')end
-    local kind=intent.action=='redraw' and 'wait' or equipment[selection.recipe]
-    local p=player(s)
-    local result
-    if intent.action=='heal'then
-        if t.healing_charges<=0 then return invalid('No healing charges remain')end
-        if p.hp>=p.max_hp then return invalid('Already at full health')end
-        result={valid=true,cells={},heal=math.min(kind,p.max_hp-p.hp),requested_heal=kind,
-            cost=effective_cost(100,p.speed+Boons.speed_bonus(s,p))}
-        kind='trial_heal'
+    if type(intent)~='table' then return invalid('Choose a basic action or technique')end
+    if intent.vow~=nil or intent.steps~=nil or intent.cards~=nil then return invalid('Unsupported trial action option')end
+    local p=player(s);local kind,card
+    if intent.kind=='trial_basic' then
+        if intent.action~='move' and intent.action~='basic_attack' then return invalid('Choose Step or Strike')end
+        kind=intent.action
+    elseif intent.kind=='technique' or intent.kind=='replace_card' then
+        if not Cards.owned(t.cards,intent.card_id)then return invalid('That technique is not in your hand')end
+        card=Cards.card(t.cards,intent.card_id)
+        kind=intent.kind=='replace_card' and 'wait' or card.action
+        if intent.action~=nil then return invalid('The card determines its technique')end
+    else return invalid('Use a basic action or a named technique')end
+    local result,dx,dy
+    local speed=p.speed+Boons.speed_bonus(s,p)
+    if kind=='trial_heal' then
+        if t.healing_charges<=0 then return invalid('Healing exhausted')end
+        if p.hp>=p.max_hp then return invalid('Full health')end
+        result={valid=true,cells={},heal=math.min(card.heal,p.max_hp-p.hp),requested_heal=card.heal,
+            cost=effective_cost(100,speed)}
+    elseif intent.kind=='trial_basic' or kind=='wait' then
+        dx,dy=intent.dx,intent.dy;result=preview(s,kind,dx,dy)
     else
-        result=preview(s,kind,intent.dx,intent.dy)
-        if result.bump then return invalid('Boots cannot attack; choose Attack')end
-        if result.door_id or result.vault_id or result.stair then return invalid('Use a clear arena tile')end
-        if not result.valid then return result end
+        if type(intent.x)~='number' or intent.x%1~=0 or type(intent.y)~='number' or intent.y%1~=0 then
+            return invalid('Choose a highlighted target')
+        end
+        dx,dy=intent.x-p.position.x,intent.y-p.position.y
+        if kind=='knight_hop' then
+            if not (math.abs(dx)==2 and math.abs(dy)==1 or math.abs(dx)==1 and math.abs(dy)==2)then
+                return invalid('Jump two tiles on one axis and one on the other')end
+            local map=Content.map_for(s);local x,y=intent.x,intent.y
+            local valid=x>1 and x<map.width and y>1 and y<map.height and Content.walkable(map,x,y) and not occupied(s,x,y)
+            result={valid=valid,reason=not valid and 'Landing must be a free walkable tile' or nil,
+                cost=effective_cost(require('src.classes').for_player(p).costs.dash,speed),
+                cells={{x=x,y=y,status=valid and 'open' or 'occupied'}},landing={x=x,y=y},jump=true}
+        else
+            if kind=='sweeping_slash' and math.max(math.abs(dx),math.abs(dy))~=1 then
+                return invalid('Aim at one of the eight adjacent directions')end
+            dx=dx==0 and 0 or dx>0 and 1 or -1;dy=dy==0 and 0 or dy>0 and 1 or -1
+            result=preview(s,kind,dx,dy)
+            if kind=='dash' and result.valid then
+                local c=result.cells[result.distance]
+                if not c or c.x~=intent.x or c.y~=intent.y then return invalid('Choose the actual Dash landing')end
+                result.landing={x=c.x,y=c.y}
+            end
+        end
     end
-    result.selection=selection;result.recipe=selection.recipe
-    result.intent={kind=kind,dx=intent.dx,dy=intent.dy}
+    if result.door_id or result.vault_id or result.stair then return invalid('Use a clear arena tile')end
+    if not result.valid then return result end
+    result.card_id=intent.card_id;result.replace=intent.kind=='replace_card'
+    result.intent={kind=kind,dx=dx,dy=dy}
     return result
+end
+-- Legal target markers are obtained from exactly the same preview as commitment.
+function Trial.targets(s,intent,validate)
+    local out={};local p=player(s).position;local map=Content.map_for(s)
+    for y=2,map.height-1 do for x=2,map.width-1 do
+        local probe=copy(intent);probe.x,probe.y=x,y
+        local result=validate(s,probe)
+        if result.valid then out[#out+1]={x=x,y=y,preview=result}end
+    end end
+    return out
 end
 function Trial.after_action(s,emit)
     local t=s.card_trial
@@ -103,7 +139,7 @@ function Trial.after_action(s,emit)
     assert(at,'no adjacent reward tile')
     local chest={id=s.next_entity_id,definition_id='core:chest/free_elite',controller='chest',
         faction='neutral',blocks_movement=true,claimed=false,price=0,offers=copy(C.rewards),
-        position={floor_id=s.active_floor_id,x=at.x,y=at.y}}
+        position={floor_id=s.active_floor_id,x=at.x,y=at.y},trial_reward=true}
     s.next_entity_id=chest.id+1;s.entities[#s.entities+1]=chest;t.reward_id=chest.id
 end
 function Trial.reward(s,index)
@@ -112,6 +148,11 @@ function Trial.reward(s,index)
     local chest
     for _,e in ipairs(s.entities)do if e.id==t.reward_id then chest=e;break end end
     if not chest then return nil,'Reward missing'end
+    if type(index)~='number' or index%1~=0 or index<1 or index>#chest.offers then return nil,'Choose a reward'end
+    if chest.offers[index].upgrade_id==C.upgrade.id then
+        if chest.claimed then return nil,'Reward already claimed'end
+        return chest
+    end
     local ok,why=Rewards.can_claim(s,chest,index)
     if not ok then return nil,why end
     return chest
