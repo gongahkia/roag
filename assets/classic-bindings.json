@@ -1409,15 +1409,18 @@
     },
     "core:enemy/mossbound_guard": {
       "sprite": "urizen-onebit-r06-c113",
-      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:enemy/mossbound_guard/attack": {
       "sprite": "urizen-onebit-r06-c113",
-      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:enemy/mossbound_guard; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:enemy/mossbound_guard; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:enemy/mossbound_guard/hurt": {
       "sprite": "urizen-onebit-r06-c113",
-      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:enemy/mossbound_guard; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      "notes": "Source identity: Figure row 06, profession column 09: bucket or rectangular shield-like prop (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-mossbound-guard; 'mossbound_guard' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:enemy/mossbound_guard; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim. Local presentation mirrors the source horizontally to correct default right-facing orientation; movement facing is applied afterward. Original source pixels remain unchanged.",
+      "flipX": true
     },
     "core:enemy/mossbreaker": {
       "sprite": "urizen-onebit-r29-c174",
