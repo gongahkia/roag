@@ -112,6 +112,13 @@ end
 -- Legal target markers are obtained from exactly the same preview as commitment.
 function Trial.targets(s,intent,validate)
     local out={};local p=player(s).position;local map=Content.map_for(s)
+    if intent.kind~='technique' then return out end
+    local def=Cards.card(s.card_trial.cards,intent.card_id)
+    if not def then return out end
+    if def.heal then
+        local r=validate(s,intent)
+        return r.valid and {{x=p.x,y=p.y,preview=r}} or out
+    end
     for y=2,map.height-1 do for x=2,map.width-1 do
         local probe=copy(intent);probe.x,probe.y=x,y
         local result=validate(s,probe)

@@ -186,6 +186,8 @@ function U.keypressed(key,isrepeat)
         if U.aim then commit(U.aim)else activate(U.focus)end
     elseif dirs[key]then
         if U.armed or U.basic_aim then keyboard_aim(key)
+        elseif dirs[key][1]==0 or dirs[key][2]==0 then
+            commit({kind='trial_basic',action='move',dx=dirs[key][1],dy=dirs[key][2]})
         else commit(basic_at(Game.player(host.state()).position.x+dirs[key][1],Game.player(host.state()).position.y+dirs[key][2]))end
     end
     return true -- no classic utility, reset or B loadout escape routes
