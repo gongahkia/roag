@@ -1,13 +1,20 @@
--- Tranche 01 tuning only. Equipment maps recipes to existing Adventurer actions.
-local C={version=1,seed=101,seeds={101,202,303},hand_size=5,healing_charges=2,
-    suits={'Spades','Hearts','Clubs','Diamonds'},
-    ranks={'A','2','3','4','5','6','7','8','9','10','J','Q','K'},
-    recipes={single=1,pair=2},
-    equipment={
-        move={name='Boots',single='move',pair='dash'},
-        attack={name='Adventurer sword',single='basic_attack',pair='sweeping_slash'},
-        heal={name='Healing flask',single=4,pair=8},
+-- Small experimental deck; no scripting language or normal-game equipment changes.
+local C={version=2,seed=101,seeds={101,202,303},hand_size=3,healing_charges=2,
+    deck={{kind='dash',count=4},{kind='sweep',count=4},{kind='mend',count=1}},
+    opening={'dash','sweep','mend'},
+    techniques={
+        dash={name='Dash',action='dash',icon='core:ui/ability_move_icon',
+            description='Travel up to 2 tiles in a straight line. Stops at blockers.'},
+        sweep={name='Sweep',action='sweeping_slash',icon='core:ui/ability_slash_icon',
+            description='Strike a three-cell arc. Base damage 3 before defence.'},
+        mend={name='Mend',action='trial_heal',heal=4,icon='core:ui/status_heal_icon',
+            description='Restore 4 HP. Uses 1 charge. Click this card to heal.'},
+        knight_hop={name='Knight Hop',action='knight_hop',icon='core:ui/ability_move_icon',
+            description='Jump in an L. Ignores intervening tiles. Land on a free tile.'},
     },
+    knight_offsets={{-2,-1},{-1,-2},{1,-2},{2,-1},{2,1},{1,2},{-1,2},{-2,1}},
+    upgrade={id='trial:upgrade/knight_boots',name='Knight Boots',
+        icon='core:boon/pulse_step/icon',description='Your Dash cards become Knight Hop cards.'},
     preset_order={'bare','movement','burning'},
     presets={
         bare={name='Bare',description='No starting boons. Compare the card actions alone.',boons={}},
@@ -17,9 +24,9 @@ local C={version=1,seed=101,seeds={101,202,303},hand_size=5,healing_charges=2,
             boons={{'emberbrand','uncommon'},{'shared_agony','uncommon'}}},
     },
     rewards={
+        {upgrade_id='trial:upgrade/knight_boots'},
         {boon_id='core:boon/pulse_step',rarity='rare'},
         {boon_id='core:boon/detonation_bloom',rarity='rare'},
-        {boon_id='core:boon/grave_dividend',rarity='rare'},
     },
     -- Nine by nine interior. The central pillar has a west and an east route.
     arena={id='trial:map/card_arena',floor_id='trial:floor/card_arena',
