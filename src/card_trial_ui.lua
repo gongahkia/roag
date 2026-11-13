@@ -1,5 +1,4 @@
--- Presentation/input adapter. Selections and aiming are disposable; Game owns
--- every card/resource payment. Existing main.lua still draws the board/effects.
+-- Trial-only presentation/input. All commitments and resource validation use Game.
 local Game=require('src.game')
 local Trial=require('src.card_trial')
 local Cards=require('src.cards')
@@ -7,57 +6,84 @@ local Boons=require('src.boons')
 local Catalog=require('src.boon_content')
 local Classes=require('src.classes')
 local Content=require('src.content')
+local Terrain=require('src.terrain')
 local Pixel=require('src.pixel_ui')
 local C=Trial.content
-local U={selected={},preset=1,seed=C.seed,reward_selection=1,focus=1}
+local U={preset=1,seed=C.seed,reward_selection=1,focus=1}
 local host
 local dirs={w={0,-1},up={0,-1},d={1,0},right={1,0},s={0,1},down={0,1},
     a={-1,0},left={-1,0},q={-1,-1},e={1,-1},z={-1,1},c={1,1}}
+local compass={{0,-1},{1,-1},{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1}}
 function U.attach(value)host=value end
 function U.active()local s=host and host.state();return s and s.card_trial~=nil end
-function U.open(seed)
-    U.setup=true;U.seed=seed or U.seed;U.menu=false;U.help=false
-    U.selected={};U.action=nil;U.message='Two fights. No save, Continue or achievement progress.'
-    if host then host.setup()end
-end
-local function reset_selection()
-    U.selected={};U.action=nil;U.dx=nil;U.dy=nil
+local function clear()
+    U.armed=nil;U.hover=nil;U.replacing=nil;U.aim=nil;U.preview=nil;U.forecast=nil;U.targets={};U.basic_aim=false
     host.target(nil)
+end
+function U.open(seed)
+    U.setup=true;U.seed=seed or U.seed;U.menu=false;U.help=false;clear()
+    U.message='Two fights. No save, Continue or achievement progress.';host.setup()
 end
 function U.start()
     host.start(U.seed,C.preset_order[U.preset]);U.setup=false
-    reset_selection();U.menu=false;U.reward_hidden=false;U.last_phase=nil;U.last_boon=nil
-    U.message='Select cards 1-5, then M / F / H / Space.'
+    clear();U.focus=1;U.menu=false;U.reward_hidden=false;U.last_phase=nil;U.last_boon=nil
+    U.message='Step immediately with WASD/arrows. Click a foe to Strike.'
 end
-function U.ids()
-    local result={};local s=host.state()
-    for _,id in ipairs(s.card_trial.cards.hand)do if U.selected[id]then result[#result+1]=id end end
-    return result
+local function technique(id)return {kind='technique',card_id=id}end
+local function set_preview(intent)
+    U.aim=intent;U.preview=Game.card_preview(host.state(),intent)
+    U.forecast=Game.card_forecast(host.state(),intent)
 end
-function U.intent()
-    return {kind='card_action',action=U.action,cards=U.ids(),dx=U.dx,dy=U.dy}
+local function inspect_card(id,replace)
+    U.hover=id;U.replacing=replace;U.aim=nil;U.forecast=nil;U.targets={}
+    local s=host.state();local def=Cards.card(s.card_trial.cards,id)
+    if not def then return end
+    local intent=replace and {kind='replace_card',card_id=id} or technique(id)
+    U.preview=Game.card_preview(s,intent)
+    if not replace and def.action~='trial_heal'then U.targets=Game.card_targets(s,intent)end
 end
-local function sync_target()
-    local intent=U.intent()
-    if (U.action=='move' or U.action=='attack') and U.dx then
-        local p=Game.card_preview(host.state(),intent)
-        host.target({kind=p.intent and p.intent.kind or 'move',dx=U.dx,dy=U.dy,card_intent=intent})
-    else host.target(nil)end
-end
-local function toggle(slot)
-    local id=host.state().card_trial.cards.hand[slot]
-    if id then U.selected[id]=not U.selected[id];U.message='';sync_target()end
-end
-local function choose(action)
-    U.action=action;U.dx=nil;U.dy=nil;host.target(nil);U.message=''
-    if action=='move' or action=='attack'then U.message='Choose a direction or click a board tile; Enter confirms.'end
-end
-local function commit()
+local function commit(intent)
     if host.busy()then return end
-    local intent=U.intent();local p=Game.card_preview(host.state(),intent)
-    if not p.valid then U.message=p.reason;return end
+    local result=Game.card_preview(host.state(),intent)
+    if not result.valid then U.message=result.reason;U.preview=result;return false end
     local ok=host.submit(intent)
-    if ok then reset_selection();U.message='Unplayed cards retained. Choose your next technique.'end
+    if ok then clear();U.message='Step or Strike freely. Techniques retain the other cards.'end
+    return ok
+end
+local function activate(slot)
+    local s=host.state();local id=s.card_trial.cards.hand[slot]
+    if not id then return end
+    U.focus=slot;U.basic_aim=false;U.armed=id;inspect_card(id)
+    if Cards.card(s.card_trial.cards,id).action=='trial_heal'then U.armed=nil;commit(technique(id))
+    else U.message='Armed: click a highlighted target to play. Esc cancels.'end
+end
+local function basic_at(x,y)
+    local s=host.state();local p=Game.player(s).position;local dx,dy=x-p.x,y-p.y
+    local enemy=false
+    for _,e in ipairs(s.entities)do if e.faction=='enemy' and e.hp and e.hp>0 and e.position.x==x and e.position.y==y then enemy=true end end
+    if enemy and math.max(math.abs(dx),math.abs(dy))==1 then
+        return {kind='trial_basic',action='basic_attack',dx=dx,dy=dy}
+    end
+    return {kind='trial_basic',action='move',dx=dx,dy=dy}
+end
+local function aim_at(x,y)
+    if U.armed then local intent=technique(U.armed);intent.x,intent.y=x,y;set_preview(intent)
+    elseif U.basic_aim then
+        local p=Game.player(host.state()).position
+        set_preview({kind='trial_basic',action='basic_attack',dx=x-p.x,dy=y-p.y})
+    else set_preview(basic_at(x,y))end
+end
+local function keyboard_aim(key)
+    local s=host.state();local d=dirs[key];local p=Game.player(s).position
+    if U.armed and Cards.card(s.card_trial.cards,U.armed).action=='knight_hop'then
+        if #U.targets==0 then U.message='No free L-shaped landing';return end
+        local backwards=key=='left' or key=='up' or key=='a' or key=='w'
+        U.target_index=((U.target_index or (backwards and 1 or 0))-1+(backwards and -1 or 1)+#U.targets)%#U.targets+1
+        local at=U.targets[U.target_index];aim_at(at.x,at.y)
+    elseif U.armed and Cards.card(s.card_trial.cards,U.armed).action=='dash'then
+        local preview=Game.preview(s,'dash',d[1],d[2]);local at=preview.valid and preview.cells[preview.distance]
+        aim_at(at and at.x or p.x+d[1],at and at.y or p.y+d[2])
+    else aim_at(p.x+d[1],p.y+d[2])end
 end
 function U.on_events(events)
     local reasons={rhythm_of_steel='primary hit after moving',ring_of_reversal='hit the attacker you escaped',
@@ -82,12 +108,14 @@ function U.on_events(events)
 end
 function U.update()
     if not U.active()then return end
-    local t=host.state().card_trial
+    local t=host.state().card_trial;local busy=host.busy()
     if U.last_phase~=t.phase then
         U.last_phase=t.phase;U.reward_hidden=false
-        if t.phase~='combat'then U.action=nil;host.target(nil)end
+        if t.phase~='combat'then clear()end
     end
-    if t.phase=='reward' and not U.reward_hidden and not host.busy()then host.reward_view(U.reward_selection)end
+    if t.phase=='reward' and not U.reward_hidden and not busy then host.reward_view(U.reward_selection)end
+    if U.was_busy and not busy and U.mouse_x then U.mousemoved(U.mouse_x,U.mouse_y)end
+    U.was_busy=busy
 end
 local function reward_key(key)
     if U.reward_hidden then
@@ -102,14 +130,13 @@ local function reward_key(key)
         U.reward_selection=U.reward_selection%3+1;host.reward_view(U.reward_selection)
     elseif key=='return' or key=='kpenter'then
         if host.submit({kind='trial_reward',offer_index=U.reward_selection})then
-            host.hide_reward();reset_selection();U.last_boon=nil
+            host.hide_reward();clear();U.last_boon=nil
             U.message='Fight 2: enemies enter from new flanks. HP, hand and charges carried.'
         end
     end
 end
 function U.keypressed(key,isrepeat)
     if not host then return false end
-    if key=='return' or key=='kpenter'then Pixel.press()end
     if U.setup then
         if isrepeat then return true end
         if key=='escape'then U.setup=false;host.exit()
@@ -119,20 +146,17 @@ function U.keypressed(key,isrepeat)
         elseif key=='left' or key=='right'then
             local i=1;for n,v in ipairs(C.seeds)do if v==U.seed then i=n end end
             U.seed=C.seeds[(i-1+(key=='right' and 1 or -1)+#C.seeds)%#C.seeds+1]
-        elseif key=='return' or key=='kpenter'then U.start()end
+        elseif key=='return' or key=='kpenter'then Pixel.press();U.start()end
         return true
     end
     if not U.active()then return false end
     if isrepeat then return true end
-    if host.inspection()then
-        if key=='u'then return true end -- no utility/service route from the inventory
-        return false -- existing inspection panel consumes the remaining keys
-    end
+    if host.inspection()then if key=='u'then return true end;return false end
     if key=='f3' or key=='f5'then return false end
     if key=='f1'then U.help=not U.help;return true end
     if U.help then if key=='escape' or key=='return'then U.help=false end;return true end
     if key=='i' or key=='v'then host.inspect();return true end
-    if host.busy()then U.message='Resolving: press again when playback finishes.';return true end
+    if host.busy()then return true end
     if U.menu then
         if key=='escape' or key=='return'then U.menu=false
         elseif key=='r'then U.start()
@@ -148,22 +172,49 @@ function U.keypressed(key,isrepeat)
         return true
     end
     if phase=='reward'then reward_key(key);return true end
-    if tonumber(key) and tonumber(key)>=1 and tonumber(key)<=5 then toggle(tonumber(key))
-    elseif key=='m' or key=='x'then choose('move')
-    elseif key=='f' or key=='r'then choose('attack')
-    elseif key=='h'then choose('heal')
-    elseif key=='space' or key=='.'then choose('redraw')
-    elseif key=='escape'then
-        if U.action then U.action=nil;host.target(nil);U.message='Cancelled; cards retained.'else U.menu=true end
-    elseif key=='backspace'then reset_selection()
-    elseif key=='return' or key=='kpenter'then commit()
-    elseif dirs[key] and (U.action=='move' or U.action=='attack')then
-        U.dx,U.dy=unpack(dirs[key]);sync_target()
-    else U.message='Select cards, then M Move / F Attack / H Heal / Space Redraw.'end
-    return true -- includes classic bump/skills, utility, developer B and reset keys
+    if tonumber(key) and tonumber(key)>=1 and tonumber(key)<=3 then activate(tonumber(key))
+    elseif key=='tab'then
+        U.focus=U.focus%3+1;inspect_card(host.state().card_trial.cards.hand[U.focus]);U.message='Enter selects; R replaces for one Wait.'
+    elseif key=='r'then
+        local id=U.armed or host.state().card_trial.cards.hand[U.focus]
+        commit({kind='replace_card',card_id=id})
+    elseif key=='f'then clear();U.basic_aim=true;U.message='Strike: click adjacent target, or direction then Enter.'
+    elseif key=='escape' or key=='backspace'then
+        if U.armed or U.basic_aim or U.hover or U.aim then clear();U.message='Cancelled. Step and Strike ready.'else U.menu=true end
+    elseif key=='return' or key=='kpenter'then
+        if U.aim then commit(U.aim)else activate(U.focus)end
+    elseif dirs[key]then
+        if U.armed or U.basic_aim then keyboard_aim(key)
+        else commit(basic_at(Game.player(host.state()).position.x+dirs[key][1],Game.player(host.state()).position.y+dirs[key][2]))end
+    end
+    return true -- no classic utility, reset or B loadout escape routes
+end
+-- Fixed hit regions. The Replace subregion is deliberately disjoint from activation.
+function U.card_at(x,y)
+    if x<672 or x>=996 then return end
+    local slot=math.floor((x-672)/108)+1;local left=672+(slot-1)*108
+    if slot>3 or x>=left+100 then return end
+    if y>=296 and y<324 then return slot,'replace'end
+    if y>=168 and y<290 then return slot,'card'end
+end
+function U.mousemoved(x,y)
+    U.mouse_x,U.mouse_y=x,y
+    if not U.active() or U.setup or host.busy() or U.menu or U.help or host.inspection() or host.state().card_trial.phase~='combat'then return false end
+    local slot,region=U.card_at(x,y)
+    if slot then
+        U.focus=slot;inspect_card(host.state().card_trial.cards.hand[slot],region=='replace')
+    else
+        U.hover=nil;U.replacing=nil
+        if U.armed then U.targets=Game.card_targets(host.state(),technique(U.armed))else U.targets={}end
+        local cx,cy=host.cell(x,y)
+        if cx then aim_at(cx,cy)
+        else U.aim=nil;U.preview=nil;U.forecast=nil end
+    end
+    return true
 end
 function U.mousepressed(x,y,button)
     if not U.setup and not U.active()then return false end
+    if button==2 then U.keypressed('escape');return true end
     if button~=1 then return true end
     if host.inspection()then
         if x>=88 and x<576 and y>=490 and y<514 then return true end
@@ -180,81 +231,50 @@ function U.mousepressed(x,y,button)
     if host.busy()then return true end
     if U.help then U.help=false;return true end
     local phase=host.state().card_trial.phase
-    if U.menu or phase=='death' or phase=='victory' then
+    if U.menu or phase=='death' or phase=='victory'then
         if y>=292 and y<332 then U.keypressed(U.menu and 'return' or 'r')
         elseif y>=340 and y<380 then U.keypressed('r')
         elseif y>=388 and y<428 then U.keypressed('p')
         elseif y>=436 and y<476 then U.keypressed('t')end
         return true
     end
-    if phase=='reward' and not U.reward_hidden then
-        local row=Pixel.chest_at(x,y)
-        if row then reward_key(tostring(row))
-        elseif x>=568 and x<=944 and y>=438 and y<=480 then reward_key('return')
-        elseif y>=500 then reward_key('escape')end
-        return true
-    end
     if phase=='reward'then
-        if x>=672 and x<992 and y>=440 and y<476 then reward_key('return')
-        elseif y>=506 and x>=672 then U.keypressed(x<834 and 'i' or 'escape')end
+        if U.reward_hidden then
+            if y>=436 and y<476 and x>=672 then reward_key('return')end
+        else
+            local row=Pixel.chest_at(x,y)
+            if row then reward_key(tostring(row))
+            elseif x>=568 and x<=944 and y>=438 and y<=480 then reward_key('return')
+            elseif y>=500 then reward_key('escape')end
+        end
         return true
     end
-    if x>=672 and x<996 and y>=100 and y<180 then
-        local slot=math.floor((x-672)/66)+1
-        if (x-672)%66<60 then toggle(slot)end
-    elseif x>=672 and x<992 and y>=248 and y<408 then
-        choose(({'move','attack','heal','redraw'})[math.floor((y-248)/40)+1])
-    elseif x>=672 and x<992 and y>=440 and y<476 then
-        if phase=='reward'then reward_key('return')else commit()end
+    local slot,region=U.card_at(x,y)
+    if slot then
+        if region=='replace'then commit({kind='replace_card',card_id=host.state().card_trial.cards.hand[slot]})else activate(slot)end
     elseif y>=506 and x>=672 then U.keypressed(x<834 and 'i' or 'escape')
-    elseif U.action=='move' or U.action=='attack'then
+    else
         local cx,cy=host.cell(x,y)
-        if cx then
-            local p=Game.player(host.state()).position
-            local dx,dy=cx-p.x,cy-p.y
-            if dx~=0 or dy~=0 then
-                U.dx=dx==0 and 0 or dx>0 and 1 or -1
-                U.dy=dy==0 and 0 or dy>0 and 1 or -1;sync_target()
-            end
-        end
+        if cx then U.mousemoved(x,y);if U.aim then commit(U.aim)end end
     end
     return true
 end
 function U.gamepadpressed(button)
     if not U.setup and not U.active()then return false end
     if host.inspection()then return false end
-    if U.setup or U.menu or U.help or host.inspection() or host.state().card_trial.phase~='combat'then
-        local key=({a='return',b='escape',dpup='up',dpdown='down',dpleft='left',dpright='right',
-            x='r',y='p',back='t',start='escape'})[button]
+    if U.setup or U.menu or U.help or host.state().card_trial.phase~='combat'then
+        local key=({a='return',b='escape',dpup='up',dpdown='down',dpleft='left',dpright='right',x='r',y='p',back='t',start='escape'})[button]
         if key then U.keypressed(key)end;return true
     end
     if host.busy()then return true end
     if button=='leftshoulder' or button=='rightshoulder'then
-        U.focus=(U.focus-1+(button=='rightshoulder' and 1 or -1)+5)%5+1
-    elseif button=='a'then if U.action then commit()else toggle(U.focus)end
+        U.focus=(U.focus-1+(button=='rightshoulder' and 1 or -1)+3)%3+1
+        inspect_card(host.state().card_trial.cards.hand[U.focus])
     else
-        local key=({b='escape',x='f',y='m',rightstick='h',leftstick='space',start='escape',back='i',
-            dpup='w',dpdown='s',dpleft='a',dpright='d'})[button]
+        local key=({a='return',b='escape',x='f',y='r',back='i',start='escape',dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
         if key then U.keypressed(key)end
     end
     return true
-end
-
--- Suits use simple explicit geometry, plus ASCII S/H/C/D labels. No reliance
--- on a font's optional Unicode playing-card glyphs.
-local function suit(s,x,y)
-    local g=love.graphics
-    if s==2 then
-        g.circle('fill',x-3,y-2,4);g.circle('fill',x+3,y-2,4)
-        g.polygon('fill',x-7,y-1,x+7,y-1,x,y+8)
-    elseif s==4 then g.polygon('fill',x,y-8,x+6,y,x,y+8,x-6,y)
-    else
-        if s==1 then
-            g.polygon('fill',x,y-8,x+7,y+1,x-7,y+1)
-            g.circle('fill',x-3,y+1,4);g.circle('fill',x+3,y+1,4)
-        else g.circle('fill',x,y-4,4);g.circle('fill',x-4,y+2,4);g.circle('fill',x+4,y+2,4)end
-        g.polygon('fill',x,y,x+3,y+8,x-3,y+8)
-    end
 end
 function U.draw_setup()
     if not U.setup then return false end
@@ -278,70 +298,6 @@ local function text(line,x,y,font,color,width)
     local g=love.graphics;g.setFont(font);g.setColor(color or Pixel.colors.text)
     if width then g.printf(line,x,y,width)else g.print(line,x,y)end
 end
-function U.draw_sidebar()
-    if not U.active()then return end
-    local s=host.state();local t=s.card_trial;local body,menu,display=host.fonts()
-    Pixel.frame('CARD TRIAL',656,22,352,514,display)
-    text(C.presets[t.preset].name..' · seed '..t.seed,672,52,body)
-    text('Fight '..t.fight..'/2 · '..C.fights[t.fight].name,672,72,body)
-    local g=love.graphics
-    for i,id in ipairs(t.cards.hand)do
-        local c=Cards.card(id);local x=672+(i-1)*66
-        g.setColor(U.selected[id] and Pixel.colors.selected or Pixel.colors.edge)
-        g.rectangle('fill',x,100,60,80)
-        g.setColor(.065,.065,.065);g.rectangle('fill',x+2,102,56,76)
-        text(c.label,x+6,106,menu,U.selected[id] and Pixel.colors.selected or Pixel.colors.text)
-        text(({'S','H','C','D'})[c.suit],x+42,108,body)
-        g.setColor(U.selected[id] and Pixel.colors.selected or Pixel.colors.text);suit(c.suit,x+30,143)
-        text(tostring(i)..(U.selected[id] and ' *' or ''),x+8,163,body)
-    end
-    text(('Draw %d · Discard %d · retain unplayed'):format(#t.cards.draw,#t.cards.discard),672,190,body)
-    local sel=Cards.selection(t.cards,U.ids())
-    local recipe=sel and (sel.recipe or 'invalid') or 'none'
-    text('Selected '..(sel and sel.count or 0)..' · '..recipe:upper(),672,212,menu,Pixel.colors.selected)
-    local p=Game.player(s);local class=Classes.for_player(p);local speed=p.speed+Boons.speed_bonus(s,p)
-    for i,a in ipairs({'move','attack','heal','redraw'})do
-        local recognized=sel and (sel.recipe or a=='redraw')
-        local kind=recognized and a~='redraw' and C.equipment[a][sel.recipe] or 'wait'
-        local cost=Game.effective_cost(class.costs[kind] or 100,speed)
-        local label=({move='M  Move',attack='F  Attack',heal='H  Heal',redraw='Space  Wait & Redraw'})[a]
-        if recognized then
-            if a=='heal'then label=label..(' %d HP'):format(C.equipment.heal[sel.recipe])
-            elseif a=='move'then label=label..(sel.recipe=='pair' and ' / Dash' or ' / Step')
-            elseif a=='attack'then label=label..(sel.recipe=='pair' and ' / Sweep' or ' / Sword')end
-        end
-        local disabled=not recognized or a=='heal' and (t.healing_charges==0 or p.hp==p.max_hp) or t.phase~='combat'
-        Pixel.option(label..'  +'..cost,672,254+(i-1)*40,320,U.action==a,menu,disabled)
-    end
-    text('Flask: '..t.healing_charges..'/2 charges (both fights)',672,414,body)
-    local preview=U.action and Game.card_preview(s,U.intent())
-    local valid=preview and preview.valid
-    Pixel.option(t.phase=='reward' and 'REOPEN REWARD' or valid and 'ENTER / CLICK TO CONFIRM' or 'CHOOSE CARDS / TARGET',
-        672,448,320,valid,body,not valid and t.phase~='reward')
-    local selection_error=sel and not sel.recipe and U.action~='redraw'
-    local hint=preview and not preview.valid and (selection_error or U.dx or U.action=='heal' or U.action=='redraw') and preview.reason
-        or U.message~='' and U.message or preview and (preview.valid and
-        (preview.heal and ('Recover '..preview.heal..' HP; one charge.') or 'Footprint shown on board.') or preview.reason) or
-        'One card = Single. Two equal ranks = Pair.'
-    text(hint,672,476,body,Pixel.colors.muted,320)
-    text('I  Boons / Stats',672,516,body);text('Esc  Trial menu',850,516,body)
-end
-function U.draw_hud()
-    local s=host.state();local p=Game.player(s);local body,menu=host.fonts()
-    local g=love.graphics;g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
-    g.setColor(Pixel.colors.edge);g.rectangle('fill',16,544,992,2)
-    text(('HP %d/%d'):format(p.hp,p.max_hp),28,552,menu)
-    text('TIME '..s.clock,206,552,menu)
-    text('FIGHT '..s.card_trial.fight..'/2',398,552,menu)
-    text('SEED '..s.card_trial.seed,590,552,menu)
-    local incoming={}
-    for _,strike in ipairs(Game.pending_strikes(s))do
-        incoming[#incoming+1]=Content.ability_name(strike.ability_id)..' +'..math.max(0,strike.due-s.clock)
-    end
-    text(host.busy() and 'RESOLVING · card input locked' or #incoming>0 and 'INCOMING: '..table.concat(incoming,' / ') or
-        '1-5 cards · M Move · F Attack · H Heal · Space Redraw · direction · Enter',28,578,body)
-    text(U.last_boon or 'Boons react to real movement, weapon hits and kills.',28,596,body,Pixel.colors.selected,960)
-end
 function U.draw_overlay()
     if not U.active() or host.busy() or host.inspection()then return end
     local t=host.state().card_trial
@@ -350,15 +306,15 @@ function U.draw_overlay()
     Pixel.frame(U.help and 'CARD TRIAL CONTROLS' or U.menu and 'TRIAL MENU' or
         t.phase=='victory' and 'TRIAL VICTORY' or 'TRIAL DEATH',224,112,576,408,display)
     if U.help then
-        for i,line in ipairs({'1-5 / click: select cards. Unplayed cards stay.',
-            'M Move: Single step / Pair dash.', 'F Attack: Single sword / Pair sweep.',
-            'H Heal: Single 4 / Pair 8 HP; two charges total.',
-            'Space: paid Wait & Redraw, any 1-5 cards.',
-            'WASD/arrows aim; Q/E/Z/C attack diagonals.',
-            'Click a board tile to aim; Enter/click confirm.',
-            'Esc cancels free. I inspects boons. No trial saves.',
-            'Gamepad: shoulders focus card; A select/confirm.',
-            'X attack, Y move, stick clicks heal/redraw.',
+        for i,line in ipairs({'WASD/arrows: Step now. Click adjacent foe: Strike.',
+            '1-3 / click: select that named technique.', 'Hover card: possibilities. Hover board: exact result.',
+            'Click target: play. Mend card click: heal self.',
+            'Replace button / R: one card, one paid Wait.',
+            'Armed: directions aim; Enter plays; Esc cancels.',
+            'Knight Hop: arrows cycle landings; Enter jumps.',
+            'Tab inspects cards. F aims Strike. I inspects boons.',
+            'Mend: 4 HP, 1 charge. Two charges across both fights.',
+            'Gamepad: shoulders focus, A select/play, Y replace.',
             'F1 / Esc closes help.'})do Pixel.center(line,162+(i-1)*28,body,Pixel.colors.text)end
         return
     end
@@ -371,4 +327,3 @@ function U.draw_overlay()
     Pixel.option('P  Choose another preset',272,396,480,false,menu)
     Pixel.option('T  Return to title',272,444,480,false,menu)
 end
-return U

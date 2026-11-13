@@ -2401,6 +2401,22 @@ function Game.submit(state, intent)
     return true, nil, output
 end
 
+-- Forecast only primary packets through the real resolver on a private copy.
+-- The curated trial has no random crit/dice build. Never advertise a cascade.
+function Game.card_forecast(state,intent)
+    local p=Game.card_preview(state,intent)
+    if not p.valid or not (p.bump or p.intent.kind=='basic_attack' or p.intent.kind=='sweeping_slash')then return {}end
+    local owner=Game.player(state)
+    if owner.crit_chance_ppm>0 or owner.boons['core:boon/fateful_dice']then return nil end
+    local probe=copy(state);local ok,_,events=Game.submit(probe,copy(intent))
+    if not ok then return {}end
+    local out={}
+    for _,e in ipairs(events)do if e.kind=='DamageTaken' and e.direct_attack and e.source_id==state.player_id then
+        out[#out+1]={target_id=e.target_id,x=e.x,y=e.y,loss=e.actual_loss}
+    end end
+    return out
+end
+
 function Game.stun(state, target_id, duration, source_id, action_id)
     if state.meta then state.meta.eligible=false end -- direct fixture manipulation
     assert(type(duration) == "number" and duration % 1 == 0 and duration > 0,
