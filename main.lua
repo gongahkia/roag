@@ -417,8 +417,12 @@ end
 
 function love.load(args)
     -- An argument also works when a launcher does not forward shell variables.
+    local trial_requested,trial_seed=false,require('src.card_trial_content').seed
     for _,argument in ipairs(args or {})do
         if argument=='--spectator' then spectator_enabled=true end
+        if argument=='--card-trial' then trial_requested=true end
+        local value=argument:match('^%-%-trial%-seed=(%d+)$')
+        if value then trial_seed=tonumber(value);require('src.rng').new(trial_seed)end
     end
     presentation_settings=PresentationSettings.load(storage)
     ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
@@ -454,7 +458,9 @@ function love.load(args)
     visual_assets:check_atlas()
     visual_signature=visual_fingerprint(visual_assets,world_pack)
     Generation.install_studio_pack(world_pack)
-    if spectator_enabled then
+    if trial_requested then
+        require('src.card_trial_ui').open(trial_seed)
+    elseif spectator_enabled then
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
             selected_class_id)
@@ -478,16 +484,9 @@ function love.load(args)
             persistence_message="Recovered previous valid profile generation"
         end
         if save_status.status=="pending_terminal" then
-            local pending=save_status.state.meta and save_status.state.meta.pending or {}
-            local ok,updated=profile_service:commit_awards(pending)
-            if ok then
-                profile=updated
-                local done,why=save_service:tombstone()
-                if done then save_status=save_service:inspect()
-                else persistence_message="Terminal save needs retry: "..tostring(why) end
-            else
-                persistence_message="Terminal unlock recovery needs retry: "..tostring(updated)
-            end
+            -- Merely visiting the title/Card Trial must never write normal data.
+            -- The existing R recovery command performs this explicit operation.
+            persistence_message='Terminal unlock recovery pending · R to recover'
         end
         title_selection=TitleMenu.default_selection(save_status)
         if studio_world_status~='absent' and studio_world_status~='loaded' then
@@ -570,6 +569,7 @@ function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
+    require('src.card_trial_ui').update()
     Juice.update(visual_juice,dt,state.active_floor_id,presentation_settings.combat_effects,
         playback,state.player_id)
     CombatNumbers.update(combat_numbers,playback,dt,state.player_id,
@@ -695,6 +695,7 @@ local function activate_title_selection()
         elseif title_selection==4 then
             title_view='settings'
             settings_reset_focus()
+        elseif title_selection==5 then require('src.card_trial_ui').open()
         else love.event.quit() end
     elseif title_view=='continue' then
         if resumable(save_status) then continue_run()
@@ -755,6 +756,7 @@ local function settings_keypressed(key,on_title)
 end
 
 local function checkpoint(force)
+    if state and state.card_trial then return true end
     if spectator_enabled then return true end -- disposable visual inspection only
     if not force and os.getenv("ROAG_GUI_AUTOSTART") == "1" then return true end
     local pending=state.meta and state.meta.pending or {}
@@ -805,6 +807,7 @@ local function submit(intent)
     local old_floor=state.active_floor_id
     local committed, reason, events, preview = Game.submit(state, intent)
     if committed then
+        if state.card_trial then require('src.card_trial_ui').on_events(events)end
         if old_floor~=state.active_floor_id then
             playback=Playback.new() -- historical attacks belong to the retired floor.
             combat_numbers=CombatNumbers.new()
@@ -1170,9 +1173,9 @@ local function title_keypressed(key)
             title_view='class'
             return
         elseif key=='up' or key=='w' then
-            title_selection=(title_selection+3)%5+1
+            title_selection=(title_selection+4)%6+1
         elseif key=='down' or key=='s' then
-            title_selection=title_selection%5+1
+            title_selection=title_selection%6+1
         elseif key=='return' or key=='kpenter' then
             activate_title_selection()
         elseif key=='c' then
@@ -1180,6 +1183,7 @@ local function title_keypressed(key)
             else persistence_message='No compatible active run to continue' end
         elseif key=='n' then request_new_run() -- legacy quick-start shortcut
         elseif key=='u' then unlocks_view=true
+        elseif key=='t' then require('src.card_trial_ui').open()
         elseif key=='escape' or key=='q' then love.event.quit() end
     elseif title_view=='continue' then
         if key=='return' or key=='kpenter' or key=='c' then
@@ -1215,6 +1219,7 @@ function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
     end
+    if require('src.card_trial_ui').keypressed(key,isrepeat)then return end
     if key=='return' or key=='kpenter' then
         require('src.pixel_ui').press() -- cached; preserve the callback's upvalue budget
     end
@@ -1525,6 +1530,7 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
+    if require('src.card_trial_ui').gamepadpressed(button)then return end
     if interaction_ui.menu then
         local key=({a='return',b='escape',dpup='up',dpdown='down',dpleft='left',dpright='right',start='escape'})[button]
         if key then love.keypressed(key)end;return
@@ -2539,7 +2545,8 @@ end
 
 local function draw_preview()
     if not targeting or targeting.dx == nil then return end
-    local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps,targeting)
+    local preview = targeting.card_intent and Game.card_preview(state,targeting.card_intent)
+        or Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps,targeting)
     if preview.reflection and visible_at(preview.reflection.x,preview.reflection.y)then
         local x,y=Camera.tile_top_left(camera,preview.reflection.x,preview.reflection.y)
         draw_visual(bound_visual('core:ui/idea_reflect_effect'),
@@ -2550,6 +2557,15 @@ local function draw_preview()
     end
     for _,cell in ipairs(preview.valid and preview.boon_cells or {})do
         draw_cell(cell,1,1,1,.65,true,Palette.friendly)
+    end
+    if targeting.card_intent and targeting.card_intent.action=='move' and preview.valid then
+        local landing=preview.cells[preview.distance or #preview.cells]
+        if landing then
+            local x,y=Camera.tile_top_left(camera,landing.x,landing.y)
+            love.graphics.setColor(1,.9,.5,.9)
+            love.graphics.rectangle('line',x+5,y+5,TILE-10,TILE-10)
+            love.graphics.setFont(ui_body_font);love.graphics.print('LAND',x+7,y+TILE-15)
+        end
     end
 end
 
@@ -3026,6 +3042,8 @@ local function draw_world()
         love.graphics.rectangle('line',cx+1,cy+1,TILE-2,TILE-2)
     end
     draw_minimap()
+    love.graphics.setScissor()
+    require('src.card_trial_ui').draw_sidebar()
     if chest_menu then
         PixelUI.dim(.55)
         menu_frame(chest_menu.name,80,120,472,360,ui_display_font)
@@ -3067,7 +3085,7 @@ local function draw_world()
         PixelUI.option('CONFIRM ROUTE',320,450,384,true,ui_menu_font)
         PixelUI.center('1/2/3 or click choose · Enter confirm · Esc cancel',520,ui_menu_font,PixelUI.colors.muted)
     end
-    if state.game_over and not Playback.busy(playback) then
+    if state.game_over and not state.card_trial and not Playback.busy(playback) then
         PixelUI.dim(.7)
         menu_frame(state.victory and 'VICTORY' or 'GAME OVER',160,108,704,366,ui_display_font)
         local player=Game.player(state)
@@ -3115,6 +3133,7 @@ local function hud_meter(x,y,w,h,value,maximum,r,g,b)
 end
 
 local function draw_panel()
+    if state.card_trial then require('src.card_trial_ui').draw_hud();return end
     local g=love.graphics
     local player=Game.player(state)
     local class=Classes.for_player(player)
@@ -3481,23 +3500,25 @@ local function draw_settings()
 end
 
 local function draw_title_page()
+    if require('src.card_trial_ui').draw_setup()then return end
     local g=love.graphics
     if title_view=='home'then
         g.setFont(ui_display_font);g.setColor(PixelUI.colors.selected)
         g.print('ROAG',(g.getWidth()-ui_display_font:getWidth('ROAG')*3)/2,104,0,3,3)
-        local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','SETTINGS','QUIT'}
+        local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','SETTINGS','CARD TRIAL','QUIT'}
         for i,label in ipairs(options)do
             PixelUI.option(label,280,232+(i-1)*42,464,title_selection==i,ui_display_font,
                 i==1 and not resumable(save_status))
         end
         local descriptions={resumable(save_status) and 'Saved run available' or 'No compatible saved run',
-            'Choose a character and begin','View your permanent unlocks','Audio, visuals, and accessibility','Leave ROAG'}
-        PixelUI.center(descriptions[title_selection],476,ui_menu_font,PixelUI.colors.muted)
+            'Choose a character and begin','View your permanent unlocks','Audio, visuals, and accessibility',
+            'Two card-driven fights · no saves · T shortcut','Leave ROAG'}
+        PixelUI.center(descriptions[title_selection],502,ui_menu_font,PixelUI.colors.muted)
         if save_status and save_status.status~='absent' and not resumable(save_status)then
             local headline=TitleMenu.save_summary(save_status)
-            PixelUI.center('Continue unavailable · '..headline,510,ui_menu_font,PixelUI.colors.muted)
+            PixelUI.center('Continue unavailable · '..headline,530,ui_menu_font,PixelUI.colors.muted)
         end
-        PixelUI.center('Arrows / Enter · N quick start · C quick continue',552,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.center('Arrows / Enter · T Card Trial · N new · C continue',564,ui_menu_font,PixelUI.colors.muted)
         PixelUI.center('F1  HOW TO PLAY',600,ui_menu_font,PixelUI.colors.selected)
     elseif title_view=='continue'then
         menu_frame('CONTINUE SAVED RUN',192,130,640,360,ui_display_font)
@@ -3665,6 +3686,7 @@ function love.draw()
         end
     end
     if help_open then draw_help()end
+    require('src.card_trial_ui').draw_overlay()
 
 end
 
@@ -3772,6 +3794,7 @@ function love.roagAssetIdResolved(id)
     return visual_assets and visual_assets:resolve_id(id)~=nil or false
 end
 function love.mousepressed(x,y,button,istouch,presses)
+    if require('src.card_trial_ui').mousepressed(x,y,button)then return end
     if button~=1 then return end
     PixelUI.press()
     finish_volume_drag()
@@ -3893,4 +3916,58 @@ function love.wheelmoved(dx,dy)
     if dy~=0 and (title and title_view=='settings' or pause_settings) then
         settings_keypressed(dy>0 and 'up' or 'down',title)
     end
+end
+
+-- A narrow host adapter keeps trial UI out of the callback upvalue budget.
+-- No trial callback calls save/profile mutation, New Run or Continue.
+require('src.card_trial_ui').attach({
+    state=function()return state end,
+    busy=function()return Playback.busy(playback)end,
+    setup=function()
+        title=true;state=nil;targeting=nil;chest_menu=nil;route_menu=nil
+        inventory_open=false;boon_detail_id=nil;pause_menu=false;help_open=false
+        persistence_message='';playback=Playback.new()
+    end,
+    start=function(seed,preset)
+        state=require('src.card_trial').new(Game,seed,preset)
+        VIEWPORT.width,VIEWPORT.height=624,528
+        title=false;pause_menu=false;pause_settings=false;confirm_reset_seed=nil
+        targeting=nil;chest_menu=nil;route_menu=nil;boon_detail_id=nil
+        playback=Playback.new();combat_numbers=CombatNumbers.new()
+        reward_notices={};reward_notice_time=0;player_facing=1
+        notice='Card Trial · seed '..seed;persistence_message=''
+        reset_camera()
+    end,
+    exit=function()
+        state=nil;title=true;title_view='home';title_selection=5
+        VIEWPORT.width,VIEWPORT.height=992,520
+        targeting=nil;chest_menu=nil;route_menu=nil;boon_detail_id=nil
+        inventory_open=false;pause_menu=false;help_open=false;playback=Playback.new()
+        require('src.card_trial_ui').setup=false
+        if not save_status then save_status=save_service:inspect()end
+        if not profile_status then profile_status=profile_service:inspect();profile=profile_status.profile end
+        persistence_message=''
+    end,
+    target=function(value)targeting=value end,
+    submit=submit,
+    inspection=function()return inventory_open or boon_detail_id~=nil end,
+    inspect=function()inventory_open=true;inventory_selection=1 end,
+    reward_view=function(selected)
+        chest_menu=Game.chest_options(state,state.card_trial.reward_id)
+        if chest_menu then chest_menu.name='CARD TRIAL · CHOOSE ONE BOON';chest_menu.selected=selected end
+    end,
+    hide_reward=function()chest_menu=nil end,
+    fonts=function()return ui_body_font,ui_menu_font,ui_display_font end,
+    visual=function(binding,x,y,w,h)draw_visual(bound_visual(binding),x,y,w,h)end,
+    cell=function(x,y)
+        if x<VIEWPORT.x or x>=VIEWPORT.x+VIEWPORT.width or y<VIEWPORT.y or y>=VIEWPORT.y+VIEWPORT.height then return end
+        local map=Content.map_for(state)
+        for cy=1,map.height do for cx=1,map.width do
+            local sx,sy=Camera.tile_top_left(camera,cx,cy)
+            if x>=sx and x<sx+TILE and y>=sy and y<sy+TILE then return cx,cy end
+        end end
+    end,
+})
+function love.roagCardTrialState()
+    return state and state.card_trial and Game.snapshot(state) or nil
 end

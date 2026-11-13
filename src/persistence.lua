@@ -215,6 +215,7 @@ local function write_record(self,kind,snapshot)
     return true,seq
 end
 function P.save(self,state)
+    if state.card_trial then return false,'Card Trial is nonpersistent' end
     if state.game_over then
         return P.tombstone(self)
     end
@@ -226,6 +227,7 @@ end
 -- Terminal award outbox. This record is never offered as live Continue.
 -- It can be replayed idempotently into the separate profile before tombstoning.
 function P.pending_terminal(self,state)
+    if state.card_trial then return false,'Card Trial is nonpersistent' end
     assert(state.game_over,'pending terminal requires finished run')
     local snapshot=Game.snapshot(state)
     local ok,reason=pcall(Game.restore,snapshot)
@@ -246,6 +248,7 @@ end
 -- Explicit replacement after the user confirms New Run. Invalid/incompatible slots
 -- are overwritten with a new generation in both positions so stale data cannot revive.
 function P.replace(self,state)
+    if state.card_trial then return false,'Card Trial is nonpersistent' end
     local snapshot=Game.snapshot(state)
     local ok,reason=pcall(Game.restore,snapshot)
     if not ok then return false,'unstable new run: '..tostring(reason) end

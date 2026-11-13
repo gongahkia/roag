@@ -123,7 +123,7 @@ end
 function U.settings_at(x,y,w,count,px,py)
     return U.row_at(x+36,y+166,w-72,40,count,48,px,py)
 end
-function U.home_at(x,y)return U.row_at(280,232,464,34,5,42,x,y)end
+function U.home_at(x,y)return U.row_at(280,232,464,34,6,42,x,y)end
 function U.class_page(order,selected)
     local index=1
     for i,id in ipairs(order)do if id==selected then index=i;break end end

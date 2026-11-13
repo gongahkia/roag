@@ -34,6 +34,8 @@ local IdeaWebs = require('src.idea_webs')
 local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
 local World = require("src.world")
+local CardTrial = require('src.card_trial')
+local Cards = require('src.cards')
 
 local Game = {}
 local SCHEMA = "roag-run/11"
@@ -510,6 +512,10 @@ function Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)
     local owner = assert(Game.entity(state, owner_id), "unknown boon owner")
     if state.meta then state.meta.eligible=false end -- developer/fixture grant
     Boons.set_stacks(owner, boon_id, rarity, count)
+end
+
+function Game.card_preview(state,intent)
+    return CardTrial.preview(state,intent,Game.preview,Game.effective_cost)
 end
 
 function Game.chest_options(state, chest_id)
@@ -1943,6 +1949,34 @@ function Game.submit(state, intent)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
+    local card_plan
+    if state.card_trial then
+        if intent.kind=='trial_reward' then
+            local chest,why=CardTrial.reward(state,intent.offer_index)
+            if not chest then return false,why,{} end
+            local output={}
+            contexts[output]={events={},event_head=1,effects={},effect_head=1}
+            local action_id=state.next_action_id
+            state.next_action_id=action_id+1
+            Rewards.claim(state,chest,intent.offer_index,function(kind,fields,source)
+                emit(state,output,kind,fields,source,action_id)
+            end)
+            drain_effects(state,output)
+            -- Reinforcements enter the SAME arena and clock. Retain all player
+            -- effects, delayed work, card state, HP and remaining resources.
+            state.card_trial.fight=2;state.card_trial.phase='combat'
+            state.card_trial.reward_claimed=true
+            CardTrial.spawn_fight(state,Game.spawn_enemy)
+            state.last_action={kind='trial_reward',time=state.clock,cost=0}
+            contexts[output]=nil
+            return true,nil,output
+        end
+        card_plan=Game.card_preview(state,intent)
+        if not card_plan.valid then return false,card_plan.reason,{},card_plan end
+        intent=card_plan.intent
+    elseif intent.kind=='card_action' or intent.kind=='trial_reward' or intent.kind=='trial_heal' then
+        return false,'This action requires Card Trial',{}
+    end
     if intent.vow~=nil and type(intent.vow)~='boolean' then
         return false,'invalid vow option',{}
     end
@@ -2020,6 +2054,8 @@ function Game.submit(state, intent)
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
+    elseif intent.kind=='trial_heal' and card_plan then
+        preview=card_plan
     elseif intent.kind=='interact'then
         preview=Interactions.preview(state,intent)
         if not preview.valid then return false,preview.reason,{},preview end
@@ -2049,6 +2085,13 @@ function Game.submit(state, intent)
         or (preview.door_id and "open_door")
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
+    if card_plan then
+        Cards.spend(state.card_trial.cards,card_plan.selection)
+        state.card_trial.commits=state.card_trial.commits+1
+        action.cards=copy(card_plan.selection.ids);action.recipe=card_plan.recipe
+        emit(state,output,'CardTechniqueCommitted',{cards=action.cards,recipe=action.recipe,
+            technique=kind,floor_id=position.floor_id},player.id,action_id)
+    end
     if preview.vow then
         local before=player.hp
         player.hp=before-preview.vow.hp_cost
@@ -2279,6 +2322,14 @@ function Game.submit(state, intent)
     elseif kind=='use_utility'then
         -- Non-movement utility effects were applied above; no Waited event.
         action.utility_kind=preview.utility_kind
+    elseif kind=='trial_heal' then
+        state.card_trial.healing_charges=state.card_trial.healing_charges-1
+        local before=player.hp
+        player.hp=math.min(player.max_hp,before+card_plan.requested_heal)
+        emit(state,output,'Healed',{target_id=player.id,requested=card_plan.requested_heal,
+            actual_gain=player.hp-before,hp_before=before,hp_after=player.hp,
+            healing_source='trial:equipment/healing_flask',floor_id=position.floor_id,
+            x=position.x,y=position.y},player.id,action_id)
     elseif kind == "claim_chest" then
         local offer = Rewards.claim(state, chest, intent.offer_index,
             function(event_kind, reward_fields, source_id)
@@ -2319,6 +2370,11 @@ function Game.submit(state, intent)
     Boons.prune_histories(state)
     Achievements.prune(state)
     if state.class_special then state.class_special.duelist_guard=nil end
+    if state.card_trial then
+        CardTrial.after_action(state,function(kind,fields,source)
+            emit(state,output,kind,fields,source,action_id)
+        end)
+    end
     contexts[output] = nil
     return true, nil, output
 end
@@ -2450,6 +2506,7 @@ function Game.snapshot(state)
 end
 
 function Game.restore(snapshot)
+    assert(type(snapshot)~='table' or not snapshot.card_trial,'Card Trial is nonpersistent')
     assert(type(snapshot) == "table" and snapshot.schema == SCHEMA, "incompatible run schema")
     assert(snapshot.content_version == Content.version, "incompatible content version")
     assert(snapshot.boon_content_version == BoonContent.version,
