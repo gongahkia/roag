@@ -1,0 +1,16 @@
+{
+  "browser": "155.0.8059.84",
+  "original": {
+    "ratio": 1,
+    "width": 1024,
+    "height": 640
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 931,
+    "height": 582
+  },
+  "osScale": 1,
+  "nativeInput": "XTest via xdotool: focus and Ctrl +; actual Chromium desktop zoom",
+  "otherInput": "Playwright palette selection; XTest mouse click extends correct path cell after zoom"
+}

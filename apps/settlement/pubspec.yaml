@@ -1,0 +1,27 @@
+name: roag_settlement
+description: A small landscape that remembers what you build.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.14.0 <4.0.0'
+  flutter: '>=3.50.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: 1.38.2
+  material_ui: 1.11.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/manifest.json
+    - assets/ATTRIBUTION.txt
+    - assets/LICENSE-SourceCodePro.md
+  fonts:
+    - family: SourceCode
+      fonts:
+        - asset: assets/SourceCodePro-Regular.otf

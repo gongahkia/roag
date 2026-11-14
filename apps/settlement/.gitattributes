@@ -1,0 +1,2 @@
+# retain the vendored licence's original CRLF line endings.
+assets/LICENSE-SourceCodePro.md -text whitespace=cr-at-eol

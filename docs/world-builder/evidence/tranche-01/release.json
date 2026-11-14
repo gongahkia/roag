@@ -1,0 +1,19 @@
+{
+  "status": "succeeded",
+  "version": 2,
+  "url": "https://roag-settlement.epic-oasis-9331.chatgpt.site",
+  "audience": "owner-only",
+  "deployment_id": "appgdep_6af8a81083d881918ad5189fec4319f7",
+  "hosting_source_commit": "75ff32e36ca17aae7bc55dd748f1cda2a25ee50c",
+  "hosted_authenticated_gameplay_tested": false,
+  "local_release_gameplay_tested": true,
+  "runtime_source_sha256": {
+    "apps/settlement/lib/model.dart": "5667b080baf81cb34d4992471586cd90d4511418e499b4afebbf23b11e5dade5",
+    "apps/settlement/lib/browser.dart": "61357f7cee85bf20093b9bcce37bad56884fd77bd4da60729de3656566086040",
+    "apps/settlement/lib/settlement_game.dart": "4a6a01cc0b3bdd2294fe8313853bf37bfe889f4686998500b002cb73a791352a",
+    "apps/settlement/lib/main.dart": "d29776963630b9d01075ccfdb7912e3aa614ebb93e6fcb5342e3f2fbff2d1947",
+    "apps/settlement/web/index.html": "e9b59cd3e145fef66f5d417660a63e86ed4147ea4266b90b293f1c611ad9db36",
+    "apps/settlement/web/platform.js": "79613932a0e02d6162492b2c991e575af1024740546048717885eed27d13305e"
+  },
+  "archive_sha256": "1c917173de07441f14e51c71f01bf2bcf6169f3222d3a5bc5b1937b85ae158d5"
+}

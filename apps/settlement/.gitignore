@@ -1,0 +1,5 @@
+.dart_tool/
+.flutter-plugins*
+build/
+coverage/
+node_modules/

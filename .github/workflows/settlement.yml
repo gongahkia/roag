@@ -1,0 +1,33 @@
+name: Settlement browser prototype
+on:
+  push:
+    paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
+  pull_request:
+    paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/settlement
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: python3 -B tool/assets.py --check
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release --base-href /settlement/ --no-web-resources-cdn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roag-settlement-web
+          path: apps/settlement/build/web/

@@ -1,0 +1,11 @@
+{
+  "browser": "155.0.8059.84",
+  "devicePixelRatio": 1.5,
+  "checks": [
+    "DPR 1.5 picking and rendering",
+    "Storage failure reported truthfully without overwriting saved copy",
+    "Refresh restores saved copy after failed write",
+    "Confirmed New Landscape restores initial lane"
+  ],
+  "faultInjection": "Storage.prototype.setItem only; no internal game state injection"
+}

@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Browser input verification for the served release",
+  "devDependencies": {"playwright": "1.65.1"}
+}

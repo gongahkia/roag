@@ -1,0 +1,14 @@
+Settlement prototype artwork
+
+Urizen 1Bit Tileset v2.0 by vurmux (CC0), exact bounded crops from the
+original ROAG asset. https://vurmux.itch.io/urizen-onebit-tileset
+Godot node icons by pixel-boy (CC0), hammer/grid/clear UI icons.
+https://pixel-boy.itch.io/icon-godot-node
+The repository assets/CREDITS.txt records the original publisher declarations.
+
+Source Code Pro Regular by Adobe (SIL Open Font License 1.1), unmodified.
+See LICENSE-SourceCodePro.md.
+
+Black-key transparency, semantic tints, road end-cap clipping, ground pads,
+scars, outlines and short feedback effects are prototype rendering operations.
+No new building elevations or frame animation sets are claimed.

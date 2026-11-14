@@ -1,0 +1,374 @@
+{
+  "schema": 1,
+  "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
+  "extraction": "RGB <= 8 keyed transparent; source pixels otherwise retained. Renderer applies semantic tint.",
+  "frames": {
+    "grass0": {
+      "id": "urizen-onebit-r05-c015",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        196,
+        66,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/grass0.png",
+      "sha256": "f9c47763e8d5c16d626511905940cd567b1902feefa1176ec1fb565fe010568b"
+    },
+    "grass1": {
+      "id": "urizen-onebit-r05-c016",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        209,
+        66,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/grass1.png",
+      "sha256": "92fd522c88cf0318765b12ad5ec5b20e03cfc798b6cccd962c06f4b7fd14ab7d"
+    },
+    "dirt": {
+      "id": "urizen-onebit-r05-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        66,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/dirt.png",
+      "sha256": "0d8952dfeae71610a9102870dfe070102c12865213df8d64acef0fd02d06b29e"
+    },
+    "oak": {
+      "id": "urizen-onebit-r08-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        105,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/oak.png",
+      "sha256": "41873f48d445fa6658dbc838001c1b4fec7a1efef2b444db65ee17aa7d010ef0"
+    },
+    "vegetables": {
+      "id": "urizen-onebit-r24-c005",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        66,
+        313,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/vegetables.png",
+      "sha256": "22cc0a66169600be44668812c97dfe84a77087fc58dcb128c9979ac909f51667"
+    },
+    "cottage0": {
+      "id": "urizen-onebit-r33-c000",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/cottage0.png",
+      "sha256": "e2e3fe89184a58649df12e72d00283d2b9b72f13b649bfa98b430cb48897586d"
+    },
+    "cottage1": {
+      "id": "urizen-onebit-r33-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/cottage1.png",
+      "sha256": "b0482407f51a6833cccded6baedf76e5454fb81d96c33eaf12dbb9eb2684b03f"
+    },
+    "road0": {
+      "id": "urizen-onebit-r11-c000",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road0.png",
+      "sha256": "dcc987b667044cbff5ce428014d49586ddc76f1ce57ebb414e4aa0bf0ddd032f"
+    },
+    "road1": {
+      "id": "urizen-onebit-r11-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road1.png",
+      "sha256": "d5fde3a4665102789334f0cc2cbffcef1a70f28e1616bc744c422ada121e9468"
+    },
+    "road2": {
+      "id": "urizen-onebit-r11-c002",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        27,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road2.png",
+      "sha256": "08de91b4b91fb663216e7ebf74f1f1018e41d4165e9683740845f0e5777d3b4a"
+    },
+    "road3": {
+      "id": "urizen-onebit-r11-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road3.png",
+      "sha256": "3071f4b8a2818fb57706ea7ad9428d26224eb546c7e8c8bd6147038834ac5ed4"
+    },
+    "road4": {
+      "id": "urizen-onebit-r11-c004",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        53,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road4.png",
+      "sha256": "f38104dfcb7bc1d9530d01e670aafbcf0d7a9f68991b2a4b286941a429777ece"
+    },
+    "road5": {
+      "id": "urizen-onebit-r11-c005",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        66,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road5.png",
+      "sha256": "b48495f1f3d0039b00c4739a61b968a5afc665a9b9a0449d341e91d30870bad1"
+    },
+    "road6": {
+      "id": "urizen-onebit-r11-c006",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        79,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road6.png",
+      "sha256": "4efe5648920b8aa0217e90b0ee4ee0c45eed217d8169cf6dc2e783402cbe176c"
+    },
+    "road7": {
+      "id": "urizen-onebit-r11-c007",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        92,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road7.png",
+      "sha256": "15897f6d1c6543c699767190c56b59618890f1b245817d332487bf98b97d72ee"
+    },
+    "road8": {
+      "id": "urizen-onebit-r11-c008",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        105,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road8.png",
+      "sha256": "d37b125cc5c442ee9d279860f1449c720238a0b0bb0ff02fd5583ea93e137260"
+    },
+    "road9": {
+      "id": "urizen-onebit-r11-c009",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        118,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road9.png",
+      "sha256": "83582202734ae02d82964a70380dea6ff9b7993bf5f3c865cbc4af8251edd057"
+    },
+    "road10": {
+      "id": "urizen-onebit-r11-c010",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        131,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road10.png",
+      "sha256": "596b6342afc8ca31999071dad5c7c6a0c7c13f727a42a1c354f6c8ebf7f58a71"
+    },
+    "road11": {
+      "id": "urizen-onebit-r11-c011",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        144,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road11.png",
+      "sha256": "c7cb8968e36c3d5291e3ec52f9425571e5951b64ed0551fa0ca9da6dde4a0cfd"
+    },
+    "road12": {
+      "id": "urizen-onebit-r11-c012",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        157,
+        144,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/road12.png",
+      "sha256": "5000bab9417b82ba243619390e8f0fb7f52abb6205e37f2dadd948c465d42e30"
+    },
+    "hammer": {
+      "source": "assets/godot-node-icons/white/icon_hammer.png",
+      "rect": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "file": "images/hammer.png",
+      "sha256": "3b60704d0bbf43741717c530048193bc580a02a2ca86de6ee952212f15868e45"
+    },
+    "grid": {
+      "source": "assets/godot-node-icons/white/icon_grid.png",
+      "rect": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "file": "images/grid.png",
+      "sha256": "53d6f5b08b6e08d845364505f6e75e1537f027e05dac191ed2027212e0c1907a"
+    },
+    "clear": {
+      "source": "assets/godot-node-icons/white/icon_clear.png",
+      "rect": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "file": "images/clear.png",
+      "sha256": "4db4f36945432e45818bd2b1d03c1290e959f034718534f6bcf4ec4ff0078324"
+    }
+  },
+  "road_masks": {
+    "5": "road0",
+    "10": "road2",
+    "12": "road4",
+    "9": "road5",
+    "6": "road6",
+    "3": "road7",
+    "13": "road8",
+    "14": "road9",
+    "7": "road10",
+    "11": "road11",
+    "15": "road12"
+  },
+  "derived": "Masks 0,1,2,4,8: dirt texture clipped to center and real cardinal ports; no fictitious connection."
+}
