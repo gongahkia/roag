@@ -1,0 +1,29 @@
+[
+  {
+    "path": "contact-sheets/urizen-source-native.png",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "scale": 1,
+    "source_display_origin": [
+      0,
+      36
+    ]
+  },
+  {
+    "path": "contact-sheets/kenney-rpg-source-2x.png",
+    "source": "docs/sprite-audit/review-art/roguelike-rpg-sheet.png",
+    "scale": 2,
+    "source_display_origin": [
+      0,
+      36
+    ]
+  },
+  {
+    "path": "contact-sheets/tiny-dungeon-source-4x.png",
+    "source": "docs/sprite-audit/review-art/tiny-dungeon-tilemap.png",
+    "scale": 4,
+    "source_display_origin": [
+      0,
+      36
+    ]
+  }
+]

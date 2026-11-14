@@ -1,0 +1,102 @@
+{
+  "status": "proposal only; no files, IDs or runtime references changed",
+  "layers": [
+    "source_file",
+    "frame",
+    "appearance_variant",
+    "semantic_binding",
+    "assembly",
+    "animation_sequence"
+  ],
+  "world_categories": [
+    "terrain.ground",
+    "terrain.water",
+    "terrain.boundary",
+    "nature.tree",
+    "nature.crop",
+    "nature.resource",
+    "route.road",
+    "route.bridge",
+    "route.rail",
+    "building.miniature",
+    "architecture.wall_component",
+    "architecture.roof_component",
+    "architecture.door",
+    "architecture.foundation",
+    "prop.storage",
+    "prop.sign",
+    "prop.decoration",
+    "history.damage",
+    "history.abandonment",
+    "effect.placement",
+    "inhabitant.static"
+  ],
+  "presentation_categories": [
+    "ui.icon",
+    "ui.input_prompt",
+    "ui.font",
+    "effect.procedural"
+  ],
+  "metadata_fields": {
+    "source_file": [
+      "immutable_path",
+      "sha256",
+      "native_dimensions",
+      "pack",
+      "local_provenance"
+    ],
+    "frame": [
+      "immutable_legacy_id",
+      "source_id",
+      "rect",
+      "verified_crop_hash",
+      "foreground_bounds",
+      "identity_basis",
+      "confidence"
+    ],
+    "appearance_variant": [
+      "source_frame",
+      "palette_or_style",
+      "pixel_equivalence_group",
+      "mask_equivalence_group",
+      "render_transform"
+    ],
+    "semantic_binding": [
+      "role",
+      "game_or_proposal_scope",
+      "frame_id",
+      "current_activity",
+      "interpretation_not_source_identity"
+    ],
+    "assembly": [
+      "ordered_frame_ids",
+      "logical_footprint",
+      "drawing_anchor",
+      "layer_offsets",
+      "verified_connection_ports",
+      "view_and_scale"
+    ],
+    "animation_sequence": [
+      "verified_frame_ids_in_order",
+      "frame_duration",
+      "loop",
+      "evidence",
+      "unconfirmed_by_default"
+    ]
+  },
+  "required_tags": [
+    "view:overhead | elevation-miniature | modular | ui",
+    "scale:12px | 16px | variable",
+    "completeness:whole | component | fragment | uncertain",
+    "activity:current | historical | unbound | missing-reference",
+    "history:intact | damaged | dead | unknown",
+    "provenance:publisher-metadata | filename | local-visual-inference"
+  ],
+  "preservation_rules": [
+    "Keep original source files, hashes and indexed physical crop identities.",
+    "Keep old alias scopes separate, even if their proposed role changes.",
+    "Do not deduplicate source files from pixel equivalence.",
+    "Do not infer adjacency ports or animation from neighbouring atlas cells.",
+    "Keep missing legacy references as audit findings rather than silently redirecting them."
+  ]
+}

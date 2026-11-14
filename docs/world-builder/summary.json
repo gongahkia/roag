@@ -7,8 +7,13 @@
   "active_unique_catalogue_ids": 237,
   "active_duplicate_role_count": 362,
   "active_source_files": 67,
-  "catalogue_unique_occupied_rgba_drawings": 7073,
+  "catalogue_distinct_occupied_rgba_crops": 7073,
   "verified_animation_sequences": 0,
-  "contact_sheets": 27,
-  "locally_present_review_source_sheets_outside_catalogue": 2
+  "contact_sheets": 28,
+  "locally_present_review_source_sheets_outside_catalogue": 2,
+  "catalogue_historical_rpg_ids": 319,
+  "current_ids_absent_from_catalogue_usage_rpg": 57,
+  "review_sheet_occupied_cells": 1836,
+  "font_glyph_metadata_records": 570,
+  "font_zero_area_metrics_records": 3
 }
