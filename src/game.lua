@@ -720,6 +720,8 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             end
             local ward_absorbed=Boons.consume_ward(state,target,after_defense)
             after_defense=after_defense-ward_absorbed
+            local guard_absorbed
+            if state.boggle then after_defense,guard_absorbed=require('src.boggle').absorb(state,target,after_defense)end
             local loss = math.min(target.hp, after_defense)
             outcomes[#outcomes + 1] = {
                 target_id=target.id, target_definition_id=target.definition_id,
@@ -731,6 +733,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 attempted_damage=attempted, after_defense=after_defense,
                 reversal_bonus=reversal_bonus>0 and reversal_bonus or nil,
                 ward_absorbed=ward_absorbed,
+                guard_absorbed=guard_absorbed,
                 pickup_ward=pickup_ward or nil,parried=parried or nil,
                 block_reason=block_reason,protecting_id=protecting_id,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
@@ -1422,6 +1425,11 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
         if bonus>0 then emit(state,output,'SupplyFocusSpent',{bonus=bonus,floor_id=position.floor_id,x=position.x,y=position.y},source.id,action_id)end
     end
     local aimed_cells
+    if state.boggle and not (extra and extra.class_generated)then
+        local bonus=source.id==state.player_id and (context.boggle_bonus or 0)
+            or require('src.boggle').enemy_attack(state,source,action_id)
+        raw_damage=math.max(0,raw_damage+bonus)
+    end
     if fate_roll and fate_roll.face==8 then
         aimed_cells=cells;cells={};raw_damage=0
     end
@@ -1951,8 +1959,14 @@ function Game.submit(state, intent)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
-    local card_plan
-    if state.card_trial then
+    local card_plan,boggle_plan
+    if state.boggle then
+        if intent.kind~='boggle_command'then return require('src.boggle').submit(state,intent,Game)end
+        local why
+        boggle_plan,why=require('src.boggle').command_plan(state,intent,Game)
+        if not boggle_plan then return false,why,{}end
+        intent=boggle_plan.intent
+    elseif state.card_trial then
         local handled,ok,why=CardTrial.bookkeeping(state,intent,Game.spawn_enemy)
         if handled then return ok,why,{} end
         if intent.kind=='trial_reward' then
@@ -1984,6 +1998,7 @@ function Game.submit(state, intent)
         card_plan=Game.card_preview(state,intent)
         if not card_plan.valid then return false,card_plan.reason,{},card_plan end
         intent=card_plan.intent
+    elseif type(intent.kind)=='string' and intent.kind:match('^boggle_')then return false,'This action requires Boggle Trial',{}
     elseif intent.kind=='trial_action' or intent.kind=='cash_hand' or intent.kind=='exchange_cards'
         or intent.kind=='retain_cards' or intent.kind=='trial_deck_reward'
         or intent.kind=='card_action' or intent.kind=='technique' or intent.kind=='replace_card'
@@ -2067,6 +2082,7 @@ function Game.submit(state, intent)
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
+    elseif boggle_plan then preview=boggle_plan
     elseif (intent.kind=='trial_heal' or intent.kind=='knight_hop') and card_plan then
         preview=card_plan
     elseif intent.kind=='interact'then
@@ -2115,6 +2131,22 @@ function Game.submit(state, intent)
     end
     if preview.bump then action.bump = true end
     local function interaction_emit(k,fields,owner)emit(state,output,k,fields,owner,action_id)end
+    if boggle_plan then
+        require('src.boggle').consume(state,boggle_plan,interaction_emit,Game)
+        if kind=='basic_attack' or kind=='sweeping_slash'then
+            contexts[output].boggle_bonus=require('src.boggle').player_attack(state)
+        end
+        if boggle_plan.definition and boggle_plan.definition.kind=='wound'then
+            local before=player.hp;player.hp=math.max(0,before-2)
+            local fields={target_id=player.id,hp_cost=2,actual_loss=before-player.hp,hp_before=before,hp_after=player.hp,
+                self_cost=true,floor_id=position.floor_id,x=position.x,y=position.y}
+            emit(state,output,'HealthCostPaid',fields,player.id,action_id)
+            if player.hp==0 then
+                emit(state,output,'Died',fields,player.id,action_id)
+                remove_dead(state,player,output,player.id,action_id)
+            end
+        end
+    end
     Interactions.before_action(state,kind,preview,interaction_emit)
     if kind=='use_utility'then Interactions.use_utility(state,preview,interaction_emit)end
     if kind=='dash' and preview.beacon_return then
@@ -2343,6 +2375,8 @@ function Game.submit(state, intent)
     elseif kind=='use_utility'then
         -- Non-movement utility effects were applied above; no Waited event.
         action.utility_kind=preview.utility_kind
+    elseif kind=='boggle_effect'then
+        -- Its explicit effect was applied at acceptance; this is not a Wait.
     elseif kind=='trial_heal' then
         state.card_trial.healing_charges=state.card_trial.healing_charges-1
         local before=player.hp
@@ -2391,7 +2425,8 @@ function Game.submit(state, intent)
     Boons.prune_histories(state)
     Achievements.prune(state)
     if state.class_special then state.class_special.duelist_guard=nil end
-    if state.card_trial then
+    if state.boggle then require('src.boggle').after_action(state,Game)
+    elseif state.card_trial then
         CardTrial.after_action(state,function(kind,fields,source)
             emit(state,output,kind,fields,source,action_id)
         end)

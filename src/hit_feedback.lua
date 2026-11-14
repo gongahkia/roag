@@ -25,7 +25,7 @@ function HitFeedback.update(feedback, playback, dt, player_id, floor_id)
         local loss = 0
         if item then
             for _,event in ipairs(item.events or {item.event}) do
-                if event.kind == "DamageTaken" and event.target_id == player_id
+                if (event.kind == "DamageTaken" or event.kind=='HealthCostPaid') and event.target_id == player_id
                     and (not event.floor_id or event.floor_id == floor_id) then
                     loss = loss + math.max(0, event.actual_loss or 0)
                 end

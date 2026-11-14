@@ -22,7 +22,7 @@ local function activate(numbers,item,player_id,floor_id)
     local events=item.events or {item.event}
     local ordered,by_target={},{}
     for _,event in ipairs(events) do
-        if (event.kind=='DamageTaken' or event.kind=='DamageBlocked') and
+        if (event.kind=='DamageTaken' or event.kind=='DamageBlocked' or event.kind=='HealthCostPaid') and
             event.x and event.y and (not event.floor_id or event.floor_id==floor_id) then
             local key=tostring(event.target_id or '')..':'..event.x..':'..event.y
             local hit=by_target[key]
@@ -32,7 +32,7 @@ local function activate(numbers,item,player_id,floor_id)
                 by_target[key]=hit
                 ordered[#ordered+1]=hit
             end
-            if event.kind=='DamageTaken' and (event.actual_loss or 0)>0 then
+            if (event.kind=='DamageTaken' or event.kind=='HealthCostPaid') and (event.actual_loss or 0)>0 then
                 hit.amount=hit.amount+event.actual_loss
                 hit.critical=hit.critical or event.critical==true
                 hit.from_player=hit.from_player or event.source_id==player_id

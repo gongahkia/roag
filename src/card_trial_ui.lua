@@ -12,8 +12,8 @@ local C=Trial.content
 local U={preset=1,seed=C.seed,mode='poker',focus=1,reward_selection=1,deck_choice=1,selected={}}
 local host
 local dirs={w={0,-1},up={0,-1},d={1,0},right={1,0},s={0,1},down={0,1},a={-1,0},left={-1,0},q={-1,-1},e={1,-1},z={-1,1},c={1,1}}
-function U.attach(h)host=h end
-function U.active()local s=host and host.state();return s and s.card_trial~=nil end
+function U.attach(h)host=h;require('src.boggle_ui').attach(h)end
+function U.active()local s=host and host.state();return s and s.card_trial~=nil and not s.boggle end
 local function clear()
     U.armed=nil;U.hover_action=nil;U.aim=nil;U.preview=nil;U.forecast=nil;U.targets={};U.target_index=nil
     host.target(nil)

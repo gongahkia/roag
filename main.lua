@@ -422,6 +422,7 @@ function love.load(args)
         if argument=='--spectator' then spectator_enabled=true end
         if argument=='--card-trial' then trial_requested=true end
         if argument=='--fixed-stamina' then trial_requested=true;trial_mode='fixed'end
+        if argument=='--boggle-trial' then trial_requested=true;trial_mode='boggle'end
         local value=argument:match('^%-%-trial%-seed=(%d+)$')
         if value then trial_seed=tonumber(value);require('src.rng').new(trial_seed)end
     end
@@ -460,7 +461,8 @@ function love.load(args)
     visual_signature=visual_fingerprint(visual_assets,world_pack)
     Generation.install_studio_pack(world_pack)
     if trial_requested then
-        require('src.card_trial_ui').open(trial_seed,trial_mode)
+        if trial_mode=='boggle'then require('src.boggle_ui').open(trial_seed)
+        else require('src.card_trial_ui').open(trial_seed,trial_mode)end
     elseif spectator_enabled then
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
@@ -570,6 +572,7 @@ function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
+    require('src.boggle_ui').update()
     require('src.card_trial_ui').update()
     Juice.update(visual_juice,dt,state.active_floor_id,presentation_settings.combat_effects,
         playback,state.player_id)
@@ -1186,6 +1189,7 @@ local function title_keypressed(key)
         elseif key=='n' then request_new_run() -- legacy quick-start shortcut
         elseif key=='u' then unlocks_view=true
         elseif key=='t' then require('src.card_trial_ui').open()
+        elseif key=='o' then require('src.boggle_ui').open()
         elseif key=='escape' or key=='q' then love.event.quit() end
     elseif title_view=='continue' then
         if key=='return' or key=='kpenter' or key=='c' then
@@ -1221,6 +1225,7 @@ function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
     end
+    if require('src.boggle_ui').keypressed(key,isrepeat)then return end
     if require('src.card_trial_ui').keypressed(key,isrepeat)then return end
     if key=='return' or key=='kpenter' then
         require('src.pixel_ui').press() -- cached; preserve the callback's upvalue budget
@@ -1532,6 +1537,7 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
+    if require('src.boggle_ui').gamepadpressed(button)then return end
     if require('src.card_trial_ui').gamepadpressed(button)then return end
     if interaction_ui.menu then
         local key=({a='return',b='escape',dpup='up',dpdown='down',dpleft='left',dpright='right',start='escape'})[button]
@@ -2546,6 +2552,7 @@ local function draw_combat_numbers()
 end
 
 local function draw_preview()
+    if require('src.boggle_ui').draw_preview()then return end
     if require('src.card_trial_ui').draw_preview()then return end
     if not targeting or targeting.dx == nil then return end
     local preview = targeting.card_intent and Game.card_preview(state,targeting.card_intent)
@@ -3047,6 +3054,7 @@ local function draw_world()
     end
     draw_minimap()
     love.graphics.setScissor()
+    require('src.boggle_ui').draw_sidebar()
     require('src.card_trial_ui').draw_sidebar()
     if chest_menu and state.card_trial then require('src.card_trial_ui').draw_reward()
     elseif chest_menu then
@@ -3138,6 +3146,7 @@ local function hud_meter(x,y,w,h,value,maximum,r,g,b)
 end
 
 local function draw_panel()
+    if state.boggle then require('src.boggle_ui').draw_hud();return end
     if state.card_trial then require('src.card_trial_ui').draw_hud();return end
     local g=love.graphics
     local player=Game.player(state)
@@ -3505,6 +3514,7 @@ local function draw_settings()
 end
 
 local function draw_title_page()
+    if require('src.boggle_ui').draw_setup()then return end
     if require('src.card_trial_ui').draw_setup()then return end
     local g=love.graphics
     if title_view=='home'then
@@ -3523,7 +3533,8 @@ local function draw_title_page()
             local headline=TitleMenu.save_summary(save_status)
             PixelUI.center('Continue unavailable · '..headline,530,ui_menu_font,PixelUI.colors.muted)
         end
-        PixelUI.center('Arrows / Enter · T Card Trial · N new · C continue',564,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.option('O BOGGLE TRIAL',768,404,224,false,ui_menu_font)
+        PixelUI.center('Arrows / Enter · T Card Trial · O Boggle · N new · C continue',564,ui_menu_font,PixelUI.colors.muted)
         PixelUI.center('F1  HOW TO PLAY',600,ui_menu_font,PixelUI.colors.selected)
     elseif title_view=='continue'then
         menu_frame('CONTINUE SAVED RUN',192,130,640,360,ui_display_font)
@@ -3692,6 +3703,8 @@ function love.draw()
     end
     if help_open then draw_help()end
     require('src.card_trial_ui').draw_overlay()
+    require('src.boggle_ui').draw_overlay()
+    require('src.boggle_ui').frame_drawn()
 
 end
 
@@ -3799,6 +3812,7 @@ function love.roagAssetIdResolved(id)
     return visual_assets and visual_assets:resolve_id(id)~=nil or false
 end
 function love.mousepressed(x,y,button,istouch,presses)
+    if require('src.boggle_ui').mousepressed(x,y,button)then return end
     if require('src.card_trial_ui').mousepressed(x,y,button)then return end
     if button~=1 then return end
     PixelUI.press()
@@ -3841,6 +3855,7 @@ function love.mousepressed(x,y,button,istouch,presses)
             return
         end
         if title_view=='home'then
+            if x>=768 and x<992 and y>=396 and y<440 then require('src.boggle_ui').open();return end
             if y>=590 and y<=630 then help_open=true;return end
             local index=PixelUI.home_at(x,y)
             if index then title_selection=index;activate_title_selection()end
@@ -3896,15 +3911,18 @@ function love.mousepressed(x,y,button,istouch,presses)
     end
 end
 function love.mousemoved(x,y)
+    if require('src.boggle_ui').mousemoved(x,y)then return end
     if require('src.card_trial_ui').mousemoved(x,y)then return end
     update_volume_drag(x)
 end
 function love.mousereleased(x,y,button)
+    if require('src.boggle_ui').mousereleased(x,y,button)then return end
     if button~=1 then return end
     update_volume_drag(x)
     finish_volume_drag()
 end
 function love.focus(focused)
+    if not focused then require('src.boggle_ui').drag=false;require('src.boggle_ui').last_point=nil end
     if not focused then finish_volume_drag() end
 end
 function love.wheelmoved(dx,dy)
@@ -3972,6 +3990,10 @@ require('src.card_trial_ui').attach({
         local sx,sy=Camera.tile_top_left(camera,x,y)
         local art=actor_visual(Game.player(state).definition_id,state.player_id)
         draw_visual(art,sx,sy,TILE,TILE,.38,player_facing==-1)
+    end,
+    entity_ghost=function(entity,x,y)
+        local sx,sy=Camera.tile_top_left(camera,x,y)
+        draw_visual(actor_visual(entity.definition_id,entity.id),sx,sy,TILE,TILE,.32,false)
     end,
     visual=function(binding,x,y,w,h)draw_visual(bound_visual(binding),x,y,w,h)end,
     cell=function(x,y)

@@ -2,12 +2,15 @@
 LOVE_BIN ?= love
 LUAJIT ?= luajit
 PYTHON ?= python3
-.PHONY: help game test gui assets assets-check catalog-test preservation package spectator card-trial card-fixed card-test card-gui
+.PHONY: help game test gui assets assets-check catalog-test preservation package spectator card-trial card-fixed card-test card-gui boggle-trial boggle-test boggle-gui
 help:
 	@printf '%s\n' 'make game          Play the Lua/LÖVE roguelike' \
 	 'make spectator     Preview biomes/floors/classes with G/J/K/L/M' \
 	 'make card-trial    Open Poker Stamina in the nonpersistent trial' \
 	 'make card-fixed    Open the Fixed Stamina comparison' \
+	 'make boggle-trial  Open the four-tile action-board experiment' \
+	 'make boggle-test   Verify routes, forecasts and board resources' \
+	 'make boggle-gui    Verify rendered routes, latency and isolation' \
 	 'make card-test     Run focused card/action boundary tests' \
 	 'make card-gui      Play trials through actual LÖVE callbacks (needs display)' \
 	 'make test          Run gameplay and current-art regression tests' \
@@ -25,6 +28,12 @@ card-trial: assets-check
 	"$(LOVE_BIN)" . --card-trial
 card-fixed: assets-check
 	"$(LOVE_BIN)" . --fixed-stamina
+boggle-trial: assets-check
+	"$(LOVE_BIN)" . --boggle-trial
+boggle-test:
+	$(LUAJIT) tests/boggle_tests.lua
+boggle-gui: assets-check
+	sh tests/boggle_gui.sh
 card-test:
 	$(LUAJIT) tests/card_trial_tests.lua
 card-gui: assets-check

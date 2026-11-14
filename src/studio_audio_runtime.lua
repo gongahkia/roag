@@ -37,12 +37,14 @@ function R.cues_for_event(event,state)
     elseif event.kind=='WindupStarted' then
         add(out,'core:cue/enemy/telegraph')
         add(out,'core:cue/enemy/'..tostring(tail(actor))..'/telegraph')
-    elseif event.kind=='DamageTaken' then
+    elseif event.kind=='DamageTaken' or event.kind=='HealthCostPaid' then
         if event.target_id==player then add(out,'core:cue/player/damage')
         else
             add(out,'core:cue/enemy/hit')
             add(out,'core:cue/enemy/'..tostring(tail(target))..'/hit')
         end
+    elseif event.kind=='Died' and event.self_cost and event.target_id==player then
+        add(out,'core:cue/player/death')
     elseif event.kind=='EntityKilled' then
         if event.target_id==player then add(out,'core:cue/player/death')
         else
