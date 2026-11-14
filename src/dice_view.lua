@@ -40,7 +40,8 @@ function V.cube(p,n,x,y,size,host,focus)
  local g=love.graphics;local ax,ay,az,t=V.pose(p,n)
  local lift=p.reduced and 0 or p.rolling and math.sin(t*pi)*9 or p.focus[n]*3
  if p.rolling and not p.reduced and p.age>.16 then lift=math.sin(math.min(1,(p.age-.16)/.04)*pi)*2 end
- local kick=p.reduced and 0 or n==p.use_die and p.use_age<.09 and math.sin(p.use_age/.09*pi)*5 or 0
+ local use_duration=p.use_face=='quick_step'and .06 or .09
+ local kick=p.reduced and 0 or n==p.use_die and p.use_age<use_duration and math.sin(p.use_age/use_duration*pi)*5 or 0
  local press=p.reduced and 0 or (1-p.press[n])*3
  y=y-lift+press+kick
  g.setColor(.02,.02,.02,.7);g.rectangle('fill',x-size*.5-3,y+size*.58+lift,size+10,4)
@@ -114,21 +115,19 @@ function V.net(p,n,focus,proposal,host)
 end
 function V.accents(p,host,hero)
  local g=love.graphics;local body=host.fonts()
- if p.use_age<.15 then
-  local x,y=host.screen(hero.x,hero.y);local fade=1-p.use_age/.15
+ local duration=p.use_face=='quick_step'and .1 or .15
+ if p.use_age<duration then
+  local x,y=host.screen(hero.x,hero.y);local fade=1-p.use_age/duration
   g.setColor(1,1,1,fade*.7)
   g.rectangle('line',x+7,y+7,34,34)
   host.visual(V.icon(p.use_face),x+32,y-8,18,18)
+  text(D.faces[p.use_face].name,x-12,y-18,body,{1,1,1,fade})
  end
  for n,a in ipairs(p.accents)do
   local x,y=host.screen(a.x or hero.x,a.y or hero.y)
   local alpha=math.min(1,(.55-a.age)/.14);local rise=p.reduced and 0 or math.floor(a.age*14)
   text(a.label,x-18,y-12-rise-(n%2)*10,body,{1,.91,.48,alpha})
-  if a.kind=='impact'then
-   g.setColor(1,1,1,alpha*.65);local span=a.face=='heavy_strike'and 20 or 16
-   g.rectangle('line',x+24-span,y+24-span,span*2,span*2)
-   if a.face=='pierce'then g.line(x+16,y+36,x+32,y+12)end
-  elseif a.kind=='guard'then g.setColor(.7,.8,.9,alpha);g.rectangle('line',x+5,y+5,38,38)
+  if a.kind=='guard'then g.setColor(.7,.8,.9,alpha);g.rectangle('line',x+5,y+5,38,38)
   elseif a.kind=='bloom'then
    g.setColor(1,.85,.55,alpha*.65);local r=p.reduced and 20 or 10+a.age*60
    g.rectangle('line',x+24-r,y+24-r,r*2,r*2)

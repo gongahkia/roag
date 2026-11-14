@@ -1,0 +1,87 @@
+{
+  "baseline_first_8": [
+    {
+      "world_time": "70",
+      "ready_ms": "377.052",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "140",
+      "ready_ms": "374.305",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "290",
+      "ready_ms": "2027.256",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "390",
+      "ready_ms": "274.136",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "540",
+      "ready_ms": "1218.322",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "640",
+      "ready_ms": "1772.566",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "740",
+      "ready_ms": "1295.900",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "810",
+      "ready_ms": "559.387",
+      "extra_roll_block_ms": "0"
+    }
+  ],
+  "updated_first_8": [
+    {
+      "world_time": "70",
+      "ready_ms": "369.558",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "140",
+      "ready_ms": "374.726",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "290",
+      "ready_ms": "2019.782",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "390",
+      "ready_ms": "280.004",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "540",
+      "ready_ms": "1221.742",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "640",
+      "ready_ms": "1770.458",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "740",
+      "ready_ms": "1293.237",
+      "extra_roll_block_ms": "0"
+    },
+    {
+      "world_time": "810",
+      "ready_ms": "553.334",
+      "extra_roll_block_ms": "0"
+    }
+  ],
+  "measurement": "internal accepted input to playback-ready update; not physical display latency"
+}

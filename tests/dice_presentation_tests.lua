@@ -99,4 +99,17 @@ test('presentation audio is original PCM and uses the existing UI mix, effects v
  runtime.pack.mix.ui.mute=true;runtime.elapsed=runtime.elapsed+1;assert(not runtime:dice_cue('land'))
  assert(#runtime.pack.sounds==8,'trial samples changed the shared audio pack')
 end)
+test('actual inspection and editor candidate controls leave the entire game and RNG unchanged',function()
+ local state=fresh();local submits=0
+ U.attach({state=function()return state end,busy=function()return false end,target=function()end,
+  submit=function()submits=submits+1;return false end})
+ U.inspect=false;U.menu=false;U.reduced=false;U.await_update=false;U.clear();U.set_inspect(true,1)
+ local before=G.snapshot(state)
+ for n=1,12 do U.keypressed(tostring(n%3+1));U.keypressed('right');U.update(.02)end
+ U.set_inspect(false);same(state,before)
+ state.card_trial.phase='face_edit';U.edit_die=1;U.edit_index=1;U.edit_type=1
+ before=G.snapshot(state)
+ for n=1,12 do U.keypressed('right');U.keypressed('down');U.keypressed('escape');U.update(.02)end
+ same(state,before);assert(submits==0)
+end)
 print(('Dice presentation: %d passed, %d failed'):format(pass,fail));os.exit(fail==0 and 0 or 1)

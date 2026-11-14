@@ -64,3 +64,4 @@ dice-test:
 .PHONY: dice-presentation-test
 dice-presentation-test:
 	$(LUAJIT) tests/dice_presentation_tests.lua
+	$(LUAJIT) tests/dice_presentation_regressions.lua

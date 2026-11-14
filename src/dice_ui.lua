@@ -79,7 +79,7 @@ local function edit(key)
   local p=motion();local old=host.state().dice.dice[U.edit_die][U.edit_index]
   local ok,why=host.submit({kind='dice_edit',skip=key=='k',die=U.edit_die,index=U.edit_index,replacement=D.catalogue[U.edit_die][U.edit_type]})
   U.message=why;if ok then
-   P.sync(p,host.state().dice)
+   P.sync(p,host.state().dice);p.opening=not p.reduced
    if key~='k'then P.edit(p,U.edit_die,U.edit_index,old,D.catalogue[U.edit_die][U.edit_type])else P.inspect(p,false)end
    U.clear();sound()
   end
@@ -111,8 +111,8 @@ function U.keypressed(key,repeat_key,physical)
   return true
  end
  local p=motion()
- if p.opening and p.rolling then P.finish(p);return true end
- if p.edit then p.edit=nil;p.net=0;p.net_target=false;P.finish(p);return true end
+ if p.opening and p.rolling then P.finish(p);p.edit=nil;p.net=0;p.net_target=false;return true end
+ if p.edit then p.edit=nil;p.net=0;p.net_target=false;P.finish(p)end
  if key=='escape'then if U.selected or U.aim then U.clear()else U.menu=true end
  elseif key=='1' or key=='2' or key=='3'then choose(tonumber(key))
  elseif key=='f'then choose(2)
@@ -156,8 +156,9 @@ function U.mousepressed(x,y,button,presses)
  if host.busy()or U.await_update or (presses or 1)>1 then return true end
  if button==2 then U.keypressed('escape');return true end
  if button~=1 then return true end
- if U.menu then U.keypressed('escape');return true end
+ if U.menu then U.keypressed(x>=96 and x<928 and y>=270 and y<320 and 'm'or 'escape');return true end
  if U.inspect then
+  if motion().net<.99 and x>=656 then return true end
   if x>=672 and x<992 and y>=110 and y<140 then U.set_inspect(true,math.min(3,math.floor((x-672)/108)+1))
   else local j=V.hit(motion(),x,y);if j then U.inspect_index=j else U.set_inspect(false)end end
   return true
@@ -173,8 +174,8 @@ function U.mousepressed(x,y,button,presses)
   end
  else
   local p=motion()
-  if p.opening and p.rolling then P.finish(p);return true end
-  if p.edit then p.edit=nil;p.net=0;p.net_target=false;P.finish(p);return true end
+  if p.opening and p.rolling then P.finish(p);p.edit=nil;p.net=0;p.net_target=false;return true end
+  if p.edit then p.edit=nil;p.net=0;p.net_target=false;P.finish(p)end
   if x>=672 and x<992 and y>=114 and y<354 then choose(math.floor((y-114)/80)+1)
   elseif x>=672 and y>=470 then U.set_inspect(true)
   else local i=at(x,y);if i then commit(i)end end
@@ -208,8 +209,11 @@ local function draw_net()
   local same=proposal==die[focus]
   Pixel.option(same and 'Choose a different face' or 'Enter Confirm replacement',672,486,320,not same,body,same)
   Pixel.option('K Skip',672,518,320,false,body)
- elseif p.edit then
-  for j=1,3 do V.cube(p,j,704+(j-1)*112,488,28,host,false)end
+ elseif p.edit or (p.rolling and not U.inspect)then
+  for j=1,3 do
+   V.cube(p,j,704+(j-1)*112,476,28,host,false)
+   text(D.faces[p.results[j].face].name,672+(j-1)*112,506,body,nil,108)
+  end
  elseif not p.edit then
   local counts={};for _,face in ipairs(p.dice[n])do counts[face]=(counts[face]or 0)+1 end
   for j,face in ipairs(D.catalogue[n])do text(D.faces[face].name..' '..counts[face]..'/6',680,430+(j-1)*19,body)end
@@ -281,6 +285,11 @@ function U.draw_hud()
  local s=host.state();local p=G.player(s);local body,menu=host.fonts();local f=U.forecast;local g=love.graphics
  g.setColor(Pixel.colors.background);g.rectangle('fill',16,544,992,90)
  text('HP '..p.hp..'/'..p.max_hp..' · Guard '..D.guard(s)..' · Time '..s.clock,28,550,menu)
+ if U.inspect then
+  text('Rhythm (U): move primes a +2 bonus hit for 250 time. Bloom (R): kills burst for 3 in radius 1.',28,580,body,nil,960)
+  text('Guard: refresh 2, expires after 200 world time. All listed costs use normal speed scaling.',28,602,body,nil,960)
+  return
+ end
  local line=host.busy()and 'Resolving · input locked'or s.card_trial.phase=='face_edit'and 'Replace one physical face. Left/right index; up/down replacement; 1/2/3 die. Esc cancel.'or 'Move: arrows/WASD · Q/E/Z/C aim diagonally · F Weapon · 1/2/3 select · Esc cancel/menu'
  text(line,28,580,body,nil,960)
  if f and f.valid then text('Forecast: HP '..G.player(f.state).hp..' · Guard '..D.guard(f.state)..' · Time +'..f.plan.cost..' · gold = legal, red = enemy response',28,602,body,Pixel.colors.selected)

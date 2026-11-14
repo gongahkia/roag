@@ -5,8 +5,8 @@ P.normals={{0,0,1},{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},{0,0,-1}}
 P.net={{1,1},{2,1},{1,2},{0,1},{1,0},{1,3}}
 local function copy(v)if type(v)~='table'then return v end;local t={};for k,x in pairs(v)do t[k]=copy(x)end;return t end
 function P.new(dice,reduced)
- return {revision=dice.revision,results=copy(dice.results),dice=copy(dice.dice),age=0,
-  rolling=true,opening=true,reduced=reduced or false,roll_count=1,net=0,net_target=false,net_die=1,
+ return {revision=dice.revision,results=copy(dice.results),dice=copy(dice.dice),age=reduced and P.roll_seconds or 0,
+  rolling=not reduced,opening=not reduced,reduced=reduced or false,roll_count=1,net=0,net_target=false,net_die=1,
   focus={0,0,0},press={1,1,1},use_age=1,accents={},seen_events={},sounds={'roll'}}
 end
 function P.sound(p,name)p.sounds[#p.sounds+1]=name end
@@ -19,6 +19,7 @@ function P.sync(p,dice)
 end
 function P.inspect(p,open,die)
  if die then p.net_die=die end
+ if p.reduced then p.net=open and 1 or 0 end
  if p.net_target~=open then p.net_target=open;P.sound(p,'fold')end
 end
 function P.select(p,n)p.press[n]=0 end
@@ -64,7 +65,6 @@ function P.events(p,events,player)
    elseif e.kind=='BoonActivated'and e.boon_id=='core:boon/detonation_bloom'then label='BLOOM';kind='bloom'
    elseif (e.kind=='DamageAttempted'or e.kind=='DamageTaken'or e.kind=='DamageBlocked')and e.target_id==player and (e.guard_absorbed or 0)>0 then label='GUARD -'..e.guard_absorbed;kind='guard'
    elseif e.kind=='BoardGuarded'and e.source_id==player then label='GUARD +2';kind='guard'
-   elseif e.kind=='DamageTaken'and e.direct_attack and e.source_id==player and (e.actual_loss or 0)>0 then label='';kind='impact'
    elseif e.kind=='DamageTaken'and not e.direct_attack then
     for _,a in ipairs(e.ancestry or {})do
      if a:find('rhythm_of_steel',1,true)then label='RHYTHM +'..e.actual_loss;kind='rhythm'end

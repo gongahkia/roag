@@ -312,6 +312,7 @@ function R:emit(cue_id,position,listener)
 end
 -- Lazy trial-only cues share the existing mixer, voice caps and user volumes.
 function R:dice_cue(kind)
+    if not self.bindings or not self.pack then return false,'audio unavailable' end
     local cue='core:cue/ui/dice_'..kind
     if not Cues.get(cue)then return false,'unknown dice cue' end
     if not self.bindings[cue]then
