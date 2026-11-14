@@ -422,6 +422,7 @@ function love.load(args)
         if argument=='--spectator' then spectator_enabled=true end
         if argument=='--card-trial' then trial_requested=true end
         if argument=='--fixed-stamina' then trial_requested=true;trial_mode='fixed'end
+        if argument=='--dice-trial'then trial_requested=true;trial_mode='dice'end
         if argument=='--boggle-trial' then trial_requested=true;trial_mode='boggle'end
         local value=argument:match('^%-%-trial%-seed=(%d+)$')
         if value then trial_seed=tonumber(value);require('src.rng').new(trial_seed)end
@@ -461,7 +462,8 @@ function love.load(args)
     visual_signature=visual_fingerprint(visual_assets,world_pack)
     Generation.install_studio_pack(world_pack)
     if trial_requested then
-        if trial_mode=='boggle'then require('src.boggle_ui').open(trial_seed)
+        if trial_mode=='dice'then require('src.dice_ui').open(trial_seed)
+        elseif trial_mode=='boggle'then require('src.boggle_ui').open(trial_seed)
         else require('src.card_trial_ui').open(trial_seed,trial_mode)end
     elseif spectator_enabled then
         title=false
@@ -572,6 +574,7 @@ function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
+    require('src.dice_ui').update(dt)
     require('src.boggle_ui').update()
     require('src.card_trial_ui').update()
     Juice.update(visual_juice,dt,state.active_floor_id,presentation_settings.combat_effects,
@@ -819,6 +822,7 @@ local function submit(intent)
             reset_camera()
         end
         local shown=visible_events(events)
+        if state.dice then require('src.dice_ui').on_events(shown)end
         Playback.add(playback, shown, state.player_id)
         Juice.add(visual_juice,shown,state.player_id,state.active_floor_id,
             presentation_settings.combat_effects)
@@ -1225,6 +1229,7 @@ function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
     end
+    if require('src.dice_ui').keypressed(key,isrepeat,true)then return end
     if require('src.boggle_ui').keypressed(key,isrepeat)then return end
     if require('src.card_trial_ui').keypressed(key,isrepeat)then return end
     if key=='return' or key=='kpenter' then
@@ -1537,6 +1542,7 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
+    if require('src.dice_ui').gamepadpressed(button)then return end
     if require('src.boggle_ui').gamepadpressed(button)then return end
     if require('src.card_trial_ui').gamepadpressed(button)then return end
     if interaction_ui.menu then
@@ -2552,6 +2558,7 @@ local function draw_combat_numbers()
 end
 
 local function draw_preview()
+    if require('src.dice_ui').draw_preview()then return end
     if require('src.boggle_ui').draw_preview()then return end
     if require('src.card_trial_ui').draw_preview()then return end
     if not targeting or targeting.dx == nil then return end
@@ -3045,6 +3052,7 @@ local function draw_world()
             VIEWPORT.width-2,VIEWPORT.height-2)
     end
     if presentation_settings.damage_numbers then draw_combat_numbers() end
+    require('src.dice_ui').draw_combat()
     if state.card_trial then draw_preview()end -- keep intent/primary labels above actor sprites
     if spectator_enabled and spectator_free and spectator_focus then
         local cx,cy=Camera.tile_top_left(camera,spectator_focus.x,
@@ -3054,6 +3062,7 @@ local function draw_world()
     end
     draw_minimap()
     love.graphics.setScissor()
+    require('src.dice_ui').draw_sidebar()
     require('src.boggle_ui').draw_sidebar()
     require('src.card_trial_ui').draw_sidebar()
     if chest_menu and state.card_trial then require('src.card_trial_ui').draw_reward()
@@ -3146,6 +3155,7 @@ local function hud_meter(x,y,w,h,value,maximum,r,g,b)
 end
 
 local function draw_panel()
+    if state.dice then require('src.dice_ui').draw_hud();return end
     if state.boggle then require('src.boggle_ui').draw_hud();return end
     if state.card_trial then require('src.card_trial_ui').draw_hud();return end
     local g=love.graphics
@@ -3703,6 +3713,7 @@ function love.draw()
     end
     if help_open then draw_help()end
     require('src.card_trial_ui').draw_overlay()
+    require('src.dice_ui').draw_overlay()
     require('src.boggle_ui').draw_overlay()
     require('src.boggle_ui').frame_drawn()
 
@@ -3812,6 +3823,7 @@ function love.roagAssetIdResolved(id)
     return visual_assets and visual_assets:resolve_id(id)~=nil or false
 end
 function love.mousepressed(x,y,button,istouch,presses)
+    if require('src.dice_ui').mousepressed(x,y,button,presses)then return end
     if require('src.boggle_ui').mousepressed(x,y,button)then return end
     if require('src.card_trial_ui').mousepressed(x,y,button)then return end
     if button~=1 then return end
@@ -3911,6 +3923,7 @@ function love.mousepressed(x,y,button,istouch,presses)
     end
 end
 function love.mousemoved(x,y)
+    if require('src.dice_ui').mousemoved(x,y)then return end
     if require('src.boggle_ui').mousemoved(x,y)then return end
     if require('src.card_trial_ui').mousemoved(x,y)then return end
     update_volume_drag(x)
@@ -3977,6 +3990,22 @@ require('src.card_trial_ui').attach({
         if value and value.dx then player_facing=VisualSlots.facing(player_facing,value.dx)end
     end,
     submit=submit,
+    dice_sound=function(kind)if audio_runtime then audio_runtime:dice_cue(kind)end end,
+    effects=function()return presentation_settings.combat_effects end,
+    playback_events=function()
+        local events={}
+        local item=playback.items[1]
+        if item then
+            for _,e in ipairs(item.events or {item.event})do events[#events+1]=e end
+            for _,e in ipairs(item.pose_events or {})do events[#events+1]=e end
+        end
+        return events
+    end,
+    hero_screen_position=function()
+        local p=Game.player(state).position
+        local x,y=Playback.position(playback,state.player_id,p.floor_id,p.x,p.y)
+        return {x=x,y=y}
+    end,
     inspection=function()return inventory_open or boon_detail_id~=nil end,
     inspect=function()inventory_open=true;inventory_selection=1 end,
     reward_view=function(selected)
@@ -4007,4 +4036,8 @@ require('src.card_trial_ui').attach({
 })
 function love.roagCardTrialState()
     return state and state.card_trial and Game.snapshot(state) or nil
+end
+
+function love.keyreleased(key)
+    require('src.dice_ui').keyreleased(key)
 end

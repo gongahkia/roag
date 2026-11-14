@@ -1,0 +1,35 @@
+NATIVE ACTION {'time': 0, 'serial': 1, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'quick_step', 'dx': 0, 'x': 6, 'y': 8, 'die': 1, 'phase': 'combat', 'hp': 24}
+NATIVE ACTION {'time': 70, 'serial': 2, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'quick_step', 'dx': -1, 'x': 6, 'y': 7, 'die': 1, 'phase': 'combat', 'hp': 24}
+NATIVE ACTION {'time': 140, 'serial': 3, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'sweep', 'dx': 0, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 24}
+NATIVE ACTION {'time': 290, 'serial': 4, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'pierce', 'dx': 0, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 21}
+NATIVE ACTION {'time': 390, 'serial': 5, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'sweep', 'dx': -1, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 21}
+NATIVE ACTION {'time': 540, 'serial': 6, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'strike', 'dx': 0, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 18}
+NATIVE ACTION {'time': 640, 'serial': 7, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'pierce', 'dx': -1, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 740, 'serial': 8, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'quick_step', 'dx': 0, 'x': 5, 'y': 7, 'die': 1, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 810, 'serial': 9, 'busy': False, 'inspect': False, 'dy': 1, 'face': 'quick_step', 'dx': 0, 'x': 5, 'y': 6, 'die': 1, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 880, 'serial': 10, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'step', 'dx': 1, 'x': 5, 'y': 7, 'die': 1, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 980, 'serial': 11, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'guard', 'dx': 0, 'x': 6, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1080, 'serial': 12, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'pierce', 'dx': 1, 'x': 6, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 16}
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE EDIT: Footwork face 1 -> Quick Step
+NATIVE ACTION {'time': 1180, 'serial': 14, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'dash', 'dx': -1, 'x': 6, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1310, 'serial': 15, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'guarded_step', 'dx': 1, 'x': 4, 'y': 7, 'die': 1, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1410, 'serial': 16, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'pierce', 'dx': -1, 'x': 5, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1510, 'serial': 17, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'dash', 'dx': 1, 'x': 5, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1640, 'serial': 18, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'pierce', 'dx': 1, 'x': 7, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1740, 'serial': 19, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'heavy_strike', 'dx': 1, 'x': 7, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 16}
+NATIVE ACTION {'time': 1890, 'serial': 20, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'pierce', 'dx': 1, 'x': 7, 'y': 7, 'die': 2, 'phase': 'combat', 'hp': 13}
+NATIVE ACTION {'time': 1990, 'serial': 21, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'heavy_strike', 'dx': -1, 'x': 7, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 11}
+NATIVE ACTION {'time': 2140, 'serial': 22, 'busy': False, 'inspect': False, 'dy': 0, 'face': 'step', 'dx': 1, 'x': 7, 'y': 7, 'die': 1, 'phase': 'combat', 'hp': 11}
+NATIVE ACTION {'time': 2240, 'serial': 23, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'dash', 'dx': 0, 'x': 8, 'y': 7, 'die': 3, 'phase': 'combat', 'hp': 11}
+NATIVE ACTION {'time': 2370, 'serial': 24, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'quick_step', 'dx': 0, 'x': 8, 'y': 5, 'die': 1, 'phase': 'combat', 'hp': 11}
+NATIVE ACTION {'time': 2440, 'serial': 25, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'guarded_step', 'dx': 0, 'x': 8, 'y': 4, 'die': 1, 'phase': 'combat', 'hp': 11}
+NATIVE ACTION {'time': 2540, 'serial': 26, 'busy': False, 'inspect': False, 'dy': -1, 'face': 'pierce', 'dx': 1, 'x': 8, 'y': 3, 'die': 2, 'phase': 'combat', 'hp': 11}
+NATIVE VICTORY {'time': 2640, 'serial': 27, 'busy': False, 'inspect': False, 'dy': 0, 'face': '', 'dx': 0, 'x': 8, 'y': 3, 'die': 0, 'phase': 'victory', 'hp': 11}
+NATIVE REPLAY: original dice restored
+NATIVE TITLE RETURN
+NATIVE STORAGE: four seeded player records unchanged

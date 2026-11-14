@@ -310,6 +310,24 @@ function R:emit(cue_id,position,listener)
     self.played_count=self.played_count+1
     return true,asset_id
 end
+-- Lazy trial-only cues share the existing mixer, voice caps and user volumes.
+function R:dice_cue(kind)
+    local cue='core:cue/ui/dice_'..kind
+    if not Cues.get(cue)then return false,'unknown dice cue' end
+    if not self.bindings[cue]then
+        local bytes=require('src.dice_audio').wav(kind)
+        local id='trial:audio/dice_'..kind
+        local sound=Audio.make_sound('dice_trial',id,'Dice '..kind,bytes,
+            {author='ROAG',license='Original project asset',tags='dice'})
+        local ok,template=pcall(self.make_source,bytes,sound,'static')
+        if not ok or not template then return false,'dice audio unavailable' end
+        self.templates[id]=template
+        local binding=Audio.binding(cue,id)
+        binding.volume=.35;binding.max_voices=1;binding.cooldown_ms=60
+        self.bindings[cue]=binding
+    end
+    return self:emit(cue)
+end
 function R:event(event,state)
     local player=state and state.player_id
     local listener

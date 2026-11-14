@@ -721,6 +721,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             local ward_absorbed=Boons.consume_ward(state,target,after_defense)
             after_defense=after_defense-ward_absorbed
             local guard_absorbed
+            if state.dice then after_defense,guard_absorbed=require('src.dice_trial').absorb(state,target,after_defense)end
             if state.boggle then after_defense,guard_absorbed=require('src.boggle').absorb(state,target,after_defense)end
             local loss = math.min(target.hp, after_defense)
             outcomes[#outcomes + 1] = {
@@ -1959,8 +1960,14 @@ function Game.submit(state, intent)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
-    local card_plan,boggle_plan
-    if state.boggle then
+    local card_plan,boggle_plan,dice_plan
+    if state.dice then
+        local D=require('src.dice_trial')
+        if intent.kind=='dice_edit'then return D.edit(state,intent,Game)end
+        dice_plan=D.plan(state,intent,Game)
+        if not dice_plan.valid then return false,dice_plan.reason,{},dice_plan end
+        intent=dice_plan.intent
+    elseif state.boggle then
         if intent.kind~='boggle_command'then return require('src.boggle').submit(state,intent,Game)end
         local why
         boggle_plan,why=require('src.boggle').command_plan(state,intent,Game)
@@ -2082,6 +2089,7 @@ function Game.submit(state, intent)
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
+    elseif dice_plan then preview=dice_plan
     elseif boggle_plan then preview=boggle_plan
     elseif (intent.kind=='trial_heal' or intent.kind=='knight_hop') and card_plan then
         preview=card_plan
@@ -2147,6 +2155,7 @@ function Game.submit(state, intent)
             end
         end
     end
+    if dice_plan and kind~='move' then require('src.dice_trial').apply(state,dice_plan,interaction_emit)end
     Interactions.before_action(state,kind,preview,interaction_emit)
     if kind=='use_utility'then Interactions.use_utility(state,preview,interaction_emit)end
     if kind=='dash' and preview.beacon_return then
@@ -2185,6 +2194,7 @@ function Game.submit(state, intent)
                     x=preview.cells[index].x, y=preview.cells[index].y}
             end
         end
+        if dice_plan and kind=='move'then require('src.dice_trial').apply(state,dice_plan,interaction_emit)end
         emit(state, output, "Moved", fields, player.id, action_id)
         for step = 1, preview.distance do
             local x, y = preview.cells[step].x, preview.cells[step].y
@@ -2233,6 +2243,10 @@ function Game.submit(state, intent)
         local cells = {}
         local target, damage, ability_id, ranged, damage_type, reflection = Game.effective_ability(state, kind, intent.dx, intent.dy,
             not preview.bump)
+        if dice_plan then
+            if dice_plan.face=='pierce'then target=dice_plan.cells end
+            if dice_plan.face=='heavy_strike'then damage=damage+2 end
+        end
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
@@ -2375,6 +2389,8 @@ function Game.submit(state, intent)
     elseif kind=='use_utility'then
         -- Non-movement utility effects were applied above; no Waited event.
         action.utility_kind=preview.utility_kind
+    elseif kind=='dice_guard'then
+        -- protection was applied before world time advances
     elseif kind=='boggle_effect'then
         -- Its explicit effect was applied at acceptance; this is not a Wait.
     elseif kind=='trial_heal' then
@@ -2425,7 +2441,8 @@ function Game.submit(state, intent)
     Boons.prune_histories(state)
     Achievements.prune(state)
     if state.class_special then state.class_special.duelist_guard=nil end
-    if state.boggle then require('src.boggle').after_action(state,Game)
+    if state.dice then require('src.dice_trial').after_action(state,Game,interaction_emit)
+    elseif state.boggle then require('src.boggle').after_action(state,Game)
     elseif state.card_trial then
         CardTrial.after_action(state,function(kind,fields,source)
             emit(state,output,kind,fields,source,action_id)

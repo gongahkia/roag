@@ -1,0 +1,18 @@
+{
+  "readme_sha256": "3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a",
+  "readme_equal": true,
+  "real_storage_equal": true,
+  "real_storage_files": 0,
+  "fixture_before": {
+    "active-a.roag": "12652cb4441ece85408e8da62efd2ff748eee15016c61b8864654d55293f3f25",
+    "active-b.roag": "d44c78303d1ff66ac0a99233d1b3377c2a9ae98ad8c6740e3f8a7f223a016226",
+    "presentation-settings.roag": "174d3241accafb744e5d811dc60d92d3763d734799716826a167eed46947de7e",
+    "profile-a.roag": "4c1d2ea011a30d67fc7136e7b90a5559205ee42220b7346c5d94425ff1fe32d3"
+  },
+  "fixture_after": {
+    "presentation-settings.roag": "174d3241accafb744e5d811dc60d92d3763d734799716826a167eed46947de7e",
+    "profile-a.roag": "4c1d2ea011a30d67fc7136e7b90a5559205ee42220b7346c5d94425ff1fe32d3",
+    "active-b.roag": "d44c78303d1ff66ac0a99233d1b3377c2a9ae98ad8c6740e3f8a7f223a016226",
+    "active-a.roag": "12652cb4441ece85408e8da62efd2ff748eee15016c61b8864654d55293f3f25"
+  }
+}

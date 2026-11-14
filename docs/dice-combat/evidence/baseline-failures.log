@@ -1,0 +1,16 @@
+Clean HEAD and feature checkout: identical failures
+817 passed, 14 failed
+FAIL redirected Wraith art is exactly 416 in the fixed 1-Bit renderer and natural floors actually contain it: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL natural generation includes Cantors without repopulating loaded floors: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL two committed gulps cannot duplicate one drop and natural generation uses the approved native body: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL generated caches use reviewed dormant and revealed art and restore without repopulation: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL natural floors contain splitters but never pre-spawn fragments and both reviewed bodies resolve: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL real generated floors contain Alarm Keepers and the approved keeper and bell resolve in the fixed 1-Bit renderer: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL natural Weavers use approved native crawler 366, never the rejected mesh or bodies: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL natural groups contain both reviewed twins and never spawn an ownerless secondary twin: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL natural champions occupy optional room interiors without replacing any biome elite or changing geometry: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL a real generated Hexer has approved caster and reflector art in the fixed 1-Bit renderer: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL real generated Worms resolve their approved body and native silt cue without missing bindings: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL a naturally selected Moth uses approved unused winged body 411 in the fixed 1-Bit look: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL the fixed renderer resolves the reviewed Duelist and report its deliberate Twin body reuse: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory
+FAIL dice declares six numbered faces, skull and miss with exact approved native bindings: ./src/sprite_audit.lua:19: assets/kenney/1-bit-pack/symbols.png: No such file or directory

@@ -45,8 +45,8 @@ function Trial.spawn_fight(s,spawn)
 end
 function Trial.new(Game,seed,preset,mode)
     seed=seed or C.seed;preset=preset or 'bare'
-    mode=mode or 'poker';assert(mode=='poker' or mode=='fixed' or mode=='boggle','unknown trial policy')
-    if mode=='boggle'then preset='bare'end
+    mode=mode or 'poker';assert(mode=='poker' or mode=='fixed' or mode=='boggle' or mode=='dice','unknown trial policy')
+    if mode=='boggle' or mode=='dice'then preset='bare'end
     local def=assert(C.presets[preset],'unknown trial preset')
     local s=Game.new(seed)
     s.final_map=copy(C.arena);s.final_map.seed=seed
@@ -65,6 +65,7 @@ function Trial.new(Game,seed,preset,mode)
     for _,b in ipairs(def.boons)do Boons.set_stacks(p,'core:boon/'..b[1],b[2],1)end
     Trial.spawn_fight(s,Game.spawn_enemy)
     if mode=='boggle'then require('src.boggle').initialize(s)end
+    if mode=='dice'then require('src.dice_trial').initialize(s)end
     return s
 end
 local function invalid(reason)return {valid=false,reason=reason,cells={}}end
@@ -121,6 +122,7 @@ function Trial.bookkeeping(s,intent,spawn)
 end
 function Trial.preview(s,intent,preview,effective_cost)
     local t=s.card_trial
+    if s.dice then return invalid('Use the current dice results')end
     if t and t.mode=='boggle'then return invalid('Use the Boggle action board')end
     if not t or t.phase~='combat' or s.game_over then return invalid('Encounter ended; choose rewards or replay')end
     if type(intent)~='table' or intent.kind~='trial_action' then return invalid('Use a funded action or Recover')end

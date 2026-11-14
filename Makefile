@@ -8,6 +8,8 @@ help:
 	 'make spectator     Preview biomes/floors/classes with G/J/K/L/M' \
 	 'make card-trial    Open Poker Stamina in the nonpersistent trial' \
 	 'make card-fixed    Open the Fixed Stamina comparison' \
+	 'make dice-trial    Open the custom-dice combat trial (seed 202)' \
+	 'make dice-test     Verify dice actions, forecasts and input boundaries' \
 	 'make boggle-trial  Open the four-tile action-board experiment' \
 	 'make boggle-test   Verify routes, forecasts and board resources' \
 	 'make boggle-gui    Verify rendered routes, latency and isolation' \
@@ -52,3 +54,13 @@ preservation:
 	$(PYTHON) -B tools/verify_classic_preservation.py
 package: assets-check
 	$(PYTHON) -B tools/package_classic.py
+
+.PHONY: dice-trial dice-test
+dice-trial: assets-check
+	"$(LOVE_BIN)" . --dice-trial --trial-seed=202
+dice-test:
+	$(LUAJIT) tests/dice_trial_tests.lua
+
+.PHONY: dice-presentation-test
+dice-presentation-test:
+	$(LUAJIT) tests/dice_presentation_tests.lua
