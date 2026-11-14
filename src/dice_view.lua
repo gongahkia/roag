@@ -4,7 +4,7 @@ local D=require('src.dice_trial')
 local Pixel=require('src.pixel_ui')
 local V={net_x=728,net_y=152,cell=54}
 local pi=math.pi
-local base={{0,0},{0,-pi/2},{pi/2,0},{0,pi/2},{-pi/2,0},{0,pi}}
+local base={{0,0},{0,-pi/2},{-pi/2,0},{0,pi/2},{pi/2,0},{0,pi}}
 local axes={{{1,0,0},{0,-1,0}},{{0,0,-1},{0,-1,0}},{{1,0,0},{0,0,1}},
  {{0,0,1},{0,-1,0}},{{1,0,0},{0,0,-1}},{{-1,0,0},{0,-1,0}}}
 local function rotate(v,ax,ay,az)

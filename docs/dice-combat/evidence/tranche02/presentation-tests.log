@@ -1,0 +1,83 @@
+luajit tests/dice_presentation_tests.lua
+PASS full, reduced and immediately completed cosmetics preserve every action boundary over two fights
+PASS each physical index maps to the settled cube and net including duplicates and edited index
+PASS a repeated result revision tumbles once; inspection, draws and terminal changes never reroll
+PASS net hit testing waits for the actual settled net and selects each indexed physical slot
+READINESS: 8 actions; 0 ms additional blocked time (internal playback clock)
+PASS input readiness is exactly existing playback readiness with zero extra cosmetic block
+PASS opening skip consumes its input; replay and reduced toggles leave gameplay untouched
+PASS presentation audio is original PCM and uses the existing UI mix, effects volume and mute
+PASS actual inspection and editor candidate controls leave the entire game and RNG unchanged
+Dice presentation: 8 passed, 0 failed
+luajit tests/dice_presentation_regressions.lua
+PASS presentation preferences persist independently and reject invalid values
+PASS mixed causal damage, boon and status cues share one bounded ordered beat
+PASS causal grouping never crosses a simulation timestamp, chain, floor or separate submission
+PASS mixed feedback cannot absorb a locked windup, enemy impact or actor motion
+PASS same-chain simultaneous deaths remain ordered and summed numbers retain every victim
+PASS a real dense new-boon chain keeps all visible events with under two seconds of playback
+PASS floating hit numbers use resolved loss once per displayed beat
+PASS enemy facing follows displayed movement legs and persists through vertical motion
+PASS enemy attack facing uses locked cells at its beat and survives idle or Continue
+PASS grouped enemy windups turn independently and knockback does not turn an actor
+PASS dashed attack borders stay inside tiles and leave interiors and gaps clear at every zoom
+PASS board token starts, eases through midpoint and snaps to final tile
+PASS Dash follows both legal legs and partial Dash stops before wall
+PASS simultaneous actors retain their own origins and bounded beat
+PASS one actor's repeated enemy turns retain intermediate event-time tiles
+PASS movement beats precede telegraph and impact without changing world state
+PASS displacement without a route snaps safely and restored presentation is clean
+PASS fog-hidden actor motion never exposes an unseen tile
+PASS camera follows visual coordinates with aligned rounded tile offsets
+PASS camera zoom centers the same tile and changes no world state
+PASS positive player damage jolts only the world during its displayed beat
+PASS blocked, enemy and old-floor hits never shake the player
+PASS long corridor ranged lane stays blocked by walls and strict timing is legible
+PASS consecutive locked windups share one visible beat without reordering impacts
+PASS windup grouping respects intervening events and action boundaries
+PASS dense same-kind boon cues share a bounded beat, with hits and deaths ordered
+PASS one lethal target's hit and death share a beat without mixing other deaths
+PASS generated ranged lanes retain lateral geometry across representative seeds
+PASS recoil follows committed player and enemy attack direction within the existing beat
+PASS recoil excludes windups, hidden-floor history, disabled effects and concurrent actor slides
+PASS all fifteen class attacks retain exact events, snapshots and playback duration under recoil sampling
+PASS real currency and food collection produce cosmetic arcs after successful pickup only
+PASS unaffordable chest is inert; a real claim creates one boon flight and a short chest hop
+PASS reward effects are capped, handle-free and discarded on floor change or disable
+PASS real direct hits and blocks activate once at their displayed beat without changing events or recovery
+PASS sparks exclude zero damage and DOT; blocked rings and accents honor floor and off without replay
+PASS a real lethal hit retains enemy artwork and one level badge while exact save continuation survives
+PASS actual generated secret discovery celebrates only when its existing playback beat displays
+PASS nine crumble clips cover the original sprite and drift apart with deterministic bounded lifetime
+PASS burst crowds and many levels have bounded handle-free feedback; disable and floor changes clear everything
+PASS menu selection settles quickly, presses offset without moving hitboxes, and views reset feedback
+PASS chest offer arrivals are staggered, settle exactly, and honor effects-off
+PASS save codec is inert and preserves nested numeric keyed plain data
+PASS two generations select latest and recover a corrupt newest record
+PASS earlier room content saves remain loadable after room expansion
+PASS failed or truncated writes retain prior verified generation
+PASS New Run replacement writes inactive slot first and survives backup failure
+PASS newest integrity-valid incompatible record blocks stale rollback
+PASS snapshot schema mismatch and unknown content are rejected before installation
+PASS terminal generation prevents older active save resurrection
+PASS save and load consume no world time or gameplay RNG
+PASS full bytes round trip preserves generated stage and deterministic continuation
+PASS save retains earned reward, cached chest, opened door, secret and fog
+PASS delayed Temporal Echo keeps due time and ancestry through disk bytes
+PASS stage two route and retired floor persist without regeneration
+PASS unclaimed chest menu reload retains three cached offers and one debit
+PASS pending Warden telegraph and extraction deadline resume once
+PASS pressure timer and RNG continue through a save before reinforcement
+PASS real filesystem adapter survives fresh service and state object
+PASS audio cue registry covers class, enemy, elite, terrain, boon, room and music contexts
+PASS original synthesized WAV samples parse and source IDs remain stable
+PASS audio source save/reopen, immutable replace and torn newest recovery
+PASS audio metadata validates references, settings, provenance and paths
+PASS audio publishing refuses unverified source permissions without changing drafts
+PASS audio publish plan is read-only and complete generations recover safely
+PASS audio event routing and wall-time playback do not mutate game snapshots
+PASS audio voices, variants, mixer and pause obey presentation-only limits
+PASS partial published audio overrides one cue and retains original unbound sounds
+PASS audio refresh rejects incompatible newer data and falls back on corruption
+PASS player music and effects volumes update active sounds independently
+Presentation regressions: 70 passed, 0 failed

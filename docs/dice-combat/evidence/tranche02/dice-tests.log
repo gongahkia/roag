@@ -1,0 +1,23 @@
+luajit tests/dice_trial_tests.lua
+PASS opening has exactly three physical results, one roll and independent deterministic RNG
+PASS all six physical indices enumerate exact frequencies; duplicate outcomes are retained
+PASS each face pays its base cost scaled once; Quick Step never alters later actions
+PASS invalid, stale, unsupported legacy commands and blocked movement are pure no-ops
+PASS Guard caps, refreshes, expires exactly and protects during scheduled enemy resolution
+PASS Guarded Step uses real movement and grants protection only after displacement
+PASS Sweep is shared three-cell arc at base 3; Heavy Strike is adjacent base 6 before crit/defence
+PASS Pierce passes through two creatures in one primary batch, stops at wall and blocked corner
+PASS Dash uses existing positive partial displacement and completely blocked Dash is invalid
+PASS empty aimed attacks are legal misses; repeated forecasts preserve every real state field
+PASS single-index face edit rejects identical/incompatible edits, preserves world, changes actual sampled frequency
+PASS intermission, death and victory never generate an extra roll; Skip opens fight two once
+PASS unaltered seed 202 fixture demonstrates positive Rhythm and Bloom damage and wins two fights reproducibly
+PASS ordinary armour and boon wards absorb before the separate dice guard
+PASS trial save, replace, terminal recovery and restore are rejected before any storage writes
+PASS a real lethal scheduled impact agrees with preview, stops rolls and rejects further commands
+PASS keyboard, neutral click and selected click movement apply each rolled Footwork face
+PASS enemy clicks, bumps and F shortcut use current Weapon; Tactics Guard executes immediately
+PASS cancel, inspect and legacy keys are inert; playback, repeat, same-batch and double click input cannot commit twice
+PASS physical held key remains latched across playback and a new roll until release
+PASS previous result presentation remains frozen during playback and updates only after unlock
+Dice Trial: 21 passed, 0 failed

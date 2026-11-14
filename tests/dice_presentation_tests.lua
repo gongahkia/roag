@@ -36,6 +36,9 @@ test('full, reduced and immediately completed cosmetics preserve every action bo
 end)
 test('each physical index maps to the settled cube and net including duplicates and edited index',function()
  local s=fresh();local p=P.new(s.dice)
+ for j,cell in ipairs(P.net)do
+  if math.abs(cell[1]-1)+math.abs(cell[2]-1)==1 then same(P.normals[j],{cell[1]-1,1-cell[2],0})end
+ end
  for n=1,3 do for j=1,6 do
   p.results[n]={index=j,face=p.dice[n][j]};P.finish(p)
   local ax,ay,az=V.pose(p,n);assert(type(ax)=='number'and type(ay)=='number'and az==0);assert(V.front(p,n)==j,'wrong settled physical face')
@@ -98,6 +101,8 @@ test('presentation audio is original PCM and uses the existing UI mix, effects v
  assert(math.abs(voice.source.volume-voice.base_volume*.25)<1e-9)
  runtime.pack.mix.ui.mute=true;runtime.elapsed=runtime.elapsed+1;assert(not runtime:dice_cue('land'))
  assert(#runtime.pack.sounds==8,'trial samples changed the shared audio pack')
+ local silent=R.new(function()end,function()return nil end)
+ assert(not silent:dice_cue('roll'),'missing audio should remain silent')
 end)
 test('actual inspection and editor candidate controls leave the entire game and RNG unchanged',function()
  local state=fresh();local submits=0

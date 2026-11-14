@@ -1,6 +1,6 @@
 -- Cosmetic clocks and physical face identities; no Game, RNG or storage writes.
 local P={roll_seconds=.20,unfold_seconds=.18,refold_seconds=.15}
-P.normals={{0,0,1},{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},{0,0,-1}}
+P.normals={{0,0,1},{1,0,0},{0,-1,0},{-1,0,0},{0,1,0},{0,0,-1}}
 -- Cross net: top 5, left 4, centre 1, right 2, bottom 3, tail 6.
 P.net={{1,1},{2,1},{1,2},{0,1},{1,0},{1,3}}
 local function copy(v)if type(v)~='table'then return v end;local t={};for k,x in pairs(v)do t[k]=copy(x)end;return t end
