@@ -38,6 +38,7 @@ class Resident {
   double bornAt = 0, lastWork = -10000, lastSocial = -10000;
   double workProgress = 0, socialProgress = 0, workedSeconds = 0;
   double connectionLostAt = -1, eventBenefitUntil = -1;
+  double civicBenefitUntil = -1;
   int earned = 0, signalSerial = 0;
   String? awardedEvent;
   Reason problem = Reason.none, message = Reason.none;

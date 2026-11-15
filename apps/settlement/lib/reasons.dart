@@ -66,6 +66,11 @@ enum Reason {
     'Nice to see everyone.',
     'Arrived and joined the evening gathering. This person received its temporary benefit once.',
     false,
+  ),
+  requestThanks(
+    'That helped. Thank you!',
+    'A promised improvement led to actual work or a completed social visit. The small gratitude benefit is awarded once.',
+    false,
   );
 
   final String bubble, _detail;

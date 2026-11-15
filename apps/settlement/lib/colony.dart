@@ -9,6 +9,7 @@ import 'rules.dart';
 import 'navigation.dart';
 import 'resident_identity.dart';
 import 'special_event.dart';
+import 'resident_request.dart';
 
 class Gathering {
   final String id, green;
@@ -41,6 +42,52 @@ class PlanningRequest {
 }
 
 class Colony extends Residents {
+  RequestBook requests = RequestBook();
+  int civicSpent = 0;
+  bool hasNeed(Resident r, Need need) {
+    if (!r.active || !r.arrived || !people.containsKey(r.homeId)) return false;
+    return switch (need) {
+      Need.work => r.workId == null && [Reason.noWork, Reason.workFull].contains(r.workIssue) &&
+          !workplaces.any((p) => jobs(p.key) < kind(p.key)!.workCapacity && world.access(p.value) != null &&
+              world.pathRoute(r.cell, world.access(p.value)!) != null),
+      Need.workAccess => r.workId != null &&
+          (placeAccess(r.workId) == null || world.pathRoute(r.cell, placeAccess(r.workId)!) == null),
+      Need.social => [Reason.noLeisure, Reason.socialCut].contains(r.leisureIssue) &&
+          !venues.any((p) => staffed(p.key) && world.access(p.value) != null && world.pathRoute(r.cell, world.access(p.value)!) != null),
+    };
+  }
+  Need? needFor(Resident r) {
+    for (final need in [Need.workAccess, Need.work, Need.social]) {
+      if (hasNeed(r, need) && requests.concern(r.homeId, need) == null) return need;
+    }
+    return null;
+  }
+  bool acceptRequest(String resident, Need need) {
+    final r = people[resident];
+    return r != null && hasNeed(r, need) && requests.accept(resident, need, clock) != null;
+  }
+  bool cancelRequest(String id) => requests.close(id, clock, resolved: false);
+  bool _requestExperience(Resident r, {required bool social}) {
+    if (requests.open.isEmpty) return false;
+    var helped = false;
+    for (final request in requests.forResident(r.homeId)) {
+      if ((request.need == Need.social) == social && requests.close(request.id, clock, resolved: true)) {
+        helped = true;
+      }
+    }
+    return helped;
+  }
+  String? get civicHost => !marketDay ? null : people.values
+      .where((r) => r.activity == Activity.working && connected(r) && kind(r.workId) == Place.market && placeAccess(r.workId) == r.cell)
+      .map((r) => r.homeId).firstOrNull;
+  bool civicAvailable(String? eventId) => special?.id == eventId && marketDay && civicHost != null;
+  bool chooseCivic(String eventId, {required bool sponsor}) {
+    if (!civicAvailable(eventId) || special!.civicChoice != null ||
+        sponsor && session.money < Rules.civicCost) return false;
+    special!.civicChoice = sponsor ? 'sponsored' : 'ordinary';
+    if (sponsor) { session.money -= Rules.civicCost; civicSpent += Rules.civicCost; }
+    return true;
+  }
   final LandscapeSession session;
   late Navigation navigation;
   final Queue<PlanningRequest> planning = Queue();
@@ -239,6 +286,20 @@ class Colony extends Residents {
     }
     _syncJobs();
     _tickEvent();
+    // invalidate occupied activities before the immediate post-edit checkpoint.
+    for (final r in people.values) {
+      if ([Activity.working, Activity.socialising, Activity.socialWaiting, Activity.gathering].contains(r.activity) &&
+          (!connected(r) || placeAccess(r.destination) != r.cell)) {
+        r.workIssue = r.activity == Activity.working ? Reason.workCut : r.workIssue;
+        r.leisureIssue = r.activity == Activity.working ? r.leisureIssue : Reason.socialCut;
+        r.activity = Activity.waiting; r.destination = null; r.socialProgress = 0; r.timer = 0;
+        plan(r);
+      }
+    }
+    _countsDirty = true;
+    for (final request in requests.open.values.toList()) {
+      if (!people.containsKey(request.resident)) cancelRequest(request.id);
+    }
     _problems();
   }
 
@@ -562,6 +623,8 @@ class Colony extends Residents {
           : 0,
       'Garden path': r.gardenDay == day ? Rules.gardenPathBenefit : 0,
       'Gathering': r.eventBenefitUntil > clock ? Rules.gatheringBenefit : 0,
+      if (requests.mood(r.homeId, clock) > 0) 'Kept promise': Rules.requestBenefit,
+      if (r.civicBenefitUntil > clock) 'Market hospitality': Rules.civicBenefit,
     };
   }
 
@@ -692,11 +755,13 @@ class Colony extends Residents {
             : 1.0;
         r.earned += _earn(productive * kind(r.workId)!.income * bonus);
         r.workedSeconds += productive;
+        final helped = productive > 0 && _requestExperience(r, social: false);
+        if (helped) r.say(Reason.requestThanks);
         r.workProgress += productive;
         if (r.workProgress >= duration - 1e-9) {
           r.workProgress = 0;
           r.lastWork = clock;
-          r.say(Reason.workDone);
+          r.say(helped ? Reason.requestThanks : Reason.workDone);
           tended[r.workId!] = clock;
           if (event != null &&
               event!.state != 'ended' &&
@@ -731,10 +796,15 @@ class Colony extends Residents {
         r.socialProgress += dt;
         if (r.socialProgress >= Rules.socialDuration) {
           r.lastSocial = clock;
+          final helped = _requestExperience(r, social: true);
           if (kind(r.destination) == Place.market) {
             r.lastShopping = clock;
             if (r.tradeDay != day) {
               r.tradeDay = day;
+              if (marketDay && special!.civicChoice == 'sponsored' &&
+                  special!.civicAwarded.length < Rules.civicGuests && special!.civicAwarded.add(r.homeId)) {
+                r.civicBenefitUntil = clock + Rules.civicDuration;
+              }
               _earn(
                 (Rules.tradeCredit + (marketDay ? Rules.marketDayBonus : 0))
                     .toDouble(),
@@ -742,7 +812,7 @@ class Colony extends Residents {
               );
             }
           }
-          r.say(Reason.socialDone);
+          r.say(helped ? Reason.requestThanks : Reason.socialDone);
           goHome(r);
         }
       } else if (r.activity == Activity.socialWaiting) {
@@ -978,6 +1048,7 @@ class Colony extends Residents {
     'earned': r.earned,
     'connectionLostAt': r.connectionLostAt,
     'eventBenefitUntil': r.eventBenefitUntil,
+    if (r.civicBenefitUntil >= 0) 'civicBenefitUntil': r.civicBenefitUntil,
     'awardedEvent': r.awardedEvent,
     'workIssue': r.workIssue.name,
     'leisureIssue': r.leisureIssue.name,
@@ -989,6 +1060,8 @@ class Colony extends Residents {
   String encode() => jsonEncode({
     ...world.toJson(),
     'colony': {
+      if (requests.records.isNotEmpty) 'requests': requests.toJson(),
+      if (civicSpent > 0) 'civicSpent': civicSpent,
       'navigationRevision': navigation.revision,
       'planning': planning.map((p) => p.toJson()).toList(),
       'special': special?.toJson(),

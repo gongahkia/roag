@@ -492,7 +492,7 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
   final destination = world.at(to);
   final after = vacated.replace(to, Lot(
     grass: destination.grass, trace: Trace.pad,
-    cottage: original.cottage, cottageId: original.cottageId,
+    cottage: original.cottage, cottageId: original.cottage == null ? null : world.cottageKey(from),
     place: original.place, placeId: original.placeId,
   ));
   return Placement(world, after, to,

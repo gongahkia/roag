@@ -11,6 +11,8 @@ class SpecialEvent {
   final String id;
   final SpecialKind kind;
   final double starts, ends;
+  String? civicChoice;
+  final Set<String> civicAwarded = {};
   SpecialEvent(this.id, this.kind, this.starts, this.ends);
   bool active(double clock) => clock >= starts && clock < ends;
   String get title => switch (kind) {
@@ -28,5 +30,7 @@ class SpecialEvent {
     'kind': kind.name,
     'starts': starts,
     'ends': ends,
+    if (civicChoice != null) 'civicChoice': civicChoice!,
+    if (civicAwarded.isNotEmpty) 'civicAwarded': civicAwarded.toList(),
   };
 }
