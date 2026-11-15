@@ -130,7 +130,8 @@ class SettlementGame extends FlameGame {
       return;
     }
     _previewBudget = budget;
-    preview = movingFrom == null ? evaluate(session.view, tool, c)
+    preview = movingFrom == null
+        ? evaluate(session.view, tool, c)
         : evaluateMove(session.world, movingFrom!, c);
     final free = session.stroke?.free ?? session.unlimited;
     final cost = free || movingFrom != null ? 0 : Rules.cost(tool.name);
@@ -256,15 +257,23 @@ class SettlementGame extends FlameGame {
   Offset? _inspectionPoint;
   int nearbyPeople = 0;
   bool inspectedEvent = false;
-  bool get movableSelection => inspectedResident == null && inspectedCell != null &&
-      session.world.contains(inspectedCell!) && buildingTool(session.world.at(inspectedCell!)) != null;
+  bool get movableSelection =>
+      inspectedResident == null &&
+      inspectedCell != null &&
+      session.world.contains(inspectedCell!) &&
+      buildingTool(session.world.at(inspectedCell!)) != null;
   void inspectBuilding(Cell c) {
-    clearInspection(); inspectedCell = c; inspectMode = true; onState?.call();
+    clearInspection();
+    inspectedCell = c;
+    inspectMode = true;
+    onState?.call();
   }
+
   void locate(Cell c) {
     camera.viewfinder.position = Vector2((c.x + .5) * 12, (c.y + .5) * 12);
     clearPreview();
   }
+
   void inspect(Offset point) {
     final hits = <(String, double)>[];
     for (final r in residents.people.values.where((r) => r.visible)) {
@@ -320,7 +329,10 @@ class SettlementGame extends FlameGame {
           .join(' · ');
       final home = colony.world.cottages[r.homeId],
           work = colony.world.places[r.workId];
-      final requests = colony.requests.forResident(r.homeId).map((q) => q.status).join('\n');
+      final requests = colony.requests
+          .forResident(r.homeId)
+          .map((q) => q.status)
+          .join('\n');
       return '${r.name} · ${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
     }
     final c = inspectedCell;
@@ -428,7 +440,8 @@ class SettlementGame extends FlameGame {
       avoid: [
         const Rect.fromLTWH(16, 12, 700, 80),
         // matches the existing top-right read-only inspector, with safe padding.
-        if (inspection != null || dialogueOpen) Rect.fromLTWH(size.x - 332, 0, 332, size.y),
+        if (inspection != null || dialogueOpen)
+          Rect.fromLTWH(size.x - 332, 0, 332, size.y),
       ],
     );
   }
@@ -744,8 +757,10 @@ class _LandscapeLayer extends Component {
       }
       if (plan.movingFrom != null) {
         final from = plan.movingFrom!;
-        canvas.drawRect(Rect.fromLTWH(from.x * 12.0, from.y * 12.0, 12, 12),
-          Paint()..color = gold.withValues(alpha: .2));
+        canvas.drawRect(
+          Rect.fromLTWH(from.x * 12.0, from.y * 12.0, 12, 12),
+          Paint()..color = gold.withValues(alpha: .2),
+        );
       }
       canvas.drawRect(
         Rect.fromLTWH(x + .5, y + .5, 11, 11),

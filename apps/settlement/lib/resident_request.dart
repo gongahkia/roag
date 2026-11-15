@@ -119,8 +119,9 @@ class RequestBook {
     }
     book.nextId = data['nextId'];
     double time(dynamic value) {
-      if (value is! num || !value.isFinite || value < 0 || value > clock)
+      if (value is! num || !value.isFinite || value < 0 || value > clock) {
         throw const FormatException('Invalid request time.');
+      }
       return value.toDouble();
     }
 
@@ -167,8 +168,9 @@ class RequestBook {
       book._concerns['${r.resident}/${need.name}'] = r;
       if (state == RequestState.accepted) book.open[r.id] = r;
     }
-    if (book.open.length > Rules.requestLimit)
+    if (book.open.length > Rules.requestLimit) {
       throw const FormatException('Too many open requests.');
+    }
     return book;
   }
   RequestBook();

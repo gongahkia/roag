@@ -643,8 +643,9 @@ class LandscapeSession {
     if (stroke != null ||
         plan.movingFrom == null ||
         !identical(plan.before, world) ||
-        !plan.valid)
+        !plan.valid) {
       return false;
+    }
     final checked = evaluateMove(world, plan.movingFrom!, plan.cell);
     if (!checked.valid) return false;
     return _commit(checked.after!, 0);

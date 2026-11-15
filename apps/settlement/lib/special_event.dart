@@ -30,7 +30,7 @@ class SpecialEvent {
     'kind': kind.name,
     'starts': starts,
     'ends': ends,
-    if (civicChoice != null) 'civicChoice': civicChoice!,
+    'civicChoice': ?civicChoice,
     if (civicAwarded.isNotEmpty) 'civicAwarded': civicAwarded.toList(),
   };
 }

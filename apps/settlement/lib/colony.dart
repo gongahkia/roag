@@ -73,8 +73,9 @@ class Colony extends Residents {
 
   Need? needFor(Resident r) {
     for (final need in [Need.workAccess, Need.work, Need.social]) {
-      if (hasNeed(r, need) && requests.concern(r.homeId, need) == null)
+      if (hasNeed(r, need) && requests.concern(r.homeId, need) == null) {
         return need;
+      }
     }
     return null;
   }
@@ -116,8 +117,9 @@ class Colony extends Residents {
   bool chooseCivic(String eventId, {required bool sponsor}) {
     if (!civicAvailable(eventId) ||
         special!.civicChoice != null ||
-        sponsor && session.money < Rules.civicCost)
+        sponsor && session.money < Rules.civicCost) {
       return false;
+    }
     special!.civicChoice = sponsor ? 'sponsored' : 'ordinary';
     if (sponsor) {
       session.money -= Rules.civicCost;
@@ -1402,8 +1404,9 @@ class Colony extends Residents {
     );
     if (d.containsKey('civicSpent')) {
       colony.civicSpent = integer(d, 'civicSpent', 0, 1000000000000);
-      if (colony.civicSpent % Rules.civicCost != 0)
+      if (colony.civicSpent % Rules.civicCost != 0) {
         throw const FormatException('Invalid civic spending.');
+      }
     }
     for (final p in colony.workplaces) {
       if (colony.jobs(p.key) > colony.kind(p.key)!.workCapacity) {

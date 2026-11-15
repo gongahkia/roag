@@ -11,6 +11,9 @@ import 'colony.dart';
 import 'rules.dart';
 import 'appearance.dart';
 import 'settlement_game.dart';
+import 'build_thumbnail.dart';
+import 'dialogue.dart';
+import 'resident_request.dart';
 
 void main() => runApp(const SettlementApp());
 
@@ -65,6 +68,9 @@ class _LandscapePageState extends State<LandscapePage> {
   Offset? last;
   int? pointer;
   bool panning = false, reportedInvalid = false;
+  Conversation? conversation;
+  Cell? contextBuilding;
+  Offset? contextAnchor;
 
   @override
   void initState() {
@@ -158,6 +164,8 @@ class _LandscapePageState extends State<LandscapePage> {
       game.tool = next;
       game.inspectMode = false;
       game.clearInspection();
+      conversation = null;
+      game.dialogueOpen = false;
     });
     game.clearPreview();
     focus.requestFocus();
@@ -193,7 +201,10 @@ class _LandscapePageState extends State<LandscapePage> {
         space || e.buttons & (kSecondaryMouseButton | kMiddleMouseButton) != 0;
     if (!pan && e.buttons & kPrimaryMouseButton == 0) return;
     focus.requestFocus();
-    if (!pan && (game.inspectMode || HardwareKeyboard.instance.isAltPressed)) {
+    if (!pan &&
+        (game.movingFrom != null ||
+            game.inspectMode ||
+            HardwareKeyboard.instance.isAltPressed)) {
       pointer = e.pointer;
       inspectionStart = e.localPosition;
       inspectionDragged = false;
@@ -203,6 +214,15 @@ class _LandscapePageState extends State<LandscapePage> {
     pointer = e.pointer;
     last = e.localPosition;
     panning = pan;
+    final cell = game.pick(e.localPosition);
+    if (!space &&
+        e.buttons == kSecondaryMouseButton &&
+        game.movingFrom == null &&
+        session.world.contains(cell) &&
+        buildingTool(session.world.at(cell)) != null) {
+      contextBuilding = cell;
+      contextAnchor = e.position;
+    }
     reportedInvalid = false;
     if (!pan) {
       session.beginStroke(tool, game.pick(e.localPosition));
@@ -216,7 +236,12 @@ class _LandscapePageState extends State<LandscapePage> {
       if ((e.localPosition - inspectionStart!).distance > 5) {
         inspectionDragged = true;
       }
+      if (game.movingFrom != null) game.hover(e.localPosition);
       return;
+    }
+    if (contextBuilding != null) {
+      if ((e.position - contextAnchor!).distance <= 5) return;
+      contextBuilding = null;
     }
     if (!inside(e.localPosition)) {
       finishGesture();
@@ -235,12 +260,26 @@ class _LandscapePageState extends State<LandscapePage> {
     if (inspectionStart != null) {
       if (!inspectionDragged &&
           (e.localPosition - inspectionStart!).distance <= 5) {
-        game.inspect(e.localPosition);
+        if (game.movingFrom != null) {
+          commitMove(e.localPosition);
+        } else {
+          conversation = null;
+          game.dialogueOpen = false;
+          game.inspect(e.localPosition);
+        }
       }
       inspectionStart = null;
       pointer = null;
       last = null;
       setState(() {});
+      return;
+    }
+    if (contextBuilding != null &&
+        (e.position - contextAnchor!).distance <= 5) {
+      final cell = contextBuilding!;
+      finishGesture();
+      contextBuilding = null;
+      buildingMenu(cell, e.position);
       return;
     }
     if (!panning && inside(e.localPosition)) paintAt(e.localPosition);
@@ -281,18 +320,21 @@ class _LandscapePageState extends State<LandscapePage> {
     if (mounted) setState(() {});
   }
 
-  void cancelGesture() {
+  void cancelGesture({bool cancelMove = true}) {
     inspectionStart = null;
     inspectionDragged = false;
     session.cancelStroke();
     pointer = null;
     last = null;
     panning = false;
+    contextBuilding = null;
+    contextAnchor = null;
+    if (cancelMove) game.movingFrom = null;
     game.clearPreview();
   }
 
   void cameraAction(void Function() action) {
-    cancelGesture();
+    cancelGesture(cancelMove: false);
     action();
     focus.requestFocus();
   }
@@ -359,6 +401,8 @@ class _LandscapePageState extends State<LandscapePage> {
       catalogueKey.currentState?.showButtonMenu();
     } else if (k == LogicalKeyboardKey.keyI) {
       toggleInspection();
+    } else if (k == LogicalKeyboardKey.keyM && game.movableSelection) {
+      beginMove(game.inspectedCell!);
     } else if (k == LogicalKeyboardKey.keyT) {
       setSpeed(switch (colony.speed) {
         0 => 1,
@@ -386,6 +430,8 @@ class _LandscapePageState extends State<LandscapePage> {
       cancelGesture();
       game.inspectMode = false;
       game.clearInspection();
+      conversation = null;
+      game.dialogueOpen = false;
       setState(() {});
     } else {
       return KeyEventResult.ignored;
@@ -456,7 +502,7 @@ class _LandscapePageState extends State<LandscapePage> {
                 'Farms have ${Rules.gardenCapacity} work positions: people must reach them and work to earn ${Rules.coins(Rules.workIncomePerSecond)} coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
                 'Parks have ${Rules.greenCapacity} visitor spaces for actual social visits and relaxation. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
                 'B: grouped build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
-                'I: inspect; click a person; click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
+                'I: inspect; Talk opens a short optional conversation. Move (M) relocates an inspected building for free; right-click offers the same shortcut. Escape cancels. Click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
                 'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
               ),
@@ -491,6 +537,7 @@ class _LandscapePageState extends State<LandscapePage> {
     colony = next;
     game.colony = next;
     game.resetPresentation();
+    conversation = null;
   }
 
   void setSpeed(int speed) {
@@ -504,8 +551,266 @@ class _LandscapePageState extends State<LandscapePage> {
     setState(() {
       game.inspectMode = !game.inspectMode;
       if (!game.inspectMode) game.clearInspection();
+      conversation = null;
+      game.dialogueOpen = false;
     });
     focus.requestFocus();
+  }
+
+  void beginMove(Cell from) {
+    if (!session.world.contains(from) ||
+        buildingTool(session.world.at(from)) == null) {
+      return;
+    }
+    cancelGesture();
+    setState(() {
+      conversation = null;
+      game.dialogueOpen = false;
+      game.movingFrom = from;
+      game.inspectMode = false;
+      game.clearInspection();
+    });
+    focus.requestFocus();
+  }
+
+  void commitMove(Offset point) {
+    final from = game.movingFrom;
+    if (from == null) return;
+    final plan = evaluateMove(session.world, from, game.pick(point));
+    if (!session.relocate(plan)) {
+      game.invalid(plan.cell, plan.message);
+      tell(plan.message);
+      return;
+    }
+    game.movingFrom = null;
+    game.clearPreview();
+    game.reconcile();
+    game.feedback(plan.cell, true, false);
+    save();
+    browser.sound('place');
+    tell('Building moved · Free · identity and past earnings retained');
+  }
+
+  Future<void> buildingMenu(Cell cell, Offset position) async {
+    cancelGesture();
+    conversation = null;
+    game.dialogueOpen = false;
+    setState(() => menuOpen = true);
+    game.menuVisible = true;
+    final label = buildingTool(session.world.at(cell))!.label;
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 1, 1),
+        Offset.zero & MediaQuery.sizeOf(context),
+      ),
+      items: [
+        PopupMenuItem(value: 'inspect', child: Text('Inspect $label')),
+        PopupMenuItem(value: 'move', child: Text('Move $label · Free')),
+      ],
+    );
+    if (!mounted) return;
+    setState(() => menuOpen = false);
+    game.menuVisible = false;
+    if (action == 'move') {
+      beginMove(cell);
+    } else if (action == 'inspect') {
+      game.inspectBuilding(cell);
+    }
+    focus.requestFocus();
+  }
+
+  void talk({String? resident, bool civic = false}) {
+    final id = resident ?? game.inspectedResident;
+    if (id == null || !colony.people.containsKey(id)) return;
+    cancelGesture();
+    setState(() {
+      conversation = Conversation(
+        id,
+        node: civic ? 'civic' : 'hello',
+        event: civic ? colony.special?.id : null,
+      );
+      game.dialogueOpen = true;
+    });
+  }
+
+  void chooseDialogue(String id) {
+    if (conversation == null) return;
+    final result = Dialogues.choose(colony, conversation!, id);
+    setState(() {
+      conversation = result.conversation;
+      game.dialogueOpen = conversation != null;
+    });
+    if (result.changed) {
+      save();
+      browser.sound('place');
+    }
+    if (result.notice != null) tell(result.notice!);
+    focus.requestFocus();
+  }
+
+  void locateConcern(String resident) {
+    final r = colony.people[resident];
+    if (r == null) return;
+    final workConcern = colony.requests
+        .forResident(resident)
+        .any(
+          (q) => q.state == RequestState.accepted && q.need == Need.workAccess,
+        );
+    final target = workConcern
+        ? colony.world.places[r.workId] ?? colony.world.cottages[resident]
+        : colony.world.cottages[resident];
+    if (target != null) cameraAction(() => game.locate(target));
+  }
+
+  Widget inspectionPanel() {
+    final chat = conversation;
+    final person = colony.people[chat?.resident ?? game.inspectedResident];
+    final view = chat == null ? null : Dialogues.view(colony, chat);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: (game.canvasSize.y - 28).clamp(80, 900),
+      ),
+      child: Container(
+        color: const Color(0xf5202a25),
+        padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (person != null)
+                Image.asset(
+                  'assets/images/${Appearance.sprite(person.bodyId, person.palette)}.png',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none,
+                ),
+              if (view == null) ...[
+                Text(
+                  game.inspection ?? '',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xffeadfbd),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    if (person != null)
+                      TextButton(
+                        onPressed: () => talk(),
+                        child: const Text('Talk'),
+                      ),
+                    if (person != null &&
+                        colony.requests
+                            .forResident(person.homeId)
+                            .any((r) => r.state == RequestState.accepted))
+                      TextButton(
+                        onPressed: () => locateConcern(person.homeId),
+                        child: const Text('Locate request'),
+                      ),
+                    if (game.movableSelection)
+                      TextButton(
+                        onPressed: () => beginMove(game.inspectedCell!),
+                        child: const Text('Move building · Free (M)'),
+                      ),
+                    if (game.inspectedEvent && colony.civicHost != null)
+                      TextButton(
+                        onPressed: () =>
+                            talk(resident: colony.civicHost, civic: true),
+                        child: const Text('Discuss Market day'),
+                      ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          game.clearInspection();
+                          game.inspectMode = false;
+                        });
+                        focus.requestFocus();
+                      },
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+                const Text(
+                  'Escape closes · I toggles inspect mode',
+                  style: TextStyle(fontSize: 10, color: Color(0xffa4b39d)),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        person?.name ?? 'Conversation',
+                        style: const TextStyle(color: Color(0xffead39b)),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close conversation',
+                      onPressed: () {
+                        setState(() {
+                          conversation = null;
+                          game.dialogueOpen = false;
+                        });
+                        focus.requestFocus();
+                      },
+                      icon: const Icon(Icons.close, size: 16),
+                    ),
+                  ],
+                ),
+                if (person != null)
+                  Text(
+                    '${person.trait.label} · ${game.activityLabel(person.activity)}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xffb9c4ad),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                Text(
+                  view.line,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: Color(0xffeadfbd),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final (choice, disabled) in view.choices) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: disabled == null
+                          ? () => chooseDialogue(choice.id)
+                          : null,
+                      child: Text(
+                        choice.label,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ),
+                  if (disabled != null)
+                    Text(
+                      disabled,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xffc89e82),
+                      ),
+                    ),
+                ],
+                const Text(
+                  'The town keeps living while we talk.',
+                  style: TextStyle(fontSize: 9, color: Color(0xffa4b39d)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget button(
@@ -540,7 +845,11 @@ class _LandscapePageState extends State<LandscapePage> {
       hint =
           'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
     }
-    if (game.inspectMode) {
+    if (game.movingFrom != null) {
+      hint =
+          preview?.message ??
+          'Move building · Free · choose a connected plot · Escape cancels';
+    } else if (game.inspectMode) {
       hint = 'Click a person or place · repeat click cycles nearby people · Escape closes.';
     }
     if (preview != null &&
@@ -580,9 +889,29 @@ class _LandscapePageState extends State<LandscapePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${Rules.coins(session.money)} coins',
-                          style: const TextStyle(color: Color(0xffead39b)),
+                        Semantics(
+                          label:
+                              'Treasury: ${Rules.coins(session.money)} coins',
+                          excludeSemantics: true,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                'assets/images/coin.png',
+                                width: 16,
+                                height: 16,
+                                filterQuality: FilterQuality.none,
+                                color: const Color(0xffead39b),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                Rules.coins(session.money),
+                                style: const TextStyle(
+                                  color: Color(0xffead39b),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const Text(
                           'Grant +20/day',
@@ -797,38 +1126,12 @@ class _LandscapePageState extends State<LandscapePage> {
                           ),
                         ),
                       ),
-                    if (game.inspection != null)
+                    if (game.inspection != null || conversation != null)
                       Positioned(
                         right: 16,
                         top: 14,
-                        width: 280,
-                        child: IgnorePointer(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            color: const Color(0xf0202a25),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (colony.people[game.inspectedResident] !=
-                                    null)
-                                  Image.asset(
-                                    'assets/images/${Appearance.sprite(colony.people[game.inspectedResident]!.bodyId, colony.people[game.inspectedResident]!.palette)}.png',
-                                    width: 36,
-                                    height: 36,
-                                    fit: BoxFit.contain,
-                                    filterQuality: FilterQuality.none,
-                                  ),
-                                Text(
-                                  '${game.inspection}\n\nEscape closes · I toggles inspect mode',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xffeadfbd),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        width: 300,
+                        child: inspectionPanel(),
                       ),
                     if (notice.isNotEmpty)
                       Positioned(
@@ -886,15 +1189,7 @@ class _LandscapePageState extends State<LandscapePage> {
                               onPressed: () => select(t),
                               child: Row(
                                 children: [
-                                  Image.asset(
-                                    'assets/images/${['hammer', 'grid', 'clear', 'vegetables', 'oak'][t.index]}.png',
-                                    width: 16,
-                                    height: 16,
-                                    filterQuality: FilterQuality.none,
-                                    color: t == tool
-                                        ? const Color(0xffe9d59d)
-                                        : const Color(0xff9fad97),
-                                  ),
+                                  BuildThumbnail(t, game.art, size: 16),
                                   const SizedBox(width: 6),
                                   Column(
                                     crossAxisAlignment:
@@ -937,6 +1232,14 @@ class _LandscapePageState extends State<LandscapePage> {
                           select(t);
                         },
                         itemBuilder: (context) => [
+                          const PopupMenuItem<Tool>(
+                            enabled: false,
+                            height: 34,
+                            child: Text(
+                              'Buildings need an adjoining connected path.',
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          ),
                           for (final group in <String, List<Tool>>{
                             'Homes': [Tool.cottage],
                             'Work': [Tool.garden, Tool.workshop, Tool.market],
@@ -961,23 +1264,39 @@ class _LandscapePageState extends State<LandscapePage> {
                             for (final t in group.value)
                               PopupMenuItem<Tool>(
                                 value: t,
-                                height: 54,
+                                height: 68,
                                 child: SizedBox(
-                                  width: 280,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  width: 330,
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        '${t.index == 9 ? 0 : t.index + 1} ${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins'}',
-                                      ),
-                                      Text(
-                                        t.purpose,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Color(0xffb9c4ad),
+                                      BuildThumbnail(t, game.art),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${t.index == 9 ? 0 : t.index + 1} ${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins'}',
+                                              style: TextStyle(
+                                                color: tool == t
+                                                    ? const Color(0xffead39b)
+                                                    : null,
+                                              ),
+                                            ),
+                                            Text(
+                                              t.purpose,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: Color(0xffb9c4ad),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
+                                      if (tool == t)
+                                        const Icon(Icons.check, size: 14),
                                     ],
                                   ),
                                 ),

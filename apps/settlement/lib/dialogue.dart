@@ -120,10 +120,12 @@ abstract final class Dialogues {
       (c) {
         final r = c.person!;
         if (c.helped != null) return c.helped!.need.thanks;
-        if (c.colony.needFor(r) != null)
+        if (c.colony.needFor(r) != null) {
           return 'I am managing, but there is something the town could help with.';
-        if (c.colony.happiness(r) >= 70)
+        }
+        if (c.colony.happiness(r) >= 70) {
           return 'I feel content here. My recent days have gone well.';
+        }
         return 'I am ${r.activity == Activity.working ? 'working at the ${c.colony.kind(r.workId)!.label}' : 'following my daily routine'}. It is good to have a moment to talk.';
       },
       [
@@ -244,14 +246,18 @@ abstract final class Dialogues {
   };
   static String _experience(DialogueContext c) {
     final r = c.person!, now = c.colony.clock;
-    if (r.trait.name == 'sociable' && now - r.lastSocial < Rules.recent)
+    if (r.trait.name == 'sociable' && now - r.lastSocial < Rules.recent) {
       return 'I finished a social visit recently. Being sociable, I get a little more out of that time together.';
-    if (r.awardedEvent != null)
+    }
+    if (r.awardedEvent != null) {
       return 'I joined an evening gathering. I remember actually meeting everyone there.';
-    if (now - r.lastWork < Rules.recent)
+    }
+    if (now - r.lastWork < Rules.recent) {
       return 'I completed productive work recently. The coins went into the town treasury.';
-    if (now - r.lastSocial < Rules.recent)
+    }
+    if (now - r.lastSocial < Rules.recent) {
       return 'I completed a social visit recently. That time to relax helped.';
+    }
     return switch (r.activity) {
       Activity.working =>
         'I am working at the ${c.colony.kind(r.workId)!.label}. The town earns coins only while I actually work.',
@@ -264,12 +270,13 @@ abstract final class Dialogues {
 
   static DialogueView view(Colony colony, Conversation conversation) {
     final c = DialogueContext(colony, conversation);
-    if (c.person == null)
+    if (c.person == null) {
       return const DialogueView(
         'gone',
         'This resident is no longer in the town.',
         [(close, null)],
       );
+    }
     final node = nodes[conversation.node] ?? nodes['hello']!;
     return DialogueView(node.id, node.line(c), [
       for (final choice in node.choices)
@@ -293,11 +300,12 @@ abstract final class Dialogues {
       colony,
       conversation,
     ).choices.where((c) => c.$1.id == choiceId && c.$2 == null).firstOrNull;
-    if (available == null)
+    if (available == null) {
       return DialogueResult(
         conversation,
         notice: 'That choice is no longer available.',
       );
+    }
     final choice = available.$1;
     var changed = false;
     switch (choice.effect) {
@@ -319,11 +327,12 @@ abstract final class Dialogues {
       case DialogueEffect.none:
         break;
     }
-    if (choice.effect != DialogueEffect.none && !changed)
+    if (choice.effect != DialogueEffect.none && !changed) {
       return DialogueResult(
         conversation,
         notice: 'The situation changed. No consequence was applied.',
       );
+    }
     if (choice.next == 'close') return DialogueResult(null, changed: changed);
     final next = conversation.at(
       choice.next,
