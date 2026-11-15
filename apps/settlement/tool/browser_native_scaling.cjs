@@ -1,60 +1,68 @@
-// Optional Linux/X11 check: native browser zoom and a real XTest brush stroke.
-const {chromium}=require('playwright');
-const {execFileSync}=require('node:child_process');
+// Native X11 interaction; raw CDP observes without Playwright's forced focus.
+const {execFileSync,spawn}=require('node:child_process');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const os=require('node:os');
 const path=require('node:path');
 const output=path.resolve(process.argv[2]||'/tmp/settlement-native-evidence');
 fs.mkdirSync(output,{recursive:true});
 (async()=>{
-  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BIN||'/usr/bin/chromium',
-    headless:false,args:['--no-sandbox','--ozone-platform=x11','--force-device-scale-factor=1'],
-    env:{...process.env,DISPLAY:process.env.DISPLAY||':95',WAYLAND_DISPLAY:''}});
-  const page=await browser.newPage({viewport:{width:1024,height:640}});
-  const input=await page.context().newCDPSession(page);
-  // disable Playwright's forced focus so real browser focus loss reaches the app.
-  await input.send('Emulation.setFocusEmulationEnabled',{enabled:false});
-  await page.goto(process.env.SETTLEMENT_URL||'http://127.0.0.1:8765/settlement/');
-  await page.locator('flt-semantics-placeholder').press('Enter');
-  await page.getByRole('button',{name:'2 Path',exact:true}).waitFor();
-  await page.waitForLoadState('networkidle');await page.locator('#loading').waitFor({state:'detached'});await page.waitForTimeout(500);
-  const original=await page.evaluate(()=>({ratio:devicePixelRatio,width:innerWidth,height:innerHeight}));
-  const xdotool=process.env.XDOTOOL_BIN||'xdotool';
-  const run=args=>execFileSync(xdotool,args,{encoding:'utf8'});
-  const window=run(['search','--onlyvisible','--name','ROAG']).trim().split('\n')[0];
-  run(['windowfocus','--sync',window]);run(['key','--clearmodifiers','ctrl+plus']);
-  await page.waitForFunction(ratio=>devicePixelRatio>ratio,original.ratio);
-  const zoomed=await page.evaluate(()=>({ratio:devicePixelRatio,width:innerWidth,height:innerHeight}));
-  const box=await page.evaluate(()=>({width:outerWidth,height:outerHeight}));
-  const geometry=run(['getwindowgeometry','--shell',window]);
-  const osScale=Number(geometry.match(/WIDTH=(\d+)/)[1])/box.width;
-  const border=(box.width-zoomed.width*zoomed.ratio)/2;
-  function move(x,y){run(['mousemove','--window',window,
-    String(Math.round((border+x*zoomed.ratio)*osScale)),
-    String(Math.round((box.height-zoomed.height*zoomed.ratio-border+y*zoomed.ratio)*osScale))]);}
-  async function clickButton(name){
-    const b=await page.getByRole('button',{name,exact:true}).boundingBox();move(b.x+b.width/2,b.y+b.height/2);run(['click','1']);await page.waitForTimeout(120);
-  }
-  await clickButton('Return to lane (H)');await clickButton('2 Path');
-  const tool=await page.getByRole('button',{name:'1 Cottage',exact:true}).boundingBox();
-  const menu=await page.getByRole('button',{name:'Landscape menu',exact:true}).boundingBox();
-  const cy=(menu.y+menu.height+12+tool.y-10)/2;
-  move(24+8.5*48,cy);run(['mousedown','1']);await page.waitForTimeout(100);
-  assert.equal(await page.evaluate(()=>localStorage.getItem('roag.settlement.landscape.v1')),null);
-  run(['key','--clearmodifiers','ctrl+l']);
-  await page.waitForFunction(()=>!document.hasFocus());run(['mouseup','1']);
-  await page.waitForTimeout(150);
-  assert.equal(await page.evaluate(()=>localStorage.getItem('roag.settlement.landscape.v1')),null,'native focus loss cancels, rather than committing');
-  run(['key','Escape']);await clickButton('2 Path');
-  move(24+8.5*48,cy);run(['mousedown','1']);await page.waitForTimeout(100);
-  assert.equal(await page.evaluate(()=>localStorage.getItem('roag.settlement.landscape.v1')),null);
-  move(24+12.5*48,cy);await page.waitForTimeout(100);run(['mouseup','1']);
-  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('roag.settlement.landscape.v1'))?.lots.filter(l=>l[3]).length===13);
-  await page.screenshot({path:path.join(output,'native-browser-zoom.png')});
-  assert(zoomed.ratio>original.ratio);
-  const result={browser:await browser.version(),original,zoomed,osScale,
-    nativeInput:'XTest via xdotool: real Ctrl+plus desktop zoom, palette controls, five-cell path drag and release',
-    checks:['110% browser zoom','native focus-loss cancellation','no save during held stroke','exact cells 8..12 added through one native drag'],paths:13};
-  fs.writeFileSync(path.join(output,'native-results.json'),JSON.stringify(result,null,2));
-  await browser.close();console.log(JSON.stringify(result,null,2));
-})().catch(e=>{console.error(e);process.exit(1);});
+  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'roag-native-brush-'));
+  const native=spawn(process.env.CHROMIUM_BIN||'/usr/bin/chromium',[
+    '--no-sandbox','--ozone-platform=x11','--force-device-scale-factor=1',
+    '--remote-debugging-port=0',`--user-data-dir=${profile}`,'--window-size=1032,725',
+    '--no-first-run','--no-default-browser-check','about:blank'],
+    {env:{...process.env,DISPLAY:process.env.DISPLAY||':95',WAYLAND_DISPLAY:''},stdio:'ignore'});
+  let socket;
+  try {
+    const portFile=path.join(profile,'DevToolsActivePort');
+    for(let i=0;i<200 && !fs.existsSync(portFile);i++)await new Promise(r=>setTimeout(r,25));
+    assert(fs.existsSync(portFile),'native browser started');
+    const port=fs.readFileSync(portFile,'utf8').split('\n')[0];
+    const pages=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    socket=new WebSocket(pages.find(p=>p.type==='page').webSocketDebuggerUrl);
+    await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
+    let id=0;const pending=new Map();
+    socket.addEventListener('message',event=>{const m=JSON.parse(event.data),p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}});
+    const send=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
+    const read=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result.value;};
+    const wait=async expression=>{for(let i=0;i<200;i++){if(await read(expression))return;await new Promise(r=>setTimeout(r,50));}throw Error(`Timed out: ${expression}`);};
+    await send('Page.enable');await send('Runtime.enable');
+    await send('Page.navigate',{url:process.env.SETTLEMENT_URL||'http://127.0.0.1:8765/settlement/'});
+    await wait("document.readyState==='complete' && !!window.settlementPlatform && !document.getElementById('loading')");
+    const run=args=>execFileSync(process.env.XDOTOOL_BIN||'xdotool',args,{encoding:'utf8'});
+    const window=run(['search','--onlyvisible','--name','ROAG']).trim().split('\n')[0];
+    run(['windowfocus','--sync',window]);
+    // accessibility setup only; all game commands below are native input.
+    await read("document.querySelector('flt-semantics-placeholder')?.focus()");
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});
+    await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+    const buttonExpression=name=>`(()=>{const b=[...document.querySelectorAll('[role=button]')].find(b=>(b.getAttribute('aria-label')||b.textContent).split(' ').join('')===${JSON.stringify(name.split(' ').join(''))});if(!b)return null;const r=b.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};})()`;
+    await wait(buttonExpression('2 Path'));
+    const original=await read('({ratio:devicePixelRatio,width:innerWidth,height:innerHeight})');
+    run(['key','--clearmodifiers','ctrl+plus']);await wait(`devicePixelRatio>${original.ratio}`);
+    const zoomed=await read('({ratio:devicePixelRatio,width:innerWidth,height:innerHeight})');
+    const box=await read('({width:outerWidth,height:outerHeight})');
+    const geometry=run(['getwindowgeometry','--shell',window]);
+    const osScale=Number(geometry.match(/WIDTH=(\d+)/)[1])/box.width;
+    const border=(box.width-zoomed.width*zoomed.ratio)/2;
+    function move(x,y){run(['mousemove','--window',window,String(Math.round((border+x*zoomed.ratio)*osScale)),String(Math.round((box.height-zoomed.height*zoomed.ratio-border+y*zoomed.ratio)*osScale))]);}
+    async function button(name){const b=await read(buttonExpression(name));assert(b,name);move(b.x+b.w/2,b.y+b.h/2);run(['click','1']);await new Promise(r=>setTimeout(r,150));}
+    await button('Return to lane (H)');await button('2 Path');
+    const tool=await read(buttonExpression('1 Cottage')),menu=await read(buttonExpression('Landscape menu'));
+    const cy=(menu.y+menu.h+12+tool.y-10)/2;
+    const saved="localStorage.getItem('roag.settlement.landscape.v1')";
+    await read(`(()=>{window.nativeEvents=[];for(const t of ['blur','focus','visibilitychange','pointerdown','pointerup','pointercancel','pointerleave','pointermove'])window.addEventListener(t,e=>nativeEvents.push([t,e.target.tagName,e.clientX,e.clientY,document.hidden,document.hasFocus()]),true);const write=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){nativeEvents.push(['WRITE',document.hidden,document.hasFocus()]);return write.call(this,k,v);};})()`);
+    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,150));assert.equal(await read(saved),null);
+    run(['key','ctrl+t']);await wait('document.hidden || !document.hasFocus()');console.log('Before release',await read('nativeEvents'));run(['mouseup','1']);await new Promise(r=>setTimeout(r,100));console.log('After release',await read('nativeEvents'));
+    assert((await read(saved))===null,'native tab focus loss cancels the unfinished stroke');
+    run(['key','--clearmodifiers','ctrl+w']);await wait('!document.hidden');await button('2 Path');
+    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,100));assert.equal(await read(saved),null);
+    move(24+12.5*48,cy);await new Promise(r=>setTimeout(r,100));run(['mouseup','1']);
+    await wait(`JSON.parse(${saved})?.lots.filter(l=>l[3]).length===13`);
+    const screenshot=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(output,'native-browser-zoom.png'),Buffer.from(screenshot.data,'base64'));
+    const result={original,zoomed,osScale,paths:13,nativeInput:'XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release',observation:'raw CDP, no focus emulation or game callbacks',checks:['110% browser zoom','native tab focus loss cancels without save','no partial-stroke save','cells 8 through 12 painted as one stroke']};
+    fs.writeFileSync(path.join(output,'native-results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
+    await send('Browser.close');
+  } finally {socket?.close();native.kill('SIGTERM');}
+})().catch(e=>{console.error(e);process.exitCode=1;});
