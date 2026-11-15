@@ -172,8 +172,7 @@ class Residents {
           (r.route.isEmpty &&
               ((r.x - r.cell.x - .5).abs() > .01 ||
                   (r.y - r.cell.y - .5).abs() > .01)) ||
-          (r.route.isNotEmpty &&
-              !world.pathNeighbours(r.cell).contains(r.route.first))) {
+          (r.route.isNotEmpty && !world.roadStep(r.cell, r.route.first))) {
         _settle(r);
         continue;
       }
@@ -349,8 +348,7 @@ class Residents {
 
   double _move(Resident r, Cell target, double dt, double speed) {
     if (r.activity != Activity.settling) {
-      if (!world.contains(target) ||
-          !world.pathNeighbours(r.cell).contains(target)) {
+      if (!world.contains(target) || !world.roadStep(r.cell, target)) {
         r.segmentSpeed = 0;
         _settle(r);
         return -1;

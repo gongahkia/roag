@@ -1340,7 +1340,7 @@ class Colony extends Residents {
       var previous = r.cell;
       for (final entry in path) {
         final c = cell(entry);
-        if (!world.pathNeighbours(previous).contains(c)) {
+        if (!world.roadStep(previous, c)) {
           throw const FormatException('Invalid path edge.');
         }
         r.route.add(c);

@@ -7,6 +7,7 @@ import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/navigation.dart';
 import 'package:roag_settlement/world_generation.dart';
 import 'package:roag_settlement/world_creation.dart';
+import 'package:roag_settlement/settlement_game.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'colony_test.dart' show paint, advance;
@@ -53,7 +54,7 @@ void main() {
       for (var seed = 0; seed < 600; seed++) {
         final w = WorldGeneration.create('$seed', p);
         expect(w.encode(), WorldGeneration.create('$seed', p).encode());
-        fingerprints.add(w.encode());
+        fingerprints.add(w.lots.map((l) => l.terrain.index).join(','));
         expect(w.activePaths.length, 8);
         for (var y = 11; y <= 19; y++) {
           for (var x = 0; x <= 10; x++) {
@@ -361,6 +362,35 @@ void main() {
     expect(broken.completeBridgeCells, isEmpty);
     expect(broken.pathRoute(const Cell(7, 15), const Cell(7, 17)), isNull);
   });
+  test(
+    'inspection explains actual terrain, wet road costs and a broken crossing',
+    () {
+      final c = crossingTown(),
+          game = SettlementGame(c, (_) {}),
+          span = riverSpan(c.world);
+      game.inspectedCell = Cell(span.first.x + 1, 15);
+      expect(game.inspection, contains('Complete bank-to-bank'));
+      paint(c, Tool.remove, Cell(span.first.x + 2, 15));
+      expect(game.inspection, contains('Broken crossing'));
+      final wet = c.world.cells.firstWhere(
+        (p) => c.world.at(p).terrain == Terrain.marsh,
+      );
+      game.inspectedCell = wet;
+      expect(game.inspection, contains('Wet ground'));
+      expect(game.inspection, contains('Clear'));
+    },
+  );
+  test('terrain navigation and work remain identical at different render-frame cadences', () {
+    final a = crossingTown(), b = Colony.decode(a.encode());
+    for (var i = 0; i < 2000; i++) {
+      a.update(.02);
+    }
+    for (var i = 0; i < 800; i++) {
+      b.update(.05);
+    }
+    expect(a.workEarned, greaterThan(0));
+    expect(a.encode(), b.encode());
+  });
   test('concrete terrain and new metadata round-trip; future version does not regenerate', () {
     final c = crossingTown();
     advance(c, 10);
@@ -387,6 +417,13 @@ void main() {
     }
   });
   test('legacy checkpoint retains all concrete lots, clock, event RNG and durable people exactly', () {
+    final v1 = jsonDecode(
+      File('../../docs/world-builder/evidence/goal-07/legacy-v1-river.json')
+          .readAsStringSync(),
+    );
+    final preserved = Colony.decode(jsonEncode(v1));
+    expect(preserved.world.generation!.version, 1);
+    expect(preserved.world.toJson()['lots'], v1['lots']);
     final input = File(
       '../../docs/world-builder/evidence/tranche-06/need-town.json',
     );

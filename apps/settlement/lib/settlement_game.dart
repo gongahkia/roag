@@ -364,17 +364,23 @@ class SettlementGame extends FlameGame {
     if (lot.cottage != null) {
       return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
     }
-    return lot.path
-        ? '${lot.road == RoadKind.dirt
-              ? 'Dirt path'
-              : lot.road == RoadKind.stone
-              ? 'Stone Road'
-              : 'Garden Path'} · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n${lot.road == RoadKind.stone
-              ? '18% quicker travel; unaffected by rain.'
-              : lot.road == RoadKind.gardenPath
-              ? 'Normal speed; +3 mood after actual traversal, once per day. Rain slows travel.'
-              : 'Free baseline path; rain slows travel.'}'
-        : 'Landscape · choose a building beside a connected path.';
+    if (lot.bridge != null) {
+      return 'Bridge · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n${session.world.roadCell(c) ? 'Complete bank-to-bank crossing. Ordinary path pace; rain slows travel.' : 'Broken crossing. Restore every missing water cell and both land approaches before residents can cross.'}';
+    }
+    if (lot.path) {
+      final title = lot.road == RoadKind.dirt
+          ? 'Dirt path'
+          : lot.road == RoadKind.stone
+          ? 'Stone Road'
+          : 'Garden Path';
+      final speed = lot.road == RoadKind.stone
+          ? '18% quicker travel; unaffected by wet ground or rain.'
+          : lot.terrain == Terrain.marsh
+          ? 'Wet ground: 1.5× travel time; rain does not stack with this penalty.'
+          : 'Ordinary pace; rain slows travel.';
+      return '$title · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n$speed${lot.road == RoadKind.gardenPath ? '\n+3 mood after actual traversal, once per day.' : ''}';
+    }
+    return '${lot.scenery == Scenery.oak ? 'Woodland' : lot.terrain.label}\n${lot.scenery == Scenery.oak ? 'Clear the tree before building or laying a path.' : lot.terrain.instruction}';
   }
 
   String activityLabel(Activity activity) => switch (activity) {

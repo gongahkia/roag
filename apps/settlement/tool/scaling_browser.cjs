@@ -4,10 +4,10 @@ const out=path.resolve(process.argv[2]||'/tmp/roag-scaling.json');
 const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8767/settlement/?profile=1';
 (async()=>{
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const results=[];
- for(const population of [85,250,500]){
+ for(const population of (process.env.SETTLEMENT_POPULATIONS||'85,250,500').split(',').map(Number)){
   const context=await browser.newContext({viewport:{width:1024,height:640}}),page=await context.newPage();
   await page.goto(url);await page.locator('#loading').waitFor({state:'detached'});await page.locator('flt-semantics-placeholder').press('Enter');
-  await page.getByRole('button',{name:'Landscape menu',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('menuitem',{name:'Import landscape…',exact:true}).click();await(await chooser).setFiles(`/tmp/roag-tranche05-fixtures/scale-${population}.json`);
+  await page.getByRole('button',{name:'Landscape menu',exact:true}).click();const chooser=page.waitForEvent('filechooser');await page.getByRole('menuitem',{name:'Import landscape…',exact:true}).click();await(await chooser).setFiles(`${process.env.SETTLEMENT_FIXTURE_DIR||'/tmp/roag-tranche05-fixtures'}/scale-${population}.json`);
   await page.getByRole('button',{name:'Replace settlement',exact:true}).click();await page.waitForTimeout(300);await page.getByRole('button',{name:'1×',exact:true}).click();
   const collect=()=>page.evaluate(async()=>{const start=window.settlementMetrics;let backlogs=[],times=[],prev=performance.now();const end=prev+16000;await new Promise(resolve=>{function tick(t){backlogs.push(window.settlementMetrics?.planningBacklog||0);times.push(t-prev);prev=t;t<end?requestAnimationFrame(tick):resolve();}requestAnimationFrame(tick)});const metrics={...window.settlementMetrics};const calls=metrics.modelCalls-start.modelCalls;metrics.modelMicros=metrics.modelMicros.slice(-calls);metrics.presentationMicros=metrics.presentationMicros.slice(-calls);return{frames:times,metrics,maxBacklog:Math.max(...backlogs),startClock:start.clock};});
   const ordinary=await collect();

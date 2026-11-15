@@ -257,12 +257,21 @@ class Landscape {
     return Set.unmodifiable(valid);
   }
 
-  bool roadCell(Cell c) =>
-      contains(c) &&
-      at(c).path &&
-      (at(c).bridge != null
-          ? completeBridgeCells.contains(c)
-          : at(c).terrain.roadAllowed);
+  bool roadCell(Cell c) {
+    if (!contains(c)) return false;
+    final lot = at(c);
+    return lot.path &&
+        (lot.bridge != null
+            ? completeBridgeCells.contains(c)
+            : lot.terrain.roadAllowed);
+  }
+
+  bool roadStep(Cell from, Cell to) =>
+      contains(from) &&
+      roadCell(to) &&
+      (from.x - to.x).abs() + (from.y - to.y).abs() == 1 &&
+      _aligned(from, to) &&
+      _aligned(to, from);
   bool _aligned(Cell c, Cell n) =>
       at(c).bridge == null ||
       (at(c).bridge == BridgeAxis.horizontal ? c.y == n.y : c.x == n.x);

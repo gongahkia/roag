@@ -16,12 +16,18 @@ abstract final class WorldGeneration {
     final scenery = _Stream(seed, 104729), environment = _Stream(seed, 130363);
     final geometry = _Stream(seed, 32452843);
     const width = 40, height = 30;
-    // smooth integer value fields form patches rather than independent noisy tiles.
-    int field(int x, int y, int salt) {
+    // independent coarse grids avoid the translated/repeating patterns of a
+    // linear coordinate hash; integer interpolation keeps VM/web agreement.
+    List<int> grid(int domain) {
+      final random = _Stream(seed, domain);
+      return List.generate(9 * 7, (_) => random.next(100));
+    }
+
+    final forests = grid(3001), wetlands = grid(7001), rocks = grid(11003);
+    int field(int x, int y, List<int> values) {
       const scale = 5;
       final gx = x ~/ scale, gy = y ~/ scale, fx = x % scale, fy = y % scale;
-      int sample(int a, int b) =>
-          variation(seed, Cell(a, b), salt) ~/ 101 % 100;
+      int sample(int a, int b) => values[b * 9 + a];
       return (sample(gx, gy) * (scale - fx) * (scale - fy) +
               sample(gx + 1, gy) * fx * (scale - fy) +
               sample(gx, gy + 1) * (scale - fx) * fy +
@@ -39,14 +45,14 @@ abstract final class WorldGeneration {
       river.add(center);
       widths.add(channel);
     }
-    final lots = <Lot>[];
+    final lots = <Lot>[], forestCandidates = <Cell>[];
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
-        var terrain = field(x, y, 32) < preset.forestThreshold
-            ? Terrain.forest
-            : Terrain.ground;
-        if (field(x, y, 79) < preset.wetThreshold) terrain = Terrain.marsh;
-        if (field(x, y, 113) < preset.rockThreshold) terrain = Terrain.rock;
+        var terrain = Terrain.ground;
+        if (field(x, y, wetlands) < preset.wetThreshold) {
+          terrain = Terrain.marsh;
+        }
+        if (field(x, y, rocks) < preset.rockThreshold) terrain = Terrain.rock;
         if (preset.hasRiver) {
           final left = river[y], right = left + widths[y] - 1;
           if (x >= left && x <= right) {
@@ -63,6 +69,15 @@ abstract final class WorldGeneration {
           }
         }
         if (x <= 10 && y >= 11 && y <= 19) terrain = Terrain.ground;
+        final starter = x <= 10 && y >= 11 && y <= 19;
+        final approach =
+            preset.hasRiver &&
+            y >= 14 &&
+            y <= 16 &&
+            x <= river[y] + widths[y] + 2;
+        if (terrain == Terrain.ground && !starter && !approach) {
+          forestCandidates.add(Cell(x, y));
+        }
         final path = x <= 7 && y == 15;
         final decoration = scenery.next(37);
         lots.add(
@@ -78,6 +93,27 @@ abstract final class WorldGeneration {
           ),
         );
       }
+    }
+    forestCandidates.sort((a, b) {
+      final order = field(
+        a.x,
+        a.y,
+        forests,
+      ).compareTo(field(b.x, b.y, forests));
+      return order != 0
+          ? order
+          : variation(seed, a, 261).compareTo(variation(seed, b, 261));
+    });
+    // preset coverage bounds keep beginner maps open and woodland maps forested.
+    for (final c in forestCandidates.take(
+      forestCandidates.length * preset.forestPercent ~/ 100,
+    )) {
+      final index = c.y * width + c.x;
+      lots[index] = Lot(
+        grass: lots[index].grass,
+        terrain: Terrain.forest,
+        scenery: Scenery.oak,
+      );
     }
     return Landscape(
       seed,

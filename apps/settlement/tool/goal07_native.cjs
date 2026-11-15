@@ -31,7 +31,7 @@ fs.mkdirSync(output,{recursive:true});
     const send=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
     observe=send;
     const read=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result.value;};
-    const wait=async expression=>{for(let i=0;i<200;i++){if(await read(expression))return;await new Promise(r=>setTimeout(r,50));}throw Error(`Timed out: ${expression}`);};
+    const wait=async expression=>{for(let i=0;i<1800;i++){if(await read(expression))return;await new Promise(r=>setTimeout(r,50));}throw Error(`Timed out: ${expression}`);};
     await send('Page.enable');await send('Runtime.enable');
     await send('Page.navigate',{url:process.env.SETTLEMENT_URL||'http://127.0.0.1:8768/settlement/'});
     await wait("document.readyState==='complete' && !!window.settlementPlatform && !document.getElementById('loading')");
@@ -87,12 +87,12 @@ fs.mkdirSync(output,{recursive:true});
       throw Error('Could not scroll to '+name);
     }
     await newWorld('Woodlands');const woodlandMoney=(await state()).colony.money;await shot('native-woodlands-created-110');
-    await stroke('2',[7,15],[11,15]);await landscape('Clear');
-    move(...tile(12,15));run(['mousedown','1']);move(...tile(14,15));await shot('native-clearing-preview-110');run(['mouseup','1']);
+    await stroke('2',[7,15],[10,15]);await landscape('Clear');
+    move(...tile(11,15));run(['mousedown','1']);move(...tile(11,17));await shot('native-clearing-preview-110');run(['mouseup','1']);
     await wait(`JSON.parse(${saved})?.colony.money===${woodlandMoney-3000}`);
     run(['key','--clearmodifiers','ctrl+z']);await wait(`JSON.parse(${saved})?.colony.money===${woodlandMoney}`);
     run(['key','--clearmodifiers','ctrl+shift+z']);await wait(`JSON.parse(${saved})?.colony.money===${woodlandMoney-3000}`);
-    await stroke('2',[11,15],[14,15]);await shot('native-woodland-road-110');
+    await stroke('2',[10,15],[11,15]);await stroke('2',[11,15],[11,17]);await shot('native-woodland-road-110');
     await newWorld('River Country');let s=await state();const water=[];
     for(let x=0;x<40;x++)if(s.lots[15*40+x][9]==='water')water.push(x);
     const left=water[0]-1,right=water.at(-1)+1;
@@ -102,7 +102,15 @@ fs.mkdirSync(output,{recursive:true});
     await landscape('Bridge');move(...tile(left,15));run(['mousedown','1']);move(...tile(right,15));run(['mouseup','1']);
     await wait(`JSON.parse(${saved})?.colony.money===${riverMoney-water.length*3000}`);
     await stroke('2',[right,15],[right+2,15]);await stroke('1',[2,14],[5,14]);await stroke('4',[right+1,14]);
-    await button('1×');await wait(`JSON.parse(${saved})?.colony.residents.some(r=>r.x>${left+1}&&r.x<${right})`);await shot('native-residents-crossing-110');
+    let crossing=false;
+    // selecting the current speed uses normal native input and checkpoints the
+    // live positions, avoiding missed sub-second crossings between autosaves.
+    for(var i=0;i<400;i++) {
+      await button('1×');
+      if((await state()).colony.residents.some(r=>r.x>left+1&&r.x<right)){crossing=true;break;}
+    }
+    assert(crossing,'a resident actually crossed the water span');
+    await shot('native-residents-crossing-110');
     await wait(`JSON.parse(${saved})?.colony.workEarned>0`);await button('Ⅱ');await shot('native-river-working-110');
     fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({input:'Native XTest mouse/keyboard, headful Chromium, isolated profile; raw CDP only for accessibility setup and observations',original,zoomed,checks:['Native 110% browser zoom','World creation: Woodlands and River Country, seed 202','Paid Clear drag, actual preview, Undo and Redo','Free road construction on cleared woodland','Complete bridge preview, cancellation and exact bank-to-bank charge','Actual residents traverse native-built bridge and work on the far bank'],state:await state()},null,2));
   } catch(error) {

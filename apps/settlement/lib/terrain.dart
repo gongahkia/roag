@@ -32,33 +32,33 @@ enum EnvironmentPreset {
   plains(
     'Gentle Plains',
     'Open meadows, scattered trees and an easy start.',
-    36,
+    16,
     9,
     4,
   ),
   woodlands(
     'Woodlands',
     'Forest clusters and small clearings. Clear land as you expand.',
-    57,
+    50,
     12,
     5,
   ),
   river(
     'River Country',
     'A winding river divides the land. Bridge short crossings to expand.',
-    34,
+    20,
     18,
     4,
     hasRiver: true,
   );
 
   final String label, description;
-  final int forestThreshold, wetThreshold, rockThreshold;
+  final int forestPercent, wetThreshold, rockThreshold;
   final bool hasRiver;
   const EnvironmentPreset(
     this.label,
     this.description,
-    this.forestThreshold,
+    this.forestPercent,
     this.wetThreshold,
     this.rockThreshold, {
     this.hasRiver = false,
@@ -92,7 +92,7 @@ int seedNumber(String input) {
 }
 
 class GenerationInfo {
-  static const currentVersion = 1;
+  static const currentVersion = 2;
   final String seedText;
   final EnvironmentPreset preset;
   final int version, environmentVariant;
