@@ -348,6 +348,31 @@ void main() {
     advance(r, 5);
     expect(r.people.keys.toSet(), s.world.cottages.keys.toSet());
   });
+  test('a removed cell under a moving resident settles onto its surviving edge endpoint', () {
+    edit(Tool.cottage, 7, 14);
+    final r = Residents(Landscape.create());
+    r.reconcile(s.world);
+    final p = r.people.values.single;
+    for (var i = 0; i < 120 && p.cell.x < 3; i++) {
+      r.update(1 / 60);
+    }
+    expect(p.cell, const Cell(3, 15));
+    advance(r, .08);
+    final beforeX = p.x;
+    edit(Tool.remove, 3, 15);
+    r.reconcile(s.world);
+    expect(p.activity, Activity.settling);
+    expect(p.settleTarget, const Cell(4, 15));
+    expect(p.x, beforeX, reason: 'reconciliation does not teleport the actor');
+    for (var i = 0; i < 180; i++) {
+      final oldX = p.x, oldY = p.y;
+      r.update(1 / 60);
+      expect((p.x - oldX).abs() + (p.y - oldY).abs(), lessThan(.11));
+    }
+    expect(p.arrived, isTrue);
+    expect(r.people.length, 1);
+    expect(s.world.access(const Cell(7, 14)), isNull);
+  });
   test('background pause cannot catch up queued residents or rewrite authored state', () {
     stroke(Tool.cottage, const Cell(1, 14), const Cell(7, 14));
     final r = Residents(Landscape.create());

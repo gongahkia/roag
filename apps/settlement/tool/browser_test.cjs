@@ -32,7 +32,7 @@ fs.mkdirSync(output, {recursive:true});
   await page.goto(url);
   await page.locator('flt-semantics-placeholder').press('Enter');
   await page.getByRole('button',{name:'2 Path',exact:true}).waitFor();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle');await page.locator('#loading').waitFor({state:'detached'});
   const key = 'roag.settlement.landscape.v1';
   const raw = () => page.evaluate(key => localStorage.getItem(key), key);
   const saved = async () => JSON.parse(await raw());
@@ -106,7 +106,7 @@ fs.mkdirSync(output, {recursive:true});
   const beforeRefresh=await raw();await page.reload();
   await page.locator('flt-semantics-placeholder').press('Enter');
   await page.getByRole('button',{name:'Landscape menu',exact:true}).waitFor();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle');await page.locator('#loading').waitFor({state:'detached'});
   assert.equal(await raw(),beforeRefresh);step('Refresh restores exact scene');
   // Real download and native file-input picker; import invokes public menu only.
   const downloadPromise=page.waitForEvent('download');await menu('Export landscape…');

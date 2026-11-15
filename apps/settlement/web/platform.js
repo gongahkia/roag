@@ -1,6 +1,5 @@
 // Browser capabilities only. Landscape rules and saved-world validation live in Dart.
 (() => {
-  window.addEventListener('flutter-first-frame', () => document.getElementById('loading')?.remove());
   const key = 'roag.settlement.landscape.v1';
   let context, muted = false, stopWatching;
   window.settlementPlatform = {

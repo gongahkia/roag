@@ -72,13 +72,15 @@ class _LandscapePageState extends State<LandscapePage> {
       notice = 'Starting a temporary landscape. Export it before leaving; your saved copy is untouched.';
     }
     session = LandscapeSession(landscape);
-    WidgetsBinding.instance.addPostFrameCallback((_) => browser.hideLoading());
     game = SettlementGame(session, (p) {
       if (mounted) setState(() => preview = p);
-    });
+    }, onReady: () => browser.hideLoading());
     browser.watchActivity((active) {
       game.suspended = !active;
-      if (!active && mounted) cancelGesture();
+      if (!active && mounted) {
+        space = false;
+        cancelGesture();
+      }
     });
   }
 
@@ -534,8 +536,8 @@ class _LandscapePageState extends State<LandscapePage> {
                     Positioned.fill(
                       child: MouseRegion(
                         onExit: (event) {
-                          // a hidden tab also emits an exit at its last in-canvas
-                          // position; only a physical boundary crossing commits.
+                          // only physical boundary crossings finish a stroke;
+                          // the activity handler cancels on focus loss.
                           if (pointer != null && !inside(event.localPosition)) {
                             finishGesture();
                           } else if (pointer == null) {

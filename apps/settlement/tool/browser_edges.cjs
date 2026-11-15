@@ -11,7 +11,7 @@ fs.mkdirSync(out,{recursive:true});
   await page.goto(process.env.SETTLEMENT_URL||'http://127.0.0.1:8765/settlement/');
   await page.locator('flt-semantics-placeholder').press('Enter');
   await page.getByRole('button',{name:'2 Path',exact:true}).waitFor();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('networkidle');await page.locator('#loading').waitFor({state:'detached'});
   await page.keyboard.press('2',{delay:40});await page.mouse.click(432,314);
   const key='roag.settlement.landscape.v1';
   await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key))?.lots[15*40+8][3],key);

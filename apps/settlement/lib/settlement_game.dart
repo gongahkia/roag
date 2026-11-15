@@ -11,9 +11,10 @@ import 'residents.dart';
 class SettlementGame extends FlameGame {
   final LandscapeSession session;
   final void Function(Placement?) onPreview;
+  final void Function()? onReady;
   late final Residents residents = Residents(session.world);
   bool suspended = false;
-  SettlementGame(this.session, this.onPreview);
+  SettlementGame(this.session, this.onPreview, {this.onReady});
   Tool tool = Tool.cottage;
   Placement? preview;
   final Map<String, Sprite> art = {};
@@ -44,6 +45,7 @@ class SettlementGame extends FlameGame {
     camera.viewfinder.zoom = 4;
     home();
     canvasReady = true;
+    onReady?.call();
   }
 
   void home() {
