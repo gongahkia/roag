@@ -17,6 +17,8 @@ import 'package:roag_settlement/settlement_game.dart';
 import 'colony_test.dart' show advance, paint, ordinaryClimate;
 import 'tranche05_test.dart' as old;
 import '../tool/scaling_fixture.dart' show scalingTown;
+import 'goal07_test.dart' show crossingTown, riverSpan;
+import 'tranche06_test.dart' show move;
 
 Colony town() {
   final c = ordinaryClimate(Colony(LandscapeSession(Landscape.create(202))))
@@ -517,6 +519,53 @@ void main() {
     }
     expect(c.workEarned, greaterThan(0));
     expect(Colony.decode(c.encode()).encode(), c.encode());
+  });
+  test('Garden Path visitor bookkeeping and relocated venue resume exactly after reload', () {
+    final c = town();
+    paint(c, Tool.gardenPath, const Cell(2, 15), const Cell(18, 15));
+    until(
+      c,
+      () => c.visits.values.any(
+        (v) =>
+            v.role == VisitorRole.storyteller &&
+            v.actor.activity == Activity.socialising,
+      ),
+    );
+    final v = c.visits.values.firstWhere(
+      (v) => v.role == VisitorRole.storyteller,
+    );
+    expect(v.actor.gardenDay, c.day);
+    final position = (v.actor.x, v.actor.y), progress = v.progress;
+    move(c, c.world.places[v.venue]!, const Cell(15, 14));
+    expect((v.actor.x, v.actor.y), position);
+    expect(v.progress, progress);
+    final loaded = Colony.decode(c.encode());
+    expect(loaded.encode(), c.encode());
+    advance(c, 30);
+    advance(loaded, 30);
+    expect(loaded.encode(), c.encode());
+    expect(c.visitHistory.any((h) => h.visit == v.id), isTrue);
+  });
+  test('guests use a real river bridge and safely wait after its removal', () {
+    final c = crossingTown()..nextVisitorAt = 18;
+    final span = riverSpan(c.world);
+    paint(c, Tool.remove, const Cell(7, 14));
+    paint(c, Tool.green, Cell(span.last.x + 2, 14));
+    until(
+      c,
+      () => c.visits.values.any(
+        (v) => v.actor.x > span.first.x + 1 && v.actor.x < span.last.x,
+      ),
+    );
+    final v = c.visits.values.first;
+    final gap = Cell(span.first.x + 1, 15);
+    paint(c, Tool.remove, gap);
+    advance(c, 8);
+    expect(v.completed, isFalse);
+    expect(v.actor.route.any((cell) => cell == gap), isFalse);
+    expect(Colony.decode(c.encode()).encode(), c.encode());
+    paint(c, Tool.bridge, span.first, span.last);
+    until(c, () => c.visitHistory.any((h) => h.visit == v.id), 4000);
   });
   test('actual actor atlas retains all old frames and distinct selected source masks', () {
     final m = jsonDecode(File('assets/manifest.json').readAsStringSync());

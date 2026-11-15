@@ -105,9 +105,13 @@ fs.mkdirSync(output,{recursive:true});
     await button('1×');await wait(`JSON.parse(${saved}).colony.visitors.history.some(v=>v.role==='merchant') && JSON.parse(${saved}).colony.visitors.history.some(v=>v.role==='storyteller'&&v.attendees>0)`);
     await button('Ⅱ');s=await state();assert(s.colony.visitors.earned>=2000);assert(s.colony.workEarned>0);
     await shot('native-real-guest-benefits-110');
+    await button('Return to lane (H)');await button('Zoom out');await button('Zoom out');
     for(const people of ['imp-v1','djinn-v1']) {
       const r=(await state()).colony.residents.find(r=>r.active&&r.people===people);
-      run(['key','i']);move(...tile(r.x-.5,r.y-.5));run(['click','1']);await shot('native-'+people+'-inspection-110');run(['key','Escape']);
+      run(['key','i']);const label=people==='imp-v1'?'· Imp':'· Djinn';
+      let found=false;
+      for(var cycle=0;cycle<12;cycle++) {move(...tile(r.x-.5,r.y-.5));run(['click','1']);await new Promise(r=>setTimeout(r,160));if((await read(text)).includes(label)){found=true;break;}}
+      assert(found,'native inspection selected '+people);await new Promise(r=>setTimeout(r,300));await shot('native-'+people+'-inspection-110');run(['key','Escape']);
     }
     await button('Landscape menu');await item('Calendar & forecast');await shot('native-forecast-110');await button('Back to settlement');
     await button('Mute');await button('Unmute');

@@ -23,6 +23,8 @@ class Visit {
     actor
       ..bodyId = role.body
       ..name = role.personName
+      ..palette = role == VisitorRole.merchant ? 2 : 3
+      ..trait = role == VisitorRole.merchant ? Trait.brisk : Trait.sociable
       ..arrived = true;
   }
   String get state => leaving
@@ -299,7 +301,9 @@ extension LivingVisitors on Colony {
     return v.role == VisitorRole.merchant
         ? '${returnLine}A working Market brought me here. Six seconds trading with its vendor earns the town 2 coins, once. ${v.state}.'
         : '$returnLine${climate.covered(clock)
-              ? 'A covered Hall is welcome in this weather.'
+              ? kind(v.venue) == Place.hall
+                    ? 'This Hall offers a covered story circle.'
+                    : 'A Hall would offer a covered alternative to this Park.'
               : season == Season.summer
               ? 'Summer is a fine time for a Park story.'
               : 'A communal place makes a good stop.'} Listeners who actually stay four seconds receive a small mood benefit. ${v.state}.';
@@ -455,6 +459,11 @@ extension LivingVisitors on Colony {
         ..y = numAt(a, 'y', 0, world.height.toDouble())
         ..timer = numAt(a, 'timer', -1, 10)
         ..palette = intAt(a, 'palette', 0, 3)
+        ..trait = Trait.values.firstWhere(
+          (t) => t.name == a['trait'],
+          orElse: bad,
+        )
+        ..gardenDay = intAt(a, 'gardenDay', -1, day)
         ..segmentSpeed = numAt(a, 'segmentSpeed', 0, 20)
         ..segmentGarden = flag(a, 'segmentGarden')
         ..replanAfterEdge = flag(a, 'replan');

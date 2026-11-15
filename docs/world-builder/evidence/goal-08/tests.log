@@ -1,0 +1,157 @@
+00:00 +0: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart
+00:00 +0: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: seeded ground, variants and guaranteed clear lane are reproducible
+00:00 +1: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: preview is pure; commit consumes exactly its evaluated world
+00:00 +2: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: cardinal junctions include chosen access without conducting through cottage
+00:00 +3: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: access preference is deterministic when several paths adjoin
+00:00 +4: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: demolition leaves nonfunctional traces and reconnects quietly
+00:00 +5: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: invalid actions, protected arrival and empty removal are exact no-ops
+00:00 +6: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: blocking trees, replaceable plants and exact undo/redo including variants
+00:00 +7: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: history is bounded and does not keep invalid actions
+00:00 +8: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: JSON reproduces terrain, history traces, connectivity and variants
+00:00 +9: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: multi-cottage stroke stages immediately, saves committed data only, undo/redo exact IDs
+00:00 +10: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: multi-cottage stroke stages immediately, saves committed data only, undo/redo exact IDs
+00:00 +11: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: fast diagonal uses deterministic cardinal crossings, with X first at ties
+00:00 +12: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +13: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +14: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +15: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +16: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +17: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +18: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +19: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +20: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +21: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +22: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +23: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +24: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +25: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +26: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +27: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +28: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +29: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +30: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +31: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +32: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +33: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +34: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +35: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +36: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +37: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +38: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +39: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +40: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +41: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +42: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +43: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +44: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +45: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +46: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +47: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +48: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +49: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:00 +50: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +51: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +52: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +53: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +54: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +55: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +56: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +57: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +58: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +59: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +60: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +61: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +62: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +63: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +64: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +65: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +66: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +67: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +68: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +69: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +70: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +71: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +72: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +73: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +74: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +75: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:01 +76: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +77: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +78: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +79: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +80: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +81: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +82: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +83: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +84: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +85: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +86: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +87: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +88: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +89: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +90: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +91: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +92: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +93: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +94: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +95: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +96: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +97: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +98: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +99: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +100: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +101: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +102: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +103: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +104: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +105: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +106: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +107: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +108: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +109: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +110: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +111: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +112: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +113: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +114: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +115: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +116: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +117: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +118: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +119: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +120: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +121: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +122: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +123: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +124: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:02 +125: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:03 +126: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +127: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +128: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +129: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +130: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +131: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +132: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +133: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +134: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:03 +135: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:04 +136: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:04 +137: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:04 +138: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:04 +139: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:04 +140: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:07 +141: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: generation and pure inspection cannot consume later event streams
+00:07 +142: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: terrain placement matrix, clearing, planting and relocation use authoritative rules
+00:07 +143: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: landscape strokes dedupe, capture a budget, cancel and preserve forward income on undo
+00:07 +144: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: bridge strokes are atomic, paid once, cancel safely and repair the real physical gap
+00:07 +145: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: floating, bent, overlong, occupied and unfunded bridges cannot commit
+00:07 +146: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: actual residents cross water only on a complete crossing and stop on a broken crossing
+00:07 +147: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: weighted routes and actual edge speed compose terrain, weather, road and trait once
+00:07 +148: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: weighted navigation chooses the cheaper dry/stone detour and agrees with traversal speed
+00:07 +149: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: vertical bridges have only aligned edges; removing a land approach invalidates the complete span
+00:07 +150: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: inspection explains actual terrain, wet road costs and a broken crossing
+00:07 +151: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: terrain navigation and work remain identical at different render-frame cadences
+00:07 +152: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: concrete terrain and new metadata round-trip; future version does not regenerate
+00:07 +153: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: legacy checkpoint retains all concrete lots, clock, event RNG and durable people exactly
+00:07 +154: /home/gongahkia/coding/projects/roag/apps/settlement/test/goal07_test.dart: New World draft cancellation, inspection and export do not replace the active world
+00:08 +155: All tests passed!

@@ -1241,7 +1241,10 @@ class _LandscapePageState extends State<LandscapePage> {
                     if (colony.visits.isNotEmpty && !introduction)
                       Positioned(
                         left: 24,
-                        top: 38,
+                        top: colony.special?.active(colony.clock) == true
+                            ? 76
+                            : 38,
+                        right: game.inspection != null ? 332 : 24,
                         child: Wrap(
                           spacing: 6,
                           children: [

@@ -67,9 +67,12 @@ void main(List<String> args) {
         c.clock += 150;
       }
     }
+    c.nextSpecialAt = c.clock + 12;
+    c.nextVisitorAt = c.clock + 18;
     c.navigation
       ..rain = c.raining
       ..weatherCost = c.weather.travel;
+    Colony.decode(c.encode());
     File('${out.path}/${season.name}.json').writeAsStringSync(c.encode());
   }
   for (final n in [85, 250, 500]) {

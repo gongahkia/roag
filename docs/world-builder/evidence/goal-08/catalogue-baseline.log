@@ -1,0 +1,296 @@
+test_cli_queries_match_for_tracked_gzip_and_plain_json_export (test_asset_catalog.CatalogStorageTests.test_cli_queries_match_for_tracked_gzip_and_plain_json_export) ... ok
+test_tracked_catalog_stays_below_github_large_file_warning (test_asset_catalog.CatalogStorageTests.test_tracked_catalog_stays_below_github_large_file_warning) ... ok
+test_all_tracked_media_are_originals_or_explicit_references (test_asset_catalog.CatalogTests.test_all_tracked_media_are_originals_or_explicit_references) ... FAIL
+test_bottom_figure_does_not_inherit_unrelated_tool_matrix (test_asset_catalog.CatalogTests.test_bottom_figure_does_not_inherit_unrelated_tool_matrix) ... ok
+test_color_and_type_query_uses_measured_palette (test_asset_catalog.CatalogTests.test_color_and_type_query_uses_measured_palette) ... ok
+test_conflicting_silhouette_names_do_not_become_asserted_subjects (test_asset_catalog.CatalogTests.test_conflicting_silhouette_names_do_not_become_asserted_subjects) ... ok
+test_empty_facets_and_stable_sort (test_asset_catalog.CatalogTests.test_empty_facets_and_stable_sort) ... ok
+test_every_archived_image_is_indexed_byte_for_byte (test_asset_catalog.CatalogTests.test_every_archived_image_is_indexed_byte_for_byte) ... ok
+test_every_downloadable_png_preserves_frozen_rgba (test_asset_catalog.CatalogTests.test_every_downloadable_png_preserves_frozen_rgba) ... ok
+test_every_frozen_record_retains_identity_crop_and_provenance (test_asset_catalog.CatalogTests.test_every_frozen_record_retains_identity_crop_and_provenance) ... ok
+test_every_occupied_crop_has_inspection_and_useful_evidence (test_asset_catalog.CatalogTests.test_every_occupied_crop_has_inspection_and_useful_evidence) ... ok
+test_every_region_has_valid_generic_description_and_palette (test_asset_catalog.CatalogTests.test_every_region_has_valid_generic_description_and_palette) ... ok
+test_exceptional_matrix_edge_does_not_inherit_wrong_body (test_asset_catalog.CatalogTests.test_exceptional_matrix_edge_does_not_inherit_wrong_body) ... ok
+test_font_codepoints_come_from_publisher_labels (test_asset_catalog.CatalogTests.test_font_codepoints_come_from_publisher_labels) ... ok
+test_game_binding_inventory_preserves_sources_and_includes_expedition_art (test_asset_catalog.CatalogTests.test_game_binding_inventory_preserves_sources_and_includes_expedition_art) ... ok
+test_icons_are_searchable_by_visible_shape (test_asset_catalog.CatalogTests.test_icons_are_searchable_by_visible_shape) ... ok
+test_input_variant_groups_preserve_device_and_appearance (test_asset_catalog.CatalogTests.test_input_variant_groups_preserve_device_and_appearance) ... ok
+test_known_ghost_can_be_queried_without_game_casting (test_asset_catalog.CatalogTests.test_known_ghost_can_be_queried_without_game_casting) ... ok
+test_matrix_series_do_not_turn_props_into_jobs_or_animations (test_asset_catalog.CatalogTests.test_matrix_series_do_not_turn_props_into_jobs_or_animations) ... ok
+test_neutral_exports_and_viewer_retain_canonical_evidence (test_asset_catalog.CatalogTests.test_neutral_exports_and_viewer_retain_canonical_evidence) ... ok
+test_non_assets_are_explicitly_opt_in (test_asset_catalog.CatalogTests.test_non_assets_are_explicitly_opt_in) ... ok
+test_paw_print_is_not_an_animal_actor (test_asset_catalog.CatalogTests.test_paw_print_is_not_an_animal_actor) ... ok
+test_portable_publisher_objects_use_consistent_item_type (test_asset_catalog.CatalogTests.test_portable_publisher_objects_use_consistent_item_type) ... ok
+test_prone_pose_is_not_a_claim_of_death (test_asset_catalog.CatalogTests.test_prone_pose_is_not_a_claim_of_death) ... ok
+test_publisher_game_roles_remain_provenance_not_neutral_subjects (test_asset_catalog.CatalogTests.test_publisher_game_roles_remain_provenance_not_neutral_subjects) ... ok
+test_publisher_identified_tiny_glyph_is_not_discarded_as_residue (test_asset_catalog.CatalogTests.test_publisher_identified_tiny_glyph_is_not_discarded_as_residue) ... ok
+test_qualified_visual_names_do_not_assert_exact_species (test_asset_catalog.CatalogTests.test_qualified_visual_names_do_not_assert_exact_species) ... ok
+test_reviewed_single_pixel_frame_corner_remains_a_fragment (test_asset_catalog.CatalogTests.test_reviewed_single_pixel_frame_corner_remains_a_fragment) ... ok
+test_silhouette_evidence_does_not_upgrade_frozen_identity (test_asset_catalog.CatalogTests.test_silhouette_evidence_does_not_upgrade_frozen_identity) ... ok
+test_subject_confidence_threshold_is_per_claim (test_asset_catalog.CatalogTests.test_subject_confidence_threshold_is_per_claim) ... ok
+test_two_bit_visual_description_corrects_working_label_separately (test_asset_catalog.CatalogTests.test_two_bit_visual_description_corrects_working_label_separately) ... ok
+test_wrong_silhouette_evidence_is_rejected (test_asset_catalog.CatalogTests.test_wrong_silhouette_evidence_is_rejected) ... ok
+test_all_png_row_filters_decode_known_bytes (test_asset_catalog.PixelTests.test_all_png_row_filters_decode_known_bytes) ... ok
+test_changed_source_crop_is_rejected (test_asset_catalog.PixelTests.test_changed_source_crop_is_rejected) ... ok
+test_common_color_words (test_asset_catalog.PixelTests.test_common_color_words) ... ok
+test_every_imported_png_matches_frozen_dimensions (test_asset_catalog.PixelTests.test_every_imported_png_matches_frozen_dimensions) ... ok
+test_out_of_bounds_crop_is_rejected (test_asset_catalog.PixelTests.test_out_of_bounds_crop_is_rejected) ... ok
+test_rgba_transparency_background_and_accent_coverage (test_asset_catalog.PixelTests.test_rgba_transparency_background_and_accent_coverage) ... ok
+test_binding_edit_changes_fingerprint_and_check_rejects_stale_generated_data (test_classic_assets.ClassicFixtureTests.test_binding_edit_changes_fingerprint_and_check_rejects_stale_generated_data) ... ok
+test_check_never_writes_and_rejects_stale_lua_or_changed_catalog_evidence (test_classic_assets.ClassicFixtureTests.test_check_never_writes_and_rejects_stale_lua_or_changed_catalog_evidence) ... ok
+test_deterministic_lua_preserves_static_reuse_uncertainty_and_control_characters (test_classic_assets.ClassicFixtureTests.test_deterministic_lua_preserves_static_reuse_uncertainty_and_control_characters) ... ok
+test_empty_guide_unsupported_pack_and_foreground_mismatch_fail (test_classic_assets.ClassicFixtureTests.test_empty_guide_unsupported_pack_and_foreground_mismatch_fail) ... ok
+test_missing_extra_unknown_and_alias_bindings_fail_without_fallback (test_classic_assets.ClassicFixtureTests.test_missing_extra_unknown_and_alias_bindings_fail_without_fallback) ... ok
+test_optional_horizontal_flip_is_local_boolean_metadata_not_changed_source_pixels (test_classic_assets.ClassicFixtureTests.test_optional_horizontal_flip_is_local_boolean_metadata_not_changed_source_pixels) ... ok
+test_source_grid_gutters_and_duplicate_json_keys_fail (test_classic_assets.ClassicFixtureTests.test_source_grid_gutters_and_duplicate_json_keys_fail) ... ok
+test_source_hash_dimensions_crop_hash_bounds_and_path_escape_fail (test_classic_assets.ClassicFixtureTests.test_source_hash_dimensions_crop_hash_bounds_and_path_escape_fail) ... ok
+test_all_599_requirements_are_explicit_original_crops_with_original_evidence (test_classic_assets.ClassicOriginalTests.test_all_599_requirements_are_explicit_original_crops_with_original_evidence) ... ok
+test_generated_output_is_current_and_source_background_rules_are_explicit (test_classic_assets.ClassicOriginalTests.test_generated_output_is_current_and_source_background_rules_are_explicit) ... ok
+
+======================================================================
+FAIL: test_all_tracked_media_are_originals_or_explicit_references (test_asset_catalog.CatalogTests.test_all_tracked_media_are_originals_or_explicit_references)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/gongahkia/coding/projects/roag/tests/catalog/test_asset_catalog.py", line 144, in test_all_tracked_media_are_originals_or_explicit_references
+    self.assertEqual(media, originals | {r['path'] for r in references} | retained_roag | derived_fonts)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Items in the first set but not the second:
+'docs/world-builder/evidence/tranche-03/13-migrated-74.png'
+'docs/world-builder/contact-sheets/input-prompts.png'
+'docs/world-builder/contact-sheets/tiny-dungeon-source-4x.png'
+'docs/world-builder/evidence/tranche-04/resident-lineup-gameplay.png'
+'docs/world-builder/evidence/tranche-02/01-path-staged.png'
+'docs/world-builder/evidence/tranche-06/conversation.png'
+'docs/world-builder/evidence/tranche-01/04-disconnected.png'
+'apps/settlement/assets/images/grass1.png'
+'docs/world-builder/evidence/tranche-03/04-working-income.png'
+'docs/world-builder/evidence/goal-07/story-work.png'
+'docs/world-builder/evidence/tranche-04/night-reduced-motion.png'
+'docs/world-builder/evidence/tranche-06/native-building-context-110.png'
+'apps/settlement/assets/images/person-cap-v1-cream.png'
+'docs/dice-combat/evidence/tranche02/inspection.png'
+'docs/world-builder/evidence/tranche-05/harvest-fixture.png'
+'docs/world-builder/evidence/tranche-05/populated-natural-rain.png'
+'docs/world-builder/evidence/goal-07/story-clear.png'
+'docs/world-builder/evidence/tranche-05/native-catalogue-110.png'
+'docs/world-builder/evidence/tranche-01/02-junctions.png'
+'docs/world-builder/contact-sheets/urizen-source-native.png'
+'docs/world-builder/evidence/tranche-03/05-leisure-needed.png'
+'docs/world-builder/evidence/tranche-03/08-evening-gathering.png'
+'apps/settlement/assets/images/person-plain-v1-cream.png'
+'docs/world-builder/evidence/goal-07/public-browser.png'
+'docs/world-builder/evidence/tranche-03/14-final-1024.png'
+'docs/dice-combat/evidence/preview.png'
+'docs/world-builder/evidence/tranche-02/09-final-1024.png'
+'apps/settlement/assets/images/oak.png'
+'docs/world-builder/evidence/goal-07/05-woodland-staged.png'
+'docs/world-builder/contact-sheets/buildings-3.png'
+'docs/world-builder/evidence/tranche-06/no-customers.png'
+'docs/world-builder/evidence/tranche-05/five-destinations.png'
+'apps/settlement/assets/images/person-cap-v1-lilac.png'
+'apps/settlement/assets/images/vegetables.png'
+'apps/settlement/assets/images/water.png'
+'docs/world-builder/contact-sheets/kenney-components-1.png'
+'apps/settlement/assets/images/bridge-h.png'
+'docs/world-builder/evidence/tranche-04/resident-lineup-enlarged.png'
+'docs/world-builder/contact-sheets/effects.png'
+'docs/world-builder/evidence/tranche-06/building-context-menu.png'
+'docs/world-builder/evidence/goal-07/story-woodland.png'
+'docs/world-builder/evidence/tranche-04/park-tool.png'
+'docs/world-builder/evidence/goal-07/10-actual-crossing.png'
+'docs/world-builder/evidence/tranche-03/10-unaffordable.png'
+'apps/settlement/assets/images/person-longhair-v1-clay.png'
+'docs/world-builder/evidence/tranche-06/workplace-preview.png'
+'docs/world-builder/evidence/goal-07/native-residents-crossing-110.png'
+'apps/settlement/assets/images/person-longhair-v1-teal.png'
+'docs/world-builder/evidence/goal-07/native-river-working-110.png'
+'docs/world-builder/evidence/tranche-06/declined.png'
+'docs/world-builder/evidence/tranche-02/hidpi-150.png'
+'docs/world-builder/evidence/tranche-06/work-request.png'
+'docs/world-builder/contact-sheets/tiny-dungeon-1.png'
+'docs/world-builder/evidence/tranche-03/06-green-built.png'
+'docs/world-builder/evidence/goal-07/13-residents-wait.png'
+'docs/world-builder/evidence/tranche-06/sponsored-service.png'
+'docs/world-builder/evidence/tranche-06/desktop-1440.png'
+'apps/settlement/assets/images/grid.png'
+'docs/world-builder/evidence/tranche-06/insufficient-funds.png'
+'docs/world-builder/evidence/tranche-06/request-located.png'
+'docs/world-builder/contact-sheets/routes-1.png'
+'docs/world-builder/evidence/goal-07/native-bridge-preview-110.png'
+'docs/dice-combat/evidence/tranche02/intermission.png'
+'docs/world-builder/evidence/tranche-02/06-turn-and-tree.png'
+'docs/world-builder/evidence/goal-07/story-bridge-preview.png'
+'docs/world-builder/evidence/tranche-04/farm-tool.png'
+'apps/settlement/assets/images/person-cap-v1-clay.png'
+'docs/world-builder/evidence/tranche-06/native-catalogue-110-top.png'
+'docs/world-builder/evidence/tranche-06/promise.png'
+'docs/world-builder/evidence/tranche-01/06-fuller-settlement.png'
+'apps/settlement/assets/images/market.png'
+'docs/world-builder/evidence/goal-07/native-woodland-road-110.png'
+'apps/settlement/assets/images/person-plain-v1-clay.png'
+'docs/dice-combat/evidence/opening.png'
+'docs/world-builder/evidence/tranche-06/catalogue-buildings.png'
+'docs/world-builder/evidence/tranche-05/gameplay-frames.png'
+'docs/world-builder/evidence/goal-07/story-crossing.png'
+'apps/settlement/assets/images/hall.png'
+'apps/settlement/assets/images/road1.png'
+'docs/world-builder/evidence/tranche-04/park-inspection.png'
+'docs/world-builder/contact-sheets/terrain-1.png'
+'apps/settlement/assets/images/grass0.png'
+'docs/world-builder/contact-sheets/tiny-dungeon-4.png'
+'apps/settlement/assets/images/road2.png'
+'docs/world-builder/evidence/tranche-06/promise-withdrawn.png'
+'docs/world-builder/evidence/tranche-02/03-arrivals.png'
+'docs/world-builder/evidence/tranche-06/catalogue-roads.png'
+'docs/world-builder/evidence/tranche-03/03-garden-built.png'
+'docs/world-builder/evidence/tranche-05/resident-card.png'
+'docs/world-builder/evidence/tranche-06/ordinary-decision.png'
+'apps/settlement/assets/images/hammer.png'
+'apps/settlement/assets/images/dirt.png'
+'docs/world-builder/evidence/tranche-06/native-request-offer-110.png'
+'docs/world-builder/evidence/tranche-01/native-browser-zoom.png'
+'docs/world-builder/evidence/goal-07/16-river-desktop-1440.png'
+'docs/world-builder/contact-sheets/buildings-2.png'
+'apps/settlement/assets/images/resident.png'
+'docs/world-builder/evidence/goal-07/02-plains-created.png'
+'docs/world-builder/evidence/tranche-04/work-motion-frames.png'
+'docs/world-builder/contact-sheets/kenney-rpg-source-2x.png'
+'docs/world-builder/assembly-test.png'
+'docs/world-builder/evidence/tranche-06/civic-1440.png'
+'apps/settlement/assets/images/person-plain-v1-lilac.png'
+'docs/world-builder/evidence/tranche-05/catalogue.png'
+'docs/world-builder/contact-sheets/ui.png'
+'docs/world-builder/contact-sheets/terrain-3.png'
+'docs/world-builder/evidence/goal-07/01-continued-legacy.png'
+'docs/world-builder/evidence/tranche-04/crowded-inspection.png'
+'docs/world-builder/evidence/tranche-05/desktop-1440.png'
+'apps/settlement/assets/images/person-hood-v1-teal.png'
+'docs/dice-combat/evidence/inspection.png'
+'docs/world-builder/evidence/tranche-04/large-desktop.png'
+'docs/world-builder/evidence/tranche-03/13b-large-working.png'
+'docs/world-builder/contact-sheets/tiny-dungeon-2.png'
+'apps/settlement/assets/images/person-longhair-v1-cream.png'
+'apps/settlement/assets/images/person-plain-v1-teal.png'
+'docs/world-builder/evidence/tranche-03/12-large-desktop.png'
+'apps/settlement/assets/images/road4.png'
+'docs/world-builder/evidence/goal-07/11-work-across-river.png'
+'apps/settlement/assets/images/person-cap-v1-teal.png'
+'docs/world-builder/evidence/tranche-03/migration-backed-up.png'
+'docs/world-builder/contact-sheets/buildings-4.png'
+'docs/world-builder/evidence/tranche-03/11-inspection.png'
+'docs/world-builder/contact-sheets/two-bit-1.png'
+'docs/world-builder/evidence/goal-07/08-bridge-preview.png'
+'apps/settlement/assets/images/bridge-v.png'
+'docs/world-builder/evidence/tranche-05/rain-reduced-motion-inspection.png'
+'docs/world-builder/contact-sheets/routes-2.png'
+'apps/settlement/assets/images/road8.png'
+'docs/world-builder/evidence/tranche-03/bubble-input-staged.png'
+'apps/settlement/assets/images/person-longhair-v1-lilac.png'
+'docs/world-builder/evidence/goal-07/native-clearing-preview-110.png'
+'docs/world-builder/evidence/tranche-02/native-browser-zoom.png'
+'apps/settlement/assets/images/clear.png'
+'docs/world-builder/evidence/tranche-03/native-browser-zoom.png'
+'docs/world-builder/evidence/tranche-01/05-large-desktop.png'
+'apps/settlement/assets/images/person-hood-v1-lilac.png'
+'docs/world-builder/evidence/goal-07/07-river-created.png'
+'docs/world-builder/evidence/tranche-05/populated-stone-response.png'
+'docs/world-builder/evidence/tranche-05/native-catalogue-110-bottom.png'
+'docs/world-builder/evidence/goal-07/story-woodland-built.png'
+'docs/world-builder/evidence/goal-07/18-final-river.png'
+'docs/world-builder/evidence/goal-07/12-crossing-cut.png'
+'docs/world-builder/evidence/tranche-06/native-thanks-110.png'
+'docs/dice-combat/evidence/tranche02/victory.png'
+'docs/world-builder/evidence/tranche-01/07-final-1024.png'
+'docs/world-builder/contact-sheets/kenney-components-2.png'
+'apps/settlement/assets/images/road3.png'
+'docs/world-builder/evidence/tranche-04/crowded-85.png'
+'docs/world-builder/evidence/tranche-05/populated-service.png'
+'docs/world-builder/contact-sheets/buildings-1.png'
+'docs/world-builder/evidence/tranche-06/native-move-ghost-110.png'
+'docs/world-builder/evidence/tranche-06/native-settled-110.png'
+'docs/dice-combat/evidence/tranche02/preview.png'
+'docs/world-builder/evidence/tranche-02/02-cottages-staged.png'
+'docs/world-builder/evidence/tranche-01/03-retained-pad.png'
+'docs/world-builder/evidence/tranche-05/market-day-fixture.png'
+'docs/world-builder/evidence/tranche-03/night-cut.png'
+'apps/settlement/assets/images/coin.png'
+'docs/world-builder/evidence/tranche-06/relocation-preview.png'
+'docs/world-builder/evidence/tranche-02/05-inhabited.png'
+'apps/settlement/assets/images/boulder.png'
+'docs/world-builder/contact-sheets/two-bit-3.png'
+'docs/dice-combat/evidence/title.png'
+'apps/settlement/assets/images/road6.png'
+'docs/world-builder/contact-sheets/two-bit-2.png'
+'docs/world-builder/evidence/goal-07/15b-wet-road-inspection.png'
+'docs/world-builder/evidence/tranche-06/work-resumed.png'
+'docs/world-builder/evidence/tranche-03/night-restored.png'
+'apps/settlement/assets/images/cottage1.png'
+'docs/world-builder/evidence/tranche-02/08-large-canvas.png'
+'apps/settlement/assets/images/road10.png'
+'docs/world-builder/contact-sheets/inhabitants-1.png'
+'docs/world-builder/evidence/goal-07/06-woodland-neighbourhood.png'
+'docs/world-builder/evidence/tranche-03/save-failure.png'
+'docs/world-builder/contact-sheets/props-2.png'
+'docs/dice-combat/evidence/intermission.png'
+'docs/world-builder/evidence/tranche-04/farm-inspection.png'
+'apps/settlement/assets/images/road5.png'
+'apps/settlement/assets/images/cottage0.png'
+'docs/world-builder/evidence/tranche-05/native-browser-zoom.png'
+'apps/settlement/assets/images/road12.png'
+'docs/world-builder/evidence/tranche-04/native-browser-110.png'
+'docs/dice-combat/evidence/tranche02/roll.gif'
+'docs/world-builder/evidence/tranche-03/readonly-inspection.png'
+'docs/world-builder/evidence/tranche-02/save-failure-toast.png'
+'apps/settlement/assets/images/road7.png'
+'docs/world-builder/contact-sheets/nature.png'
+'docs/world-builder/evidence/goal-07/15-terrain-aware-stone.png'
+'docs/world-builder/contact-sheets/inhabitants-2.png'
+'docs/world-builder/contact-sheets/tiny-dungeon-3.png'
+'docs/world-builder/evidence/tranche-05/market-inspection.png'
+'docs/world-builder/evidence/tranche-03/09-cut-and-restored.png'
+'docs/world-builder/evidence/goal-07/moving-frames.png'
+'docs/world-builder/evidence/tranche-03/07-social-visit.png'
+'docs/world-builder/contact-sheets/two-bit-4.png'
+'docs/world-builder/evidence/tranche-05/resident-cycle-first.png'
+'docs/world-builder/evidence/goal-07/04-woodlands-created.png'
+'apps/settlement/assets/images/workshop.png'
+'docs/world-builder/evidence/tranche-01/save-failure-toast.png'
+'docs/world-builder/evidence/tranche-06/same-resident-new-home.png'
+'docs/world-builder/evidence/tranche-06/request-motion-frames.png'
+'docs/world-builder/evidence/tranche-03/01-paid-homes.png'
+'docs/world-builder/evidence/tranche-04/small-working.png'
+'docs/world-builder/evidence/tranche-01/save-failure.png'
+'docs/world-builder/contact-sheets/fonts.png'
+'apps/settlement/assets/images/person-hood-v1-cream.png'
+'docs/world-builder/evidence/tranche-01/01-opening.png'
+'docs/world-builder/evidence/tranche-03/backup-failure-protected.png'
+'docs/dice-combat/evidence/victory.png'
+'docs/world-builder/evidence/goal-07/09-complete-bridge.png'
+'apps/settlement/assets/images/resident-atlas.png'
+'docs/world-builder/evidence/goal-07/story-neighbours.png'
+'docs/world-builder/evidence/tranche-03/02-work-needed.png'
+'docs/world-builder/evidence/tranche-06/sponsored-decision.png'
+'docs/world-builder/evidence/tranche-06/native-catalogue-110-roads.png'
+'docs/world-builder/evidence/tranche-01/hidpi-150.png'
+'docs/world-builder/contact-sheets/terrain-2.png'
+'docs/world-builder/evidence/tranche-06/civic-931.png'
+'docs/world-builder/contact-sheets/props-1.png'
+'apps/settlement/assets/images/road9.png'
+'docs/world-builder/evidence/goal-07/03-plains-alive.png'
+'apps/settlement/assets/images/road0.png'
+'docs/world-builder/evidence/tranche-06/acknowledgment.png'
+'docs/world-builder/evidence/tranche-02/07-fuller-activity.png'
+'apps/settlement/assets/images/person-hood-v1-clay.png'
+'docs/dice-combat/evidence/tranche02/opening.png'
+'docs/world-builder/evidence/tranche-02/04-cut-during-arrival.png'
+'docs/world-builder/evidence/goal-07/14-crossing-repaired.png'
+'docs/world-builder/evidence/goal-07/native-woodlands-created-110.png'
+'docs/world-builder/evidence/tranche-05/native-hall-selected.png'
+'docs/world-builder/evidence/goal-07/public-500-river.png'
+'docs/world-builder/evidence/goal-07/17-river-931.png'
+'apps/settlement/assets/images/road11.png'
+
+----------------------------------------------------------------------
+Ran 48 tests in 5.658s
+
+FAILED (failures=1)

@@ -364,7 +364,7 @@ class SettlementGame extends FlameGame {
           ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.${place == Place.garden && colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock) ? ' Good harvest: ${Rules.exactCoins((place.income * 1.25).round())}/second.' : ''}\n'
           : '';
       final farm = place == Place.garden
-          ? 'Current Farm rate: ${Rules.exactCoins((place.income * colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock))).round())} coin/second; ${colony.season.label}, ${colony.weather.label}.\n'
+          ? 'Current Farm rate: ${(place.income * colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock)) / 1000).toStringAsFixed(3)} coin/second; ${colony.season.label}, ${colony.weather.label}.\n'
           : '';
       final visits = place.visitorCapacity > 0
           ? '${place.visitorCapacity} visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'

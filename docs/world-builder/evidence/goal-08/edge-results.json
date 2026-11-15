@@ -1,0 +1,298 @@
+{
+  "url": "http://127.0.0.1:8768/settlement/",
+  "input": "Playwright pointer/keyboard/file menus; disposable backup fixtures explicitly seeded before navigation, no game-state mutation callbacks",
+  "checks": [
+    "Actual active venue relocation preserves position/progress and requires real travel; removing an active Market ends its visit and no trade reward appears",
+    "A later legitimate returning guest remembers their earlier completed visit in actual dialogue",
+    "Snow changes actual observed travel speeds; a paid Stone Road stroke removes that penalty; reduced motion, audio controls and resize preserve paused state",
+    "Schema-3 autoload makes an exact one-time v4 backup; simulated backup quota failure preserves the original primary"
+  ],
+  "errors": [],
+  "shots": [
+    {
+      "name": "edge-01-moved-active-venue",
+      "seconds": 18.149
+    },
+    {
+      "name": "edge-02-market-removed",
+      "seconds": 26.081
+    },
+    {
+      "name": "edge-03-familiar-visitor",
+      "seconds": 62.152
+    },
+    {
+      "name": "edge-04-snow-stone-roads",
+      "seconds": 73.972
+    },
+    {
+      "name": "edge-05-reduced-motion",
+      "seconds": 74.295
+    },
+    {
+      "name": "edge-size-931",
+      "seconds": 74.792
+    },
+    {
+      "name": "edge-size-1440",
+      "seconds": 75.1
+    }
+  ],
+  "travelObservations": [
+    {
+      "id": "home-1",
+      "speed": 3.114630467571644,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-2",
+      "speed": 3.2481146304675717,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-3",
+      "speed": 4.84272,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-4",
+      "speed": 3.114630467571644,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-5",
+      "speed": 3.2481146304675717,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-6",
+      "speed": 4.84272,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-7",
+      "speed": 3.114630467571644,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-8",
+      "speed": 3.2481146304675717,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-9",
+      "speed": 3.6521266968325796,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-10",
+      "speed": 3.2481146304675717,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-11",
+      "speed": 3.3815987933634992,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-12",
+      "speed": 3.363800904977376,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-5",
+      "speed": 4.3069999999999995,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-6",
+      "speed": 4.84272,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-11",
+      "speed": 4.483999999999999,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-12",
+      "speed": 4.4604,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-2",
+      "speed": 4.3069999999999995,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-10",
+      "speed": 4.3069999999999995,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-2",
+      "speed": 3.2481146304675717,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-3",
+      "speed": 3.6521266968325796,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-5",
+      "speed": 2.607142857142857,
+      "cost": 1.4
+    },
+    {
+      "id": "home-6",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-7",
+      "speed": 4.13,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-8",
+      "speed": 4.3069999999999995,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-9",
+      "speed": 4.84272,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-11",
+      "speed": 2.7142857142857144,
+      "cost": 1.4
+    },
+    {
+      "id": "home-12",
+      "speed": 3.363800904977376,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-1",
+      "speed": 4.13,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-3",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-4",
+      "speed": 3.114630467571644,
+      "cost": 1.123728813559322
+    },
+    {
+      "id": "home-6",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-7",
+      "speed": 4.13,
+      "cost": 0.8474576271186441
+    },
+    {
+      "id": "home-8",
+      "speed": 2.607142857142857,
+      "cost": 1.4
+    },
+    {
+      "id": "home-9",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-11",
+      "speed": 2.7142857142857144,
+      "cost": 1.4
+    },
+    {
+      "id": "home-12",
+      "speed": 2.7,
+      "cost": 1.4
+    },
+    {
+      "id": "home-1",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-3",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-4",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-7",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-8",
+      "speed": 2.607142857142857,
+      "cost": 1.4
+    },
+    {
+      "id": "home-9",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-11",
+      "speed": 2.7142857142857144,
+      "cost": 1.4
+    },
+    {
+      "id": "home-12",
+      "speed": 2.7,
+      "cost": 1.4
+    },
+    {
+      "id": "home-1",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-4",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-7",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-9",
+      "speed": 2.9314285714285715,
+      "cost": 1.4
+    },
+    {
+      "id": "home-1",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-4",
+      "speed": 2.5,
+      "cost": 1.4
+    },
+    {
+      "id": "home-7",
+      "speed": 2.5,
+      "cost": 1.4
+    }
+  ]
+}

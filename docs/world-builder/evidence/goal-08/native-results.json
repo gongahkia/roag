@@ -1,0 +1,50 @@
+{
+  "input": "Native XTest pointer/keyboard in headful Chromium; raw CDP only for initial navigation/accessibility and read-only observation",
+  "original": {
+    "ratio": 1,
+    "width": 1024,
+    "height": 640
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 931,
+    "height": 582
+  },
+  "checks": [
+    "110% native browser zoom",
+    "12 paid cottages plus all workplace/social building types",
+    "Seeded Humans, Imps and Djinn",
+    "Real storyteller and merchant travel, service, attendees and rewards at 1\u00d7",
+    "Native optional encore charge once",
+    "People inspection, forecast, mute/unmute",
+    "16\u00d7 option, cancelled stroke, forward Undo/Redo"
+  ],
+  "summary": {
+    "seed": "202",
+    "clock": 72.44999999999803,
+    "population": 12,
+    "people": {
+      "human-v1": 9,
+      "imp-v1": 1,
+      "djinn-v1": 2
+    },
+    "visitorHistory": [
+      {
+        "visit": "visit-1",
+        "role": "storyteller",
+        "venue": "green-17",
+        "at": 44.84999999999959,
+        "reward": 0,
+        "attendees": 4
+      },
+      {
+        "visit": "visit-2",
+        "role": "merchant",
+        "venue": "market-15",
+        "at": 55.04999999999901,
+        "reward": 2000,
+        "attendees": 0
+      }
+    ]
+  }
+}

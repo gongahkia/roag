@@ -1,0 +1,16 @@
+PASS Legacy 85-person checkpoint retains lots, money, clock and humans through import/reload; New World cancellation protects it
+PASS New Gentle Plains seed 202 builds 12 paid cottages and all workplaces/social venues; actual seeded arrivals include Humans, Imps and Djinn
+PASS Both roles follow roads and complete activities; actual listeners benefit, merchant pays once, encore charges once, active visits resume after exact reload
+PASS World, identities, climate, visit history/rewards and active journeys round-trip through actual file export/import
+PASS Actual 16× simulation traverses all four seasons and a whole year; forecast reads the authoritative schedule
+locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Replace settlement', exact: true })[22m
+
+    at load (/home/gongahkia/coding/projects/roag/apps/settlement/tool/goal08_browser.cjs:14:175)
+    at async /home/gongahkia/coding/projects/roag/apps/settlement/tool/goal08_browser.cjs:43:2 {
+  log: [
+    "  - waiting for getByRole('button', { name: 'Replace settlement', exact: true })"
+  ],
+  name: 'TimeoutError'
+}

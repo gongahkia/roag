@@ -222,4 +222,4 @@ if __name__ == '__main__':
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print(f'Verified {len(FRAMES)+len(ICONS)} source crops and {len(BODIES)} distinct bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')
+    print(f'Verified {len(FRAMES)+len(ICONS)} source crops and {len(BODIES) + len(LIVING_BODIES)} actor bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')

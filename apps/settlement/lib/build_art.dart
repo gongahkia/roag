@@ -86,7 +86,7 @@ class BuildArt {
         wet
             ? const Color(0xff647462)
             : season == Season.winter
-            ? const Color(0xff73847b)
+            ? const Color(0xff52685b)
             : season == Season.autumn
             ? const Color(0xff5c6140)
             : const Color(0xff344a36),

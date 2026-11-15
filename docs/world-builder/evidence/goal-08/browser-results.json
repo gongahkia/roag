@@ -1,0 +1,55 @@
+{
+  "url": "http://127.0.0.1:8768/settlement/",
+  "input": "Playwright browser pointer/keyboard and real file menus; saved state observations only, seasonal fixtures explicitly identified",
+  "checks": [
+    "Legacy 85-person checkpoint retains lots, money, clock and humans through import/reload; New World cancellation protects it",
+    "New Gentle Plains seed 202 builds 12 paid cottages and all workplaces/social venues; actual seeded arrivals include Humans, Imps and Djinn",
+    "Both roles follow roads and complete activities; actual listeners benefit, merchant pays once, encore charges once, active visits resume after exact reload",
+    "World, identities, climate, visit history/rewards and active journeys round-trip through actual file export/import",
+    "Full-year journey already captured separately; this run skips only its repeated wait",
+    "Snow, reduced motion, camera zoom, resize and existing audio controls remain usable"
+  ],
+  "errors": [],
+  "shots": [
+    {
+      "name": "01-legacy-humans",
+      "seconds": 11.6
+    },
+    {
+      "name": "02-seeded-neighbourhood",
+      "seconds": 26.265
+    },
+    {
+      "name": "03-arriving-and-storytelling",
+      "seconds": 48.078
+    },
+    {
+      "name": "04-optional-story-dialogue",
+      "seconds": 49.335
+    },
+    {
+      "name": "05-visits-earned-real-benefits",
+      "seconds": 87.614
+    },
+    {
+      "name": "06-mixed-people-inspection",
+      "seconds": 88.731
+    },
+    {
+      "name": "09-winter-snow",
+      "seconds": 97.975
+    },
+    {
+      "name": "10-reduced-motion",
+      "seconds": 98.274
+    },
+    {
+      "name": "11-browser-small-scale",
+      "seconds": 98.613
+    },
+    {
+      "name": "12-browser-large",
+      "seconds": 99.034
+    }
+  ]
+}
