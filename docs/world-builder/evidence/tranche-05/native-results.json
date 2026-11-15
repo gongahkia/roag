@@ -1,0 +1,33 @@
+{
+  "original": {
+    "ratio": 1,
+    "width": 1024,
+    "height": 640
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 931,
+    "height": 582
+  },
+  "osScale": 1,
+  "paths": 13,
+  "nativeInput": "XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release",
+  "observation": "raw CDP, no focus emulation or game callbacks",
+  "checks": [
+    "110% browser zoom",
+    "native tab focus loss cancels without save",
+    "no partial-stroke save",
+    "cells 8 through 12 painted as one stroke",
+    "priced Farm focus-loss cancellation",
+    "Farm and Park native placement deduct exact costs",
+    "native four-home drag",
+    "I inspection and Escape cancellation",
+    "right-button pan and native wheel zoom",
+    "visible inhabitants and actual work at 110%",
+    "Workshop/Market/Hall through native shortcuts",
+    "mixed Stone/Garden road edits",
+    "native grouped catalogue at 110%",
+    "long Hall selection fits the footer",
+    "native hidden-tab simulation pause without catch-up"
+  ]
+}

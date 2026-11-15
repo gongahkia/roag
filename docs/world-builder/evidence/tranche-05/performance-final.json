@@ -1,0 +1,233 @@
+{
+  "browser": "Chromium 155, software rendering",
+  "url": "http://127.0.0.1:8768/settlement/?profile=1",
+  "viewport": "1024x640",
+  "sampling": "16 wall-seconds ordinary +16 recovery per real population; no timing assertion",
+  "results": [
+    {
+      "population": 85,
+      "ordinary": {
+        "maxBacklog": 61,
+        "advancedSeconds": 16.050000000000093,
+        "frameMs": {
+          "count": 882,
+          "mean": 18.159070294777823,
+          "p50": 16.699999999999818,
+          "p95": 33.30000000000018,
+          "max": 116.69999999999982
+        },
+        "modelUs": {
+          "count": 948,
+          "mean": 186.70886075949366,
+          "p50": 0,
+          "p95": 600,
+          "max": 12900
+        },
+        "presentationUs": {
+          "count": 948,
+          "mean": 176.26582278481013,
+          "p50": 200,
+          "p95": 400,
+          "max": 4400
+        },
+        "modelCalls": 1015,
+        "routeSearches": 1346,
+        "population": 85,
+        "clock": 16.050000000000093,
+        "cacheHits": 1246,
+        "expansions": 61500,
+        "fieldsBuilt": 100,
+        "planningBacklog": 0,
+        "planned": 171,
+        "discardedPlans": 0,
+        "navigationRevision": 1
+      },
+      "recovery": {
+        "maxBacklog": 37,
+        "advancedSeconds": 16.1500000000001,
+        "frameMs": {
+          "count": 957,
+          "mean": 16.72089864158518,
+          "p50": 16.69999999999709,
+          "p95": 16.799999999995634,
+          "max": 33.400000000001455
+        },
+        "modelUs": {
+          "count": 1031,
+          "mean": 118.42870999030067,
+          "p50": 0,
+          "p95": 500,
+          "max": 8500
+        },
+        "presentationUs": {
+          "count": 1031,
+          "mean": 169.64112512124152,
+          "p50": 200,
+          "p95": 300,
+          "max": 1000
+        },
+        "modelCalls": 2134,
+        "routeSearches": 2249,
+        "population": 85,
+        "clock": 33.80000000000022,
+        "cacheHits": 2063,
+        "expansions": 111245,
+        "fieldsBuilt": 186,
+        "planningBacklog": 0,
+        "planned": 309,
+        "discardedPlans": 0,
+        "navigationRevision": 2
+      }
+    },
+    {
+      "population": 250,
+      "ordinary": {
+        "maxBacklog": 234,
+        "advancedSeconds": 15.150000000000082,
+        "frameMs": {
+          "count": 758,
+          "mean": 21.123218997363427,
+          "p50": 16.699999999999818,
+          "p95": 49.89999999999782,
+          "max": 149.89999999999964
+        },
+        "modelUs": {
+          "count": 818,
+          "mean": 442.0537897310513,
+          "p50": 0,
+          "p95": 1900,
+          "max": 17700
+        },
+        "presentationUs": {
+          "count": 818,
+          "mean": 370.6601466992665,
+          "p50": 300,
+          "p95": 800,
+          "max": 7401
+        },
+        "modelCalls": 896,
+        "routeSearches": 4031,
+        "population": 250,
+        "clock": 15.250000000000082,
+        "cacheHits": 3757,
+        "expansions": 168510,
+        "fieldsBuilt": 274,
+        "planningBacklog": 0,
+        "planned": 494,
+        "discardedPlans": 0,
+        "navigationRevision": 1
+      },
+      "recovery": {
+        "maxBacklog": 202,
+        "advancedSeconds": 16.200000000000102,
+        "frameMs": {
+          "count": 817,
+          "mean": 19.60844553243027,
+          "p50": 16.700000000000728,
+          "p95": 33.39999999999782,
+          "max": 50.10000000000218
+        },
+        "modelUs": {
+          "count": 889,
+          "mean": 395.39595050618675,
+          "p50": 0,
+          "p95": 1700,
+          "max": 9401
+        },
+        "presentationUs": {
+          "count": 889,
+          "mean": 608.8740157480315,
+          "p50": 599,
+          "p95": 1000,
+          "max": 6000
+        },
+        "modelCalls": 1879,
+        "routeSearches": 7520,
+        "population": 250,
+        "clock": 33.80000000000022,
+        "cacheHits": 6607,
+        "expansions": 320293,
+        "fieldsBuilt": 535,
+        "planningBacklog": 0,
+        "planned": 959,
+        "discardedPlans": 0,
+        "navigationRevision": 2
+      }
+    },
+    {
+      "population": 500,
+      "ordinary": {
+        "maxBacklog": 484,
+        "advancedSeconds": 16.000000000000092,
+        "frameMs": {
+          "count": 826,
+          "mean": 19.371670702177354,
+          "p50": 16.699999999999818,
+          "p95": 33.399999999999636,
+          "max": 83.30000000000018
+        },
+        "modelUs": {
+          "count": 886,
+          "mean": 609.9322799097065,
+          "p50": 0,
+          "p95": 2600,
+          "max": 10400
+        },
+        "presentationUs": {
+          "count": 886,
+          "mean": 481.1512415349887,
+          "p50": 400,
+          "p95": 1000,
+          "max": 2700
+        },
+        "modelCalls": 953,
+        "routeSearches": 8108,
+        "population": 500,
+        "clock": 16.100000000000094,
+        "cacheHits": 7549,
+        "expansions": 343785,
+        "fieldsBuilt": 559,
+        "planningBacklog": 0,
+        "planned": 979,
+        "discardedPlans": 0,
+        "navigationRevision": 1
+      },
+      "recovery": {
+        "maxBacklog": 444,
+        "advancedSeconds": 15.900000000000098,
+        "frameMs": {
+          "count": 681,
+          "mean": 23.51086637297872,
+          "p50": 16.700000000000728,
+          "p95": 50,
+          "max": 66.70000000000437
+        },
+        "modelUs": {
+          "count": 745,
+          "mean": 924.8322147651006,
+          "p50": 0,
+          "p95": 3400,
+          "max": 14300
+        },
+        "presentationUs": {
+          "count": 745,
+          "mean": 1063.489932885906,
+          "p50": 1000,
+          "p95": 2000,
+          "max": 4500
+        },
+        "modelCalls": 1796,
+        "routeSearches": 13883,
+        "population": 500,
+        "clock": 33.80000000000022,
+        "cacheHits": 12302,
+        "expansions": 632346,
+        "fieldsBuilt": 1056,
+        "planningBacklog": 0,
+        "planned": 1804,
+        "discardedPlans": 0,
+        "navigationRevision": 2
+      }
+    }
+  ]
+}

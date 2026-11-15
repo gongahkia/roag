@@ -1,0 +1,191 @@
+{
+  "browser": "Chromium 155, software rendering",
+  "url": "http://127.0.0.1:8767/settlement/?profile=1",
+  "viewport": "1024x640",
+  "sampling": "16 wall-seconds ordinary +16 recovery per real population; no timing assertion",
+  "results": [
+    {
+      "population": 85,
+      "ordinary": {
+        "maxBacklog": 0,
+        "advancedSeconds": 15.900000000000091,
+        "frameMs": {
+          "count": 929,
+          "mean": 17.233153928954344,
+          "p50": 16.69999999999891,
+          "p95": 16.800000000000182,
+          "max": 50
+        },
+        "modelUs": {
+          "count": 981,
+          "mean": 421.9164118246687,
+          "p50": 0,
+          "p95": 2500,
+          "max": 15500
+        },
+        "presentationUs": {
+          "count": 981,
+          "mean": 129.4597349643221,
+          "p50": 100,
+          "p95": 300,
+          "max": 1100
+        },
+        "modelCalls": 1052,
+        "routeSearches": 1283,
+        "population": 85,
+        "clock": 15.950000000000092
+      },
+      "recovery": {
+        "maxBacklog": 0,
+        "advancedSeconds": 16.150000000000116,
+        "frameMs": {
+          "count": 953,
+          "mean": 16.79968520461231,
+          "p50": 16.69999999999709,
+          "p95": 16.799999999999272,
+          "max": 33.400000000001455
+        },
+        "modelUs": {
+          "count": 1026,
+          "mean": 834.0155945419103,
+          "p50": 0,
+          "p95": 3300,
+          "max": 6300
+        },
+        "presentationUs": {
+          "count": 1026,
+          "mean": 178.4600389863548,
+          "p50": 200,
+          "p95": 300,
+          "max": 3200
+        },
+        "modelCalls": 2172,
+        "routeSearches": 4553,
+        "population": 85,
+        "clock": 33.60000000000023
+      }
+    },
+    {
+      "population": 250,
+      "ordinary": {
+        "maxBacklog": 0,
+        "advancedSeconds": 13.300000000000056,
+        "frameMs": {
+          "count": 297,
+          "mean": 54.0683501683552,
+          "p50": 50,
+          "p95": 83.40000000000146,
+          "max": 133.39999999999964
+        },
+        "modelUs": {
+          "count": 355,
+          "mean": 6449.225352112676,
+          "p50": 2900,
+          "p95": 21799,
+          "max": 34100
+        },
+        "presentationUs": {
+          "count": 355,
+          "mean": 364.80281690140845,
+          "p50": 299,
+          "p95": 799,
+          "max": 6900
+        },
+        "modelCalls": 421,
+        "routeSearches": 3417,
+        "population": 250,
+        "clock": 13.450000000000056
+      },
+      "recovery": {
+        "maxBacklog": 0,
+        "advancedSeconds": 13.050000000000185,
+        "frameMs": {
+          "count": 279,
+          "mean": 57.50967741935483,
+          "p50": 50,
+          "p95": 100,
+          "max": 116.70000000000437
+        },
+        "modelUs": {
+          "count": 342,
+          "mean": 16716.918128654972,
+          "p50": 17599,
+          "p95": 34199,
+          "max": 42599
+        },
+        "presentationUs": {
+          "count": 342,
+          "mean": 549.7397660818714,
+          "p50": 401,
+          "p95": 1000,
+          "max": 4500
+        },
+        "modelCalls": 864,
+        "routeSearches": 13225,
+        "population": 250,
+        "clock": 29.90000000000029
+      }
+    },
+    {
+      "population": 500,
+      "ordinary": {
+        "maxBacklog": 0,
+        "advancedSeconds": 10.10000000000001,
+        "frameMs": {
+          "count": 203,
+          "mean": 78.96354679802221,
+          "p50": 66.69999999999891,
+          "p95": 133.29999999999927,
+          "max": 916.5999999999995
+        },
+        "modelUs": {
+          "count": 255,
+          "mean": 10441.913725490196,
+          "p50": 4301,
+          "p95": 35500,
+          "max": 51000
+        },
+        "presentationUs": {
+          "count": 255,
+          "mean": 378.03137254901964,
+          "p50": 399,
+          "p95": 700,
+          "max": 2701
+        },
+        "modelCalls": 324,
+        "routeSearches": 4652,
+        "population": 500,
+        "clock": 10.20000000000001
+      },
+      "recovery": {
+        "maxBacklog": 0,
+        "advancedSeconds": 6.900000000000098,
+        "frameMs": {
+          "count": 139,
+          "mean": 115.635971223043,
+          "p50": 100.10000000000218,
+          "p95": 183.3000000000029,
+          "max": 233.29999999999927
+        },
+        "modelUs": {
+          "count": 185,
+          "mean": 48788.627027027025,
+          "p50": 57000,
+          "p95": 97900,
+          "max": 163600
+        },
+        "presentationUs": {
+          "count": 185,
+          "mean": 791.3567567567568,
+          "p50": 700,
+          "p95": 1300,
+          "max": 2201
+        },
+        "modelCalls": 607,
+        "routeSearches": 17034,
+        "population": 500,
+        "clock": 20.350000000000154
+      }
+    }
+  ]
+}

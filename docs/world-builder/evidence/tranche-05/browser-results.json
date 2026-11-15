@@ -1,0 +1,90 @@
+{
+  "seed": 202,
+  "checks": [
+    "Fresh paid town: eight actual residents; all five destinations, grouped catalogue, new and old shortcuts",
+    "Naturally scheduled seed-202 rain; real Workshop/vendor work, served customers and social visits; paid mixed roads and forward Undo/Redo while time continues",
+    "Read-only named resident card, real trait descriptions, repeated-click overlap cycling, drag threshold and priced cancellation",
+    "Reload/import preserve event identity/RNG, funds, names, traits, appearances, traversal/trade credits; import invalidates navigation",
+    "Explicitly fixture-assisted harvest and Market day; actual bonuses/service, Market inspection, removal during the event, Undo and accelerated simulation",
+    "Safe 85-resident town: new workplaces/service, natural rain, mixed roads and a visible paid construction response at 1×"
+  ],
+  "errors": [],
+  "timeline": [
+    {
+      "name": "02-five-destinations",
+      "seconds": 10.395
+    },
+    {
+      "name": "03-natural-rain",
+      "seconds": 26.559
+    },
+    {
+      "name": "04-stone-in-rain",
+      "seconds": 30.585
+    },
+    {
+      "name": "05-mixed-roads",
+      "seconds": 34.294
+    },
+    {
+      "name": "06-real-activity",
+      "seconds": 45.295
+    },
+    {
+      "name": "07-resident-card",
+      "seconds": 49.822
+    },
+    {
+      "name": "08-overlap-cycle",
+      "seconds": 50.912
+    },
+    {
+      "name": "09-large-desktop",
+      "seconds": 62.874
+    },
+    {
+      "name": "10-pan-zoom",
+      "seconds": 66.321
+    },
+    {
+      "name": "11-harvest",
+      "seconds": 73.003
+    },
+    {
+      "name": "14-accelerated-harvest",
+      "seconds": 79.71
+    },
+    {
+      "name": "11-marketDay",
+      "seconds": 84.434
+    },
+    {
+      "name": "12-market-staffing",
+      "seconds": 95.459
+    },
+    {
+      "name": "13-market-removed-during-event",
+      "seconds": 97.368
+    },
+    {
+      "name": "15-populated-natural-rain",
+      "seconds": 122.598
+    },
+    {
+      "name": "16-populated-stone-response",
+      "seconds": 125.236
+    },
+    {
+      "name": "17-populated-service",
+      "seconds": 132.196
+    }
+  ],
+  "native": false,
+  "input": "Playwright browser mouse/keyboard; actual menus/file chooser; read-only checkpoints; no game callbacks",
+  "fixtureEvents": [
+    "harvest",
+    "marketDay"
+  ],
+  "naturalEvent": "Rain scheduled during fresh paid UI construction journey",
+  "normalJourneySeconds": 35.645060406000006
+}

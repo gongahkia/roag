@@ -1,0 +1,73 @@
+00:00 +0: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart
+00:00 +0: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: seeded ground, variants and guaranteed clear lane are reproducible
+00:00 +1: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: preview is pure; commit consumes exactly its evaluated world
+00:00 +2: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: cardinal junctions include chosen access without conducting through cottage
+00:00 +3: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: access preference is deterministic when several paths adjoin
+00:00 +4: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: demolition leaves nonfunctional traces and reconnects quietly
+00:00 +5: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: invalid actions, protected arrival and empty removal are exact no-ops
+00:00 +6: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: blocking trees, replaceable plants and exact undo/redo including variants
+00:00 +7: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: history is bounded and does not keep invalid actions
+00:00 +8: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: JSON reproduces terrain, history traces, connectivity and variants
+00:00 +9: /home/gongahkia/coding/projects/roag/apps/settlement/test/model_test.dart: malformed/unsupported imports preserve the live scene and history
+00:00 +10: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart
+00:07 +10: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: multi-cottage stroke stages immediately, saves committed data only, undo/redo exact IDs
+00:07 +11: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: fast diagonal uses deterministic cardinal crossings, with X first at ties
+00:07 +12: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: obstacles block connectivity beyond pointer route; brush never routes around them
+00:07 +13: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: only successes deduplicate; previously invalid anchor can become valid later
+00:07 +14: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: mixed cottage candidates, repeated visits and removal respect logical footprints
+00:07 +15: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: no-op strokes create no history; cancel and undo-during-stroke preserve exact state
+00:07 +16: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: committed snapshots reject stale deferred writers after commit, undo or import
+00:07 +17: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: real schema-one scene migrates without changing terrain, traces or variants
+00:07 +18: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: invalid duplicate or orphan identities preserve the current scene
+00:07 +19: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: residents appear only after commit, stagger arrivals and reach their own access
+00:07 +20: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: residents visit actual reachable greens; a single resident can complete leisure
+00:07 +21: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: removed underfoot paths cause bounded local settling and waiting, then reconnect
+00:07 +22: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: cut route reroutes through an existing legal loop; disconnected homes stop outings
+00:07 +23: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: pending arrivals and visits reconcile through history, load and destination removal
+00:07 +24: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: a removed cell under a moving resident settles onto its surviving edge endpoint
+00:07 +25: /home/gongahkia/coding/projects/roag/apps/settlement/test/brush_residents_test.dart: background pause cannot catch up queued residents or rewrite authored state
+00:07 +26: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart
+00:13 +26: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: work requires real travel, two jobs, and validated productive time
+00:13 +27: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: fresh garden promptly fills during daytime, assignments stay stable
+00:13 +28: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: social benefits require a real six-second visit and seats count arrivals
+00:13 +29: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: mood starts neutral, grace protects newcomers, valid work travel is not a failure
+00:13 +30: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: cut workplace reports a broken connection, restored access resumes work
+00:13 +31: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: fixed stroke budget retains background earnings on commit and cancellation
+00:13 +32: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: undo refunds only recorded price; redo is atomic if unaffordable
+00:13 +33: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: demolition is free and undo demolition does not charge; unlimited records zero
+00:13 +34: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: resident identity, appearance, earnings and experience survive removal and undo
+00:13 +35: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: current checkpoint resumes progress and fractional income without grants or duplicates
+00:13 +36: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: pause, accelerated simulation and large background delta use one bounded clock
+00:13 +37: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: seeded evening gathering follows real work/social activity and rewards actual attendees once
+00:13 +38: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: green removal ends a gathering, no phantom attendee reward after undo
+00:13 +39: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: camera-independent updates agree exactly and querying presentation awards nothing
+00:13 +40: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: 74-cottage old-format save migrates once, keeps layout, neutral mood and original palettes
+00:13 +41: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_test.dart: invalid checkpoint is refused without replacing a live colony
+00:13 +42: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart
+00:16 +42: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: cause suppression bounds repetition across 85 residents and rotates fairly
+00:18 +43: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: two different truthful causes fit and blocked UI areas are avoided
+00:18 +44: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: resolved complaints, off-screen people and inactive owners clear promptly
+00:18 +45: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: overlapping candidates are deferred and positives can share the visible limit
+00:18 +46: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: speech display does not mutate resident activity, reasons, money or history
+00:18 +47: /home/gongahkia/coding/projects/roag/apps/settlement/test/speech_test.dart: a delayed journey utterance cannot start after its activity has changed
+00:18 +48: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart
+00:19 +48: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: arrival itself pays no work or social reward
+00:19 +49: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: green seats describe real visits and a full-green complaint is physically waiting
+00:19 +50: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: home disconnection has one bounded cause, then reconnection removes it
+00:19 +51: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: a real day accrues exactly the grant and no offline catch-up
+00:19 +52: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: garden and green brushes price each unique footprint once and cancel without charge
+00:19 +53: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: speech scheduling linked to a real colony changes no authoritative field
+00:19 +54: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+00:19 +55: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: malformed productive locations and gathering identities are rejected
+00:19 +56: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: reconnecting a green at night clears the old unreachable reason immediately
+00:19 +57: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: schema-one checkpoints also initialise the colony without changing the original lots
+00:19 +58: /home/gongahkia/coding/projects/roag/apps/settlement/test/colony_edges_test.dart: cutting a lane cannot improve mood by hiding two missed opportunities
+00:19 +59: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart
+00:19 +59: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: Farm/Park labels preserve old identifiers, costs and capacities
+00:20 +60: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: stable cast survives unrelated additions, removal, Undo/Redo and portable checkpoints
+00:20 +61: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: unknown appearance IDs retain identity and resolve to a safe sprite
+00:20 +62: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: standing slots stay bounded and existing people do not shift when another arrives
+00:20 +63: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: travel lanes stay on the actual cardinal edge; rest and reduced motion remain grounded
+00:20 +64: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: cosmetic updates, speech and inspection cannot advance the colony
+00:20 +65: /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart: inspection and speech distinguish missing farms from disconnected farms
+00:20 +66: All tests passed!

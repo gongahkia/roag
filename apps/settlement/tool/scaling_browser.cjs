@@ -1,4 +1,4 @@
-// Opt-in release measurements, isolated fixture imports, native browser events.
+// Opt-in release measurements with isolated fixture imports and browser input.
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path');
 const out=path.resolve(process.argv[2]||'/tmp/roag-scaling.json');
 const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8767/settlement/?profile=1';
@@ -12,7 +12,7 @@ const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8767/settlement/?profile
   const collect=()=>page.evaluate(async()=>{const start=window.settlementMetrics;let backlogs=[],times=[],prev=performance.now();const end=prev+16000;await new Promise(resolve=>{function tick(t){backlogs.push(window.settlementMetrics?.planningBacklog||0);times.push(t-prev);prev=t;t<end?requestAnimationFrame(tick):resolve();}requestAnimationFrame(tick)});const metrics={...window.settlementMetrics};const calls=metrics.modelCalls-start.modelCalls;metrics.modelMicros=metrics.modelMicros.slice(-calls);metrics.presentationMicros=metrics.presentationMicros.slice(-calls);return{frames:times,metrics,maxBacklog:Math.max(...backlogs),startClock:start.clock};});
   const ordinary=await collect();
   await page.getByRole('button',{name:'Zoom out (−)',exact:true}).click();
-  // remove a twelve-cell strip from a genuine connected grid via the brush.
+  // remove a thirteen-cell strip from a genuine connected grid via the brush.
   const tool=await page.getByRole('button',{name:/^1 Cottage/}).boundingBox(),menu=await page.getByRole('button',{name:'Landscape menu',exact:true}).boundingBox();const cy=(menu.y+menu.height+12+tool.y-14)/2;
   await page.keyboard.press('3');await page.mouse.move(512+(3.5-(512-24)/48)*36,cy);await page.mouse.down();await page.mouse.move(512+(15.5-(512-24)/48)*36,cy,{steps:15});await page.mouse.up();
   const recovery=await collect();
