@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'model.dart';
+import 'reasons.dart';
+import 'rules.dart';
 
 enum Activity {
   pending,
@@ -10,10 +12,33 @@ enum Activity {
   returning,
   waiting,
   settling,
+  workTravel,
+  working,
+  socialTravel,
+  socialising,
+  socialWaiting,
+  gatheringTravel,
+  gathering,
+  resting,
 }
 
 class Resident {
   final String homeId;
+  bool active = true;
+  int palette = 0;
+  String? workId;
+  double bornAt = 0, lastWork = -10000, lastSocial = -10000;
+  double workProgress = 0, socialProgress = 0, workedSeconds = 0;
+  double connectionLostAt = -1, eventBenefitUntil = -1;
+  int earned = 0, signalSerial = 0;
+  String? awardedEvent;
+  Reason problem = Reason.none, message = Reason.none;
+  Reason workIssue = Reason.none, leisureIssue = Reason.none;
+  void say(Reason reason) {
+    message = reason;
+    signalSerial++;
+  }
+
   Cell cell;
   double x, y;
   Activity activity;
@@ -26,8 +51,15 @@ class Resident {
   Cell? settleTarget;
   Resident(this.homeId, this.cell, this.activity)
     : x = cell.x + .5,
-      y = cell.y + .5;
-  bool get visible => activity != Activity.pending;
+      y = cell.y + .5 {
+    palette = homeId.codeUnits.last.isEven ? 0 : 1;
+  }
+  Reason get feedback => problem != Reason.none
+      ? problem
+      : message == Reason.offWork && activity != Activity.workTravel
+      ? Reason.none
+      : message;
+  bool get visible => active && activity != Activity.pending;
   bool get moving => route.isNotEmpty || activity == Activity.settling;
   double facing = 1;
 }
@@ -41,10 +73,12 @@ class _Departure {
 class Residents {
   Landscape world;
   final Map<String, Resident> people = {};
+  final Map<String, Resident> inactive = {};
+  Iterable<Resident> get records => [...people.values, ...inactive.values];
   final List<_Departure> _departures = [];
   int routeSearches = 0;
-  Residents(this.world) {
-    reconcile(world, restored: true);
+  Residents(this.world, {bool initialise = true}) {
+    if (initialise) reconcile(world, restored: true);
   }
   Iterable<(Resident, double)> get visible sync* {
     for (final r in people.values) {
@@ -67,6 +101,7 @@ class Residents {
     world = next;
     if (reset) {
       people.clear();
+      inactive.clear();
       _departures.clear();
     }
     final homes = world.cottages;
@@ -76,12 +111,21 @@ class Residents {
         r.route.clear();
         r.destination = null;
         if (r.visible) _departures.add(_Departure(r));
+        r.active = false;
+        r.activity = Activity.waiting;
+        inactive[id] = r;
       }
     }
     var added = 0;
     for (final entry in homes.entries) {
       if (people.containsKey(entry.key)) continue;
       _departures.removeWhere((d) => d.person.homeId == entry.key);
+      final retained = inactive.remove(entry.key);
+      if (retained != null) {
+        retained.active = true;
+        people[entry.key] = retained;
+        continue;
+      }
       final access =
           world.access(entry.value) ?? world.localAccess(entry.value);
       final r = Resident(
@@ -89,13 +133,17 @@ class Residents {
         restored && access != null ? access : world.arrival,
         restored ? Activity.home : Activity.pending,
       );
-      r.timer = restored ? _idle(r) : math.min(added++ * .18, 2.0);
+      r.timer = restored
+          ? _idle(r)
+          : math.min(added++ * Rules.arrivalStagger, Rules.arrivalCap);
       r.arrived = restored;
       people[entry.key] = r;
     }
     for (final r in people.values) {
       if (r.activity == Activity.pending) continue;
-      if (r.destination != null && !homes.containsKey(r.destination)) {
+      if (r.destination != null &&
+          !homes.containsKey(r.destination) &&
+          !world.places.containsKey(r.destination)) {
         r.destination = null;
       }
       if (r.activity == Activity.settling) {
@@ -123,7 +171,7 @@ class Residents {
         r.replanAfterEdge = true;
       } else if (r.activity != Activity.home ||
           world.access(homes[r.homeId]!) != r.cell) {
-        _plan(r);
+        plan(r);
       }
     }
   }
@@ -159,43 +207,43 @@ class Residents {
     r.activity = Activity.settling;
   }
 
-  bool _go(Resident r, Cell target, Activity activity) {
+  bool go(Resident r, Cell target, Activity activity) {
     final path = _route(r.cell, target);
     if (path == null) return false;
     r.route
       ..clear()
       ..addAll(path.skip(1));
     r.activity = activity;
-    if (r.route.isEmpty) _reached(r);
+    if (r.route.isEmpty) reached(r);
     return true;
   }
 
-  void _plan(Resident r) {
+  void plan(Resident r) {
     r.replanAfterEdge = false;
     final home = world.cottages[r.homeId];
     if (home == null) return;
     if (!r.arrived) {
       final target = world.access(home);
-      if (target != null && _go(r, target, Activity.arriving)) return;
+      if (target != null && go(r, target, Activity.arriving)) return;
     } else if (r.activity == Activity.visiting &&
         r.destination != null &&
         world.access(home) != null) {
       final other = world.cottages[r.destination];
       final target = other == null ? null : world.access(other);
-      if (target != null && _go(r, target, Activity.visiting)) return;
+      if (target != null && go(r, target, Activity.visiting)) return;
     }
     final access = world.access(home);
-    if (access != null && _go(r, access, Activity.returning)) return;
+    if (access != null && go(r, access, Activity.returning)) return;
     final local = world.localAccess(home, from: r.cell);
     if (local != null &&
-        _go(r, local, r.arrived ? Activity.returning : Activity.arriving)) {
+        go(r, local, r.arrived ? Activity.returning : Activity.arriving)) {
       return;
     }
     r.route.clear();
     r.activity = Activity.waiting;
   }
 
-  void _reached(Resident r) {
+  void reached(Resident r) {
     if (r.activity == Activity.arriving) {
       r.flash = 1.0;
       r.arrived = true;
@@ -210,35 +258,7 @@ class Residents {
     }
   }
 
-  void _outing(Resident r) {
-    final home = world.cottages[r.homeId];
-    if (home == null ||
-        world.access(home) == null ||
-        !world.activePaths.contains(r.cell)) {
-      r.timer = _idle(r);
-      return;
-    }
-    final others = world.cottages.entries
-        .where(
-          (e) =>
-              e.key != r.homeId &&
-              world.access(e.value) != null &&
-              world.access(e.value) != r.cell,
-        )
-        .toList();
-    if (others.isNotEmpty) {
-      final dest = others[(_style(r.homeId) + r.trips++) % others.length];
-      r.destination = dest.key;
-      if (_go(r, world.access(dest.value)!, Activity.visiting)) return;
-    }
-    final nearby = world.pathNeighbours(r.cell).toList();
-    if (nearby.isNotEmpty) {
-      r.destination = null;
-      r.trips++;
-      if (_go(r, nearby[_style(r.homeId) % nearby.length], Activity.visiting)) {
-        return;
-      }
-    }
+  void decide(Resident r) {
     r.timer = _idle(r);
   }
 
@@ -260,35 +280,40 @@ class Residents {
           r.cell = world.arrival;
           r.x = r.cell.x + .5;
           r.y = r.cell.y + .5;
-          _go(r, target, Activity.arriving);
+          go(r, target, Activity.arriving);
         }
         continue;
       }
       if (r.activity == Activity.settling) {
         final target = r.settleTarget;
-        if (target != null && _move(r, target, dt, 5.0)) {
+        if (target != null && _move(r, target, dt, Rules.settleSpeed)) {
           r.settleTarget = null;
           r.activity = Activity.returning;
-          _plan(r);
+          plan(r);
         }
         continue;
       }
       if (r.route.isNotEmpty) {
         final target = r.route.first;
-        if (_move(r, target, dt, 3.5 + _style(r.homeId) % 3 * .15)) {
+        if (_move(
+          r,
+          target,
+          dt,
+          Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation,
+        )) {
           r.route.removeAt(0);
           if (r.replanAfterEdge) {
-            _plan(r);
+            plan(r);
           } else if (r.route.isEmpty) {
-            _reached(r);
+            reached(r);
           }
         }
       } else if (r.activity == Activity.home) {
         r.timer -= dt;
-        if (r.timer <= 0) _outing(r);
+        if (r.timer <= 0) decide(r);
       } else if (r.activity == Activity.returning) {
         r.timer -= dt;
-        if (r.timer <= 0) _plan(r);
+        if (r.timer <= 0) plan(r);
       }
     }
   }

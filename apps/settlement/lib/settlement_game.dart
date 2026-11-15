@@ -7,16 +7,35 @@ import 'package:flutter/painting.dart';
 
 import 'model.dart';
 import 'residents.dart';
+import 'colony.dart';
+import 'rules.dart';
+import 'reasons.dart';
+import 'speech.dart';
 
 class SettlementGame extends FlameGame {
-  final LandscapeSession session;
+  Colony colony;
+  LandscapeSession get session => colony.session;
   final void Function(Placement?) onPreview;
   final void Function()? onReady;
-  late final Residents residents = Residents(session.world);
+  Colony get residents => colony;
+  final void Function()? onState, onCheckpoint;
+  SpeechDirector speech = SpeechDirector();
+  bool inspectMode = false;
+  String? inspectedResident;
+  Cell? inspectedCell;
+  double _stateAge = 0, _saveAge = 0, _lastCheckpointClock = 0;
   bool suspended = false;
-  SettlementGame(this.session, this.onPreview, {this.onReady});
+  SettlementGame(
+    this.colony,
+    this.onPreview, {
+    this.onReady,
+    this.onState,
+    this.onCheckpoint,
+  });
   Tool tool = Tool.cottage;
   Placement? preview;
+  Offset? _hoverPoint;
+  int? _previewBudget;
   final Map<String, Sprite> art = {};
   final List<_Pulse> _pulses = [];
   bool canvasReady = false;
@@ -64,18 +83,45 @@ class SettlementGame extends FlameGame {
 
   void hover(Offset point) {
     if (!canvasReady) return;
+    if (inspectMode) {
+      inspect(point);
+      return;
+    }
+    _hoverPoint = point;
     final c = pick(point);
     if (session.stroke?.changed.contains(c) == true) {
       clearPreview();
       return;
     }
-    if (preview?.cell == c && identical(preview?.before, session.view)) return;
+    final budget = session.stroke == null
+        ? session.money
+        : session.stroke!.budget - session.stroke!.price;
+    if (preview?.cell == c &&
+        identical(preview?.before, session.view) &&
+        _previewBudget == budget) {
+      return;
+    }
+    _previewBudget = budget;
     preview = evaluate(session.view, tool, c);
+    final free = session.stroke?.free ?? session.unlimited;
+    final cost = free ? 0 : Rules.cost(tool.name);
+    if (preview!.valid && cost > budget) {
+      preview = Placement(
+        session.view,
+        null,
+        c,
+        session.stroke != null
+            ? 'Stroke budget used · release before using new income.'
+            : 'Not enough coins · grant +20/day; garden work +0.2/s per worker.',
+      );
+    }
     onPreview(preview);
   }
 
   void clearPreview() {
     preview = null;
+    _hoverPoint = null;
+    _previewBudget = null;
     onPreview(null);
   }
 
@@ -109,7 +155,24 @@ class SettlementGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
-    if (!suspended) residents.update(dt);
+    if (!suspended && canvasReady) {
+      residents.update(dt);
+      _stateAge += dt.clamp(0.0, .1);
+      _saveAge += dt.clamp(0.0, .1);
+      updateSpeech(dt);
+      if (_stateAge >= .25) {
+        _stateAge = 0;
+        if (_hoverPoint != null && session.stroke == null && !inspectMode) {
+          hover(_hoverPoint!);
+        }
+        onState?.call();
+      }
+      if (_saveAge >= 3 && colony.clock != _lastCheckpointClock) {
+        _saveAge = 0;
+        _lastCheckpointClock = colony.clock;
+        onCheckpoint?.call();
+      }
+    }
     if (_notice != null) {
       _notice!.age += dt.clamp(0.0, .05);
       if (_notice!.age > 1.8) _notice = null;
@@ -118,6 +181,209 @@ class SettlementGame extends FlameGame {
       p.age += dt;
     }
     _pulses.removeWhere((p) => p.age > .3);
+  }
+
+  void resetPresentation() {
+    speech = SpeechDirector();
+    inspectMode = false;
+    _pulses.clear();
+    _notice = null;
+    clearInspection();
+    clearPreview();
+    _lastCheckpointClock = colony.clock;
+    _saveAge = 0;
+  }
+
+  Offset actorPosition(Resident r) {
+    var dx = (r.homeId.codeUnits.fold(0, (a, b) => a + b) % 3 - 1) * .8;
+    if ([
+          Activity.socialising,
+          Activity.gathering,
+          Activity.working,
+          Activity.socialWaiting,
+        ].contains(r.activity) &&
+        r.destination != null) {
+      final group =
+          colony.people.values
+              .where(
+                (other) =>
+                    other.destination == r.destination && other.route.isEmpty,
+              )
+              .map((other) => other.homeId)
+              .toList()
+            ..sort();
+      dx = (group.indexOf(r.homeId) - (group.length - 1) / 2) * 2.8;
+    }
+    return Offset(r.x * 12 + dx, r.y * 12);
+  }
+
+  void inspect(Offset point) {
+    inspectedResident = null;
+    var nearest = 24.0;
+    for (final r in residents.people.values.where((r) => r.visible)) {
+      final p = actorPosition(r),
+          screen = camera.localToGlobal(Vector2(p.dx, p.dy - 2));
+      final distance = (Offset(screen.x, screen.y) - point).distance;
+      if (distance < nearest) {
+        nearest = distance;
+        inspectedResident = r.homeId;
+      }
+    }
+    inspectedCell = pick(point);
+    onState?.call();
+  }
+
+  void clearInspection() {
+    inspectedResident = null;
+    inspectedCell = null;
+  }
+
+  String? get inspection {
+    final r = colony.people[inspectedResident];
+    if (r != null) {
+      final reason = r.feedback;
+      final detail = reason == Reason.none
+          ? (r.route.isNotEmpty
+                ? 'Following a valid path. Travel takes time.'
+                : 'Following the daily routine automatically.')
+          : reason.detail;
+      final mood = colony
+          .contributions(r)
+          .entries
+          .where((e) => e.value != 0)
+          .map((e) => '${e.key} ${e.value > 0 ? '+' : ''}${e.value}')
+          .join(' · ');
+      return 'Resident · ${activityLabel(r.activity)}\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}';
+    }
+    final c = inspectedCell;
+    if (c == null || !session.world.contains(c)) return null;
+    final lot = session.world.at(c), access = session.world.access(c);
+    if (lot.place == Place.garden) {
+      return 'Productive Garden · ${colony.workers(lot.placeId!)} / 2 working\n${colony.jobs(lot.placeId!)} assigned jobs. Income: 0.2 coin/second per actual worker.\n${access == null ? 'Restore a path to the arrival lane.' : 'Residents find jobs and follow paths automatically.'}';
+    }
+    if (lot.place == Place.green) {
+      return 'Village Green · ${colony.occupancy(lot.placeId!)} / 6 visiting\nSix seconds of actual leisure gives recent-social satisfaction. Travellers do not occupy seats.\n${access == null ? 'Restore a path to the arrival lane.' : 'A successful neighbourhood can gather here in the evening.'}';
+    }
+    if (lot.cottage != null) {
+      return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
+    }
+    return lot.path
+        ? 'Path · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\nConnect homes, gardens and greens to the arrival lane.'
+        : 'Landscape · choose a building beside a connected path.';
+  }
+
+  String activityLabel(Activity activity) => switch (activity) {
+    Activity.pending => 'Moving in soon',
+    Activity.arriving => 'Arriving',
+    Activity.workTravel => 'Walking to work',
+    Activity.working => 'Tending a garden',
+    Activity.socialTravel => 'Walking to the green',
+    Activity.socialising => 'Socialising',
+    Activity.socialWaiting => 'Waiting for a social place',
+    Activity.gatheringTravel => 'Joining the gathering',
+    Activity.gathering => 'At the gathering',
+    Activity.resting => 'Resting',
+    Activity.returning => 'Returning home',
+    Activity.waiting => 'Waiting for a path',
+    Activity.settling => 'Stepping off a removed path',
+    _ => 'At home',
+  };
+  void updateSpeech(double dt) {
+    final candidates = <BubbleCandidate>[];
+    for (final r in residents.people.values.where((r) => r.visible)) {
+      final position = actorPosition(r),
+          p = camera.localToGlobal(Vector2(position.dx, position.dy));
+      if (p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) continue;
+      final x = (p.x - 105).clamp(8.0, math.max(8.0, size.x - 218)).toDouble();
+      final options =
+          [
+                Rect.fromLTWH(x, p.y - 75, 210, 44),
+                Rect.fromLTWH(p.x + 20, p.y - 40, 210, 44),
+                Rect.fromLTWH(p.x - 230, p.y - 40, 210, 44),
+                Rect.fromLTWH(x, p.y + 20, 210, 44),
+              ]
+              .where(
+                (b) =>
+                    b.left >= 8 &&
+                    b.top >= 8 &&
+                    b.right <= size.x - 8 &&
+                    b.bottom <= size.y - 8,
+              )
+              .toList();
+      candidates.add(BubbleCandidate(r, options));
+    }
+    speech.update(dt, candidates);
+  }
+
+  final Map<Reason, TextPainter> _bubbleText = {};
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (!canvasReady) return;
+    if (colony.phase == 'Night') {
+      canvas.drawRect(
+        Offset.zero & Size(size.x, size.y),
+        Paint()..color = const Color(0x15131c30),
+      );
+    }
+    final e = colony.event;
+    if (e != null &&
+        e.state != 'ended' &&
+        colony.world.places.containsKey(e.green)) {
+      final c = colony.world.places[e.green]!,
+          p = camera.localToGlobal(Vector2((c.x + .5) * 12, c.y * 12));
+      final label = TextPainter(
+        text: TextSpan(
+          text: e.state == 'active'
+              ? 'Evening gathering'
+              : 'Gathering · neighbours arriving',
+          style: const TextStyle(
+            fontFamily: 'SourceCode',
+            fontSize: 11,
+            color: Color(0xfff1d78e),
+            backgroundColor: Color(0xdd202a25),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(canvas, Offset(p.x - label.width / 2, p.y - 18));
+    }
+    for (final bubble in speech.visible) {
+      final r = residents.people[bubble.residentId];
+      if (r == null) continue;
+      final actor = actorPosition(r),
+          point = camera.localToGlobal(Vector2(actor.dx, actor.dy - 3));
+      canvas.drawLine(
+        Offset(bubble.bounds.center.dx, bubble.bounds.bottom),
+        Offset(point.x, point.y),
+        Paint()
+          ..color = const Color(0xffe2ddbb)
+          ..strokeWidth = 1.5,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bubble.bounds, const Radius.circular(5)),
+        Paint()..color = const Color(0xf2ece3c4),
+      );
+      final text = _bubbleText.putIfAbsent(
+        bubble.reason,
+        () => TextPainter(
+          text: TextSpan(
+            text: bubble.reason.bubble,
+            style: const TextStyle(
+              fontFamily: 'SourceCode',
+              fontSize: 11,
+              height: 1.25,
+              color: Color(0xff26392c),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: 194),
+      );
+      text.paint(
+        canvas,
+        bubble.bounds.topLeft + Offset(8, (44 - text.height) / 2),
+      );
+    }
   }
 }
 
@@ -259,6 +525,76 @@ class _LandscapeLayer extends Component {
     }
   }
 
+  void place(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) {
+    final lot = scene.at(c), x = c.x * 12.0, y = c.y * 12.0;
+    canvas.save();
+    canvas.drawRect(
+      Rect.fromLTWH(x + .5, y + .5, 11, 11),
+      Paint()
+        ..color =
+            (lot.place == Place.garden
+                    ? const Color(0xff6c6144)
+                    : const Color(0xff456347))
+                .withValues(alpha: opacity),
+    );
+    if (lot.place == Place.garden) {
+      for (final row in [3.0, 7.0]) {
+        canvas.drawRect(
+          Rect.fromLTWH(x + 1, y + row, 10, 2),
+          Paint()..color = const Color(0xff493e2e).withValues(alpha: opacity),
+        );
+      }
+      frame(canvas, 'vegetables', c, const Color(0xffb8c578), opacity: opacity);
+      final tended = game.colony.tended[lot.placeId];
+      if (tended != null && game.colony.clock - tended < 1) {
+        canvas.drawCircle(
+          Offset(x + 6, y + 5),
+          2 + (game.colony.clock - tended) * 4,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .5
+            ..color = const Color(0xffe4ce88).withValues(alpha: opacity),
+        );
+      }
+    } else {
+      final sprite = game.art['oak'];
+      sprite?.render(
+        canvas,
+        position: Vector2(x + 1, y + 1),
+        size: Vector2.all(7),
+        overridePaint: Paint()
+          ..filterQuality = FilterQuality.none
+          ..colorFilter = ColorFilter.mode(
+            const Color(0xffa4b878).withValues(alpha: opacity),
+            BlendMode.srcIn,
+          ),
+      );
+      for (final by in [3.0, 8.0]) {
+        canvas.drawRect(
+          Rect.fromLTWH(x + 8, y + by, 3, 1),
+          Paint()..color = const Color(0xffceb88a).withValues(alpha: opacity),
+        );
+      }
+      if (game.colony.event?.green == lot.placeId &&
+          game.colony.event?.state == 'active') {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, 12, 12).inflate(.5),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .5
+            ..color = const Color(0xffeed088),
+        );
+      }
+    }
+    if (scene.access(c) == null && opacity == 1) {
+      canvas.drawRect(
+        Rect.fromLTWH(x + 9, y, 3, 2),
+        Paint()..color = const Color(0xffe2c477),
+      );
+    }
+    canvas.restore();
+  }
+
   void drawLandscape(Canvas canvas, Landscape scene) {
     final bounds = Rect.fromLTWH(0, 0, scene.width * 12.0, scene.height * 12.0);
     canvas.drawRect(
@@ -328,6 +664,7 @@ class _LandscapeLayer extends Component {
           .where(
             (c) =>
                 scene.at(c).cottage != null ||
+                scene.at(c).place != null ||
                 scene.at(c).scenery == Scenery.oak,
           )
           .toList();
@@ -351,6 +688,8 @@ class _LandscapeLayer extends Component {
       final l = scene.at(c);
       if (l.cottage != null) {
         cottage(canvas, scene, c, l.cottage!, bodyOnly: true);
+      } else if (l.place != null) {
+        place(canvas, scene, c);
       } else {
         frame(canvas, 'oak', c, green);
       }
@@ -413,6 +752,9 @@ class _LandscapeLayer extends Component {
           );
         }
         if (game.tool == Tool.path) road(canvas, next, c, opacity: .8);
+        if (game.tool == Tool.garden || game.tool == Tool.green) {
+          place(canvas, next, c, opacity: .75);
+        }
         if (game.tool == Tool.cottage) {
           cottage(canvas, next, c, next.at(c).cottage!, opacity: .75);
         }
@@ -484,13 +826,16 @@ class _LandscapeLayer extends Component {
   }
 
   void person(Canvas canvas, Resident r, double alpha) {
-    final x = r.x * 12, y = r.y * 12;
-    final offset = (r.homeId.codeUnits.fold(0, (a, b) => a + b) % 3 - 1) * .8;
-    final bob = r.moving ? math.sin(r.age * 18).abs() * .3 : 0.0;
+    final position = game.actorPosition(r), x = position.dx, y = position.dy;
+    final bob = r.moving
+        ? math.sin(r.age * 18).abs() * .3
+        : r.activity == Activity.working
+        ? math.sin(r.age * 8).abs() * .2
+        : 0.0;
     final sprite = game.art['resident'];
     if (sprite == null) return;
     canvas.save();
-    canvas.translate(x + offset, y - bob);
+    canvas.translate(x, y - bob);
     canvas.scale(r.facing, 1);
     canvas.drawOval(
       const Rect.fromLTWH(-2.5, 1, 5, 1.5),
@@ -521,13 +866,21 @@ class _LandscapeLayer extends Component {
       overridePaint: Paint()
         ..filterQuality = FilterQuality.none
         ..colorFilter = ColorFilter.mode(
-          (r.homeId.codeUnits.last.isEven
-                  ? const Color(0xfff4e6ba)
-                  : const Color(0xffa9d5d0))
-              .withValues(alpha: alpha),
+          [
+            const Color(0xfff4e6ba),
+            const Color(0xffa9d5d0),
+            const Color(0xffeab29c),
+            const Color(0xffbcc5ec),
+          ][r.palette].withValues(alpha: alpha),
           BlendMode.srcIn,
         ),
     );
+    if (r.activity == Activity.working) {
+      canvas.drawRect(
+        const Rect.fromLTWH(3, -2, 1, 2),
+        Paint()..color = const Color(0xffefd285),
+      );
+    }
     canvas.restore();
     final home = game.session.world.cottages[r.homeId];
     if (r.flash > 0 && home != null) {

@@ -4,6 +4,8 @@ import 'dart:js_interop';
 external JSString _load();
 @JS('settlementPlatform.save')
 external void _save(JSString text);
+@JS('settlementPlatform.backupLegacy')
+external void _backupLegacy(JSString text);
 @JS('settlementPlatform.exportFile')
 external void _export(JSString text);
 @JS('settlementPlatform.importFile')
@@ -22,6 +24,7 @@ void watchActivity(void Function(bool) callback) =>
     _watchActivity(((JSBoolean active) => callback(active.toDart)).toJS);
 
 String loadLocal() => _load().toDart;
+void backupLegacy(String text) => _backupLegacy(text.toJS);
 void saveLocal(String text) => _save(text.toJS);
 void exportFile(String text) => _export(text.toJS);
 Future<String> importFile() async => (await _import().toDart).toDart;

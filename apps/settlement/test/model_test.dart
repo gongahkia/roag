@@ -139,7 +139,11 @@ void main() {
       expect(session.undo(), isTrue);
       expect(session.world.encode(), placed);
       expect(session.undo(), isTrue);
-      expect(session.world.encode(), before);
+      expect(
+        jsonDecode(session.world.encode())..remove('nextCottageId'),
+        jsonDecode(before)..remove('nextCottageId'),
+      );
+      expect(session.world.nextCottageId, 2);
       expect(session.redo(), isTrue);
       expect(session.world.encode(), placed);
       expect(session.redo(), isTrue);
@@ -150,6 +154,7 @@ void main() {
     },
   );
   test('history is bounded and does not keep invalid actions', () {
+    session.unlimited = true;
     for (var i = 0; i < 100; i++) {
       edit(Tool.cottage, 3, 14);
       edit(Tool.remove, 3, 14);

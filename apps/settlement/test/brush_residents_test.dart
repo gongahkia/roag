@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roag_settlement/model.dart';
+import 'package:roag_settlement/colony.dart';
 import 'package:roag_settlement/residents.dart';
 
 void main() {
@@ -33,7 +34,11 @@ void main() {
     final after = s.world.encode();
     expect(s.world.cottages.keys.toSet().length, 6);
     expect(s.undo(), isTrue);
-    expect(s.world.encode(), before);
+    expect(
+      jsonDecode(s.world.encode())..remove('nextCottageId'),
+      jsonDecode(before)..remove('nextCottageId'),
+    );
+    expect(s.world.nextCottageId, 7);
     expect(s.canUndo, isFalse);
     expect(s.redo(), isTrue);
     expect(s.world.encode(), after);
@@ -164,7 +169,7 @@ void main() {
     expect(old['schema'], 1);
     final migrated = Landscape.decode(text);
     final encoded = jsonDecode(migrated.encode());
-    expect(encoded['schema'], 2);
+    expect(encoded['schema'], 3);
     expect(
       encoded['lots'].map((l) => l.take(5).toList()).toList(),
       old['lots'],
@@ -220,33 +225,31 @@ void main() {
     expect(identical(first, r.people[first.homeId]), isTrue);
     expect(r.visible.map((e) => e.$1.homeId).toSet().length, r.visible.length);
   });
-  test('residents visit actual reachable homes and single residents take local walks', () {
+  test('residents visit actual reachable greens; a single resident can complete leisure', () {
     stroke(Tool.cottage, const Cell(1, 14), const Cell(5, 14));
-    final r = Residents(s.world);
-    final seen = <String>{};
+    edit(Tool.green, 6, 14);
+    final r = Colony(s);
     final before = s.world.encode();
+    var visited = false;
     for (var i = 0; i < 1200; i++) {
       r.update(1 / 60);
       for (final p in r.people.values) {
-        if (p.activity == Activity.visiting && p.destination != null) {
-          expect(s.world.cottages.containsKey(p.destination), isTrue);
-          expect(p.destination, isNot(p.homeId));
-          seen.add(p.homeId);
+        if (p.activity == Activity.socialTravel ||
+            p.activity == Activity.socialising) {
+          expect(s.world.places.containsKey(p.destination), isTrue);
+          visited = true;
         }
         expect(p.route.every((c) => s.world.at(c).path), isTrue);
       }
     }
-    expect(seen, isNotEmpty);
+    expect(visited, isTrue);
     expect(s.world.encode(), before);
-    s.replace(Landscape.create());
-    edit(Tool.cottage, 3, 14);
-    r.reconcile(s.world, restored: true, reset: true);
-    var walked = false;
-    for (var i = 0; i < 600; i++) {
-      r.update(1 / 60);
-      walked |= r.people.values.single.activity == Activity.visiting;
-    }
-    expect(walked, isTrue);
+    final one = LandscapeSession(Landscape.create());
+    one.commit(evaluate(one.world, Tool.cottage, const Cell(3, 14)));
+    one.commit(evaluate(one.world, Tool.green, const Cell(5, 14)));
+    final single = Colony(one);
+    advance(single, 20);
+    expect(single.people.values.single.lastSocial, greaterThanOrEqualTo(0));
   });
   test('removed underfoot paths cause bounded local settling and waiting, then reconnect', () {
     edit(Tool.cottage, 7, 14);
@@ -306,45 +309,52 @@ void main() {
     }
     expect(outings, isFalse);
   });
-  test('pending arrivals and visits cannot outlive a cottage; history/load reconcile without duplicates', () {
+  test('pending arrivals and visits reconcile through history, load and destination removal', () {
+    var r = Colony(s);
     stroke(Tool.cottage, const Cell(1, 14), const Cell(7, 14));
-    final r = Residents(Landscape.create());
     r.reconcile(s.world);
     final removed = s.world.cottageKey(const Cell(7, 14));
     expect(r.people[removed]!.activity, Activity.pending);
+    final samePerson = r.people[removed]!;
     edit(Tool.remove, 7, 14);
     r.reconcile(s.world);
     advance(r, 2);
     expect(r.people.containsKey(removed), isFalse);
     s.undo();
     r.reconcile(s.world, restored: true);
-    expect(r.people[removed]!.arrived, isTrue);
+    expect(r.people[removed], same(samePerson));
+    expect(
+      r.people[removed]!.arrived,
+      isFalse,
+      reason: 'restoration retains the pending arrival experience',
+    );
     expect(r.visible.map((e) => e.$1.homeId).toSet().length, r.visible.length);
     s.redo();
     r.reconcile(s.world, restored: true);
     advance(r, .4);
     expect(r.people.containsKey(removed), isFalse);
-    final saved = s.world.encode();
-    s.importText(saved);
-    r.reconcile(s.world, restored: true, reset: true);
+    r = Colony.decode(r.encode());
+    s = r.session;
     expect(r.people.keys.toSet(), s.world.cottages.keys.toSet());
+    edit(Tool.green, 6, 16);
+    r.reconcile(s.world);
     Resident? visitor;
     for (var i = 0; i < 1000 && visitor == null; i++) {
       r.update(1 / 60);
       for (final p in r.people.values) {
-        if (p.activity == Activity.visiting && p.destination != null) {
+        if (p.activity == Activity.socialTravel) {
           visitor = p;
           break;
         }
       }
     }
     expect(visitor, isNotNull);
-    final destination = visitor!.destination!;
-    final home = s.world.cottages[destination]!;
-    edit(Tool.remove, home.x, home.y);
+    final destination = visitor!.destination!,
+        place = s.world.places[destination]!;
+    edit(Tool.remove, place.x, place.y);
     r.reconcile(s.world);
     expect(visitor.destination, isNull);
-    expect(r.people.containsKey(destination), isFalse);
+    expect(s.world.places.containsKey(destination), isFalse);
     advance(r, 5);
     expect(r.people.keys.toSet(), s.world.cottages.keys.toSet());
   });

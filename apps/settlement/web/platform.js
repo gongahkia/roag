@@ -7,13 +7,19 @@
     watchActivity(callback) {
       stopWatching?.();
       const update=()=>callback(!document.hidden && document.hasFocus());
+      const leaving=()=>callback(false);
       window.addEventListener('blur',update);window.addEventListener('focus',update);
       document.addEventListener('visibilitychange',update);
-      stopWatching=()=>{window.removeEventListener('blur',update);window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);};
+      window.addEventListener('pagehide',leaving);
+      stopWatching=()=>{window.removeEventListener('blur',update);window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);window.removeEventListener('pagehide',leaving);};
       update();
     },
     unwatchActivity() { stopWatching?.();stopWatching=null; },
     load() { return localStorage.getItem(key) || ''; },
+    backupLegacy(text) {
+      const backup = key + '.before-colony-v3';
+      if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);
+    },
     save(text) { localStorage.setItem(key, text); },
     exportFile(text) {
       const url = URL.createObjectURL(new Blob([text], {type:'application/json'}));

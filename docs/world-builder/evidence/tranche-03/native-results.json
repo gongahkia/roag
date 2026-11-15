@@ -1,0 +1,24 @@
+{
+  "original": {
+    "ratio": 1,
+    "width": 1032,
+    "height": 582
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 938,
+    "height": 529
+  },
+  "osScale": 1,
+  "paths": 13,
+  "nativeInput": "XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release",
+  "observation": "raw CDP, no focus emulation or game callbacks",
+  "checks": [
+    "110% browser zoom",
+    "native tab focus loss cancels without save",
+    "no partial-stroke save",
+    "cells 8 through 12 painted as one stroke",
+    "priced Garden focus-loss cancellation",
+    "Garden and Green native placement deduct exact costs"
+  ]
+}

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flame/game.dart';
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,6 +7,8 @@ import 'package:flutter/services.dart';
 
 import 'browser.dart' as browser;
 import 'model.dart';
+import 'colony.dart';
+import 'rules.dart';
 import 'settlement_game.dart';
 
 void main() => runApp(const SettlementApp());
@@ -43,7 +47,9 @@ class LandscapePage extends StatefulWidget {
 }
 
 class _LandscapePageState extends State<LandscapePage> {
-  late final LandscapeSession session;
+  late Colony colony;
+  LandscapeSession get session => colony.session;
+  bool migrationSafe = true, needsMigrationSave = false;
   late final SettlementGame game;
   final focus = FocusNode();
   Tool tool = Tool.cottage;
@@ -60,26 +66,52 @@ class _LandscapePageState extends State<LandscapePage> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(hardwareKey);
-    Landscape landscape = Landscape.create();
+    colony = Colony(LandscapeSession(Landscape.create()));
     try {
       final saved = browser.loadLocal();
       if (saved.isNotEmpty) {
-        landscape = Landscape.decode(saved);
+        colony = Colony.decode(saved);
+        if (jsonDecode(saved)['schema'] != 3) {
+          try {
+            browser.backupLegacy(saved);
+            needsMigrationSave = true;
+          } catch (_) {
+            migrationSafe = false;
+            notice = 'Could not preserve the old save backup. Export a copy; autosave is paused.';
+          }
+        }
         saveStatus = 'Saved in this browser';
       }
     } catch (_) {
+      migrationSafe = false;
       saveStatus = 'Saved landscape could not be opened';
-      notice = 'Starting a temporary landscape. Export it before leaving; your saved copy is untouched.';
+      notice = 'Temporary landscape. Your saved copy is protected; export before leaving.';
     }
-    session = LandscapeSession(landscape);
-    game = SettlementGame(session, (p) {
-      if (mounted) setState(() => preview = p);
-    }, onReady: () => browser.hideLoading());
+    game = SettlementGame(
+      colony,
+      (p) {
+        if (mounted) setState(() => preview = p);
+      },
+      onReady: () {
+        browser.hideLoading();
+        if (needsMigrationSave && migrationSafe) {
+          save();
+          needsMigrationSave = false;
+        }
+      },
+      onState: () {
+        if (mounted) setState(() {});
+      },
+      onCheckpoint: () {
+        if (mounted) save();
+      },
+    );
     browser.watchActivity((active) {
       game.suspended = !active;
       if (!active && mounted) {
         space = false;
         cancelGesture();
+        if (game.canvasReady && migrationSafe) save();
       }
     });
   }
@@ -97,14 +129,18 @@ class _LandscapePageState extends State<LandscapePage> {
 
   bool save() {
     try {
-      session.persist(session.snapshot(), browser.saveLocal);
+      if (!migrationSafe) throw StateError('Original save is protected.');
+      colony.persist(colony.snapshot(), browser.saveLocal);
       saveStatus = 'Saved in this browser';
       return true;
     } catch (_) {
+      final firstFailure = saveStatus != 'Not saved · export a copy';
       saveStatus = 'Not saved · export a copy';
-      tell(
-        'Browser storage is unavailable or full. Export a portable copy from the menu.',
-      );
+      if (firstFailure) {
+        tell(
+          'Browser storage is unavailable or full. Export a portable copy from the menu.',
+        );
+      }
       return false;
     }
   }
@@ -114,6 +150,8 @@ class _LandscapePageState extends State<LandscapePage> {
     setState(() {
       tool = next;
       game.tool = next;
+      game.inspectMode = false;
+      game.clearInspection();
     });
     game.clearPreview();
     focus.requestFocus();
@@ -149,6 +187,11 @@ class _LandscapePageState extends State<LandscapePage> {
         space || e.buttons & (kSecondaryMouseButton | kMiddleMouseButton) != 0;
     if (!pan && e.buttons & kPrimaryMouseButton == 0) return;
     focus.requestFocus();
+    if (game.inspectMode || HardwareKeyboard.instance.isAltPressed) {
+      game.inspect(e.localPosition);
+      setState(() {});
+      return;
+    }
     pointer = e.pointer;
     last = e.localPosition;
     panning = pan;
@@ -198,12 +241,13 @@ class _LandscapePageState extends State<LandscapePage> {
             : 'place',
       );
       if (saved) {
+        final noun = stroke.tool == Tool.path
+            ? 'path cell'
+            : stroke.tool == Tool.remove
+            ? 'piece'
+            : stroke.tool.name;
         tell(
-          '${stroke.changed.length} ${stroke.tool == Tool.remove
-              ? 'pieces removed'
-              : stroke.tool == Tool.path
-              ? 'path cells placed'
-              : 'cottages placed'}',
+          '${stroke.changed.length} $noun${stroke.changed.length == 1 ? '' : 's'} ${stroke.tool == Tool.remove ? 'removed' : 'placed'} · ${Rules.coins(stroke.price)} coins',
         );
       }
     } else if (stroke?.firstInvalid != null) {
@@ -239,6 +283,8 @@ class _LandscapePageState extends State<LandscapePage> {
       browser.sound('undo');
       if (saved) tell(redo ? 'Redone' : 'Undone');
       setState(() {});
+    } else if (session.historyError != null) {
+      tell(session.historyError!);
     }
     focus.requestFocus();
   }
@@ -268,6 +314,19 @@ class _LandscapePageState extends State<LandscapePage> {
       select(Tool.path);
     } else if (k == LogicalKeyboardKey.digit3 || k == LogicalKeyboardKey.keyR) {
       select(Tool.remove);
+    } else if (k == LogicalKeyboardKey.digit4 || k == LogicalKeyboardKey.keyG) {
+      select(Tool.garden);
+    } else if (k == LogicalKeyboardKey.digit5 || k == LogicalKeyboardKey.keyV) {
+      select(Tool.green);
+    } else if (k == LogicalKeyboardKey.keyI) {
+      toggleInspection();
+    } else if (k == LogicalKeyboardKey.keyT) {
+      setSpeed(switch (colony.speed) {
+        0 => 1,
+        1 => 2,
+        2 => 4,
+        _ => 0,
+      });
     } else if (k == LogicalKeyboardKey.home || k == LogicalKeyboardKey.keyH) {
       cameraAction(() => game.home());
     } else if (k == LogicalKeyboardKey.equal ||
@@ -286,6 +345,9 @@ class _LandscapePageState extends State<LandscapePage> {
       cameraAction(() => game.pan(const Offset(0, -48)));
     } else if (k == LogicalKeyboardKey.escape) {
       cancelGesture();
+      game.inspectMode = false;
+      game.clearInspection();
+      setState(() {});
     } else {
       return KeyEventResult.ignored;
     }
@@ -301,13 +363,13 @@ class _LandscapePageState extends State<LandscapePage> {
     game.clearPreview();
     try {
       if (action == 'export') {
-        browser.exportFile(session.snapshot().text);
+        browser.exportFile(colony.snapshot().text);
         tell('Exported a portable landscape copy.');
       } else if (action == 'import') {
         final text = await browser.importFile();
         if (text.isNotEmpty && mounted) {
-          session.importText(text);
-          game.reconcile(restored: true, reset: true);
+          final imported = Colony.decode(text);
+          replaceColony(imported);
           final saved = save();
           game.home();
           if (saved) tell('Landscape imported.');
@@ -333,12 +395,15 @@ class _LandscapePageState extends State<LandscapePage> {
           ),
         );
         if (confirmed == true && mounted) {
-          session.replace(Landscape.create());
-          game.reconcile(restored: true, reset: true);
+          replaceColony(Colony(LandscapeSession(Landscape.create())));
+          migrationSafe = true;
           final saved = save();
           game.home();
           if (saved) tell('A fresh landscape.');
         }
+      } else if (action == 'unlimited') {
+        setState(() => session.unlimited = !session.unlimited);
+        save();
       } else if (action == 'help') {
         await showDialog<void>(
           context: context,
@@ -346,12 +411,13 @@ class _LandscapePageState extends State<LandscapePage> {
             title: const Text('A small place, shaped by you'),
             content: const SingleChildScrollView(
               child: Text(
-                '1 Cottage · 2 Path · 3 Remove\nClick or drag to build. Release to commit one stroke. Escape cancels; Undo during a stroke cancels it first.\n\n'
-                'Paths must join the arrival lane. Cottages use one adjoining connected path, preferring south, east, west, then north. Trees block building; small plants can be replaced.\n\n'
-                'Each cottage has a resident. New arrivals walk from the lane; residents visit reachable homes and wait when disconnected.\n\n'
-                'Removed cottages leave pads. Removed roads leave scars. Neither provides access. An amber mark means No access; reconnect the lane to clear it.\n\n'
-                'Drag with the right/middle button or Space + drag to pan. Scroll or +/− to zoom. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes.\n\n'
-                'Automatic saves belong to this browser and site. Export is your portable copy. No ROAG dungeon saves are used.',
+                '1 Cottage (5 coins) · 2 Path · 3 Remove · 4/G Garden (8) · 5/V Green (6)\n'
+                'Click or drag, release to commit one stroke. Escape cancels. Undo during a stroke cancels it first.\n\n'
+                'Gardens have two automatic jobs: people must reach them and work to earn 0.2 coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
+                'Greens host six actual social visits. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
+                'I: inspect; Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
+                'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
+                'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
               ),
             ),
             actions: [
@@ -375,6 +441,28 @@ class _LandscapePageState extends State<LandscapePage> {
         focus.requestFocus();
       }
     }
+  }
+
+  void replaceColony(Colony next) {
+    cancelGesture();
+    colony = next;
+    game.colony = next;
+    game.resetPresentation();
+  }
+
+  void setSpeed(int speed) {
+    setState(() => colony.speed = speed);
+    save();
+    focus.requestFocus();
+  }
+
+  void toggleInspection() {
+    cancelGesture();
+    setState(() {
+      game.inspectMode = !game.inspectMode;
+      if (!game.inspectMode) game.clearInspection();
+    });
+    focus.requestFocus();
   }
 
   Widget button(
@@ -409,10 +497,15 @@ class _LandscapePageState extends State<LandscapePage> {
           Tool.cottage => 'A cottage beside a connected path.',
           Tool.path => 'Extend the lane, one cell at a time.',
           Tool.remove => 'Leave a little history behind.',
+          Tool.garden => 'Two productive garden positions.',
+          Tool.green => 'A green for six social visits.',
         };
     if (session.stroke != null) {
       hint =
-          'Release to commit ${session.stroke!.changed.length} pieces · Escape cancels';
+          'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
+    }
+    if (game.inspectMode) {
+      hint = 'Inspect a person or place · I / Escape returns to building.';
     }
     if (preview != null &&
         scene.contains(preview!.cell) &&
@@ -440,41 +533,78 @@ class _LandscapePageState extends State<LandscapePage> {
               ),
               child: Row(
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ROAG / A LANDSCAPE TO KEEP',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xff9bb18a),
-                          letterSpacing: 1.4,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'A place to return',
-                        style: TextStyle(
-                          fontSize: 21,
-                          color: Color(0xffeadfbd),
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'A place to return',
+                    style: TextStyle(fontSize: 18, color: Color(0xffeadfbd)),
                   ),
                   const Spacer(),
-                  Text(
-                    '${houses.length} ${houses.length == 1 ? 'cottage' : 'cottages'}',
-                    style: const TextStyle(color: Color(0xffbec8ae)),
+                  Tooltip(
+                    message:
+                        'Actual garden work: ${Rules.coins(colony.workEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${Rules.coins(session.money)} coins',
+                          style: const TextStyle(color: Color(0xffead39b)),
+                        ),
+                        const Text(
+                          'Grant +20/day',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Color(0xffa4b39d),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  if (lost > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Text(
-                        '$lost No access',
-                        style: const TextStyle(color: Color(0xffdfc281)),
+                  const SizedBox(width: 18),
+                  Text(
+                    '${colony.people.length} people${lost > 0 ? ' · $lost cut off' : ''}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  const SizedBox(width: 18),
+                  Tooltip(
+                    message: 'Base 50 · recent work +15 · leisure +15 · gathering +10. Persistent connection −20; missed work/leisure −10 each after grace. I inspects actual causes.',
+                    child: Text(
+                      '${colony.mood} ${colony.happinessMean}',
+                      style: const TextStyle(
+                        color: Color(0xffbcd7ac),
+                        fontSize: 11,
                       ),
                     ),
-                  const SizedBox(width: 16),
+                  ),
+                  const SizedBox(width: 18),
+                  Text(
+                    'Day ${colony.day} · ${colony.phase}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  const SizedBox(width: 10),
+                  for (final speed in [0, 1, 2, 4])
+                    Tooltip(
+                      message: speed == 0
+                          ? 'Pause simulation'
+                          : '$speed× simulation',
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(30, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          foregroundColor: colony.speed == speed
+                              ? const Color(0xfff0dba0)
+                              : const Color(0xff809078),
+                        ),
+                        onPressed: () => setSpeed(speed),
+                        child: Text(
+                          speed == 0 ? 'Ⅱ' : '$speed×',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: 'Inspect (I)',
+                    onPressed: toggleInspection,
+                    icon: const Icon(Icons.info_outline, size: 18),
+                  ),
                   IconButton(
                     tooltip: muted ? 'Unmute' : 'Mute',
                     onPressed: () {
@@ -517,6 +647,12 @@ class _LandscapePageState extends State<LandscapePage> {
                       const PopupMenuItem(
                         value: 'new',
                         child: Text('New landscape…'),
+                      ),
+                      PopupMenuItem(
+                        value: 'unlimited',
+                        child: Text(
+                          'Unlimited building: ${session.unlimited ? 'On' : 'Off'}',
+                        ),
                       ),
                       const PopupMenuDivider(),
                       const PopupMenuItem(
@@ -585,7 +721,7 @@ class _LandscapePageState extends State<LandscapePage> {
                       top: 18,
                       child: IgnorePointer(
                         child: Text(
-                          'Drag a lane. Give it life.',
+                          'Homes, gardens, greens. Listen to your neighbours.',
                           style: TextStyle(
                             color: Color(0xffc3c9aa),
                             fontSize: 11,
@@ -593,6 +729,25 @@ class _LandscapePageState extends State<LandscapePage> {
                         ),
                       ),
                     ),
+                    if (game.inspection != null)
+                      Positioned(
+                        right: 16,
+                        top: 14,
+                        width: 280,
+                        child: IgnorePointer(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            color: const Color(0xf0202a25),
+                            child: Text(
+                              '${game.inspection}\n\nEscape closes · I toggles inspect mode',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xffeadfbd),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (notice.isNotEmpty)
                       Positioned(
                         bottom: 16,
@@ -629,8 +784,8 @@ class _LandscapePageState extends State<LandscapePage> {
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 15,
+                                horizontal: 10,
+                                vertical: 9,
                               ),
                               foregroundColor: t == tool
                                   ? const Color(0xfff0dba0)
@@ -648,17 +803,30 @@ class _LandscapePageState extends State<LandscapePage> {
                             child: Row(
                               children: [
                                 Image.asset(
-                                  'assets/images/${['hammer', 'grid', 'clear'][t.index]}.png',
-                                  width: 18,
-                                  height: 18,
+                                  'assets/images/${['hammer', 'grid', 'clear', 'vegetables', 'oak'][t.index]}.png',
+                                  width: 16,
+                                  height: 16,
                                   filterQuality: FilterQuality.none,
                                   color: t == tool
                                       ? const Color(0xffe9d59d)
                                       : const Color(0xff9fad97),
                                 ),
-                                const SizedBox(width: 9),
-                                Text(
-                                  '${t.index + 1}  ${['Cottage', 'Path', 'Remove'][t.index]}',
+                                const SizedBox(width: 6),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${t.index + 1} ${['Cottage', 'Path', 'Remove', 'Garden', 'Green'][t.index]}',
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    Text(
+                                      session.unlimited ||
+                                              Rules.cost(t.name) == 0
+                                          ? 'Free'
+                                          : '${Rules.cost(t.name) ~/ 1000} coins',
+                                      style: const TextStyle(fontSize: 9),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

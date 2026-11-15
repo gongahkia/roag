@@ -1,0 +1,24 @@
+{
+  "seed": 202,
+  "browser": "155.0.8059.84",
+  "input": "Playwright browser mouse and keyboard, actual menus/file chooser; no game callbacks or injected main-journey state",
+  "steps": [
+    "Paid home stroke, visible arrivals, and a truthful work need at 1×",
+    "A garden earns through real work; a green addresses leisure and produces real social experience",
+    "Ordinary seed-202 conditions reach an evening gathering with actual awarded attendees",
+    "Cut/restored access during the event ends it gracefully without replaying rewards",
+    "Undo reverses the exact paid charge after income; cancelling a held priced stroke preserves ongoing earnings and committed checkpoints",
+    "A partial-affordability stroke stops within its budget; ordinary work/grant income recovers enough for a real garden",
+    "Read-only inspection, pan, zoom, resize and further brush picking remain usable",
+    "Reload and export/import preserve authoritative money, progress, identities and event rewards; invalid imports leave the current checkpoint intact",
+    "Comparable 74-cottage legacy village migrates intact, adopts garden/social routines and earns through off-screen work at accelerated speed"
+  ],
+  "demoEndSeconds": 55.821326616,
+  "finalPopulation": 74,
+  "frameIntervalsMs": {
+    "median": 33.400000000001455,
+    "max": 83.39999999999964
+  },
+  "errors": [],
+  "failed": []
+}

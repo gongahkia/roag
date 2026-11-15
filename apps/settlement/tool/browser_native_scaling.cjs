@@ -41,7 +41,7 @@ fs.mkdirSync(output,{recursive:true});
     await read("document.querySelector('flt-semantics-placeholder')?.focus()");
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',text:'\r',windowsVirtualKeyCode:13});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
-    const buttonExpression=name=>`(()=>{const b=[...document.querySelectorAll('[role=button]')].find(b=>(b.getAttribute('aria-label')||b.textContent).split(' ').join('')===${JSON.stringify(name.split(' ').join(''))});if(!b)return null;const r=b.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};})()`;
+    const buttonExpression=name=>`(()=>{const b=[...document.querySelectorAll('[role=button]')].find(b=>(b.getAttribute('aria-label')||b.textContent).split(' ').join('').startsWith(${JSON.stringify(name.split(' ').join(''))}));if(!b)return null;const r=b.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};})()`;
     await wait(buttonExpression('2 Path'));
     const original=await read('({ratio:devicePixelRatio,width:innerWidth,height:innerHeight})');
     run(['key','--clearmodifiers','ctrl+plus']);await wait(`devicePixelRatio>${original.ratio}`);
@@ -52,20 +52,29 @@ fs.mkdirSync(output,{recursive:true});
     const border=(box.width-zoomed.width*zoomed.ratio)/2;
     function move(x,y){run(['mousemove','--window',window,String(Math.round((border+x*zoomed.ratio)*osScale)),String(Math.round((box.height-zoomed.height*zoomed.ratio-border+y*zoomed.ratio)*osScale))]);}
     async function button(name){const b=await read(buttonExpression(name));assert(b,name);move(b.x+b.w/2,b.y+b.h/2);run(['click','1']);await new Promise(r=>setTimeout(r,150));}
-    await button('Return to lane (H)');await button('2 Path');
+    await button('Ⅱ');await button('Return to lane (H)');await button('2 Path');
     const tool=await read(buttonExpression('1 Cottage')),menu=await read(buttonExpression('Landscape menu'));
     const cy=(menu.y+menu.h+12+tool.y-10)/2;
     const saved="localStorage.getItem('roag.settlement.landscape.v1')";
-    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,150));assert.equal(await read(saved),null);
+    const initialSaved=await read(saved);
+    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,150));assert.equal(await read(saved),initialSaved);
     // clearmodifiers would release the held mouse before testing focus loss.
     run(['key','ctrl+t']);await wait('document.hidden || !document.hasFocus()');run(['mouseup','1']);await new Promise(r=>setTimeout(r,100));
-    assert((await read(saved))===null,'native tab focus loss cancels the unfinished stroke');
+    assert((await read(saved))===initialSaved,'native tab focus loss cancels the unfinished stroke');
     run(['key','--clearmodifiers','ctrl+w']);await wait('!document.hidden');await button('2 Path');
-    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,100));assert.equal(await read(saved),null);
+    move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,100));assert.equal(await read(saved),initialSaved);
     move(24+12.5*48,cy);await new Promise(r=>setTimeout(r,100));run(['mouseup','1']);
     await wait(`JSON.parse(${saved})?.lots.filter(l=>l[3]).length===13`);
+    const beforePriced=await read(saved);
+    await button('4 Garden');move(24+8.5*48,cy-48);run(['mousedown','1']);
+    await new Promise(r=>setTimeout(r,100));run(['key','ctrl+t']);await wait('document.hidden || !document.hasFocus()');
+    run(['mouseup','1']);assert.equal(await read(saved),beforePriced,'focus loss cancels priced construction without a charge');
+    run(['key','--clearmodifiers','ctrl+w']);await wait('!document.hidden');
+    move(24+8.5*48,cy-48);run(['click','1']);await wait(`JSON.parse(${saved})?.lots.filter(l=>l[6]==='garden').length===1`);
+    await button('5 Green');move(24+10.5*48,cy-48);run(['click','1']);await wait(`JSON.parse(${saved})?.lots.filter(l=>l[6]==='green').length===1`);
+    const completed=JSON.parse(await read(saved));assert.equal(completed.colony.money,JSON.parse(beforePriced).colony.money-14000);
     const screenshot=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(output,'native-browser-zoom.png'),Buffer.from(screenshot.data,'base64'));
-    const result={original,zoomed,osScale,paths:13,nativeInput:'XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release',observation:'raw CDP, no focus emulation or game callbacks',checks:['110% browser zoom','native tab focus loss cancels without save','no partial-stroke save','cells 8 through 12 painted as one stroke']};
+    const result={original,zoomed,osScale,paths:13,nativeInput:'XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release',observation:'raw CDP, no focus emulation or game callbacks',checks:['110% browser zoom','native tab focus loss cancels without save','no partial-stroke save','cells 8 through 12 painted as one stroke','priced Garden focus-loss cancellation','Garden and Green native placement deduct exact costs']};
     fs.writeFileSync(path.join(output,'native-results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
     await send('Browser.close');
   } finally {socket?.close();native.kill('SIGTERM');}

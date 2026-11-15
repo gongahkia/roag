@@ -1,7 +1,11 @@
 import 'dart:collection';
 import 'dart:convert';
 
-enum Tool { cottage, path, remove }
+import 'rules.dart';
+
+enum Tool { cottage, path, remove, garden, green }
+
+enum Place { garden, green }
 
 enum Scenery { none, oak, vegetables }
 
@@ -32,6 +36,8 @@ class Lot {
   final bool path;
   final int? cottage;
   final String? cottageId;
+  final Place? place;
+  final String? placeId;
   const Lot({
     this.grass = 0,
     this.scenery = Scenery.none,
@@ -39,6 +45,8 @@ class Lot {
     this.path = false,
     this.cottage,
     this.cottageId,
+    this.place,
+    this.placeId,
   });
 
   List<Object?> toJson([String? identity]) => [
@@ -48,6 +56,8 @@ class Lot {
     path,
     cottage == null ? null : 'cottage$cottage',
     cottage == null ? null : identity ?? cottageId,
+    place?.name,
+    placeId,
   ];
 }
 
@@ -147,6 +157,14 @@ class Landscape {
     for (final c in cells)
       if (at(c).cottage != null) cottageKey(c): c,
   });
+  late final Map<String, Cell> places = Map.unmodifiable({
+    for (final c in cells)
+      if (at(c).place != null) at(c).placeId!: c,
+  });
+  bool occupied(Cell c) =>
+      at(c).path || at(c).cottage != null || at(c).place != null;
+  Landscape withCounter(int counter) =>
+      Landscape(seed, width, height, lots, nextCottageId: counter);
   Cell? localAccess(Cell home, {Cell? from}) {
     for (final n in pathNeighbours(home)) {
       if (from == null || pathRoute(from, n) != null) return n;
@@ -173,7 +191,9 @@ class Landscape {
     for (var i = 0; i < ns.length; i++) {
       final n = ns[i];
       if (contains(n) &&
-          (at(n).path || (at(n).cottage != null && access(n) == c))) {
+          (at(n).path ||
+              ((at(n).cottage != null || at(n).place != null) &&
+                  access(n) == c))) {
         mask |= 1 << i;
       }
     }
@@ -194,7 +214,7 @@ class Landscape {
   }
 
   Map<String, Object> toJson() => {
-    'schema': 2,
+    'schema': 3,
     'nextCottageId': nextCottageId,
     'seed': seed,
     'width': width,
@@ -211,7 +231,7 @@ class Landscape {
       throw const FormatException('File is too large.');
     }
     final d = jsonDecode(text);
-    if (d is! Map || ![1, 2].contains(d['schema'])) {
+    if (d is! Map || ![1, 2, 3].contains(d['schema'])) {
       throw const FormatException('Unsupported landscape format.');
     }
     int integer(String key, int min, int max) {
@@ -225,6 +245,7 @@ class Landscape {
     final seed = integer('seed', 0, 2147483646);
     final w = integer('width', 16, 80), h = integer('height', 12, 60);
     final legacy = d['schema'] == 1;
+    final modern = d['schema'] == 3;
     final nextId = legacy ? 1 : integer('nextCottageId', 1, 1000000000);
     final data = d['lots'];
     if (data is! List || data.length != w * h) {
@@ -234,7 +255,12 @@ class Landscape {
     final identities = <String>{};
     for (final row in data) {
       if (row is! List ||
-          row.length != (legacy ? 5 : 6) ||
+          row.length !=
+              (legacy
+                  ? 5
+                  : modern
+                  ? 8
+                  : 6) ||
           !['grass0', 'grass1'].contains(row[0]) ||
           !Scenery.values.any((s) => s.name == row[1]) ||
           !Trace.values.any((t) => t.name == row[2]) ||
@@ -259,7 +285,31 @@ class Landscape {
             : row[5] is String
             ? row[5]
             : null,
+        place: modern && row[6] != null
+            ? Place.values.firstWhere(
+                (p) => p.name == row[6],
+                orElse: () => throw const FormatException('Invalid place.'),
+              )
+            : null,
+        placeId: modern && row[7] is String ? row[7] : null,
       );
+      if (modern &&
+          ((l.place == null) != (row[7] == null) ||
+              (l.place != null &&
+                  (l.placeId == null ||
+                      l.cottage != null ||
+                      l.path ||
+                      l.scenery != Scenery.none ||
+                      l.trace != Trace.pad)))) {
+        throw const FormatException('Invalid place footprint or identity.');
+      }
+      if (l.place != null &&
+          (!RegExp('^${l.place!.name}-[0-9]+\$').hasMatch(l.placeId!) ||
+              !identities.add(l.placeId!) ||
+              int.parse(l.placeId!.split('-').last) < 1 ||
+              int.parse(l.placeId!.split('-').last) >= nextId)) {
+        throw const FormatException('Invalid or duplicate place identity.');
+      }
       if (!legacy && row[4] == null && row[5] != null) {
         throw const FormatException('Orphan cottage identity.');
       }
@@ -329,7 +379,9 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
   final old = world.at(c);
   if (tool == Tool.remove) {
     if (c == world.arrival) return no('The arrival lane is protected.');
-    if (!old.path && old.cottage == null) return no('Nothing to remove here.');
+    if (!old.path && old.cottage == null && old.place == null) {
+      return no('Nothing to remove here.');
+    }
     final next = world.replace(
       c,
       Lot(grass: old.grass, trace: old.path ? Trace.scar : Trace.pad),
@@ -348,17 +400,17 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       c,
       old.path
           ? 'Remove path${lost > 0 ? ' · $lost ${lost == 1 ? 'cottage loses' : 'cottages lose'} access' : ''} · leaves a scar'
-          : 'Remove cottage · leaves a buildable pad',
+          : 'Remove ${old.place?.name ?? 'cottage'} · leaves a buildable pad',
     );
   }
-  if (old.path || old.cottage != null) return no('This ground is occupied.');
+  if (world.occupied(c)) return no('This ground is occupied.');
   if (old.scenery == Scenery.oak) return no('A tree occupies this ground.');
   final access = world.access(c);
   if (access == null) {
     return no(
       tool == Tool.path
           ? 'Extend a path connected to the arrival lane.'
-          : 'A cottage needs an adjoining connected path.',
+          : 'This place needs an adjoining connected path.',
     );
   }
   final replacement = old.scenery == Scenery.vegetables
@@ -371,65 +423,112 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       Lot(
         grass: old.grass,
         path: tool == Tool.path,
-        trace: tool == Tool.cottage ? Trace.pad : Trace.none,
+        trace: tool == Tool.path ? Trace.none : Trace.pad,
         cottage: tool == Tool.cottage ? variation(world.seed, c, 4) % 2 : null,
         cottageId: tool == Tool.cottage ? 'home-${world.nextCottageId}' : null,
+        place: tool == Tool.garden
+            ? Place.garden
+            : tool == Tool.green
+            ? Place.green
+            : null,
+        placeId: tool == Tool.garden || tool == Tool.green
+            ? '${tool.name}-${world.nextCottageId}'
+            : null,
       ),
-      allocateCottage: tool == Tool.cottage,
+      allocateCottage: tool != Tool.path,
     ),
     c,
-    '${tool == Tool.path ? 'Extend path' : 'Place cottage'}$replacement',
+    '${tool == Tool.path ? 'Extend path' : 'Place ${tool.name}'}$replacement',
     access,
   );
+}
+
+class ConstructionEdit {
+  final Landscape before, after;
+  final int paid;
+  ConstructionEdit(this.before, this.after, this.paid);
 }
 
 class LandscapeSession {
   Landscape world;
   BrushStroke? stroke;
   int revision = 0;
+  int money;
+  bool unlimited;
+  String? historyError;
   Landscape get view => stroke?.staged ?? world;
-  final List<(Landscape, Landscape)> _undo = [], _redo = [];
+  final List<ConstructionEdit> _undo = [], _redo = [];
   static const historyLimit = 80;
-  LandscapeSession(this.world);
+  LandscapeSession(
+    this.world, {
+    this.money = Rules.startingMoney,
+    this.unlimited = false,
+  });
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   bool commit(Placement plan) {
     if (stroke != null || !identical(plan.before, world) || !plan.valid) {
       return false;
     }
-    return _commit(plan.after!);
+    final lot = plan.after!.at(plan.cell);
+    final price = unlimited
+        ? 0
+        : Rules.cost(
+            lot.place?.name ?? (lot.cottage != null ? 'cottage' : 'path'),
+          );
+    if (price > money) return false;
+    return _commit(plan.after!, price);
   }
 
-  bool _commit(Landscape next) {
-    _undo.add((world, next));
+  bool _commit(Landscape next, int price) {
+    _undo.add(ConstructionEdit(world, next, price));
     if (_undo.length > historyLimit) _undo.removeAt(0);
     _redo.clear();
     world = next;
+    money -= price;
     revision++;
     return true;
   }
 
+  void _restore(Landscape next) {
+    // durable identities are never reused after undo or a history branch.
+    final counter = world.nextCottageId > next.nextCottageId
+        ? world.nextCottageId
+        : next.nextCottageId;
+    world = next.withCounter(counter);
+  }
+
   bool undo() {
+    historyError = null;
     if (stroke != null) {
       cancelStroke();
       return false;
     }
     if (!canUndo) return false;
     final edit = _undo.removeLast();
-    world = edit.$1;
+    _restore(edit.before);
+    money += edit.paid;
     _redo.add(edit);
     revision++;
     return true;
   }
 
   bool redo() {
+    historyError = null;
     if (stroke != null) {
       cancelStroke();
       return false;
     }
     if (!canRedo) return false;
-    final edit = _redo.removeLast();
-    world = edit.$2;
+    final edit = _redo.last;
+    if (money < edit.paid) {
+      historyError =
+          'Redo needs ${Rules.coins(edit.paid)} coins. The grant and garden work can help.';
+      return false;
+    }
+    _redo.removeLast();
+    _restore(edit.after);
+    money -= edit.paid;
     _undo.add(edit);
     revision++;
     return true;
@@ -445,7 +544,8 @@ class LandscapeSession {
 
   void beginStroke(Tool tool, Cell start) {
     cancelStroke();
-    stroke = BrushStroke(world, tool)..paintTo(start);
+    stroke = BrushStroke(world, tool, budget: money, free: unlimited)
+      ..paintTo(start);
   }
 
   bool finishStroke() {
@@ -453,10 +553,11 @@ class LandscapeSession {
     stroke = null;
     if (edit == null ||
         edit.changed.isEmpty ||
-        !identical(edit.before, world)) {
+        !identical(edit.before, world) ||
+        edit.price > money) {
       return false;
     }
-    return _commit(edit.staged);
+    return _commit(edit.staged, edit.price);
   }
 
   void cancelStroke() => stroke = null;
@@ -465,7 +566,6 @@ class LandscapeSession {
     if (snapshot.revision != revision || snapshot.text != world.encode()) {
       return false;
     }
-    // localStorage is synchronous; no delayed writer can race a newer revision.
     write(snapshot.text);
     return true;
   }
@@ -504,7 +604,15 @@ class BrushStroke {
   final Set<Cell> changed = {};
   Cell? last;
   Placement? firstInvalid;
-  BrushStroke(this.before, this.tool) : staged = before;
+  final int budget;
+  final bool free;
+  int price = 0;
+  BrushStroke(
+    this.before,
+    this.tool, {
+    this.budget = Rules.startingMoney,
+    this.free = false,
+  }) : staged = before;
   void paintTo(Cell target) {
     for (final c in cardinalStroke(last ?? target, target)) {
       if (changed.contains(c)) continue;
@@ -512,7 +620,18 @@ class BrushStroke {
         continue;
       }
       final plan = evaluate(staged, tool, c);
+      final cost = free ? 0 : Rules.cost(tool.name);
+      if (plan.valid && price + cost > budget) {
+        firstInvalid ??= Placement(
+          staged,
+          null,
+          c,
+          'Stroke budget used · release before using new income.',
+        );
+        continue;
+      }
       if (plan.valid) {
+        price += cost;
         staged = plan.after!;
         changed.add(c);
       } else {
