@@ -1,0 +1,9 @@
+{
+  "localArchive": "artifacts/settlement/roag-settlement-web.zip",
+  "sha256": "513d5dab3aff6121c4b262ca0f7bd56ecd0c7a556b986dfdaba5fe2d938d346f",
+  "bytes": 14297165,
+  "fileCount": 89,
+  "matchesLocalBuild": true,
+  "localBase": "/settlement/",
+  "publicBase": "/roag/settlement/"
+}

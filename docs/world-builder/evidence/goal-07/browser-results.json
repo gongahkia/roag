@@ -1,0 +1,109 @@
+{
+  "url": "http://127.0.0.1:8776/roag/settlement/",
+  "input": "Playwright browser pointer/keyboard, real menus/downloads/file input; checkpoints read only",
+  "checks": [
+    "Legacy 85-person town continues/reloads unchanged; cancelling New World and Import keeps it",
+    "Text-seeded Plains supports paid cottages, Farms, a Park, free paths and actual work/social life",
+    "Same seed/environment reproduces terrain; seed information and copy control are available",
+    "Woodlands expands through paid Clear strokes, exact Undo/Redo, connected construction and Plant",
+    "Atomic paid bridge preview/cancel/Undo/Redo; actual residents cross and earn from far-bank work",
+    "Bridge removal stops disconnected production and changes real routes; paid one-cell repair resumes work",
+    "Concrete terrain, crossings, residents/events survive paused reload and real file export/import",
+    "Pan, zoom, resize and contextual relocation remain usable on seeded terrain"
+  ],
+  "errors": [],
+  "timeline": [
+    {
+      "name": "01-continued-legacy",
+      "seconds": 4.811
+    },
+    {
+      "name": "create-Gentle Plains",
+      "seconds": 11.381
+    },
+    {
+      "name": "02-plains-created",
+      "seconds": 16.087
+    },
+    {
+      "name": "03-plains-alive",
+      "seconds": 27.735
+    },
+    {
+      "name": "create-Gentle Plains",
+      "seconds": 30.169
+    },
+    {
+      "name": "create-Woodlands",
+      "seconds": 34.22
+    },
+    {
+      "name": "04-woodlands-created",
+      "seconds": 37.881
+    },
+    {
+      "name": "05-woodland-staged",
+      "seconds": 42.121
+    },
+    {
+      "name": "06-woodland-neighbourhood",
+      "seconds": 46.548
+    },
+    {
+      "name": "create-River Country",
+      "seconds": 49.022
+    },
+    {
+      "name": "07-river-created",
+      "seconds": 53.065
+    },
+    {
+      "name": "08-bridge-preview",
+      "seconds": 60.534
+    },
+    {
+      "name": "09-complete-bridge",
+      "seconds": 63.632
+    },
+    {
+      "name": "10-actual-crossing",
+      "seconds": 74.359
+    },
+    {
+      "name": "11-work-across-river",
+      "seconds": 77.836
+    },
+    {
+      "name": "12-crossing-cut",
+      "seconds": 78.585
+    },
+    {
+      "name": "13-residents-wait",
+      "seconds": 89.581
+    },
+    {
+      "name": "14-crossing-repaired",
+      "seconds": 95.727
+    },
+    {
+      "name": "15-terrain-aware-stone",
+      "seconds": 97.983
+    },
+    {
+      "name": "15b-wet-road-inspection",
+      "seconds": 98.624
+    },
+    {
+      "name": "16-river-desktop-1440",
+      "seconds": 103.764
+    },
+    {
+      "name": "17-river-931",
+      "seconds": 104.504
+    },
+    {
+      "name": "18-final-river",
+      "seconds": 105.647
+    }
+  ]
+}

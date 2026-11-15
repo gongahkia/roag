@@ -14,6 +14,8 @@ import 'settlement_game.dart';
 import 'build_thumbnail.dart';
 import 'dialogue.dart';
 import 'resident_request.dart';
+import 'world_generation.dart';
+import 'world_creation.dart';
 
 void main() => runApp(const SettlementApp());
 
@@ -62,6 +64,7 @@ class _LandscapePageState extends State<LandscapePage> {
   String notice = '';
   int noticeId = 0;
   bool muted = false, space = false, menuOpen = false;
+  bool introduction = false;
   final catalogueKey = GlobalKey<PopupMenuButtonState<Tool>>();
   Offset? inspectionStart;
   bool inspectionDragged = false;
@@ -76,9 +79,12 @@ class _LandscapePageState extends State<LandscapePage> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(hardwareKey);
-    colony = Colony(LandscapeSession(Landscape.create()));
+    colony = Colony(
+      LandscapeSession(WorldGeneration.create('202', EnvironmentPreset.plains)),
+    );
     try {
       final saved = browser.loadLocal();
+      introduction = saved.isEmpty;
       if (saved.isNotEmpty) {
         colony = Colony.decode(saved);
         if (jsonDecode(saved)['schema'] != 3) {
@@ -181,7 +187,9 @@ class _LandscapePageState extends State<LandscapePage> {
     final stroke = session.stroke;
     if (stroke == null) return;
     stroke.paintTo(game.pick(position));
-    if (!reportedInvalid && stroke.firstInvalid != null) {
+    if (!reportedInvalid &&
+        stroke.firstInvalid != null &&
+        stroke.tool != Tool.bridge) {
       reportedInvalid = true;
       game.invalid(stroke.firstInvalid!.cell, stroke.firstInvalid!.message);
     }
@@ -458,38 +466,98 @@ class _LandscapePageState extends State<LandscapePage> {
         final text = await browser.importFile();
         if (text.isNotEmpty && mounted) {
           final imported = Colony.decode(text);
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Replace the active settlement?'),
+              content: const Text(
+                'This imported town replaces your current settlement and undo history. Export your current copy first to keep it.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => browser.exportFile(colony.snapshot().text),
+                  child: const Text('Export current copy'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Keep current settlement'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Replace settlement'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true || !mounted) return;
           replaceColony(imported);
+          migrationSafe = true;
+          introduction = false;
           final saved = save();
           game.home();
           if (saved) tell('Landscape imported.');
         }
       } else if (action == 'new') {
-        final confirmed = await showDialog<bool>(
+        final draft = await showDialog<WorldDraft>(
+          context: context,
+          builder: (_) => WorldCreationDialog(
+            exportCurrent: () => browser.exportFile(colony.snapshot().text),
+          ),
+        );
+        if (draft != null && mounted) {
+          final world = WorldGeneration.create(draft.seed, draft.preset);
+          replaceColony(Colony(LandscapeSession(world)));
+          migrationSafe = true;
+          introduction = true;
+          final saved = save();
+          game.home();
+          if (saved) tell('${draft.preset.label} · seed ${draft.seed}');
+        }
+      } else if (action == 'world') {
+        final info = session.world.generation;
+        final seed = info?.seedText ?? session.world.seed.toString();
+        await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Start a new landscape?'),
-            content: const Text(
-              'This replaces your current landscape and undo history. Export a copy first if you want to return to it.',
+            title: Text(info?.preset.label ?? 'Existing settlement'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText('Seed: $seed'),
+                  Text(
+                    info == null
+                        ? 'Legacy landscape · original authored layout preserved.'
+                        : 'Generation v${info.version} · 40 × 30 cells · concrete land saved.',
+                  ),
+                  const SizedBox(height: 12),
+                  for (final t in Terrain.values)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('${t.label}: ${t.instruction}'),
+                    ),
+                  const Text(
+                    'Wet paths cost 1.5× travel time; rain uses the larger penalty, without stacking. Stone stays 18% quicker. Bridges use ordinary path pace. Clear costs 1; Plant 1; Bridge 3 per water cell.',
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Keep building'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: seed));
+                  tell('Seed copied.');
+                },
+                child: const Text('Copy seed'),
               ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('New landscape'),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Back to settlement'),
               ),
             ],
           ),
         );
-        if (confirmed == true && mounted) {
-          replaceColony(Colony(LandscapeSession(Landscape.create())));
-          migrationSafe = true;
-          final saved = save();
-          game.home();
-          if (saved) tell('A fresh landscape.');
-        }
       } else if (action == 'unlimited') {
         setState(() => session.unlimited = !session.unlimited);
         save();
@@ -504,6 +572,8 @@ class _LandscapePageState extends State<LandscapePage> {
                 'Click or drag, release to commit one stroke. Escape cancels. Undo during a stroke cancels it first.\n\n'
                 'Farms have ${Rules.gardenCapacity} work positions: people must reach them and work to earn ${Rules.coins(Rules.workIncomePerSecond)} coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
                 'Parks have ${Rules.greenCapacity} visitor spaces for actual social visits and relaxation. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
+                'Landscape: Clear trees/wet ground (1), Plant a tree (1), Bridge a straight bank-to-bank span (3/water cell). Water blocks travel until the whole bridge connects. Clear marsh for buildings; roads can use it slowly. Stone mitigates wet ground and rain.\n\n'
+                'New landscape lets you choose an environment and seed; export before replacing your town. World information shows terrain rules and a copyable seed.\n\n'
                 'B: grouped build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
                 'I: inspect; Talk opens a short optional conversation. Move (M) relocates an inspected building for free; right-click offers the same shortcut. Escape cancels. Click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
@@ -724,7 +794,8 @@ class _LandscapePageState extends State<LandscapePage> {
                         onPressed: () => beginMove(game.inspectedCell!),
                         child: const Text('Move building · Free (M)'),
                       ),
-                    if (game.inspectedEvent && colony.civicHost != null)
+                    if (game.inspectedEvent &&
+                        colony.civicAvailable(colony.special?.id))
                       TextButton(
                         onPressed: () =>
                             talk(resident: colony.civicHost, civic: true),
@@ -1026,6 +1097,10 @@ class _LandscapePageState extends State<LandscapePage> {
                         value: 'new',
                         child: Text('New landscape…'),
                       ),
+                      const PopupMenuItem(
+                        value: 'world',
+                        child: Text('World information & seed'),
+                      ),
                       PopupMenuItem(
                         value: 'unlimited',
                         child: Text(
@@ -1107,6 +1182,39 @@ class _LandscapePageState extends State<LandscapePage> {
                         ),
                       ),
                     ),
+                    if (introduction)
+                      Positioned(
+                        top: 36,
+                        left: 16,
+                        child: SizedBox(
+                          width: 302,
+                          child: Card(
+                            color: const Color(0xf0202a25),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'A place to begin',
+                                    style: TextStyle(color: Color(0xffead39b)),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'Drag cottages beside paths to welcome people. Add workplaces and parks; watch coins, mood and neighbours. Clear trees to expand, bridge water, and build around rock. B opens every tool.',
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        setState(() => introduction = false),
+                                    child: const Text('Start building'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (colony.special?.active(colony.clock) == true)
                       Positioned(
                         left: 24,
@@ -1262,6 +1370,7 @@ class _LandscapePageState extends State<LandscapePage> {
                               Tool.stoneRoad,
                               Tool.gardenPath,
                             ],
+                            'Landscape': [Tool.clear, Tool.plant, Tool.bridge],
                           }.entries) ...[
                             PopupMenuItem<Tool>(
                               enabled: false,
@@ -1291,7 +1400,7 @@ class _LandscapePageState extends State<LandscapePage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              '${t.index == 9 ? 0 : t.index + 1} ${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins'}',
+                                              '${t.isLandscape ? '' : '${t.index == 9 ? 0 : t.index + 1} '}${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins${t == Tool.bridge ? '/water cell' : ''}'}',
                                               style: TextStyle(
                                                 color: tool == t
                                                     ? const Color(0xffead39b)

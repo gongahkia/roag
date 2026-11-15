@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "Reduced-motion preference during real active rain",
+    "Read-only persistent event inspection"
+  ],
+  "input": "Playwright mouse/keyboard and browser media controls; imported safe 85-person fixture; no game callbacks",
+  "errors": []
+}

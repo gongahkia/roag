@@ -1,0 +1,38 @@
+{
+  "original": {
+    "ratio": 1,
+    "width": 1024,
+    "height": 640
+  },
+  "zoomed": {
+    "ratio": 1.100000023841858,
+    "width": 931,
+    "height": 582
+  },
+  "osScale": 1,
+  "checks": [
+    "real Ctrl-plus 110% browser zoom",
+    "native four-home drag",
+    "inspection Move and M shortcut",
+    "pure move ghost and Escape cancellation",
+    "same cottage/resident ID and free price",
+    "native relocation Undo/Redo",
+    "right-click building context Move",
+    "read-only native decline branch",
+    "native accepted work promise",
+    "native two-Farm drag, actual work and one gratitude acknowledgment",
+    "sprite catalogue and road previews through native scrolling",
+    "treasury coin and footer fit at 110%"
+  ],
+  "input": "XTest mouse/keyboard for all game commands; raw CDP observes state/screens and performs initial accessibility setup only",
+  "fixtureAssistance": false,
+  "request": {
+    "id": "request-1",
+    "resident": "home-1",
+    "need": "work",
+    "acceptedAt": 5.1999999999999895,
+    "state": "resolved",
+    "closedAt": 5.849999999999987,
+    "rewardUntil": 80.85
+  }
+}

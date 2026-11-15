@@ -1,16 +1,20 @@
-name: Settlement browser prototype
+name: Settlement browser release
 on:
   push:
+    branches: [main, release/settlement-goal-07]
     paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
   pull_request:
     paths: ['apps/settlement/**', '.github/workflows/settlement.yml', 'assets/urizen/**', 'assets/godot-node-icons/white/**', 'assets/fonts/**', 'tools/asset_catalog.py']
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: settlement-pages-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   web:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/settlement
@@ -26,8 +30,27 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release --base-href /settlement/ --no-web-resources-cdn
+      - name: Build self-contained Pages release
+        run: bash tool/release.sh '/${{ github.event.repository.name }}/settlement/'
       - uses: actions/upload-artifact@v4
         with:
           name: roag-settlement-web
-          path: apps/settlement/build/web/
+          path: apps/settlement/build/site/
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: apps/settlement/build/site/
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}settlement/
+    steps:
+      - name: Publish tested static release
+        id: deployment
+        uses: actions/deploy-pages@v4

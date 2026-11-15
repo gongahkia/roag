@@ -1,0 +1,11 @@
+{
+  "baselineHead": "b5f7ea543c75503e241d649d6d296a6d5739e958",
+  "population": 85,
+  "simulationSeconds": 180,
+  "checkpoints": 36,
+  "byteCount": 4409414,
+  "baselineSHA256": "5c447d730444836ae8e5a9bf0b8911fa585f92c67a15d67ef5b6784cb3766fec",
+  "currentSHA256": "5c447d730444836ae8e5a9bf0b8911fa585f92c67a15d67ef5b6784cb3766fec",
+  "equal": true,
+  "coverage": "Complete encoded state plus individual computed moods; no dialogue choices"
+}

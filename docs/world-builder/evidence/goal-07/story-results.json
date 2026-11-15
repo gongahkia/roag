@@ -1,0 +1,50 @@
+{
+  "url": "http://127.0.0.1:8780/settlement/",
+  "input": "Playwright browser input; no callbacks or injected state",
+  "seed": 202,
+  "environmentSequence": [
+    "Woodlands",
+    "River Country"
+  ],
+  "readingHolds": "900ms world review and 700ms staged landscape/bridge previews; harness only",
+  "timeline": [
+    {
+      "name": "create-Woodlands",
+      "seconds": 2.325
+    },
+    {
+      "name": "story-woodland",
+      "seconds": 5.832
+    },
+    {
+      "name": "story-clear",
+      "seconds": 9.577
+    },
+    {
+      "name": "story-woodland-built",
+      "seconds": 14.454
+    },
+    {
+      "name": "create-River Country",
+      "seconds": 14.774
+    },
+    {
+      "name": "story-bridge-preview",
+      "seconds": 22.053
+    },
+    {
+      "name": "story-neighbours",
+      "seconds": 27.962
+    },
+    {
+      "name": "story-crossing",
+      "seconds": 36.132
+    },
+    {
+      "name": "story-work",
+      "seconds": 36.494
+    }
+  ],
+  "errors": [],
+  "workEarned": 4800
+}

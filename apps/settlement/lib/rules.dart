@@ -13,6 +13,9 @@ abstract final class Rules {
   static const startingMoney = 200000;
   static const costs = {
     'cottage': 5000,
+    'clear': 1000,
+    'plant': 1000,
+    'bridge': 3000,
     'garden': 8000,
     'green': 6000,
     'workshop': 16000,

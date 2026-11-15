@@ -8,8 +8,16 @@ double roadCost(RoadKind road, bool rain) => road == RoadKind.stone
     : rain
     ? Rules.rainCost
     : 1;
+double terrainRoadCost(Lot lot, bool rain) {
+  if (lot.road == RoadKind.stone) return roadCost(lot.road, rain);
+  // wet ground subsumes the lesser rain penalty; bridges behave like dry paths.
+  final ground = lot.terrain == Terrain.marsh ? 1.5 : 1.0;
+  return rain && ground < Rules.rainCost ? Rules.rainCost : ground;
+}
+
 double edgeTravelCost(Landscape world, Cell from, Cell to, bool rain) =>
-    (roadCost(world.at(from).road, rain) + roadCost(world.at(to).road, rain)) /
+    (terrainRoadCost(world.at(from), rain) +
+        terrainRoadCost(world.at(to), rain)) /
     2;
 
 class _Field {
@@ -69,7 +77,7 @@ class Navigation {
     _fields.clear();
   }
 
-  bool valid(Cell c) => world.contains(c) && world.at(c).path;
+  bool valid(Cell c) => world.roadCell(c);
   _Field _field(Cell goal) {
     final cached = _fields.remove(goal);
     if (cached != null && cached.revision == revision) {

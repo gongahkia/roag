@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "Locate request centres the correct existing home",
+    "Locating changes no gameplay or RNG state",
+    "Selecting the centred roof relocates the same home ID for free",
+    "Withdraw dialogue closes the actual promise without cost, reward or time"
+  ],
+  "input": "Playwright mouse/keyboard and actual file import; no game callbacks",
+  "seed": 202,
+  "errors": []
+}

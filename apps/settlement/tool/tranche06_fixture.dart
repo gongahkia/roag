@@ -33,6 +33,20 @@ void main(List<String> args) {
     throw StateError('No actual Market-day service eligibility.');
   }
   market.speed = 0;
+  final noCustomers = Colony.decode(market.encode()), host = market.civicHost!;
+  for (final id in noCustomers.people.keys.where((id) => id != host).toList()) {
+    paint(noCustomers, Tool.remove, noCustomers.world.cottages[id]!);
+  }
+  File('${out.path}/market-no-customers.json')
+      .writeAsStringSync(noCustomers.encode());
+  final poor = Colony.decode(market.encode());
+  while (poor.session.money >= 3000) {
+    final cell = poor.world.cells.firstWhere(
+      (cell) => evaluate(poor.world, Tool.stoneRoad, cell).valid,
+    );
+    paint(poor, Tool.stoneRoad, cell);
+  }
+  File('${out.path}/market-low-funds.json').writeAsStringSync(poor.encode());
   File('${out.path}/market-day.json').writeAsStringSync(market.encode());
   final populated = Colony.decode(
     File('../../docs/world-builder/evidence/tranche-05/large-85.json')

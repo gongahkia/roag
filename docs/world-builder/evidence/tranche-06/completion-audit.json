@@ -1,0 +1,80 @@
+{
+  "requirements": {
+    "baseline and protection": [
+      "baseline-tests.log",
+      "protection.json"
+    ],
+    "real sprites and currency": [
+      "catalogue-buildings.png",
+      "catalogue-roads.png",
+      "native-catalogue-110-roads.png"
+    ],
+    "atomic relocation and actual resident/work response": [
+      "tests.log",
+      "relocation-preview.png",
+      "same-resident-new-home.png",
+      "work-resumed.png",
+      "relocated-85.json",
+      "browser-results.json"
+    ],
+    "contextual branching and optional requests": [
+      "tests.log",
+      "conversation.png",
+      "work-request.png",
+      "declined.png",
+      "acknowledgment.png",
+      "request-resolved.json"
+    ],
+    "request locating and withdrawal": [
+      "locate-results.json",
+      "request-located.png",
+      "promise-withdrawn.png"
+    ],
+    "civic choices, persistence, eligibility and affordability": [
+      "tests.log",
+      "ordinary.json",
+      "sponsored.json",
+      "no-customers.png",
+      "insufficient-funds.png"
+    ],
+    "UI sizes and native interaction": [
+      "native-results.json",
+      "desktop-1440.png",
+      "civic-931.png",
+      "civic-1440.png"
+    ],
+    "ordinary simulation equivalence and scaling": [
+      "equivalence.json",
+      "performance-before.json",
+      "performance-after.json"
+    ],
+    "existing input/persistence/events/rendering regressions": [
+      "compatibility-results.json",
+      "edge-results.json",
+      "previous-content-results.json",
+      "settings-results.json"
+    ],
+    "moving evidence": [
+      "request-choice-build-response.mp4",
+      "populated-relocation.mp4",
+      "request-motion-frames.png",
+      "story-results.json"
+    ],
+    "baseline failure distinguished and fixed": [
+      "baseline-queue.log",
+      "baseline-queue-repro.dart",
+      "tests.log"
+    ]
+  },
+  "allEvidencePresent": true,
+  "testCount": 118,
+  "noRequiredFailureRemaining": true,
+  "limits": [
+    "Other browsers/mobile and human preference not tested",
+    "Shared-machine frame-tail variability reported",
+    "Fantasy species intentionally deferred"
+  ],
+  "report": "../../TRANCHE_06.md",
+  "compatibilitySteps": 15,
+  "requestLocatingAndWithdrawalVerified": true
+}

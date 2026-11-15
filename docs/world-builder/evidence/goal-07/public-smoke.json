@@ -1,0 +1,19 @@
+{
+  "url": "https://gabrielongzm.com/roag/settlement/",
+  "generationVersion": 2,
+  "secure": true,
+  "input": "Playwright browser mouse/keyboard and real file chooser; isolated fresh context; no game callbacks",
+  "checks": [
+    "Actual canonical public URL and local assets",
+    "Version 2 Gentle Plains; four cottages and resident arrivals",
+    "Cancelled world draft and invalid import preserve active settlement",
+    "Real import of validated 500-person generated River fixture",
+    "Actual off-screen work advances income after pan",
+    "Paused public reload retains terrain and residents"
+  ],
+  "population": 500,
+  "workBeforePan": 8260,
+  "workAfterPan": 41710,
+  "errors": [],
+  "bad": []
+}

@@ -1,0 +1,1 @@
+{"plains":{"samples":100,"medianUs":733,"p95Us":2437,"maxUs":10502},"woodlands":{"samples":100,"medianUs":950,"p95Us":1231,"maxUs":2297},"river":{"samples":100,"medianUs":802,"p95Us":1617,"maxUs":2687}}

@@ -1,0 +1,76 @@
+{
+  "seed": 202,
+  "timeline": [
+    {
+      "name": "need-expressed",
+      "seconds": 4.13
+    },
+    {
+      "name": "promise-accepted",
+      "seconds": 7.625
+    },
+    {
+      "name": "jobs-built",
+      "seconds": 10.761
+    },
+    {
+      "name": "actual-work",
+      "seconds": 16.972
+    },
+    {
+      "name": "resident-responds",
+      "seconds": 18.038
+    }
+  ],
+  "errors": [],
+  "request": {
+    "id": "request-1",
+    "resident": "home-1",
+    "need": "work",
+    "acceptedAt": 12.000000000000036,
+    "state": "resolved",
+    "closedAt": 13.800000000000061,
+    "rewardUntil": 88.80000000000007
+  },
+  "resident": {
+    "id": "home-1",
+    "active": true,
+    "palette": 2,
+    "bodyId": "plain-v1",
+    "name": "Ida Lake",
+    "trait": "sociable",
+    "gardenDay": -1,
+    "tradeDay": -1,
+    "lastShopping": -10000,
+    "segmentSpeed": 0,
+    "segmentGarden": false,
+    "cell": [
+      7,
+      15
+    ],
+    "x": 7.5,
+    "y": 15.5,
+    "activity": "working",
+    "route": [],
+    "timer": -0.04999999999999999,
+    "arrived": true,
+    "destination": "garden-6",
+    "workId": "garden-6",
+    "bornAt": 0,
+    "lastWork": -10000,
+    "lastSocial": -10000,
+    "workProgress": 3.4499999999999957,
+    "socialProgress": 0,
+    "workedSeconds": 3.4499999999999957,
+    "earned": 690,
+    "connectionLostAt": -1,
+    "eventBenefitUntil": -1,
+    "awardedEvent": null,
+    "workIssue": "none",
+    "leisureIssue": "noLeisure",
+    "replan": false,
+    "settle": null
+  },
+  "input": "Playwright mouse/keyboard, actual fixture import; no game callbacks or forced job/reward",
+  "fixture": "Four-person genuine-need town; dialogue/construction paused explicitly, actual work at 1×; reading holds belong only to this recording script"
+}

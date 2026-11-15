@@ -131,6 +131,70 @@
       "file": "images/resident.png",
       "sha256": "005b85145765748479f41d79809de12b79d643814e0e82e681562a9e64e5c7b7"
     },
+    "water": {
+      "id": "urizen-onebit-r12-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        157,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/water.png",
+      "sha256": "5e54fd89dc065254e4e5424882cc1decd5e502fe33d0d8172c3f6d13db8d1566"
+    },
+    "boulder": {
+      "id": "urizen-onebit-r13-c004",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        53,
+        170,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/boulder.png",
+      "sha256": "0251666837b2fc2cdf6ae297fe828d06b853826112f76f48c2064ffd7cd55695"
+    },
+    "bridge-h": {
+      "id": "urizen-onebit-r40-c011",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        144,
+        521,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/bridge-h.png",
+      "sha256": "ea3adb995bbe60de06493e1b2d0ac4915e060f499a292073e8a4dcede64dde03"
+    },
+    "bridge-v": {
+      "id": "urizen-onebit-r40-c010",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        131,
+        521,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/bridge-v.png",
+      "sha256": "7252742655c126165ecf5d98802f75e66ef4f1313605c21a73751ae6cdce434f"
+    },
     "workshop": {
       "id": "urizen-onebit-r33-c005",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
