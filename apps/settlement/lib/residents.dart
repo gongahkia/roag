@@ -207,7 +207,8 @@ class Residents {
                 .compareTo((b.x + .5 - r.x).abs() + (b.y + .5 - r.y).abs()),
           );
     r.route.clear();
-    r.segmentSpeed=0;r.segmentGarden=false;
+    r.segmentSpeed = 0;
+    r.segmentGarden = false;
     r.replanAfterEdge = false;
     r.destination = null;
     if (legal.isEmpty) {
@@ -330,7 +331,8 @@ class Residents {
     }
   }
 
-  double walkingSpeed(Resident r, Cell target) => Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation;
+  double walkingSpeed(Resident r, Cell target) =>
+      Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation;
   bool gardenSegment(Resident r, Cell target) => false;
   void traversed(Resident r, Cell target, bool garden) {}
 
@@ -341,7 +343,10 @@ class Residents {
         _settle(r);
         return false;
       }
-      if (r.segmentSpeed == 0) { r.segmentSpeed = speed;r.segmentGarden = gardenSegment(r,target); }
+      if (r.segmentSpeed == 0) {
+        r.segmentSpeed = speed;
+        r.segmentGarden = gardenSegment(r, target);
+      }
       speed = r.segmentSpeed;
     }
     final dx = target.x + .5 - r.x, dy = target.y + .5 - r.y;
@@ -351,8 +356,11 @@ class Residents {
       r.x = target.x + .5;
       r.y = target.y + .5;
       r.cell = target;
-      if (r.activity != Activity.settling) traversed(r,target,r.segmentGarden);
-      r.segmentSpeed=0;r.segmentGarden=false;
+      if (r.activity != Activity.settling) {
+        traversed(r, target, r.segmentGarden);
+      }
+      r.segmentSpeed = 0;
+      r.segmentGarden = false;
       return true;
     }
     r.x += dx / distance * speed * dt;

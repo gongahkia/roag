@@ -13,6 +13,7 @@ import 'reasons.dart';
 import 'speech.dart';
 import 'appearance.dart';
 import 'resident_presentation.dart';
+import 'special_event.dart';
 
 class SettlementGame extends FlameGame {
   Colony colony;
@@ -38,6 +39,13 @@ class SettlementGame extends FlameGame {
     'routeSearches': colony.routeSearches,
     'population': colony.people.length,
     'clock': colony.clock,
+    'cacheHits': colony.navigation.hits,
+    'expansions': colony.navigation.expansions,
+    'fieldsBuilt': colony.navigation.fieldsBuilt,
+    'planningBacklog': colony.planning.length,
+    'planned': colony.planned,
+    'discardedPlans': colony.discardedPlans,
+    'navigationRevision': colony.navigation.revision,
   };
   SettlementGame(
     this.colony,
@@ -67,6 +75,9 @@ class SettlementGame extends FlameGame {
       'dirt',
       'oak',
       'vegetables',
+      'workshop',
+      'market',
+      'hall',
       'cottage0',
       'cottage1',
       'resident',
@@ -101,10 +112,7 @@ class SettlementGame extends FlameGame {
 
   void hover(Offset point) {
     if (!canvasReady) return;
-    if (inspectMode) {
-      inspect(point);
-      return;
-    }
+    if (inspectMode) return;
     _hoverPoint = point;
     final c = pick(point);
     if (session.stroke?.changed.contains(c) == true) {
@@ -235,25 +243,38 @@ class SettlementGame extends FlameGame {
 
   Reason speechReason(Resident r) =>
       r.feedback == Reason.noWork &&
-          colony.places(Place.garden).isNotEmpty &&
+          colony.workplaces.isNotEmpty &&
           colony
               .places(Place.garden)
               .every((p) => colony.world.access(p.value) == null)
       ? Reason.farmsCut
       : r.feedback;
 
+  Offset? _inspectionPoint;
+  int nearbyPeople = 0;
+  bool inspectedEvent = false;
   void inspect(Offset point) {
-    inspectedResident = null;
-    var nearest = 24.0;
+    final hits = <(String, double)>[];
     for (final r in residents.people.values.where((r) => r.visible)) {
       final p = actorPosition(r),
           screen = camera.localToGlobal(Vector2(p.dx, p.dy - 4));
       final distance = (Offset(screen.x, screen.y) - point).distance;
-      if (distance < nearest) {
-        nearest = distance;
-        inspectedResident = r.homeId;
-      }
+      if (distance < 24) hits.add((r.homeId, distance));
     }
+    hits.sort(
+      (a, b) => a.$2 != b.$2 ? a.$2.compareTo(b.$2) : a.$1.compareTo(b.$1),
+    );
+    final ids = hits.map((h) => h.$1).toList();
+    final cycle =
+        _inspectionPoint != null &&
+        (_inspectionPoint! - point).distance < 8 &&
+        ids.contains(inspectedResident);
+    inspectedResident = ids.isEmpty
+        ? null
+        : ids[cycle ? (ids.indexOf(inspectedResident!) + 1) % ids.length : 0];
+    nearbyPeople = ids.length;
+    _inspectionPoint = point;
+    inspectedEvent = false;
     inspectedCell = pick(point);
     onState?.call();
   }
@@ -261,9 +282,16 @@ class SettlementGame extends FlameGame {
   void clearInspection() {
     inspectedResident = null;
     inspectedCell = null;
+    _inspectionPoint = null;
+    nearbyPeople = 0;
+    inspectedEvent = false;
   }
 
   String? get inspection {
+    if (inspectedEvent && colony.special != null) {
+      final e = colony.special!;
+      return '${e.title}\n${e.effect}\n${e.active(colony.clock) ? 'Ends in ${(e.ends - colony.clock).ceil()} seconds.' : 'This event has ended.'}';
+    }
     final r = colony.people[inspectedResident];
     if (r != null) {
       final reason = speechReason(r);
@@ -278,22 +306,40 @@ class SettlementGame extends FlameGame {
           .where((e) => e.value != 0)
           .map((e) => '${e.key} ${e.value > 0 ? '+' : ''}${e.value}')
           .join(' · ');
-      return 'Resident · ${Appearance.description(r.bodyId, r.palette)}\n${activityLabel(r.activity)}\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}';
+      final home = colony.world.cottages[r.homeId],
+          work = colony.world.places[r.workId];
+      return '${r.name} · ${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
     }
     final c = inspectedCell;
     if (c == null || !session.world.contains(c)) return null;
     final lot = session.world.at(c), access = session.world.access(c);
-    if (lot.place == Place.garden) {
-      return 'Farm · ${Rules.gardenCapacity} work positions\n${colony.workers(lot.placeId!)} working · ${colony.jobs(lot.placeId!)} assigned. Income: ${Rules.coins(Rules.workIncomePerSecond)} coin/second per actual worker.\n${colony.people.values.where((r) => [Reason.noWork, Reason.workFull, Reason.workCut].contains(r.workIssue)).length} residents seeking reachable work.\n${access == null ? 'Restore a path to the arrival lane.' : 'Residents find jobs and follow paths automatically.'}';
-    }
-    if (lot.place == Place.green) {
-      return 'Park · ${Rules.greenCapacity} visitor spaces\n${colony.occupancy(lot.placeId!)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood. Travellers do not occupy seats.\n${access == null ? 'Restore a path to the arrival lane.' : 'A successful neighbourhood can gather here in the evening.'}';
+    final place = lot.place;
+    if (place != null) {
+      final id = lot.placeId!;
+      final work = place.workCapacity > 0
+          ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.\n'
+          : '';
+      final visits = place.visitorCapacity > 0
+          ? '${place.visitorCapacity} visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'
+          : '';
+      final trade = place == Place.market
+          ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.coins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.coins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
+          : '';
+      return '${place.label} · $work$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
     }
     if (lot.cottage != null) {
       return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
     }
     return lot.path
-        ? 'Path · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\nConnect homes, Farms and Parks to the arrival lane.'
+        ? '${lot.road == RoadKind.dirt
+              ? 'Dirt path'
+              : lot.road == RoadKind.stone
+              ? 'Stone Road'
+              : 'Garden Path'} · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n${lot.road == RoadKind.stone
+              ? '18% quicker travel; unaffected by rain.'
+              : lot.road == RoadKind.gardenPath
+              ? 'Normal speed; +3 mood after actual traversal, once per day. Rain slows travel.'
+              : 'Free baseline path; rain slows travel.'}'
         : 'Landscape · choose a building beside a connected path.';
   }
 
@@ -301,10 +347,10 @@ class SettlementGame extends FlameGame {
     Activity.pending => 'Moving in soon',
     Activity.arriving => 'Arriving',
     Activity.workTravel => 'Walking to work',
-    Activity.working => 'Tending a Farm',
-    Activity.socialTravel => 'Walking to the Park',
+    Activity.working => 'Working',
+    Activity.socialTravel => 'Walking to a social visit',
     Activity.socialising => 'Socialising',
-    Activity.socialWaiting => 'Waiting for room at the Park',
+    Activity.socialWaiting => 'Waiting for a visitor space or service',
     Activity.gatheringTravel => 'Joining the gathering',
     Activity.gathering => 'At the gathering',
     Activity.resting => 'Resting',
@@ -369,7 +415,7 @@ class SettlementGame extends FlameGame {
       avoid: [
         const Rect.fromLTWH(16, 12, 510, 28),
         // matches the existing top-right read-only inspector, with safe padding.
-        if (inspection != null) Rect.fromLTWH(size.x - 312, 0, 312, 260),
+        if (inspection != null) Rect.fromLTWH(size.x - 312, 0, 312, 400),
       ],
     );
   }
@@ -383,6 +429,16 @@ class SettlementGame extends FlameGame {
         Offset.zero & Size(size.x, size.y),
         Paint()..color = const Color(0x15131c30),
       );
+    }
+    if (colony.raining && !reducedMotion) {
+      final paint = Paint()
+        ..color = const Color(0x456b9caf)
+        ..strokeWidth = 1;
+      for (var i = 0; i < 45; i++) {
+        final x = (i * 131.0 + presentation.time * 25) % size.x;
+        final y = (i * 79.0 + presentation.time * 180) % size.y;
+        canvas.drawLine(Offset(x, y), Offset(x - 3, y + 7), paint);
+      }
     }
     final e = colony.event;
     if (e != null &&
@@ -489,9 +545,14 @@ class _LandscapeLayer extends Component {
 
   void road(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) {
     final mask = scene.roadMask(c);
+    final road = scene.at(c).road;
     final color = Color.lerp(
       const Color(0xff7b7660),
-      const Color(0xffbba47d),
+      road == RoadKind.stone
+          ? const Color(0xffa3b2ad)
+          : road == RoadKind.gardenPath
+          ? const Color(0xff8f9f65)
+          : const Color(0xffbba47d),
       scene.activePaths.contains(c) ? 1 : 0,
     )!.withValues(alpha: opacity);
     var index = roadArt[mask];
@@ -500,6 +561,24 @@ class _LandscapeLayer extends Component {
     }
     if (index != null) {
       frame(canvas, 'road$index', c, color);
+      if (road != RoadKind.dirt) {
+        for (final d in [const Offset(4, 4), const Offset(7, 7)]) {
+          canvas.drawRect(
+            Rect.fromLTWH(
+              c.x * 12 + d.dx,
+              c.y * 12 + d.dy,
+              road == RoadKind.stone ? 2 : 1,
+              1,
+            ),
+            Paint()
+              ..color =
+                  (road == RoadKind.stone
+                          ? const Color(0xff657c78)
+                          : const Color(0xffe5d3a0))
+                      .withValues(alpha: opacity),
+          );
+        }
+      }
     } else {
       // The source set has no ends. Clip existing dirt to a real center + ports.
       final x = c.x * 12.0, y = c.y * 12.0;
@@ -581,7 +660,29 @@ class _LandscapeLayer extends Component {
                     : const Color(0xff456347))
                 .withValues(alpha: opacity),
     );
-    if (lot.place == Place.garden) {
+    if ([Place.workshop, Place.market, Place.hall].contains(lot.place)) {
+      frame(
+        canvas,
+        lot.place!.name,
+        c,
+        lot.place == Place.workshop
+            ? const Color(0xffb5beb6)
+            : lot.place == Place.market
+            ? const Color(0xffdbab78)
+            : const Color(0xffc4b0ca),
+        opacity: opacity,
+      );
+      if (lot.place == Place.market) {
+        for (var i = 0; i < 4; i++)
+          canvas.drawRect(
+            Rect.fromLTWH(x + 1 + i * 2, y + 3, 2, 2),
+            Paint()
+              ..color =
+                  (i.isEven ? const Color(0xffbf7e65) : const Color(0xffe6cf94))
+                      .withValues(alpha: opacity),
+          );
+      }
+    } else if (lot.place == Place.garden) {
       for (final row in [3.0, 7.0]) {
         canvas.drawRect(
           Rect.fromLTWH(x + 1, y + row, 10, 2),
@@ -720,13 +821,24 @@ class _LandscapeLayer extends Component {
         ..filterQuality = FilterQuality.none
         ..isAntiAlias = false,
     );
-    final people = game.residents.visible.toList()
-      ..sort(
-        (a, b) =>
-            game.actorPosition(a.$1).dy.compareTo(game.actorPosition(b.$1).dy),
-      );
+    final visible = game.camera.visibleWorldRect.inflate(14);
+    final people =
+        game.residents.visible
+            .where(
+              (entry) =>
+                  visible.contains(Offset(entry.$1.x * 12, entry.$1.y * 12)),
+            )
+            .toList()
+          ..sort(
+            (a, b) => game
+                .actorPosition(a.$1)
+                .dy
+                .compareTo(game.actorPosition(b.$1).dy),
+          );
     var actor = 0;
     for (final c in _objects) {
+      if (!visible.overlaps(Rect.fromLTWH(c.x * 12.0, c.y * 12.0, 12, 12)))
+        continue;
       while (actor < people.length &&
           game.actorPosition(people[actor].$1).dy <= (c.y + 1) * 12) {
         person(canvas, people[actor].$1, people[actor].$2);
@@ -878,6 +990,14 @@ class _LandscapeLayer extends Component {
     if (sprite == null) return;
     canvas.save();
     canvas.translate(position.dx, position.dy);
+    if (game.inspectedResident == r.homeId)
+      canvas.drawOval(
+        const Rect.fromLTWH(-3, -1, 6, 2),
+        Paint()
+          ..color = gold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .4,
+      );
     canvas.drawOval(
       const Rect.fromLTWH(-2.5, -.4, 5, 1.3),
       Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .75),

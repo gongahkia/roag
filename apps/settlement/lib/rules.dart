@@ -8,7 +8,16 @@ abstract final class Rules {
   static const day = 150.0;
   static const morningEnd = 15.0, eveningStart = 90.0, nightStart = 125.0;
   static const startingMoney = 200000;
-  static const costs = {'cottage': 5000, 'garden': 8000, 'green': 6000, 'workshop':16000, 'market':14000, 'hall':12000, 'stoneRoad':2000, 'gardenPath':1000};
+  static const costs = {
+    'cottage': 5000,
+    'garden': 8000,
+    'green': 6000,
+    'workshop': 16000,
+    'market': 14000,
+    'hall': 12000,
+    'stoneRoad': 2000,
+    'gardenPath': 1000,
+  };
   static const grantPerDay = 20000;
   static const workIncomePerSecond = 200;
   static const gardenCapacity = 2, greenCapacity = 6;

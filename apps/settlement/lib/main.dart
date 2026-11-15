@@ -9,6 +9,7 @@ import 'browser.dart' as browser;
 import 'model.dart';
 import 'colony.dart';
 import 'rules.dart';
+import 'appearance.dart';
 import 'settlement_game.dart';
 
 void main() => runApp(const SettlementApp());
@@ -58,6 +59,9 @@ class _LandscapePageState extends State<LandscapePage> {
   String notice = '';
   int noticeId = 0;
   bool muted = false, space = false, menuOpen = false;
+  final catalogueKey = GlobalKey<PopupMenuButtonState<Tool>>();
+  Offset? inspectionStart;
+  bool inspectionDragged = false;
   Offset? last;
   int? pointer;
   bool panning = false, reportedInvalid = false;
@@ -189,9 +193,11 @@ class _LandscapePageState extends State<LandscapePage> {
         space || e.buttons & (kSecondaryMouseButton | kMiddleMouseButton) != 0;
     if (!pan && e.buttons & kPrimaryMouseButton == 0) return;
     focus.requestFocus();
-    if (game.inspectMode || HardwareKeyboard.instance.isAltPressed) {
-      game.inspect(e.localPosition);
-      setState(() {});
+    if (!pan && (game.inspectMode || HardwareKeyboard.instance.isAltPressed)) {
+      pointer = e.pointer;
+      inspectionStart = e.localPosition;
+      inspectionDragged = false;
+      last = e.localPosition;
       return;
     }
     pointer = e.pointer;
@@ -206,6 +212,11 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void pointerMove(PointerMoveEvent e) {
     if (pointer != e.pointer || last == null) return;
+    if (inspectionStart != null) {
+      if ((e.localPosition - inspectionStart!).distance > 5)
+        inspectionDragged = true;
+      return;
+    }
     if (!inside(e.localPosition)) {
       finishGesture();
       return;
@@ -220,6 +231,16 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void pointerUp(PointerUpEvent e) {
     if (pointer != e.pointer) return;
+    if (inspectionStart != null) {
+      if (!inspectionDragged &&
+          (e.localPosition - inspectionStart!).distance <= 5)
+        game.inspect(e.localPosition);
+      inspectionStart = null;
+      pointer = null;
+      last = null;
+      setState(() {});
+      return;
+    }
     if (!panning && inside(e.localPosition)) paintAt(e.localPosition);
     finishGesture();
   }
@@ -259,6 +280,8 @@ class _LandscapePageState extends State<LandscapePage> {
   }
 
   void cancelGesture() {
+    inspectionStart = null;
+    inspectionDragged = false;
     session.cancelStroke();
     pointer = null;
     last = null;
@@ -320,6 +343,18 @@ class _LandscapePageState extends State<LandscapePage> {
       select(Tool.garden);
     } else if (k == LogicalKeyboardKey.digit5 || k == LogicalKeyboardKey.keyV) {
       select(Tool.green);
+    } else if (k == LogicalKeyboardKey.digit6) {
+      select(Tool.workshop);
+    } else if (k == LogicalKeyboardKey.digit7) {
+      select(Tool.market);
+    } else if (k == LogicalKeyboardKey.digit8) {
+      select(Tool.hall);
+    } else if (k == LogicalKeyboardKey.digit9) {
+      select(Tool.stoneRoad);
+    } else if (k == LogicalKeyboardKey.digit0) {
+      select(Tool.gardenPath);
+    } else if (k == LogicalKeyboardKey.keyB) {
+      catalogueKey.currentState?.showButtonMenu();
     } else if (k == LogicalKeyboardKey.keyI) {
       toggleInspection();
     } else if (k == LogicalKeyboardKey.keyT) {
@@ -418,7 +453,8 @@ class _LandscapePageState extends State<LandscapePage> {
                 'Click or drag, release to commit one stroke. Escape cancels. Undo during a stroke cancels it first.\n\n'
                 'Farms have ${Rules.gardenCapacity} work positions: people must reach them and work to earn ${Rules.coins(Rules.workIncomePerSecond)} coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
                 'Parks have ${Rules.greenCapacity} visitor spaces for actual social visits and relaxation. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
-                'I: inspect; Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
+                'B: grouped build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
+                'I: inspect; click a person; click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
                 'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
               ),
@@ -449,6 +485,9 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void replaceColony(Colony next) {
     cancelGesture();
+    next.navigation.invalidate(next.world, raining: next.raining);
+    if (next.navigation.revision <= colony.navigation.revision)
+      next.navigation.revision = colony.navigation.revision + 1;
     colony = next;
     game.colony = next;
     game.resetPresentation();
@@ -502,7 +541,7 @@ class _LandscapePageState extends State<LandscapePage> {
           'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
     }
     if (game.inspectMode) {
-      hint = 'Inspect a person or place · I / Escape returns to building.';
+      hint = 'Click a person or place · repeat click cycles nearby people · Escape closes.';
     }
     if (preview != null &&
         scene.contains(preview!.cell) &&
@@ -730,6 +769,30 @@ class _LandscapePageState extends State<LandscapePage> {
                         ),
                       ),
                     ),
+                    if (colony.special?.active(colony.clock) == true)
+                      Positioned(
+                        left: 24,
+                        top: 40,
+                        child: Tooltip(
+                          message: colony.special!.effect,
+                          child: TextButton(
+                            onPressed: () {
+                              cancelGesture();
+                              game.clearInspection();
+                              game.inspectedEvent = true;
+                              setState(() {});
+                            },
+                            child: Text(
+                              '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · inspect',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xffe4d29b),
+                                backgroundColor: Color(0xdd202a25),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (game.inspection != null)
                       Positioned(
                         right: 16,
@@ -739,12 +802,25 @@ class _LandscapePageState extends State<LandscapePage> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             color: const Color(0xf0202a25),
-                            child: Text(
-                              '${game.inspection}\n\nEscape closes · I toggles inspect mode',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xffeadfbd),
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (colony.people[game.inspectedResident] !=
+                                    null)
+                                  Image.asset(
+                                    'assets/images/${Appearance.sprite(colony.people[game.inspectedResident]!.bodyId, colony.people[game.inspectedResident]!.palette)}.png',
+                                    width: 32,
+                                    height: 32,
+                                    filterQuality: FilterQuality.none,
+                                  ),
+                                Text(
+                                  '${game.inspection}\n\nEscape closes · I toggles inspect mode',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xffeadfbd),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -779,7 +855,7 @@ class _LandscapePageState extends State<LandscapePage> {
                 children: [
                   Row(
                     children: [
-                      for (final t in Tool.values)
+                      for (final t in Tool.values.take(5))
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: Tooltip(
@@ -837,6 +913,93 @@ class _LandscapePageState extends State<LandscapePage> {
                             ),
                           ),
                         ),
+                      PopupMenuButton<Tool>(
+                        key: catalogueKey,
+                        tooltip: 'Build catalogue (B)',
+                        onOpened: () {
+                          cancelGesture();
+                          setState(() => menuOpen = true);
+                          game.menuVisible = true;
+                        },
+                        onCanceled: () {
+                          setState(() => menuOpen = false);
+                          game.menuVisible = false;
+                          focus.requestFocus();
+                        },
+                        onSelected: (t) {
+                          menuOpen = false;
+                          game.menuVisible = false;
+                          select(t);
+                        },
+                        itemBuilder: (context) => [
+                          for (final group in <String, List<Tool>>{
+                            'Homes': [Tool.cottage],
+                            'Work': [Tool.garden, Tool.workshop, Tool.market],
+                            'Social': [Tool.green, Tool.hall],
+                            'Roads': [
+                              Tool.path,
+                              Tool.stoneRoad,
+                              Tool.gardenPath,
+                            ],
+                          }.entries) ...[
+                            PopupMenuItem<Tool>(
+                              enabled: false,
+                              height: 26,
+                              child: Text(
+                                group.key,
+                                style: const TextStyle(
+                                  color: Color(0xffd8c78f),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                            for (final t in group.value)
+                              PopupMenuItem<Tool>(
+                                value: t,
+                                height: 54,
+                                child: SizedBox(
+                                  width: 280,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${t.index == 9 ? 0 : t.index + 1} ${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins'}',
+                                      ),
+                                      Text(
+                                        t.purpose,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xffb9c4ad),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xff7a8760)),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.apps, size: 16),
+                              const SizedBox(width: 5),
+                              Text(
+                                tool.index >= 5 ? tool.label : 'Build…',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const Spacer(),
                       IconButton(
                         tooltip: 'Zoom out (−)',

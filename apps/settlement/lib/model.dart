@@ -9,7 +9,11 @@ enum Tool {
   remove,
   garden,
   green,
-  workshop, market, hall, stoneRoad, gardenPath;
+  workshop,
+  market,
+  hall,
+  stoneRoad,
+  gardenPath;
 
   String get label => switch (this) {
     cottage => 'Cottage',
@@ -17,12 +21,26 @@ enum Tool {
     remove => 'Remove',
     garden => 'Farm',
     green => 'Park',
-    workshop => 'Workshop', market => 'Market', hall => 'Community Hall',
-    stoneRoad => 'Stone Road', gardenPath => 'Garden Path',
+    workshop => 'Workshop',
+    market => 'Market',
+    hall => 'Community Hall',
+    stoneRoad => 'Stone Road',
+    gardenPath => 'Garden Path',
   };
   bool get isRoad => this == path || this == stoneRoad || this == gardenPath;
-  RoadKind get roadKind => this == stoneRoad ? RoadKind.stone : this == gardenPath ? RoadKind.gardenPath : RoadKind.dirt;
-  Place? get place => switch(this) { garden => Place.garden, green => Place.green, workshop => Place.workshop, market => Place.market, hall => Place.hall, _ => null };
+  RoadKind get roadKind => this == stoneRoad
+      ? RoadKind.stone
+      : this == gardenPath
+      ? RoadKind.gardenPath
+      : RoadKind.dirt;
+  Place? get place => switch (this) {
+    garden => Place.garden,
+    green => Place.green,
+    workshop => Place.workshop,
+    market => Place.market,
+    hall => Place.hall,
+    _ => null,
+  };
   String get purpose => switch (this) {
     cottage => 'A cottage beside a connected path.',
     path => 'Extend the lane, one cell at a time.',
@@ -35,18 +53,45 @@ enum Tool {
     market => '1 vendor + 3 customers · staffed visits earn trade income.',
     hall => '8 covered visitor spaces · preferred in rain.',
     stoneRoad => '18% quicker travel · stays quick in rain · 2 coins/cell.',
-    gardenPath => 'Normal pace · +3 mood after traversal, once per day · 1 coin/cell.',
+    gardenPath =>
+      'Normal pace · +3 mood after traversal, once per day · 1 coin/cell.',
   };
 }
 
 enum RoadKind { dirt, stone, gardenPath }
 
 enum Place {
-  garden, green, workshop, market, hall;
-  String get label => switch(this) { garden=>'Farm', green=>'Park', workshop=>'Workshop', market=>'Market', hall=>'Community Hall' };
-  int get workCapacity => switch(this) { garden=>Rules.gardenCapacity, workshop=>1, market=>1, _=>0 };
-  int get visitorCapacity => switch(this) { green=>Rules.greenCapacity, hall=>8, market=>3, _=>0 };
-  int get income => switch(this) { garden=>Rules.workIncomePerSecond, workshop=>400, market=>100, _=>0 };
+  garden,
+  green,
+  workshop,
+  market,
+  hall;
+
+  String get label => switch (this) {
+    garden => 'Farm',
+    green => 'Park',
+    workshop => 'Workshop',
+    market => 'Market',
+    hall => 'Community Hall',
+  };
+  int get workCapacity => switch (this) {
+    garden => Rules.gardenCapacity,
+    workshop => 1,
+    market => 1,
+    _ => 0,
+  };
+  int get visitorCapacity => switch (this) {
+    green => Rules.greenCapacity,
+    hall => 8,
+    market => 3,
+    _ => 0,
+  };
+  int get income => switch (this) {
+    garden => Rules.workIncomePerSecond,
+    workshop => 400,
+    market => 100,
+    _ => 0,
+  };
   double get workDuration => this == market ? 35 : Rules.workDuration;
 }
 
@@ -320,7 +365,10 @@ class Landscape {
         trace: Trace.values.firstWhere((t) => t.name == row[2]),
         path: row[3],
         road: modern && row.length == 9
-            ? RoadKind.values.firstWhere((r)=>r.name == row[8], orElse:()=>throw const FormatException('Invalid road kind.'))
+            ? RoadKind.values.firstWhere(
+                (r) => r.name == row[8],
+                orElse: () => throw const FormatException('Invalid road kind.'),
+              )
             : RoadKind.dirt,
         cottage: row[4] == null
             ? null
@@ -342,7 +390,9 @@ class Landscape {
             : null,
         placeId: modern && row[7] is String ? row[7] : null,
       );
-      if (row.length == 9 && !l.path) throw const FormatException('Road kind without a road.');
+      if (row.length == 9 && !l.path) {
+        throw const FormatException('Road kind without a road.');
+      }
       if (modern &&
           ((l.place == null) != (row[7] == null) ||
               (l.place != null &&
@@ -454,8 +504,15 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
     );
   }
   if (tool.isRoad && old.path) {
-    if (old.road == tool.roadKind) return no('This road already has that surface.');
-    return Placement(world, world.replace(c, Lot(grass:old.grass, path:true, road:tool.roadKind)), c, 'Change to ${tool.label} · ${Rules.coins(Rules.cost(tool.name))} coins');
+    if (old.road == tool.roadKind) {
+      return no('This road already has that surface.');
+    }
+    return Placement(
+      world,
+      world.replace(c, Lot(grass: old.grass, path: true, road: tool.roadKind)),
+      c,
+      'Change to ${tool.label} · ${Rules.coins(Rules.cost(tool.name))} coins',
+    );
   }
   if (world.occupied(c)) return no('This ground is occupied.');
   if (old.scenery == Scenery.oak) return no('A tree occupies this ground.');
@@ -482,8 +539,9 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
         cottage: tool == Tool.cottage ? variation(world.seed, c, 4) % 2 : null,
         cottageId: tool == Tool.cottage ? 'home-${world.nextCottageId}' : null,
         place: tool.place,
-        placeId: tool.place == null ? null : '${tool.place!.name}-${world.nextCottageId}',
-
+        placeId: tool.place == null
+            ? null
+            : '${tool.place!.name}-${world.nextCottageId}',
       ),
       allocateCottage: !tool.isRoad,
     ),
@@ -524,7 +582,14 @@ class LandscapeSession {
     final price = unlimited
         ? 0
         : Rules.cost(
-            lot.place?.name ?? (lot.cottage != null ? 'cottage' : lot.road == RoadKind.stone ? 'stoneRoad' : lot.road == RoadKind.gardenPath ? 'gardenPath' : 'path'),
+            lot.place?.name ??
+                (lot.cottage != null
+                    ? 'cottage'
+                    : lot.road == RoadKind.stone
+                    ? 'stoneRoad'
+                    : lot.road == RoadKind.gardenPath
+                    ? 'gardenPath'
+                    : 'path'),
           );
     if (price > money) return false;
     return _commit(plan.after!, price);
@@ -666,7 +731,10 @@ class BrushStroke {
   void paintTo(Cell target) {
     for (final c in cardinalStroke(last ?? target, target)) {
       if (changed.contains(c)) continue;
-      if (tool.isRoad && staged.contains(c) && staged.at(c).path && staged.at(c).road == tool.roadKind) {
+      if (tool.isRoad &&
+          staged.contains(c) &&
+          staged.at(c).path &&
+          staged.at(c).road == tool.roadKind) {
         continue;
       }
       final plan = evaluate(staged, tool, c);

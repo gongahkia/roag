@@ -8,46 +8,55 @@ enum Reason {
     true,
   ),
   noWork(
-    'Looking for farm work.',
+    'Looking for work.',
     'Build or connect a Farm. Each has two work positions.',
     true,
   ),
   workFull(
-    'The farms are fully staffed.',
+    'The workplaces are fully staffed.',
     'Both work positions are assigned. Build or connect another Farm.',
     true,
   ),
   workCut(
-    'I can’t reach my farm.',
-    'Restore a path between this home and its assigned farm.',
+    'I can’t reach my workplace.',
+    'Restore a path between this home and its assigned workplace.',
     true,
   ),
   farmsCut(
-    'The farms need a path.',
-    'Farms exist, but none can be reached. Reconnect their paths to the arrival lane.',
+    'The workplaces need a path.',
+    'Workplaces exist, but none can be reached. Reconnect their paths to the arrival lane.',
     true,
   ),
   offWork(
-    'Off to the farm.',
-    'Following a valid route to an assigned farm. Travel takes time.',
+    'Off to work.',
+    'Following a valid route to an assigned workplace. Travel takes time.',
     false,
   ),
   workDone(
     'A good day’s work!',
-    'Completed real productive time in a farm. The earnings are in the treasury.',
+    'Completed real productive time at a workplace. The earnings are in the treasury.',
     false,
   ),
   noLeisure(
-    'A park would be lovely.',
-    'Build or connect a Park for a social visit.',
+    'Somewhere to relax would be lovely.',
+    'Build or connect a Park or Hall, or staff a reachable Market.',
     true,
   ),
   socialFull(
-    'Waiting for room at the park.',
+    'Waiting for a visitor space.',
     'Actually waiting beside a full park. There are six social places; another reachable park can help.',
     true,
   ),
-  socialCut('I can’t reach the park.', 'Restore a path to the Park.', true),
+  socialCut(
+    'I can’t reach a social venue.',
+    'Restore a path to a Park, Hall or staffed Market.',
+    true,
+  ),
+  marketUnstaffed(
+    'Waiting for a vendor.',
+    'This Market needs a present working vendor before a visit can be served.',
+    true,
+  ),
   socialDone(
     'That was lovely.',
     'Completed a qualifying social visit. Recent leisure improves happiness.',
@@ -63,11 +72,9 @@ enum Reason {
   final bool problem;
   String get detail => switch (this) {
     noWork =>
-      'Build a Farm beside a connected path. Each has ${Rules.gardenCapacity} work positions.',
-    workFull =>
-      'Reachable Farms have all work positions assigned (${Rules.gardenCapacity} per Farm). Another connected Farm can help.',
-    socialFull =>
-      'Actually waiting beside a full Park (${Rules.greenCapacity} visitor spaces). Another reachable Park can help.',
+      'Build a Farm, Workshop or Market beside a connected path. Farms offer ${Rules.gardenCapacity} work positions; Workshops and Markets each offer one.',
+    workFull => 'Reachable workplaces have their jobs assigned. Another connected Farm, Workshop or Market can help.',
+    socialFull => 'Actually waiting at a full social venue. Parks, Halls and staffed Markets have bounded visitor spaces.',
     _ => _detail,
   };
   const Reason(this.bubble, this._detail, this.problem);

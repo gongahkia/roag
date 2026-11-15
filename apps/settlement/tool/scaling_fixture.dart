@@ -27,17 +27,24 @@ Colony scalingTown(int population) {
     for (var y = 0; y < h; y += 2)
       for (var x = 1; x < w; x++) Cell(x, y),
   ];
-  for (var i = 0; i < 10; i++) add(Tool.garden, candidates.removeAt(0));
-  for (var i = 0; i < 5; i++) add(Tool.green, candidates.removeAt(0));
+  for (var i = 0; i < 10; i++) {
+    add(Tool.garden, candidates.removeAt(0));
+  }
+  for (var i = 0; i < 5; i++) {
+    add(Tool.green, candidates.removeAt(0));
+  }
   final chosen = [
     for (var i = 0; i < population; i++)
       candidates[(i * candidates.length / population).floor()],
   ];
-  for (final p in chosen) add(Tool.cottage, p);
+  for (final p in chosen) {
+    add(Tool.cottage, p);
+  }
   c.speed = 0;
   if (c.people.length != population ||
-      !c.world.cottages.values.every((p) => c.world.access(p) != null))
+      !c.world.cottages.values.every((p) => c.world.access(p) != null)) {
     throw StateError('invalid population');
+  }
   return c;
 }
 

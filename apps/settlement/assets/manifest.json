@@ -131,6 +131,54 @@
       "file": "images/resident.png",
       "sha256": "005b85145765748479f41d79809de12b79d643814e0e82e681562a9e64e5c7b7"
     },
+    "workshop": {
+      "id": "urizen-onebit-r33-c005",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        66,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/workshop.png",
+      "sha256": "02289f4a283a0a4d203024fced7da282f492ac571f5b58d8e8027abca3e96dfd"
+    },
+    "market": {
+      "id": "urizen-onebit-r33-c004",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        53,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/market.png",
+      "sha256": "74cecea6d1adbc4e403ccade81e3fb25dd2b0783b06bae7c19cc8dadb6f5d612"
+    },
+    "hall": {
+      "id": "urizen-onebit-r33-c002",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        27,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/hall.png",
+      "sha256": "4e0edbf1d5939fe019a9bb85fef2f8e986036483acac8bf9218afac534c6b53d"
+    },
     "road0": {
       "id": "urizen-onebit-r11-c000",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",

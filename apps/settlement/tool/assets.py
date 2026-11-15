@@ -16,6 +16,7 @@ FRAMES = {
     'oak': (8, 1), 'vegetables': (24, 5),
     'cottage0': (33, 0), 'cottage1': (33, 1),
     'resident': (0, 104),
+    'workshop': (33, 5), 'market': (33, 4), 'hall': (33, 2),
     **{f'road{i}': (11, i) for i in range(13)},
 }
 
