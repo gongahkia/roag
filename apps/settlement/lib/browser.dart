@@ -30,3 +30,7 @@ void exportFile(String text) => _export(text.toJS);
 Future<String> importFile() async => (await _import().toDart).toDart;
 void sound(String kind) => _sound(kind.toJS);
 void mute(bool value) => _mute(value.toJS);
+
+@JS('settlementPlatform.reportMetrics')
+external void _reportMetrics(JSString text);
+void reportMetrics(String text) => _reportMetrics(text.toJS);

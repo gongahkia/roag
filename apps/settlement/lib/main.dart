@@ -99,7 +99,9 @@ class _LandscapePageState extends State<LandscapePage> {
           needsMigrationSave = false;
         }
       },
+      profile: Uri.base.queryParameters['profile'] == '1',
       onState: () {
+        if (game.profile) browser.reportMetrics(jsonEncode(game.metrics));
         if (mounted) setState(() {});
       },
       onCheckpoint: () {

@@ -3,6 +3,7 @@
   const key = 'roag.settlement.landscape.v1';
   let context, muted = false, stopWatching;
   window.settlementPlatform = {
+    reportMetrics(text) { window.settlementMetrics = JSON.parse(text); },
     hideLoading() { document.getElementById('loading')?.remove(); },
     watchActivity(callback) {
       stopWatching?.();

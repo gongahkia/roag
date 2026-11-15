@@ -28,12 +28,24 @@ class SettlementGame extends FlameGame {
   Cell? inspectedCell;
   double _stateAge = 0, _saveAge = 0, _lastCheckpointClock = 0;
   bool suspended = false;
+  final bool profile;
+  final List<int> modelMicros = [], presentationMicros = [];
+  int modelCalls = 0;
+  Map<String, Object> get metrics => {
+    'modelMicros': modelMicros,
+    'presentationMicros': presentationMicros,
+    'modelCalls': modelCalls,
+    'routeSearches': colony.routeSearches,
+    'population': colony.people.length,
+    'clock': colony.clock,
+  };
   SettlementGame(
     this.colony,
     this.onPreview, {
     this.onReady,
     this.onState,
     this.onCheckpoint,
+    this.profile = false,
   });
   Tool tool = Tool.cottage;
   Placement? preview;
@@ -162,11 +174,23 @@ class SettlementGame extends FlameGame {
   void update(double dt) {
     super.update(dt);
     if (!suspended && canvasReady) {
+      final watch = profile ? (Stopwatch()..start()) : null;
       residents.update(dt);
+      if (watch != null) {
+        modelCalls++;
+        if (modelMicros.length >= 2048) modelMicros.removeAt(0);
+        modelMicros.add(watch.elapsedMicroseconds);
+        watch.reset();
+      }
       _stateAge += dt.clamp(0.0, .1);
       _saveAge += dt.clamp(0.0, .1);
       presentation.update(dt, residents.people.values);
       updateSpeech(dt);
+      if (watch != null) {
+        if (presentationMicros.length >= 2048) presentationMicros.removeAt(0);
+        presentationMicros.add(watch.elapsedMicroseconds);
+        watch.stop();
+      }
       if (_stateAge >= .25) {
         _stateAge = 0;
         if (_hoverPoint != null && session.stroke == null && !inspectMode) {
