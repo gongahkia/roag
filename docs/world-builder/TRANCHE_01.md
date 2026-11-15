@@ -19,6 +19,9 @@ python3 -B apps/settlement/tool/serve.py --port 8765
 # open http://127.0.0.1:8765/settlement/
 ```
 
+If port 8765 is already occupied, use the existing settlement server or pass
+`--port 0` to choose a free port. The launcher prints its URL after binding.
+
 To reproduce the build, install **Flutter 3.50.0**, then:
 
 ```sh

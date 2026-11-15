@@ -3,6 +3,7 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import argparse
+import errno
 import os
 
 parser = argparse.ArgumentParser()
@@ -36,5 +37,20 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 os.chdir(build)
-print(f'ROAG settlement: http://127.0.0.1:{args.port}/settlement/', flush=True)
-ThreadingHTTPServer(('127.0.0.1', args.port), Handler).serve_forever()
+try:
+    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+except OSError as error:
+    if error.errno != errno.EADDRINUSE:
+        raise
+    raise SystemExit(
+        f'Port {args.port} is already in use. If the settlement server is already running, '
+        f'open http://127.0.0.1:{args.port}/settlement/\n'
+        'To start another copy on a free port, use --port 0.'
+    ) from None
+
+with server:
+    print(f'ROAG settlement: http://127.0.0.1:{server.server_port}/settlement/', flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
