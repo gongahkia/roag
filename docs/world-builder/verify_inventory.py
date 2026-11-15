@@ -41,6 +41,7 @@ def main():
         inventory = json.load(stream)
     frames = {row['audit_id']: row for row in inventory['frames']}
     assert len(frames) == len(inventory['frames']) == 14356
+    assert len({row['label_id'] for row in frames.values()}) == len(frames)
     images = {}
     for source in inventory['sources']:
         path = ROOT / source['path']

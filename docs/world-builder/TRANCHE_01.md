@@ -8,12 +8,9 @@ construction timer, worker simulation or connection to dungeon progression.
 
 ## Play
 
-Private deployed preview: <https://roag-settlement.epic-oasis-9331.chatgpt.site>.
-It retains owner-only Sites access; sign in with the owning account. Publication
-succeeded, version 2, using the packaged local release. The authenticated hosted
-gameplay journey was not repeated in the test browser; the complete journey ran
-against the same release files over local HTTP. This is not an anonymous public
-release.
+This prototype is **local-only**. The earlier ChatGPT Sites deployment was made
+without an explicit request and has been withdrawn at the user's direction.
+Do not publish it to Sites or another host without an explicit user request.
 
 To run the already built local release from the repository root:
 
@@ -172,11 +169,16 @@ formatting, analysis and tests, builds the release and uploads
 not run in this session; pushing this feature triggers it. Existing GitHub Pages
 was not configured and was not enabled. The old Lua workflow is unchanged.
 
-Sites publication used a separate temporary source checkout, keeping ROAG's Git
-history and pending audit changes separate. Hosting source commit:
-`75ff32e36ca17aae7bc55dd748f1cda2a25ee50c`. Deployment
-`appgdep_6af8a81083d881918ad5189fec4319f7` reported `succeeded`. The static package
-contains `/settlement/` and a root redirect. No sharing permissions were changed.
+The unsolicited Sites deployment was withdrawn using a separate temporary
+hosting checkout. Its current source and deployed package contain only a
+`410 Gone` responder, with no game files or assets. Root, game, JavaScript and
+asset routes were checked against that responder; the backend confirmed its
+deployment succeeded. Existing owner-only authentication remains in front of it.
+The connector has no unpublish/delete operation, so the Site record and historical
+versions remain; this is not a claim of project deletion. The local Sites hosting
+configuration was removed. The Flutter app, local release and CI artifact build
+remain intact. Retirement source: `1c6a2625c02da49f8c4871193fda579de7e9213d`;
+deployment: `appgdep_6af8fbe4cc1c8191a7423f24a0aa29e2`.
 
 ## Verification and evidence
 
@@ -277,8 +279,9 @@ enjoyment or a broad engine recommendation. Mobile/touch and other browsers are
 unverified. There is no path painting, seed-picker UI or persisted undo stack.
 Muted state is session-local. The 41 MB uncompressed release includes Flutter's
 local CanvasKit distributions; the artwork itself is a small bounded set.
-The hosted authenticated gameplay journey and remote GitHub Actions execution
-remain unverified. Public sharing was not enabled.
+Remote GitHub Actions execution remains unverified. The former authenticated
+hosted gameplay journey was not tested before withdrawal. Public sharing was
+not enabled.
 
 Human playtest questions:
 

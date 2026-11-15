@@ -272,7 +272,10 @@ The existing catalogue test command was also run before the full audit output:
 `python3 -B -m unittest discover -s tests/catalog -v` produced **47 passes and
 one failure**. The media-accounting assertion omits the already existing dice
 PNG/GIF evidence. [The captured baseline log](catalog-tests-baseline.log) records
-that failure; it was not repaired. The active asset check passes **599 bindings
+that failure. A [final run](catalog-tests-final.log) again produced 47 passes and one
+failure in the same unchanged suite; the frozen assertion also does not account for this audit's new evidence
+images. These figures are intentionally registered in this audit's manifest,
+without migrating the source catalogue or repairing that obsolete assertion. The active asset check passes **599 bindings
 from 67 unchanged PNGs**. No broad gameplay regression run or live game launch
 was needed for this offline audit.
 

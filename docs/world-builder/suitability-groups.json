@@ -107,7 +107,7 @@
     "limitations": "Different plants/indices are not a verified growth timeline or resource-depletion sequence."
   },
   {
-    "id": "walls-and-roofs",
+    "id": "modular-architecture",
     "classification": "Usable through composition",
     "asset_ids": [
       "wb:rpg/0697",
@@ -144,7 +144,7 @@
       "wb:rpg/1217"
     ],
     "supported_use": "16px modular walls/facades/architectural pieces from the retained Kenney sheet",
-    "limitations": "Cells are components, not complete buildings. Specific facade/roof topology and footprint must be authored; different scale and palette from Urizen."
+    "limitations": "Cells are components, not complete buildings. Specific facade/roof topology and footprint must be authored; different scale and palette from Urizen. This sample includes floors/corners; individual roof assignments remain uncertain."
   },
   {
     "id": "damage-history",
@@ -218,7 +218,7 @@
     "limitations": "Current assets do not provide a compatible volumetric building kit. The small recommended scene deliberately uses abstract miniature buildings."
   },
   {
-    "id": "growth-animation",
+    "id": "environmental-effect-variants",
     "classification": "Uncertain",
     "asset_ids": [
       "urizen-onebit-r06-c041",
