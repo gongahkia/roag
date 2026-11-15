@@ -85,6 +85,7 @@ class SettlementGame extends FlameGame {
       'cottage0',
       'cottage1',
       'resident',
+      'clear',
       for (var i = 0; i < 13; i++) 'road$i',
     ];
     for (final name in names) {

@@ -44,6 +44,7 @@ class PlanningRequest {
 class Colony extends Residents {
   RequestBook requests = RequestBook();
   int civicSpent = 0;
+  final Map<String, String> civicDecisions = {};
   bool hasNeed(Resident r, Need need) {
     if (!r.active || !r.arrived || !people.containsKey(r.homeId)) return false;
     return switch (need) {
@@ -116,11 +117,13 @@ class Colony extends Residents {
       special?.id == eventId && marketDay && civicHost != null;
   bool chooseCivic(String eventId, {required bool sponsor}) {
     if (!civicAvailable(eventId) ||
+        civicDecisions.containsKey(eventId) ||
         special!.civicChoice != null ||
         sponsor && session.money < Rules.civicCost) {
       return false;
     }
     special!.civicChoice = sponsor ? 'sponsored' : 'ordinary';
+    civicDecisions[eventId] = special!.civicChoice!;
     if (sponsor) {
       session.money -= Rules.civicCost;
       civicSpent += Rules.civicCost;
@@ -336,7 +339,9 @@ class Colony extends Residents {
           ].contains(r.activity) &&
           (!connected(r) || placeAccess(r.destination) != r.cell)) {
         r.workIssue = r.activity == Activity.working
-            ? Reason.workCut
+            ? r.workId == null
+                  ? Reason.noWork
+                  : Reason.workCut
             : r.workIssue;
         r.leisureIssue = r.activity == Activity.working
             ? r.leisureIssue
@@ -1117,6 +1122,7 @@ class Colony extends Residents {
     'colony': {
       if (requests.records.isNotEmpty) 'requests': requests.toJson(),
       if (civicSpent > 0) 'civicSpent': civicSpent,
+      if (civicDecisions.isNotEmpty) 'civicDecisions': civicDecisions,
       'navigationRevision': navigation.revision,
       'planning': planning.map((p) => p.toJson()).toList(),
       'special': special?.toJson(),
@@ -1537,6 +1543,35 @@ class Colony extends Residents {
           throw const FormatException('Invalid civic participation benefit.');
         }
       }
+    }
+    final decisions = d['civicDecisions'];
+    if (decisions != null) {
+      if (decisions is! Map || decisions.length >= colony.nextSpecialId) {
+        throw const FormatException('Invalid civic decision history.');
+      }
+      for (final entry in decisions.entries) {
+        if (entry.key is! String ||
+            !RegExp(r'^special-[1-9][0-9]*$').hasMatch(entry.key) ||
+            int.parse(entry.key.split('-').last) >= colony.nextSpecialId ||
+            !['sponsored', 'ordinary'].contains(entry.value)) {
+          throw const FormatException('Invalid past civic decision.');
+        }
+        colony.civicDecisions[entry.key] = entry.value;
+      }
+      final current = colony.special;
+      if (current != null &&
+          colony.civicDecisions[current.id] != current.civicChoice) {
+        throw const FormatException(
+          'Civic decision history disagrees with this event.',
+        );
+      }
+    } else if (colony.special?.civicChoice != null) {
+      colony.civicDecisions[colony.special!.id] = colony.special!.civicChoice!;
+    }
+    if (colony.civicDecisions.values.where((v) => v == 'sponsored').length *
+            Rules.civicCost >
+        colony.civicSpent) {
+      throw const FormatException('Civic spending is missing.');
     }
     colony.navigation.rain = colony.raining;
     final queued = d['planning'] ?? [];

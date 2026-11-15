@@ -155,6 +155,8 @@ abstract final class Dialogues {
       'offer',
       (c) => c.request?.state == RequestState.accepted
           ? 'You said you would help me ${c.need!.label.toLowerCase()}. I will carry on with my routine; there is no deadline.'
+          : c.request?.state == RequestState.resolved
+          ? c.need!.thanks
           : c.stillNeeds
           ? c.need!.appeal
           : 'That concern has changed. Let us see how the day goes.',

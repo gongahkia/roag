@@ -20,6 +20,7 @@ FRAMES = {
     **{f'road{i}': (11, i) for i in range(13)},
 }
 
+ICONS = ('hammer', 'grid', 'clear', 'coin')
 
 # four inspected source silhouettes; these are static bodies, not walk frames.
 BODIES = {'plain-v1': 0, 'longhair-v1': 1, 'hood-v1': 2, 'cap-v1': 3}
@@ -134,7 +135,7 @@ def products():
                 mask = bytes(rgba[3::4])
                 assert mask not in masks, 'cast contains duplicate silhouettes'
                 masks.add(mask)
-    for name in ['hammer', 'grid', 'clear', 'coin']:
+    for name in ICONS:
         path = f'assets/godot-node-icons/white/icon_{name}.png'
         image = Png(ROOT / path)
         data = (ROOT / path).read_bytes()
@@ -167,4 +168,4 @@ if __name__ == '__main__':
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print(f'Verified {len(FRAMES)+3} original crops and {len(BODIES)} distinct bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')
+    print(f'Verified {len(FRAMES)+len(ICONS)} source crops and {len(BODIES)} distinct bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')

@@ -9,6 +9,7 @@ import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/resident_request.dart';
 import 'package:roag_settlement/residents.dart';
 import 'package:roag_settlement/rules.dart';
+import 'package:roag_settlement/reasons.dart';
 import 'package:roag_settlement/special_event.dart';
 
 import 'colony_test.dart' show paint, advance;
@@ -62,6 +63,12 @@ void main() {
   });
   test('relocation vacates one site, preserves identity/variant/counter, replaces scenery and creates one free history entry', () {
     final c = needingTown(), from = c.world.cottages.keys.first;
+    final scenery = c.world.replace(
+      const Cell(6, 14),
+      const Lot(grass: 1, scenery: Scenery.vegetables, trace: Trace.scar),
+    );
+    c.session.replace(scenery);
+    c.reconcile(c.session.world);
     final original = c.world,
         source = original.cottages[from]!,
         money = c.session.money;
@@ -85,6 +92,53 @@ void main() {
     c.reconcile(c.session.world);
     expect(c.world.cottages[from], destination);
     expect(c.session.money, money);
+  });
+  test('every building kind relocates with the same identity, and blocked scenery rejects the move', () {
+    final c = town();
+    final sources = [c.world.cottages.values.first, ...c.world.places.values];
+    for (final source in sources) {
+      final before = c.world, lot = before.at(source);
+      move(c, source, const Cell(17, 14));
+      final moved = c.world.at(const Cell(17, 14));
+      expect(
+        (moved.cottageId, moved.placeId, moved.place),
+        (lot.cottageId, lot.placeId, lot.place),
+      );
+      expect(c.session.undo(), isTrue);
+      c.reconcile(c.session.world);
+      expect(c.world.encode(), before.encode());
+    }
+    c.session.replace(
+      c.world.replace(const Cell(17, 14), const Lot(scenery: Scenery.oak)),
+    );
+    c.reconcile(c.session.world);
+    final before = c.encode();
+    expect(
+      evaluateMove(c.world, sources.first, const Cell(17, 14)).valid,
+      isFalse,
+    );
+    expect(c.encode(), before);
+  });
+  test('moving an active gathering venue keeps event identity and already awarded benefits through Undo', () {
+    final c = town();
+    until(c, () => c.event?.state == 'active', 6000);
+    final event = c.event!, source = c.world.places[event.green]!;
+    final awards = event.awarded.toSet(),
+        benefits = {
+          for (final r in c.people.values) r.homeId: r.eventBenefitUntil,
+        };
+    move(c, source, const Cell(17, 14));
+    expect(c.event!.id, event.id);
+    expect(c.event!.state, 'ended');
+    expect(c.event!.awarded, awards);
+    for (final r in c.people.values) {
+      expect(r.eventBenefitUntil, benefits[r.homeId]);
+    }
+    expect(() => Colony.decode(c.encode()), returnsNormally);
+    c.session.undo();
+    c.reconcile(c.session.world);
+    expect(c.event!.state, 'ended');
+    expect(c.event!.awarded, awards);
   });
   test('invalid, stale and cancelled relocation changes no authored or simulation state', () {
     final c = needingTown(),
@@ -194,8 +248,9 @@ void main() {
       for (final r in before) r.homeId: (r.x, r.y, r.lastSocial, r.tradeDay),
     };
     move(c, venue.value, const Cell(17, 14));
-    for (final r in before)
+    for (final r in before) {
       expect((r.x, r.y, r.lastSocial, r.tradeDay), records[r.homeId]);
+    }
     expect(c.occupancy(venue.key), 0);
     expect(() => Colony.decode(c.encode()), returnsNormally);
   });
@@ -255,8 +310,9 @@ void main() {
   });
   test('request acceptance is explicit, bounded, contextual and reversible only by withdrawal', () {
     final c = needingTown(), ids = c.people.keys.toList();
-    for (final key in ids.take(3))
+    for (final key in ids.take(3)) {
       expect(c.acceptRequest(key, Need.work), isTrue);
+    }
     expect(c.acceptRequest(ids.last, Need.work), isFalse);
     expect(c.acceptRequest(ids.first, Need.work), isFalse);
     final request = c.requests.forResident(ids.first).first;
@@ -277,6 +333,7 @@ void main() {
     expect(request.state, RequestState.accepted);
     expect(c.requests.mood(r.homeId, c.clock), 0);
     paint(c, Tool.garden, const Cell(7, 14));
+    paint(c, Tool.garden, const Cell(7, 16));
     until(c, () => request.state == RequestState.resolved);
     expect(r.workedSeconds, greaterThan(0));
     expect(c.requests.mood(r.homeId, c.clock), Rules.requestBenefit);
@@ -284,6 +341,7 @@ void main() {
     c.session.undo();
     c.reconcile(c.session.world);
     expect(request.state, RequestState.resolved);
+    if (r.workId == null) expect(r.workIssue, Reason.noWork);
     c.session.redo();
     c.reconcile(c.session.world);
     advance(c, 15);
@@ -350,9 +408,18 @@ void main() {
     final line = Dialogues.view(c, Conversation(r.homeId, node: 'recent')).line;
     expect(line, anyOf(contains('completed'), contains('finished')));
     expect(r.lastWork >= 0 || r.lastSocial >= 0, isTrue);
-    r.awardedEvent = 'gathering-verified-fixture';
+    final gathering = Colony.decode(
+      File('../../docs/world-builder/evidence/tranche-03/colony-gathering.json')
+          .readAsStringSync(),
+    );
+    final attendee = gathering.people.values.firstWhere(
+      (p) => p.awardedEvent != null && p.trait.name != 'sociable',
+    );
     expect(
-      Dialogues.view(c, Conversation(r.homeId, node: 'recent')).line,
+      Dialogues.view(
+        gathering,
+        Conversation(attendee.homeId, node: 'recent'),
+      ).line,
       contains('gathering'),
     );
   });
@@ -391,6 +458,24 @@ void main() {
     expect(copy.chooseCivic(key, sponsor: true), isFalse);
     expect(copy.civicSpent, Rules.civicCost);
   });
+  test('sponsored hospitality reaches its six-person cap through real customer service', () {
+    final c = town();
+    paint(c, Tool.cottage, const Cell(6, 16), const Cell(16, 16));
+    advance(c, 14);
+    expect(c.beginSpecial(SpecialKind.marketDay, fixture: true), isTrue);
+    expect(c.chooseCivic(c.special!.id, sponsor: true), isTrue);
+    advance(c, 24.9);
+    expect(c.special!.civicAwarded.length, Rules.civicGuests);
+    expect(
+      c.people.values.where((r) => r.civicBenefitUntil >= 0).length,
+      Rules.civicGuests,
+    );
+    expect(
+      c.special!.civicAwarded.every((id) => c.people[id]!.tradeDay == c.day),
+      isTrue,
+    );
+    expect(() => Colony.decode(c.encode()), returnsNormally);
+  });
   test('civic sponsorship rejects stale events, insufficient funds and missing participants without spending', () {
     final c = marketDay(), event = c.special!.id, host = c.civicHost!;
     c.session.money = Rules.civicCost - 1;
@@ -428,6 +513,26 @@ void main() {
     expect(copy.chooseCivic(c.special!.id, sponsor: true), isFalse);
     expect(copy.session.money, before);
     expect(copy.special!.civicChoice, 'sponsored');
+  });
+  test('past civic decisions and remaining benefits survive the next event and cannot be charged again', () {
+    final c = marketDay(), original = c.special!.id;
+    c.session.unlimited = true;
+    final money = c.session.money;
+    expect(c.chooseCivic(original, sponsor: true), isTrue);
+    expect(c.session.money, money - Rules.civicCost);
+    until(c, () => c.special!.civicAwarded.isNotEmpty);
+    final guest = c.special!.civicAwarded.first,
+        benefit = c.people[c.special!.civicAwarded.first]!.civicBenefitUntil;
+    advance(c, 45);
+    expect(c.special!.id, isNot(original));
+    expect(c.civicDecisions[original], 'sponsored');
+    expect(c.people[guest]!.civicBenefitUntil, benefit);
+    final copy = Colony.decode(c.encode());
+    expect(copy.civicDecisions[original], 'sponsored');
+    final before = copy.session.money;
+    expect(copy.chooseCivic(original, sponsor: true), isFalse);
+    expect(copy.session.money, before);
+    expect(copy.civicSpent, Rules.civicCost);
   });
   test('old checkpoints have no fabricated conversations, requests, civic decisions or benefits', () {
     final text = File(

@@ -2,7 +2,7 @@ Settlement prototype artwork
 
 Urizen 1Bit Tileset v2.0 by vurmux (CC0), exact bounded crops from the
 original ROAG asset. https://vurmux.itch.io/urizen-onebit-tileset
-Godot node icons by pixel-boy (CC0), hammer/grid/clear UI icons.
+Godot node icons by pixel-boy (CC0), hammer/grid/clear/coin UI icons.
 https://pixel-boy.itch.io/icon-godot-node
 The repository assets/CREDITS.txt records the original publisher declarations.
 

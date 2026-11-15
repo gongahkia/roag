@@ -361,6 +361,9 @@ class _LandscapePageState extends State<LandscapePage> {
   KeyEventResult key(FocusNode node, KeyEvent e) {
     if (menuOpen) return KeyEventResult.ignored;
     if (e.logicalKey == LogicalKeyboardKey.space) {
+      if (conversation != null && !focus.hasPrimaryFocus) {
+        return KeyEventResult.ignored;
+      }
       space = e is! KeyUpEvent;
       return KeyEventResult.handled;
     }
@@ -640,6 +643,10 @@ class _LandscapePageState extends State<LandscapePage> {
     setState(() {
       conversation = result.conversation;
       game.dialogueOpen = conversation != null;
+      if (conversation == null && id == 'done') {
+        game.clearInspection();
+        game.inspectMode = false;
+      }
     });
     if (result.changed) {
       save();
@@ -801,9 +808,11 @@ class _LandscapePageState extends State<LandscapePage> {
                       ),
                     ),
                 ],
-                const Text(
-                  'The town keeps living while we talk.',
-                  style: TextStyle(fontSize: 9, color: Color(0xffa4b39d)),
+                Text(
+                  colony.speed == 0
+                      ? 'Simulation paused by you.'
+                      : 'The town keeps living while we talk.',
+                  style: const TextStyle(fontSize: 9, color: Color(0xffa4b39d)),
                 ),
               ],
             ],
@@ -885,7 +894,7 @@ class _LandscapePageState extends State<LandscapePage> {
                   const Spacer(),
                   Tooltip(
                     message:
-                        'Productive work: ${Rules.coins(colony.workEarned)} coins. Completed Market trade: ${Rules.coins(colony.tradeEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
+                        'Productive work: ${Rules.coins(colony.workEarned)} coins. Completed Market trade: ${Rules.coins(colony.tradeEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins.${colony.civicSpent == 0 ? '' : ' Civic support: ${Rules.coins(colony.civicSpent)} coins spent.'} No maintenance.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1215,6 +1224,10 @@ class _LandscapePageState extends State<LandscapePage> {
                         ),
                       PopupMenuButton<Tool>(
                         key: catalogueKey,
+                        constraints: const BoxConstraints(
+                          minWidth: 360,
+                          maxWidth: 360,
+                        ),
                         tooltip: 'Build catalogue (B)',
                         onOpened: () {
                           cancelGesture();
