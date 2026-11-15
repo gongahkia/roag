@@ -419,8 +419,9 @@ void main() {
   test('road/weather/trait costs change actual arrival ticks, and daily path credit renews only after a later traversal', () {
     int travel(Tool road, bool rain, Trait trait) {
       final c = town(), r = c.people.values.first;
-      if (road != Tool.path)
+      if (road != Tool.path) {
         paint(c, road, const Cell(3, 15), const Cell(9, 15));
+      }
       if (rain) c.beginSpecial(SpecialKind.rain, fixture: true);
       r.trait = trait;
       r.arrived = true;
@@ -483,7 +484,9 @@ void main() {
   });
   test('preview never invalidates navigation; import rebases fresh queue work while preserving continuation', () {
     final a = town();
-    for (final r in a.people.values) a.decide(r);
+    for (final r in a.people.values) {
+      a.decide(r);
+    }
     final revision = a.navigation.revision;
     a.session.beginStroke(Tool.stoneRoad, const Cell(2, 15));
     a.session.stroke!.paintTo(const Cell(8, 15));
@@ -495,7 +498,9 @@ void main() {
     Map normal(Colony c) {
       final d = jsonDecode(c.encode());
       d['colony'].remove('navigationRevision');
-      for (final p in d['colony']['planning']) p['revision'] = 0;
+      for (final p in d['colony']['planning']) {
+        p['revision'] = 0;
+      }
       return d;
     }
 
@@ -553,4 +558,38 @@ void main() {
       rejects((d) => d['lots'][15 * d['width'] + 3].add('unknown-road'));
     },
   );
+  test('fully employed ordinary towns still serve Market customers during naturally scheduled rain', () {
+    final c = town()..nextSpecialAt = 12;
+    paint(c, Tool.remove, const Cell(2, 16), const Cell(5, 16));
+    advance(c, 32);
+    expect(c.people.length, 4);
+    expect(c.tradeEarned, greaterThan(0));
+    expect(c.people.values.any((r) => r.lastShopping >= 0), isTrue);
+  });
+  test('unrelated construction, demolition and history retain resident names and traits', () {
+    final c = town(),
+        before = {
+          for (final r in c.records)
+            r.homeId: (r.name, r.trait, r.bodyId, r.palette),
+        };
+    paint(c, Tool.cottage, const Cell(17, 14));
+    c.session.undo();
+    c.reconcile(c.session.world);
+    c.session.redo();
+    c.reconcile(c.session.world);
+    paint(c, Tool.remove, const Cell(2, 14));
+    c.session.undo();
+    c.reconcile(c.session.world);
+    for (final r in c.records.where((r) => before.containsKey(r.homeId))) {
+      expect((r.name, r.trait, r.bodyId, r.palette), before[r.homeId]);
+    }
+  });
+  test('event streams remain valid at seed boundaries without consuming identity randomness', () {
+    for (final seed in [0, 2147474708, 2147483646]) {
+      final c = Colony(LandscapeSession(Landscape.create(seed)));
+      expect(c.eventRng, inInclusiveRange(1, 2147483646));
+      expect(c.specialRng, inInclusiveRange(1, 2147483646));
+      expect(Colony.decode(c.encode()).specialRng, c.specialRng);
+    }
+  });
 }

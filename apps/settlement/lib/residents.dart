@@ -123,6 +123,8 @@ class Residents {
         r.destination = null;
         if (r.visible) _departures.add(_Departure(r));
         r.active = false;
+        r.segmentSpeed = 0;
+        r.segmentGarden = false;
         r.activity = Activity.waiting;
         inactive[id] = r;
       }

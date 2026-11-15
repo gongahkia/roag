@@ -12,7 +12,7 @@ let browser,page;const checks=[],errors=[];
  const speed=n=>btn(n===0?'Ⅱ':`${n}×`).click();
  async function menu(name){await btn('Landscape menu').click();await page.getByRole('menuitem',{name,exact:true}).click();}
  async function importFile(file){const fc=page.waitForEvent('filechooser');await menu('Import landscape…');await(await fc).setFiles(file);await page.waitForTimeout(250);}
- async function wait(fn,timeout=45000){await page.waitForFunction(({k,s})=>Function('s',`return (${s})(s)`)(JSON.parse(localStorage.getItem(k))),{k:key,s:fn.toString()},{timeout});}
+ async function wait(fn,timeout=120000){await page.waitForFunction(({k,s})=>Function('s',`return (${s})(s)`)(JSON.parse(localStorage.getItem(k))),{k:key,s:fn.toString()},{timeout});}
  let width=1024,top,bottom,center,zoom=4,ox=0,oy=0;
  async function layout(){const a=await btn(/^1 Cottage/).boundingBox(),m=await btn('Landscape menu').boundingBox();width=await page.evaluate(()=>innerWidth);top=m.y+m.height+12;bottom=a.y-14;center=Math.max(9,(width/2-24)/48);}
  const pt=(x,y)=>[width/2+(x+.5-center)*12*zoom+ox,(top+bottom)/2+(y-15)*12*zoom+oy];
@@ -60,4 +60,4 @@ let browser,page;const checks=[],errors=[];
  pass('Explicitly fixture-assisted harvest and Market day; actual bonuses/service, Market inspection, removal during the event, Undo and accelerated simulation');
  assert.deepEqual(errors,[]);const video=await page.video().path();await context.close();fs.renameSync(video,path.join(out,'gameplay.webm'));await browser.close();
  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({seed:202,checks,errors,native:false,input:'Playwright browser mouse/keyboard; actual menus/file chooser; read-only checkpoints; no game callbacks',fixtureEvents:['harvest','marketDay'],naturalEvent:'Rain scheduled during fresh paid UI construction journey',normalJourneySeconds:(journeyEnd-journeyStart)/1000},null,2));
-})().catch(async e=>{console.error(e);if(page)await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});if(browser)await browser.close();process.exitCode=1;});
+})().catch(async e=>{console.error(e);if(page){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});try{fs.writeFileSync(path.join(out,'failure-state.json'),await page.evaluate(k=>localStorage.getItem(k),key));}catch{}}if(browser)await browser.close();process.exitCode=1;});

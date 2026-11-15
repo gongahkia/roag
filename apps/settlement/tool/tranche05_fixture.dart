@@ -36,8 +36,9 @@ void main(List<String> args) {
   }
   for (final kind in SpecialKind.values) {
     final copy = Colony.decode(c.encode());
-    if (!copy.beginSpecial(kind, fixture: true))
+    if (!copy.beginSpecial(kind, fixture: true)) {
       throw StateError('event not eligible: $kind');
+    }
     File('${dir.path}/${kind.name}.json').writeAsStringSync(copy.encode());
   }
   c.nextSpecialAt = c.clock + 12;

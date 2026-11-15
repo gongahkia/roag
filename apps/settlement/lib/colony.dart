@@ -166,10 +166,10 @@ class Colony extends Residents {
   Gathering? event;
   final Map<String, double> tended = {};
   Colony(this.session)
-    : eventRng = session.world.seed + 4099,
+    : eventRng = 1 + (session.world.seed + 4098) % 2147483646,
       super(session.world, initialise: false) {
     navigation = Navigation(world);
-    specialRng = (world.seed + 8939) % 2147483647;
+    specialRng = 1 + (world.seed + 8938) % 2147483646;
     super.reconcile(world, restored: true);
     _syncJobs();
   }
@@ -308,24 +308,44 @@ class Colony extends Residents {
     return true;
   }
 
-  bool _seekSocial(Resident r) {
+  bool shopAvailable(Resident r) => places(Place.market).any(
+    (p) =>
+        p.key != r.workId &&
+        world.access(p.value) != null &&
+        workers(p.key) > 0,
+  );
+  bool _seekSocial(Resident r, {bool shopping = false}) {
     final candidates = <(String, double)>[];
     for (final p in venues) {
+      if (shopping && kind(p.key) != Place.market) continue;
       final access = world.access(p.value);
       if (access == null) continue;
-      if (kind(p.key) == Place.market && !staffed(p.key)) continue;
+      if (kind(p.key) == Place.market &&
+          (!staffed(p.key) || r.workId == p.key)) {
+        continue;
+      }
       final distance = travelDistance(r.cell, access);
       if (distance.isFinite) candidates.add((p.key, distance));
     }
     if (candidates.isEmpty) {
-      r.leisureIssue = venues.isEmpty ? Reason.noLeisure : Reason.socialCut;
+      final reachable = venues.any(
+        (p) =>
+            world.access(p.value) != null &&
+            travelDistance(r.cell, world.access(p.value)!).isFinite,
+      );
+      r.leisureIssue = venues.isEmpty
+          ? Reason.noLeisure
+          : reachable
+          ? Reason.marketUnstaffed
+          : Reason.socialCut;
       return false;
     }
     int preference(String id) {
       if (raining && kind(id) == Place.hall) return 0;
       if (kind(id) == Place.market &&
-          r.tradeDay != day &&
-          (marketDay || ResidentIdentity.hash(r.homeId, 379) % 2 == 0)) {
+          (marketDay ||
+              r.tradeDay != day &&
+                  ResidentIdentity.hash(r.homeId, 379) % 2 == 0)) {
         return 1;
       }
       return 2;
@@ -386,7 +406,8 @@ class Colony extends Residents {
       return;
     }
     if (workPeriod &&
-        (clock - r.lastWork > Rules.workRetryAfter ||
+        (clock - r.lastWork >
+                (kind(r.workId) == Place.market ? 6 : Rules.workRetryAfter) ||
             clock - r.lastSocial < Rules.leisureRepeatAfter)) {
       if (_assign(r)) {
         r.destination = r.workId;
@@ -395,6 +416,12 @@ class Colony extends Residents {
           return;
         }
       }
+    }
+    if ((r.tradeDay != day ||
+            marketDay && clock - r.lastSocial > Rules.leisureRepeatAfter) &&
+        shopAvailable(r) &&
+        _seekSocial(r, shopping: true)) {
+      return;
     }
     if ((phase == 'Evening' || r.lastWork >= r.bornAt) &&
         clock - r.lastSocial > Rules.leisureRepeatAfter) {
@@ -667,6 +694,12 @@ class Colony extends Residents {
               event!.state != 'ended' &&
               event!.invited.contains(r.homeId)) {
             decide(r);
+            continue;
+          }
+          if (phase != 'Night' &&
+              r.tradeDay != day &&
+              shopAvailable(r) &&
+              _seekSocial(r, shopping: true)) {
             continue;
           }
           if (phase != 'Night' && _seekSocial(r)) continue;

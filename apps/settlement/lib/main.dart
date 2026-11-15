@@ -261,7 +261,7 @@ class _LandscapePageState extends State<LandscapePage> {
       browser.sound(
         stroke.tool == Tool.remove
             ? 'remove'
-            : stroke.tool == Tool.path
+            : stroke.tool.isRoad
             ? 'path'
             : 'place',
       );
@@ -576,7 +576,7 @@ class _LandscapePageState extends State<LandscapePage> {
                   const Spacer(),
                   Tooltip(
                     message:
-                        'Actual farm work: ${Rules.coins(colony.workEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
+                        'Productive work: ${Rules.coins(colony.workEarned)} coins. Completed Market trade: ${Rules.coins(colony.tradeEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

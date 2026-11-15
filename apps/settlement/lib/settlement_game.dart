@@ -138,7 +138,7 @@ class SettlementGame extends FlameGame {
         c,
         session.stroke != null
             ? 'Stroke budget used · release before using new income.'
-            : 'Not enough coins · grant +20/day; farm work +0.2/s per worker.',
+            : 'Not enough coins · productive work, served Market visits and the daily grant earn more.',
       );
     }
     onPreview(preview);
