@@ -3,7 +3,6 @@
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -19,6 +18,44 @@ FRAMES = {
     'resident': (0, 104),
     **{f'road{i}': (11, i) for i in range(13)},
 }
+
+
+# four inspected source silhouettes; these are static bodies, not walk frames.
+BODIES = {'plain-v1': 0, 'longhair-v1': 1, 'hood-v1': 2, 'cap-v1': 3}
+PALETTES = {
+    'cream': ('ead9a2', 'a6714e', 'b4ad82', '68523c'),
+    'teal': ('87c8bd', 'd6a478', '667e83', '493d3d'),
+    'clay': ('dc967a', 'e7bd91', '89765e', '5a4133'),
+    'lilac': ('b6bce0', 'ba895f', '777d98', '473e39'),
+}
+
+
+def resident_crop(png, body, palette):
+    row = BODIES[body]
+    rect = [1353, 1 + row * 13, 12, 12]
+    rgba = bytearray(png.crop(rect))
+    peak = max(rgba[i] for i in range(0, len(rgba), 4))
+    coat, skin, trousers, hair = [bytes.fromhex(c) for c in PALETTES[palette]]
+    for pixel in range(144):
+        i, x, y = pixel * 4, pixel % 12, pixel // 12
+        value = max(rgba[i:i+3])
+        if value <= 8:
+            rgba[i+3] = 0
+            continue
+        head_end = 4 if row < 2 else 5
+        if y <= head_end:
+            # retain the keyed eye/neck gaps; colour only original opaque pixels.
+            is_hair = (y <= (1 if row < 2 else 3) or
+                       row == 1 and x <= 3 or row == 3 and x >= 8)
+            color = hair if is_hair else skin
+        elif y >= 10:
+            color = trousers
+        elif x in (3, 9):
+            color = skin
+        else:
+            color = coat
+        rgba[i:i+3] = bytes(round(c * value / peak) for c in color)
+    return rect, rgba
 
 
 def products():
@@ -37,6 +74,25 @@ def products():
             'source': SOURCE, 'rect': rect, 'footprint': [1, 1],
             'file': f'images/{name}.png', 'sha256': hashlib.sha256(data).hexdigest(),
         }
+    masks = set()
+    for body, row in BODIES.items():
+        for palette in PALETTES:
+            rect, rgba = resident_crop(png, body, palette)
+            name = f'person-{body}-{palette}'
+            data = encode_rgba_png(12, 12, rgba)
+            output[f'assets/images/{name}.png'] = data
+            frames[name] = {
+                'id': f'urizen-onebit-r{row:02d}-c104', 'source': SOURCE,
+                'rect': rect, 'file': f'images/{name}.png',
+                'body': body, 'palette': palette, 'feet': [6, 12],
+                'render_size': [9, 9], 'animation': 'static; procedural presentation',
+                'treatment': 'black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained',
+                'sha256': hashlib.sha256(data).hexdigest(),
+            }
+            if palette == 'cream':
+                mask = bytes(rgba[3::4])
+                assert mask not in masks, 'cast contains duplicate silhouettes'
+                masks.add(mask)
     for name in ['hammer', 'grid', 'clear']:
         path = f'assets/godot-node-icons/white/icon_{name}.png'
         image = Png(ROOT / path)
@@ -67,4 +123,4 @@ if __name__ == '__main__':
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print(f'Verified {len(FRAMES)+3} bounded crops, manifest and unmodified font.' if check else 'Exported small settlement asset set.')
+    print(f'Verified {len(FRAMES)+3} original crops and {len(BODIES)} distinct bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')

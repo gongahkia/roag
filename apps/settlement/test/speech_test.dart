@@ -19,26 +19,60 @@ void advance(SpeechDirector d, double seconds, List<BubbleCandidate> c) {
 }
 
 void main() {
-  test('speech uses presentation seconds, caps visible bubbles and rotates with cooldowns', () {
+  test('cause suppression bounds repetition across 85 residents and rotates fairly', () {
     final d = SpeechDirector(),
-        people = [for (var i = 0; i < 7; i++) person(i)];
-    final candidates = [
-      for (var i = 0; i < people.length; i++) at(people[i], i),
-    ];
+        people = [for (var i = 0; i < 85; i++) person(i)];
+    final candidates = [for (final r in people) at(r, 0)];
     d.update(.05, candidates);
-    expect(d.visible.length, Rules.bubbleLimit);
-    final first = d.visible.map((b) => b.residentId).toSet();
-    advance(d, 2.8, candidates);
-    expect(d.visible.map((b) => b.residentId).toSet(), first);
-    advance(d, .4, candidates);
-    expect(d.visible.every((b) => !first.contains(b.residentId)), isTrue);
-    advance(d, 18, candidates);
     expect(
-      d.visible.any((b) => first.contains(b.residentId)),
-      isFalse,
-      reason: 'same complaint has longer suppression than general cooldown',
+      d.visible.length,
+      1,
+      reason: 'one shared cause, however many people',
     );
+    final spoken = <String>{d.visible.single.residentId};
+    advance(d, 2.8, candidates);
+    expect(d.visible.length, 1);
+    advance(d, .4, candidates);
+    expect(d.visible, isEmpty);
+    advance(d, 20, candidates);
+    expect(d.visible, isEmpty, reason: 'no complaint conveyor belt');
+    for (var i = 1; i < 85; i++) {
+      advance(d, 1.0, candidates);
+      while (d.visible.isEmpty) {
+        advance(d, .1, candidates);
+      }
+      expect(
+        spoken.add(d.visible.single.residentId),
+        isTrue,
+        reason: 'each eligible person gets a turn before anyone repeats',
+      );
+      advance(d, Rules.bubbleSeconds + .1, candidates);
+    }
+    expect(spoken.length, 85);
   });
+  test(
+    'two different truthful causes fit and blocked UI areas are avoided',
+    () {
+      final d = SpeechDirector(),
+          a = person(1),
+          b = person(2)..problem = Reason.socialCut;
+      final rect = Rect.fromLTWH(20, 20, 150, 30);
+      d.update(
+        .05,
+        [
+          BubbleCandidate(a, [rect, rect.translate(0, 70)]),
+          at(b, 1),
+        ],
+        avoid: [rect],
+      );
+      expect(d.visible.length, Rules.bubbleLimit);
+      expect(d.visible.every((b) => !b.bounds.overlaps(rect)), isTrue);
+      expect(d.visible.map((b) => b.reason).toSet().length, 2);
+      a.problem = Reason.none;
+      d.update(.05, [at(a, 0), at(b, 1)]);
+      expect(d.visible.every((b) => b.residentId != a.homeId), isTrue);
+    },
+  );
   test(
     'resolved complaints, off-screen people and inactive owners clear promptly',
     () {

@@ -11,6 +11,8 @@ import 'colony.dart';
 import 'rules.dart';
 import 'reasons.dart';
 import 'speech.dart';
+import 'appearance.dart';
+import 'resident_presentation.dart';
 
 class SettlementGame extends FlameGame {
   Colony colony;
@@ -20,7 +22,8 @@ class SettlementGame extends FlameGame {
   Colony get residents => colony;
   final void Function()? onState, onCheckpoint;
   SpeechDirector speech = SpeechDirector();
-  bool inspectMode = false;
+  bool inspectMode = false, reducedMotion = false, menuVisible = false;
+  ResidentPresentation presentation = ResidentPresentation();
   String? inspectedResident;
   Cell? inspectedCell;
   double _stateAge = 0, _saveAge = 0, _lastCheckpointClock = 0;
@@ -55,6 +58,9 @@ class SettlementGame extends FlameGame {
       'cottage0',
       'cottage1',
       'resident',
+      for (final body in Appearance.bodies)
+        for (var palette = 0; palette < Appearance.palettes.length; palette++)
+          Appearance.sprite(body, palette),
       for (var i = 0; i < 13; i++) 'road$i',
     ];
     for (final name in names) {
@@ -112,7 +118,7 @@ class SettlementGame extends FlameGame {
         c,
         session.stroke != null
             ? 'Stroke budget used · release before using new income.'
-            : 'Not enough coins · grant +20/day; garden work +0.2/s per worker.',
+            : 'Not enough coins · grant +20/day; farm work +0.2/s per worker.',
       );
     }
     onPreview(preview);
@@ -159,6 +165,7 @@ class SettlementGame extends FlameGame {
       residents.update(dt);
       _stateAge += dt.clamp(0.0, .1);
       _saveAge += dt.clamp(0.0, .1);
+      presentation.update(dt, residents.people.values);
       updateSpeech(dt);
       if (_stateAge >= .25) {
         _stateAge = 0;
@@ -185,6 +192,7 @@ class SettlementGame extends FlameGame {
 
   void resetPresentation() {
     speech = SpeechDirector();
+    presentation = ResidentPresentation();
     inspectMode = false;
     _pulses.clear();
     _notice = null;
@@ -194,35 +202,28 @@ class SettlementGame extends FlameGame {
     _saveAge = 0;
   }
 
-  Offset actorPosition(Resident r) {
-    var dx = (r.homeId.codeUnits.fold(0, (a, b) => a + b) % 3 - 1) * .8;
-    if ([
-          Activity.socialising,
-          Activity.gathering,
-          Activity.working,
-          Activity.socialWaiting,
-        ].contains(r.activity) &&
-        r.destination != null) {
-      final group =
-          colony.people.values
-              .where(
-                (other) =>
-                    other.destination == r.destination && other.route.isEmpty,
-              )
-              .map((other) => other.homeId)
-              .toList()
-            ..sort();
-      dx = (group.indexOf(r.homeId) - (group.length - 1) / 2) * 2.8;
-    }
-    return Offset(r.x * 12 + dx, r.y * 12);
-  }
+  ResidentPose pose(Resident r) => presentation.pose(
+    r,
+    reducedMotion: reducedMotion,
+    paused: colony.speed == 0 || suspended,
+  );
+  Offset actorPosition(Resident r) => pose(r).feet;
+
+  Reason speechReason(Resident r) =>
+      r.feedback == Reason.noWork &&
+          colony.places(Place.garden).isNotEmpty &&
+          colony
+              .places(Place.garden)
+              .every((p) => colony.world.access(p.value) == null)
+      ? Reason.farmsCut
+      : r.feedback;
 
   void inspect(Offset point) {
     inspectedResident = null;
     var nearest = 24.0;
     for (final r in residents.people.values.where((r) => r.visible)) {
       final p = actorPosition(r),
-          screen = camera.localToGlobal(Vector2(p.dx, p.dy - 2));
+          screen = camera.localToGlobal(Vector2(p.dx, p.dy - 4));
       final distance = (Offset(screen.x, screen.y) - point).distance;
       if (distance < nearest) {
         nearest = distance;
@@ -241,7 +242,7 @@ class SettlementGame extends FlameGame {
   String? get inspection {
     final r = colony.people[inspectedResident];
     if (r != null) {
-      final reason = r.feedback;
+      final reason = speechReason(r);
       final detail = reason == Reason.none
           ? (r.route.isNotEmpty
                 ? 'Following a valid path. Travel takes time.'
@@ -253,22 +254,22 @@ class SettlementGame extends FlameGame {
           .where((e) => e.value != 0)
           .map((e) => '${e.key} ${e.value > 0 ? '+' : ''}${e.value}')
           .join(' · ');
-      return 'Resident · ${activityLabel(r.activity)}\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}';
+      return 'Resident · ${Appearance.description(r.bodyId, r.palette)}\n${activityLabel(r.activity)}\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}';
     }
     final c = inspectedCell;
     if (c == null || !session.world.contains(c)) return null;
     final lot = session.world.at(c), access = session.world.access(c);
     if (lot.place == Place.garden) {
-      return 'Productive Garden · ${colony.workers(lot.placeId!)} / 2 working\n${colony.jobs(lot.placeId!)} assigned jobs. Income: 0.2 coin/second per actual worker.\n${access == null ? 'Restore a path to the arrival lane.' : 'Residents find jobs and follow paths automatically.'}';
+      return 'Farm · ${Rules.gardenCapacity} work positions\n${colony.workers(lot.placeId!)} working · ${colony.jobs(lot.placeId!)} assigned. Income: ${Rules.coins(Rules.workIncomePerSecond)} coin/second per actual worker.\n${colony.people.values.where((r) => [Reason.noWork, Reason.workFull, Reason.workCut].contains(r.workIssue)).length} residents seeking reachable work.\n${access == null ? 'Restore a path to the arrival lane.' : 'Residents find jobs and follow paths automatically.'}';
     }
     if (lot.place == Place.green) {
-      return 'Village Green · ${colony.occupancy(lot.placeId!)} / 6 visiting\nSix seconds of actual leisure gives recent-social satisfaction. Travellers do not occupy seats.\n${access == null ? 'Restore a path to the arrival lane.' : 'A successful neighbourhood can gather here in the evening.'}';
+      return 'Park · ${Rules.greenCapacity} visitor spaces\n${colony.occupancy(lot.placeId!)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood. Travellers do not occupy seats.\n${access == null ? 'Restore a path to the arrival lane.' : 'A successful neighbourhood can gather here in the evening.'}';
     }
     if (lot.cottage != null) {
       return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
     }
     return lot.path
-        ? 'Path · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\nConnect homes, gardens and greens to the arrival lane.'
+        ? 'Path · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\nConnect homes, Farms and Parks to the arrival lane.'
         : 'Landscape · choose a building beside a connected path.';
   }
 
@@ -276,10 +277,10 @@ class SettlementGame extends FlameGame {
     Activity.pending => 'Moving in soon',
     Activity.arriving => 'Arriving',
     Activity.workTravel => 'Walking to work',
-    Activity.working => 'Tending a garden',
-    Activity.socialTravel => 'Walking to the green',
+    Activity.working => 'Tending a Farm',
+    Activity.socialTravel => 'Walking to the Park',
     Activity.socialising => 'Socialising',
-    Activity.socialWaiting => 'Waiting for a social place',
+    Activity.socialWaiting => 'Waiting for room at the Park',
     Activity.gatheringTravel => 'Joining the gathering',
     Activity.gathering => 'At the gathering',
     Activity.resting => 'Resting',
@@ -288,34 +289,67 @@ class SettlementGame extends FlameGame {
     Activity.settling => 'Stepping off a removed path',
     _ => 'At home',
   };
+  final Map<Reason, TextPainter> _bubbleText = {};
+  TextPainter bubbleText(Reason reason) => _bubbleText.putIfAbsent(
+    reason,
+    () => TextPainter(
+      text: TextSpan(
+        text: reason.bubble,
+        style: const TextStyle(
+          fontFamily: 'SourceCode',
+          fontSize: 11,
+          height: 1.2,
+          color: Color(0xff26392c),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 178),
+  );
+
   void updateSpeech(double dt) {
     final candidates = <BubbleCandidate>[];
-    for (final r in residents.people.values.where((r) => r.visible)) {
-      final position = actorPosition(r),
-          p = camera.localToGlobal(Vector2(position.dx, position.dy));
-      if (p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) continue;
-      final x = (p.x - 105).clamp(8.0, math.max(8.0, size.x - 218)).toDouble();
-      final options =
-          [
-                Rect.fromLTWH(x, p.y - 75, 210, 44),
-                Rect.fromLTWH(p.x + 20, p.y - 40, 210, 44),
-                Rect.fromLTWH(p.x - 230, p.y - 40, 210, 44),
-                Rect.fromLTWH(x, p.y + 20, 210, 44),
-              ]
-              .where(
-                (b) =>
-                    b.left >= 8 &&
-                    b.top >= 8 &&
-                    b.right <= size.x - 8 &&
-                    b.bottom <= size.y - 8,
-              )
-              .toList();
-      candidates.add(BubbleCandidate(r, options));
+    if (!menuVisible) {
+      for (final r in residents.people.values.where((r) => r.visible)) {
+        final reason = speechReason(r);
+        if (reason == Reason.none) continue;
+        final position = actorPosition(r),
+            p = camera.localToGlobal(Vector2(position.dx, position.dy - 8));
+        if (p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) continue;
+        final text = bubbleText(reason),
+            w = text.width.ceilToDouble() + 14,
+            h = text.height.ceilToDouble() + 12;
+        final x = (p.x - w / 2)
+            .clamp(8.0, math.max(8.0, size.x - w - 8))
+            .toDouble();
+        final options =
+            [
+                  Rect.fromLTWH(x, p.y - h - 10, w, h),
+                  Rect.fromLTWH(p.x + 14, p.y - h / 2, w, h),
+                  Rect.fromLTWH(p.x - w - 14, p.y - h / 2, w, h),
+                  Rect.fromLTWH(x, p.y + 40, w, h),
+                ]
+                .where(
+                  (b) =>
+                      b.left >= 8 &&
+                      b.top >= 8 &&
+                      b.right <= size.x - 8 &&
+                      b.bottom <= size.y - 8,
+                )
+                .toList();
+        candidates.add(BubbleCandidate(r, options, displayReason: reason));
+      }
     }
-    speech.update(dt, candidates);
+    speech.update(
+      dt,
+      candidates,
+      avoid: [
+        const Rect.fromLTWH(16, 12, 510, 28),
+        // matches the existing top-right read-only inspector, with safe padding.
+        if (inspection != null) Rect.fromLTWH(size.x - 312, 0, 312, 260),
+      ],
+    );
   }
 
-  final Map<Reason, TextPainter> _bubbleText = {};
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -352,9 +386,12 @@ class SettlementGame extends FlameGame {
       final r = residents.people[bubble.residentId];
       if (r == null) continue;
       final actor = actorPosition(r),
-          point = camera.localToGlobal(Vector2(actor.dx, actor.dy - 3));
+          point = camera.localToGlobal(Vector2(actor.dx, actor.dy - 8));
       canvas.drawLine(
-        Offset(bubble.bounds.center.dx, bubble.bounds.bottom),
+        Offset(
+          point.x.clamp(bubble.bounds.left + 5, bubble.bounds.right - 5),
+          point.y.clamp(bubble.bounds.top + 5, bubble.bounds.bottom - 5),
+        ),
         Offset(point.x, point.y),
         Paint()
           ..color = const Color(0xffe2ddbb)
@@ -364,25 +401,8 @@ class SettlementGame extends FlameGame {
         RRect.fromRectAndRadius(bubble.bounds, const Radius.circular(5)),
         Paint()..color = const Color(0xf2ece3c4),
       );
-      final text = _bubbleText.putIfAbsent(
-        bubble.reason,
-        () => TextPainter(
-          text: TextSpan(
-            text: bubble.reason.bubble,
-            style: const TextStyle(
-              fontFamily: 'SourceCode',
-              fontSize: 11,
-              height: 1.25,
-              color: Color(0xff26392c),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout(maxWidth: 194),
-      );
-      text.paint(
-        canvas,
-        bubble.bounds.topLeft + Offset(8, (44 - text.height) / 2),
-      );
+      final text = bubbleText(bubble.reason);
+      text.paint(canvas, bubble.bounds.topLeft + const Offset(7, 6));
     }
   }
 }
@@ -677,11 +697,14 @@ class _LandscapeLayer extends Component {
         ..isAntiAlias = false,
     );
     final people = game.residents.visible.toList()
-      ..sort((a, b) => a.$1.y.compareTo(b.$1.y));
+      ..sort(
+        (a, b) =>
+            game.actorPosition(a.$1).dy.compareTo(game.actorPosition(b.$1).dy),
+      );
     var actor = 0;
     for (final c in _objects) {
       while (actor < people.length &&
-          people[actor].$1.y * 12 + 2 <= (c.y + 1) * 12) {
+          game.actorPosition(people[actor].$1).dy <= (c.y + 1) * 12) {
         person(canvas, people[actor].$1, people[actor].$2);
         actor++;
       }
@@ -826,21 +849,18 @@ class _LandscapeLayer extends Component {
   }
 
   void person(Canvas canvas, Resident r, double alpha) {
-    final position = game.actorPosition(r), x = position.dx, y = position.dy;
-    final bob = r.moving
-        ? math.sin(r.age * 18).abs() * .3
-        : r.activity == Activity.working
-        ? math.sin(r.age * 8).abs() * .2
-        : 0.0;
-    final sprite = game.art['resident'];
+    final pose = game.pose(r), position = pose.feet;
+    final sprite = game.art[Appearance.sprite(r.bodyId, r.palette)];
     if (sprite == null) return;
     canvas.save();
-    canvas.translate(x, y - bob);
-    canvas.scale(r.facing, 1);
+    canvas.translate(position.dx, position.dy);
     canvas.drawOval(
-      const Rect.fromLTWH(-2.5, 1, 5, 1.5),
-      Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .8),
+      const Rect.fromLTWH(-2.5, -.4, 5, 1.3),
+      Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .75),
     );
+    canvas.translate(0, -pose.lift);
+    canvas.scale(pose.facing, 1);
+    canvas.skew(pose.lean, 0);
     for (final d in [
       const Offset(-.35, 0),
       const Offset(.35, 0),
@@ -849,10 +869,11 @@ class _LandscapeLayer extends Component {
     ]) {
       sprite.render(
         canvas,
-        position: Vector2(-3.5 + d.dx, -5 + d.dy),
-        size: Vector2.all(7),
+        position: Vector2(-4.5 + d.dx, -9 + d.dy),
+        size: Vector2.all(9),
         overridePaint: Paint()
           ..filterQuality = FilterQuality.none
+          ..isAntiAlias = false
           ..colorFilter = ColorFilter.mode(
             const Color(0xff1b2b26).withValues(alpha: alpha),
             BlendMode.srcIn,
@@ -861,24 +882,26 @@ class _LandscapeLayer extends Component {
     }
     sprite.render(
       canvas,
-      position: Vector2(-3.5, -5),
-      size: Vector2.all(7),
+      position: Vector2(-4.5, -9),
+      size: Vector2.all(9),
       overridePaint: Paint()
         ..filterQuality = FilterQuality.none
-        ..colorFilter = ColorFilter.mode(
-          [
-            const Color(0xfff4e6ba),
-            const Color(0xffa9d5d0),
-            const Color(0xffeab29c),
-            const Color(0xffbcc5ec),
-          ][r.palette].withValues(alpha: alpha),
-          BlendMode.srcIn,
-        ),
+        ..isAntiAlias = false
+        ..color = Color.fromRGBO(255, 255, 255, alpha),
     );
     if (r.activity == Activity.working) {
+      canvas.drawLine(
+        Offset(2, -4),
+        Offset(4, -1.3 + pose.gesture * 1.2),
+        Paint()
+          ..color = const Color(0xffd6b97b).withValues(alpha: alpha)
+          ..strokeWidth = .7,
+      );
+    } else if (pose.gesture > .25 &&
+        [Activity.socialising, Activity.gathering].contains(r.activity)) {
       canvas.drawRect(
-        const Rect.fromLTWH(3, -2, 1, 2),
-        Paint()..color = const Color(0xffefd285),
+        Rect.fromLTWH(3.4, -5 - pose.gesture, .7, 1.4),
+        Paint()..color = const Color(0xffe7bd91).withValues(alpha: alpha),
       );
     }
     canvas.restore();

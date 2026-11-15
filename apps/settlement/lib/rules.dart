@@ -18,8 +18,9 @@ abstract final class Rules {
   static const gatheringMinimum = 4, gatheringStart = 3, gatheringGuests = 6;
   static const gatheringDuration = 12.0, gatheringWait = 22.0;
   static const gatheringCooldownDays = 2, gatheringChance = .8;
-  static const bubbleLimit = 3, bubbleSeconds = 3.0;
+  static const bubbleLimit = 2, bubbleSeconds = 3.0;
   static const bubbleCooldown = 20.0, complaintCooldown = 60.0;
+  static const causeCooldown = 24.0, positiveCauseCooldown = 4.0;
   static int cost(String tool) => costs[tool] ?? 0;
   static String coins(int milli) => (milli / 1000).toStringAsFixed(1);
 }

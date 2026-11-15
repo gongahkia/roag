@@ -339,6 +339,390 @@
       "file": "images/road12.png",
       "sha256": "5000bab9417b82ba243619390e8f0fb7f52abb6205e37f2dadd948c465d42e30"
     },
+    "person-plain-v1-cream": {
+      "id": "urizen-onebit-r00-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-plain-v1-cream.png",
+      "body": "plain-v1",
+      "palette": "cream",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "bff50ac29033633a56f08140039c5d96df235a8b7137e7dbc421b4fb9c7e51d9"
+    },
+    "person-plain-v1-teal": {
+      "id": "urizen-onebit-r00-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-plain-v1-teal.png",
+      "body": "plain-v1",
+      "palette": "teal",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "460df99ac5fea51181c14b43c60a8057696c9fcfee7246977a506a4f99c9fff5"
+    },
+    "person-plain-v1-clay": {
+      "id": "urizen-onebit-r00-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-plain-v1-clay.png",
+      "body": "plain-v1",
+      "palette": "clay",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "2213b95c12f5631a7ffd3e632a47a4b1e48c7f255f0716b60afe24b27a9c5882"
+    },
+    "person-plain-v1-lilac": {
+      "id": "urizen-onebit-r00-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-plain-v1-lilac.png",
+      "body": "plain-v1",
+      "palette": "lilac",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "818de87036e5753f22fddee30bc08009a23f54d26371d7b241db5005a65ef23c"
+    },
+    "person-longhair-v1-cream": {
+      "id": "urizen-onebit-r01-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        14,
+        12,
+        12
+      ],
+      "file": "images/person-longhair-v1-cream.png",
+      "body": "longhair-v1",
+      "palette": "cream",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "fb2224b22356e2581b6f34fd53f46aee2bf05dd331fdad029eca63b1b81d8779"
+    },
+    "person-longhair-v1-teal": {
+      "id": "urizen-onebit-r01-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        14,
+        12,
+        12
+      ],
+      "file": "images/person-longhair-v1-teal.png",
+      "body": "longhair-v1",
+      "palette": "teal",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "48e0d1847127a4c85e499c671d5c0e5aa2cc2bac8bb6871854dce4d7b3e11a9f"
+    },
+    "person-longhair-v1-clay": {
+      "id": "urizen-onebit-r01-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        14,
+        12,
+        12
+      ],
+      "file": "images/person-longhair-v1-clay.png",
+      "body": "longhair-v1",
+      "palette": "clay",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "8575c4229bd62434408b10c58dc2755d41cd85435a05f518e2a85bf62d6d5869"
+    },
+    "person-longhair-v1-lilac": {
+      "id": "urizen-onebit-r01-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        14,
+        12,
+        12
+      ],
+      "file": "images/person-longhair-v1-lilac.png",
+      "body": "longhair-v1",
+      "palette": "lilac",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "62b997cf313671c82e33d349f6ed19336278e31080a6873224891b5eb398566a"
+    },
+    "person-hood-v1-cream": {
+      "id": "urizen-onebit-r02-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-hood-v1-cream.png",
+      "body": "hood-v1",
+      "palette": "cream",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "1aec8d588ab0d9f963017a8dd0aaf8b8a0b058d2196428a460698ef24b1224c8"
+    },
+    "person-hood-v1-teal": {
+      "id": "urizen-onebit-r02-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-hood-v1-teal.png",
+      "body": "hood-v1",
+      "palette": "teal",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "037a76ad13d07231a52f6cbe7021fd819728bd326a3662669c69f2b7f6e7e1d6"
+    },
+    "person-hood-v1-clay": {
+      "id": "urizen-onebit-r02-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-hood-v1-clay.png",
+      "body": "hood-v1",
+      "palette": "clay",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "8f8ca1290afcda474804766fd6fa405500585b95d90f1ea6caef986e9bdb5064"
+    },
+    "person-hood-v1-lilac": {
+      "id": "urizen-onebit-r02-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-hood-v1-lilac.png",
+      "body": "hood-v1",
+      "palette": "lilac",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "5a23eeebf1378deb38783ce8d6d5796f25cd37a8bda8722239325e2dd1e4e92e"
+    },
+    "person-cap-v1-cream": {
+      "id": "urizen-onebit-r03-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        40,
+        12,
+        12
+      ],
+      "file": "images/person-cap-v1-cream.png",
+      "body": "cap-v1",
+      "palette": "cream",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "bc69cc11c1df0bb98441bb38523e85ab01f45c989537e924e8d1edd3ed0bd2a2"
+    },
+    "person-cap-v1-teal": {
+      "id": "urizen-onebit-r03-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        40,
+        12,
+        12
+      ],
+      "file": "images/person-cap-v1-teal.png",
+      "body": "cap-v1",
+      "palette": "teal",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "b980b4b6e65e3a7547d8d3d1f49bb7970bdeb73f59140d8a7a1cc770db5cd91d"
+    },
+    "person-cap-v1-clay": {
+      "id": "urizen-onebit-r03-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        40,
+        12,
+        12
+      ],
+      "file": "images/person-cap-v1-clay.png",
+      "body": "cap-v1",
+      "palette": "clay",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "5e8ce791677dc300fd0902afda5a26195b182b276dbce550f9152eafeda944be"
+    },
+    "person-cap-v1-lilac": {
+      "id": "urizen-onebit-r03-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        40,
+        12,
+        12
+      ],
+      "file": "images/person-cap-v1-lilac.png",
+      "body": "cap-v1",
+      "palette": "lilac",
+      "feet": [
+        6,
+        12
+      ],
+      "render_size": [
+        9,
+        9
+      ],
+      "animation": "static; procedural presentation",
+      "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
+      "sha256": "4b87c53f63392522f0efa37a492d5eff425944b347821984b47278b5173ade63"
+    },
     "hammer": {
       "source": "assets/godot-node-icons/white/icon_hammer.png",
       "rect": [

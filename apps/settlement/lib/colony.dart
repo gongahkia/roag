@@ -634,6 +634,7 @@ class Colony extends Residents {
     'id': r.homeId,
     'active': r.active,
     'palette': r.palette,
+    'bodyId': r.bodyId,
     'cell': [r.cell.x, r.cell.y],
     'x': r.x,
     'y': r.y,
@@ -786,6 +787,7 @@ class Colony extends Residents {
       );
       r.active = flag(row, 'active');
       r.palette = integer(row, 'palette', 0, 3);
+      r.bodyId = identity(row['bodyId']) ?? r.bodyId;
       r.x = number(row, 'x', 0, world.width.toDouble());
       r.y = number(row, 'y', 0, world.height.toDouble());
       r.timer = number(row, 'timer');

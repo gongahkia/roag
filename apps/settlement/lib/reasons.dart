@@ -1,3 +1,5 @@
+import 'rules.dart';
+
 enum Reason {
   none('', '', false),
   homeCut(
@@ -6,45 +8,46 @@ enum Reason {
     true,
   ),
   noWork(
-    'I’d like somewhere to work.',
-    'Build or connect a Productive Garden. Each has two work positions.',
+    'Looking for farm work.',
+    'Build or connect a Farm. Each has two work positions.',
     true,
   ),
   workFull(
-    'All the garden jobs are taken.',
-    'Both work positions are assigned. Build or connect another Productive Garden.',
+    'The farms are fully staffed.',
+    'Both work positions are assigned. Build or connect another Farm.',
     true,
   ),
   workCut(
-    'I can’t reach my garden.',
-    'Restore a path between this home and its assigned garden.',
+    'I can’t reach my farm.',
+    'Restore a path between this home and its assigned farm.',
+    true,
+  ),
+  farmsCut(
+    'The farms need a path.',
+    'Farms exist, but none can be reached. Reconnect their paths to the arrival lane.',
     true,
   ),
   offWork(
-    'Off to the garden.',
-    'Following a valid route to an assigned garden. Travel takes time.',
+    'Off to the farm.',
+    'Following a valid route to an assigned farm. Travel takes time.',
     false,
   ),
   workDone(
     'A good day’s work!',
-    'Completed real productive time in a garden. The earnings are in the treasury.',
+    'Completed real productive time in a farm. The earnings are in the treasury.',
     false,
   ),
   noLeisure(
-    'Somewhere to relax would be nice.',
-    'Build or connect a Village Green for a social visit.',
+    'A park would be lovely.',
+    'Build or connect a Park for a social visit.',
     true,
   ),
   socialFull(
-    'No space here yet.',
-    'Actually waiting beside a full green. There are six social places; another reachable green can help.',
+    'Waiting for room at the park.',
+    'Actually waiting beside a full park. There are six social places; another reachable park can help.',
     true,
   ),
-  socialCut(
-    'The green is cut off.',
-    'Restore a path to the Village Green.',
-    true,
-  ),
+  socialCut('I can’t reach the park.', 'Restore a path to the Park.', true),
   socialDone(
     'That was lovely.',
     'Completed a qualifying social visit. Recent leisure improves happiness.',
@@ -56,7 +59,16 @@ enum Reason {
     false,
   );
 
-  final String bubble, detail;
+  final String bubble, _detail;
   final bool problem;
-  const Reason(this.bubble, this.detail, this.problem);
+  String get detail => switch (this) {
+    noWork =>
+      'Build a Farm beside a connected path. Each has ${Rules.gardenCapacity} work positions.',
+    workFull =>
+      'Reachable Farms have all work positions assigned (${Rules.gardenCapacity} per Farm). Another connected Farm can help.',
+    socialFull =>
+      'Actually waiting beside a full Park (${Rules.greenCapacity} visitor spaces). Another reachable Park can help.',
+    _ => _detail,
+  };
+  const Reason(this.bubble, this._detail, this.problem);
 }

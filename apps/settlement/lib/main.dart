@@ -245,7 +245,7 @@ class _LandscapePageState extends State<LandscapePage> {
             ? 'path cell'
             : stroke.tool == Tool.remove
             ? 'piece'
-            : stroke.tool.name;
+            : stroke.tool.label.toLowerCase();
         tell(
           '${stroke.changed.length} $noun${stroke.changed.length == 1 ? '' : 's'} ${stroke.tool == Tool.remove ? 'removed' : 'placed'} · ${Rules.coins(stroke.price)} coins',
         );
@@ -361,6 +361,7 @@ class _LandscapePageState extends State<LandscapePage> {
     cancelGesture();
     setState(() => menuOpen = true);
     game.clearPreview();
+    game.menuVisible = true;
     try {
       if (action == 'export') {
         browser.exportFile(colony.snapshot().text);
@@ -409,12 +410,12 @@ class _LandscapePageState extends State<LandscapePage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('A small place, shaped by you'),
-            content: const SingleChildScrollView(
+            content: SingleChildScrollView(
               child: Text(
-                '1 Cottage (5 coins) · 2 Path · 3 Remove · 4/G Garden (8) · 5/V Green (6)\n'
+                '1 Cottage (5 coins) · 2 Path · 3 Remove · 4/G Farm (8) · 5/V Park (6)\n'
                 'Click or drag, release to commit one stroke. Escape cancels. Undo during a stroke cancels it first.\n\n'
-                'Gardens have two automatic jobs: people must reach them and work to earn 0.2 coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
-                'Greens host six actual social visits. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
+                'Farms have ${Rules.gardenCapacity} work positions: people must reach them and work to earn ${Rules.coins(Rules.workIncomePerSecond)} coins/second each. The settlement grant adds 20 coins per 150-second day. Paths and demolition are free.\n\n'
+                'Parks have ${Rules.greenCapacity} visitor spaces for actual social visits and relaxation. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
                 'I: inspect; Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
                 'Automatic checkpoints belong to this browser and origin. Export is portable. Old saves are backed up before migration. No ROAG dungeon storage is used.',
@@ -438,6 +439,7 @@ class _LandscapePageState extends State<LandscapePage> {
     } finally {
       if (mounted) {
         setState(() => menuOpen = false);
+        game.menuVisible = false;
         focus.requestFocus();
       }
     }
@@ -486,20 +488,13 @@ class _LandscapePageState extends State<LandscapePage> {
 
   @override
   Widget build(BuildContext context) {
+    game.reducedMotion = MediaQuery.disableAnimationsOf(context);
     final scene = session.view;
     final houses = scene.cells
         .where((c) => scene.at(c).cottage != null)
         .toList();
     final lost = houses.where((c) => scene.access(c) == null).length;
-    String hint =
-        preview?.message ??
-        switch (tool) {
-          Tool.cottage => 'A cottage beside a connected path.',
-          Tool.path => 'Extend the lane, one cell at a time.',
-          Tool.remove => 'Leave a little history behind.',
-          Tool.garden => 'Two productive garden positions.',
-          Tool.green => 'A green for six social visits.',
-        };
+    String hint = preview?.message ?? tool.purpose;
     if (session.stroke != null) {
       hint =
           'Release: ${session.stroke!.changed.length} pieces · ${session.stroke!.free ? 'Free' : '${Rules.coins(session.stroke!.price)} / ${Rules.coins(session.stroke!.budget)} coins'} · Escape cancels';
@@ -540,7 +535,7 @@ class _LandscapePageState extends State<LandscapePage> {
                   const Spacer(),
                   Tooltip(
                     message:
-                        'Actual garden work: ${Rules.coins(colony.workEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
+                        'Actual farm work: ${Rules.coins(colony.workEarned)} coins. Grant: ${Rules.coins(colony.grantEarned)} coins. No maintenance.',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -623,10 +618,14 @@ class _LandscapePageState extends State<LandscapePage> {
                     tooltip: 'Landscape menu',
                     onOpened: () {
                       menuOpen = true;
+                      game.menuVisible = true;
                       space = false;
                       cancelGesture();
                     },
-                    onCanceled: () => setState(() => menuOpen = false),
+                    onCanceled: () => setState(() {
+                      menuOpen = false;
+                      game.menuVisible = false;
+                    }),
                     onSelected: menu,
                     itemBuilder: (context) => [
                       PopupMenuItem(
@@ -721,7 +720,7 @@ class _LandscapePageState extends State<LandscapePage> {
                       top: 18,
                       child: IgnorePointer(
                         child: Text(
-                          'Homes, gardens, greens. Listen to your neighbours.',
+                          'Homes, farms, parks. Listen to your neighbours.',
                           style: TextStyle(
                             color: Color(0xffc3c9aa),
                             fontSize: 11,
@@ -781,54 +780,58 @@ class _LandscapePageState extends State<LandscapePage> {
                       for (final t in Tool.values)
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 9,
-                              ),
-                              foregroundColor: t == tool
-                                  ? const Color(0xfff0dba0)
-                                  : const Color(0xffafbaa3),
-                              backgroundColor: t == tool
-                                  ? const Color(0xff3b4937)
-                                  : Colors.transparent,
-                              side: BorderSide(
-                                color: t == tool
-                                    ? const Color(0xffad9f6a)
-                                    : const Color(0xff536047),
-                              ),
-                            ),
-                            onPressed: () => select(t),
-                            child: Row(
-                              children: [
-                                Image.asset(
-                                  'assets/images/${['hammer', 'grid', 'clear', 'vegetables', 'oak'][t.index]}.png',
-                                  width: 16,
-                                  height: 16,
-                                  filterQuality: FilterQuality.none,
+                          child: Tooltip(
+                            message: '${t.label} · ${t.purpose}',
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 9,
+                                ),
+                                foregroundColor: t == tool
+                                    ? const Color(0xfff0dba0)
+                                    : const Color(0xffafbaa3),
+                                backgroundColor: t == tool
+                                    ? const Color(0xff3b4937)
+                                    : Colors.transparent,
+                                side: BorderSide(
                                   color: t == tool
-                                      ? const Color(0xffe9d59d)
-                                      : const Color(0xff9fad97),
+                                      ? const Color(0xffad9f6a)
+                                      : const Color(0xff536047),
                                 ),
-                                const SizedBox(width: 6),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${t.index + 1} ${['Cottage', 'Path', 'Remove', 'Garden', 'Green'][t.index]}',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    Text(
-                                      session.unlimited ||
-                                              Rules.cost(t.name) == 0
-                                          ? 'Free'
-                                          : '${Rules.cost(t.name) ~/ 1000} coins',
-                                      style: const TextStyle(fontSize: 9),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                              ),
+                              onPressed: () => select(t),
+                              child: Row(
+                                children: [
+                                  Image.asset(
+                                    'assets/images/${['hammer', 'grid', 'clear', 'vegetables', 'oak'][t.index]}.png',
+                                    width: 16,
+                                    height: 16,
+                                    filterQuality: FilterQuality.none,
+                                    color: t == tool
+                                        ? const Color(0xffe9d59d)
+                                        : const Color(0xff9fad97),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${t.index + 1} ${t.label}',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                      Text(
+                                        session.unlimited ||
+                                                Rules.cost(t.name) == 0
+                                            ? 'Free'
+                                            : '${Rules.cost(t.name) ~/ 1000} coins',
+                                        style: const TextStyle(fontSize: 9),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

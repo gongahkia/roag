@@ -3,7 +3,30 @@ import 'dart:convert';
 
 import 'rules.dart';
 
-enum Tool { cottage, path, remove, garden, green }
+enum Tool {
+  cottage,
+  path,
+  remove,
+  garden,
+  green;
+
+  String get label => switch (this) {
+    cottage => 'Cottage',
+    path => 'Path',
+    remove => 'Remove',
+    garden => 'Farm',
+    green => 'Park',
+  };
+  String get purpose => switch (this) {
+    cottage => 'A cottage beside a connected path.',
+    path => 'Extend the lane, one cell at a time.',
+    remove => 'Leave a little history behind.',
+    garden =>
+      '${Rules.gardenCapacity} work positions · earn coins while working.',
+    green =>
+      '${Rules.greenCapacity} visitor spaces · social visits improve mood; evening gatherings.',
+  };
+}
 
 enum Place { garden, green }
 
@@ -523,7 +546,7 @@ class LandscapeSession {
     final edit = _redo.last;
     if (money < edit.paid) {
       historyError =
-          'Redo needs ${Rules.coins(edit.paid)} coins. The grant and garden work can help.';
+          'Redo needs ${Rules.coins(edit.paid)} coins. The grant and farm work can help.';
       return false;
     }
     _redo.removeLast();

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'model.dart';
 import 'reasons.dart';
 import 'rules.dart';
+import 'appearance.dart';
 
 enum Activity {
   pending,
@@ -26,6 +27,7 @@ class Resident {
   final String homeId;
   bool active = true;
   int palette = 0;
+  late String bodyId;
   String? workId;
   double bornAt = 0, lastWork = -10000, lastSocial = -10000;
   double workProgress = 0, socialProgress = 0, workedSeconds = 0;
@@ -52,6 +54,7 @@ class Resident {
   Resident(this.homeId, this.cell, this.activity)
     : x = cell.x + .5,
       y = cell.y + .5 {
+    bodyId = Appearance.assignBody(homeId);
     palette = homeId.codeUnits.last.isEven ? 0 : 1;
   }
   Reason get feedback => problem != Reason.none
