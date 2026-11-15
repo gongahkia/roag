@@ -14,6 +14,7 @@ import 'speech.dart';
 import 'appearance.dart';
 import 'resident_presentation.dart';
 import 'special_event.dart';
+import 'build_art.dart';
 
 class SettlementGame extends FlameGame {
   Colony colony;
@@ -24,6 +25,8 @@ class SettlementGame extends FlameGame {
   final void Function()? onState, onCheckpoint;
   SpeechDirector speech = SpeechDirector();
   bool inspectMode = false, reducedMotion = false, menuVisible = false;
+  bool dialogueOpen = false;
+  Cell? movingFrom;
   ResidentPresentation presentation = ResidentPresentation();
   String? inspectedResident;
   Cell? inspectedCell;
@@ -127,9 +130,10 @@ class SettlementGame extends FlameGame {
       return;
     }
     _previewBudget = budget;
-    preview = evaluate(session.view, tool, c);
+    preview = movingFrom == null ? evaluate(session.view, tool, c)
+        : evaluateMove(session.world, movingFrom!, c);
     final free = session.stroke?.free ?? session.unlimited;
-    final cost = free ? 0 : Rules.cost(tool.name);
+    final cost = free || movingFrom != null ? 0 : Rules.cost(tool.name);
     if (preview!.valid && cost > budget) {
       preview = Placement(
         session.view,
@@ -225,6 +229,8 @@ class SettlementGame extends FlameGame {
     speech = SpeechDirector();
     presentation = ResidentPresentation();
     inspectMode = false;
+    dialogueOpen = false;
+    movingFrom = null;
     _pulses.clear();
     _notice = null;
     clearInspection();
@@ -250,6 +256,15 @@ class SettlementGame extends FlameGame {
   Offset? _inspectionPoint;
   int nearbyPeople = 0;
   bool inspectedEvent = false;
+  bool get movableSelection => inspectedResident == null && inspectedCell != null &&
+      session.world.contains(inspectedCell!) && buildingTool(session.world.at(inspectedCell!)) != null;
+  void inspectBuilding(Cell c) {
+    clearInspection(); inspectedCell = c; inspectMode = true; onState?.call();
+  }
+  void locate(Cell c) {
+    camera.viewfinder.position = Vector2((c.x + .5) * 12, (c.y + .5) * 12);
+    clearPreview();
+  }
   void inspect(Offset point) {
     final hits = <(String, double)>[];
     for (final r in residents.people.values.where((r) => r.visible)) {
@@ -287,7 +302,7 @@ class SettlementGame extends FlameGame {
   String? get inspection {
     if (inspectedEvent && colony.special != null) {
       final e = colony.special!;
-      return '${e.title}\n${e.effect}\n${e.active(colony.clock) ? 'Ends in ${(e.ends - colony.clock).ceil()} seconds.' : 'This event has ended.'}';
+      return '${e.title}\n${e.effect}\n${e.civicChoice == null ? '' : 'Town choice: ${e.civicChoice}. ${e.civicAwarded.length} hospitality benefits.\n'}${e.active(colony.clock) ? 'Ends in ${(e.ends - colony.clock).ceil()} seconds.' : 'This event has ended.'}';
     }
     final r = colony.people[inspectedResident];
     if (r != null) {
@@ -305,7 +320,8 @@ class SettlementGame extends FlameGame {
           .join(' · ');
       final home = colony.world.cottages[r.homeId],
           work = colony.world.places[r.workId];
-      return '${r.name} · ${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
+      final requests = colony.requests.forResident(r.homeId).map((q) => q.status).join('\n');
+      return '${r.name} · ${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
     }
     final c = inspectedCell;
     if (c == null || !session.world.contains(c)) return null;
@@ -412,7 +428,7 @@ class SettlementGame extends FlameGame {
       avoid: [
         const Rect.fromLTWH(16, 12, 700, 80),
         // matches the existing top-right read-only inspector, with safe padding.
-        if (inspection != null) Rect.fromLTWH(size.x - 312, 0, 312, 400),
+        if (inspection != null || dialogueOpen) Rect.fromLTWH(size.x - 332, 0, 332, size.y),
       ],
     );
   }
@@ -504,94 +520,18 @@ class _LandscapeLayer extends Component {
   Landscape? _cachedScene;
   Image? _sceneImage;
   List<Cell> _objects = [];
-  static const roadArt = {
-    5: 0,
-    10: 2,
-    12: 4,
-    9: 5,
-    6: 6,
-    3: 7,
-    13: 8,
-    14: 9,
-    7: 10,
-    11: 11,
-    15: 12,
-  };
   static const green = Color(0xff658052), gold = Color(0xffd9c58d);
 
+  late final drawings = BuildArt(game.art);
   void frame(
     Canvas canvas,
     String name,
     Cell c,
     Color tint, {
     double opacity = 1,
-  }) {
-    game.art[name]?.render(
-      canvas,
-      position: Vector2(c.x * 12.0, c.y * 12.0),
-      size: Vector2.all(12),
-      overridePaint: Paint()
-        ..filterQuality = FilterQuality.none
-        ..isAntiAlias = false
-        ..colorFilter = ColorFilter.mode(
-          tint.withValues(alpha: opacity),
-          BlendMode.srcIn,
-        ),
-    );
-  }
-
-  void road(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) {
-    final mask = scene.roadMask(c);
-    final road = scene.at(c).road;
-    final color = Color.lerp(
-      const Color(0xff7b7660),
-      road == RoadKind.stone
-          ? const Color(0xffa3b2ad)
-          : road == RoadKind.gardenPath
-          ? const Color(0xff8f9f65)
-          : const Color(0xffbba47d),
-      scene.activePaths.contains(c) ? 1 : 0,
-    )!.withValues(alpha: opacity);
-    var index = roadArt[mask];
-    if (index == 0 || index == 2) {
-      index = index! + variation(scene.seed, c, 5) % 2;
-    }
-    if (index != null) {
-      frame(canvas, 'road$index', c, color);
-      if (road != RoadKind.dirt) {
-        for (final d in [const Offset(4, 4), const Offset(7, 7)]) {
-          canvas.drawRect(
-            Rect.fromLTWH(
-              c.x * 12 + d.dx,
-              c.y * 12 + d.dy,
-              road == RoadKind.stone ? 2 : 1,
-              1,
-            ),
-            Paint()
-              ..color =
-                  (road == RoadKind.stone
-                          ? const Color(0xff657c78)
-                          : const Color(0xffe5d3a0))
-                      .withValues(alpha: opacity),
-          );
-        }
-      }
-    } else {
-      // The source set has no ends. Clip existing dirt to a real center + ports.
-      final x = c.x * 12.0, y = c.y * 12.0;
-      final path = Path()..addRect(Rect.fromLTWH(x + 3, y + 3, 6, 6));
-      if (mask & 1 != 0) path.addRect(Rect.fromLTWH(x + 3, y, 6, 6));
-      if (mask & 2 != 0) path.addRect(Rect.fromLTWH(x + 6, y + 3, 6, 6));
-      if (mask & 4 != 0) path.addRect(Rect.fromLTWH(x + 3, y + 6, 6, 6));
-      if (mask & 8 != 0) path.addRect(Rect.fromLTWH(x, y + 3, 6, 6));
-      canvas.save();
-      canvas.clipPath(path, doAntiAlias: false);
-      canvas.drawRect(Rect.fromLTWH(x, y, 12, 12), Paint()..color = color);
-      frame(canvas, 'dirt', c, const Color(0xff777058), opacity: opacity);
-      canvas.restore();
-    }
-  }
-
+  }) => drawings.frame(canvas, name, c, tint, opacity: opacity);
+  void road(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) =>
+      drawings.road(canvas, scene, c, opacity: opacity);
   void cottage(
     Canvas canvas,
     Landscape scene,
@@ -600,142 +540,27 @@ class _LandscapeLayer extends Component {
     double opacity = 1,
     bool bodyOnly = false,
     bool groundOnly = false,
-  }) {
-    final x = c.x * 12.0, y = c.y * 12.0;
-    final access = scene.access(c);
-    if (!bodyOnly) {
-      canvas.drawRect(
-        Rect.fromLTWH(x + 1, y + 3, 10, 9),
-        Paint()..color = const Color(0xff746345).withValues(alpha: opacity),
-      );
-      frame(canvas, 'dirt', c, const Color(0xff8b7954), opacity: opacity);
-      if (access != null) {
-        final end = Offset((access.x + .5) * 12, (access.y + .5) * 12);
-        canvas.drawLine(
-          Offset(x + 6, y + 8),
-          end,
-          Paint()
-            ..color = const Color(0xffa7946e).withValues(alpha: opacity)
-            ..strokeWidth = 2
-            ..isAntiAlias = false,
-        );
-      }
-      canvas.drawRect(
-        Rect.fromLTWH(x + 3, y + 10, 8, 2),
-        Paint()..color = const Color(0xff1d2924).withValues(alpha: opacity),
-      );
-    }
-    if (groundOnly) return;
-    frame(
-      canvas,
-      'cottage$variant',
-      c,
-      const Color(0xffe29a60),
-      opacity: opacity,
-    );
-    if (access == null && opacity == 1) {
-      canvas.drawRect(
-        Rect.fromLTWH(x + 8, y + 1, 4, 3),
-        Paint()..color = const Color(0xffe2c477),
-      );
-      canvas.drawRect(
-        Rect.fromLTWH(x + 9, y + 2, 2, 1),
-        Paint()..color = const Color(0xff403d30),
-      );
-    }
-  }
-
+  }) => drawings.cottage(
+    canvas,
+    scene,
+    c,
+    variant,
+    opacity: opacity,
+    bodyOnly: bodyOnly,
+    groundOnly: groundOnly,
+  );
   void place(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) {
-    final lot = scene.at(c), x = c.x * 12.0, y = c.y * 12.0;
-    canvas.save();
-    canvas.drawRect(
-      Rect.fromLTWH(x + .5, y + .5, 11, 11),
-      Paint()
-        ..color =
-            (lot.place == Place.garden
-                    ? const Color(0xff6c6144)
-                    : const Color(0xff456347))
-                .withValues(alpha: opacity),
+    final tended = game.colony.tended[scene.at(c).placeId];
+    drawings.place(
+      canvas,
+      scene,
+      c,
+      opacity: opacity,
+      harvestAge: tended == null ? null : game.colony.clock - tended,
+      gatheringActive:
+          game.colony.event?.green == scene.at(c).placeId &&
+          game.colony.event?.state == 'active',
     );
-    if ([Place.workshop, Place.market, Place.hall].contains(lot.place)) {
-      frame(
-        canvas,
-        lot.place!.name,
-        c,
-        lot.place == Place.workshop
-            ? const Color(0xffb5beb6)
-            : lot.place == Place.market
-            ? const Color(0xffdbab78)
-            : const Color(0xffc4b0ca),
-        opacity: opacity,
-      );
-      if (lot.place == Place.market) {
-        for (var i = 0; i < 4; i++) {
-          canvas.drawRect(
-            Rect.fromLTWH(x + 1 + i * 2, y + 3, 2, 2),
-            Paint()
-              ..color =
-                  (i.isEven ? const Color(0xffbf7e65) : const Color(0xffe6cf94))
-                      .withValues(alpha: opacity),
-          );
-        }
-      }
-    } else if (lot.place == Place.garden) {
-      for (final row in [3.0, 7.0]) {
-        canvas.drawRect(
-          Rect.fromLTWH(x + 1, y + row, 10, 2),
-          Paint()..color = const Color(0xff493e2e).withValues(alpha: opacity),
-        );
-      }
-      frame(canvas, 'vegetables', c, const Color(0xffb8c578), opacity: opacity);
-      final tended = game.colony.tended[lot.placeId];
-      if (tended != null && game.colony.clock - tended < 1) {
-        canvas.drawCircle(
-          Offset(x + 6, y + 5),
-          2 + (game.colony.clock - tended) * 4,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = .5
-            ..color = const Color(0xffe4ce88).withValues(alpha: opacity),
-        );
-      }
-    } else {
-      final sprite = game.art['oak'];
-      sprite?.render(
-        canvas,
-        position: Vector2(x + 1, y + 1),
-        size: Vector2.all(7),
-        overridePaint: Paint()
-          ..filterQuality = FilterQuality.none
-          ..colorFilter = ColorFilter.mode(
-            const Color(0xffa4b878).withValues(alpha: opacity),
-            BlendMode.srcIn,
-          ),
-      );
-      for (final by in [3.0, 8.0]) {
-        canvas.drawRect(
-          Rect.fromLTWH(x + 8, y + by, 3, 1),
-          Paint()..color = const Color(0xffceb88a).withValues(alpha: opacity),
-        );
-      }
-      if (game.colony.event?.green == lot.placeId &&
-          game.colony.event?.state == 'active') {
-        canvas.drawRect(
-          Rect.fromLTWH(x, y, 12, 12).inflate(.5),
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = .5
-            ..color = const Color(0xffeed088),
-        );
-      }
-    }
-    if (scene.access(c) == null && opacity == 1) {
-      canvas.drawRect(
-        Rect.fromLTWH(x + 9, y, 3, 2),
-        Paint()..color = const Color(0xffe2c477),
-      );
-    }
-    canvas.restore();
   }
 
   void drawLandscape(Canvas canvas, Landscape scene) {
@@ -909,13 +734,18 @@ class _LandscapeLayer extends Component {
               ..strokeWidth = .35,
           );
         }
-        if (game.tool == Tool.path) road(canvas, next, c, opacity: .8);
-        if (game.tool == Tool.garden || game.tool == Tool.green) {
+        if (next.at(c).path) road(canvas, next, c, opacity: .8);
+        if (next.at(c).place != null) {
           place(canvas, next, c, opacity: .75);
         }
-        if (game.tool == Tool.cottage) {
+        if (next.at(c).cottage != null) {
           cottage(canvas, next, c, next.at(c).cottage!, opacity: .75);
         }
+      }
+      if (plan.movingFrom != null) {
+        final from = plan.movingFrom!;
+        canvas.drawRect(Rect.fromLTWH(from.x * 12.0, from.y * 12.0, 12, 12),
+          Paint()..color = gold.withValues(alpha: .2));
       }
       canvas.drawRect(
         Rect.fromLTWH(x + .5, y + .5, 11, 11),

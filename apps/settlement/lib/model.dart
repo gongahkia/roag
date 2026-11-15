@@ -462,7 +462,8 @@ class Placement {
   Iterable<Cell> get affected sync* {
     if (after == null) return;
     for (final c in before.cells) {
-      if (c == cell || c == movingFrom ||
+      if (c == cell ||
+          c == movingFrom ||
           ((before.at(c).path || after!.at(c).path) &&
               (before.roadMask(c) != after!.roadMask(c) ||
                   before.activePaths.contains(c) !=
@@ -477,7 +478,9 @@ class Placement {
 
 Tool? buildingTool(Lot lot) => lot.cottage != null
     ? Tool.cottage
-    : lot.place == null ? null : Tool.values.firstWhere((t) => t.place == lot.place);
+    : lot.place == null
+    ? null
+    : Tool.values.firstWhere((t) => t.place == lot.place);
 
 Placement evaluateMove(Landscape world, Cell from, Cell to) {
   Placement no(String why) => Placement(world, null, to, why, null, from);
@@ -490,14 +493,25 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
   final placement = evaluate(vacated, buildingTool(original)!, to);
   if (!placement.valid) return no(placement.message);
   final destination = world.at(to);
-  final after = vacated.replace(to, Lot(
-    grass: destination.grass, trace: Trace.pad,
-    cottage: original.cottage, cottageId: original.cottage == null ? null : world.cottageKey(from),
-    place: original.place, placeId: original.placeId,
-  ));
-  return Placement(world, after, to,
+  final after = vacated.replace(
+    to,
+    Lot(
+      grass: destination.grass,
+      trace: Trace.pad,
+      cottage: original.cottage,
+      cottageId: original.cottage == null ? null : world.cottageKey(from),
+      place: original.place,
+      placeId: original.placeId,
+    ),
+  );
+  return Placement(
+    world,
+    after,
+    to,
     'Move ${buildingTool(original)!.label} · Free · click to place · Escape cancels',
-    after.access(to), from);
+    after.access(to),
+    from,
+  );
 }
 
 Placement evaluate(Landscape world, Tool tool, Cell c) {
@@ -602,7 +616,10 @@ class LandscapeSession {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   bool commit(Placement plan) {
-    if (stroke != null || plan.movingFrom != null || !identical(plan.before, world) || !plan.valid) {
+    if (stroke != null ||
+        plan.movingFrom != null ||
+        !identical(plan.before, world) ||
+        !plan.valid) {
       return false;
     }
     final lot = plan.after!.at(plan.cell);
@@ -623,8 +640,11 @@ class LandscapeSession {
   }
 
   bool relocate(Placement plan) {
-    if (stroke != null || plan.movingFrom == null ||
-        !identical(plan.before, world) || !plan.valid) return false;
+    if (stroke != null ||
+        plan.movingFrom == null ||
+        !identical(plan.before, world) ||
+        !plan.valid)
+      return false;
     final checked = evaluateMove(world, plan.movingFrom!, plan.cell);
     if (!checked.valid) return false;
     return _commit(checked.after!, 0);

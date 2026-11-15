@@ -134,7 +134,7 @@ def products():
                 mask = bytes(rgba[3::4])
                 assert mask not in masks, 'cast contains duplicate silhouettes'
                 masks.add(mask)
-    for name in ['hammer', 'grid', 'clear']:
+    for name in ['hammer', 'grid', 'clear', 'coin']:
         path = f'assets/godot-node-icons/white/icon_{name}.png'
         image = Png(ROOT / path)
         data = (ROOT / path).read_bytes()

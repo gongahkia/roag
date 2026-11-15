@@ -803,6 +803,17 @@
       ],
       "file": "images/clear.png",
       "sha256": "4db4f36945432e45818bd2b1d03c1290e959f034718534f6bcf4ec4ff0078324"
+    },
+    "coin": {
+      "source": "assets/godot-node-icons/white/icon_coin.png",
+      "rect": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "file": "images/coin.png",
+      "sha256": "9801557ba43d134a4d7ce75288ceff44b05263dd536cf533d02085b8759d0226"
     }
   },
   "road_masks": {
