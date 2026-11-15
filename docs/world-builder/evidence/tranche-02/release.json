@@ -1,0 +1,33 @@
+{
+  "buildCommand": "flutter build web --release --base-href /settlement/ --no-web-resources-cdn",
+  "toolchain": {
+    "flutter": "3.50.0",
+    "dart": "3.14.0",
+    "flame": "1.38.2",
+    "material_ui": "1.11.0"
+  },
+  "buildFiles": 64,
+  "buildBytes": 42119316,
+  "mainDartJsSha256": "7a18943bd840749a9c946240d335698ef0451084514bf68c2d49cad74c41d6d4",
+  "platformJsSha256": "a90455f64c8f03051e787290d662985c1d855f7d674f4309a1f31e80f35c885a",
+  "platformMatchesSource": true,
+  "runtimeSources": {
+    "apps/settlement/lib/browser.dart": "cbb0e24f0d7b989519271e246870518a2c8b00004abf92a818abe805374325e5",
+    "apps/settlement/lib/main.dart": "67748918c6e58aa60feeb8f0a1270542bd95be0cfad216b29c005578c9766174",
+    "apps/settlement/lib/model.dart": "9bff3f9e34c4bf6772c8572a94f31cb67b6d940d3c16dde86c92fc6d70bd2792",
+    "apps/settlement/lib/residents.dart": "81b6eb30db48574e9a0cf04bef1e2530eb3183d32cb89bc1ba4a0d5b17c0bafc",
+    "apps/settlement/lib/settlement_game.dart": "4060a4f7d04bc6458147256561026e16c29a517aa49cb7d5e952407abb68edac",
+    "apps/settlement/web/index.html": "e9b59cd3e145fef66f5d417660a63e86ed4147ea4266b90b293f1c611ad9db36",
+    "apps/settlement/web/platform.js": "a90455f64c8f03051e787290d662985c1d855f7d674f4309a1f31e80f35c885a"
+  },
+  "localArchive": "artifacts/settlement/roag-settlement-web.zip",
+  "archiveBytes": 14104139,
+  "archiveSha256": "a02e133d8dd5f01104e2ebe9fdfa4845443dba9c2f4319b8aeb3d009e4ec9ad5",
+  "verification": {
+    "dartFormat": "7 files, no changes",
+    "flutterAnalyze": "No issues",
+    "flutterTest": "26 passed",
+    "assetCheck": "24 bounded crops, manifest and font verified"
+  },
+  "hosting": "Local only; no deployment or hosting configuration change in this tranche"
+}

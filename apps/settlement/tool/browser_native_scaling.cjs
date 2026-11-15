@@ -16,9 +16,13 @@ fs.mkdirSync(output,{recursive:true});
   let socket;
   try {
     const portFile=path.join(profile,'DevToolsActivePort');
-    for(let i=0;i<200 && !fs.existsSync(portFile);i++)await new Promise(r=>setTimeout(r,25));
-    assert(fs.existsSync(portFile),'native browser started');
-    const port=fs.readFileSync(portFile,'utf8').split('\n')[0];
+    let port;
+    for(let i=0;i<200;i++){
+      const value=fs.existsSync(portFile)?fs.readFileSync(portFile,'utf8').split('\n')[0]:'';
+      if(/^\d+$/.test(value) && Number(value)>0){port=value;break;}
+      await new Promise(r=>setTimeout(r,25));
+    }
+    assert(port,'native browser published its debugging port');
     const pages=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     socket=new WebSocket(pages.find(p=>p.type==='page').webSocketDebuggerUrl);
     await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});});
@@ -52,9 +56,9 @@ fs.mkdirSync(output,{recursive:true});
     const tool=await read(buttonExpression('1 Cottage')),menu=await read(buttonExpression('Landscape menu'));
     const cy=(menu.y+menu.h+12+tool.y-10)/2;
     const saved="localStorage.getItem('roag.settlement.landscape.v1')";
-    await read(`(()=>{window.nativeEvents=[];for(const t of ['blur','focus','visibilitychange','pointerdown','pointerup','pointercancel','pointerleave','pointermove'])window.addEventListener(t,e=>nativeEvents.push([t,e.target.tagName,e.clientX,e.clientY,document.hidden,document.hasFocus()]),true);const write=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){nativeEvents.push(['WRITE',document.hidden,document.hasFocus()]);return write.call(this,k,v);};})()`);
     move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,150));assert.equal(await read(saved),null);
-    run(['key','ctrl+t']);await wait('document.hidden || !document.hasFocus()');console.log('Before release',await read('nativeEvents'));run(['mouseup','1']);await new Promise(r=>setTimeout(r,100));console.log('After release',await read('nativeEvents'));
+    // clearmodifiers would release the held mouse before testing focus loss.
+    run(['key','ctrl+t']);await wait('document.hidden || !document.hasFocus()');run(['mouseup','1']);await new Promise(r=>setTimeout(r,100));
     assert((await read(saved))===null,'native tab focus loss cancels the unfinished stroke');
     run(['key','--clearmodifiers','ctrl+w']);await wait('!document.hidden');await button('2 Path');
     move(24+8.5*48,cy);run(['mousedown','1']);await new Promise(r=>setTimeout(r,100));assert.equal(await read(saved),null);

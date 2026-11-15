@@ -1,0 +1,34 @@
+{
+  "baselineCommit": "867fa84f",
+  "baselineFileCount": 1791,
+  "originalFilesChanged": [
+    "artifacts/settlement/roag-settlement-web.zip",
+    "apps/settlement/lib/model.dart",
+    "apps/settlement/lib/browser.dart",
+    "apps/settlement/lib/settlement_game.dart",
+    "apps/settlement/lib/main.dart",
+    "apps/settlement/tool/assets.py",
+    "apps/settlement/tool/browser_test.cjs",
+    "apps/settlement/tool/browser_edges.cjs",
+    "apps/settlement/tool/browser_native_scaling.cjs",
+    "apps/settlement/assets/ATTRIBUTION.txt",
+    "apps/settlement/assets/manifest.json",
+    "apps/settlement/web/platform.js",
+    "apps/settlement/test/model_test.dart"
+  ],
+  "unrelatedOriginalFilesChanged": [],
+  "intentionalLocalReleaseArchive": "artifacts/settlement/roag-settlement-web.zip",
+  "rootReadmeBefore": "3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a",
+  "rootReadmeAfter": "3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a",
+  "allReadmeFilesEqual": true,
+  "readmeFileCount": 6,
+  "normalLuaStorageEqual": true,
+  "normalLuaStorageFiles": {
+    "profile-a.roag": "e6b7ee0640feda50d2542af0f08b34c4ed29f6c0a45f16be11e22ed79fb6c331",
+    "profile-b.roag": "edadc9e6e9f49b713ceece7899e539dba49e77ca8a04c9071142bf0e4aadc153",
+    "active-a.roag": "0e9ed2b44c2b5d45a9f271f61fa23a64c72e6d7b698cb5ffb58f22075be1b90f",
+    "active-b.roag": "9a634b205139a0cc3f1c8fae472901b911d8a5046cdc87442a9d852350059fb2"
+  },
+  "browserIsolation": "Fresh isolated test contexts/profiles on port 8767; existing user browser profile not cleared",
+  "hosting": "No deployment or hosting configuration changes"
+}

@@ -1,0 +1,28 @@
+{
+  "seed": 202,
+  "browser": "155.0.8059.84",
+  "input": "Playwright mouse, keyboard and browser pointer/focus events; no game callbacks or injected world",
+  "steps": [
+    "Fast one-sample drag interpolates a continuous 12-cell lane extension, one save",
+    "Eleven cottages stage immediately and commit as one transaction",
+    "Visible arrivals, cut/reconnect while travelling, and ongoing path activity without save writes",
+    "Remove brush deduplicates footprints; one Undo/Redo restores the entire stroke",
+    "Escape, Undo during stroke, tool change and actual pointer cancellation leave authored state unchanged",
+    "Leaving canvas commits only the last accepted cell, never a route behind toolbar controls",
+    "Pan/build mode is chosen at pointer-down and survives modifier changes",
+    "Turn and obstacle: actual tree stops the described path without bridging its gap",
+    "Remove a cottage while arrival is pending; reconcile undo/redo without changing its identity",
+    "Pan, zoom, resize and repeat multi-piece placement through normal coordinates",
+    "Refresh, complete-stroke export/import and a real schema-one save retain authored composition"
+  ],
+  "cottages": 42,
+  "paths": 45,
+  "uniqueCottageIds": 42,
+  "demoEndSeconds": 14.446363497999998,
+  "frameIntervalsMs": {
+    "median": 33.30000000000109,
+    "max": 66.59999999999854
+  },
+  "errors": [],
+  "failed": []
+}
