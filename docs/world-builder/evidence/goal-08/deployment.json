@@ -1,0 +1,166 @@
+{
+  "conclusion": "success",
+  "headSha": "d76f10c03ebe1d5f142bb0384c9137407200ab12",
+  "jobs": [
+    {
+      "completedAt": "2026-11-15T16:57:15Z",
+      "conclusion": "success",
+      "databaseId": 132885176560,
+      "name": "web",
+      "startedAt": "2026-11-15T16:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-15T16:55:05Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-15T16:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:10Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v6",
+          "number": 2,
+          "startedAt": "2026-11-15T16:55:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:37Z",
+          "conclusion": "success",
+          "name": "Run subosito/flutter-action@v2",
+          "number": 3,
+          "startedAt": "2026-11-15T16:55:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:37Z",
+          "conclusion": "success",
+          "name": "Run flutter pub get --enforce-lockfile",
+          "number": 4,
+          "startedAt": "2026-11-15T16:55:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:38Z",
+          "conclusion": "success",
+          "name": "Run python3 -B tool/assets.py --check",
+          "number": 5,
+          "startedAt": "2026-11-15T16:55:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:39Z",
+          "conclusion": "success",
+          "name": "Run dart format --output=none --set-exit-if-changed lib test",
+          "number": 6,
+          "startedAt": "2026-11-15T16:55:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:55:49Z",
+          "conclusion": "success",
+          "name": "Run flutter analyze",
+          "number": 7,
+          "startedAt": "2026-11-15T16:55:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:56:19Z",
+          "conclusion": "success",
+          "name": "Run flutter test",
+          "number": 8,
+          "startedAt": "2026-11-15T16:55:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:05Z",
+          "conclusion": "success",
+          "name": "Build self-contained Pages release",
+          "number": 9,
+          "startedAt": "2026-11-15T16:56:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:08Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 10,
+          "startedAt": "2026-11-15T16:57:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:11Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-pages-artifact@v4",
+          "number": 11,
+          "startedAt": "2026-11-15T16:57:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:12Z",
+          "conclusion": "success",
+          "name": "Post Run subosito/flutter-action@v2",
+          "number": 21,
+          "startedAt": "2026-11-15T16:57:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:12Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v6",
+          "number": 22,
+          "startedAt": "2026-11-15T16:57:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:12Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 23,
+          "startedAt": "2026-11-15T16:57:12Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/gongahkia/roag/actions/runs/43738135089/job/132885176560"
+    },
+    {
+      "completedAt": "2026-11-15T16:57:28Z",
+      "conclusion": "success",
+      "databaseId": 132885797211,
+      "name": "publish",
+      "startedAt": "2026-11-15T16:57:19Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-15T16:57:20Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-15T16:57:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:27Z",
+          "conclusion": "success",
+          "name": "Publish tested static release",
+          "number": 2,
+          "startedAt": "2026-11-15T16:57:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-15T16:57:27Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 3,
+          "startedAt": "2026-11-15T16:57:27Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/gongahkia/roag/actions/runs/43738135089/job/132885797211"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/gongahkia/roag/actions/runs/43738135089"
+}
