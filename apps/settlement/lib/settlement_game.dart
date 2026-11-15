@@ -210,13 +210,13 @@ class _LandscapeLayer extends Component {
     bool groundOnly = false,
   }) {
     final x = c.x * 12.0, y = c.y * 12.0;
+    final access = scene.access(c);
     if (!bodyOnly) {
       canvas.drawRect(
         Rect.fromLTWH(x + 1, y + 3, 10, 9),
         Paint()..color = const Color(0xff746345).withValues(alpha: opacity),
       );
       frame(canvas, 'dirt', c, const Color(0xff8b7954), opacity: opacity);
-      final access = scene.access(c);
       if (access != null) {
         final end = Offset((access.x + .5) * 12, (access.y + .5) * 12);
         canvas.drawLine(
@@ -286,8 +286,9 @@ class _LandscapeLayer extends Component {
     }
     for (final c in scene.cells) {
       final l = scene.at(c);
-      if (l.cottage != null)
+      if (l.cottage != null) {
         cottage(canvas, scene, c, l.cottage!, groundOnly: true);
+      }
     }
     final arrival = scene.arrival;
     canvas.drawRect(
@@ -342,9 +343,9 @@ class _LandscapeLayer extends Component {
         actor++;
       }
       final l = scene.at(c);
-      if (l.cottage != null)
+      if (l.cottage != null) {
         cottage(canvas, scene, c, l.cottage!, bodyOnly: true);
-      else {
+      } else {
         frame(canvas, 'oak', c, green);
       }
     }
@@ -370,7 +371,7 @@ class _LandscapeLayer extends Component {
             ..style = PaintingStyle.stroke
             ..strokeWidth = .4,
         );
-        if (removed)
+        if (removed) {
           canvas.drawLine(
             rect.topLeft,
             rect.bottomRight,
@@ -378,6 +379,7 @@ class _LandscapeLayer extends Component {
               ..color = const Color(0xffd39073)
               ..strokeWidth = .5,
           );
+        }
       }
     }
     final plan = game.preview;

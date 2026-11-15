@@ -95,13 +95,15 @@ class Residents {
     }
     for (final r in people.values) {
       if (r.activity == Activity.pending) continue;
-      if (r.destination != null && !homes.containsKey(r.destination))
+      if (r.destination != null && !homes.containsKey(r.destination)) {
         r.destination = null;
+      }
       if (r.activity == Activity.settling) {
         if (r.settleTarget != null &&
             world.contains(r.settleTarget!) &&
-            world.at(r.settleTarget!).path)
+            world.at(r.settleTarget!).path) {
           continue;
+        }
       }
       if (!world.contains(r.cell) ||
           !world.at(r.cell).path ||
@@ -186,8 +188,9 @@ class Residents {
     if (access != null && _go(r, access, Activity.returning)) return;
     final local = world.localAccess(home, from: r.cell);
     if (local != null &&
-        _go(r, local, r.arrived ? Activity.returning : Activity.arriving))
+        _go(r, local, r.arrived ? Activity.returning : Activity.arriving)) {
       return;
+    }
     r.route.clear();
     r.activity = Activity.waiting;
   }
@@ -232,8 +235,9 @@ class Residents {
     if (nearby.isNotEmpty) {
       r.destination = null;
       r.trips++;
-      if (_go(r, nearby[_style(r.homeId) % nearby.length], Activity.visiting))
+      if (_go(r, nearby[_style(r.homeId) % nearby.length], Activity.visiting)) {
         return;
+      }
     }
     r.timer = _idle(r);
   }

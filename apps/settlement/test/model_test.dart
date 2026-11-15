@@ -183,7 +183,7 @@ void main() {
       '{',
       '[]',
       'null',
-      jsonEncode({...valid, 'schema': 2}),
+      jsonEncode({...valid, 'schema': 99}),
       jsonEncode({...valid, 'width': 400}),
       jsonEncode({...valid, 'height': 12.5}),
       jsonEncode({...valid, 'seed': -1}),

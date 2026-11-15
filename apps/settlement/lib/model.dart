@@ -118,8 +118,9 @@ class Landscape {
     if (!contains(start) ||
         !contains(goal) ||
         !at(start).path ||
-        !at(goal).path)
+        !at(goal).path) {
       return null;
+    }
     final previous = <Cell, Cell?>{start: null};
     final queue = Queue<Cell>()..add(start);
     while (queue.isNotEmpty) {
@@ -259,8 +260,9 @@ class Landscape {
             ? row[5]
             : null,
       );
-      if (!legacy && row[4] == null && row[5] != null)
+      if (!legacy && row[4] == null && row[5] != null) {
         throw const FormatException('Orphan cottage identity.');
+      }
       if (l.cottage != null) {
         final id = l.cottageId;
         if (id == null ||
@@ -270,8 +272,9 @@ class Landscape {
         }
         if (id.startsWith('home-')) {
           final number = int.tryParse(id.substring(5));
-          if (number == null || number < 1 || number >= nextId)
+          if (number == null || number < 1 || number >= nextId) {
             throw const FormatException('Invalid cottage identity counter.');
+          }
         }
       }
       if ((l.path && l.cottage != null) ||
@@ -391,8 +394,9 @@ class LandscapeSession {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   bool commit(Placement plan) {
-    if (stroke != null || !identical(plan.before, world) || !plan.valid)
+    if (stroke != null || !identical(plan.before, world) || !plan.valid) {
       return false;
+    }
     return _commit(plan.after!);
   }
 
@@ -447,16 +451,20 @@ class LandscapeSession {
   bool finishStroke() {
     final edit = stroke;
     stroke = null;
-    if (edit == null || edit.changed.isEmpty || !identical(edit.before, world))
+    if (edit == null ||
+        edit.changed.isEmpty ||
+        !identical(edit.before, world)) {
       return false;
+    }
     return _commit(edit.staged);
   }
 
   void cancelStroke() => stroke = null;
   SaveSnapshot snapshot() => SaveSnapshot(revision, world.encode());
   bool persist(SaveSnapshot snapshot, void Function(String) write) {
-    if (snapshot.revision != revision || snapshot.text != world.encode())
+    if (snapshot.revision != revision || snapshot.text != world.encode()) {
       return false;
+    }
     // localStorage is synchronous; no delayed writer can race a newer revision.
     write(snapshot.text);
     return true;
@@ -500,8 +508,9 @@ class BrushStroke {
   void paintTo(Cell target) {
     for (final c in cardinalStroke(last ?? target, target)) {
       if (changed.contains(c)) continue;
-      if (tool == Tool.path && staged.contains(c) && staged.at(c).path)
+      if (tool == Tool.path && staged.contains(c) && staged.at(c).path) {
         continue;
+      }
       final plan = evaluate(staged, tool, c);
       if (plan.valid) {
         staged = plan.after!;

@@ -140,8 +140,9 @@ class _LandscapePageState extends State<LandscapePage> {
     if (menuOpen ||
         pointer != null ||
         !game.canvasReady ||
-        !inside(e.localPosition))
+        !inside(e.localPosition)) {
       return;
+    }
     final pan =
         space || e.buttons & (kSecondaryMouseButton | kMiddleMouseButton) != 0;
     if (!pan && e.buttons & kPrimaryMouseButton == 0) return;
@@ -194,7 +195,7 @@ class _LandscapePageState extends State<LandscapePage> {
             ? 'path'
             : 'place',
       );
-      if (saved)
+      if (saved) {
         tell(
           '${stroke.changed.length} ${stroke.tool == Tool.remove
               ? 'pieces removed'
@@ -202,6 +203,7 @@ class _LandscapePageState extends State<LandscapePage> {
               ? 'path cells placed'
               : 'cottages placed'}',
         );
+      }
     } else if (stroke?.firstInvalid != null) {
       browser.sound('invalid');
     }
@@ -528,10 +530,11 @@ class _LandscapePageState extends State<LandscapePage> {
                     Positioned.fill(
                       child: MouseRegion(
                         onExit: (_) {
-                          if (pointer != null)
+                          if (pointer != null) {
                             finishGesture();
-                          else
+                          } else {
                             game.clearPreview();
+                          }
                         },
                         onHover: (e) {
                           if (!menuOpen) game.hover(e.localPosition);
