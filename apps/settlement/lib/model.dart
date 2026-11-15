@@ -31,20 +31,23 @@ class Lot {
   final Trace trace;
   final bool path;
   final int? cottage;
+  final String? cottageId;
   const Lot({
     this.grass = 0,
     this.scenery = Scenery.none,
     this.trace = Trace.none,
     this.path = false,
     this.cottage,
+    this.cottageId,
   });
 
-  List<Object?> toJson() => [
+  List<Object?> toJson([String? identity]) => [
     'grass$grass',
     scenery.name,
     trace.name,
     path,
     cottage == null ? null : 'cottage$cottage',
+    cottage == null ? null : identity ?? cottageId,
   ];
 }
 
@@ -58,8 +61,14 @@ int variation(int seed, Cell c, int salt) {
 class Landscape {
   final int seed, width, height;
   final List<Lot> lots;
-  Landscape(this.seed, this.width, this.height, Iterable<Lot> lots)
-    : lots = List.unmodifiable(lots);
+  final int nextCottageId;
+  Landscape(
+    this.seed,
+    this.width,
+    this.height,
+    Iterable<Lot> lots, {
+    this.nextCottageId = 1,
+  }) : lots = List.unmodifiable(lots);
   Cell get arrival => Cell(0, height ~/ 2);
   bool contains(Cell c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
   Lot at(Cell c) => lots[c.y * width + c.x];
@@ -91,15 +100,57 @@ class Landscape {
   }
 
   late final Set<Cell> activePaths = _connected();
-  Set<Cell> _connected() {
+  Iterable<Cell> pathNeighbours(Cell c) =>
+      c.neighbours.where((n) => contains(n) && at(n).path);
+  Set<Cell> _connected() => pathComponent(arrival);
+  Set<Cell> pathComponent(Cell start) {
     final result = <Cell>{};
-    final queue = Queue<Cell>()..add(arrival);
+    final queue = Queue<Cell>()..add(start);
     while (queue.isNotEmpty) {
       final c = queue.removeFirst();
       if (!contains(c) || !at(c).path || !result.add(c)) continue;
-      queue.addAll(c.neighbours);
+      queue.addAll(pathNeighbours(c));
     }
     return Set.unmodifiable(result);
+  }
+
+  List<Cell>? pathRoute(Cell start, Cell goal) {
+    if (!contains(start) ||
+        !contains(goal) ||
+        !at(start).path ||
+        !at(goal).path)
+      return null;
+    final previous = <Cell, Cell?>{start: null};
+    final queue = Queue<Cell>()..add(start);
+    while (queue.isNotEmpty) {
+      final c = queue.removeFirst();
+      if (c == goal) {
+        final route = <Cell>[];
+        for (Cell? n = goal; n != null; n = previous[n]) {
+          route.add(n);
+        }
+        return route.reversed.toList();
+      }
+      for (final n in pathNeighbours(c)) {
+        if (!previous.containsKey(n)) {
+          previous[n] = c;
+          queue.add(n);
+        }
+      }
+    }
+    return null;
+  }
+
+  String cottageKey(Cell c) => at(c).cottageId ?? 'legacy-${c.x}-${c.y}';
+  late final Map<String, Cell> cottages = Map.unmodifiable({
+    for (final c in cells)
+      if (at(c).cottage != null) cottageKey(c): c,
+  });
+  Cell? localAccess(Cell home, {Cell? from}) {
+    for (final n in pathNeighbours(home)) {
+      if (from == null || pathRoute(from, n) != null) return n;
+    }
+    return null;
   }
 
   Cell? access(Cell c) {
@@ -129,18 +180,28 @@ class Landscape {
     return mask;
   }
 
-  Landscape replace(Cell c, Lot lot) {
+  Landscape replace(Cell c, Lot lot, {bool allocateCottage = false}) {
     final next = lots.toList();
     next[c.y * width + c.x] = lot;
-    return Landscape(seed, width, height, next);
+    return Landscape(
+      seed,
+      width,
+      height,
+      next,
+      nextCottageId: nextCottageId + (allocateCottage ? 1 : 0),
+    );
   }
 
   Map<String, Object> toJson() => {
-    'schema': 1,
+    'schema': 2,
+    'nextCottageId': nextCottageId,
     'seed': seed,
     'width': width,
     'height': height,
-    'lots': lots.map((l) => l.toJson()).toList(),
+    'lots': [
+      for (final c in cells)
+        at(c).toJson(at(c).cottage != null ? cottageKey(c) : null),
+    ],
   };
   String encode() => jsonEncode(toJson());
 
@@ -149,7 +210,7 @@ class Landscape {
       throw const FormatException('File is too large.');
     }
     final d = jsonDecode(text);
-    if (d is! Map || d['schema'] != 1) {
+    if (d is! Map || ![1, 2].contains(d['schema'])) {
       throw const FormatException('Unsupported landscape format.');
     }
     int integer(String key, int min, int max) {
@@ -162,14 +223,17 @@ class Landscape {
 
     final seed = integer('seed', 0, 2147483646);
     final w = integer('width', 16, 80), h = integer('height', 12, 60);
+    final legacy = d['schema'] == 1;
+    final nextId = legacy ? 1 : integer('nextCottageId', 1, 1000000000);
     final data = d['lots'];
     if (data is! List || data.length != w * h) {
       throw const FormatException('Invalid landscape dimensions.');
     }
     final lots = <Lot>[];
+    final identities = <String>{};
     for (final row in data) {
       if (row is! List ||
-          row.length != 5 ||
+          row.length != (legacy ? 5 : 6) ||
           !['grass0', 'grass1'].contains(row[0]) ||
           !Scenery.values.any((s) => s.name == row[1]) ||
           !Trace.values.any((t) => t.name == row[2]) ||
@@ -187,7 +251,29 @@ class Landscape {
             : row[4] == 'cottage0'
             ? 0
             : 1,
+        cottageId: row[4] == null
+            ? null
+            : legacy
+            ? 'legacy-${lots.length % w}-${lots.length ~/ w}'
+            : row[5] is String
+            ? row[5]
+            : null,
       );
+      if (!legacy && row[4] == null && row[5] != null)
+        throw const FormatException('Orphan cottage identity.');
+      if (l.cottage != null) {
+        final id = l.cottageId;
+        if (id == null ||
+            !RegExp(r'^[A-Za-z0-9_-]{1,64}$').hasMatch(id) ||
+            !identities.add(id)) {
+          throw const FormatException('Invalid or duplicate cottage identity.');
+        }
+        if (id.startsWith('home-')) {
+          final number = int.tryParse(id.substring(5));
+          if (number == null || number < 1 || number >= nextId)
+            throw const FormatException('Invalid cottage identity counter.');
+        }
+      }
       if ((l.path && l.cottage != null) ||
           ((l.path || l.cottage != null) && l.scenery != Scenery.none) ||
           (l.path && l.trace != Trace.none) ||
@@ -196,7 +282,7 @@ class Landscape {
       }
       lots.add(l);
     }
-    final result = Landscape(seed, w, h, lots);
+    final result = Landscape(seed, w, h, lots, nextCottageId: nextId);
     if (!result.at(result.arrival).path) {
       throw const FormatException('The arrival path is missing.');
     }
@@ -284,7 +370,9 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
         path: tool == Tool.path,
         trace: tool == Tool.cottage ? Trace.pad : Trace.none,
         cottage: tool == Tool.cottage ? variation(world.seed, c, 4) % 2 : null,
+        cottageId: tool == Tool.cottage ? 'home-${world.nextCottageId}' : null,
       ),
+      allocateCottage: tool == Tool.cottage,
     ),
     c,
     '${tool == Tool.path ? 'Extend path' : 'Place cottage'}$replacement',
@@ -294,41 +382,134 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
 
 class LandscapeSession {
   Landscape world;
+  BrushStroke? stroke;
+  int revision = 0;
+  Landscape get view => stroke?.staged ?? world;
   final List<(Landscape, Landscape)> _undo = [], _redo = [];
   static const historyLimit = 80;
   LandscapeSession(this.world);
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   bool commit(Placement plan) {
-    if (!identical(plan.before, world) || !plan.valid) return false;
-    _undo.add((world, plan.after!));
+    if (stroke != null || !identical(plan.before, world) || !plan.valid)
+      return false;
+    return _commit(plan.after!);
+  }
+
+  bool _commit(Landscape next) {
+    _undo.add((world, next));
     if (_undo.length > historyLimit) _undo.removeAt(0);
     _redo.clear();
-    world = plan.after!;
+    world = next;
+    revision++;
     return true;
   }
 
   bool undo() {
+    if (stroke != null) {
+      cancelStroke();
+      return false;
+    }
     if (!canUndo) return false;
     final edit = _undo.removeLast();
     world = edit.$1;
     _redo.add(edit);
+    revision++;
     return true;
   }
 
   bool redo() {
+    if (stroke != null) {
+      cancelStroke();
+      return false;
+    }
     if (!canRedo) return false;
     final edit = _redo.removeLast();
     world = edit.$2;
     _undo.add(edit);
+    revision++;
     return true;
   }
 
   void replace(Landscape next) {
+    cancelStroke();
     world = next;
     _undo.clear();
     _redo.clear();
+    revision++;
+  }
+
+  void beginStroke(Tool tool, Cell start) {
+    cancelStroke();
+    stroke = BrushStroke(world, tool)..paintTo(start);
+  }
+
+  bool finishStroke() {
+    final edit = stroke;
+    stroke = null;
+    if (edit == null || edit.changed.isEmpty || !identical(edit.before, world))
+      return false;
+    return _commit(edit.staged);
+  }
+
+  void cancelStroke() => stroke = null;
+  SaveSnapshot snapshot() => SaveSnapshot(revision, world.encode());
+  bool persist(SaveSnapshot snapshot, void Function(String) write) {
+    if (snapshot.revision != revision || snapshot.text != world.encode())
+      return false;
+    // localStorage is synchronous; no delayed writer can race a newer revision.
+    write(snapshot.text);
+    return true;
   }
 
   void importText(String text) => replace(Landscape.decode(text));
+}
+
+class SaveSnapshot {
+  final int revision;
+  final String text;
+  const SaveSnapshot(this.revision, this.text);
+}
+
+Iterable<Cell> cardinalStroke(Cell from, Cell to) sync* {
+  var x = from.x, y = from.y, ix = 0, iy = 0;
+  final ax = (to.x - x).abs(), ay = (to.y - y).abs();
+  final sx = to.x.compareTo(x), sy = to.y.compareTo(y);
+  yield from;
+  // centre-to-centre grid crossings; an exact corner crosses X before Y.
+  while (ix < ax || iy < ay) {
+    if (ix < ax && (iy >= ay || (2 * ix + 1) * ay <= (2 * iy + 1) * ax)) {
+      x += sx;
+      ix++;
+    } else {
+      y += sy;
+      iy++;
+    }
+    yield Cell(x, y);
+  }
+}
+
+class BrushStroke {
+  final Landscape before;
+  Landscape staged;
+  final Tool tool;
+  final Set<Cell> changed = {};
+  Cell? last;
+  Placement? firstInvalid;
+  BrushStroke(this.before, this.tool) : staged = before;
+  void paintTo(Cell target) {
+    for (final c in cardinalStroke(last ?? target, target)) {
+      if (changed.contains(c)) continue;
+      if (tool == Tool.path && staged.contains(c) && staged.at(c).path)
+        continue;
+      final plan = evaluate(staged, tool, c);
+      if (plan.valid) {
+        staged = plan.after!;
+        changed.add(c);
+      } else {
+        firstInvalid ??= plan;
+      }
+    }
+    last = target;
+  }
 }

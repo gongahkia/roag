@@ -52,9 +52,9 @@ class _LandscapePageState extends State<LandscapePage> {
   String notice = '';
   int noticeId = 0;
   bool muted = false, space = false, menuOpen = false;
-  Offset? down, last;
+  Offset? last;
   int? pointer;
-  bool panning = false, moved = false;
+  bool panning = false, reportedInvalid = false;
 
   @override
   void initState() {
@@ -76,6 +76,10 @@ class _LandscapePageState extends State<LandscapePage> {
     game = SettlementGame(session, (p) {
       if (mounted) setState(() => preview = p);
     });
+    browser.watchActivity((active) {
+      game.suspended = !active;
+      if (!active && mounted) cancelGesture();
+    });
   }
 
   void tell(String text) {
@@ -91,7 +95,7 @@ class _LandscapePageState extends State<LandscapePage> {
 
   bool save() {
     try {
-      browser.saveLocal(session.world.encode());
+      session.persist(session.snapshot(), browser.saveLocal);
       saveStatus = 'Saved in this browser';
       return true;
     } catch (_) {
@@ -104,6 +108,7 @@ class _LandscapePageState extends State<LandscapePage> {
   }
 
   void select(Tool next) {
+    cancelGesture();
     setState(() {
       tool = next;
       game.tool = next;
@@ -112,32 +117,119 @@ class _LandscapePageState extends State<LandscapePage> {
     focus.requestFocus();
   }
 
-  void commit(Offset position) {
-    if (!game.canvasReady || menuOpen) return;
-    final plan = evaluate(session.world, tool, game.pick(position));
-    final valid = session.commit(plan);
-    game.feedback(plan.cell, valid, tool == Tool.remove);
-    if (valid) {
-      final saved = save();
-      browser.sound(
-        tool == Tool.remove
-            ? 'remove'
-            : tool == Tool.path
-            ? 'path'
-            : 'place',
-      );
-      if (saved) tell(plan.message);
-    } else {
-      browser.sound('invalid');
-      tell(plan.message);
+  bool inside(Offset p) =>
+      p.dx >= 0 &&
+      p.dy >= 0 &&
+      p.dx < game.canvasSize.x &&
+      p.dy < game.canvasSize.y;
+
+  void paintAt(Offset position) {
+    final stroke = session.stroke;
+    if (stroke == null) return;
+    stroke.paintTo(game.pick(position));
+    if (!reportedInvalid && stroke.firstInvalid != null) {
+      reportedInvalid = true;
+      game.invalid(stroke.firstInvalid!.cell, stroke.firstInvalid!.message);
     }
     game.clearPreview();
     game.hover(position);
     setState(() {});
   }
 
+  void pointerDown(PointerDownEvent e) {
+    if (menuOpen ||
+        pointer != null ||
+        !game.canvasReady ||
+        !inside(e.localPosition))
+      return;
+    final pan =
+        space || e.buttons & (kSecondaryMouseButton | kMiddleMouseButton) != 0;
+    if (!pan && e.buttons & kPrimaryMouseButton == 0) return;
+    focus.requestFocus();
+    pointer = e.pointer;
+    last = e.localPosition;
+    panning = pan;
+    reportedInvalid = false;
+    if (!pan) {
+      session.beginStroke(tool, game.pick(e.localPosition));
+      paintAt(e.localPosition);
+    }
+  }
+
+  void pointerMove(PointerMoveEvent e) {
+    if (pointer != e.pointer || last == null) return;
+    if (!inside(e.localPosition)) {
+      finishGesture();
+      return;
+    }
+    if (panning) {
+      game.pan(e.localPosition - last!);
+    } else {
+      paintAt(e.localPosition);
+    }
+    last = e.localPosition;
+  }
+
+  void pointerUp(PointerUpEvent e) {
+    if (pointer != e.pointer) return;
+    if (!panning && inside(e.localPosition)) paintAt(e.localPosition);
+    finishGesture();
+  }
+
+  void finishGesture() {
+    final stroke = session.stroke;
+    pointer = null;
+    last = null;
+    panning = false;
+    final committed = session.finishStroke();
+    game.clearPreview();
+    if (committed && stroke != null) {
+      game.reconcile();
+      game.feedback(stroke.changed.last, true, stroke.tool == Tool.remove);
+      final saved = save();
+      browser.sound(
+        stroke.tool == Tool.remove
+            ? 'remove'
+            : stroke.tool == Tool.path
+            ? 'path'
+            : 'place',
+      );
+      if (saved)
+        tell(
+          '${stroke.changed.length} ${stroke.tool == Tool.remove
+              ? 'pieces removed'
+              : stroke.tool == Tool.path
+              ? 'path cells placed'
+              : 'cottages placed'}',
+        );
+    } else if (stroke?.firstInvalid != null) {
+      browser.sound('invalid');
+    }
+    if (mounted) setState(() {});
+  }
+
+  void cancelGesture() {
+    session.cancelStroke();
+    pointer = null;
+    last = null;
+    panning = false;
+    game.clearPreview();
+  }
+
+  void cameraAction(void Function() action) {
+    cancelGesture();
+    action();
+    focus.requestFocus();
+  }
+
   void history(bool redo) {
+    if (session.stroke != null) {
+      cancelGesture();
+      return;
+    }
+    cancelGesture();
     if (redo ? session.redo() : session.undo()) {
+      game.reconcile(restored: true);
       final saved = save();
       game.clearPreview();
       browser.sound('undo');
@@ -173,23 +265,23 @@ class _LandscapePageState extends State<LandscapePage> {
     } else if (k == LogicalKeyboardKey.digit3 || k == LogicalKeyboardKey.keyR) {
       select(Tool.remove);
     } else if (k == LogicalKeyboardKey.home || k == LogicalKeyboardKey.keyH) {
-      game.home();
+      cameraAction(() => game.home());
     } else if (k == LogicalKeyboardKey.equal ||
         k == LogicalKeyboardKey.numpadAdd) {
-      game.zoom(1);
+      cameraAction(() => game.zoom(1));
     } else if (k == LogicalKeyboardKey.minus ||
         k == LogicalKeyboardKey.numpadSubtract) {
-      game.zoom(-1);
+      cameraAction(() => game.zoom(-1));
     } else if (k == LogicalKeyboardKey.arrowLeft) {
-      game.pan(const Offset(48, 0));
+      cameraAction(() => game.pan(const Offset(48, 0)));
     } else if (k == LogicalKeyboardKey.arrowRight) {
-      game.pan(const Offset(-48, 0));
+      cameraAction(() => game.pan(const Offset(-48, 0)));
     } else if (k == LogicalKeyboardKey.arrowUp) {
-      game.pan(const Offset(0, 48));
+      cameraAction(() => game.pan(const Offset(0, 48)));
     } else if (k == LogicalKeyboardKey.arrowDown) {
-      game.pan(const Offset(0, -48));
+      cameraAction(() => game.pan(const Offset(0, -48)));
     } else if (k == LogicalKeyboardKey.escape) {
-      game.clearPreview();
+      cancelGesture();
     } else {
       return KeyEventResult.ignored;
     }
@@ -200,16 +292,18 @@ class _LandscapePageState extends State<LandscapePage> {
       key(focus, event) == KeyEventResult.handled;
 
   Future<void> menu(String action) async {
+    cancelGesture();
     setState(() => menuOpen = true);
     game.clearPreview();
     try {
       if (action == 'export') {
-        browser.exportFile(session.world.encode());
+        browser.exportFile(session.snapshot().text);
         tell('Exported a portable landscape copy.');
       } else if (action == 'import') {
         final text = await browser.importFile();
         if (text.isNotEmpty && mounted) {
           session.importText(text);
+          game.reconcile(restored: true, reset: true);
           final saved = save();
           game.home();
           if (saved) tell('Landscape imported.');
@@ -236,6 +330,7 @@ class _LandscapePageState extends State<LandscapePage> {
         );
         if (confirmed == true && mounted) {
           session.replace(Landscape.create());
+          game.reconcile(restored: true, reset: true);
           final saved = save();
           game.home();
           if (saved) tell('A fresh landscape.');
@@ -247,8 +342,9 @@ class _LandscapePageState extends State<LandscapePage> {
             title: const Text('A small place, shaped by you'),
             content: const SingleChildScrollView(
               child: Text(
-                '1 Cottage · 2 Path · 3 Remove\nClick to place. Hover to see access and nearby changes.\n\n'
+                '1 Cottage · 2 Path · 3 Remove\nClick or drag to build. Release to commit one stroke. Escape cancels; Undo during a stroke cancels it first.\n\n'
                 'Paths must join the arrival lane. Cottages use one adjoining connected path, preferring south, east, west, then north. Trees block building; small plants can be replaced.\n\n'
+                'Each cottage has a resident. New arrivals walk from the lane; residents visit reachable homes and wait when disconnected.\n\n'
                 'Removed cottages leave pads. Removed roads leave scars. Neither provides access. An amber mark means No access; reconnect the lane to clear it.\n\n'
                 'Drag with the right/middle button or Space + drag to pan. Scroll or +/− to zoom. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes.\n\n'
                 'Automatic saves belong to this browser and site. Export is your portable copy. No ROAG dungeon saves are used.',
@@ -298,7 +394,7 @@ class _LandscapePageState extends State<LandscapePage> {
 
   @override
   Widget build(BuildContext context) {
-    final scene = session.world;
+    final scene = session.view;
     final houses = scene.cells
         .where((c) => scene.at(c).cottage != null)
         .toList();
@@ -322,7 +418,10 @@ class _LandscapePageState extends State<LandscapePage> {
         autofocus: true,
         focusNode: focus,
         onFocusChange: (focused) {
-          if (!focused) space = false;
+          if (!focused) {
+            space = false;
+            cancelGesture();
+          }
         },
         child: Column(
           children: [
@@ -387,7 +486,7 @@ class _LandscapePageState extends State<LandscapePage> {
                     onOpened: () {
                       menuOpen = true;
                       space = false;
-                      game.clearPreview();
+                      cancelGesture();
                     },
                     onCanceled: () => setState(() => menuOpen = false),
                     onSelected: menu,
@@ -428,56 +527,29 @@ class _LandscapePageState extends State<LandscapePage> {
                   children: [
                     Positioned.fill(
                       child: MouseRegion(
-                        onExit: (_) => game.clearPreview(),
+                        onExit: (_) {
+                          if (pointer != null)
+                            finishGesture();
+                          else
+                            game.clearPreview();
+                        },
                         onHover: (e) {
                           if (!menuOpen) game.hover(e.localPosition);
                         },
                         child: Listener(
-                          onPointerDown: (e) {
-                            if (menuOpen || pointer != null) return;
-                            focus.requestFocus();
-                            pointer = e.pointer;
-                            down = e.localPosition;
-                            last = down;
-                            panning =
-                                space ||
-                                e.buttons &
-                                        (kSecondaryMouseButton |
-                                            kMiddleMouseButton) !=
-                                    0;
-                            moved = false;
-                          },
-                          onPointerMove: (e) {
-                            if (pointer != e.pointer || down == null) return;
-                            if ((e.localPosition - down!).distance > 5) {
-                              moved = true;
-                            }
-                            if (panning) game.pan(e.localPosition - last!);
-                            last = e.localPosition;
-                          },
-                          onPointerUp: (e) {
-                            if (pointer != e.pointer) return;
-                            if (!panning && !moved && !menuOpen) {
-                              commit(e.localPosition);
-                            }
-                            pointer = null;
-                            down = null;
-                            last = null;
-                            panning = false;
-                          },
-                          onPointerCancel: (_) {
-                            pointer = null;
-                            down = null;
-                            last = null;
-                            panning = false;
-                          },
+                          onPointerDown: pointerDown,
+                          onPointerMove: pointerMove,
+                          onPointerUp: pointerUp,
+                          onPointerCancel: (_) => cancelGesture(),
                           onPointerSignal: (e) {
                             if (e is PointerScrollEvent && !menuOpen) {
                               GestureBinding.instance.pointerSignalResolver
                                   .register(e, (event) {
-                                    game.zoom(
-                                      e.scrollDelta.dy < 0 ? 1 : -1,
-                                      e.localPosition,
+                                    cameraAction(
+                                      () => game.zoom(
+                                        e.scrollDelta.dy < 0 ? 1 : -1,
+                                        e.localPosition,
+                                      ),
                                     );
                                   });
                             }
@@ -502,45 +574,11 @@ class _LandscapePageState extends State<LandscapePage> {
                       top: 18,
                       child: IgnorePointer(
                         child: Text(
-                          'Follow the lane. Make it yours.',
+                          'Drag a lane. Give it life.',
                           style: TextStyle(
                             color: Color(0xffc3c9aa),
                             fontSize: 11,
                           ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 16,
-                      bottom: 14,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xee202a25),
-                          border: Border.all(color: const Color(0xff536047)),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'Zoom out (−)',
-                              onPressed: () => game.zoom(-1),
-                              icon: const Icon(Icons.remove, size: 17),
-                            ),
-                            IconButton(
-                              tooltip: 'Return to lane (H)',
-                              onPressed: game.home,
-                              icon: const Icon(
-                                Icons.center_focus_weak,
-                                size: 17,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Zoom in (+)',
-                              onPressed: () => game.zoom(1),
-                              icon: const Icon(Icons.add, size: 17),
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -616,6 +654,36 @@ class _LandscapePageState extends State<LandscapePage> {
                           ),
                         ),
                       const Spacer(),
+                      IconButton(
+                        tooltip: 'Zoom out (−)',
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 40,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: () => cameraAction(() => game.zoom(-1)),
+                        icon: const Icon(Icons.remove, size: 17),
+                      ),
+                      IconButton(
+                        tooltip: 'Return to lane (H)',
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 40,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: () => cameraAction(game.home),
+                        icon: const Icon(Icons.center_focus_weak, size: 17),
+                      ),
+                      IconButton(
+                        tooltip: 'Zoom in (+)',
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 40,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: () => cameraAction(() => game.zoom(1)),
+                        icon: const Icon(Icons.add, size: 17),
+                      ),
                       button(
                         'Undo',
                         'Undo (Ctrl/⌘ Z)',
@@ -666,6 +734,7 @@ class _LandscapePageState extends State<LandscapePage> {
 
   @override
   void dispose() {
+    browser.unwatchActivity();
     HardwareKeyboard.instance.removeHandler(hardwareKey);
     focus.dispose();
     super.dispose();

@@ -115,6 +115,22 @@
       "file": "images/cottage1.png",
       "sha256": "b0482407f51a6833cccded6baedf76e5454fb81d96c33eaf12dbb9eb2684b03f"
     },
+    "resident": {
+      "id": "urizen-onebit-r00-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        1,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/resident.png",
+      "sha256": "005b85145765748479f41d79809de12b79d643814e0e82e681562a9e64e5c7b7"
+    },
     "road0": {
       "id": "urizen-onebit-r11-c000",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",

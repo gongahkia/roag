@@ -14,6 +14,12 @@ external void _sound(JSString kind);
 external void _mute(JSBoolean value);
 @JS('settlementPlatform.hideLoading')
 external void hideLoading();
+@JS('settlementPlatform.watchActivity')
+external void _watchActivity(JSFunction callback);
+@JS('settlementPlatform.unwatchActivity')
+external void unwatchActivity();
+void watchActivity(void Function(bool) callback) =>
+    _watchActivity(((JSBoolean active) => callback(active.toDart)).toJS);
 
 String loadLocal() => _load().toDart;
 void saveLocal(String text) => _save(text.toJS);

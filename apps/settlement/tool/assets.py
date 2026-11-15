@@ -16,6 +16,7 @@ FRAMES = {
     'grass0': (5, 15), 'grass1': (5, 16), 'dirt': (5, 1),
     'oak': (8, 1), 'vegetables': (24, 5),
     'cottage0': (33, 0), 'cottage1': (33, 1),
+    'resident': (0, 104),
     **{f'road{i}': (11, i) for i in range(13)},
 }
 
@@ -66,4 +67,4 @@ if __name__ == '__main__':
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print('Verified 23 bounded crops, manifest and unmodified font.' if check else 'Exported small settlement asset set.')
+    print(f'Verified {len(FRAMES)+3} bounded crops, manifest and unmodified font.' if check else 'Exported small settlement asset set.')

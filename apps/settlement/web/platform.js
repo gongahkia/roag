@@ -2,9 +2,18 @@
 (() => {
   window.addEventListener('flutter-first-frame', () => document.getElementById('loading')?.remove());
   const key = 'roag.settlement.landscape.v1';
-  let context, muted = false;
+  let context, muted = false, stopWatching;
   window.settlementPlatform = {
     hideLoading() { document.getElementById('loading')?.remove(); },
+    watchActivity(callback) {
+      stopWatching?.();
+      const update=()=>callback(!document.hidden && document.hasFocus());
+      window.addEventListener('blur',update);window.addEventListener('focus',update);
+      document.addEventListener('visibilitychange',update);
+      stopWatching=()=>{window.removeEventListener('blur',update);window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);};
+      update();
+    },
+    unwatchActivity() { stopWatching?.();stopWatching=null; },
     load() { return localStorage.getItem(key) || ''; },
     save(text) { localStorage.setItem(key, text); },
     exportFile(text) {

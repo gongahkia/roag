@@ -3,12 +3,16 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/painting.dart';
 
 import 'model.dart';
+import 'residents.dart';
 
 class SettlementGame extends FlameGame {
   final LandscapeSession session;
   final void Function(Placement?) onPreview;
+  late final Residents residents = Residents(session.world);
+  bool suspended = false;
   SettlementGame(this.session, this.onPreview);
   Tool tool = Tool.cottage;
   Placement? preview;
@@ -30,6 +34,7 @@ class SettlementGame extends FlameGame {
       'vegetables',
       'cottage0',
       'cottage1',
+      'resident',
       for (var i = 0; i < 13; i++) 'road$i',
     ];
     for (final name in names) {
@@ -43,7 +48,7 @@ class SettlementGame extends FlameGame {
 
   void home() {
     camera.viewfinder.position = Vector2(
-      9 * tile,
+      math.max(9 * tile, (canvasSize.x / 2 - 24) / 4),
       (session.world.height ~/ 2 + .5) * tile,
     );
     camera.viewfinder.zoom = 4;
@@ -58,8 +63,8 @@ class SettlementGame extends FlameGame {
   void hover(Offset point) {
     if (!canvasReady) return;
     final c = pick(point);
-    if (preview?.cell == c && identical(preview?.before, session.world)) return;
-    preview = evaluate(session.world, tool, c);
+    if (preview?.cell == c && identical(preview?.before, session.view)) return;
+    preview = evaluate(session.view, tool, c);
     onPreview(preview);
   }
 
@@ -90,14 +95,31 @@ class SettlementGame extends FlameGame {
     _pulses.add(_Pulse(c, valid, removed));
   }
 
+  void reconcile({bool restored = false, bool reset = false}) =>
+      residents.reconcile(session.world, restored: restored, reset: reset);
+  _WorldNotice? _notice;
+  void invalid(Cell c, String text) => _notice = _WorldNotice(c, text);
+
   @override
   void update(double dt) {
     super.update(dt);
+    if (!suspended) residents.update(dt);
+    if (_notice != null) {
+      _notice!.age += dt.clamp(0.0, .05);
+      if (_notice!.age > 1.8) _notice = null;
+    }
     for (final p in _pulses) {
       p.age += dt;
     }
     _pulses.removeWhere((p) => p.age > .3);
   }
+}
+
+class _WorldNotice {
+  final Cell cell;
+  final String text;
+  double age = 0;
+  _WorldNotice(this.cell, this.text);
 }
 
 class _Pulse {
@@ -112,6 +134,7 @@ class _LandscapeLayer extends Component {
   _LandscapeLayer(this.game);
   Landscape? _cachedScene;
   Image? _sceneImage;
+  List<Cell> _objects = [];
   static const roadArt = {
     5: 0,
     10: 2,
@@ -183,29 +206,34 @@ class _LandscapeLayer extends Component {
     Cell c,
     int variant, {
     double opacity = 1,
+    bool bodyOnly = false,
+    bool groundOnly = false,
   }) {
     final x = c.x * 12.0, y = c.y * 12.0;
-    canvas.drawRect(
-      Rect.fromLTWH(x + 1, y + 3, 10, 9),
-      Paint()..color = const Color(0xff746345).withValues(alpha: opacity),
-    );
-    frame(canvas, 'dirt', c, const Color(0xff8b7954), opacity: opacity);
-    final access = scene.access(c);
-    if (access != null) {
-      final end = Offset((access.x + .5) * 12, (access.y + .5) * 12);
-      canvas.drawLine(
-        Offset(x + 6, y + 8),
-        end,
-        Paint()
-          ..color = const Color(0xffa7946e).withValues(alpha: opacity)
-          ..strokeWidth = 2
-          ..isAntiAlias = false,
+    if (!bodyOnly) {
+      canvas.drawRect(
+        Rect.fromLTWH(x + 1, y + 3, 10, 9),
+        Paint()..color = const Color(0xff746345).withValues(alpha: opacity),
+      );
+      frame(canvas, 'dirt', c, const Color(0xff8b7954), opacity: opacity);
+      final access = scene.access(c);
+      if (access != null) {
+        final end = Offset((access.x + .5) * 12, (access.y + .5) * 12);
+        canvas.drawLine(
+          Offset(x + 6, y + 8),
+          end,
+          Paint()
+            ..color = const Color(0xffa7946e).withValues(alpha: opacity)
+            ..strokeWidth = 2
+            ..isAntiAlias = false,
+        );
+      }
+      canvas.drawRect(
+        Rect.fromLTWH(x + 3, y + 10, 8, 2),
+        Paint()..color = const Color(0xff1d2924).withValues(alpha: opacity),
       );
     }
-    canvas.drawRect(
-      Rect.fromLTWH(x + 3, y + 10, 8, 2),
-      Paint()..color = const Color(0xff1d2924).withValues(alpha: opacity),
-    );
+    if (groundOnly) return;
     frame(
       canvas,
       'cottage$variant',
@@ -234,7 +262,7 @@ class _LandscapeLayer extends Component {
     canvas.drawRect(bounds, Paint()..color = const Color(0xff2e4032));
     for (final c in scene.cells) {
       final l = scene.at(c), x = c.x * 12.0, y = c.y * 12.0;
-      frame(canvas, 'grass${l.grass}', c, const Color(0xff3c5239));
+      frame(canvas, 'grass${l.grass}', c, const Color(0xff344a36));
       if (l.trace == Trace.pad) {
         canvas.drawRect(
           Rect.fromLTWH(x + 1, y + 3, 10, 9),
@@ -258,14 +286,8 @@ class _LandscapeLayer extends Component {
     }
     for (final c in scene.cells) {
       final l = scene.at(c);
-      if (l.cottage != null) cottage(canvas, scene, c, l.cottage!);
-      if (l.scenery == Scenery.oak) {
-        canvas.drawRect(
-          Rect.fromLTWH(c.x * 12 + 3, c.y * 12 + 10, 8, 2),
-          Paint()..color = const Color(0xff25372c),
-        );
-        frame(canvas, 'oak', c, green);
-      }
+      if (l.cottage != null)
+        cottage(canvas, scene, c, l.cottage!, groundOnly: true);
     }
     final arrival = scene.arrival;
     canvas.drawRect(
@@ -276,7 +298,11 @@ class _LandscapeLayer extends Component {
 
   @override
   void render(Canvas canvas) {
-    final scene = game.session.world;
+    final stroke = game.session.stroke;
+    // removals stay provisional: residents still use the committed roads.
+    final scene = stroke?.tool == Tool.remove
+        ? game.session.world
+        : game.session.view;
     if (!identical(scene, _cachedScene)) {
       // rasterize unchanged land once at native resolution; camera motion and
       // feedback can then redraw without traversing every lot each frame.
@@ -291,6 +317,13 @@ class _LandscapeLayer extends Component {
       );
       picture.dispose();
       _cachedScene = scene;
+      _objects = scene.cells
+          .where(
+            (c) =>
+                scene.at(c).cottage != null ||
+                scene.at(c).scenery == Scenery.oak,
+          )
+          .toList();
     }
     canvas.drawImage(
       _sceneImage!,
@@ -299,11 +332,59 @@ class _LandscapeLayer extends Component {
         ..filterQuality = FilterQuality.none
         ..isAntiAlias = false,
     );
+    final people = game.residents.visible.toList()
+      ..sort((a, b) => a.$1.y.compareTo(b.$1.y));
+    var actor = 0;
+    for (final c in _objects) {
+      while (actor < people.length &&
+          people[actor].$1.y * 12 + 2 <= (c.y + 1) * 12) {
+        person(canvas, people[actor].$1, people[actor].$2);
+        actor++;
+      }
+      final l = scene.at(c);
+      if (l.cottage != null)
+        cottage(canvas, scene, c, l.cottage!, bodyOnly: true);
+      else {
+        frame(canvas, 'oak', c, green);
+      }
+    }
+    while (actor < people.length) {
+      person(canvas, people[actor].$1, people[actor].$2);
+      actor++;
+    }
+    if (stroke != null) {
+      for (final c in stroke.changed) {
+        final removed = stroke.tool == Tool.remove;
+        final rect = Rect.fromLTWH(c.x * 12.0 + .5, c.y * 12.0 + .5, 11, 11);
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = (removed ? const Color(0xffd39073) : gold).withValues(
+              alpha: .13,
+            ),
+        );
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = removed ? const Color(0xffd39073) : gold
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .4,
+        );
+        if (removed)
+          canvas.drawLine(
+            rect.topLeft,
+            rect.bottomRight,
+            Paint()
+              ..color = const Color(0xffd39073)
+              ..strokeWidth = .5,
+          );
+      }
+    }
     final plan = game.preview;
     if (plan != null && scene.contains(plan.cell)) {
       final c = plan.cell, x = c.x * 12.0, y = c.y * 12.0;
       final color = plan.valid ? gold : const Color(0xffe1987b);
-      if (plan.valid) {
+      if (plan.valid && stroke == null) {
         final next = plan.after!;
         for (final n in plan.affected) {
           if (n == c) continue;
@@ -371,6 +452,89 @@ class _LandscapeLayer extends Component {
           );
         }
       }
+    }
+    final notice = game._notice;
+    if (notice != null) {
+      final text = TextPainter(
+        text: TextSpan(
+          text: notice.text,
+          style: const TextStyle(
+            fontFamily: 'SourceCode',
+            fontSize: 3,
+            color: Color(0xfff3d9a0),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: 110);
+      final origin = Offset(notice.cell.x * 12.0, notice.cell.y * 12.0 - 7);
+      canvas.drawRect(
+        origin & Size(text.width + 2, text.height + 1),
+        Paint()..color = const Color(0xee202a25),
+      );
+      text.paint(canvas, origin + const Offset(1, 0));
+    }
+  }
+
+  void person(Canvas canvas, Resident r, double alpha) {
+    final x = r.x * 12, y = r.y * 12;
+    final offset = (r.homeId.codeUnits.fold(0, (a, b) => a + b) % 3 - 1) * .8;
+    final bob = r.moving ? math.sin(r.age * 18).abs() * .3 : 0.0;
+    final sprite = game.art['resident'];
+    if (sprite == null) return;
+    canvas.save();
+    canvas.translate(x + offset, y - bob);
+    canvas.scale(r.facing, 1);
+    canvas.drawOval(
+      const Rect.fromLTWH(-2.5, 1, 5, 1.5),
+      Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .8),
+    );
+    for (final d in [
+      const Offset(-.35, 0),
+      const Offset(.35, 0),
+      const Offset(0, -.35),
+      const Offset(0, .35),
+    ]) {
+      sprite.render(
+        canvas,
+        position: Vector2(-3.5 + d.dx, -5 + d.dy),
+        size: Vector2.all(7),
+        overridePaint: Paint()
+          ..filterQuality = FilterQuality.none
+          ..colorFilter = ColorFilter.mode(
+            const Color(0xff1b2b26).withValues(alpha: alpha),
+            BlendMode.srcIn,
+          ),
+      );
+    }
+    sprite.render(
+      canvas,
+      position: Vector2(-3.5, -5),
+      size: Vector2.all(7),
+      overridePaint: Paint()
+        ..filterQuality = FilterQuality.none
+        ..colorFilter = ColorFilter.mode(
+          (r.homeId.codeUnits.last.isEven
+                  ? const Color(0xfff4e6ba)
+                  : const Color(0xffa9d5d0))
+              .withValues(alpha: alpha),
+          BlendMode.srcIn,
+        ),
+    );
+    canvas.restore();
+    final home = game.session.world.cottages[r.homeId];
+    if (r.flash > 0 && home != null) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          home.x * 12.0 + .5,
+          home.y * 12.0 + .5,
+          11,
+          11,
+        ).inflate((1 - r.flash) * 2),
+        Paint()
+          ..color = gold.withValues(alpha: r.flash)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .5,
+      );
     }
   }
 
