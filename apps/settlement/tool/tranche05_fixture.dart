@@ -43,6 +43,20 @@ void main(List<String> args) {
   }
   c.nextSpecialAt = c.clock + 12;
   File('${dir.path}/active.json').writeAsStringSync(c.encode());
+  final large = Colony.decode(
+    File(
+      '../../docs/world-builder/evidence/tranche-04/residents-85-active.json',
+    ).readAsStringSync(),
+  );
+  for (final tool in [Tool.workshop, Tool.market, Tool.hall]) {
+    final cell = [
+      for (var y = 19; y <= 21; y++)
+        for (var x = 1; x < 28; x++) Cell(x, y),
+    ].firstWhere((p) => evaluate(large.world, tool, p).valid);
+    paint(large, tool, cell);
+  }
+  large.speed = 0;
+  File('${dir.path}/large-85.json').writeAsStringSync(large.encode());
   stdout.writeln(
     'Eight actual residents, five functional destinations; eligible real work/service fixtures for all three explicitly forced special events.',
   );

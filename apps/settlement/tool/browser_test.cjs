@@ -123,14 +123,19 @@ fs.mkdirSync(output, {recursive:true});
   await home();await edit(3,5,14,'pad');
   const chooserPromise=page.waitForEvent('filechooser');await menu('Import landscape…');
   await (await chooserPromise).setFiles(exported);
-  await page.waitForFunction(({key,text})=>localStorage.getItem(key)===text,{key,text:beforeRefresh});
+  await page.waitForFunction(({key,text})=>{
+    // import must advance navigation while retaining every gameplay field.
+    function state(value){const d=JSON.parse(value),revision=d.colony.navigationRevision;delete d.colony.navigationRevision;for(const p of d.colony.planning||[])p.revision=p.revision===revision?'current':'stale';return JSON.stringify(d);}
+    return state(localStorage.getItem(key))===state(text);
+  },{key,text:beforeRefresh});
+  const afterImportRaw=await fullRaw();assert(JSON.parse(afterImportRaw).colony.navigationRevision>JSON.parse(beforeRefresh).colony.navigationRevision);
   step('Export, scene change and import reproduce exact composition');
   const invalid=path.join(output,'unsupported.json');fs.writeFileSync(invalid,'{"schema":99}');
   const badChooser=page.waitForEvent('filechooser');await menu('Import landscape…');
   await (await badChooser).setFiles(invalid);await page.waitForTimeout(350);
-  assert.equal(await fullRaw(),beforeRefresh);step('Unsupported import preserves scene');
+  assert.equal(await fullRaw(),afterImportRaw);step('Unsupported import preserves scene');
   await menu('New landscape…');await page.getByRole('button',{name:'Keep building',exact:true}).click();
-  assert.equal(await fullRaw(),beforeRefresh);step('New Landscape cancellation and menu isolation');
+  assert.equal(await fullRaw(),afterImportRaw);step('New Landscape cancellation and menu isolation');
   await page.getByRole('button',{name:'Mute',exact:true}).click();
   await page.getByRole('button',{name:'Unmute',exact:true}).waitFor();
   const audioBefore=await page.evaluate(()=>audioObservation.starts);

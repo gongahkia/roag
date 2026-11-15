@@ -312,6 +312,7 @@ class Colony extends Residents {
     (p) =>
         p.key != r.workId &&
         world.access(p.value) != null &&
+        occupancy(p.key) < world.at(p.value).place!.visitorCapacity &&
         workers(p.key) > 0,
   );
   bool _seekSocial(Resident r, {bool shopping = false}) {

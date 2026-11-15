@@ -208,3 +208,51 @@ Rendering culls off-screen foreground objects and people, while the model keeps
 simulating them. Existing cached ground rasterization and shared sprite assets
 remain. Profiling is opt-in with `?profile=1`; its bounded timing samples and
 operation counters do not enter player storage or the normal UI.
+
+Resident bodies are now drawn from a **single 416×260 atlas** in depth bands with
+`Canvas.drawAtlas`. Each approved body/palette has an explicit mirrored copy;
+nearest-neighbour 4× source pixels and a baked outline occupy a 52-pixel cell.
+The foot anchor is (26,50), drawn at 9/48 world units per atlas pixel. The shadow
+shares the atlas. Tool gestures, rings, speech and arrival accents still follow
+real resident activity. The source bodies and colours are unchanged. Batching
+approximates the old tiny body skew with a small rotation; it does not add new
+source animation frames. Atlas layout, mappings and bytes are checked by tests
+and the asset validator. This followed a measured rendering bottleneck after
+model coordination and off-screen culling alone were insufficient at 500 people.
+
+## Ownership and save compatibility
+
+| File | Responsibility |
+| --- | --- |
+| `apps/settlement/lib/model.dart`, `rules.dart` | Tool catalogue, prices/capacities, physical road kinds, additive lot decoding and transactional charges |
+| `lib/residents.dart`, `resident_identity.dart` | Real movement, frozen segments, stable names/traits and daily resident records |
+| `lib/colony.dart`, `navigation.dart`, `special_event.dart` | Fixed-step routines, jobs/service/payments, bounded planning, weighted shared fields, events, validation and persistence |
+| `lib/settlement_game.dart`, `main.dart` | Batched/cullable world rendering, real activity cues, inspection, grouped catalogue and input |
+| `lib/browser.dart`, `web/platform.js` | Opt-in bounded profiling bridge; no player-storage writes from metrics |
+| `tool/assets.py`, `assets/manifest.json` | Auditable derived crops and resident atlas |
+| `test/tranche05_test.dart` | Focused new model, persistence, movement, event, queue and atlas contracts |
+| `tool/tranche05_*`, `tool/scaling_*` | Explicit developer fixtures, browser/native journeys and release measurements |
+
+Paths abbreviated to `lib/…` above live under `apps/settlement/`. Changes stay
+inside that application and this documentation/evidence. The original Lua game
+and the source artwork/catalogue are unchanged.
+
+The existing schema-3 storage key remains `roag.settlement.landscape.v1`.
+Ordinary Dirt/non-road lots retain their eight-field representation; only a
+non-Dirt road adds a ninth field. Old five/six-field lots and older schema-3
+checkpoints still load. Missing special-event fields schedule the first future
+opportunity, without replaying historical days. Names/traits are assigned from
+stable identity without replacing appearances or IDs. Existing migration backup
+and failed-backup protection remain in place.
+
+Authoritative queue order, cost revision, active segment metadata, new building
+assignments, trade/Garden day records, event IDs/times/RNG and separate trade
+income round-trip together. Derived navigation fields are rebuilt. Import
+intentionally raises the navigation revision; the browser regression now compares
+all gameplay fields while checking that fresh queue tags rebase and stale tags
+remain stale. It no longer incorrectly requires byte identity for that explicitly
+monotonic invalidation counter. Reload of a paused checkpoint still agrees exactly.
+
+Construction history remains forward-moving: Undo restores the recorded layout
+and charge, not clock, legitimate income, benefit records, selected events or the
+ID allocator. No normal Lua profile/save, achievement or unlock system is involved.

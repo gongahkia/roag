@@ -813,8 +813,9 @@ class _LandscapePageState extends State<LandscapePage> {
                                     null)
                                   Image.asset(
                                     'assets/images/${Appearance.sprite(colony.people[game.inspectedResident]!.bodyId, colony.people[game.inspectedResident]!.palette)}.png',
-                                    width: 32,
-                                    height: 32,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.contain,
                                     filterQuality: FilterQuality.none,
                                   ),
                                 Text(
@@ -997,7 +998,9 @@ class _LandscapePageState extends State<LandscapePage> {
                               const Icon(Icons.apps, size: 16),
                               const SizedBox(width: 5),
                               Text(
-                                tool.index >= 5 ? tool.label : 'Build…',
+                                tool.index >= 5
+                                    ? (tool == Tool.hall ? 'Hall' : tool.label)
+                                    : 'Build…',
                                 style: const TextStyle(fontSize: 11),
                               ),
                             ],
