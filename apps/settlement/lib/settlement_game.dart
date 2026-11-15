@@ -60,6 +60,7 @@ class SettlementGame extends FlameGame {
   Offset? _hoverPoint;
   int? _previewBudget;
   final Map<String, Sprite> art = {};
+  Image? residentAtlas;
   final List<_Pulse> _pulses = [];
   bool canvasReady = false;
   static const tile = 12.0;
@@ -81,14 +82,12 @@ class SettlementGame extends FlameGame {
       'cottage0',
       'cottage1',
       'resident',
-      for (final body in Appearance.bodies)
-        for (var palette = 0; palette < Appearance.palettes.length; palette++)
-          Appearance.sprite(body, palette),
       for (var i = 0; i < 13; i++) 'road$i',
     ];
     for (final name in names) {
       art[name] = Sprite(await images.load('$name.png'));
     }
+    residentAtlas = await images.load('resident-atlas.png');
     await world.add(_LandscapeLayer(this));
     camera.viewfinder.zoom = 4;
     home();
@@ -315,13 +314,13 @@ class SettlementGame extends FlameGame {
     if (place != null) {
       final id = lot.placeId!;
       final work = place.workCapacity > 0
-          ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.\n'
+          ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.${place == Place.garden && colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock) ? ' Good harvest: ${Rules.exactCoins((place.income * 1.25).round())}/second.' : ''}\n'
           : '';
       final visits = place.visitorCapacity > 0
           ? '${place.visitorCapacity} visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'
           : '';
       final trade = place == Place.market
-          ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.coins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.coins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
+          ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.exactCoins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.exactCoins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
           : '';
       return '${place.label} · $work$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
     }
@@ -428,7 +427,7 @@ class SettlementGame extends FlameGame {
         Paint()..color = const Color(0x15131c30),
       );
     }
-    if (colony.raining && !reducedMotion) {
+    if (colony.raining && !reducedMotion && size.x > 0 && size.y > 0) {
       final paint = Paint()
         ..color = const Color(0x456b9caf)
         ..strokeWidth = 1;
@@ -835,15 +834,17 @@ class _LandscapeLayer extends Component {
                 .compareTo(game.actorPosition(b.$1).dy),
           );
     var actor = 0;
+    final band = <(Resident, double)>[];
     for (final c in _objects) {
       if (!visible.overlaps(Rect.fromLTWH(c.x * 12.0, c.y * 12.0, 12, 12))) {
         continue;
       }
       while (actor < people.length &&
           game.actorPosition(people[actor].$1).dy <= (c.y + 1) * 12) {
-        person(canvas, people[actor].$1, people[actor].$2);
-        actor++;
+        band.add(people[actor++]);
       }
+      peopleBand(canvas, band);
+      band.clear();
       final l = scene.at(c);
       if (l.cottage != null) {
         cottage(canvas, scene, c, l.cottage!, bodyOnly: true);
@@ -853,10 +854,8 @@ class _LandscapeLayer extends Component {
         frame(canvas, 'oak', c, green);
       }
     }
-    while (actor < people.length) {
-      person(canvas, people[actor].$1, people[actor].$2);
-      actor++;
-    }
+    band.addAll(people.skip(actor));
+    peopleBand(canvas, band);
     if (stroke != null) {
       for (final c in stroke.changed) {
         final removed = stroke.tool == Tool.remove;
@@ -984,10 +983,68 @@ class _LandscapeLayer extends Component {
     }
   }
 
-  void person(Canvas canvas, Resident r, double alpha) {
+  final _atlasRects = List<Rect>.generate(
+    32,
+    (i) => Rect.fromLTWH(i % 8 * 52.0, i ~/ 8 * 52.0, 52, 52),
+    growable: false,
+  );
+  final _peoplePaint = Paint()
+    ..filterQuality = FilterQuality.none
+    ..isAntiAlias = false;
+  void peopleBand(Canvas canvas, List<(Resident, double)> people) {
+    final atlas = game.residentAtlas;
+    if (people.isEmpty || atlas == null) return;
+    const scale = 9 / 48;
+    final transforms = <RSTransform>[], rects = <Rect>[], colors = <Color>[];
+    for (final (r, alpha) in people) {
+      final pose = game.pose(r), feet = pose.feet;
+      final color = alpha == 1
+          ? const Color(0xffffffff)
+          : Color.fromRGBO(255, 255, 255, alpha);
+      transforms.add(
+        RSTransform(scale, 0, feet.dx - 26 * scale / 2, feet.dy - .4),
+      );
+      rects.add(const Rect.fromLTWH(0, 208, 26, 7));
+      colors.add(color);
+      final body = Appearance.bodies.indexOf(Appearance.resolveBody(r.bodyId));
+      final index =
+          (body * 4 + r.palette.clamp(0, 3)) * 2 + (pose.facing < 0 ? 1 : 0);
+      transforms.add(
+        RSTransform.fromComponents(
+          rotation: -pose.lean * pose.facing,
+          scale: scale,
+          anchorX: 26,
+          anchorY: 50,
+          translateX: feet.dx,
+          translateY: feet.dy - pose.lift,
+        ),
+      );
+      rects.add(_atlasRects[index]);
+      colors.add(color);
+    }
+    canvas.drawAtlas(
+      atlas,
+      transforms,
+      rects,
+      colors,
+      BlendMode.modulate,
+      null,
+      _peoplePaint,
+    );
+    for (final (r, alpha) in people) {
+      personAccents(canvas, r, alpha);
+    }
+  }
+
+  void personAccents(Canvas canvas, Resident r, double alpha) {
     final pose = game.pose(r), position = pose.feet;
-    final sprite = game.art[Appearance.sprite(r.bodyId, r.palette)];
-    if (sprite == null) return;
+    if (r.activity != Activity.working &&
+        !(pose.gesture > .25 &&
+            [Activity.socialising, Activity.gathering].contains(r.activity)) &&
+        r.flash <= 0 &&
+        game.inspectedResident != r.homeId) {
+      return;
+    }
     canvas.save();
     canvas.translate(position.dx, position.dy);
     if (game.inspectedResident == r.homeId) {
@@ -999,41 +1056,9 @@ class _LandscapeLayer extends Component {
           ..strokeWidth = .4,
       );
     }
-    canvas.drawOval(
-      const Rect.fromLTWH(-2.5, -.4, 5, 1.3),
-      Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .75),
-    );
     canvas.translate(0, -pose.lift);
     canvas.scale(pose.facing, 1);
     canvas.skew(pose.lean, 0);
-    for (final d in [
-      const Offset(-.35, 0),
-      const Offset(.35, 0),
-      const Offset(0, -.35),
-      const Offset(0, .35),
-    ]) {
-      sprite.render(
-        canvas,
-        position: Vector2(-4.5 + d.dx, -9 + d.dy),
-        size: Vector2.all(9),
-        overridePaint: Paint()
-          ..filterQuality = FilterQuality.none
-          ..isAntiAlias = false
-          ..colorFilter = ColorFilter.mode(
-            const Color(0xff1b2b26).withValues(alpha: alpha),
-            BlendMode.srcIn,
-          ),
-      );
-    }
-    sprite.render(
-      canvas,
-      position: Vector2(-4.5, -9),
-      size: Vector2.all(9),
-      overridePaint: Paint()
-        ..filterQuality = FilterQuality.none
-        ..isAntiAlias = false
-        ..color = Color.fromRGBO(255, 255, 255, alpha),
-    );
     if (r.activity == Activity.working) {
       if (game.colony.kind(r.workId) == Place.garden &&
           r.workProgress > 0 &&

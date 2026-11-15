@@ -53,7 +53,7 @@ void main(List<String> args) {
     args.isEmpty ? '/tmp/roag-tranche05-fixtures' : args.first,
   )..createSync(recursive: true);
   for (final n in [85, 250, 500]) {
-    final c = scalingTown(n);
+    final c = scalingTown(n)..nextSpecialAt = 1e9;
     File('${d.path}/scale-$n.json').writeAsStringSync(c.encode());
     stdout.writeln(
       '$n real residents; ${c.world.activePaths.length} connected road cells',

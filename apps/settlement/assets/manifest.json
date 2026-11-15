@@ -818,5 +818,379 @@
     "11": "road11",
     "15": "road12"
   },
-  "derived": "Masks 0,1,2,4,8: dirt texture clipped to center and real cardinal ports; no fictitious connection."
+  "derived": "Masks 0,1,2,4,8: dirt texture clipped to center and real cardinal ports; no fictitious connection.",
+  "resident_atlas": {
+    "file": "images/resident-atlas.png",
+    "sha256": "dea238d26bc9ab54a6ddc80c5cbe4ba4b2d8a9918acb5f44788157ffe347c7ec",
+    "cell": [
+      52,
+      52
+    ],
+    "feet": [
+      26,
+      50
+    ],
+    "world_scale": 0.1875,
+    "frames": [
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          156,
+          52,
+          52
+        ]
+      }
+    ],
+    "shadow": [
+      0,
+      208,
+      26,
+      7
+    ],
+    "treatment": "4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow"
+  }
 }

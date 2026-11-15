@@ -773,21 +773,25 @@ class _LandscapePageState extends State<LandscapePage> {
                       Positioned(
                         left: 24,
                         top: 40,
-                        child: Tooltip(
-                          message: colony.special!.effect,
-                          child: TextButton(
-                            onPressed: () {
-                              cancelGesture();
-                              game.clearInspection();
-                              game.inspectedEvent = true;
-                              setState(() {});
-                            },
-                            child: Text(
-                              '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · ${colony.clock - colony.special!.starts < 5 ? colony.special!.shortEffect : 'inspect'}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xffe4d29b),
-                                backgroundColor: Color(0xdd202a25),
+                        right: game.inspection != null ? 312 : 24,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Tooltip(
+                            message: colony.special!.effect,
+                            child: TextButton(
+                              onPressed: () {
+                                cancelGesture();
+                                game.clearInspection();
+                                game.inspectedEvent = true;
+                                setState(() {});
+                              },
+                              child: Text(
+                                '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · ${colony.clock - colony.special!.starts < 5 ? colony.special!.shortEffect : 'inspect'}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xffe4d29b),
+                                  backgroundColor: Color(0xdd202a25),
+                                ),
                               ),
                             ),
                           ),

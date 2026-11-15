@@ -348,7 +348,7 @@ class Colony extends Residents {
                   ResidentIdentity.hash(r.homeId, 379) % 2 == 0)) {
         return 1;
       }
-      return 2;
+      return kind(id) == Place.market && r.tradeDay == day ? 3 : 2;
     }
 
     candidates.sort((a, b) {
@@ -421,6 +421,13 @@ class Colony extends Residents {
             marketDay && clock - r.lastSocial > Rules.leisureRepeatAfter) &&
         shopAvailable(r) &&
         _seekSocial(r, shopping: true)) {
+      return;
+    }
+    if (workPeriod &&
+        r.workId == null &&
+        places(Place.market).isNotEmpty &&
+        clock - r.lastSocial > Rules.leisureRepeatAfter &&
+        _seekSocial(r)) {
       return;
     }
     if ((phase == 'Evening' || r.lastWork >= r.bornAt) &&
@@ -897,6 +904,14 @@ class Colony extends Residents {
                 connected(r),
           ),
   };
+  void _weatherCostsChanged() {
+    navigation.invalidate(world, raining: raining);
+    for (final r in people.values.where((r) => r.route.isNotEmpty)) {
+      if (r.route.length > 1) r.route.removeRange(1, r.route.length);
+      r.replanAfterEdge = true;
+    }
+  }
+
   bool beginSpecial(SpecialKind kind, {bool fixture = false}) {
     if (!fixture && clock + 1e-9 < nextSpecialAt) return false;
     if (special?.active(clock) == true || !eligibleSpecial(kind)) return false;
@@ -908,13 +923,13 @@ class Colony extends Residents {
       clock + Rules.specialDuration,
     );
     nextSpecialAt = special!.ends + Rules.specialCooldown;
-    if (raining != wasRain) navigation.invalidate(world, raining: raining);
+    if (raining != wasRain) _weatherCostsChanged();
     return true;
   }
 
   void _specialBoundary() {
     if (navigation.rain != raining) {
-      navigation.invalidate(world, raining: raining);
+      _weatherCostsChanged();
     }
     if (clock + 1e-9 < nextSpecialAt || special?.active(clock) == true) return;
     if (event != null && event!.state != 'ended') {

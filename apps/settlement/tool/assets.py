@@ -59,6 +59,46 @@ def resident_crop(png, body, palette):
     return rect, rgba
 
 
+def resident_atlas(png):
+    # bake the existing four-direction outline at 4x; original colour pixels stay intact.
+    cell, width, height = 52, 416, 260
+    atlas = bytearray(width * height * 4)
+    frames = []
+    for body in BODIES:
+        for palette in PALETTES:
+            _, rgba = resident_crop(png, body, palette)
+            for mirrored in [False, True]:
+                index = len(frames)
+                ox, oy = index % 8 * cell, index // 8 * cell
+                solid = {}
+                for y in range(12):
+                    for x in range(12):
+                        source = (y * 12 + (11-x if mirrored else x)) * 4
+                        if not rgba[source+3]: continue
+                        for dy in range(4):
+                            for dx in range(4):
+                                solid[(2+x*4+dx, 2+y*4+dy)] = rgba[source:source+4]
+                pixels = {}
+                for x, y in solid:
+                    for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                        pixels[(x+dx, y+dy)] = bytes.fromhex('1b2b26ff')
+                pixels.update(solid)
+                for (x, y), color in pixels.items():
+                    at = ((oy+y)*width+ox+x)*4
+                    atlas[at:at+4] = color
+                frames.append({'body':body,'palette':palette,'mirrored':mirrored,'rect':[ox,oy,cell,cell]})
+    for y in range(7):
+        for x in range(26):
+            if ((x+.5-13)/13)**2+((y+.5-3.5)/3.5)**2 <= 1:
+                at=((208+y)*width+x)*4
+                atlas[at:at+4]=bytes.fromhex('17291fbf')
+    data=encode_rgba_png(width,height,atlas)
+    return data, {'file':'images/resident-atlas.png','sha256':hashlib.sha256(data).hexdigest(),
+                  'cell':[52,52],'feet':[26,50],'world_scale':9/48,
+                  'frames':frames,'shadow':[0,208,26,7],
+                  'treatment':'4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow'}
+
+
 def products():
     png = Png(ROOT / SOURCE)
     frames, output = {}, {}
@@ -108,6 +148,9 @@ def products():
                                '6': 'road6', '3': 'road7', '13': 'road8', '14': 'road9',
                                '7': 'road10', '11': 'road11', '15': 'road12'},
                 'derived': 'Masks 0,1,2,4,8: dirt texture clipped to center and real cardinal ports; no fictitious connection.'}
+    atlas, atlas_manifest=resident_atlas(png)
+    output['assets/images/resident-atlas.png']=atlas
+    manifest['resident_atlas']=atlas_manifest
     output['assets/manifest.json'] = (json.dumps(manifest, indent=2)+'\n').encode()
     output['assets/SourceCodePro-Regular.otf'] = (ROOT/'assets/fonts/SourceCodePro-Regular.otf').read_bytes()
     output['assets/LICENSE-SourceCodePro.md'] = (ROOT/'assets/fonts/LICENSE-SourceCodePro.md').read_bytes()

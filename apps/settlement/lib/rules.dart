@@ -36,5 +36,6 @@ abstract final class Rules {
   static const bubbleCooldown = 20.0, complaintCooldown = 60.0;
   static const causeCooldown = 24.0, positiveCauseCooldown = 4.0;
   static int cost(String tool) => costs[tool] ?? 0;
+  static String exactCoins(int milli) => (milli / 1000).toStringAsFixed(2);
   static String coins(int milli) => (milli / 1000).toStringAsFixed(1);
 }

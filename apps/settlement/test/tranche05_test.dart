@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roag_settlement/colony.dart';
+import 'package:roag_settlement/appearance.dart';
 import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/navigation.dart';
 import 'package:roag_settlement/residents.dart';
 import 'package:roag_settlement/resident_identity.dart';
 import 'package:roag_settlement/rules.dart';
 import 'package:roag_settlement/special_event.dart';
+import 'package:roag_settlement/settlement_game.dart';
 
 import '../tool/scaling_fixture.dart' show scalingTown;
 import 'colony_test.dart' show paint, advance;
@@ -383,6 +385,7 @@ void main() {
   test('bounded fair planning rejects stale work and drains after a substantial 500-person edit', () {
     final c = scalingTown(500)..speed = 1;
     advance(c, 4);
+    c.decide(c.people.values.first);
     c.session.beginStroke(Tool.remove, const Cell(2, 15));
     c.session.stroke!.paintTo(const Cell(18, 15));
     expect(c.session.finishStroke(), isTrue);
@@ -404,7 +407,7 @@ void main() {
       c.people.values.every((r) => r.activity != Activity.pending),
       isTrue,
     );
-    expect(c.discardedPlans, greaterThanOrEqualTo(discarded));
+    expect(c.discardedPlans, greaterThan(discarded));
   });
   test('fixed-step progression agrees across render rates and off-screen presentation is irrelevant', () {
     final a = town(), b = Colony.decode(a.encode());
@@ -592,4 +595,75 @@ void main() {
       expect(Colony.decode(c.encode()).specialRng, c.specialRng);
     }
   });
+  test('Market inspection states exact trade and separate vendor income', () {
+    final c = town(),
+        game = SettlementGame(c, (_) {})
+          ..inspectedCell = c.world.places[id(c, Place.market)];
+    expect(game.inspection, contains('0.25 coin once'));
+    expect(game.inspection, contains('0.1 coin/second'));
+  });
+  test(
+    'weather invalidates active future routes after the frozen current edge',
+    () {
+      const w = 16, h = 12;
+      final world = Landscape(202, w, h, [
+        for (var y = 0; y < h; y++)
+          for (var x = 0; x < w; x++)
+            x == 15 && y == 6
+                ? const Lot(cottage: 0, cottageId: 'home-1', trace: Trace.pad)
+                : Lot(
+                    path:
+                        y == 5 ||
+                        y == 3 && x >= 2 ||
+                        y == 4 && (x == 2 || x == 15) ||
+                        x == 0 && y == 6,
+                    road: y == 3 ? RoadKind.stone : RoadKind.dirt,
+                  ),
+      ], nextCottageId: 2);
+      final c = Colony(LandscapeSession(world))..nextSpecialAt = 1e9,
+          r = c.people.values.single;
+      r.cell = const Cell(0, 5);
+      r.x = .5;
+      r.y = 5.5;
+      c.go(r, const Cell(15, 5), Activity.returning);
+      expect(r.route.every((p) => p.y == 5), isTrue);
+      c.update(.05);
+      final speed = r.segmentSpeed, revision = c.navigation.revision;
+      c.beginSpecial(SpecialKind.rain, fixture: true);
+      expect(c.navigation.revision, greaterThan(revision));
+      expect(r.segmentSpeed, speed);
+      expect(r.route.length, 1);
+      until(c, () => r.cell == const Cell(1, 5));
+      expect(r.route.any((p) => p.y == 3), isTrue);
+    },
+  );
+  test(
+    'Hall gathering uses real capacity and awards actual attendees once',
+    () {
+      final c = town();
+      advance(c, 106);
+      expect(c.kind(c.event?.green), Place.hall);
+      expect(c.event!.awarded.length, greaterThanOrEqualTo(3));
+      expect(c.occupancy(c.event!.green), lessThanOrEqualTo(8));
+      final copy = Colony.decode(c.encode());
+      expect(copy.event!.awarded, c.event!.awarded);
+    },
+  );
+  test(
+    'batched atlas keeps each approved body/palette/mirror and feet anchor',
+    () {
+      final atlas = jsonDecode(
+            File('assets/manifest.json').readAsStringSync(),
+          )['resident_atlas'],
+          frames = atlas['frames'];
+      expect(frames.length, 32);
+      expect(atlas['feet'], [26, 50]);
+      for (var i = 0; i < 32; i++) {
+        expect(frames[i]['body'], Appearance.bodies[i ~/ 8]);
+        expect(frames[i]['palette'], Appearance.palettes[i ~/ 2 % 4]);
+        expect(frames[i]['mirrored'], i.isOdd);
+        expect(frames[i]['rect'], [i % 8 * 52, i ~/ 8 * 52, 52, 52]);
+      }
+    },
+  );
 }
