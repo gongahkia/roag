@@ -449,18 +449,20 @@ class Placement {
   final Cell cell;
   final String message;
   final Cell? access;
+  final Cell? movingFrom;
   const Placement(
     this.before,
     this.after,
     this.cell,
     this.message, [
     this.access,
+    this.movingFrom,
   ]);
   bool get valid => after != null;
   Iterable<Cell> get affected sync* {
     if (after == null) return;
     for (final c in before.cells) {
-      if (c == cell ||
+      if (c == cell || c == movingFrom ||
           ((before.at(c).path || after!.at(c).path) &&
               (before.roadMask(c) != after!.roadMask(c) ||
                   before.activePaths.contains(c) !=
@@ -471,6 +473,31 @@ class Placement {
       }
     }
   }
+}
+
+Tool? buildingTool(Lot lot) => lot.cottage != null
+    ? Tool.cottage
+    : lot.place == null ? null : Tool.values.firstWhere((t) => t.place == lot.place);
+
+Placement evaluateMove(Landscape world, Cell from, Cell to) {
+  Placement no(String why) => Placement(world, null, to, why, null, from);
+  if (!world.contains(from) || buildingTool(world.at(from)) == null) {
+    return no('Choose an existing building.');
+  }
+  if (from == to) return no('Choose another plot · Escape cancels.');
+  final original = world.at(from);
+  final vacated = evaluate(world, Tool.remove, from).after!;
+  final placement = evaluate(vacated, buildingTool(original)!, to);
+  if (!placement.valid) return no(placement.message);
+  final destination = world.at(to);
+  final after = vacated.replace(to, Lot(
+    grass: destination.grass, trace: Trace.pad,
+    cottage: original.cottage, cottageId: original.cottageId,
+    place: original.place, placeId: original.placeId,
+  ));
+  return Placement(world, after, to,
+    'Move ${buildingTool(original)!.label} · Free · click to place · Escape cancels',
+    after.access(to), from);
 }
 
 Placement evaluate(Landscape world, Tool tool, Cell c) {
@@ -575,7 +602,7 @@ class LandscapeSession {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
   bool commit(Placement plan) {
-    if (stroke != null || !identical(plan.before, world) || !plan.valid) {
+    if (stroke != null || plan.movingFrom != null || !identical(plan.before, world) || !plan.valid) {
       return false;
     }
     final lot = plan.after!.at(plan.cell);
@@ -593,6 +620,14 @@ class LandscapeSession {
           );
     if (price > money) return false;
     return _commit(plan.after!, price);
+  }
+
+  bool relocate(Placement plan) {
+    if (stroke != null || plan.movingFrom == null ||
+        !identical(plan.before, world) || !plan.valid) return false;
+    final checked = evaluateMove(world, plan.movingFrom!, plan.cell);
+    if (!checked.valid) return false;
+    return _commit(checked.after!, 0);
   }
 
   bool _commit(Landscape next, int price) {
