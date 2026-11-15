@@ -408,6 +408,10 @@ class _LandscapePageState extends State<LandscapePage> {
           Tool.path => 'Extend the lane, one cell at a time.',
           Tool.remove => 'Leave a little history behind.',
         };
+    if (session.stroke != null) {
+      hint =
+          'Release to commit ${session.stroke!.changed.length} pieces · Escape cancels';
+    }
     if (preview != null &&
         scene.contains(preview!.cell) &&
         scene.at(preview!.cell).cottage != null) {
@@ -529,10 +533,12 @@ class _LandscapePageState extends State<LandscapePage> {
                   children: [
                     Positioned.fill(
                       child: MouseRegion(
-                        onExit: (_) {
-                          if (pointer != null) {
+                        onExit: (event) {
+                          // a hidden tab also emits an exit at its last in-canvas
+                          // position; only a physical boundary crossing commits.
+                          if (pointer != null && !inside(event.localPosition)) {
                             finishGesture();
-                          } else {
+                          } else if (pointer == null) {
                             game.clearPreview();
                           }
                         },

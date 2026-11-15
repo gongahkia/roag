@@ -63,6 +63,10 @@ class SettlementGame extends FlameGame {
   void hover(Offset point) {
     if (!canvasReady) return;
     final c = pick(point);
+    if (session.stroke?.changed.contains(c) == true) {
+      clearPreview();
+      return;
+    }
     if (preview?.cell == c && identical(preview?.before, session.view)) return;
     preview = evaluate(session.view, tool, c);
     onPreview(preview);

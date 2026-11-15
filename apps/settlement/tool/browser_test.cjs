@@ -38,8 +38,8 @@ fs.mkdirSync(output, {recursive:true});
   const saved = async () => JSON.parse(await raw());
   const lot = (s,x,y) => s.lots[y*s.width+x];
   let width=1024,height=640,scale=48,offsetX=0,offsetY=0;
-  const point=(x,y) => [width/2+(x+.5-9)*scale+offsetX,
-    72+(height-150)/2+(y-15)*scale+offsetY];
+  const point=(x,y) => [width/2+(x+.5-Math.max(9,(width/2-24)/48))*scale+offsetX,
+    72+(height-156)/2+(y-15)*scale+offsetY];
   async function cell(x,y) {
     const p=point(x,y);assert(p[0]>0 && p[0]<width && p[1]>72 && p[1]<height-78);
     await page.mouse.move(...p);await page.mouse.click(...p);
@@ -88,16 +88,16 @@ fs.mkdirSync(output, {recursive:true});
   assert.equal(await raw(),restored);step('Reconnect, build over pad, exact undo/redo');
   await page.keyboard.press('1');const beforeInvalid=await raw();await cell(15,11);
   assert.equal(await raw(),beforeInvalid);step('Invalid disconnected placement is a no-op');
-  // Left drag cancels a click. Right drag changes only camera position.
+  // A left drag builds one stroke; one Undo restores it. Right drag pans only.
   const dragStart=point(4,14);await page.mouse.move(...dragStart);await page.mouse.down();
   await page.mouse.move(dragStart[0]+100,dragStart[1]+40,{steps:8});await page.mouse.up();
-  assert.equal(await raw(),beforeInvalid);
+  assert.notEqual(await raw(),beforeInvalid);await page.keyboard.press('Control+z',{delay:40});assert.equal(await raw(),beforeInvalid);
   await page.mouse.move(600,400);await page.mouse.down({button:'right'});
   await page.mouse.move(696,448,{steps:8});await page.mouse.up({button:'right'});
   offsetX=96;offsetY=48;
   assert.equal(await raw(),beforeInvalid);await edit(3,3,14,'pad');await page.keyboard.press('Control+z');
   assert.equal(await raw(),beforeInvalid);step('Camera drag isolation and picking after pan');
-  await home();await page.mouse.move(width/2,317);await page.mouse.wheel(0,-100);scale=60;
+  await home();await page.mouse.move(width/2,314);await page.mouse.wheel(0,-100);scale=60;
   await edit(3,5,14,'pad');await page.keyboard.press('Control+z');
   assert.equal(await raw(),beforeInvalid);step('Pointer-anchored zoom and picking');
   await page.setViewportSize({width:1440,height:900});width=1440;height=900;await home();

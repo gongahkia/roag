@@ -12,3 +12,7 @@ See LICENSE-SourceCodePro.md.
 Black-key transparency, semantic tints, road end-cap clipping, ground pads,
 scars, outlines and short feedback effects are prototype rendering operations.
 No new building elevations or frame animation sets are claimed.
+
+Resident: urizen-onebit-r00-c104, source rectangle 1353,1,12,12.
+The inspected empty-handed figure is static. Walking uses translation,
+horizontal facing, a small procedural bob and semantic tint, not a walk cycle.
