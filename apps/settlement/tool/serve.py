@@ -8,8 +8,12 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8765)
+parser.add_argument('--base-path', default='/settlement/')
+parser.add_argument('--build-dir', type=Path)
 args = parser.parse_args()
-build = Path(__file__).resolve().parents[1] / 'build/web'
+if not args.base_path.startswith('/') or not args.base_path.endswith('/'):
+    raise SystemExit('--base-path must start and end with /')
+build = (args.build_dir or (Path(__file__).resolve().parents[1] / 'build/web')).resolve()
 if not (build/'index.html').exists():
     raise SystemExit('Build first: flutter build web --release --base-href /settlement/ --no-web-resources-cdn')
 
@@ -18,13 +22,13 @@ class Handler(SimpleHTTPRequestHandler):
     def route(self):
         if self.path == '/':
             self.send_response(302)
-            self.send_header('Location', '/settlement/')
+            self.send_header('Location', args.base_path)
             self.end_headers()
             return False
-        if not self.path.startswith('/settlement/'):
+        if not self.path.startswith(args.base_path):
             self.send_error(404)
             return False
-        self.path = self.path[len('/settlement'):]
+        self.path = self.path[len(args.base_path)-1:]
         return True
 
     def do_GET(self):
@@ -44,12 +48,12 @@ except OSError as error:
         raise
     raise SystemExit(
         f'Port {args.port} is already in use. If the settlement server is already running, '
-        f'open http://127.0.0.1:{args.port}/settlement/\n'
+        f'open http://127.0.0.1:{args.port}{args.base_path}\n'
         'To start another copy on a free port, use --port 0.'
     ) from None
 
 with server:
-    print(f'ROAG settlement: http://127.0.0.1:{server.server_port}/settlement/', flush=True)
+    print(f'ROAG settlement: http://127.0.0.1:{server.server_port}{args.base_path}', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

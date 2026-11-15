@@ -476,6 +476,45 @@ void main() {
     );
     expect(() => Colony.decode(c.encode()), returnsNormally);
   });
+  test('paused multi-home demolition removes dead route owners and immediately exports a valid checkpoint', () {
+    final c = marketDay(), host = c.civicHost!, clock = c.clock;
+    for (final resident in c.people.keys.where((id) => id != host).toList()) {
+      paint(c, Tool.remove, c.world.cottages[resident]!);
+      expect(c.planning.every((p) => c.people.containsKey(p.id)), isTrue);
+      expect(c.planning.length, lessThanOrEqualTo(c.people.length));
+      expect(() => Colony.decode(c.encode()), returnsNormally);
+    }
+    expect(c.clock, clock);
+    expect(Colony.decode(c.encode()).people.keys, [host]);
+    c.session.undo();
+    c.reconcile(c.session.world);
+    expect(() => Colony.decode(c.encode()), returnsNormally);
+  });
+  test('a Market day with only its vendor no longer offers or charges a civic choice', () {
+    final c = marketDay(), host = c.civicHost!;
+    for (final resident in c.people.keys.where((id) => id != host).toList()) {
+      paint(c, Tool.remove, c.world.cottages[resident]!);
+    }
+    expect(c.civicHost, host);
+    expect(c.eligibleSpecial(SpecialKind.marketDay), isFalse);
+    final before = c.encode();
+    expect(
+      Dialogues.view(
+        c,
+        Conversation(host),
+      ).choices.any((x) => x.$1.id == 'civic'),
+      isFalse,
+    );
+    expect(
+      Dialogues.view(
+        c,
+        Conversation(host, node: 'civic', event: c.special!.id),
+      ).choices.any((x) => x.$1.id == 'sponsor'),
+      isFalse,
+    );
+    expect(c.chooseCivic(c.special!.id, sponsor: true), isFalse);
+    expect(c.encode(), before);
+  });
   test('civic sponsorship rejects stale events, insufficient funds and missing participants without spending', () {
     final c = marketDay(), event = c.special!.id, host = c.civicHost!;
     c.session.money = Rules.civicCost - 1;

@@ -2,6 +2,8 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'rules.dart';
+import 'terrain.dart';
+export 'terrain.dart';
 
 enum Tool {
   cottage,
@@ -13,7 +15,10 @@ enum Tool {
   market,
   hall,
   stoneRoad,
-  gardenPath;
+  gardenPath,
+  clear,
+  plant,
+  bridge;
 
   String get label => switch (this) {
     cottage => 'Cottage',
@@ -26,7 +31,11 @@ enum Tool {
     hall => 'Community Hall',
     stoneRoad => 'Stone Road',
     gardenPath => 'Garden Path',
+    clear => 'Clear',
+    plant => 'Plant',
+    bridge => 'Bridge',
   };
+  bool get isLandscape => this == clear || this == plant || this == bridge;
   bool get isRoad => this == path || this == stoneRoad || this == gardenPath;
   RoadKind get roadKind => this == stoneRoad
       ? RoadKind.stone
@@ -55,6 +64,10 @@ enum Tool {
     stoneRoad => '18% quicker travel · stays quick in rain · 2 coins/cell.',
     gardenPath =>
       'Normal pace · +3 mood after traversal, once per day · 1 coin/cell.',
+    clear => 'Clear trees or prepare marsh · 1 coin/cell · no road needed.',
+    plant =>
+      'Plant a tree on empty ground · 1 coin/cell · no automatic benefit.',
+    bridge => 'Drag bank to bank, straight across 1–6 water cells · 3 coins/water cell.',
   };
 }
 
@@ -118,6 +131,8 @@ class Cell {
 }
 
 class Lot {
+  final Terrain terrain;
+  final BridgeAxis? bridge;
   final int grass;
   final Scenery scenery;
   final Trace trace;
@@ -128,6 +143,8 @@ class Lot {
   final Place? place;
   final String? placeId;
   const Lot({
+    this.terrain = Terrain.ground,
+    this.bridge,
     this.grass = 0,
     this.scenery = Scenery.none,
     this.trace = Trace.none,
@@ -148,7 +165,12 @@ class Lot {
     cottage == null ? null : identity ?? cottageId,
     place?.name,
     placeId,
-    if (path && road != RoadKind.dirt) road.name,
+    if (terrain != Terrain.ground || bridge != null) ...[
+      path ? road.name : null,
+      terrain.name,
+      bridge?.name,
+    ] else if (path && road != RoadKind.dirt)
+      road.name,
   ];
 }
 
@@ -161,6 +183,7 @@ int variation(int seed, Cell c, int salt) {
 
 class Landscape {
   final int seed, width, height;
+  final GenerationInfo? generation;
   final List<Lot> lots;
   final int nextCottageId;
   Landscape(
@@ -169,6 +192,7 @@ class Landscape {
     this.height,
     Iterable<Lot> lots, {
     this.nextCottageId = 1,
+    this.generation,
   }) : lots = List.unmodifiable(lots);
   Cell get arrival => Cell(0, height ~/ 2);
   bool contains(Cell c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
@@ -201,15 +225,57 @@ class Landscape {
   }
 
   late final Set<Cell> activePaths = _connected();
-  Iterable<Cell> pathNeighbours(Cell c) =>
-      c.neighbours.where((n) => contains(n) && at(n).path);
+  late final Set<Cell> completeBridgeCells = _completeBridges();
+  Set<Cell> _completeBridges() {
+    final valid = <Cell>{};
+    for (final c in cells) {
+      final axis = at(c).bridge;
+      if (axis == null || valid.contains(c)) continue;
+      final dx = axis == BridgeAxis.horizontal ? 1 : 0, dy = 1 - dx;
+      Cell offset(Cell p, int n) => Cell(p.x + dx * n, p.y + dy * n);
+      var start = c;
+      while (contains(offset(start, -1)) &&
+          at(offset(start, -1)).bridge == axis) {
+        start = offset(start, -1);
+      }
+      final span = <Cell>[];
+      var end = start;
+      while (contains(end) && at(end).bridge == axis) {
+        span.add(end);
+        end = offset(end, 1);
+      }
+      final bank = offset(start, -1);
+      bool landRoad(Cell p) =>
+          contains(p) &&
+          at(p).path &&
+          at(p).bridge == null &&
+          at(p).terrain.roadAllowed;
+      if (span.length <= 6 && landRoad(bank) && landRoad(end)) {
+        valid.addAll(span);
+      }
+    }
+    return Set.unmodifiable(valid);
+  }
+
+  bool roadCell(Cell c) =>
+      contains(c) &&
+      at(c).path &&
+      (at(c).bridge != null
+          ? completeBridgeCells.contains(c)
+          : at(c).terrain.roadAllowed);
+  bool _aligned(Cell c, Cell n) =>
+      at(c).bridge == null ||
+      (at(c).bridge == BridgeAxis.horizontal ? c.y == n.y : c.x == n.x);
+  Iterable<Cell> pathNeighbours(Cell c) => c.neighbours.where(
+    (n) => roadCell(n) && _aligned(n, c) && (!contains(c) || _aligned(c, n)),
+  );
   Set<Cell> _connected() => pathComponent(arrival);
   Set<Cell> pathComponent(Cell start) {
     final result = <Cell>{};
     final queue = Queue<Cell>()..add(start);
     while (queue.isNotEmpty) {
       final c = queue.removeFirst();
-      if (!contains(c) || !at(c).path || !result.add(c)) continue;
+      if (!contains(c) || !roadCell(c) || !result.add(c)) continue;
       queue.addAll(pathNeighbours(c));
     }
     return Set.unmodifiable(result);
@@ -218,8 +284,8 @@ class Landscape {
   List<Cell>? pathRoute(Cell start, Cell goal) {
     if (!contains(start) ||
         !contains(goal) ||
-        !at(start).path ||
-        !at(goal).path) {
+        !roadCell(start) ||
+        !roadCell(goal)) {
       return null;
     }
     final previous = <Cell, Cell?>{start: null};
@@ -254,8 +320,14 @@ class Landscape {
   });
   bool occupied(Cell c) =>
       at(c).path || at(c).cottage != null || at(c).place != null;
-  Landscape withCounter(int counter) =>
-      Landscape(seed, width, height, lots, nextCottageId: counter);
+  Landscape withCounter(int counter) => Landscape(
+    seed,
+    width,
+    height,
+    lots,
+    nextCottageId: counter,
+    generation: generation,
+  );
   Cell? localAccess(Cell home, {Cell? from}) {
     for (final n in pathNeighbours(home)) {
       if (from == null || pathRoute(from, n) != null) return n;
@@ -264,7 +336,7 @@ class Landscape {
   }
 
   Cell? access(Cell c) {
-    for (final n in c.neighbours) {
+    for (final n in pathNeighbours(c)) {
       if (activePaths.contains(n)) return n;
     }
     return null;
@@ -282,7 +354,7 @@ class Landscape {
     for (var i = 0; i < ns.length; i++) {
       final n = ns[i];
       if (contains(n) &&
-          (at(n).path ||
+          (pathNeighbours(c).contains(n) ||
               ((at(n).cottage != null || at(n).place != null) &&
                   access(n) == c))) {
         mask |= 1 << i;
@@ -301,6 +373,7 @@ class Landscape {
       height,
       next,
       nextCottageId: nextCottageId + (allocateCottage ? 1 : 0),
+      generation: generation,
     );
   }
 
@@ -308,6 +381,7 @@ class Landscape {
     'schema': 3,
     'nextCottageId': nextCottageId,
     'seed': seed,
+    if (generation != null) 'generation': generation!.toJson(),
     'width': width,
     'height': height,
     'lots': [
@@ -350,7 +424,11 @@ class Landscape {
               (legacy
                   ? 5
                   : modern
-                  ? (row.length == 9 ? 9 : 8)
+                  ? (row.length == 11
+                        ? 11
+                        : row.length == 9
+                        ? 9
+                        : 8)
                   : 6) ||
           !['grass0', 'grass1'].contains(row[0]) ||
           !Scenery.values.any((s) => s.name == row[1]) ||
@@ -359,12 +437,26 @@ class Landscape {
           ![null, 'cottage0', 'cottage1'].contains(row[4])) {
         throw const FormatException('Invalid terrain or content identifier.');
       }
+      final extended = modern && row.length == 11;
       final l = Lot(
+        terrain: extended
+            ? Terrain.values.firstWhere(
+                (t) => t.name == row[9],
+                orElse: () => throw const FormatException('Invalid terrain.'),
+              )
+            : Terrain.ground,
+        bridge: extended && row[10] != null
+            ? BridgeAxis.values.firstWhere(
+                (a) => a.name == row[10],
+                orElse: () =>
+                    throw const FormatException('Invalid bridge axis.'),
+              )
+            : null,
         grass: row[0] == 'grass0' ? 0 : 1,
         scenery: Scenery.values.firstWhere((s) => s.name == row[1]),
         trace: Trace.values.firstWhere((t) => t.name == row[2]),
         path: row[3],
-        road: modern && row.length == 9
+        road: modern && (row.length == 9 || (extended && row[8] != null))
             ? RoadKind.values.firstWhere(
                 (r) => r.name == row[8],
                 orElse: () => throw const FormatException('Invalid road kind.'),
@@ -390,6 +482,20 @@ class Landscape {
             : null,
         placeId: modern && row[7] is String ? row[7] : null,
       );
+      if (extended &&
+          ((l.bridge != null &&
+                  (l.terrain != Terrain.water ||
+                      !l.path ||
+                      l.road != RoadKind.dirt)) ||
+              (l.path && l.bridge == null && !l.terrain.roadAllowed) ||
+              ((l.cottage != null || l.place != null) &&
+                  !l.terrain.buildable) ||
+              (l.terrain == Terrain.forest && l.scenery != Scenery.oak) ||
+              ((l.terrain == Terrain.water || l.terrain == Terrain.rock) &&
+                  l.scenery != Scenery.none) ||
+              (!l.path && row[8] != null))) {
+        throw const FormatException('Inconsistent terrain footprint.');
+      }
       if (row.length == 9 && !l.path) {
         throw const FormatException('Road kind without a road.');
       }
@@ -435,8 +541,23 @@ class Landscape {
       }
       lots.add(l);
     }
-    final result = Landscape(seed, w, h, lots, nextCottageId: nextId);
-    if (!result.at(result.arrival).path) {
+    final generation = d.containsKey('generation')
+        ? GenerationInfo.decode(d['generation'])
+        : null;
+    if (generation != null && (generation.seed != seed || w != 40 || h != 30)) {
+      throw const FormatException(
+        'Generation metadata does not match this world.',
+      );
+    }
+    final result = Landscape(
+      seed,
+      w,
+      h,
+      lots,
+      nextCottageId: nextId,
+      generation: generation,
+    );
+    if (!result.roadCell(result.arrival)) {
       throw const FormatException('The arrival path is missing.');
     }
     return result;
@@ -450,16 +571,37 @@ class Placement {
   final String message;
   final Cell? access;
   final Cell? movingFrom;
-  const Placement(
+  final int? charge;
+  Placement(
     this.before,
     this.after,
     this.cell,
     this.message, [
     this.access,
     this.movingFrom,
+    this.charge,
   ]);
   bool get valid => after != null;
-  Iterable<Cell> get affected sync* {
+  int get cost {
+    if (!valid) return 0;
+    if (charge != null) return charge!;
+    final lot = after!.at(cell);
+    if (!lot.path && lot.cottage == null && lot.place == null) return 0;
+    return Rules.cost(
+      lot.place?.name ??
+          (lot.cottage != null
+              ? 'cottage'
+              : lot.road == RoadKind.stone
+              ? 'stoneRoad'
+              : lot.road == RoadKind.gardenPath
+              ? 'gardenPath'
+              : 'path'),
+    );
+  }
+
+  late final List<Cell> _affected = _findAffected().toList(growable: false);
+  Iterable<Cell> get affected => _affected;
+  Iterable<Cell> _findAffected() sync* {
     if (after == null) return;
     for (final c in before.cells) {
       if (c == cell ||
@@ -468,7 +610,7 @@ class Placement {
               (before.roadMask(c) != after!.roadMask(c) ||
                   before.activePaths.contains(c) !=
                       after!.activePaths.contains(c))) ||
-          (before.at(c).cottage != null &&
+          ((before.at(c).cottage != null || before.at(c).place != null) &&
               before.access(c) != after!.access(c))) {
         yield c;
       }
@@ -497,6 +639,7 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
     to,
     Lot(
       grass: destination.grass,
+      terrain: destination.terrain,
       trace: Trace.pad,
       cottage: original.cottage,
       cottageId: original.cottage == null ? null : world.cottageKey(from),
@@ -518,6 +661,60 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
   Placement no(String why) => Placement(world, null, c, why);
   if (!world.contains(c)) return no('Stay within the landscape.');
   final old = world.at(c);
+  if (tool == Tool.bridge) {
+    return no('Drag from a land bank across water to the opposite bank.');
+  }
+  if (tool == Tool.clear) {
+    if (world.occupied(c)) {
+      return no('Remove the road or building before preparing this ground.');
+    }
+    if (old.terrain != Terrain.forest &&
+        old.terrain != Terrain.marsh &&
+        old.scenery != Scenery.oak) {
+      return no('Clear prepares trees or wet ground; water and rock stay.');
+    }
+    return Placement(
+      world,
+      world.replace(
+        c,
+        Lot(
+          grass: old.grass,
+          trace: old.trace == Trace.none ? Trace.scar : old.trace,
+        ),
+      ),
+      c,
+      'Prepare ${old.terrain == Terrain.marsh ? 'wet ground' : 'woodland'} · 1 coin',
+      null,
+      null,
+      1000,
+    );
+  }
+  if (tool == Tool.plant) {
+    if (world.occupied(c) ||
+        old.scenery != Scenery.none ||
+        old.terrain != Terrain.ground) {
+      return no(
+        'Plant on empty ordinary ground, away from roads and buildings.',
+      );
+    }
+    return Placement(
+      world,
+      world.replace(
+        c,
+        Lot(
+          grass: old.grass,
+          terrain: Terrain.forest,
+          scenery: Scenery.oak,
+          trace: old.trace,
+        ),
+      ),
+      c,
+      'Plant a tree · 1 coin',
+      null,
+      null,
+      1000,
+    );
+  }
   if (tool == Tool.remove) {
     if (c == world.arrival) return no('The arrival lane is protected.');
     if (!old.path && old.cottage == null && old.place == null) {
@@ -525,7 +722,11 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
     }
     final next = world.replace(
       c,
-      Lot(grass: old.grass, trace: old.path ? Trace.scar : Trace.pad),
+      Lot(
+        grass: old.grass,
+        terrain: old.terrain,
+        trace: old.path ? Trace.scar : Trace.pad,
+      ),
     );
     final lost = world.cells
         .where(
@@ -544,13 +745,28 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
           : 'Remove ${old.place?.label ?? 'cottage'} · leaves a buildable pad',
     );
   }
+  if (old.bridge != null) {
+    return no('Use Remove for bridges; complete a crossing with Bridge.');
+  }
+  if (tool.isRoad && !old.terrain.roadAllowed ||
+      !tool.isRoad && !old.terrain.buildable) {
+    return no(old.terrain.instruction);
+  }
   if (tool.isRoad && old.path) {
     if (old.road == tool.roadKind) {
       return no('This road already has that surface.');
     }
     return Placement(
       world,
-      world.replace(c, Lot(grass: old.grass, path: true, road: tool.roadKind)),
+      world.replace(
+        c,
+        Lot(
+          grass: old.grass,
+          terrain: old.terrain,
+          path: true,
+          road: tool.roadKind,
+        ),
+      ),
       c,
       'Change to ${tool.label} · ${Rules.coins(Rules.cost(tool.name))} coins',
     );
@@ -574,6 +790,7 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       c,
       Lot(
         grass: old.grass,
+        terrain: old.terrain,
         path: tool.isRoad,
         road: tool.roadKind,
         trace: tool.isRoad ? Trace.none : Trace.pad,
@@ -622,19 +839,7 @@ class LandscapeSession {
         !plan.valid) {
       return false;
     }
-    final lot = plan.after!.at(plan.cell);
-    final price = unlimited
-        ? 0
-        : Rules.cost(
-            lot.place?.name ??
-                (lot.cottage != null
-                    ? 'cottage'
-                    : lot.road == RoadKind.stone
-                    ? 'stoneRoad'
-                    : lot.road == RoadKind.gardenPath
-                    ? 'gardenPath'
-                    : 'path'),
-          );
+    final price = unlimited ? 0 : plan.cost;
     if (price > money) return false;
     return _commit(plan.after!, price);
   }
@@ -773,7 +978,7 @@ class BrushStroke {
   Landscape staged;
   final Tool tool;
   final Set<Cell> changed = {};
-  Cell? last;
+  Cell? last, bridgeStart;
   Placement? firstInvalid;
   final int budget;
   final bool free;
@@ -785,6 +990,31 @@ class BrushStroke {
     this.free = false,
   }) : staged = before;
   void paintTo(Cell target) {
+    if (tool == Tool.bridge) {
+      bridgeStart ??= target;
+      final plan = evaluateBridge(before, bridgeStart!, target);
+      changed.clear();
+      staged = before;
+      price = 0;
+      firstInvalid = null;
+      if (!plan.valid || (!free && plan.cost > budget)) {
+        firstInvalid = plan.valid
+            ? Placement(
+                before,
+                null,
+                target,
+                'This crossing needs ${Rules.coins(plan.cost)} coins.',
+              )
+            : plan;
+        return;
+      }
+      staged = plan.after!;
+      price = free ? 0 : plan.cost;
+      changed.addAll(
+        before.cells.where((c) => !identical(before.at(c), staged.at(c))),
+      );
+      return;
+    }
     for (final c in cardinalStroke(last ?? target, target)) {
       if (changed.contains(c)) continue;
       if (tool.isRoad &&
@@ -794,7 +1024,7 @@ class BrushStroke {
         continue;
       }
       final plan = evaluate(staged, tool, c);
-      final cost = free ? 0 : Rules.cost(tool.name);
+      final cost = free ? 0 : plan.cost;
       if (plan.valid && price + cost > budget) {
         firstInvalid ??= Placement(
           staged,
@@ -814,4 +1044,78 @@ class BrushStroke {
     }
     last = target;
   }
+}
+
+// bank-to-bank is one transaction; incomplete strokes never enter the road graph.
+Placement evaluateBridge(Landscape world, Cell start, Cell end) {
+  Placement no(String why) => Placement(world, null, end, why);
+  if (!world.contains(start) || !world.contains(end)) {
+    return no('Keep both banks inside the landscape.');
+  }
+  if (start == end || (start.x != end.x && start.y != end.y)) {
+    return no('Drag straight from one land bank to the other.');
+  }
+  final cells = cardinalStroke(start, end).toList();
+  if (cells.length < 3 || cells.length > 8) {
+    return no('Cross 1–6 water cells, with land at both ends.');
+  }
+  final axis = start.y == end.y ? BridgeAxis.horizontal : BridgeAxis.vertical;
+  for (final bank in [start, end]) {
+    final lot = world.at(bank);
+    if (!lot.terrain.roadAllowed ||
+        lot.cottage != null ||
+        lot.place != null ||
+        lot.scenery == Scenery.oak) {
+      return no('Both banks need clear land or an ordinary path.');
+    }
+  }
+  if (!world.activePaths.contains(start) &&
+      !world.activePaths.contains(end) &&
+      world.access(start) == null &&
+      world.access(end) == null) {
+    return no('Connect one bank to the arrival lane first.');
+  }
+  var waterChanges = 0;
+  for (final c in cells.skip(1).take(cells.length - 2)) {
+    final lot = world.at(c);
+    if (lot.terrain != Terrain.water ||
+        (lot.bridge != null && lot.bridge != axis)) {
+      return no('The span must cross uninterrupted water in one direction.');
+    }
+    if (lot.bridge == null) waterChanges++;
+  }
+  if (waterChanges == 0 && world.roadCell(cells[1])) {
+    return no('This crossing is already complete.');
+  }
+  final lots = world.lots.toList();
+  for (final c in cells) {
+    final old = world.at(c);
+    if (old.path) continue;
+    lots[c.y * world.width + c.x] = Lot(
+      grass: old.grass,
+      terrain: old.terrain,
+      path: true,
+      bridge: old.terrain == Terrain.water ? axis : null,
+    );
+  }
+  final next = Landscape(
+    world.seed,
+    world.width,
+    world.height,
+    lots,
+    nextCottageId: world.nextCottageId,
+    generation: world.generation,
+  );
+  if (!next.roadCell(cells[1])) {
+    return no('This span needs both complete land approaches.');
+  }
+  return Placement(
+    world,
+    next,
+    end,
+    'Complete crossing · ${Rules.coins(waterChanges * Rules.cost('bridge'))} coins',
+    null,
+    null,
+    waterChanges * Rules.cost('bridge'),
+  );
 }

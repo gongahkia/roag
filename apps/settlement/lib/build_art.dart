@@ -42,7 +42,73 @@ class BuildArt {
     );
   }
 
+  void ground(Canvas canvas, Landscape scene, Cell c) {
+    final lot = scene.at(c), x = c.x * 12.0, y = c.y * 12.0;
+    if (lot.terrain == Terrain.water) {
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, 12, 12),
+        Paint()..color = const Color(0xff294d57),
+      );
+      frame(canvas, 'water', c, const Color(0xff3b6670));
+      // stepped shore edges are compositions, not invented source atlas masks.
+      for (final n in c.neighbours) {
+        if (!scene.contains(n) || scene.at(n).terrain == Terrain.water) {
+          continue;
+        }
+        final edge = n.x < c.x
+            ? Rect.fromLTWH(x, y, 1, 12)
+            : n.x > c.x
+            ? Rect.fromLTWH(x + 11, y, 1, 12)
+            : n.y < c.y
+            ? Rect.fromLTWH(x, y, 12, 1)
+            : Rect.fromLTWH(x, y + 11, 12, 1);
+        canvas.drawRect(edge, Paint()..color = const Color(0xff8b9570));
+      }
+    } else {
+      final wet = lot.terrain == Terrain.marsh;
+      if (wet || lot.terrain == Terrain.forest || lot.terrain == Terrain.rock) {
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, 12, 12),
+          Paint()
+            ..color = wet
+                ? const Color(0xff3c5146)
+                : lot.terrain == Terrain.forest
+                ? const Color(0xff293c30)
+                : const Color(0xff46504b),
+        );
+      }
+      frame(
+        canvas,
+        'grass${lot.grass}',
+        c,
+        wet ? const Color(0xff647462) : const Color(0xff344a36),
+      );
+      if (wet) {
+        for (final d in [const Offset(2, 4), const Offset(7, 8)]) {
+          canvas.drawRect(
+            Rect.fromLTWH(x + d.dx, y + d.dy, 3, 1),
+            Paint()..color = const Color(0xff59817c),
+          );
+        }
+      }
+      if (lot.terrain == Terrain.rock) {
+        frame(canvas, 'boulder', c, const Color(0xffa0aaa1));
+      }
+    }
+  }
+
   void road(Canvas canvas, Landscape scene, Cell c, {double opacity = 1}) {
+    final bridge = scene.at(c).bridge;
+    if (bridge != null) {
+      frame(
+        canvas,
+        bridge == BridgeAxis.horizontal ? 'bridge-h' : 'bridge-v',
+        c,
+        scene.roadCell(c) ? const Color(0xffc1a26a) : const Color(0xff867c64),
+        opacity: opacity,
+      );
+      return;
+    }
     final mask = scene.roadMask(c);
     final road = scene.at(c).road;
     final color = Color.lerp(
@@ -253,7 +319,9 @@ class BuildArt {
     Tool.workshop => 'workshop',
     Tool.market => 'market',
     Tool.hall => 'hall',
-    Tool.remove => 'clear',
+    Tool.remove || Tool.clear => 'clear',
+    Tool.plant => 'oak',
+    Tool.bridge => 'bridge-h',
     _ => 'road2',
   };
   static final Map<Tool, Landscape> samples = {
@@ -284,7 +352,17 @@ class BuildArt {
         scene = samples[tool]!;
     canvas.save();
     canvas.translate(-c.x * 12.0, -c.y * 12.0);
-    if (tool.isRoad) {
+    if (tool == Tool.bridge) {
+      canvas.drawRect(
+        Rect.fromLTWH(c.x * 12.0, c.y * 12.0, 12, 12),
+        Paint()..color = const Color(0xff294d57),
+      );
+      frame(canvas, 'bridge-h', c, const Color(0xffc1a26a));
+    } else if (tool == Tool.plant) {
+      frame(canvas, 'oak', c, const Color(0xff83a66c));
+    } else if (tool == Tool.clear) {
+      frame(canvas, 'clear', c, const Color(0xffb7c78d));
+    } else if (tool.isRoad) {
       road(canvas, scene, c);
     } else if (tool == Tool.cottage) {
       cottage(canvas, scene, c, 0);

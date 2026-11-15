@@ -114,7 +114,10 @@ class Colony extends Residents {
             .map((r) => r.homeId)
             .firstOrNull;
   bool civicAvailable(String? eventId) =>
-      special?.id == eventId && marketDay && civicHost != null;
+      special?.id == eventId &&
+      marketDay &&
+      civicHost != null &&
+      eligibleSpecial(SpecialKind.marketDay);
   bool chooseCivic(String eventId, {required bool sponsor}) {
     if (!civicAvailable(eventId) ||
         civicDecisions.containsKey(eventId) ||
@@ -314,6 +317,8 @@ class Colony extends Residents {
     _countsDirty = true;
     final known = records.map((r) => r.homeId).toSet();
     super.reconcile(next, restored: restored, reset: reset);
+    planning.removeWhere((request) => !people.containsKey(request.id));
+    _queued.removeWhere((id) => !people.containsKey(id));
     for (final r in people.values) {
       if (!known.contains(r.homeId)) {
         r.bornAt = clock;
@@ -1335,7 +1340,7 @@ class Colony extends Residents {
       var previous = r.cell;
       for (final entry in path) {
         final c = cell(entry);
-        if (!world.at(c).path || !previous.neighbours.contains(c)) {
+        if (!world.pathNeighbours(previous).contains(c)) {
           throw const FormatException('Invalid path edge.');
         }
         r.route.add(c);

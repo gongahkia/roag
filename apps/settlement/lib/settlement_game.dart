@@ -86,6 +86,10 @@ class SettlementGame extends FlameGame {
       'cottage1',
       'resident',
       'clear',
+      'water',
+      'boulder',
+      'bridge-h',
+      'bridge-v',
       for (var i = 0; i < 13; i++) 'road$i',
     ];
     for (final name in names) {
@@ -124,6 +128,8 @@ class SettlementGame extends FlameGame {
     }
     final budget = session.stroke == null
         ? session.money
+        : tool == Tool.bridge
+        ? session.stroke!.budget
         : session.stroke!.budget - session.stroke!.price;
     if (preview?.cell == c &&
         identical(preview?.before, session.view) &&
@@ -132,10 +138,12 @@ class SettlementGame extends FlameGame {
     }
     _previewBudget = budget;
     preview = movingFrom == null
-        ? evaluate(session.view, tool, c)
+        ? tool == Tool.bridge && session.stroke?.bridgeStart != null
+              ? evaluateBridge(session.world, session.stroke!.bridgeStart!, c)
+              : evaluate(session.view, tool, c)
         : evaluateMove(session.world, movingFrom!, c);
     final free = session.stroke?.free ?? session.unlimited;
-    final cost = free || movingFrom != null ? 0 : Rules.cost(tool.name);
+    final cost = free || movingFrom != null ? 0 : preview!.cost;
     if (preview!.valid && cost > budget) {
       preview = Placement(
         session.view,
@@ -586,7 +594,7 @@ class _LandscapeLayer extends Component {
     canvas.drawRect(bounds, Paint()..color = const Color(0xff2e4032));
     for (final c in scene.cells) {
       final l = scene.at(c), x = c.x * 12.0, y = c.y * 12.0;
-      frame(canvas, 'grass${l.grass}', c, const Color(0xff344a36));
+      drawings.ground(canvas, scene, c);
       if (l.trace == Trace.pad) {
         canvas.drawRect(
           Rect.fromLTWH(x + 1, y + 3, 10, 9),
@@ -696,6 +704,24 @@ class _LandscapeLayer extends Component {
     band.addAll(people.skip(actor));
     peopleBand(canvas, band);
     if (stroke != null) {
+      if (stroke.tool == Tool.bridge &&
+          stroke.bridgeStart != null &&
+          game.preview != null) {
+        for (final c in cardinalStroke(
+          stroke.bridgeStart!,
+          game.preview!.cell,
+        )) {
+          canvas.drawRect(
+            Rect.fromLTWH(c.x * 12.0 + 1, c.y * 12.0 + 1, 10, 10),
+            Paint()
+              ..color =
+                  (stroke.firstInvalid == null ? gold : const Color(0xffd39073))
+                      .withValues(alpha: .5)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = .5,
+          );
+        }
+      }
       for (final c in stroke.changed) {
         final removed = stroke.tool == Tool.remove;
         final rect = Rect.fromLTWH(c.x * 12.0 + .5, c.y * 12.0 + .5, 11, 11);
@@ -737,7 +763,7 @@ class _LandscapeLayer extends Component {
             Rect.fromLTWH(n.x * 12.0, n.y * 12.0, 12, 12),
             Paint()..color = const Color(0xff2e4032),
           );
-          frame(canvas, 'grass${lot.grass}', n, const Color(0xff3c5239));
+          drawings.ground(canvas, next, n);
           if (lot.path) road(canvas, next, n);
           if (lot.cottage != null) cottage(canvas, next, n, lot.cottage!);
           canvas.drawRect(
@@ -747,6 +773,16 @@ class _LandscapeLayer extends Component {
               ..style = PaintingStyle.stroke
               ..strokeWidth = .35,
           );
+        }
+        if (game.tool == Tool.clear || game.tool == Tool.plant) {
+          canvas.drawRect(
+            Rect.fromLTWH(x, y, 12, 12),
+            Paint()..color = const Color(0xff2e4032),
+          );
+          drawings.ground(canvas, next, c);
+          if (next.at(c).scenery == Scenery.oak) {
+            frame(canvas, 'oak', c, green, opacity: .8);
+          }
         }
         if (next.at(c).path) road(canvas, next, c, opacity: .8);
         if (next.at(c).place != null) {

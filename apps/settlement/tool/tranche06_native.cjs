@@ -44,6 +44,7 @@ fs.mkdirSync(output,{recursive:true});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
     const buttonExpression=name=>`(()=>{const b=[...document.querySelectorAll('[role=button]')].find(b=>(b.getAttribute('aria-label')||b.textContent).split(' ').join('').startsWith(${JSON.stringify(name.split(' ').join(''))}));if(!b)return null;const r=b.getBoundingClientRect();return{x:r.x,y:r.y,w:r.width,h:r.height};})()`;
     await wait(buttonExpression('2 Path'));
+
     const original=await read('({ratio:devicePixelRatio,width:innerWidth,height:innerHeight})');
     run(['key','--clearmodifiers','ctrl+plus']);await wait(`devicePixelRatio>${original.ratio}`);
     const zoomed=await read('({ratio:devicePixelRatio,width:innerWidth,height:innerHeight})');
@@ -53,6 +54,7 @@ fs.mkdirSync(output,{recursive:true});
     const border=(box.width-zoomed.width*zoomed.ratio)/2;
     function move(x,y){run(['mousemove','--window',window,String(Math.round((border+x*zoomed.ratio)*osScale)),String(Math.round((box.height-zoomed.height*zoomed.ratio-border+y*zoomed.ratio)*osScale))]);}
     async function button(name){await wait(buttonExpression(name));const b=await read(buttonExpression(name));assert(b,name);move(b.x+b.w/2,b.y+b.h/2);run(['click','1']);await new Promise(r=>setTimeout(r,150));}
+    if (await read(buttonExpression('Start building'))) await button('Start building');
     await button('Ⅱ');await button('Return to lane (H)');
     const tool=await read(buttonExpression('1 Cottage')),menu=await read(buttonExpression('Landscape menu'));
     const cy=(menu.y+menu.h+12+tool.y-14)/2;
