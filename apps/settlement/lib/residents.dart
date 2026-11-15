@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'model.dart';
 import 'reasons.dart';
 import 'rules.dart';
+import 'peoples.dart';
 import 'appearance.dart';
 import 'resident_identity.dart';
 
@@ -25,6 +26,8 @@ enum Activity {
 }
 
 class Resident {
+  PeopleKind peopleKind = PeopleKind.human;
+  double visitorBenefitUntil = -1;
   final String homeId;
   bool active = true;
   int palette = 0;
@@ -300,37 +303,8 @@ class Residents {
         }
         continue;
       }
-      if (r.activity == Activity.settling) {
-        final target = r.settleTarget;
-        if (target != null && _move(r, target, dt, Rules.settleSpeed) >= 0) {
-          r.settleTarget = null;
-          r.activity = Activity.returning;
-          plan(r);
-        }
-        continue;
-      }
-      if (r.route.isNotEmpty) {
-        var remaining = dt;
-        while (r.route.isNotEmpty && remaining > 1e-9) {
-          final target = r.route.first;
-          final unused = _move(
-            r,
-            target,
-            remaining,
-            r.segmentSpeed > 0 ? r.segmentSpeed : walkingSpeed(r, target),
-          );
-          if (unused < 0) break;
-          r.route.removeAt(0);
-          remaining = unused;
-          if (r.replanAfterEdge) {
-            plan(r);
-            break;
-          }
-          if (r.route.isEmpty) {
-            reached(r);
-            break;
-          }
-        }
+      if (r.moving) {
+        advanceTravel(r, dt);
       } else if (r.activity == Activity.home) {
         r.timer -= dt;
         if (r.timer <= 0) decide(r);
@@ -341,12 +315,48 @@ class Residents {
     }
   }
 
+  void advanceTravel(Resident r, double dt) {
+    if (r.activity == Activity.settling) {
+      final target = r.settleTarget;
+      if (target != null &&
+          moveSegment(r, target, dt, Rules.settleSpeed) >= 0) {
+        r.settleTarget = null;
+        r.activity = Activity.returning;
+        plan(r);
+      }
+      return;
+    }
+    if (r.route.isNotEmpty) {
+      var remaining = dt;
+      while (r.route.isNotEmpty && remaining > 1e-9) {
+        final target = r.route.first;
+        final unused = moveSegment(
+          r,
+          target,
+          remaining,
+          r.segmentSpeed > 0 ? r.segmentSpeed : walkingSpeed(r, target),
+        );
+        if (unused < 0) break;
+        r.route.removeAt(0);
+        remaining = unused;
+        if (r.replanAfterEdge) {
+          plan(r);
+          break;
+        }
+        if (r.route.isEmpty) {
+          reached(r);
+          break;
+        }
+      }
+    }
+  }
+
   double walkingSpeed(Resident r, Cell target) =>
       Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation;
   bool gardenSegment(Resident r, Cell target) => false;
   void traversed(Resident r, Cell target, bool garden) {}
 
-  double _move(Resident r, Cell target, double dt, double speed) {
+  double moveSegment(Resident r, Cell target, double dt, double speed) {
     if (r.activity != Activity.settling) {
       if (!world.contains(target) || !world.roadStep(r.cell, target)) {
         r.segmentSpeed = 0;

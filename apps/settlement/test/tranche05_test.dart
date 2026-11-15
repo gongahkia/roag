@@ -13,10 +13,10 @@ import 'package:roag_settlement/special_event.dart';
 import 'package:roag_settlement/settlement_game.dart';
 
 import '../tool/scaling_fixture.dart' show scalingTown;
-import 'colony_test.dart' show paint, advance;
+import 'colony_test.dart' show paint, advance, ordinaryClimate;
 
 Colony town() {
-  final c = Colony(LandscapeSession(Landscape.create(202)))
+  final c = ordinaryClimate(Colony(LandscapeSession(Landscape.create(202))))
     ..nextSpecialAt = 1e9;
   paint(c, Tool.path, const Cell(7, 15), const Cell(18, 15));
   paint(c, Tool.cottage, const Cell(2, 14), const Cell(5, 14));
@@ -258,6 +258,16 @@ void main() {
         destination = visiting.destination;
     expect(c.beginSpecial(SpecialKind.rain, fixture: true), isTrue);
     expect(visiting.destination, destination);
+    // Summer changes the frequency of leisure. Exercise a fresh eligible decision
+    // during the shower instead of assuming another person's old timing.
+    final available = c.people.values.firstWhere(
+      (r) => r != visiting && !r.moving,
+    );
+    available
+      ..lastWork = c.clock
+      ..lastSocial = -10000
+      ..tradeDay = c.day;
+    c.decide(available);
     until(
       c,
       () => c.people.values.any(
@@ -473,7 +483,8 @@ void main() {
     expect(c.contributions(r)['Garden path'], 3);
   });
   test('rain changes a new visit choice from nearby Park to covered Hall', () {
-    final a = Colony(LandscapeSession(Landscape.create()))..nextSpecialAt = 1e9;
+    final a = ordinaryClimate(Colony(LandscapeSession(Landscape.create())))
+      ..nextSpecialAt = 1e9;
     paint(a, Tool.path, const Cell(7, 15), const Cell(12, 15));
     paint(a, Tool.cottage, const Cell(2, 14));
     paint(a, Tool.green, const Cell(3, 14));
@@ -516,7 +527,7 @@ void main() {
   test('special eligibility, cooldown and expiry are explicit and do not pay ownership income', () {
     final empty = Colony(LandscapeSession(Landscape.create()));
     expect(empty.beginSpecial(SpecialKind.rain, fixture: true), isFalse);
-    final c = Colony(LandscapeSession(Landscape.create()));
+    final c = ordinaryClimate(Colony(LandscapeSession(Landscape.create())));
     paint(c, Tool.cottage, const Cell(2, 14));
     expect(c.beginSpecial(SpecialKind.harvest, fixture: true), isFalse);
     expect(c.beginSpecial(SpecialKind.marketDay, fixture: true), isFalse);
@@ -561,7 +572,7 @@ void main() {
       rejects((d) => d['lots'][15 * d['width'] + 3].add('unknown-road'));
     },
   );
-  test('fully employed ordinary towns still serve Market customers during naturally scheduled rain', () {
+  test('fully employed ordinary towns still serve Market customers during scheduled events', () {
     final c = town()..nextSpecialAt = 12;
     paint(c, Tool.remove, const Cell(2, 16), const Cell(5, 16));
     advance(c, 32);
@@ -620,7 +631,8 @@ void main() {
                     road: y == 3 ? RoadKind.stone : RoadKind.dirt,
                   ),
       ], nextCottageId: 2);
-      final c = Colony(LandscapeSession(world))..nextSpecialAt = 1e9,
+      final c = ordinaryClimate(Colony(LandscapeSession(world)))
+            ..nextSpecialAt = 1e9,
           r = c.people.values.single;
       r.cell = const Cell(0, 5);
       r.x = .5;

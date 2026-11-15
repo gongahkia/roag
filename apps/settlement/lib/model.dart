@@ -405,7 +405,7 @@ class Landscape {
       throw const FormatException('File is too large.');
     }
     final d = jsonDecode(text);
-    if (d is! Map || ![1, 2, 3].contains(d['schema'])) {
+    if (d is! Map || ![1, 2, 3, 4].contains(d['schema'])) {
       throw const FormatException('Unsupported landscape format.');
     }
     int integer(String key, int min, int max) {
@@ -419,7 +419,7 @@ class Landscape {
     final seed = integer('seed', 0, 2147483646);
     final w = integer('width', 16, 80), h = integer('height', 12, 60);
     final legacy = d['schema'] == 1;
-    final modern = d['schema'] == 3;
+    final modern = (d['schema'] == 3 || d['schema'] == 4);
     final nextId = legacy ? 1 : integer('nextCottageId', 1, 1000000000);
     final data = d['lots'];
     if (data is! List || data.length != w * h) {

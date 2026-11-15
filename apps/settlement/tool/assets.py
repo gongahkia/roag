@@ -16,6 +16,10 @@ FRAMES = {
     'oak': (8, 1), 'vegetables': (24, 5),
     'cottage0': (33, 0), 'cottage1': (33, 1),
     'resident': (0, 104),
+    'imp': (20, 104), 'djinn': (18, 104),
+    'merchant': (0, 198), 'storyteller': (2, 187),
+    'season-flowers': (10, 1), 'autumn-leaf': (9, 1),
+    'oak-winter': (10, 5), 'visitor-bag': (47, 6), 'visitor-torch': (42, 3),
     'water': (12, 1), 'boulder': (13, 4),
     'bridge-h': (40, 11), 'bridge-v': (40, 10),
     'workshop': (33, 5), 'market': (33, 4), 'hall': (33, 2),
@@ -62,17 +66,41 @@ def resident_crop(png, body, palette):
     return rect, rgba
 
 
-def resident_atlas(png):
+LIVING_BODIES = {
+    'imp-body-v1': (20, 104), 'djinn-body-v1': (18, 104),
+    'merchant-body-v1': (0, 198), 'storyteller-body-v1': (2, 187),
+}
+LIVING_COLORS = {
+    'imp-body-v1': ('da9278','c67c70','d2a073','c48ca3'),
+    'djinn-body-v1': ('92c6df','89c9c1','b4a5da','9eb9d5'),
+    'merchant-body-v1': ('d5bd83','c9ac77','d7c395','c0ad90'),
+    'storyteller-body-v1': ('c3a9d5','adbbd6','c7b4d2','ada5cf'),
+}
+
+def living_crop(png, body, palette):
+    row, col = LIVING_BODIES[body]
+    rect = [1+col*13, 1+row*13, 12, 12]
+    rgba = bytearray(png.crop(rect))
+    peak = max(max(rgba[i:i+3]) for i in range(0,len(rgba),4))
+    color = bytes.fromhex(LIVING_COLORS[body][list(PALETTES).index(palette)])
+    for i in range(0,len(rgba),4):
+        value=max(rgba[i:i+3])
+        if value<=8: rgba[i+3]=0
+        else: rgba[i:i+3]=bytes(round(c*value/peak) for c in color)
+    return rect, rgba
+
+
+def resident_atlas(png, living=False):
     # bake the existing four-direction outline at 4x; original colour pixels stay intact.
-    cell, width, height = 52, 416, 260
+    cell, width, height = 52, 416, 468 if living else 260
     atlas = bytearray(width * height * 4)
     frames = []
-    for body in BODIES:
+    for body in [*BODIES, *(LIVING_BODIES if living else {})]:
         for palette in PALETTES:
-            _, rgba = resident_crop(png, body, palette)
+            _, rgba = living_crop(png, body, palette) if body in LIVING_BODIES else resident_crop(png, body, palette)
             for mirrored in [False, True]:
                 index = len(frames)
-                ox, oy = index % 8 * cell, index // 8 * cell
+                ox, oy = index % 8 * cell, (index // 8 + (1 if index >= 32 else 0)) * cell
                 solid = {}
                 for y in range(12):
                     for x in range(12):
@@ -96,7 +124,7 @@ def resident_atlas(png):
                 at=((208+y)*width+x)*4
                 atlas[at:at+4]=bytes.fromhex('17291fbf')
     data=encode_rgba_png(width,height,atlas)
-    return data, {'file':'images/resident-atlas.png','sha256':hashlib.sha256(data).hexdigest(),
+    return data, {'file':'images/world-actors-atlas.png' if living else 'images/resident-atlas.png','sha256':hashlib.sha256(data).hexdigest(),
                   'cell':[52,52],'feet':[26,50],'world_scale':9/48,
                   'frames':frames,'shadow':[0,208,26,7],
                   'treatment':'4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow'}
@@ -137,6 +165,17 @@ def products():
                 mask = bytes(rgba[3::4])
                 assert mask not in masks, 'cast contains duplicate silhouettes'
                 masks.add(mask)
+    for body in LIVING_BODIES:
+        for palette in PALETTES:
+            rect, rgba = living_crop(png, body, palette)
+            name=f'person-{body}-{palette}'
+            data=encode_rgba_png(12,12,rgba)
+            output[f'assets/images/{name}.png']=data
+            row,col=LIVING_BODIES[body]
+            frames[name]={'id':f'urizen-onebit-r{row:02d}-c{col:03d}', 'source':SOURCE,
+                          'rect':rect,'file':f'images/{name}.png','body':body,'palette':palette,
+                          'treatment':'source silhouette and luminance retained; semantic living-world palette; static source drawing',
+                          'sha256':hashlib.sha256(data).hexdigest()}
     for name in ICONS:
         path = f'assets/godot-node-icons/white/icon_{name}.png'
         image = Png(ROOT / path)
@@ -154,6 +193,19 @@ def products():
     atlas, atlas_manifest=resident_atlas(png)
     output['assets/images/resident-atlas.png']=atlas
     manifest['resident_atlas']=atlas_manifest
+    world_atlas, world_manifest=resident_atlas(png, living=True)
+    output['assets/images/world-actors-atlas.png']=world_atlas
+    manifest['world_atlas']=world_manifest
+    manifest['living_world']={
+        'version':1,
+        'peoples':{'human-v1':list(BODIES),'imp-v1':['imp-body-v1'],'djinn-v1':['djinn-body-v1']},
+        'visitors':{'merchant-v1':'merchant-body-v1','storyteller-v1':'storyteller-body-v1'},
+        'entities':'permanent residents retain cottage ownership; visitors are separate temporary actors',
+        'composites':{'winter-tree':'oak-winter is a source dead-tree drawing cast as bare winter branches; terrain stays forest',
+                      'merchant-stop':'visitor-bag appears only during actual Market activity',
+                      'story-circle':'visitor-torch appears only during actual storytelling'},
+        'animation':'no source animation order verified; existing procedural travel and gestures only',
+    }
     output['assets/manifest.json'] = (json.dumps(manifest, indent=2)+'\n').encode()
     output['assets/SourceCodePro-Regular.otf'] = (ROOT/'assets/fonts/SourceCodePro-Regular.otf').read_bytes()
     output['assets/LICENSE-SourceCodePro.md'] = (ROOT/'assets/fonts/LICENSE-SourceCodePro.md').read_bytes()

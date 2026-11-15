@@ -87,9 +87,10 @@ class _LandscapePageState extends State<LandscapePage> {
       introduction = saved.isEmpty;
       if (saved.isNotEmpty) {
         colony = Colony.decode(saved);
-        if (jsonDecode(saved)['schema'] != 3) {
+        if (jsonDecode(saved)['schema'] != 4) {
           try {
-            browser.backupLegacy(saved);
+            if (jsonDecode(saved)['schema'] != 3) browser.backupLegacy(saved);
+            browser.backupLiving(saved);
             needsMigrationSave = true;
           } catch (_) {
             migrationSafe = false;
@@ -459,7 +460,14 @@ class _LandscapePageState extends State<LandscapePage> {
     game.clearPreview();
     game.menuVisible = true;
     try {
-      if (action == 'export') {
+      if (action == 'yearwatch') {
+        setSpeed(colony.speed == 16 ? 1 : 16);
+        tell(
+          'Year watch: ${colony.speed}×. Ordinary speed buttons still work.',
+        );
+      } else if (action == 'climate') {
+        await showClimate();
+      } else if (action == 'export') {
         browser.exportFile(colony.snapshot().text);
         tell('Exported a portable landscape copy.');
       } else if (action == 'import') {
@@ -613,6 +621,34 @@ class _LandscapePageState extends State<LandscapePage> {
     conversation = null;
   }
 
+  Future<void> showClimate() async {
+    final calendar = colony.climate.calendar;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          '${colony.season.label} ${calendar.seasonDay(colony.clock)} · Year ${calendar.year(colony.clock)}',
+        ),
+        content: SizedBox(
+          width: 370,
+          child: Text(
+            'Day ${colony.day} · ${colony.phase}\n${colony.weather.label}: ${colony.weather.effect}\n\n${colony.climate.forecast(colony.clock)}\n\n'
+            '${calendar.daysPerSeason} days per season · 150 seconds per day. Farm output: Spring +10%, Summer ordinary, Autumn +15%, Winter −20%; Wind −5%, Snow −10%; Good Harvest ×1.25. Combined output is capped at 65–150%. Current Farm multiplier: ${(colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind.name == 'harvest' && colony.special!.active(colony.clock)) * 100).round()}%.\n\n'
+            'Wet ground and weather use the larger travel penalty, once. Stone Roads stay quick. Winter, Rain and Snow favour covered Halls; Summer favours Parks. Existing trips finish their current segment.\n\n'
+            'New homes attract Humans (60%), Imps (20%, Workshop preference) and Djinn (20%, Hall preference), seeded by home identity. Existing residents keep their identities.\n\n'
+            'Working Markets attract merchants; Parks and Halls attract storytellers. They need real roads, space and time. Optional conversations do not interrupt building. Completed visits: ${colony.guestCompletions.values.fold<int>(0, (a, b) => a + b)}. Visitor trade: ${Rules.coins(colony.visitorEarned)} coins.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back to settlement'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void setSpeed(int speed) {
     setState(() => colony.speed = speed);
     save();
@@ -695,12 +731,16 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void talk({String? resident, bool civic = false}) {
     final id = resident ?? game.inspectedResident;
-    if (id == null || !colony.people.containsKey(id)) return;
+    if (id == null || colony.actor(id) == null) return;
     cancelGesture();
     setState(() {
       conversation = Conversation(
         id,
-        node: civic ? 'civic' : 'hello',
+        node: colony.visits.containsKey(id)
+            ? 'visitor'
+            : civic
+            ? 'civic'
+            : 'hello',
         event: civic ? colony.special?.id : null,
       );
       game.dialogueOpen = true;
@@ -742,7 +782,7 @@ class _LandscapePageState extends State<LandscapePage> {
 
   Widget inspectionPanel() {
     final chat = conversation;
-    final person = colony.people[chat?.resident ?? game.inspectedResident];
+    final person = colony.actor(chat?.resident ?? game.inspectedResident);
     final view = chat == null ? null : Dialogues.view(colony, chat);
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -1020,9 +1060,15 @@ class _LandscapePageState extends State<LandscapePage> {
                     ),
                   ),
                   const SizedBox(width: 18),
-                  Text(
-                    'Day ${colony.day} · ${colony.phase}',
-                    style: const TextStyle(fontSize: 11),
+                  TextButton(
+                    onPressed: () => menu('climate'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                    child: Text(
+                      'Day ${colony.day} · ${colony.phase}\n${colony.season.label} · ${colony.weather.label}${colony.speed == 16 ? ' · 16×' : ''}',
+                      style: const TextStyle(fontSize: 10),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   for (final speed in [0, 1, 2, 4])
@@ -1107,6 +1153,16 @@ class _LandscapePageState extends State<LandscapePage> {
                           'Unlimited building: ${session.unlimited ? 'On' : 'Off'}',
                         ),
                       ),
+                      const PopupMenuItem(
+                        value: 'climate',
+                        child: Text('Calendar & forecast'),
+                      ),
+                      PopupMenuItem(
+                        value: 'yearwatch',
+                        child: Text(
+                          'Watch a year · ${colony.speed == 16 ? 'Return to 1×' : '16×'}',
+                        ),
+                      ),
                       const PopupMenuDivider(),
                       const PopupMenuItem(
                         value: 'help',
@@ -1182,6 +1238,29 @@ class _LandscapePageState extends State<LandscapePage> {
                         ),
                       ),
                     ),
+                    if (colony.visits.isNotEmpty && !introduction)
+                      Positioned(
+                        left: 24,
+                        top: 38,
+                        child: Wrap(
+                          spacing: 6,
+                          children: [
+                            for (final v in colony.visits.values)
+                              TextButton(
+                                onPressed: () {
+                                  game.inspectedResident = v.id;
+                                  game.inspectedCell = null;
+                                  cameraAction(() => game.locate(v.actor.cell));
+                                  setState(() {});
+                                },
+                                child: Text(
+                                  '${v.role.label} · ${v.state}',
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     if (introduction)
                       Positioned(
                         top: 36,

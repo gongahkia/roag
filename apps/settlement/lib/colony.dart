@@ -10,6 +10,9 @@ import 'navigation.dart';
 import 'resident_identity.dart';
 import 'special_event.dart';
 import 'resident_request.dart';
+import 'climate.dart';
+import 'peoples.dart';
+part 'visitors.dart';
 
 class Gathering {
   final String id, green;
@@ -42,6 +45,28 @@ class PlanningRequest {
 }
 
 class Colony extends Residents {
+  final Map<String, Visit> visits = {};
+  final List<VisitMemory> visitHistory = [];
+  final Map<String, int> guestCompletions = {};
+  late int visitorRng;
+  int nextVisitId = 1, visitorEarned = 0, visitorSpent = 0;
+  double nextVisitorAt = 18;
+  final Map<VisitorRole, double> visitorCooldown = {};
+  Resident? actor(String? id) => people[id] ?? visits[id]?.actor;
+  Iterable<Resident> get actors sync* {
+    yield* people.values;
+    for (final v in visits.values) {
+      yield v.actor;
+    }
+  }
+
+  Iterable<(Resident, double)> get allVisible sync* {
+    yield* visible;
+    for (final v in visits.values) {
+      yield (v.actor, 1);
+    }
+  }
+
   RequestBook requests = RequestBook();
   int civicSpent = 0;
   final Map<String, String> civicDecisions = {};
@@ -144,8 +169,10 @@ class Colony extends Residents {
   late int specialRng;
   int nextSpecialId = 1, tradeEarned = 0;
   double nextSpecialAt = 12;
-  bool get raining =>
-      special?.kind == SpecialKind.rain && special!.active(clock);
+  late Climate climate;
+  Season get season => climate.calendar.season(clock);
+  WeatherKind get weather => climate.at(clock);
+  bool get raining => weather == WeatherKind.rain;
   bool get marketDay =>
       special?.kind == SpecialKind.marketDay && special!.active(clock);
   bool _countsDirty = true;
@@ -194,7 +221,7 @@ class Colony extends Residents {
     for (var i = 0; i < Rules.planningBudget && planning.isNotEmpty; i++) {
       final request = planning.removeFirst();
       _queued.remove(request.id);
-      final r = people[request.id];
+      final r = actor(request.id);
       if (r == null) continue;
       if (request.revision != navigation.revision) {
         discardedPlans++;
@@ -203,7 +230,9 @@ class Colony extends Residents {
       }
       if (r.moving) continue;
       _planningRevision = request.revision;
-      if (request.plan) {
+      if (visits.containsKey(r.homeId)) {
+        _planVisitor(visits[r.homeId]!);
+      } else if (request.plan) {
         _planNow(r);
       } else {
         _decideNow(r);
@@ -215,7 +244,7 @@ class Colony extends Residents {
 
   void rebaseNavigation(int previousRevision) {
     final old = navigation.revision;
-    navigation.invalidate(world, raining: raining);
+    navigation.invalidate(world, raining: raining, weatherCost: weather.travel);
     navigation.revision = math.max(navigation.revision, previousRevision + 1);
     final requests = planning.toList();
     planning.clear();
@@ -242,7 +271,13 @@ class Colony extends Residents {
   double walkingSpeed(Resident r, Cell target) =>
       super.walkingSpeed(r, target) *
       (r.trait == Trait.brisk ? Rules.briskSpeed : 1) /
-      edgeTravelCost(world, r.cell, target, raining);
+      edgeTravelCost(
+        world,
+        r.cell,
+        target,
+        raining,
+        weatherCost: weather.travel,
+      );
   @override
   bool gardenSegment(Resident r, Cell target) =>
       world.at(r.cell).road == RoadKind.gardenPath ||
@@ -261,7 +296,12 @@ class Colony extends Residents {
   Colony(this.session)
     : eventRng = 1 + (session.world.seed + 4098) % 2147483646,
       super(session.world, initialise: false) {
-    navigation = Navigation(world);
+    visitorRng = 1 + (world.seed + 67211) % 2147483646;
+    climate = Climate(
+      world.seed,
+      environment: world.generation?.preset ?? EnvironmentPreset.plains,
+    );
+    navigation = Navigation(world, rain: raining, weatherCost: weather.travel);
     specialRng = 1 + (world.seed + 8938) % 2147483646;
     super.reconcile(world, restored: true);
     _syncJobs();
@@ -298,8 +338,26 @@ class Colony extends Residents {
 
   int occupancy(String id) {
     _counts();
-    return _visitors[id] ?? 0;
+    return (_visitors[id] ?? 0) +
+        visits.values
+            .where(
+              (v) =>
+                  v.actor.destination == id &&
+                  v.actor.activity == Activity.socialising,
+            )
+            .length;
   }
+
+  int residentCapacity(String id) =>
+      capacity(id) -
+      visits.values
+          .where(
+            (v) =>
+                v.venue == id &&
+                !v.leaving &&
+                v.actor.activity != Activity.socialising,
+          )
+          .length;
 
   int jobs(String id) {
     _counts();
@@ -313,17 +371,33 @@ class Colony extends Residents {
 
   @override
   void reconcile(Landscape next, {bool restored = false, bool reset = false}) {
-    if (!identical(next, world)) navigation.invalidate(next, raining: raining);
+    if (!identical(next, world)) {
+      navigation.invalidate(
+        next,
+        raining: raining,
+        weatherCost: weather.travel,
+      );
+    }
     _countsDirty = true;
     final known = records.map((r) => r.homeId).toSet();
     super.reconcile(next, restored: restored, reset: reset);
-    planning.removeWhere((request) => !people.containsKey(request.id));
-    _queued.removeWhere((id) => !people.containsKey(id));
+    planning.removeWhere(
+      (request) =>
+          !people.containsKey(request.id) && !visits.containsKey(request.id),
+    );
+    _queued.removeWhere(
+      (id) => !people.containsKey(id) && !visits.containsKey(id),
+    );
     for (final r in people.values) {
       if (!known.contains(r.homeId)) {
         r.bornAt = clock;
         if (!restored) {
           r.palette = variation(world.seed, world.cottages[r.homeId]!, 8) % 4;
+          r.peopleKind = PeopleKind.arrival(world.seed, r.homeId);
+          r.bodyId = r.peopleKind.body(r.homeId);
+          if (r.peopleKind != PeopleKind.human) {
+            r.name = r.peopleKind.newName(r.homeId);
+          }
         }
       }
       if (r.activity == Activity.home ||
@@ -362,6 +436,7 @@ class Colony extends Residents {
     for (final request in requests.open.values.toList()) {
       if (!people.containsKey(request.resident)) cancelRequest(request.id);
     }
+    _reconcileVisitors();
     _problems();
   }
 
@@ -418,6 +493,12 @@ class Colony extends Residents {
         );
         if (preference != 0) return preference;
       }
+      if (r.peopleKind == PeopleKind.imp) {
+        final preferred = (kind(a.$1) == Place.workshop ? 0 : 1).compareTo(
+          kind(b.$1) == Place.workshop ? 0 : 1,
+        );
+        if (preferred != 0) return preferred;
+      }
       return a.$2 != b.$2 ? a.$2.compareTo(b.$2) : a.$1.compareTo(b.$1);
     });
     if (candidates.isEmpty) {
@@ -465,7 +546,20 @@ class Colony extends Residents {
       return false;
     }
     int preference(String id) {
-      if (raining && kind(id) == Place.hall) return 0;
+      if (visits.values.any(
+        (v) => v.role == VisitorRole.storyteller && !v.leaving && v.venue == id,
+      )) {
+        return -1;
+      }
+      if ((climate.covered(clock) || r.peopleKind == PeopleKind.djinn) &&
+          kind(id) == Place.hall) {
+        return 0;
+      }
+      if (season == Season.summer &&
+          kind(id) == Place.green &&
+          !climate.covered(clock)) {
+        return 0;
+      }
       if (kind(id) == Place.market &&
           (marketDay ||
               r.tradeDay != day &&
@@ -483,7 +577,9 @@ class Colony extends Residents {
           ? a.$2.compareTo(b.$2)
           : a.$1.compareTo(b.$1);
     });
-    final available = candidates.where((p) => occupancy(p.$1) < capacity(p.$1));
+    final available = candidates.where(
+      (p) => occupancy(p.$1) < residentCapacity(p.$1),
+    );
     final chosen = available.isEmpty ? candidates.first : available.first;
     r.destination = chosen.$1;
     r.leisureIssue = Reason.none;
@@ -503,6 +599,13 @@ class Colony extends Residents {
     r.timer = Rules.searchInterval;
     return false;
   }
+
+  bool get storytelling => visits.values.any(
+    (v) =>
+        v.role == VisitorRole.storyteller &&
+        !v.leaving &&
+        v.actor.activity == Activity.socialising,
+  );
 
   void _decideNow(Resident r) {
     if (!connected(r)) {
@@ -529,10 +632,16 @@ class Colony extends Residents {
       }
       return;
     }
+    if (storytelling &&
+        clock - r.lastSocial > climate.socialRepeat(clock) &&
+        (r.workId == null || clock - r.lastWork < Rules.workRetryAfter) &&
+        _seekSocial(r)) {
+      return;
+    }
     if (workPeriod &&
         (clock - r.lastWork >
                 (kind(r.workId) == Place.market ? 6 : Rules.workRetryAfter) ||
-            clock - r.lastSocial < Rules.leisureRepeatAfter)) {
+            clock - r.lastSocial < climate.socialRepeat(clock))) {
       if (_assign(r)) {
         r.destination = r.workId;
         if (go(r, placeAccess(r.workId)!, Activity.workTravel)) {
@@ -542,7 +651,7 @@ class Colony extends Residents {
       }
     }
     if ((r.tradeDay != day ||
-            marketDay && clock - r.lastSocial > Rules.leisureRepeatAfter) &&
+            marketDay && clock - r.lastSocial > climate.socialRepeat(clock)) &&
         shopAvailable(r) &&
         _seekSocial(r, shopping: true)) {
       return;
@@ -550,12 +659,12 @@ class Colony extends Residents {
     if (workPeriod &&
         r.workId == null &&
         places(Place.market).isNotEmpty &&
-        clock - r.lastSocial > Rules.leisureRepeatAfter &&
+        clock - r.lastSocial > climate.socialRepeat(clock) &&
         _seekSocial(r)) {
       return;
     }
     if ((phase == 'Evening' || r.lastWork >= r.bornAt) &&
-        clock - r.lastSocial > Rules.leisureRepeatAfter) {
+        clock - r.lastSocial > climate.socialRepeat(clock)) {
       if (_seekSocial(r)) return;
     }
     // a fruitless work search also identifies a useful leisure opportunity.
@@ -625,6 +734,10 @@ class Colony extends Residents {
 
   @override
   void reached(Resident r) {
+    if (visits.containsKey(r.homeId)) {
+      _visitorReached(visits[r.homeId]!);
+      return;
+    }
     _countsDirty = true;
     if (r.activity == Activity.workTravel) {
       if (connected(r) &&
@@ -642,7 +755,7 @@ class Colony extends Residents {
     if (r.activity == Activity.socialTravel ||
         r.activity == Activity.gatheringTravel) {
       final gathering = r.activity == Activity.gatheringTravel;
-      if (occupancy(r.destination!) >= capacity(r.destination)) {
+      if (occupancy(r.destination!) >= residentCapacity(r.destination!)) {
         r.activity = Activity.socialWaiting;
         r.timer = Rules.socialWait;
         r.leisureIssue = Reason.socialFull;
@@ -685,6 +798,7 @@ class Colony extends Residents {
           : 0,
       'Garden path': r.gardenDay == day ? Rules.gardenPathBenefit : 0,
       'Gathering': r.eventBenefitUntil > clock ? Rules.gatheringBenefit : 0,
+      if (r.visitorBenefitUntil > clock) 'Traveller story': 4,
       if (requests.mood(r.homeId, clock) > 0)
         'Kept promise': Rules.requestBenefit,
       if (r.civicBenefitUntil > clock) 'Market hospitality': Rules.civicBenefit,
@@ -750,7 +864,12 @@ class Colony extends Residents {
     }
   }
 
-  int _earn(double amount, {bool grant = false, bool trade = false}) {
+  int _earn(
+    double amount, {
+    bool grant = false,
+    bool trade = false,
+    bool visitor = false,
+  }) {
     final fraction = amount + (grant ? grantFraction : incomeFraction);
     final whole = (fraction + 1e-9).floor();
     if (grant) {
@@ -758,7 +877,9 @@ class Colony extends Residents {
       grantEarned += whole;
     } else {
       incomeFraction = math.max(0, fraction - whole);
-      if (trade) {
+      if (visitor) {
+        visitorEarned += whole;
+      } else if (trade) {
         tradeEarned += whole;
       } else {
         workEarned += whole;
@@ -782,6 +903,7 @@ class Colony extends Residents {
   void _step(double dt) {
     clock += dt;
     _specialBoundary();
+    _visitorBoundary();
     _countsDirty = true;
     _earn(dt * Rules.grantPerDay / Rules.day, grant: true);
     final workingBefore = people.values
@@ -795,6 +917,7 @@ class Colony extends Residents {
     super.update(dt);
     _countsDirty = true;
     _planBatch();
+    _updateVisitors(dt);
     for (final r in people.values) {
       if (!r.arrived || r.route.isNotEmpty || r.activity == Activity.settling) {
         continue;
@@ -810,11 +933,13 @@ class Colony extends Residents {
         if (!workingBefore.contains(r.homeId)) continue;
         final duration = kind(r.workId)!.workDuration;
         final productive = math.min(dt, duration - r.workProgress);
-        final bonus =
-            kind(r.workId) == Place.garden &&
-                special?.kind == SpecialKind.harvest &&
-                special!.active(clock)
-            ? 1.25
+        final bonus = kind(r.workId) == Place.garden
+            ? climate.farmMultiplier(
+                clock,
+                harvest:
+                    special?.kind == SpecialKind.harvest &&
+                    special!.active(clock),
+              )
             : 1.0;
         r.earned += _earn(productive * kind(r.workId)!.income * bonus);
         r.workedSeconds += productive;
@@ -832,6 +957,7 @@ class Colony extends Residents {
             decide(r);
             continue;
           }
+          if (phase != 'Night' && storytelling && _seekSocial(r)) continue;
           if (phase != 'Night' &&
               r.tradeDay != day &&
               shopAvailable(r) &&
@@ -856,6 +982,7 @@ class Colony extends Residents {
           continue;
         }
         if (!socialBefore.contains(r.homeId)) continue;
+        _attendStory(r, dt);
         r.socialProgress += dt;
         if (r.socialProgress >= Rules.socialDuration) {
           r.lastSocial = clock;
@@ -885,7 +1012,8 @@ class Colony extends Residents {
         if (placeAccess(r.destination) != r.cell || !connected(r)) {
           r.leisureIssue = Reason.socialCut;
           goHome(r);
-        } else if (occupancy(r.destination!) < capacity(r.destination) &&
+        } else if (occupancy(r.destination!) <
+                residentCapacity(r.destination!) &&
             staffed(r.destination)) {
           r.activity =
               event != null &&
@@ -919,6 +1047,7 @@ class Colony extends Residents {
             placeAccess(event!.green) != r.cell) {
           goHome(r);
         } else if (event!.state == 'active') {
+          _attendStory(r, dt);
           r.socialProgress += dt;
           if (r.socialProgress >= Rules.socialDuration) r.lastSocial = clock;
         }
@@ -1041,8 +1170,8 @@ class Colony extends Residents {
           ),
   };
   void _weatherCostsChanged() {
-    navigation.invalidate(world, raining: raining);
-    for (final r in people.values.where((r) => r.route.isNotEmpty)) {
+    navigation.invalidate(world, raining: raining, weatherCost: weather.travel);
+    for (final r in actors.where((r) => r.route.isNotEmpty)) {
       if (r.route.length > 1) r.route.removeRange(1, r.route.length);
       r.replanAfterEdge = true;
     }
@@ -1051,7 +1180,7 @@ class Colony extends Residents {
   bool beginSpecial(SpecialKind kind, {bool fixture = false}) {
     if (!fixture && clock + 1e-9 < nextSpecialAt) return false;
     if (special?.active(clock) == true || !eligibleSpecial(kind)) return false;
-    final wasRain = raining;
+    final wasWeather = weather;
     special = SpecialEvent(
       'special-${nextSpecialId++}',
       kind,
@@ -1059,12 +1188,13 @@ class Colony extends Residents {
       clock + Rules.specialDuration,
     );
     nextSpecialAt = special!.ends + Rules.specialCooldown;
-    if (raining != wasRain) _weatherCostsChanged();
+    if (kind == SpecialKind.rain) climate.legacyShower(clock, special!.ends);
+    if (weather != wasWeather) _weatherCostsChanged();
     return true;
   }
 
   void _specialBoundary() {
-    if (navigation.rain != raining) {
+    if (navigation.weatherCost != weather.travel) {
       _weatherCostsChanged();
     }
     if (clock + 1e-9 < nextSpecialAt || special?.active(clock) == true) return;
@@ -1072,7 +1202,18 @@ class Colony extends Residents {
       nextSpecialAt = clock + 5;
       return;
     }
-    final eligible = SpecialKind.values.where(eligibleSpecial).toList();
+    final eligible = [
+      if (eligibleSpecial(SpecialKind.harvest))
+        ...List.filled(
+          season == Season.autumn
+              ? 3
+              : season == Season.spring
+              ? 2
+              : 1,
+          SpecialKind.harvest,
+        ),
+      if (eligibleSpecial(SpecialKind.marketDay)) SpecialKind.marketDay,
+    ];
     if (eligible.isEmpty) {
       nextSpecialAt = clock + 5;
       return;
@@ -1086,6 +1227,8 @@ class Colony extends Residents {
     'active': r.active,
     'palette': r.palette,
     'bodyId': r.bodyId,
+    'people': r.peopleKind.id,
+    'visitorBenefitUntil': r.visitorBenefitUntil,
     'name': r.name,
     'trait': r.trait.name,
     'gardenDay': r.gardenDay,
@@ -1124,7 +1267,10 @@ class Colony extends Residents {
   };
   String encode() => jsonEncode({
     ...world.toJson(),
+    'schema': 4,
     'colony': {
+      'climate': climate.toJson(clock),
+      'visitors': visitorsJson(),
       if (requests.records.isNotEmpty) 'requests': requests.toJson(),
       if (civicSpent > 0) 'civicSpent': civicSpent,
       if (civicDecisions.isNotEmpty) 'civicDecisions': civicDecisions,
@@ -1165,10 +1311,12 @@ class Colony extends Residents {
   factory Colony.decode(String text) {
     final data = jsonDecode(text), world = Landscape.decode(text);
     final colony = Colony(LandscapeSession(world));
-    if (data['schema'] != 3) {
+    if (data['schema'] != 3 && data['schema'] != 4) {
       colony.migrated = true;
       return colony;
     }
+    colony.planning.clear();
+    colony._queued.clear();
     final d = data['colony'];
     if (d is! Map) throw const FormatException('Colony checkpoint is missing.');
     double number(Map d, String key, [double min = -10000, double max = 1e12]) {
@@ -1221,8 +1369,20 @@ class Colony extends Residents {
     colony.migrated = flag(d, 'migrated');
     colony.clock = number(d, 'clock', 0);
     colony.remainder = number(d, 'remainder', 0, .05);
-    colony.speed = integer(d, 'speed', 0, 4);
-    if (![0, 1, 2, 4].contains(colony.speed)) {
+    colony.climate = data['schema'] == 4
+        ? Climate.decode(
+            d['climate'],
+            world.seed,
+            colony.clock,
+            world.generation?.preset ?? EnvironmentPreset.plains,
+          )
+        : Climate(
+            world.seed,
+            calendar: Calendar(anchorDay: (colony.clock / Rules.day).floor()),
+            environment: world.generation?.preset ?? EnvironmentPreset.plains,
+          );
+    colony.speed = integer(d, 'speed', 0, 16);
+    if (![0, 1, 2, 4, if (data['schema'] == 4) 16].contains(colony.speed)) {
       throw const FormatException('Invalid speed.');
     }
     colony.grantFraction = number(d, 'grantFraction', 0, 1);
@@ -1257,6 +1417,18 @@ class Colony extends Residents {
       r.active = flag(row, 'active');
       r.palette = integer(row, 'palette', 0, 3);
       r.bodyId = identity(row['bodyId']) ?? r.bodyId;
+      if (data['schema'] == 4) {
+        r.peopleKind = PeopleKind.decode(row['people']);
+        if (!r.peopleKind.compatible(r.bodyId)) {
+          throw const FormatException('People artwork mismatch.');
+        }
+        r.visitorBenefitUntil = number(
+          row,
+          'visitorBenefitUntil',
+          -1,
+          colony.clock + 75,
+        );
+      }
       if (row.containsKey('name')) {
         if (row['name'] is! String ||
             !RegExp(r'^[A-Za-z ]{1,48}$').hasMatch(row['name'])) {
@@ -1578,9 +1750,17 @@ class Colony extends Residents {
         colony.civicSpent) {
       throw const FormatException('Civic spending is missing.');
     }
+    if (data['schema'] == 3 &&
+        colony.special?.kind == SpecialKind.rain &&
+        colony.special!.active(colony.clock)) {
+      colony.climate.legacyShower(colony.special!.starts, colony.special!.ends);
+    }
+    if (data['schema'] == 4) colony.restoreVisitors(d['visitors']);
     colony.navigation.rain = colony.raining;
+    colony.navigation.weatherCost = colony.weather.travel;
     final queued = d['planning'] ?? [];
-    if (queued is! List || queued.length > colony.people.length) {
+    if (queued is! List ||
+        queued.length > colony.people.length + colony.visits.length) {
       throw const FormatException('Invalid planning queue.');
     }
     for (final request in queued) {
@@ -1588,7 +1768,7 @@ class Colony extends Residents {
         throw const FormatException('Invalid planning request.');
       }
       final id = identity(request['id']);
-      if (!colony.people.containsKey(id) || !colony._queued.add(id!)) {
+      if (colony.actor(id) == null || !colony._queued.add(id!)) {
         throw const FormatException('Invalid queued person.');
       }
       colony.planning.add(

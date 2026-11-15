@@ -10,7 +10,7 @@ import 'package:roag_settlement/world_creation.dart';
 import 'package:roag_settlement/settlement_game.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'colony_test.dart' show paint, advance;
+import 'colony_test.dart' show paint, advance, ordinaryClimate;
 
 Landscape generated([
   EnvironmentPreset p = EnvironmentPreset.river,
@@ -336,7 +336,8 @@ void main() {
     r.cell = const Cell(3, 15);
     r.x = 3.5;
     r.y = 15.5;
-    final dry = Colony(LandscapeSession(Landscape.create()));
+    ordinaryClimate(wet);
+    final dry = ordinaryClimate(Colony(LandscapeSession(Landscape.create())));
     expect(
       wet.walkingSpeed(r, const Cell(4, 15)),
       closeTo(dry.walkingSpeed(r, const Cell(4, 15)) / 1.25, 1e-9),

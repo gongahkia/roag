@@ -1,0 +1,1554 @@
+[
+  {
+    "audit_id": "urizen-onebit-r00-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      1,
+      12,
+      12
+    ],
+    "rgba_sha256": "39390e61d20271868eae1309ce85d8782c43e400ff59e8917067f8b5ca5bd573",
+    "foreground_mask_sha256": "b4d427746bf37bd0af33cd673529ce90cf8be07e7484392873254f5cb8620af5",
+    "name": "Figure row 00, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-colony-sprites.json",
+        "alias": "crew",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r01-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      14,
+      12,
+      12
+    ],
+    "rgba_sha256": "0faad05abf05c91c5d34a4d1db01467c3d6fcfc1b287089c29b519c3fb98f9b0",
+    "foreground_mask_sha256": "d847a415c408c2b84562fd0a982114f660218af815b4d29fe734d428b5ca2294",
+    "name": "Figure row 01, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-colony-sprites.json",
+        "alias": "survivor",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r02-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      27,
+      12,
+      12
+    ],
+    "rgba_sha256": "222c621fa0c45313fba56b922e85da16afdf51741641be03ceed033ce04f2521",
+    "foreground_mask_sha256": "7aadf1172b0b5253fb3a29ae9f021de57b46d1de2799e4cafeaee88bac3eff45",
+    "name": "Figure row 02, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r03-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      40,
+      12,
+      12
+    ],
+    "rgba_sha256": "66e6860ed7bbc467a0e043d5422eb03907653172741a7307d2eb54207863bf76",
+    "foreground_mask_sha256": "e33278ec272e3a81b47edc5546486ce4053c74ea418d0dd6b78a118a4928ba2f",
+    "name": "Figure row 03, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r04-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      53,
+      12,
+      12
+    ],
+    "rgba_sha256": "1975dd7387aa16ddf1071c26df319b096a1e4941e09a7864a706a0c48a3f074a",
+    "foreground_mask_sha256": "9665ae8e1f74870e0f4647028203263853660e99f15e5545faf2f78c9d01784a",
+    "name": "Figure row 04, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r05-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      66,
+      12,
+      12
+    ],
+    "rgba_sha256": "980257617526d0de8a627755432a6daaa94420bfdaf844da1e070ad5ecc405d8",
+    "foreground_mask_sha256": "300f6f84b895ea3c51fbfc2a1ffd63d19ea8c13969ad1ab72bed6526ad2c55f9",
+    "name": "Figure row 05, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r06-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      79,
+      12,
+      12
+    ],
+    "rgba_sha256": "9d75f6332cb80b41e2cfd9e2b9c7fb5a9030103bc5a27464cd2f3c4e221fe770",
+    "foreground_mask_sha256": "31e33033ae3b03896387474cbaaf0867913569f61c9fb26e611011ab98412c78",
+    "name": "Figure row 06, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r07-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      92,
+      12,
+      12
+    ],
+    "rgba_sha256": "b4218345df773df74820821fc82cd0e7ff080e5e24e0cea954a610ced573435d",
+    "foreground_mask_sha256": "d3d00e68255c40f81f35e5e51b1477be0f654ec57aaf0a88a6b44ae845392397",
+    "name": "Figure row 07, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r08-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      105,
+      12,
+      12
+    ],
+    "rgba_sha256": "1bc9b894cc6c20756807ddce1b97e09a3fbc63fad098f01728a1cbb87f28c89c",
+    "foreground_mask_sha256": "b7c3af6f973eeb741c17802864295a33daabe302b5cd54789b7d97a54a519314",
+    "name": "Figure row 08, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r09-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      118,
+      12,
+      12
+    ],
+    "rgba_sha256": "db9226d9049d4ca8f30b6e4dd9f6064dde5f20a91e973f7cb307daf47b43af5f",
+    "foreground_mask_sha256": "12f9b970b77e9e68f5d1977bb7a6e9f292154f54d5615a697521a1eff07afe1a",
+    "name": "Figure row 09, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r10-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      131,
+      12,
+      12
+    ],
+    "rgba_sha256": "a346d7e48e303a6090bfdc9a406491a3f1461cef35c3dbf98a3912f57b8e95f5",
+    "foreground_mask_sha256": "b3c1cc7ceab605b397592fa5e638d591f11b316cf9acd809f11ce627d53f723b",
+    "name": "Figure row 10, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "roag-enemy-bone-splitter",
+        "activity": "historical selection, not proof of active ROAG use"
+      },
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "roag-enemy-ossuary-captain",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [
+      {
+        "role": "core:enemy/bone_splitter",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 10, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-bone-splitter; 'bone_splitter' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      },
+      {
+        "role": "core:enemy/bone_splitter/attack",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 10, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-bone-splitter; 'bone_splitter' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:enemy/bone_splitter; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      },
+      {
+        "role": "core:enemy/bone_splitter/hurt",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 10, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-bone-splitter; 'bone_splitter' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:enemy/bone_splitter; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      }
+    ],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r11-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      144,
+      12,
+      12
+    ],
+    "rgba_sha256": "88a4a644ec8e6c42a6dcdc7d55dd63e43cac0a08c5a1415e7e6dabae3ebfbba2",
+    "foreground_mask_sha256": "b9b9b5a7f86f313b035ee331339c23a623b7fb780485bd39c70f2b157c227264",
+    "name": "Figure row 11, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r12-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      157,
+      12,
+      12
+    ],
+    "rgba_sha256": "459d8f6389e7f004fe17f1b07c24040b93abb3c5b8b3bc67ede7b07f304f6cb6",
+    "foreground_mask_sha256": "a46912b26fce1440b030894ef585db4b7f9289936f9be8aa45a96d50e6306bad",
+    "name": "Figure row 12, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r13-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      170,
+      12,
+      12
+    ],
+    "rgba_sha256": "4fc6e6c944eaf5eba903e9eaae7b401cc9cf5a8d13596d1568bd5a87a4b8361a",
+    "foreground_mask_sha256": "d98188109d4784e595cc1f815a019791dedb3cca7daae6fa93ea94398adfc11f",
+    "name": "Figure row 13, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r14-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      183,
+      12,
+      12
+    ],
+    "rgba_sha256": "67af33307d60129e1ee9dc88f520f5782b44e3ab6f6881ed690cbb505897fa2c",
+    "foreground_mask_sha256": "d3d7ce306ee5b1d7a5448673e6f813f94b69cb4cea629b628ae8086cbc7943de",
+    "name": "Figure row 14, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r15-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      196,
+      12,
+      12
+    ],
+    "rgba_sha256": "46133a0fbf6d86cdd11edcd1c4891e3a7c37d25800497b311ad0757553e5e8f7",
+    "foreground_mask_sha256": "50c987abc63c43feb68501d3920ad24d21dff7c8d634413d39183243a0db6330",
+    "name": "Figure row 15, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r16-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      209,
+      12,
+      12
+    ],
+    "rgba_sha256": "16d5e06626fb007325df5d7d983a3dd9a0a244a22a3de701550b8c9eedb0bef5",
+    "foreground_mask_sha256": "61e67647b62c61878174f0eba15a6617c47e8831196d729d1798d4c96ebcf62f",
+    "name": "Figure row 16, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r17-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      222,
+      12,
+      12
+    ],
+    "rgba_sha256": "6733d01579ff9680ff1f292a31f668017e0f69a3343cb0114a79efb208958410",
+    "foreground_mask_sha256": "e5ea6335ef4af87eeede10b2ef014ce3d894f7256a3e6413ed2333e5f532f659",
+    "name": "enemy / monk",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-fantasy-medieval",
+          "tile_id": 59,
+          "properties": {
+            "group1": "enemy",
+            "group2": "monk",
+            "group3": "",
+            "tags": "",
+            "type": "medieval,enemy"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r18-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      235,
+      12,
+      12
+    ],
+    "rgba_sha256": "02a751230ee53421fd54dbba3a3f464386d473fa3f00a6c56b69f2ff3c0ffbd6",
+    "foreground_mask_sha256": "e9077729102ce3008a1c8c8859f1f3f251a242b8c0166d5918714fa788802352",
+    "name": "enemy / genie",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-fantasy-medieval",
+          "tile_id": 64,
+          "properties": {
+            "group1": "enemy",
+            "group2": "genie",
+            "group3": "",
+            "tags": "",
+            "type": "fantasy,enemy"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r19-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      248,
+      12,
+      12
+    ],
+    "rgba_sha256": "5eeb3c6a22922aad787582f3ad2b6e66f7b7a911d165934b76aa0af5513fc4cf",
+    "foreground_mask_sha256": "dbbe17a1316001784e53d683e3afd1154e27ceffde76f1815c7961a06dd241cb",
+    "name": "Figure row 19, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r20-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      261,
+      12,
+      12
+    ],
+    "rgba_sha256": "b2ca8583fe9474d91b1096c3297798d00ba2d98bfb07d5be04cad8d260f1d88c",
+    "foreground_mask_sha256": "1d3ea8e68192520d4aefd6bc0de147c9946c646f6bfbe878315a021304a32479",
+    "name": "enemy / imp",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-fantasy-medieval",
+          "tile_id": 69,
+          "properties": {
+            "group1": "enemy",
+            "group2": "imp",
+            "group3": "",
+            "tags": "",
+            "type": "fantasy,enemy,demon"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r21-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      274,
+      12,
+      12
+    ],
+    "rgba_sha256": "d5d3743e9f48919d0f40bccf984db50864b54f2c25811e5a18620ef33992c643",
+    "foreground_mask_sha256": "be1c6067fddfbde08dcfc19a6ba1a94fa221769d5f87849c2312d639552d138c",
+    "name": "Figure row 21, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r22-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      287,
+      12,
+      12
+    ],
+    "rgba_sha256": "8a6d6929055a318552fb34772cf2308ea5eef7c5cda073f028f23baec3c67b64",
+    "foreground_mask_sha256": "e4306a47857e570cf7cadfd7fdf6a914e796dc571933fa04fe6c7ebe19a8e249",
+    "name": "Figure row 22, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r23-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      300,
+      12,
+      12
+    ],
+    "rgba_sha256": "7edf01386dbd9199fcc7e6492624045a51752ddb37b05026e6fbb67921b3c42f",
+    "foreground_mask_sha256": "e047beb3ee258cbfb1fd2a1e916465a7717c5b3205a5cce57904ab6a4c4c55ee",
+    "name": "Figure row 23, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r24-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      313,
+      12,
+      12
+    ],
+    "rgba_sha256": "0a44a7063c0c45cce5ddf9244d927a08737ca8da68a058bf3448f3e166ae9700",
+    "foreground_mask_sha256": "cacfb05bfc1889ef553b287fa2835c7f299202275b4dbe30323f8b2f4abdaaac",
+    "name": "Figure row 24, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r25-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      326,
+      12,
+      12
+    ],
+    "rgba_sha256": "574ae78916127beb78ce9a03e9304442aa8adf1abb5ef3723e2faaa91c0304e6",
+    "foreground_mask_sha256": "40b8d964fa3a4384df1b27b7814cb2da3d61990421c3bff9d24d4cf56ae61986",
+    "name": "Figure row 25, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r26-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      339,
+      12,
+      12
+    ],
+    "rgba_sha256": "8a84d423433faf73784b7a72739a63be9d57fc652c56a7f2355c268f2273425c",
+    "foreground_mask_sha256": "b400dfc750d42b3e6d2029e3ee9f463893a9f5769b7349e8a3065381e25f1651",
+    "name": "Figure row 26, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "roag-enemy-hollow-wraith",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [
+      {
+        "role": "core:enemy/hollow_wraith",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 26, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-hollow-wraith; 'hollow_wraith' is ROAG casting, not a verified publisher character name. Static binding; no animation or adjacent-frame claim."
+      },
+      {
+        "role": "core:enemy/hollow_wraith/attack",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 26, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-hollow-wraith; 'hollow_wraith' is ROAG casting, not a verified publisher character name. Explicit attack alias of core:enemy/hollow_wraith; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      },
+      {
+        "role": "core:enemy/hollow_wraith/hurt",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 26, profession column 00: empty hands / neutral stance (low confidence; visual_region_and_silhouette). Retains catalog.game_bindings.rpg.roag-enemy-hollow-wraith; 'hollow_wraith' is ROAG casting, not a verified publisher character name. Explicit hurt alias of core:enemy/hollow_wraith; repeat the same body drawing, not a separate pose. Static binding; no animation or adjacent-frame claim."
+      }
+    ],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r27-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      352,
+      12,
+      12
+    ],
+    "rgba_sha256": "f93c7c1ed5a1cd69bf0c3cdc8f913781f6c765e0d88e280cd41eaaba0add1284",
+    "foreground_mask_sha256": "dd55163fb3dd1bd6ca61c839be97299525a88fec369d25eb23a00124690c24ca",
+    "name": "Figure row 27, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r28-c104",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1353,
+      365,
+      12,
+      12
+    ],
+    "rgba_sha256": "c1f921886eada1301d6512aded30ac2f8f5efac59986961f25773e8f43d92556",
+    "foreground_mask_sha256": "141e9486d15748d6f42fa3f272f16220abde5a9499ee17ca60de7f478f872170",
+    "name": "Figure row 28, profession column 00: empty hands / neutral stance",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r00-c198",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      2575,
+      1,
+      12,
+      12
+    ],
+    "rgba_sha256": "9ccb0c299b6d1a6af563bc673b507204d3c150be9503c30851f18e3e63ecb925",
+    "foreground_mask_sha256": "0915c0e8eb87ce37f861f7c8ce7b551677ba4ca0d5f444359f9b80c1c637989a",
+    "name": "Figure row 00, profession column 94: bag-like hand prop",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "merchant",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [
+      {
+        "role": "core:object/interaction_travelling_trader",
+        "flip_x": false,
+        "notes": "Source identity: Figure row 00, profession column 94: bag-like hand prop (low confidence; visual_region_and_silhouette). Local representative motif for core:object/interaction_travelling_trader; source identity is separate from the game role. Static binding; no animation or adjacent-frame claim."
+      }
+    ],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r02-c187",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      2432,
+      27,
+      12,
+      12
+    ],
+    "rgba_sha256": "e45d0fa260fa98126cfd12656cf39eb5056587b663f79cd73152957284a886be",
+    "foreground_mask_sha256": "f95185c5c21f2029c04b1f586005dbf5d1e0d4e5df449f5e1b6a80ad2410a635",
+    "name": "Figure row 02, profession column 83: raised staff-like prop",
+    "publisher_identity": {
+      "basis": "visual_region_and_silhouette",
+      "confidence": "low",
+      "author_name_known": false
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r10-c005",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      66,
+      131,
+      12,
+      12
+    ],
+    "rgba_sha256": "dda2229e05105774727512425645ebecdccbd5405e609bdeea58f91fa08c8ef0",
+    "foreground_mask_sha256": "db68682e287feb1f6f1b1e8356ee55f3212a4634a9be610079f4e0a480645fe9",
+    "name": "flora / tree / dead",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 86,
+          "properties": {
+            "group1": "flora",
+            "group2": "tree",
+            "group3": "dead",
+            "tags": "default,flora",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "dead-tree",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r14-c001",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      14,
+      183,
+      12,
+      12
+    ],
+    "rgba_sha256": "a10589d3171bfc43a53cfb9d172c3b64531f29d86818f4b1b1d2ca0eaf857835",
+    "foreground_mask_sha256": "df6aaf3268a685a668a315cb45c331010edf2f60b73a9daf80b2d4de44bc09b1",
+    "name": "animal / cat",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 167,
+          "properties": {
+            "group1": "animal",
+            "group2": "cat",
+            "group3": "",
+            "tags": "default,animal,domestic",
+            "type": "actor"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r14-c006",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      79,
+      183,
+      12,
+      12
+    ],
+    "rgba_sha256": "e808ee629599b5153d908fa336fb83a4c98c997b5728eb0f2aa279e6e57d150c",
+    "foreground_mask_sha256": "4eea83df931b79660ce3d7b4263b2a73f5e736e2a6ddf3de031b75de4b7f4e45",
+    "name": "animal / hawk",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 173,
+          "properties": {
+            "group1": "animal",
+            "group2": "hawk",
+            "group3": "",
+            "tags": "default,animal",
+            "type": "actor"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r16-c003",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      40,
+      209,
+      12,
+      12
+    ],
+    "rgba_sha256": "7ff621e66c90a843746a575618a8e5ee87a709df9df707bc55da16b5a39a2f0f",
+    "foreground_mask_sha256": "aa452f356da935ee52e30540b76b4e5a9dfea09bf8cdba6cf15e25194ed128c9",
+    "name": "animal / rabbit",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 190,
+          "properties": {
+            "group1": "animal",
+            "group2": "rabbit",
+            "group3": "",
+            "tags": "default,animal,domestic",
+            "type": "actor"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "rabbit",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r47-c006",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      79,
+      612,
+      12,
+      12
+    ],
+    "rgba_sha256": "445801e6383f2f3df322d9c70926e16c5d6a5d7a6d77e45b5d0af54a18465779",
+    "foreground_mask_sha256": "c5e412997afca1d19933631d959abc3f9c6898e0272d267ca5ba280910f40b1c",
+    "name": "bag",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 334,
+          "properties": {
+            "group1": "bag",
+            "group2": "",
+            "group3": "",
+            "tags": "default,item,storage",
+            "type": "thing"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r21-c043",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      560,
+      274,
+      12,
+      12
+    ],
+    "rgba_sha256": "7cd75cf75596d23df3c56379e21b350414e3bcb1475daaa4a8eb0daa75672d18",
+    "foreground_mask_sha256": "46c686e07b1c7f9a71d9b1d2558a0d9363048c7ccfe2837c84231bf4db97c8ee",
+    "name": "wall / tent; orientation=S1",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 215,
+          "properties": {
+            "group1": "wall",
+            "group2": "tent",
+            "group3": "",
+            "orientation": "S1",
+            "tags": "default,wall",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r21-c044",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      573,
+      274,
+      12,
+      12
+    ],
+    "rgba_sha256": "8c1b03baf3aa092fc628dc8427980f006b7845912bc4c583603d62e5a6caa7f5",
+    "foreground_mask_sha256": "186afcd4c8be121780688ccfec08da57fe9745630dd97d714f3f738ab9a86d45",
+    "name": "wall / tent; orientation=S2",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 216,
+          "properties": {
+            "group1": "wall",
+            "group2": "tent",
+            "group3": "",
+            "orientation": "S2",
+            "tags": "default,wall",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r21-c045",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      586,
+      274,
+      12,
+      12
+    ],
+    "rgba_sha256": "3619e78774f78c3809311bd3977c4b3718ca74996911f9a0ac66d91c63952cc3",
+    "foreground_mask_sha256": "d835467cabce0e298e26faa7ba41520d2b807dded47a0f7ab9eb1d2a9bc90481",
+    "name": "wall / tent; orientation=S3",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 217,
+          "properties": {
+            "group1": "wall",
+            "group2": "tent",
+            "group3": "",
+            "orientation": "S3",
+            "tags": "default,wall",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r42-c003",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      40,
+      547,
+      12,
+      12
+    ],
+    "rgba_sha256": "e4c7bfd3b83af4c1d7101ef58727111bd2dff6a7f18ff1db120ebc88698cf3ff",
+    "foreground_mask_sha256": "ee236d9b26912dfbfb6267ea14218241c84882ec559b759f21377782a5c0b69a",
+    "name": "furniture / torch",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 209,
+          "properties": {
+            "group1": "furniture",
+            "group2": "torch",
+            "group3": "",
+            "tags": "default,light",
+            "type": "thing"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  }
+]

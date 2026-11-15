@@ -6,6 +6,10 @@ external JSString _load();
 external void _save(JSString text);
 @JS('settlementPlatform.backupLegacy')
 external void _backupLegacy(JSString text);
+@JS('settlementPlatform.backupLiving')
+external void _backupLiving(JSString text);
+void backupLiving(String text) => _backupLiving(text.toJS);
+
 @JS('settlementPlatform.exportFile')
 external void _export(JSString text);
 @JS('settlementPlatform.importFile')

@@ -3,10 +3,12 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 
 import 'model.dart';
+import 'climate.dart';
 
 // shared runtime composition: world, relocation ghosts and catalogue thumbnails.
 class BuildArt {
   final Map<String, Sprite> art;
+  Season season = Season.summer;
   BuildArt(this.art);
   static const roadArt = {
     5: 0,
@@ -81,8 +83,27 @@ class BuildArt {
         canvas,
         'grass${lot.grass}',
         c,
-        wet ? const Color(0xff647462) : const Color(0xff344a36),
+        wet
+            ? const Color(0xff647462)
+            : season == Season.winter
+            ? const Color(0xff73847b)
+            : season == Season.autumn
+            ? const Color(0xff5c6140)
+            : const Color(0xff344a36),
       );
+      if (!wet &&
+          !lot.path &&
+          lot.cottage == null &&
+          lot.place == null &&
+          lot.scenery == Scenery.none &&
+          variation(scene.seed, c, 29) % 19 == 0) {
+        if (season == Season.spring) {
+          frame(canvas, 'season-flowers', c, const Color(0xffb8bb88));
+        }
+        if (season == Season.autumn) {
+          frame(canvas, 'autumn-leaf', c, const Color(0xff9f804d));
+        }
+      }
       if (wet) {
         for (final d in [const Offset(2, 4), const Offset(7, 8)]) {
           canvas.drawRect(
@@ -275,7 +296,7 @@ class BuildArt {
         );
       }
     } else {
-      final sprite = art['oak'];
+      final sprite = art[season == Season.winter ? 'oak-winter' : 'oak'];
       sprite?.render(
         canvas,
         position: Vector2(x + 1, y + 1),
@@ -283,7 +304,12 @@ class BuildArt {
         overridePaint: Paint()
           ..filterQuality = FilterQuality.none
           ..colorFilter = ColorFilter.mode(
-            const Color(0xffa4b878).withValues(alpha: opacity),
+            (season == Season.autumn
+                    ? const Color(0xffc59a5f)
+                    : season == Season.winter
+                    ? const Color(0xffbec9be)
+                    : const Color(0xffa4b878))
+                .withValues(alpha: opacity),
             BlendMode.srcIn,
           ),
       );

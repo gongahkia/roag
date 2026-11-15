@@ -585,7 +585,13 @@ void main() {
     final current = jsonDecode(c.encode());
     expect(current['lots'], old['lots']);
     expect(current['colony']['money'], old['colony']['money']);
-    expect(current['colony']['residents'], old['colony']['residents']);
+    for (var i = 0; i < old['colony']['residents'].length; i++) {
+      final original = old['colony']['residents'][i] as Map;
+      final migrated = current['colony']['residents'][i] as Map;
+      expect({for (final key in original.keys) key: migrated[key]}, original);
+      expect(migrated['people'], 'human-v1');
+      expect(migrated['visitorBenefitUntil'], -1);
+    }
   });
   test('malformed request rewards and civic decisions are rejected before replacing a save', () {
     final c = needingTown(), r = c.people.values.first;

@@ -3,11 +3,26 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roag_settlement/colony.dart';
+import 'package:roag_settlement/climate.dart';
 import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/reasons.dart';
 import 'package:roag_settlement/residents.dart';
 import 'package:roag_settlement/rules.dart';
 import 'package:roag_settlement/resident_identity.dart';
+
+Colony ordinaryClimate(Colony c) {
+  c.nextSpecialAt = 1e9;
+  c.nextVisitorAt = 1e9;
+  c.climate = Climate(
+    c.world.seed,
+    calendar: const Calendar(initialSeason: Season.summer),
+    fixedWeather: WeatherKind.clear,
+  );
+  c.navigation
+    ..rain = false
+    ..weatherCost = 1;
+  return c;
+}
 
 void advance(Colony c, double seconds) {
   for (var i = 0; i < (seconds / .05).round(); i++) {
@@ -23,7 +38,7 @@ void paint(Colony c, Tool t, Cell start, [Cell? end]) {
 }
 
 Colony village({bool garden = true, bool green = true}) {
-  final c = Colony(LandscapeSession(Landscape.create()));
+  final c = ordinaryClimate(Colony(LandscapeSession(Landscape.create())));
   paint(c, Tool.path, const Cell(7, 15), const Cell(12, 15));
   paint(c, Tool.cottage, const Cell(2, 14), const Cell(5, 14));
   if (garden) paint(c, Tool.garden, const Cell(8, 14));

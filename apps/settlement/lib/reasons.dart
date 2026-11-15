@@ -2,6 +2,21 @@ import 'rules.dart';
 
 enum Reason {
   none('', '', false),
+  visitorTrading(
+    'A fine Market stop.',
+    'The travelling merchant reached a staffed Market and is spending real time trading.',
+    false,
+  ),
+  visitorTelling(
+    'A story for the town.',
+    'The storyteller reached a communal venue. Actual listeners can earn a modest mood benefit.',
+    false,
+  ),
+  visitorLeaving(
+    'Until we meet again.',
+    'This guest finished their activity and is leaving by the roads.',
+    false,
+  ),
   homeCut(
     'My lane is cut off.',
     'Restore a path from this home to the arrival lane.',

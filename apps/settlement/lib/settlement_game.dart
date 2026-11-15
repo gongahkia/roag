@@ -15,6 +15,7 @@ import 'appearance.dart';
 import 'resident_presentation.dart';
 import 'special_event.dart';
 import 'build_art.dart';
+import 'climate.dart';
 
 class SettlementGame extends FlameGame {
   Colony colony;
@@ -74,6 +75,11 @@ class SettlementGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     final names = [
+      'season-flowers',
+      'autumn-leaf',
+      'oak-winter',
+      'visitor-bag',
+      'visitor-torch',
       'grass0',
       'grass1',
       'dirt',
@@ -95,7 +101,7 @@ class SettlementGame extends FlameGame {
     for (final name in names) {
       art[name] = Sprite(await images.load('$name.png'));
     }
-    residentAtlas = await images.load('resident-atlas.png');
+    residentAtlas = await images.load('world-actors-atlas.png');
     await world.add(_LandscapeLayer(this));
     camera.viewfinder.zoom = 4;
     home();
@@ -205,7 +211,7 @@ class SettlementGame extends FlameGame {
       }
       _stateAge += dt.clamp(0.0, .1);
       _saveAge += dt.clamp(0.0, .1);
-      presentation.update(dt, residents.people.values);
+      presentation.update(dt, residents.actors);
       updateSpeech(dt);
       if (watch != null) {
         if (presentationMicros.length >= 2048) presentationMicros.removeAt(0);
@@ -285,7 +291,7 @@ class SettlementGame extends FlameGame {
 
   void inspect(Offset point) {
     final hits = <(String, double)>[];
-    for (final r in residents.people.values.where((r) => r.visible)) {
+    for (final r in residents.actors.where((r) => r.visible)) {
       final p = actorPosition(r),
           screen = camera.localToGlobal(Vector2(p.dx, p.dy - 4));
       final distance = (Offset(screen.x, screen.y) - point).distance;
@@ -322,6 +328,10 @@ class SettlementGame extends FlameGame {
       final e = colony.special!;
       return '${e.title}\n${e.effect}\n${e.civicChoice == null ? '' : 'Town choice: ${e.civicChoice}. ${e.civicAwarded.length} hospitality benefits.\n'}${e.active(colony.clock) ? 'Ends in ${(e.ends - colony.clock).ceil()} seconds.' : 'This event has ended.'}';
     }
+    final v = colony.visits[inspectedResident];
+    if (v != null) {
+      return '${v.actor.name} · ${v.role.label}\n${v.state}\n${colony.visitorStory(v)}\nTemporary guest; no cottage or permanent population slot.';
+    }
     final r = colony.people[inspectedResident];
     if (r != null) {
       final reason = speechReason(r);
@@ -342,7 +352,7 @@ class SettlementGame extends FlameGame {
           .forResident(r.homeId)
           .map((q) => q.status)
           .join('\n');
-      return '${r.name} · ${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
+      return '${r.name} · ${r.peopleKind.label}\n${r.peopleKind.effect}\n${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
     }
     final c = inspectedCell;
     if (c == null || !session.world.contains(c)) return null;
@@ -353,13 +363,16 @@ class SettlementGame extends FlameGame {
       final work = place.workCapacity > 0
           ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.${place == Place.garden && colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock) ? ' Good harvest: ${Rules.exactCoins((place.income * 1.25).round())}/second.' : ''}\n'
           : '';
+      final farm = place == Place.garden
+          ? 'Current Farm rate: ${Rules.exactCoins((place.income * colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock))).round())} coin/second; ${colony.season.label}, ${colony.weather.label}.\n'
+          : '';
       final visits = place.visitorCapacity > 0
           ? '${place.visitorCapacity} visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'
           : '';
       final trade = place == Place.market
           ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.exactCoins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.exactCoins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
           : '';
-      return '${place.label} · $work$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
+      return '${place.label} · $work$farm$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
     }
     if (lot.cottage != null) {
       return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
@@ -374,7 +387,7 @@ class SettlementGame extends FlameGame {
           ? 'Stone Road'
           : 'Garden Path';
       final speed = lot.road == RoadKind.stone
-          ? '18% quicker travel; unaffected by wet ground or rain.'
+          ? '18% quicker travel; unaffected by wet ground or weather.'
           : lot.terrain == Terrain.marsh
           ? 'Wet ground: 1.5× travel time; rain does not stack with this penalty.'
           : 'Ordinary pace; rain slows travel.';
@@ -419,7 +432,7 @@ class SettlementGame extends FlameGame {
   void updateSpeech(double dt) {
     final candidates = <BubbleCandidate>[];
     if (!menuVisible) {
-      for (final r in residents.people.values.where((r) => r.visible)) {
+      for (final r in residents.actors.where((r) => r.visible)) {
         final reason = speechReason(r);
         if (reason == Reason.none) continue;
         final position = actorPosition(r),
@@ -479,6 +492,19 @@ class SettlementGame extends FlameGame {
         final x = (i * 131.0 + presentation.time * 25) % size.x;
         final y = (i * 79.0 + presentation.time * 180) % size.y;
         canvas.drawLine(Offset(x, y), Offset(x - 3, y + 7), paint);
+      }
+    }
+    if (!reducedMotion &&
+        size.x > 0 &&
+        size.y > 0 &&
+        [WeatherKind.snow, WeatherKind.wind].contains(colony.weather)) {
+      final snow = colony.weather == WeatherKind.snow;
+      final paint = Paint()
+        ..color = snow ? const Color(0x99dae1d8) : const Color(0x558ea888);
+      for (var i = 0; i < (snow ? 35 : 14); i++) {
+        final x = (i * 131 + presentation.time * (snow ? 15 : 90)) % size.x;
+        final y = (i * 79 + presentation.time * (snow ? 20 : 8)) % size.y;
+        canvas.drawRect(Rect.fromLTWH(x, y, snow ? 2 : 9, 1), paint);
       }
     }
     final e = colony.event;
@@ -546,6 +572,7 @@ class _LandscapeLayer extends Component {
   final SettlementGame game;
   _LandscapeLayer(this.game);
   Landscape? _cachedScene;
+  Season? _cachedSeason;
   Image? _sceneImage;
   List<Cell> _objects = [];
   static const green = Color(0xff658052), gold = Color(0xffd9c58d);
@@ -642,7 +669,9 @@ class _LandscapeLayer extends Component {
     final scene = stroke?.tool == Tool.remove
         ? game.session.world
         : game.session.view;
-    if (!identical(scene, _cachedScene)) {
+    drawings.season = game.colony.season;
+    if (!identical(scene, _cachedScene) ||
+        _cachedSeason != game.colony.season) {
       // rasterize unchanged land once at native resolution; camera motion and
       // feedback can then redraw without traversing every lot each frame.
       final recorder = PictureRecorder();
@@ -656,6 +685,7 @@ class _LandscapeLayer extends Component {
       );
       picture.dispose();
       _cachedScene = scene;
+      _cachedSeason = game.colony.season;
       _objects = scene.cells
           .where(
             (c) =>
@@ -674,7 +704,7 @@ class _LandscapeLayer extends Component {
     );
     final visible = game.camera.visibleWorldRect.inflate(14);
     final people =
-        game.residents.visible
+        game.residents.allVisible
             .where(
               (entry) =>
                   visible.contains(Offset(entry.$1.x * 12, entry.$1.y * 12)),
@@ -704,7 +734,28 @@ class _LandscapeLayer extends Component {
       } else if (l.place != null) {
         place(canvas, scene, c);
       } else {
-        frame(canvas, 'oak', c, green);
+        frame(
+          canvas,
+          game.colony.season == Season.winter ? 'oak-winter' : 'oak',
+          c,
+          game.colony.season == Season.autumn
+              ? const Color(0xffad874f)
+              : game.colony.season == Season.winter
+              ? const Color(0xffa9b7af)
+              : green,
+        );
+      }
+    }
+    for (final v in game.colony.visits.values) {
+      if (v.actor.activity != Activity.socialising) continue;
+      final venue = scene.places[v.venue];
+      if (venue != null) {
+        frame(
+          canvas,
+          v.role == VisitorRole.merchant ? 'visitor-bag' : 'visitor-torch',
+          venue,
+          const Color(0xffe1c794),
+        );
       }
     }
     band.addAll(people.skip(actor));
@@ -872,8 +923,13 @@ class _LandscapeLayer extends Component {
   }
 
   final _atlasRects = List<Rect>.generate(
-    32,
-    (i) => Rect.fromLTWH(i % 8 * 52.0, i ~/ 8 * 52.0, 52, 52),
+    64,
+    (i) => Rect.fromLTWH(
+      i % 8 * 52.0,
+      (i ~/ 8 + (i >= 32 ? 1 : 0)) * 52.0,
+      52,
+      52,
+    ),
     growable: false,
   );
   final _peoplePaint = Paint()
@@ -894,7 +950,9 @@ class _LandscapeLayer extends Component {
       );
       rects.add(const Rect.fromLTWH(0, 208, 26, 7));
       colors.add(color);
-      final body = Appearance.bodies.indexOf(Appearance.resolveBody(r.bodyId));
+      final body = Appearance.worldBodies.indexOf(
+        Appearance.resolveBody(r.bodyId),
+      );
       final index =
           (body * 4 + r.palette.clamp(0, 3)) * 2 + (pose.facing < 0 ? 1 : 0);
       transforms.add(

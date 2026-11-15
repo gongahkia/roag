@@ -131,6 +131,150 @@
       "file": "images/resident.png",
       "sha256": "005b85145765748479f41d79809de12b79d643814e0e82e681562a9e64e5c7b7"
     },
+    "imp": {
+      "id": "urizen-onebit-r20-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        261,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/imp.png",
+      "sha256": "211b7bd22de0dc0ac581cf3ae02353cf47e86a0091a023a20743de1cc251cbe8"
+    },
+    "djinn": {
+      "id": "urizen-onebit-r18-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        235,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/djinn.png",
+      "sha256": "a95c61fa7c5a68f9732e9028391cd74321fe85a37f51204dc1e88691f5445f3e"
+    },
+    "merchant": {
+      "id": "urizen-onebit-r00-c198",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2575,
+        1,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/merchant.png",
+      "sha256": "4e86a2af731105c4ed713b7f5a0ee615c1d4ce40d382158423e9ade404e743b7"
+    },
+    "storyteller": {
+      "id": "urizen-onebit-r02-c187",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        27,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/storyteller.png",
+      "sha256": "3f72c6fb24095bb5410fcc9d5b9a5c8c56b92e0d8293b88f69ab1b17e95a78a7"
+    },
+    "season-flowers": {
+      "id": "urizen-onebit-r10-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        131,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/season-flowers.png",
+      "sha256": "fb45a8bf12b67a8233107e11238b9eae236c4aadbfe3f41191046409a7a5b46c"
+    },
+    "autumn-leaf": {
+      "id": "urizen-onebit-r09-c001",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        14,
+        118,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/autumn-leaf.png",
+      "sha256": "a19115d92999a901b4529b57f90756c64ecf90c80b87b9e4bf1afc71dc527cf8"
+    },
+    "oak-winter": {
+      "id": "urizen-onebit-r10-c005",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        66,
+        131,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/oak-winter.png",
+      "sha256": "544f7b8f0ae00fd5276abbb1d9b529a1a68d27c1c31a96bf8189010dc07c13d8"
+    },
+    "visitor-bag": {
+      "id": "urizen-onebit-r47-c006",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        79,
+        612,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/visitor-bag.png",
+      "sha256": "8e08c13fb050e11cf92eb1177a2390521018146444c3b9b202876c6540522bf0"
+    },
+    "visitor-torch": {
+      "id": "urizen-onebit-r42-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        547,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/visitor-torch.png",
+      "sha256": "c143709ac5341dfa5255cac465864b463073f8e9a79923c5505e59e38d409e3c"
+    },
     "water": {
       "id": "urizen-onebit-r12-c001",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
@@ -835,6 +979,246 @@
       "treatment": "black-key alpha; semantic hair/skin/coat/trousers palette; original holes and luminance retained",
       "sha256": "4b87c53f63392522f0efa37a492d5eff425944b347821984b47278b5173ade63"
     },
+    "person-imp-body-v1-cream": {
+      "id": "urizen-onebit-r20-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        261,
+        12,
+        12
+      ],
+      "file": "images/person-imp-body-v1-cream.png",
+      "body": "imp-body-v1",
+      "palette": "cream",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "f6668b7583ecb7ae46a296e0accc00b80a711bcabcb94a7fa09d188bb3ff47c2"
+    },
+    "person-imp-body-v1-teal": {
+      "id": "urizen-onebit-r20-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        261,
+        12,
+        12
+      ],
+      "file": "images/person-imp-body-v1-teal.png",
+      "body": "imp-body-v1",
+      "palette": "teal",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "79a866b137fbbdb6c2e76999c5d114be4d3e299b6e69cf0782a28fd161134377"
+    },
+    "person-imp-body-v1-clay": {
+      "id": "urizen-onebit-r20-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        261,
+        12,
+        12
+      ],
+      "file": "images/person-imp-body-v1-clay.png",
+      "body": "imp-body-v1",
+      "palette": "clay",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "ea700bd3e70d54cb326e754f872ca8206f3e0a2b5e55b5d47eac2c1df8500773"
+    },
+    "person-imp-body-v1-lilac": {
+      "id": "urizen-onebit-r20-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        261,
+        12,
+        12
+      ],
+      "file": "images/person-imp-body-v1-lilac.png",
+      "body": "imp-body-v1",
+      "palette": "lilac",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "0530257fa6a0ca653eae20c9f3f833e399a701833e3bc78478bf6229b65425ca"
+    },
+    "person-djinn-body-v1-cream": {
+      "id": "urizen-onebit-r18-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        235,
+        12,
+        12
+      ],
+      "file": "images/person-djinn-body-v1-cream.png",
+      "body": "djinn-body-v1",
+      "palette": "cream",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "2adf9372d22088e1b7bc491d0ded23c4724dc113982c330d6f382da94982d9ec"
+    },
+    "person-djinn-body-v1-teal": {
+      "id": "urizen-onebit-r18-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        235,
+        12,
+        12
+      ],
+      "file": "images/person-djinn-body-v1-teal.png",
+      "body": "djinn-body-v1",
+      "palette": "teal",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "d20c49deba4e1f3debe9ce1c741a637c7a683962f0250531fce46121a5c138d8"
+    },
+    "person-djinn-body-v1-clay": {
+      "id": "urizen-onebit-r18-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        235,
+        12,
+        12
+      ],
+      "file": "images/person-djinn-body-v1-clay.png",
+      "body": "djinn-body-v1",
+      "palette": "clay",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "74935a2d9f1966d9ea12bb303dcaa51291baba646b93929d2ec7b3094ca0c018"
+    },
+    "person-djinn-body-v1-lilac": {
+      "id": "urizen-onebit-r18-c104",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1353,
+        235,
+        12,
+        12
+      ],
+      "file": "images/person-djinn-body-v1-lilac.png",
+      "body": "djinn-body-v1",
+      "palette": "lilac",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "cd5fb6ec21924a5e36440685a5f845a3618d5932a63231af3802f0cb3ebbbd0a"
+    },
+    "person-merchant-body-v1-cream": {
+      "id": "urizen-onebit-r00-c198",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2575,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-merchant-body-v1-cream.png",
+      "body": "merchant-body-v1",
+      "palette": "cream",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "c05501a03765bb1c76b9283d61bf3e211f287e71d9228813531110f6a40235c4"
+    },
+    "person-merchant-body-v1-teal": {
+      "id": "urizen-onebit-r00-c198",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2575,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-merchant-body-v1-teal.png",
+      "body": "merchant-body-v1",
+      "palette": "teal",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "f5307c201e1e4503a63ac3f96a4c9e092b050bff22402f6dc2cad6cf27b7224e"
+    },
+    "person-merchant-body-v1-clay": {
+      "id": "urizen-onebit-r00-c198",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2575,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-merchant-body-v1-clay.png",
+      "body": "merchant-body-v1",
+      "palette": "clay",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "0dd4e67deba997d74c8e56b369a9dcef3cd1fd84ae4d44a333acb569d5e604f9"
+    },
+    "person-merchant-body-v1-lilac": {
+      "id": "urizen-onebit-r00-c198",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2575,
+        1,
+        12,
+        12
+      ],
+      "file": "images/person-merchant-body-v1-lilac.png",
+      "body": "merchant-body-v1",
+      "palette": "lilac",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "04eeaca3b75e8f58ad45bf65f1e888549a3ea21d2e9a309758430d4e11c59982"
+    },
+    "person-storyteller-body-v1-cream": {
+      "id": "urizen-onebit-r02-c187",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-storyteller-body-v1-cream.png",
+      "body": "storyteller-body-v1",
+      "palette": "cream",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "e7370fc4dfe1cabe2b56d22c7cefe338a0f1486b9afbb4c9b9f2cb7bec8d62d3"
+    },
+    "person-storyteller-body-v1-teal": {
+      "id": "urizen-onebit-r02-c187",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-storyteller-body-v1-teal.png",
+      "body": "storyteller-body-v1",
+      "palette": "teal",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "c80f4055ead3b3c0fa68c54b1e5686864bac90a5652b8a4f22d82b966ad51571"
+    },
+    "person-storyteller-body-v1-clay": {
+      "id": "urizen-onebit-r02-c187",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-storyteller-body-v1-clay.png",
+      "body": "storyteller-body-v1",
+      "palette": "clay",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "059d7827dc8f4c938263ec33430ba04475f2572b3501d07e5da5d5bbb6bc56da"
+    },
+    "person-storyteller-body-v1-lilac": {
+      "id": "urizen-onebit-r02-c187",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        2432,
+        27,
+        12,
+        12
+      ],
+      "file": "images/person-storyteller-body-v1-lilac.png",
+      "body": "storyteller-body-v1",
+      "palette": "lilac",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "bd689e6b17a36463bbf9b235d52128ed19c11b32d45a2f83e60cdf7186d6b918"
+    },
     "hammer": {
       "source": "assets/godot-node-icons/white/icon_hammer.png",
       "rect": [
@@ -1267,5 +1651,759 @@
       7
     ],
     "treatment": "4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow"
+  },
+  "world_atlas": {
+    "file": "images/world-actors-atlas.png",
+    "sha256": "538531d655ca7582c66f54820f27e1cceb32a8421e46ab8e1874fa545a1d946f",
+    "cell": [
+      52,
+      52
+    ],
+    "feet": [
+      26,
+      50
+    ],
+    "world_scale": 0.1875,
+    "frames": [
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          416,
+          52,
+          52
+        ]
+      }
+    ],
+    "shadow": [
+      0,
+      208,
+      26,
+      7
+    ],
+    "treatment": "4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow"
+  },
+  "living_world": {
+    "version": 1,
+    "peoples": {
+      "human-v1": [
+        "plain-v1",
+        "longhair-v1",
+        "hood-v1",
+        "cap-v1"
+      ],
+      "imp-v1": [
+        "imp-body-v1"
+      ],
+      "djinn-v1": [
+        "djinn-body-v1"
+      ]
+    },
+    "visitors": {
+      "merchant-v1": "merchant-body-v1",
+      "storyteller-v1": "storyteller-body-v1"
+    },
+    "entities": "permanent residents retain cottage ownership; visitors are separate temporary actors",
+    "composites": {
+      "winter-tree": "oak-winter is a source dead-tree drawing cast as bare winter branches; terrain stays forest",
+      "merchant-stop": "visitor-bag appears only during actual Market activity",
+      "story-circle": "visitor-torch appears only during actual storytelling"
+    },
+    "animation": "no source animation order verified; existing procedural travel and gestures only"
   }
 }

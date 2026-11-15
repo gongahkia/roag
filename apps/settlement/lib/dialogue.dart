@@ -26,7 +26,7 @@ class DialogueContext {
   final Colony colony;
   final Conversation conversation;
   DialogueContext(this.colony, this.conversation);
-  Resident? get person => colony.people[conversation.resident];
+  Resident? get person => colony.actor(conversation.resident);
   Need? get need => conversation.need;
   ResidentRequest? get request => need == null
       ? null
@@ -51,7 +51,7 @@ class DialogueContext {
 typedef DialogueLine = String Function(DialogueContext);
 typedef DialogueCondition = bool Function(DialogueContext);
 
-enum DialogueEffect { none, accept, withdraw, sponsor, ordinary }
+enum DialogueEffect { none, accept, withdraw, sponsor, ordinary, encore }
 
 class DialogueChoice {
   final String id, label, next;
@@ -92,11 +92,42 @@ abstract final class Dialogues {
   static const close = DialogueChoice('close', 'Maybe later', 'close');
   static const back = DialogueChoice('back', 'How are you doing?', 'mood');
   static final nodes = <String, DialogueNode>{
+    'visitor': DialogueNode(
+      'visitor',
+      (c) => c.colony.visits[c.conversation.resident] == null
+          ? 'My visit has ended.'
+          : c.colony.visitorStory(c.colony.visits[c.conversation.resident]!),
+      [
+        DialogueChoice(
+          'encore',
+          'Sponsor an encore · 2 coins',
+          'visitor',
+          effect: DialogueEffect.encore,
+          when: (c) =>
+              c.colony.visits[c.conversation.resident]?.role ==
+                  VisitorRole.storyteller &&
+              !(c.colony.visits[c.conversation.resident]?.encore ?? true),
+          disabled: (c) => c.colony.canEncore(c.conversation.resident) ? '' : 'Wait until the storyteller is telling a story; 2 coins required.',
+        ),
+        close,
+      ],
+    ),
+    'heritage': DialogueNode(
+      'heritage',
+      (c) =>
+          '${c.person!.peopleKind.label}: ${c.person!.peopleKind.effect} My own trait is ${c.person!.trait.label.toLowerCase()}.',
+      [back, close],
+    ),
     'hello': DialogueNode(
       'hello',
       (c) => c.helped?.need.thanks ?? 'Hello. It is good to stop for a moment.',
       [
         back,
+        const DialogueChoice(
+          'heritage',
+          'Tell me about your people.',
+          'heritage',
+        ),
         const DialogueChoice('recent', 'What have you been up to?', 'recent'),
         DialogueChoice(
           'need',
@@ -326,6 +357,8 @@ abstract final class Dialogues {
         changed =
             conversation.event != null &&
             colony.chooseCivic(conversation.event!, sponsor: false);
+      case DialogueEffect.encore:
+        changed = colony.encore(conversation.resident);
       case DialogueEffect.none:
         break;
     }
@@ -340,7 +373,7 @@ abstract final class Dialogues {
       choice.next,
       concern: choice.next == 'offer'
           ? DialogueContext(colony, conversation).openRequest?.need ??
-                colony.needFor(colony.people[conversation.resident]!)
+                colony.needFor(colony.actor(conversation.resident)!)
           : null,
       civic: choice.next == 'civic' ? colony.special?.id : null,
     );
