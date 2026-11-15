@@ -16,6 +16,7 @@ import 'package:roag_settlement/settlement_game.dart';
 
 import 'colony_test.dart' show advance, paint, ordinaryClimate;
 import 'tranche05_test.dart' as old;
+import '../tool/scaling_fixture.dart' show scalingTown;
 
 Colony town() {
   final c = ordinaryClimate(Colony(LandscapeSession(Landscape.create(202))))
@@ -472,6 +473,50 @@ void main() {
     expect(a.eventRng, b.eventRng);
     expect(a.specialRng, b.specialRng);
     expect(a.visitorRng, b.visitorRng);
+  });
+  test('one clock gives identical seasonal/visitor outcomes at 1× and 4×', () {
+    final a = town(), b = Colony.decode(a.encode())..speed = 4;
+    for (var i = 0; i < 1800; i++) {
+      for (var j = 0; j < 4; j++) {
+        a.update(.05);
+      }
+      b.update(.05);
+    }
+    final left = jsonDecode(a.encode()), right = jsonDecode(b.encode());
+    right['colony']['speed'] = left['colony']['speed'];
+    expect(right, left);
+  });
+  test('500 people and two real guests share bounded planning, capacity and weather-edit recovery', () {
+    final c = scalingTown(500)
+      ..nextSpecialAt = 1e9
+      ..speed = 1;
+    final spaces = c.world.cells
+        .where((p) => !c.world.occupied(p) && c.world.access(p) != null)
+        .toList();
+    paint(c, Tool.market, spaces.removeAt(0));
+    paint(c, Tool.hall, spaces.removeAt(0));
+    c.climate = Climate(
+      c.world.seed,
+      calendar: const Calendar(initialSeason: Season.autumn),
+      fixedWeather: WeatherKind.rain,
+    );
+    until(c, () => c.visits.length == 2, 1600);
+    expect(c.people.length, 500);
+    expect(c.visits.length, 2);
+    final revision = c.navigation.revision;
+    paint(c, Tool.remove, const Cell(3, 15), const Cell(15, 15));
+    expect(c.navigation.revision, revision + 1);
+    for (var i = 0; i < 800; i++) {
+      final planned = c.planned;
+      c.update(.05);
+      expect(c.planned - planned, lessThanOrEqualTo(Rules.planningBudget));
+      expect(c.planning.length, lessThanOrEqualTo(502));
+      for (final p in c.venues) {
+        expect(c.occupancy(p.key), lessThanOrEqualTo(c.capacity(p.key)));
+      }
+    }
+    expect(c.workEarned, greaterThan(0));
+    expect(Colony.decode(c.encode()).encode(), c.encode());
   });
   test('actual actor atlas retains all old frames and distinct selected source masks', () {
     final m = jsonDecode(File('assets/manifest.json').readAsStringSync());

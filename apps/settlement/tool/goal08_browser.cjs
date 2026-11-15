@@ -2,8 +2,9 @@
 const{chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const out=path.resolve(process.argv[2]||'/tmp/roag-goal08-browser');fs.mkdirSync(out,{recursive:true});
 const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8768/settlement/',key='roag.settlement.landscape.v1';
+let browser;
 (async()=>{
- const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const context=await browser.newContext({viewport:{width:1024,height:640},recordVideo:{dir:out,size:{width:1024,height:640}}}),page=await context.newPage(),errors=[],checks=[],shots=[];
  page.on('pageerror',e=>errors.push(e.message));let started=Date.now();const pass=t=>{checks.push(t);console.log('PASS',t)};
  const btn=n=>page.getByRole('button',{name:n,exact:typeof n==='string'}),state=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
@@ -15,7 +16,7 @@ const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8768/settlement/',key='r
  let zoom=4,cy,width=1024,center;
  async function layout(){const t=await btn(/^1 Cottage/).boundingBox(),m=await btn('Landscape menu').boundingBox();width=await page.evaluate(()=>innerWidth);cy=(m.y+m.height+12+t.y-14)/2;center=Math.max(9,(width/2-24)/48);}
  const pt=(x,y)=>[width/2+(x+.5-center)*12*zoom,cy+(y-15)*12*zoom];
- async function tool(t){if(typeof t==='number'){await page.keyboard.press(''+t);return;}await btn(/Build catalogue/).click();const it=page.getByRole('menuitem',{name:new RegExp('^'+t+' ·')});await it.scrollIntoViewIfNeeded();await it.click();}
+ async function tool(t){if(typeof t==='number'){await page.keyboard.press(''+t);return;}await btn(/Build catalogue/).click();const it=page.getByRole('menuitem',{name:new RegExp('^(?:[0-9] )?'+t+' ·')});await it.scrollIntoViewIfNeeded();await it.click();}
  async function stroke(t,a,b=a){await tool(t);await page.mouse.move(...pt(...a));await page.mouse.down();await page.mouse.move(...pt(...b),{steps:8});await page.mouse.up();await page.waitForTimeout(80);}
  async function closeInspect(){await page.keyboard.press('Escape');}
  await page.goto(url);await ready();if(await btn('Start building').count())await btn('Start building').click();await btn('Ⅱ').click();await layout();
@@ -44,4 +45,4 @@ const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8768/settlement/',key='r
  await page.setViewportSize({width:931,height:582});await snap('11-browser-small-scale');await page.setViewportSize({width:1440,height:900});await snap('12-browser-large');await page.setViewportSize({width:1024,height:640});await layout();
  await btn('Zoom out (−)').click();await btn('Zoom in (+)').click();await btn('Return to lane (H)').click();await btn('Mute sound').count().then(async n=>{if(n) {await btn('Mute sound').click();await btn('Unmute sound').click();}});pass('Snow, reduced motion, camera zoom, resize and existing audio controls remain usable');
  assert.deepEqual(errors,[]);await context.close();await browser.close();fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({url,input:'Playwright browser pointer/keyboard and real file menus; saved state observations only, seasonal fixtures explicitly identified',checks,errors,shots},null,2));
-})().catch(e=>{console.error(e);process.exitCode=1});
+})().catch(async e=>{console.error(e);if(browser)await browser.close();process.exitCode=1});
