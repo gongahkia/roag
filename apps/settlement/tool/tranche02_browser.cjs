@@ -89,8 +89,13 @@ function same(actual,expected){if(actual!==expected){const a=JSON.parse(actual),
   await drag(2,[[20,15]],{hold:true});await undo();await page.mouse.up();console.log("CHECK unfinished Undo");same(await raw(),stable);
   await drag(2,[[20,15]],{hold:true});await select(1);await page.mouse.up();console.log("CHECK tool switch");same(await raw(),stable);
   const cdp=await context.newCDPSession(page);
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:pt(13,16)[0],y:pt(13,16)[1]}]});
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});console.log('CHECK pointer cancel');
+  const touch=pt(13,16),tileClip={x:touch[0]-20,y:touch[1]-20,width:40,height:40};
+  const beforeTouch=await page.screenshot({clip:tileClip});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touch[0],y:touch[1]}]});
+  await page.waitForTimeout(100);
+  assert(!beforeTouch.equals(await page.screenshot({clip:tileClip})),'touch begins a visibly staged cottage');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await page.mouse.move(25,36);await page.waitForTimeout(100);
+  assert(beforeTouch.equals(await page.screenshot({clip:tileClip})),'pointer cancellation restores the rendered lot');
   same(await raw(),stable);assert.equal(await writes(),saves);
   step('Escape, Undo during stroke, tool change and actual pointer cancellation leave authored state unchanged');
   await select(1);await page.mouse.move(...pt(13,16));await page.mouse.down();

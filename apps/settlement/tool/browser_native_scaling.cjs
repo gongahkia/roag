@@ -11,6 +11,9 @@ fs.mkdirSync(output,{recursive:true});
     headless:false,args:['--no-sandbox','--ozone-platform=x11','--force-device-scale-factor=1'],
     env:{...process.env,DISPLAY:process.env.DISPLAY||':95',WAYLAND_DISPLAY:''}});
   const page=await browser.newPage({viewport:{width:1024,height:640}});
+  const input=await page.context().newCDPSession(page);
+  // disable Playwright's forced focus so real browser focus loss reaches the app.
+  await input.send('Emulation.setFocusEmulationEnabled',{enabled:false});
   await page.goto(process.env.SETTLEMENT_URL||'http://127.0.0.1:8765/settlement/');
   await page.locator('flt-semantics-placeholder').press('Enter');
   await page.getByRole('button',{name:'2 Path',exact:true}).waitFor();
