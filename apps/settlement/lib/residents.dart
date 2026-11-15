@@ -4,6 +4,7 @@ import 'model.dart';
 import 'reasons.dart';
 import 'rules.dart';
 import 'appearance.dart';
+import 'resident_identity.dart';
 
 enum Activity {
   pending,
@@ -27,7 +28,12 @@ class Resident {
   final String homeId;
   bool active = true;
   int palette = 0;
-  late String bodyId;
+  late String bodyId, name;
+  late Trait trait;
+  int gardenDay = -1, tradeDay = -1;
+  double lastShopping = -10000;
+  double segmentSpeed = 0;
+  bool segmentGarden = false;
   String? workId;
   double bornAt = 0, lastWork = -10000, lastSocial = -10000;
   double workProgress = 0, socialProgress = 0, workedSeconds = 0;
@@ -55,6 +61,8 @@ class Resident {
     : x = cell.x + .5,
       y = cell.y + .5 {
     bodyId = Appearance.assignBody(homeId);
+    name = ResidentIdentity.name(homeId);
+    trait = ResidentIdentity.trait(homeId);
     palette = homeId.codeUnits.last.isEven ? 0 : 1;
   }
   Reason get feedback => problem != Reason.none
@@ -95,7 +103,7 @@ class Residents {
   int _style(String id) =>
       id.codeUnits.fold(17, (n, c) => (n * 31 + c) % 2147483647);
   double _idle(Resident r) => 2.3 + (_style(r.homeId) + r.trips * 7) % 19 * .13;
-  List<Cell>? _route(Cell from, Cell to) {
+  List<Cell>? routeBetween(Cell from, Cell to) {
     routeSearches++;
     return world.pathRoute(from, to);
   }
@@ -199,6 +207,7 @@ class Residents {
                 .compareTo((b.x + .5 - r.x).abs() + (b.y + .5 - r.y).abs()),
           );
     r.route.clear();
+    r.segmentSpeed=0;r.segmentGarden=false;
     r.replanAfterEdge = false;
     r.destination = null;
     if (legal.isEmpty) {
@@ -211,7 +220,7 @@ class Residents {
   }
 
   bool go(Resident r, Cell target, Activity activity) {
-    final path = _route(r.cell, target);
+    final path = routeBetween(r.cell, target);
     if (path == null) return false;
     r.route
       ..clear()
@@ -283,7 +292,7 @@ class Residents {
           r.cell = world.arrival;
           r.x = r.cell.x + .5;
           r.y = r.cell.y + .5;
-          go(r, target, Activity.arriving);
+          plan(r);
         }
         continue;
       }
@@ -302,7 +311,7 @@ class Residents {
           r,
           target,
           dt,
-          Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation,
+          r.segmentSpeed > 0 ? r.segmentSpeed : walkingSpeed(r, target),
         )) {
           r.route.removeAt(0);
           if (r.replanAfterEdge) {
@@ -321,7 +330,20 @@ class Residents {
     }
   }
 
+  double walkingSpeed(Resident r, Cell target) => Rules.walkSpeed + _style(r.homeId) % 3 * Rules.walkVariation;
+  bool gardenSegment(Resident r, Cell target) => false;
+  void traversed(Resident r, Cell target, bool garden) {}
+
   bool _move(Resident r, Cell target, double dt, double speed) {
+    if (r.activity != Activity.settling) {
+      if (!world.contains(target) || !world.at(target).path) {
+        r.segmentSpeed = 0;
+        _settle(r);
+        return false;
+      }
+      if (r.segmentSpeed == 0) { r.segmentSpeed = speed;r.segmentGarden = gardenSegment(r,target); }
+      speed = r.segmentSpeed;
+    }
     final dx = target.x + .5 - r.x, dy = target.y + .5 - r.y;
     final distance = math.sqrt(dx * dx + dy * dy);
     if (dx.abs() > .001) r.facing = dx.sign;
@@ -329,6 +351,8 @@ class Residents {
       r.x = target.x + .5;
       r.y = target.y + .5;
       r.cell = target;
+      if (r.activity != Activity.settling) traversed(r,target,r.segmentGarden);
+      r.segmentSpeed=0;r.segmentGarden=false;
       return true;
     }
     r.x += dx / distance * speed * dt;

@@ -8,7 +8,8 @@ enum Tool {
   path,
   remove,
   garden,
-  green;
+  green,
+  workshop, market, hall, stoneRoad, gardenPath;
 
   String get label => switch (this) {
     cottage => 'Cottage',
@@ -16,7 +17,12 @@ enum Tool {
     remove => 'Remove',
     garden => 'Farm',
     green => 'Park',
+    workshop => 'Workshop', market => 'Market', hall => 'Community Hall',
+    stoneRoad => 'Stone Road', gardenPath => 'Garden Path',
   };
+  bool get isRoad => this == path || this == stoneRoad || this == gardenPath;
+  RoadKind get roadKind => this == stoneRoad ? RoadKind.stone : this == gardenPath ? RoadKind.gardenPath : RoadKind.dirt;
+  Place? get place => switch(this) { garden => Place.garden, green => Place.green, workshop => Place.workshop, market => Place.market, hall => Place.hall, _ => null };
   String get purpose => switch (this) {
     cottage => 'A cottage beside a connected path.',
     path => 'Extend the lane, one cell at a time.',
@@ -25,10 +31,24 @@ enum Tool {
       '${Rules.gardenCapacity} work positions · earn coins while working.',
     green =>
       '${Rules.greenCapacity} visitor spaces · social visits improve mood; evening gatherings.',
+    workshop => '1 specialised job · 0.4 coin/s while working.',
+    market => '1 vendor + 3 customers · staffed visits earn trade income.',
+    hall => '8 covered visitor spaces · preferred in rain.',
+    stoneRoad => '18% quicker travel · stays quick in rain · 2 coins/cell.',
+    gardenPath => 'Normal pace · +3 mood after traversal, once per day · 1 coin/cell.',
   };
 }
 
-enum Place { garden, green }
+enum RoadKind { dirt, stone, gardenPath }
+
+enum Place {
+  garden, green, workshop, market, hall;
+  String get label => switch(this) { garden=>'Farm', green=>'Park', workshop=>'Workshop', market=>'Market', hall=>'Community Hall' };
+  int get workCapacity => switch(this) { garden=>Rules.gardenCapacity, workshop=>1, market=>1, _=>0 };
+  int get visitorCapacity => switch(this) { green=>Rules.greenCapacity, hall=>8, market=>3, _=>0 };
+  int get income => switch(this) { garden=>Rules.workIncomePerSecond, workshop=>400, market=>100, _=>0 };
+  double get workDuration => this == market ? 35 : Rules.workDuration;
+}
 
 enum Scenery { none, oak, vegetables }
 
@@ -57,6 +77,7 @@ class Lot {
   final Scenery scenery;
   final Trace trace;
   final bool path;
+  final RoadKind road;
   final int? cottage;
   final String? cottageId;
   final Place? place;
@@ -66,6 +87,7 @@ class Lot {
     this.scenery = Scenery.none,
     this.trace = Trace.none,
     this.path = false,
+    this.road = RoadKind.dirt,
     this.cottage,
     this.cottageId,
     this.place,
@@ -81,6 +103,7 @@ class Lot {
     cottage == null ? null : identity ?? cottageId,
     place?.name,
     placeId,
+    if (path && road != RoadKind.dirt) road.name,
   ];
 }
 
@@ -282,7 +305,7 @@ class Landscape {
               (legacy
                   ? 5
                   : modern
-                  ? 8
+                  ? (row.length == 9 ? 9 : 8)
                   : 6) ||
           !['grass0', 'grass1'].contains(row[0]) ||
           !Scenery.values.any((s) => s.name == row[1]) ||
@@ -296,6 +319,9 @@ class Landscape {
         scenery: Scenery.values.firstWhere((s) => s.name == row[1]),
         trace: Trace.values.firstWhere((t) => t.name == row[2]),
         path: row[3],
+        road: modern && row.length == 9
+            ? RoadKind.values.firstWhere((r)=>r.name == row[8], orElse:()=>throw const FormatException('Invalid road kind.'))
+            : RoadKind.dirt,
         cottage: row[4] == null
             ? null
             : row[4] == 'cottage0'
@@ -316,6 +342,7 @@ class Landscape {
             : null,
         placeId: modern && row[7] is String ? row[7] : null,
       );
+      if (row.length == 9 && !l.path) throw const FormatException('Road kind without a road.');
       if (modern &&
           ((l.place == null) != (row[7] == null) ||
               (l.place != null &&
@@ -423,15 +450,19 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       c,
       old.path
           ? 'Remove path${lost > 0 ? ' · $lost ${lost == 1 ? 'cottage loses' : 'cottages lose'} access' : ''} · leaves a scar'
-          : 'Remove ${old.place?.name ?? 'cottage'} · leaves a buildable pad',
+          : 'Remove ${old.place?.label ?? 'cottage'} · leaves a buildable pad',
     );
+  }
+  if (tool.isRoad && old.path) {
+    if (old.road == tool.roadKind) return no('This road already has that surface.');
+    return Placement(world, world.replace(c, Lot(grass:old.grass, path:true, road:tool.roadKind)), c, 'Change to ${tool.label} · ${Rules.coins(Rules.cost(tool.name))} coins');
   }
   if (world.occupied(c)) return no('This ground is occupied.');
   if (old.scenery == Scenery.oak) return no('A tree occupies this ground.');
   final access = world.access(c);
   if (access == null) {
     return no(
-      tool == Tool.path
+      tool.isRoad
           ? 'Extend a path connected to the arrival lane.'
           : 'This place needs an adjoining connected path.',
     );
@@ -445,23 +476,19 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       c,
       Lot(
         grass: old.grass,
-        path: tool == Tool.path,
-        trace: tool == Tool.path ? Trace.none : Trace.pad,
+        path: tool.isRoad,
+        road: tool.roadKind,
+        trace: tool.isRoad ? Trace.none : Trace.pad,
         cottage: tool == Tool.cottage ? variation(world.seed, c, 4) % 2 : null,
         cottageId: tool == Tool.cottage ? 'home-${world.nextCottageId}' : null,
-        place: tool == Tool.garden
-            ? Place.garden
-            : tool == Tool.green
-            ? Place.green
-            : null,
-        placeId: tool == Tool.garden || tool == Tool.green
-            ? '${tool.name}-${world.nextCottageId}'
-            : null,
+        place: tool.place,
+        placeId: tool.place == null ? null : '${tool.place!.name}-${world.nextCottageId}',
+
       ),
-      allocateCottage: tool != Tool.path,
+      allocateCottage: !tool.isRoad,
     ),
     c,
-    '${tool == Tool.path ? 'Extend path' : 'Place ${tool.name}'}$replacement',
+    '${tool.isRoad ? 'Extend ${tool.label}' : 'Place ${tool.label}'}$replacement',
     access,
   );
 }
@@ -497,7 +524,7 @@ class LandscapeSession {
     final price = unlimited
         ? 0
         : Rules.cost(
-            lot.place?.name ?? (lot.cottage != null ? 'cottage' : 'path'),
+            lot.place?.name ?? (lot.cottage != null ? 'cottage' : lot.road == RoadKind.stone ? 'stoneRoad' : lot.road == RoadKind.gardenPath ? 'gardenPath' : 'path'),
           );
     if (price > money) return false;
     return _commit(plan.after!, price);
@@ -639,7 +666,7 @@ class BrushStroke {
   void paintTo(Cell target) {
     for (final c in cardinalStroke(last ?? target, target)) {
       if (changed.contains(c)) continue;
-      if (tool == Tool.path && staged.contains(c) && staged.at(c).path) {
+      if (tool.isRoad && staged.contains(c) && staged.at(c).path && staged.at(c).road == tool.roadKind) {
         continue;
       }
       final plan = evaluate(staged, tool, c);
