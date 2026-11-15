@@ -1,0 +1,9 @@
+00:00 +0: loading /home/gongahkia/coding/projects/roag/apps/settlement/test/resident_presentation_test.dart
+00:00 +0: Farm/Park labels preserve old identifiers, costs and capacities
+00:00 +1: stable cast survives unrelated additions, removal, Undo/Redo and portable checkpoints
+00:00 +2: unknown appearance IDs retain identity and resolve to a safe sprite
+00:00 +3: standing slots stay bounded and existing people do not shift when another arrives
+00:00 +4: travel lanes stay on the actual cardinal edge; rest and reduced motion remain grounded
+00:00 +5: cosmetic updates, speech and inspection cannot advance the colony
+00:00 +6: inspection and speech distinguish missing farms from disconnected farms
+00:00 +7: All tests passed!

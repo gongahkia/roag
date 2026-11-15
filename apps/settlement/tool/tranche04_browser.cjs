@@ -58,7 +58,7 @@ let browser,page;
  pass('85-resident normal-speed town: genuine full-staff need alongside actual work/social activity, crowded offsets, 1024×640 and 1440×900');
  fs.writeFileSync(path.join(out,'crowd-samples.json'),JSON.stringify(large,null,2));const crowdVideo=await page.video().path();await context.close();fs.renameSync(crowdVideo,path.join(out,'crowd-normal-speed.webm'));
 
- context=await open(false,true);await importFile(path.resolve('../../docs/world-builder/evidence/tranche-03/colony-gathering.json'));await page.waitForTimeout(26000);await snap('11-rest-reduced-motion');s=await read();assert(s.colony.residents.some(r=>r.activity==='resting'));
+ context=await open(false,true);await importFile(path.resolve('../../docs/world-builder/evidence/tranche-03/colony-gathering.json'));await waitFor(s=>s.colony.clock>=128 && s.colony.residents.some(r=>r.activity==='resting'),60000);await snap('11-rest-reduced-motion');s=await read();assert(s.colony.residents.some(r=>r.activity==='resting'));
  await speed(0);await menu('Controls & about');
  await snap('12-help');await page.getByRole('button',{name:'Back to the landscape',exact:true}).click();
  pass('Reduced-motion browser preference, night rest and Farm/Park help');await context.close();

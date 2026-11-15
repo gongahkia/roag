@@ -1,0 +1,1 @@
+PASS: 85 residents, 220 seconds, 44 full checkpoints; baseline b878e25b4eda261b7c34c92938b80f79feebbbce; SHA256 b055ffc425e0edfdf2fe8915a2ddaa993b3d50d0c1f0511656c8ef7cf9d2db24

@@ -1,0 +1,18 @@
+{
+  "browser": "155.0.8059.84",
+  "devicePixelRatio": 1.5,
+  "checks": [
+    "Escape, unfinished Undo, tool switch and browser touch cancellation cancel priced strokes",
+    "Canvas exit commits the accepted prefix; pan/build mode survives modifier changes",
+    "Read-only inspection leaves the checkpoint unchanged; unlimited placement and its undo charge zero",
+    "Existing user-gesture audio runs; mute suppresses creation of placement and undo tones",
+    "A priced brush stages through the speech layer and cancels without construction changes",
+    "DPR 1.5 picking; truthful storage-failure feedback preserves the previous saved checkpoint and refresh recovers it",
+    "Fixture-assisted schema-2 autoload: original 74-home data backed up exactly, neutral starter economy once, no retroactive history refund, reload has no second grant",
+    "Fixture-assisted backup failure protects the old primary save instead of overwriting it",
+    "Fixture-assisted night route repair immediately clears the resolved green complaint without advancing time or awarding money",
+    "Ordinary active reload checkpoints foreground progress before leaving, without a second starter grant"
+  ],
+  "errors": [],
+  "fixtureAssistance": "Only the two migration profiles receive the actual old-format fixture via browser storage; main input tests use a normal new game. Fault injection touches Storage.setItem only."
+}

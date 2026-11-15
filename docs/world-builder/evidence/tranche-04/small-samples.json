@@ -1,0 +1,1702 @@
+[
+  {
+    "clock": 0.5499999999999999,
+    "earned": 0,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "pending",
+        "x": 0.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "pending",
+        "x": 0.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "pending",
+        "x": 0.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "pending",
+        "x": 0.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      }
+    ]
+  },
+  {
+    "clock": 1.800000000000001,
+    "earned": 0,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "home",
+        "x": 3.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "arriving",
+        "x": 3.4499999999999997,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "arriving",
+        "x": 2.8499999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      }
+    ]
+  },
+  {
+    "clock": 1.800000000000001,
+    "earned": 0,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "home",
+        "x": 3.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "arriving",
+        "x": 3.4499999999999997,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "arriving",
+        "x": 2.8499999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      }
+    ]
+  },
+  {
+    "clock": 4.799999999999991,
+    "earned": 50,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialTravel",
+        "x": 2.8499999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "workTravel",
+        "x": 7.4125000000000005,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 0.25,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialTravel",
+        "x": 8.200000000000001,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 4.799999999999991,
+    "earned": 50,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialTravel",
+        "x": 2.8499999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "workTravel",
+        "x": 7.4125000000000005,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 0.25,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialTravel",
+        "x": 8.200000000000001,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 4.799999999999991,
+    "earned": 50,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialTravel",
+        "x": 2.8499999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "workTravel",
+        "x": 7.4125000000000005,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 0.25,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialTravel",
+        "x": 8.200000000000001,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 7.79999999999998,
+    "earned": 1180,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 2.6499999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 3.2499999999999964,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 7.79999999999998,
+    "earned": 1180,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 2.6499999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 3.2499999999999964,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 7.79999999999998,
+    "earned": 1180,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 2.6499999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 3.2499999999999964,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 10.800000000000018,
+    "earned": 2380,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 5.649999999999988,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 6.249999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 10.800000000000018,
+    "earned": 2380,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 5.649999999999988,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 6.249999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 10.800000000000018,
+    "earned": 2380,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 5.649999999999988,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 6.249999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": -10000,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 13.70000000000006,
+    "earned": 3540,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "returning",
+        "x": 8.624999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 8.549999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 9.149999999999995,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 13.70000000000006,
+    "earned": 3540,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "returning",
+        "x": 8.624999999999996,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 8.549999999999986,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 9.149999999999995,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 16.750000000000103,
+    "earned": 4720,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 11.60000000000003,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialTravel",
+        "x": 9.259999999999998,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 16.750000000000103,
+    "earned": 4720,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 11.60000000000003,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialTravel",
+        "x": 9.259999999999998,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 16.750000000000103,
+    "earned": 4720,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 11.60000000000003,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialTravel",
+        "x": 9.259999999999998,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 19.650000000000144,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 19.650000000000144,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 19.650000000000144,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 22.700000000000188,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 22.700000000000188,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "socialising",
+        "x": 10.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": -10000,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 25.70000000000023,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "returning",
+        "x": 4.135,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "home",
+        "x": 4.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 25.70000000000023,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "returning",
+        "x": 4.135,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "home",
+        "x": 4.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 25.70000000000023,
+    "earned": 4800,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "returning",
+        "x": 4.135,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "home",
+        "x": 4.5,
+        "y": 15.5,
+        "worked": 12,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 28.700000000000273,
+    "earned": 5120,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 12.300000000000004,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 13.300000000000018,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 28.700000000000273,
+    "earned": 5120,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 12.300000000000004,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 13.300000000000018,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 28.700000000000273,
+    "earned": 5120,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 12.300000000000004,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 13.300000000000018,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 31.750000000000316,
+    "earned": 6340,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 15.350000000000048,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 16.350000000000062,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 31.750000000000316,
+    "earned": 6340,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 15.350000000000048,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 16.350000000000062,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 31.750000000000316,
+    "earned": 6340,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 15.350000000000048,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 16.350000000000062,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 34.75000000000016,
+    "earned": 7540,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 18.35000000000009,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 19.350000000000104,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 34.75000000000016,
+    "earned": 7540,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 18.35000000000009,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 19.350000000000104,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  },
+  {
+    "clock": 37.74999999999999,
+    "earned": 8740,
+    "people": [
+      {
+        "id": "home-1",
+        "body": "plain-v1",
+        "palette": 2,
+        "activity": "home",
+        "x": 2.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 13.150000000000052,
+        "workIssue": "workFull"
+      },
+      {
+        "id": "home-2",
+        "body": "longhair-v1",
+        "palette": 1,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 21.350000000000133,
+        "social": 23.800000000000203,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-3",
+        "body": "hood-v1",
+        "palette": 0,
+        "activity": "working",
+        "x": 8.5,
+        "y": 15.5,
+        "worked": 22.350000000000147,
+        "social": 23.200000000000195,
+        "workIssue": "none"
+      },
+      {
+        "id": "home-4",
+        "body": "cap-v1",
+        "palette": 3,
+        "activity": "home",
+        "x": 5.5,
+        "y": 15.5,
+        "worked": 0,
+        "social": 11.55000000000003,
+        "workIssue": "workFull"
+      }
+    ]
+  }
+]

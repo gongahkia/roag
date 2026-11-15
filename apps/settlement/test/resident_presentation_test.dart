@@ -127,45 +127,42 @@ void main() {
     expect(p.pose(r).lean, 0);
     expect(p.pose(r).gesture, 0);
   });
-  test(
-    'cosmetic updates, speech, camera and inspection cannot advance the colony',
-    () {
-      final c = village();
-      advance(c, 10);
-      final game = SettlementGame(c, (_) {}),
-          before = c.encode(),
-          director = SpeechDirector();
-      for (var i = 0; i < 900; i++) {
-        game.presentation.update(.05, c.people.values);
-        game.reducedMotion = i.isEven;
-        for (final r in c.people.values) {
-          game.actorPosition(r);
-          game.pose(r);
-          game.inspectedResident = r.homeId;
-          game.inspection;
-          director.update(.05, [
-            BubbleCandidate(r, [const Rect.fromLTWH(10, 10, 160, 30)]),
-          ]);
-        }
+  test('cosmetic updates, speech and inspection cannot advance the colony', () {
+    final c = village();
+    advance(c, 10);
+    final game = SettlementGame(c, (_) {}),
+        before = c.encode(),
+        director = SpeechDirector();
+    for (var i = 0; i < 900; i++) {
+      game.presentation.update(.05, c.people.values);
+      game.reducedMotion = i.isEven;
+      for (final r in c.people.values) {
+        game.actorPosition(r);
+        game.pose(r);
+        game.inspectedResident = r.homeId;
+        game.inspection;
+        director.update(.05, [
+          BubbleCandidate(r, [const Rect.fromLTWH(10, 10, 160, 30)]),
+        ]);
       }
-      expect(c.encode(), before);
-      final copy = Colony.decode(before);
-      for (var i = 0; i < 4400; i++) {
-        c.update(.05);
-        copy.update(.05);
-        game.presentation.update(.05, c.people.values);
-        for (final r in c.people.values) {
-          game.pose(r);
-          game.pose(r);
-        }
+    }
+    expect(c.encode(), before);
+    final copy = Colony.decode(before);
+    for (var i = 0; i < 4400; i++) {
+      c.update(.05);
+      copy.update(.05);
+      game.presentation.update(.05, c.people.values);
+      for (final r in c.people.values) {
+        game.pose(r);
+        game.pose(r);
       }
-      expect(
-        c.encode(),
-        copy.encode(),
-        reason: '220 seconds includes work, leisure, evening and rest',
-      );
-    },
-  );
+    }
+    expect(
+      c.encode(),
+      copy.encode(),
+      reason: '220 seconds includes work, leisure, evening and rest',
+    );
+  });
   test(
     'inspection and speech distinguish missing farms from disconnected farms',
     () {

@@ -83,8 +83,10 @@ fs.mkdirSync(output,{recursive:true});
     run(['key','--clearmodifiers','Escape']);
     move(550,300);run(['mousedown','3']);move(470,260);run(['mouseup','3']);
     run(['click','5']);await button('Return to lane (H)');
+    await button('1×');
+    await wait(`JSON.parse(${saved})?.colony.residents.some(r=>r.workedSeconds>0)`);
     const screenshot=await send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(output,'native-browser-zoom.png'),Buffer.from(screenshot.data,'base64'));
-    const result={original,zoomed,osScale,paths:13,nativeInput:'XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release',observation:'raw CDP, no focus emulation or game callbacks',checks:['110% browser zoom','native tab focus loss cancels without save','no partial-stroke save','cells 8 through 12 painted as one stroke','priced Farm focus-loss cancellation','Farm and Park native placement deduct exact costs','native four-home drag','I inspection and Escape cancellation','right-button pan and native wheel zoom']};
+    const result={original,zoomed,osScale,paths:13,nativeInput:'XTest: real Ctrl+plus, palette clicks, native tab focus loss, five-cell drag and release',observation:'raw CDP, no focus emulation or game callbacks',checks:['110% browser zoom','native tab focus loss cancels without save','no partial-stroke save','cells 8 through 12 painted as one stroke','priced Farm focus-loss cancellation','Farm and Park native placement deduct exact costs','native four-home drag','I inspection and Escape cancellation','right-button pan and native wheel zoom','visible inhabitants and actual work at 110%']};
     fs.writeFileSync(path.join(output,'native-results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
     await send('Browser.close');
   } finally {socket?.close();native.kill('SIGTERM');}

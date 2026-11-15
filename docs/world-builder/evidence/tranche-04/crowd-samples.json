@@ -1,0 +1,314 @@
+[
+  {
+    "clock": 22.000000000000178,
+    "work": 27900,
+    "activities": {
+      "socialising": 14,
+      "returning": 26,
+      "home": 28,
+      "socialWaiting": 2,
+      "socialTravel": 13,
+      "working": 2
+    }
+  },
+  {
+    "clock": 24.750000000000217,
+    "work": 28750,
+    "activities": {
+      "socialising": 13,
+      "returning": 20,
+      "home": 36,
+      "socialTravel": 15,
+      "working": 1
+    }
+  },
+  {
+    "clock": 24.750000000000217,
+    "work": 28750,
+    "activities": {
+      "socialising": 13,
+      "returning": 20,
+      "home": 36,
+      "socialTravel": 15,
+      "working": 1
+    }
+  },
+  {
+    "clock": 27.70000000000026,
+    "work": 29050,
+    "activities": {
+      "returning": 14,
+      "socialTravel": 19,
+      "home": 36,
+      "socialising": 14,
+      "socialWaiting": 1,
+      "working": 1
+    }
+  },
+  {
+    "clock": 27.70000000000026,
+    "work": 29050,
+    "activities": {
+      "returning": 14,
+      "socialTravel": 19,
+      "home": 36,
+      "socialising": 14,
+      "socialWaiting": 1,
+      "working": 1
+    }
+  },
+  {
+    "clock": 27.70000000000026,
+    "work": 29050,
+    "activities": {
+      "returning": 14,
+      "socialTravel": 19,
+      "home": 36,
+      "socialising": 14,
+      "socialWaiting": 1,
+      "working": 1
+    }
+  },
+  {
+    "clock": 30.7000000000003,
+    "work": 29650,
+    "activities": {
+      "home": 39,
+      "socialTravel": 14,
+      "returning": 18,
+      "socialising": 11,
+      "workTravel": 2,
+      "working": 1
+    }
+  },
+  {
+    "clock": 30.7000000000003,
+    "work": 29650,
+    "activities": {
+      "home": 39,
+      "socialTravel": 14,
+      "returning": 18,
+      "socialising": 11,
+      "workTravel": 2,
+      "working": 1
+    }
+  },
+  {
+    "clock": 30.7000000000003,
+    "work": 29650,
+    "activities": {
+      "home": 39,
+      "socialTravel": 14,
+      "returning": 18,
+      "socialising": 11,
+      "workTravel": 2,
+      "working": 1
+    }
+  },
+  {
+    "clock": 33.70000000000022,
+    "work": 31230,
+    "activities": {
+      "home": 41,
+      "socialising": 16,
+      "returning": 16,
+      "socialWaiting": 1,
+      "socialTravel": 7,
+      "working": 3,
+      "workTravel": 1
+    }
+  },
+  {
+    "clock": 33.70000000000022,
+    "work": 31230,
+    "activities": {
+      "home": 41,
+      "socialising": 16,
+      "returning": 16,
+      "socialWaiting": 1,
+      "socialTravel": 7,
+      "working": 3,
+      "workTravel": 1
+    }
+  },
+  {
+    "clock": 36.70000000000005,
+    "work": 33280,
+    "activities": {
+      "home": 49,
+      "socialising": 11,
+      "workTravel": 2,
+      "socialTravel": 4,
+      "returning": 13,
+      "socialWaiting": 2,
+      "working": 4
+    }
+  },
+  {
+    "clock": 36.70000000000005,
+    "work": 33280,
+    "activities": {
+      "home": 49,
+      "socialising": 11,
+      "workTravel": 2,
+      "socialTravel": 4,
+      "returning": 13,
+      "socialWaiting": 2,
+      "working": 4
+    }
+  },
+  {
+    "clock": 36.70000000000005,
+    "work": 33280,
+    "activities": {
+      "home": 49,
+      "socialising": 11,
+      "workTravel": 2,
+      "socialTravel": 4,
+      "returning": 13,
+      "socialWaiting": 2,
+      "working": 4
+    }
+  },
+  {
+    "clock": 39.649999999999885,
+    "work": 35730,
+    "activities": {
+      "home": 52,
+      "returning": 17,
+      "working": 4,
+      "socialTravel": 2,
+      "workTravel": 3,
+      "socialising": 7
+    }
+  },
+  {
+    "clock": 39.649999999999885,
+    "work": 35730,
+    "activities": {
+      "home": 52,
+      "returning": 17,
+      "working": 4,
+      "socialTravel": 2,
+      "workTravel": 3,
+      "socialising": 7
+    }
+  },
+  {
+    "clock": 39.649999999999885,
+    "work": 35730,
+    "activities": {
+      "home": 52,
+      "returning": 17,
+      "working": 4,
+      "socialTravel": 2,
+      "workTravel": 3,
+      "socialising": 7
+    }
+  },
+  {
+    "clock": 42.649999999999714,
+    "work": 38370,
+    "activities": {
+      "home": 56,
+      "returning": 14,
+      "working": 6,
+      "socialising": 5,
+      "workTravel": 3,
+      "socialTravel": 1
+    }
+  },
+  {
+    "clock": 42.649999999999714,
+    "work": 38370,
+    "activities": {
+      "home": 56,
+      "returning": 14,
+      "working": 6,
+      "socialising": 5,
+      "workTravel": 3,
+      "socialTravel": 1
+    }
+  },
+  {
+    "clock": 45.54999999999955,
+    "work": 41140,
+    "activities": {
+      "home": 63,
+      "working": 5,
+      "socialising": 4,
+      "workTravel": 4,
+      "returning": 9
+    }
+  },
+  {
+    "clock": 45.54999999999955,
+    "work": 41140,
+    "activities": {
+      "home": 63,
+      "working": 5,
+      "socialising": 4,
+      "workTravel": 4,
+      "returning": 9
+    }
+  },
+  {
+    "clock": 45.54999999999955,
+    "work": 41140,
+    "activities": {
+      "home": 63,
+      "working": 5,
+      "socialising": 4,
+      "workTravel": 4,
+      "returning": 9
+    }
+  },
+  {
+    "clock": 48.54999999999938,
+    "work": 44770,
+    "activities": {
+      "home": 65,
+      "working": 7,
+      "returning": 6,
+      "socialTravel": 2,
+      "socialising": 3,
+      "workTravel": 2
+    }
+  },
+  {
+    "clock": 48.54999999999938,
+    "work": 44770,
+    "activities": {
+      "home": 65,
+      "working": 7,
+      "returning": 6,
+      "socialTravel": 2,
+      "socialising": 3,
+      "workTravel": 2
+    }
+  },
+  {
+    "clock": 48.54999999999938,
+    "work": 44770,
+    "activities": {
+      "home": 65,
+      "working": 7,
+      "returning": 6,
+      "socialTravel": 2,
+      "socialising": 3,
+      "workTravel": 2
+    }
+  },
+  {
+    "clock": 51.49999999999921,
+    "work": 48990,
+    "activities": {
+      "home": 67,
+      "working": 7,
+      "socialTravel": 2,
+      "returning": 7,
+      "socialising": 1,
+      "workTravel": 1
+    }
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "browser": "155.0.8059.84",
+  "viewportChecks": [
+    "1024x640",
+    "1440x900"
+  ],
+  "input": "Playwright browser mouse/keyboard; paused + Unlimited building compatibility mode; no game callbacks or world injection",
+  "seed": 202,
+  "steps": [
+    "Initial keyboard shortcut and lane extension",
+    "Nine cottages, branches, and access junctions",
+    "Hover does not edit or save",
+    "Demolition retains pad/scar, cottages and disconnected fragments",
+    "Reconnect, build over pad, exact physical undo/redo with forward IDs",
+    "Invalid disconnected placement is a no-op",
+    "Camera drag isolation and picking after pan",
+    "Pointer-anchored zoom and picking",
+    "1440×900 resize and correctly picked placement",
+    "Refresh restores exact scene",
+    "Export, scene change and import reproduce exact composition",
+    "Unsupported import preserves scene",
+    "New Landscape cancellation and menu isolation",
+    "User-gesture audio context running; mute suppresses oscillator creation",
+    "Fuller settlement: 22 cottages and an extended branched road network"
+  ],
+  "cottageCount": 22,
+  "pathCount": 36,
+  "inputToObservedAutosaveMs": {
+    "min": 239.5045519999985,
+    "max": 943.8932139999997,
+    "median": 340.3166280000005
+  },
+  "frameIntervalsMs": {
+    "median": 50,
+    "max": 100.10000000000582
+  },
+  "errors": [],
+  "failedRequests": []
+}
