@@ -244,9 +244,7 @@ class SettlementGame extends FlameGame {
   Reason speechReason(Resident r) =>
       r.feedback == Reason.noWork &&
           colony.workplaces.isNotEmpty &&
-          colony
-              .places(Place.garden)
-              .every((p) => colony.world.access(p.value) == null)
+          colony.workplaces.every((p) => colony.world.access(p.value) == null)
       ? Reason.farmsCut
       : r.feedback;
 
@@ -413,7 +411,7 @@ class SettlementGame extends FlameGame {
       dt,
       candidates,
       avoid: [
-        const Rect.fromLTWH(16, 12, 510, 28),
+        const Rect.fromLTWH(16, 12, 700, 80),
         // matches the existing top-right read-only inspector, with safe padding.
         if (inspection != null) Rect.fromLTWH(size.x - 312, 0, 312, 400),
       ],
@@ -673,7 +671,7 @@ class _LandscapeLayer extends Component {
         opacity: opacity,
       );
       if (lot.place == Place.market) {
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 4; i++) {
           canvas.drawRect(
             Rect.fromLTWH(x + 1 + i * 2, y + 3, 2, 2),
             Paint()
@@ -681,6 +679,7 @@ class _LandscapeLayer extends Component {
                   (i.isEven ? const Color(0xffbf7e65) : const Color(0xffe6cf94))
                       .withValues(alpha: opacity),
           );
+        }
       }
     } else if (lot.place == Place.garden) {
       for (final row in [3.0, 7.0]) {
@@ -837,8 +836,9 @@ class _LandscapeLayer extends Component {
           );
     var actor = 0;
     for (final c in _objects) {
-      if (!visible.overlaps(Rect.fromLTWH(c.x * 12.0, c.y * 12.0, 12, 12)))
+      if (!visible.overlaps(Rect.fromLTWH(c.x * 12.0, c.y * 12.0, 12, 12))) {
         continue;
+      }
       while (actor < people.length &&
           game.actorPosition(people[actor].$1).dy <= (c.y + 1) * 12) {
         person(canvas, people[actor].$1, people[actor].$2);
@@ -990,7 +990,7 @@ class _LandscapeLayer extends Component {
     if (sprite == null) return;
     canvas.save();
     canvas.translate(position.dx, position.dy);
-    if (game.inspectedResident == r.homeId)
+    if (game.inspectedResident == r.homeId) {
       canvas.drawOval(
         const Rect.fromLTWH(-3, -1, 6, 2),
         Paint()
@@ -998,6 +998,7 @@ class _LandscapeLayer extends Component {
           ..style = PaintingStyle.stroke
           ..strokeWidth = .4,
       );
+    }
     canvas.drawOval(
       const Rect.fromLTWH(-2.5, -.4, 5, 1.3),
       Paint()..color = const Color(0xff17291f).withValues(alpha: alpha * .75),
@@ -1034,6 +1035,21 @@ class _LandscapeLayer extends Component {
         ..color = Color.fromRGBO(255, 255, 255, alpha),
     );
     if (r.activity == Activity.working) {
+      if (game.colony.kind(r.workId) == Place.garden &&
+          r.workProgress > 0 &&
+          game.colony.special?.kind == SpecialKind.harvest &&
+          game.colony.special!.active(game.colony.clock)) {
+        canvas.drawRect(
+          const Rect.fromLTWH(-3, -6, 1, 1),
+          Paint()..color = gold,
+        );
+      }
+      if (game.colony.kind(r.workId) == Place.workshop) {
+        canvas.drawRect(
+          Rect.fromLTWH(3, -3 + pose.gesture, 2, .8),
+          Paint()..color = const Color(0xffb5c8bf),
+        );
+      }
       canvas.drawLine(
         Offset(2, -4),
         Offset(4, -1.3 + pose.gesture * 1.2),

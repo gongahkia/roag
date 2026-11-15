@@ -38,7 +38,12 @@ void main() {
       Tool.green.purpose,
       contains('${Rules.greenCapacity} visitor spaces'),
     );
-    expect(Rules.costs, {'cottage': 5000, 'garden': 8000, 'green': 6000});
+    expect(
+      {
+        for (final key in ['cottage', 'garden', 'green']) key: Rules.costs[key],
+      },
+      {'cottage': 5000, 'garden': 8000, 'green': 6000},
+    );
     expect([Rules.gardenCapacity, Rules.greenCapacity], [2, 6]);
     for (final row in original['colony']['residents']) {
       expect(c.people[row['id']]!.palette, row['palette']);

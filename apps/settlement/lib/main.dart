@@ -213,8 +213,9 @@ class _LandscapePageState extends State<LandscapePage> {
   void pointerMove(PointerMoveEvent e) {
     if (pointer != e.pointer || last == null) return;
     if (inspectionStart != null) {
-      if ((e.localPosition - inspectionStart!).distance > 5)
+      if ((e.localPosition - inspectionStart!).distance > 5) {
         inspectionDragged = true;
+      }
       return;
     }
     if (!inside(e.localPosition)) {
@@ -233,8 +234,9 @@ class _LandscapePageState extends State<LandscapePage> {
     if (pointer != e.pointer) return;
     if (inspectionStart != null) {
       if (!inspectionDragged &&
-          (e.localPosition - inspectionStart!).distance <= 5)
+          (e.localPosition - inspectionStart!).distance <= 5) {
         game.inspect(e.localPosition);
+      }
       inspectionStart = null;
       pointer = null;
       last = null;
@@ -485,9 +487,7 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void replaceColony(Colony next) {
     cancelGesture();
-    next.navigation.invalidate(next.world, raining: next.raining);
-    if (next.navigation.revision <= colony.navigation.revision)
-      next.navigation.revision = colony.navigation.revision + 1;
+    next.rebaseNavigation(colony.navigation.revision);
     colony = next;
     game.colony = next;
     game.resetPresentation();
@@ -783,7 +783,7 @@ class _LandscapePageState extends State<LandscapePage> {
                               setState(() {});
                             },
                             child: Text(
-                              '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · inspect',
+                              '${colony.special!.title} · ${(colony.special!.ends - colony.clock).ceil()}s left · ${colony.clock - colony.special!.starts < 5 ? colony.special!.shortEffect : 'inspect'}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xffe4d29b),

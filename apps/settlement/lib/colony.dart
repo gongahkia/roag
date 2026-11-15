@@ -120,6 +120,23 @@ class Colony extends Residents {
     }
   }
 
+  void rebaseNavigation(int previousRevision) {
+    final old = navigation.revision;
+    navigation.invalidate(world, raining: raining);
+    navigation.revision = math.max(navigation.revision, previousRevision + 1);
+    final requests = planning.toList();
+    planning.clear();
+    for (final p in requests) {
+      planning.add(
+        PlanningRequest(
+          p.id,
+          p.revision == old ? navigation.revision : p.revision,
+          p.plan,
+        ),
+      );
+    }
+  }
+
   @override
   bool go(Resident r, Cell target, Activity activity) {
     _countsDirty = true;
@@ -834,10 +851,21 @@ class Colony extends Residents {
             Place.market,
           ).any((p) => world.access(p.value) != null && workers(p.key) > 0) &&
           people.values.any(
-            (r) => r.arrived && r.activity != Activity.working && connected(r),
+            (r) =>
+                r.arrived &&
+                ![
+                  Activity.working,
+                  Activity.workTravel,
+                  Activity.gathering,
+                  Activity.gatheringTravel,
+                  Activity.pending,
+                  Activity.arriving,
+                ].contains(r.activity) &&
+                connected(r),
           ),
   };
-  bool beginSpecial(SpecialKind kind) {
+  bool beginSpecial(SpecialKind kind, {bool fixture = false}) {
+    if (!fixture && clock + 1e-9 < nextSpecialAt) return false;
     if (special?.active(clock) == true || !eligibleSpecial(kind)) return false;
     final wasRain = raining;
     special = SpecialEvent(
@@ -1130,6 +1158,10 @@ class Colony extends Residents {
               world.at(world.places[r.workId]!).place!.workCapacity == 0)) {
         throw const FormatException('Invalid workplace.');
       }
+      if (r.workId != null &&
+          r.workProgress > colony.kind(r.workId)!.workDuration) {
+        throw const FormatException('Invalid productive progress.');
+      }
       if (r.destination != null && !world.places.containsKey(r.destination)) {
         throw const FormatException('Invalid destination.');
       }
@@ -1278,6 +1310,13 @@ class Colony extends Residents {
             start,
             colony.clock + Rules.specialDuration,
           );
+      if (!RegExp(r'^special-[1-9][0-9]*$').hasMatch(id) ||
+          int.parse(id.split('-').last) >= colony.nextSpecialId ||
+          (end - start - Rules.specialDuration).abs() > 1e-6) {
+        throw const FormatException(
+          'Invalid special event identity or duration.',
+        );
+      }
       colony.special = SpecialEvent(id, kind, start, end);
     }
     colony.navigation.rain = colony.raining;

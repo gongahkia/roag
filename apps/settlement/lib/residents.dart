@@ -299,7 +299,7 @@ class Residents {
       }
       if (r.activity == Activity.settling) {
         final target = r.settleTarget;
-        if (target != null && _move(r, target, dt, Rules.settleSpeed)) {
+        if (target != null && _move(r, target, dt, Rules.settleSpeed) >= 0) {
           r.settleTarget = null;
           r.activity = Activity.returning;
           plan(r);
@@ -307,18 +307,25 @@ class Residents {
         continue;
       }
       if (r.route.isNotEmpty) {
-        final target = r.route.first;
-        if (_move(
-          r,
-          target,
-          dt,
-          r.segmentSpeed > 0 ? r.segmentSpeed : walkingSpeed(r, target),
-        )) {
+        var remaining = dt;
+        while (r.route.isNotEmpty && remaining > 1e-9) {
+          final target = r.route.first;
+          final unused = _move(
+            r,
+            target,
+            remaining,
+            r.segmentSpeed > 0 ? r.segmentSpeed : walkingSpeed(r, target),
+          );
+          if (unused < 0) break;
           r.route.removeAt(0);
+          remaining = unused;
           if (r.replanAfterEdge) {
             plan(r);
-          } else if (r.route.isEmpty) {
+            break;
+          }
+          if (r.route.isEmpty) {
             reached(r);
+            break;
           }
         }
       } else if (r.activity == Activity.home) {
@@ -336,12 +343,12 @@ class Residents {
   bool gardenSegment(Resident r, Cell target) => false;
   void traversed(Resident r, Cell target, bool garden) {}
 
-  bool _move(Resident r, Cell target, double dt, double speed) {
+  double _move(Resident r, Cell target, double dt, double speed) {
     if (r.activity != Activity.settling) {
       if (!world.contains(target) || !world.at(target).path) {
         r.segmentSpeed = 0;
         _settle(r);
-        return false;
+        return -1;
       }
       if (r.segmentSpeed == 0) {
         r.segmentSpeed = speed;
@@ -361,10 +368,10 @@ class Residents {
       }
       r.segmentSpeed = 0;
       r.segmentGarden = false;
-      return true;
+      return (dt - distance / speed).clamp(0.0, dt);
     }
     r.x += dx / distance * speed * dt;
     r.y += dy / distance * speed * dt;
-    return false;
+    return -1;
   }
 }

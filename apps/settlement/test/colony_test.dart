@@ -7,6 +7,7 @@ import 'package:roag_settlement/model.dart';
 import 'package:roag_settlement/reasons.dart';
 import 'package:roag_settlement/residents.dart';
 import 'package:roag_settlement/rules.dart';
+import 'package:roag_settlement/resident_identity.dart';
 
 void advance(Colony c, double seconds) {
   for (var i = 0; i < (seconds / .05).round(); i++) {
@@ -112,7 +113,9 @@ void main() {
             .where((r) => r.lastSocial >= 0)
             .every(
               (r) =>
-                  c.contributions(r)['Recent leisure'] == Rules.socialBenefit,
+                  c.contributions(r)['Recent leisure'] ==
+                  Rules.socialBenefit +
+                      (r.trait == Trait.sociable ? Rules.sociableBenefit : 0),
             ),
         isTrue,
       );

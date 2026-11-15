@@ -1,6 +1,13 @@
 enum SpecialKind { rain, harvest, marketDay }
 
 class SpecialEvent {
+  String get shortEffect => switch (kind) {
+    SpecialKind.rain =>
+      'Slower paths · Stone Roads stay quick · Halls preferred',
+    SpecialKind.harvest => '+25% from actual Farm work',
+    SpecialKind.marketDay =>
+      'Staffed visits favoured · qualifying trade +0.25 coin',
+  };
   final String id;
   final SpecialKind kind;
   final double starts, ends;
