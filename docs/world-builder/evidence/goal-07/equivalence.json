@@ -1,0 +1,6 @@
+{
+  "fixture": "85 actual legacy residents; seed 202; no choices; 180 seconds; 36 full encoded checkpoints",
+  "equal": true,
+  "beforeSHA256": "5c447d730444836ae8e5a9bf0b8911fa585f92c67a15d67ef5b6784cb3766fec",
+  "afterSHA256": "5c447d730444836ae8e5a9bf0b8911fa585f92c67a15d67ef5b6784cb3766fec"
+}

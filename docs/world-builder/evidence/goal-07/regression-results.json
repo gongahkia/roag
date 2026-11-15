@@ -1,0 +1,123 @@
+{
+  "seed": 202,
+  "checks": [
+    "85 actual residents; sprite catalogue contains all nine buildable types with prices/access, selected tool and treasury coin",
+    "Free cottage move: pure ghost/cancellation, invalid collision, durable person/variant/ID, actual return to new home, atomic Undo/Redo with forward money/time",
+    "Right-click context-menu route and inspection Move both work; occupied workplace moves without teleport/pay, invalidates navigation, then real work resumes",
+    "Populated relocation survives exact paused reload and validated file export/import; pan/zoom/resize remain usable",
+    "Two truthful branches and decline are read-only; deliberate promise, paid jobs, actual productive work, one gratitude award/acknowledgment, history and free continued building",
+    "Both eligible civic branches: exact one-time price, no replay by reopening, actual service and bounded hospitality, unchanged ordinary trade, Undo and reload",
+    "Civic eligibility and affordability: no decision without customers; paid-construction depleted treasury disables sponsorship honestly and permits ordinary free choice; live dialogue survives pan/zoom and 1440/1024/931-CSS layouts without changing gameplay"
+  ],
+  "errors": [],
+  "timeline": [
+    {
+      "name": "01-catalogue-buildings",
+      "seconds": 6.336
+    },
+    {
+      "name": "02-catalogue-roads",
+      "seconds": 7.611
+    },
+    {
+      "name": "03-relocation-preview",
+      "seconds": 9.372
+    },
+    {
+      "name": "04-cottage-moved",
+      "seconds": 10.666
+    },
+    {
+      "name": "05-same-resident-at-new-home",
+      "seconds": 21.023
+    },
+    {
+      "name": "06-building-context-menu",
+      "seconds": 22.555
+    },
+    {
+      "name": "07-workplace-ghost",
+      "seconds": 23.542
+    },
+    {
+      "name": "08-work-at-new-location",
+      "seconds": 39.666
+    },
+    {
+      "name": "09-desktop-1440",
+      "seconds": 44.678
+    },
+    {
+      "name": "10-conversation",
+      "seconds": 48.371
+    },
+    {
+      "name": "11-truthful-recent-branch",
+      "seconds": 48.959
+    },
+    {
+      "name": "12-genuine-work-request",
+      "seconds": 49.425
+    },
+    {
+      "name": "13-declined",
+      "seconds": 49.874
+    },
+    {
+      "name": "14-promise",
+      "seconds": 51.097
+    },
+    {
+      "name": "15-build-real-jobs",
+      "seconds": 52.314
+    },
+    {
+      "name": "16-truthful-acknowledgment",
+      "seconds": 57.04
+    },
+    {
+      "name": "17-building-continues",
+      "seconds": 59.106
+    },
+    {
+      "name": "18-ordinary-decision",
+      "seconds": 65.969
+    },
+    {
+      "name": "20-real-ordinary-service",
+      "seconds": 77.464
+    },
+    {
+      "name": "19-sponsored-decision",
+      "seconds": 86.408
+    },
+    {
+      "name": "21-real-sponsored-service",
+      "seconds": 97.851
+    },
+    {
+      "name": "22-no-customer-decision",
+      "seconds": 104.231
+    },
+    {
+      "name": "23-insufficient-funds",
+      "seconds": 106.499
+    },
+    {
+      "name": "24-civic-1440",
+      "seconds": 107.619
+    },
+    {
+      "name": "24-civic-931",
+      "seconds": 108.293
+    },
+    {
+      "name": "24-civic-1024",
+      "seconds": 108.816
+    }
+  ],
+  "population": 85,
+  "native": false,
+  "input": "Playwright mouse/keyboard, actual menus/file chooser; read-only checkpoint assertions; no game callbacks",
+  "fixtureAssistance": "Safe 85-person copy, four-person genuine-need town, actual-service eligible Market day generated explicitly by developer tool"
+}
