@@ -46,6 +46,61 @@ void until(Colony c, bool Function() f, [int ticks = 3000]) {
 
 void main() {
   test(
+    'actual guard work consumes a repaired Watchpost charge before Undo',
+    () {
+      final c = prepared(), station = c.places(Place.watchpost).first;
+      c.startIncident(IncidentKind.wildlife, fixture: true);
+      advance(c, 1);
+      expect(c.people.values.any((r) => r.safetyRole == 'guard'), true);
+      c.damageBuilding(station.key, 10);
+      c.session.beginStroke(Tool.repair, station.value);
+      expect(c.session.finishStroke(), true);
+      c.reconcile(c.world);
+      final productive = c.status(station.key)!.productive;
+      until(c, () => (c.incident?.shoo ?? 0) > .05);
+      expect(c.status(station.key)!.productive, greaterThan(productive));
+      final paid = c.session.money;
+      expect(c.session.undo(), false);
+      expect(c.session.money, paid);
+      expect(c.status(station.key)!.health, 100);
+    },
+  );
+  test('Undo of an unusable home repair retains real displacement and exact continuation', () {
+    final c = prepared(firehouse: false),
+        home = c.world.at(const Cell(2, 14)).buildingId!,
+        person = c.people[c.world.at(const Cell(2, 14)).buildingId]!;
+    c.startIncident(IncidentKind.fire, target: home, fixture: true);
+    until(c, () => c.incident == null);
+    expect(c.homeUsable(person), false);
+    c.session.beginStroke(Tool.repair, const Cell(2, 14));
+    expect(c.session.finishStroke(), true);
+    c.reconcile(c.world);
+    expect(c.session.undo(), true);
+    c.reconcile(c.world);
+    advance(c, .1);
+    expect(person.safetyRole, 'evacuating');
+    expect(person.safetyIncident, isNull);
+    expect(person.activity, Activity.sheltering);
+    expect(c.incidentAccess(person.safetyTarget, person.cell), person.cell);
+    expect(person.feedback.name, 'sheltered');
+    expect(c.homeUsable(person), false);
+    final b = Colony.decode(c.encode());
+    expect(b.encode(), c.encode());
+    advance(c, 2);
+    advance(b, 2);
+    expect(b.encode(), c.encode());
+    expect(c.people[home], same(person));
+    final invalid = jsonDecode(c.encode());
+    invalid['colony']['preparedness']['conditions'][home]['health'] = 100;
+    expect(() => Colony.decode(jsonEncode(invalid)), throwsFormatException);
+    c.session.beginStroke(Tool.repair, const Cell(2, 14));
+    expect(c.session.finishStroke(), true);
+    c.reconcile(c.world);
+    expect(person.safetyRole, isNull);
+    expect(Colony.decode(c.encode()).encode(), c.encode());
+  });
+
+  test(
     'burning relocation is refused without changing identity, money or layout',
     () {
       final c = prepared(), target = c.world.at(const Cell(2, 14)).buildingId!;

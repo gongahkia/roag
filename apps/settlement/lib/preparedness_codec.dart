@@ -344,11 +344,17 @@ extension PreparednessCodec on Colony {
         continue;
       }
       if (!person.active ||
-          !['fire', 'guard', 'evacuating'].contains(person.safetyRole) ||
-          person.safetyIncident == null) {
+          !['fire', 'guard', 'evacuating'].contains(person.safetyRole)) {
         r.bad();
       }
-      r.incidentId(person.safetyIncident, nextIncidentId);
+      if (person.safetyIncident != null) {
+        r.incidentId(person.safetyIncident, nextIncidentId);
+      }
+      // displacement can outlive an incident or return after a fresh repair Undo.
+      if (person.safetyIncident == null &&
+          (person.safetyRole != 'evacuating' || homeUsable(person))) {
+        r.bad();
+      }
       if (person.safetyTarget != null) r.building(person.safetyTarget);
       if (person.safetyRole != 'evacuating' &&
           (e?.id != person.safetyIncident ||

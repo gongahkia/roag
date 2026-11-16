@@ -762,6 +762,7 @@ extension Preparedness on Colony {
             r.dutyAt = clock;
             r.earned += _earn(dt * 100 * (status(r.workId)?.output ?? 1));
             r.workedSeconds += dt;
+            if (r.workId != null) session.condition(r.workId!).productive += dt;
             if (e.shoo >= 2) {
               e.driven = true;
               _retreatAnimal(e);
@@ -862,6 +863,10 @@ extension Preparedness on Colony {
       }
     }
     for (final r in people.values.where((r) => r.safetyRole != null)) {
+      if (incident == null && homeUsable(r)) {
+        _releaseSafety(r);
+        continue;
+      }
       if (!r.moving) {
         r.activity = Activity.emergencyWaiting;
         r.timer = 0;

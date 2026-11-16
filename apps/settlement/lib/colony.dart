@@ -670,6 +670,10 @@ class Colony extends Residents {
   );
 
   void _decideNow(Resident r) {
+    if (!homeUsable(r)) {
+      _safetyStart(r, 'evacuating');
+      return;
+    }
     if (!connected(r)) {
       goHome(r);
       return;
@@ -944,6 +948,8 @@ class Colony extends Residents {
                     : Reason.guarding
               : r.activity == Activity.sheltering
               ? Reason.sheltered
+              : incident == null
+              ? Reason.homeDamaged
               : r.activity == Activity.emergencyWaiting
               ? r.safetyRole == 'evacuating' && !threatened(r.cell)
                     ? Reason.safetyRoad
