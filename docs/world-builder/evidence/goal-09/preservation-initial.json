@@ -1,0 +1,18 @@
+{
+  "head": "f2c3bf9b11cba3fc771fd5276741a72787c08d4c",
+  "status": "",
+  "readmes": {
+    "README.md": "3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a",
+    "docs/room-review/README.md": "b7d946cd1dbfa13bec2acadcc6d7e510938c687f0cbec114b88b42aa8562e02b",
+    "docs/sprite-audit/review-art/README.md": "c27502ead9aeac14287bfa34d85d621f1f4fd5cdb0da031328da673e821f65ad",
+    "assets/fonts/README.md": "a582c057c007615c7e1bd833b50e03875b31fcc15e0d5bff1e523e71d634d84a",
+    "assets/licenses/README.md": "5890a338fafd087543888b6252b1e92bdd2216076dffe935edeb1c5d73eea4a5",
+    "assets/tactics/README.md": "a5c0cab59e67d00cb2c9ea0d46d8bd5454e083cbe2bf3a0efd9fc472ed63fd6f"
+  },
+  "storage": {
+    "/home/gongahkia/.local/share/love/roag-foundation/profile-a.roag": "e6b7ee0640feda50d2542af0f08b34c4ed29f6c0a45f16be11e22ed79fb6c331",
+    "/home/gongahkia/.local/share/love/roag-foundation/profile-b.roag": "edadc9e6e9f49b713ceece7899e539dba49e77ca8a04c9071142bf0e4aadc153",
+    "/home/gongahkia/.local/share/love/roag-foundation/active-a.roag": "0e9ed2b44c2b5d45a9f271f61fa23a64c72e6d7b698cb5ffb58f22075be1b90f",
+    "/home/gongahkia/.local/share/love/roag-foundation/active-b.roag": "9a634b205139a0cc3f1c8fae472901b911d8a5046cdc87442a9d852350059fb2"
+  }
+}
