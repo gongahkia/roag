@@ -2,8 +2,9 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path');
 const out=path.resolve(process.argv[2]||'/tmp/roag-scaling.json');
 const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8767/settlement/?profile=1';
+let browser;
 (async()=>{
- const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const results=[];
+ browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const results=[];
  for(const population of (process.env.SETTLEMENT_POPULATIONS||'85,250,500').split(',').map(Number)){
   const context=await browser.newContext({viewport:{width:1024,height:640}}),page=await context.newPage();
   await page.goto(url);await page.locator('#loading').waitFor({state:'detached'});await page.locator('flt-semantics-placeholder').press('Enter');
@@ -20,4 +21,4 @@ const url=process.env.SETTLEMENT_URL||'http://127.0.0.1:8767/settlement/?profile
   results.push({population,ordinary:summary(ordinary),recovery:summary(recovery)});console.log('MEASURED',population,JSON.stringify(results.at(-1)));await context.close();
  }
  await browser.close();fs.writeFileSync(out,JSON.stringify({browser:'Chromium 155, software rendering',url,viewport:'1024x640',sampling:'16 wall-seconds ordinary +16 recovery per real population; no timing assertion',results},null,2));
-})().catch(e=>{console.error(e);process.exitCode=1});
+})().catch(async e=>{console.error(e);if(browser)await browser.close();process.exitCode=1});
