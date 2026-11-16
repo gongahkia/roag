@@ -1,0 +1,4 @@
+web	Run python3 -B tool/assets.py --check	2026-11-16T15:54:34.2467567Z Verified 47 source crops and 9 actor bodies × 4 palettes, manifest and unmodified font.
+web	Run flutter analyze	2026-11-16T15:54:44.0755029Z No issues found! (ran in 8.8s)
+web	Run flutter test	2026-11-16T15:55:13.4881223Z 🎉 189 tests passed.
+web	Build self-contained Pages release	2026-11-16T15:55:54.9361027Z ✓ Built build/release-web

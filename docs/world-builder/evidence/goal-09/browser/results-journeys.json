@@ -1,0 +1,153 @@
+{
+  "url": "http://127.0.0.1:8768/roag/settlement/",
+  "input": "Playwright browser pointer/keyboard/file menus. Legacy preload is isolated setup; observations read localStorage. No gameplay callbacks.",
+  "checks": [
+    "Goal08 autoload preserves concrete land, identities, money and clock; schema-5 backup is exact; New World cancellation leaves town intact",
+    "New Standard seed 202, grace, paid neighbourhood, automatic protective staffing and real productive income through ordinary construction",
+    "Compact setting explicitly switches a new town to Peaceful",
+    "Comparable fire fixtures: actual protected damage 6 < 166 unprotected; real travel and no lost residents",
+    "Comparable wildlife fixtures: actual protected damage 0 < 16 unprotected; real travel and no lost residents",
+    "Ordinary work/use adds visible established details; contextual preparedness dialogue and construction Undo/Redo keep clock and condition forward",
+    "Real JSON export/import round-trips all condition, repair/development, resident and incident history",
+    "A genuine active-response bridge is removed by pointer input; actor keeps physical position, rejects deleted edge and reroutes; Undo restores crossing",
+    "Naturally scheduled incident observed after actual 450-second grace; separately labelled from forced fixtures, with four-day post-incident cooldown",
+    "Existing pan/zoom/home, resize, reduced motion and mute/unmute controls remain available"
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "shots": [
+    {
+      "name": "05-safe-legacy-migration",
+      "seconds": 9.248
+    },
+    {
+      "name": "06-new-standard-prepared-town",
+      "seconds": 68.067
+    },
+    {
+      "name": "fire-protected-active",
+      "seconds": 85.452
+    },
+    {
+      "name": "fire-protected-aftermath",
+      "seconds": 88.864
+    },
+    {
+      "name": "fire-unprotected-active",
+      "seconds": 101.566
+    },
+    {
+      "name": "fire-unprotected-aftermath",
+      "seconds": 111.023
+    },
+    {
+      "name": "wildlife-protected-active",
+      "seconds": 124.324
+    },
+    {
+      "name": "wildlife-protected-aftermath",
+      "seconds": 129.506
+    },
+    {
+      "name": "wildlife-unprotected-active",
+      "seconds": 142.938
+    },
+    {
+      "name": "wildlife-unprotected-aftermath",
+      "seconds": 151.399
+    },
+    {
+      "name": "07-established-real-use",
+      "seconds": 174.796
+    },
+    {
+      "name": "08-preparedness-conversation",
+      "seconds": 177.108
+    },
+    {
+      "name": "09-response-reroutes-broken-bridge",
+      "seconds": 200.222
+    },
+    {
+      "name": "10-natural-incident",
+      "seconds": 244.921
+    },
+    {
+      "name": "11-reduced-motion",
+      "seconds": 254.443
+    },
+    {
+      "name": "12-small-browser",
+      "seconds": 255.264
+    },
+    {
+      "name": "13-large-browser",
+      "seconds": 256.217
+    }
+  ],
+  "outcomes": {
+    "fire-protected": {
+      "id": "incident-1",
+      "kind": "fire",
+      "outcome": "contained",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 29.050000000000278,
+      "damage": 6,
+      "responders": 2,
+      "sheltered": 2,
+      "buildings": [
+        "home-1"
+      ]
+    },
+    "fire-unprotected": {
+      "id": "incident-1",
+      "kind": "fire",
+      "outcome": "burned out",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 54.049999999999066,
+      "damage": 166,
+      "responders": 0,
+      "sheltered": 7,
+      "buildings": [
+        "home-1",
+        "home-2",
+        "home-3"
+      ]
+    },
+    "wildlife-protected": {
+      "id": "incident-1",
+      "kind": "wildlife",
+      "outcome": "driven away",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 33.95000000000021,
+      "damage": 0,
+      "responders": 1,
+      "sheltered": 2,
+      "buildings": [
+        "garden-13"
+      ]
+    },
+    "wildlife-unprotected": {
+      "id": "incident-1",
+      "kind": "wildlife",
+      "outcome": "retreated",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 43.24999999999968,
+      "damage": 16,
+      "responders": 0,
+      "sheltered": 5,
+      "buildings": [
+        "garden-13"
+      ]
+    },
+    "natural": {
+      "kind": "wildlife",
+      "starts": 480.00000000007486,
+      "origin": "scheduled"
+    }
+  }
+}

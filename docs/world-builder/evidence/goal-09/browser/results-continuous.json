@@ -1,0 +1,45 @@
+{
+  "url": "http://127.0.0.1:8768/roag/settlement/",
+  "input": "Playwright pointer/keyboard/file menus; actual release. Imported deterministic fixture is labelled, not a natural incident.",
+  "checks": [
+    "Paid Watchpost, Refuge and Inn constructed through catalogue; two automatically trained Firehouse staff already present",
+    "Active fire, real responders, damage and seeded state reload exactly while paused",
+    "Continuous preparation, ignition, autonomous arrival/containment and paid drag repair; fresh repair Undo/Redo retains original people and exact charge"
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "shots": [
+    {
+      "name": "01-prepared-firehouse",
+      "seconds": 16.589
+    },
+    {
+      "name": "02-actual-fire-response",
+      "seconds": 25.413
+    },
+    {
+      "name": "03-contained-aftermath",
+      "seconds": 34.552
+    },
+    {
+      "name": "04-repaired-same-neighbourhood",
+      "seconds": 39.504
+    }
+  ],
+  "outcomes": {
+    "continuous": {
+      "id": "incident-1",
+      "kind": "fire",
+      "outcome": "contained",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 29.050000000000278,
+      "damage": 6,
+      "responders": 2,
+      "sheltered": 4,
+      "buildings": [
+        "home-1"
+      ]
+    }
+  }
+}

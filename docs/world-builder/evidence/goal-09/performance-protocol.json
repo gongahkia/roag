@@ -1,0 +1,11 @@
+{
+  "baselineSource": "f2c3bf9b11cba3fc771fd5276741a72787c08d4c",
+  "candidateImplementation": "09bd85712b2cfd72d8a6f9952ead45c313d0fdc0",
+  "baselineRebuilt": true,
+  "sameComparableFixtures": "Goal08 scale-85/250/500.json generated in original f2c source tree",
+  "browser": "Chromium 155 / SwiftShader, 1024x640",
+  "sampling": "16+16 wall seconds; explicit 20+20 spread-settling repeat",
+  "sharedWorkstation": true,
+  "firstPassDiscarded": "Two owned test browsers from failed harness calls remained active. Their process trees were identified and closed; the existing benchmark now closes its browser on error. Both baseline and candidate were then measured again. No user applications were stopped.",
+  "fixedClock": "50 ms steps; existing >50 ms foreground-delta clamp retained. Frame intervals are internal measurements, not physical display latency."
+}

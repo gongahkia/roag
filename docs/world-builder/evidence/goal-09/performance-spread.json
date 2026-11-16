@@ -1,0 +1,87 @@
+{
+  "browser": "Chromium 155, software rendering",
+  "url": "http://127.0.0.1:8768/roag/settlement/?profile=1",
+  "viewport": "1024x640",
+  "sampling": "16 wall-seconds ordinary +16 recovery per real population; no timing assertion",
+  "results": [
+    {
+      "population": 500,
+      "ordinary": {
+        "maxBacklog": 420,
+        "advancedSeconds": 15.34999999999997,
+        "frameMs": {
+          "count": 474,
+          "mean": 33.78396624472495,
+          "p50": 33.30000000000109,
+          "p95": 66.59999999999854,
+          "max": 100
+        },
+        "modelUs": {
+          "count": 534,
+          "mean": 1844.3820224719102,
+          "p50": 1800,
+          "p95": 5600,
+          "max": 11800
+        },
+        "presentationUs": {
+          "count": 534,
+          "mean": 1219.2883895131085,
+          "p50": 1000,
+          "p95": 2100,
+          "max": 5800
+        },
+        "modelCalls": 628,
+        "hazardTicks": 16,
+        "fireSitesVisited": 15,
+        "routeSearches": 3534,
+        "population": 500,
+        "clock": 35.50000000000012,
+        "cacheHits": 3171,
+        "expansions": 223245,
+        "fieldsBuilt": 363,
+        "planningBacklog": 1,
+        "planned": 801,
+        "discardedPlans": 0,
+        "navigationRevision": 523
+      },
+      "recovery": {
+        "maxBacklog": 445,
+        "advancedSeconds": 15.899999999999096,
+        "frameMs": {
+          "count": 534,
+          "mean": 29.97059925093598,
+          "p50": 33.29999999999927,
+          "p95": 50,
+          "max": 100
+        },
+        "modelUs": {
+          "count": 595,
+          "mean": 1357.142857142857,
+          "p50": 1300,
+          "p95": 4400,
+          "max": 12900
+        },
+        "presentationUs": {
+          "count": 595,
+          "mean": 1334.453781512605,
+          "p50": 1200,
+          "p95": 2300,
+          "max": 4300
+        },
+        "modelCalls": 1328,
+        "hazardTicks": 35,
+        "fireSitesVisited": 72,
+        "routeSearches": 10997,
+        "population": 500,
+        "clock": 54.54999999999904,
+        "cacheHits": 8883,
+        "expansions": 490707,
+        "fieldsBuilt": 821,
+        "planningBacklog": 130,
+        "planned": 2418,
+        "discardedPlans": 1,
+        "navigationRevision": 524
+      }
+    }
+  ]
+}

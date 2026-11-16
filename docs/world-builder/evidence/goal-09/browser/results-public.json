@@ -1,0 +1,70 @@
+{
+  "url": "https://gabrielongzm.com/roag/settlement/",
+  "input": "Playwright browser pointer/keyboard/file menus on the actual public HTTPS origin; isolated legacy setup, no live player storage",
+  "checks": [
+    "Public HTTPS application safely autoloads/backs up a schema-4 town into Peaceful with identical land, currency and identities",
+    "Public seeded Standard world builds a paid neighbourhood and all four new buildings, with real automatic jobs and work",
+    "Public real fire, autonomous response, exact active reload and paid repair are playable",
+    "Public unusable-home repair Undo retains displacement and exact reload; repairing again restores the same resident",
+    "Public rabbit is a real travelling actor and an actual guard drives it away"
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "shots": [
+    {
+      "name": "public-legacy-peaceful",
+      "seconds": 16.541
+    },
+    {
+      "name": "public-new-prepared-town",
+      "seconds": 49.145
+    },
+    {
+      "name": "public-actual-fire-response",
+      "seconds": 59.806
+    },
+    {
+      "name": "public-repaired-neighbourhood",
+      "seconds": 68.654
+    },
+    {
+      "name": "public-displacement-undo-repair",
+      "seconds": 92.559
+    },
+    {
+      "name": "public-real-rabbit",
+      "seconds": 104.931
+    }
+  ],
+  "outcomes": {
+    "fire": {
+      "id": "incident-1",
+      "kind": "fire",
+      "outcome": "contained",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 29.050000000000278,
+      "damage": 6,
+      "responders": 2,
+      "sheltered": 2,
+      "buildings": [
+        "home-1"
+      ]
+    },
+    "wildlife": {
+      "id": "incident-1",
+      "kind": "wildlife",
+      "outcome": "driven away",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 33.95000000000021,
+      "damage": 0,
+      "responders": 1,
+      "sheltered": 2,
+      "buildings": [
+        "garden-13"
+      ]
+    }
+  },
+  "mainDartSha256": "d702727e0a3defc6f0fde318fa2363a2d44a4e2890887484b09cd74f12968143"
+}

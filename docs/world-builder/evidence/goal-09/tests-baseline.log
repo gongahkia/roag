@@ -1,0 +1,164 @@
+Resolving dependencies...
+Downloading packages...
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.14 (0.7.15 available)
+Got dependencies!
+2 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart
+00:00 +0: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: multi-cottage stroke stages immediately, saves committed data only, undo/redo exact IDs
+00:00 +1: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: fast diagonal uses deterministic cardinal crossings, with X first at ties
+00:00 +2: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: obstacles block connectivity beyond pointer route; brush never routes around them
+00:00 +3: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: only successes deduplicate; previously invalid anchor can become valid later
+00:00 +4: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: mixed cottage candidates, repeated visits and removal respect logical footprints
+00:00 +5: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: no-op strokes create no history; cancel and undo-during-stroke preserve exact state
+00:00 +6: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: committed snapshots reject stale deferred writers after commit, undo or import
+00:00 +7: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: real schema-one scene migrates without changing terrain, traces or variants
+00:00 +8: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: arrival itself pays no work or social reward
+00:00 +9: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: arrival itself pays no work or social reward
+00:00 +10: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: arrival itself pays no work or social reward
+00:00 +11: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: work requires real travel, two jobs, and validated productive time
+00:00 +12: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: residents visit actual reachable greens; a single resident can complete leisure
+00:00 +13: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: green seats describe real visits and a full-green complaint is physically waiting
+00:00 +14: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: fresh garden promptly fills during daytime, assignments stay stable
+00:00 +15: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: fresh garden promptly fills during daytime, assignments stay stable
+00:00 +16: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: fresh garden promptly fills during daytime, assignments stay stable
+00:00 +17: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: home disconnection has one bounded cause, then reconnection removes it
+00:00 +18: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: home disconnection has one bounded cause, then reconnection removes it
+00:00 +19: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/brush_residents_test.dart: pending arrivals and visits reconcile through history, load and destination removal
+00:00 +20: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: mood starts neutral, grace protects newcomers, valid work travel is not a failure
+00:00 +21: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: mood starts neutral, grace protects newcomers, valid work travel is not a failure
+00:00 +22: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: mood starts neutral, grace protects newcomers, valid work travel is not a failure
+00:00 +23: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: a real day accrues exactly the grant and no offline catch-up
+00:00 +24: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: cut workplace reports a broken connection, restored access resumes work
+00:00 +25: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: garden and green brushes price each unique footprint once and cancel without charge
+00:00 +26: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: fixed stroke budget retains background earnings on commit and cancellation
+00:01 +27: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: fixed stroke budget retains background earnings on commit and cancellation
+00:01 +28: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+00:01 +29: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+00:01 +30: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+00:01 +31: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: night and morning preserve journeys instead of teleporting or stopping recovery
+00:01 +32: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: current checkpoint resumes progress and fractional income without grants or duplicates
+00:01 +33: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: malformed productive locations and gathering identities are rejected
+00:01 +34: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: pause, accelerated simulation and large background delta use one bounded clock
+00:01 +35: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: reconnecting a green at night clears the old unreachable reason immediately
+00:01 +36: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: seeded evening gathering follows real work/social activity and rewards actual attendees once
+00:01 +37: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: schema-one checkpoints also initialise the colony without changing the original lots
+00:01 +38: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: green removal ends a gathering, no phantom attendee reward after undo
+00:01 +39: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_edges_test.dart: cutting a lane cannot improve mood by hiding two missed opportunities
+00:01 +40: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: camera-independent updates agree exactly and querying presentation awards nothing
+00:01 +41: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: 74-cottage old-format save migrates once, keeps layout, neutral mood and original palettes
+00:01 +42: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/colony_test.dart: invalid checkpoint is refused without replacing a live colony
+00:08 +43: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: seed semantics are stable for signed decimals, text and UTF-8
+00:08 +44: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:08 +45: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +46: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +47: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +48: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +49: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +50: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +51: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +52: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +53: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +54: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +55: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +56: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +57: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +58: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:09 +59: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +60: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +61: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +62: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +63: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +64: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:10 +65: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +66: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +67: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +68: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +69: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +70: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +71: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:11 +72: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +73: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +74: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +75: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +76: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +77: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +78: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +79: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +80: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +81: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +82: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +83: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:12 +84: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +85: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +86: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +87: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +88: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +89: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +90: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +91: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +92: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:13 +93: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +94: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +95: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +96: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +97: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +98: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +99: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +100: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +101: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +102: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +103: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +104: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +105: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +106: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +107: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +108: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +109: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +110: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +111: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:14 +112: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +113: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +114: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +115: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +116: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +117: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +118: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +119: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +120: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +121: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +122: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +123: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +124: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +125: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +126: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +127: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +128: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +129: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:15 +130: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +131: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +132: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +133: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +134: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +135: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:16 +136: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:17 +137: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:17 +138: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:17 +139: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:17 +140: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: 600 seeds per preset reproduce, vary, retain arrival/early plots and affordable river access
+00:23 +141: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: generation and pure inspection cannot consume later event streams
+00:23 +142: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: terrain placement matrix, clearing, planting and relocation use authoritative rules
+00:23 +143: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: landscape strokes dedupe, capture a budget, cancel and preserve forward income on undo
+00:23 +144: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: bridge strokes are atomic, paid once, cancel safely and repair the real physical gap
+00:23 +145: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: floating, bent, overlong, occupied and unfunded bridges cannot commit
+00:23 +146: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: actual residents cross water only on a complete crossing and stop on a broken crossing
+00:23 +147: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: weighted routes and actual edge speed compose terrain, weather, road and trait once
+00:23 +148: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: weighted navigation chooses the cheaper dry/stone detour and agrees with traversal speed
+00:23 +149: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: vertical bridges have only aligned edges; removing a land approach invalidates the complete span
+00:23 +150: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: inspection explains actual terrain, wet road costs and a broken crossing
+00:23 +151: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: terrain navigation and work remain identical at different render-frame cadences
+00:23 +152: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: concrete terrain and new metadata round-trip; future version does not regenerate
+00:23 +153: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: legacy checkpoint retains all concrete lots, clock, event RNG and durable people exactly
+00:23 +154: /var/tmp/roag-goal09-baseline-tree/apps/settlement/test/goal07_test.dart: New World draft cancellation, inspection and export do not replace the active world
+00:25 +155: All tests passed!

@@ -1,0 +1,9 @@
+{
+  "ephemeralPort": true,
+  "prefix": "/settlement/",
+  "rebuildDirectoryReplaced": true,
+  "responses": [
+    "first",
+    "rebuilt"
+  ]
+}

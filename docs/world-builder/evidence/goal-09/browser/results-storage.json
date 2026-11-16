@@ -1,0 +1,9 @@
+{
+  "url": "http://127.0.0.1:8768/roag/settlement/",
+  "input": "Playwright browser controls; explicitly labelled isolated legacy preloads and Storage quota fault, no live player origin",
+  "checks": [
+    "Explicit quota fault on migration backup leaves original schema-4 checkpoint byte-identical and autosave paused",
+    "Malformed preparedness file imported through the real picker is refused before replacement, keeping current town byte-identical"
+  ],
+  "errors": []
+}

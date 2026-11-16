@@ -135,13 +135,114 @@ Export/import retains authoritative state. Import intentionally rebases navigati
 
 Baseline: integration begins at `f2c3bf9b11cba3fc771fd5276741a72787c08d4c` on `release/settlement-goal-08`, with a clean tree. Work is isolated on `feat/settlement-goal-09`; previous main/release branches are retained. The original **155 Flutter tests** were rerun successfully in an extracted baseline tree before feature verification.
 
-Verification results, performance measurements, release publication and preservation fingerprints are recorded below when final checks finish.
+The following results distinguish model checks, automated real-browser input and live public verification.
 
-<!-- GOAL09_FINAL_VERIFICATION -->
+### Automated checks
+
+Verified on 16–17 November 2026 (Singapore time):
+
+| Check | Result |
+|---|---|
+| Original baseline Flutter suite, fresh f2c source tree | **155 passed**; [log](evidence/goal-09/tests-baseline.log). |
+| Final Flutter suite | **189 passed**, including 34 new focused tests; [local log](evidence/goal-09/tests-final.log), [CI verification](evidence/goal-09/ci-verification.log). |
+| `flutter analyze` | No issues; [log](evidence/goal-09/analyze-final.log). |
+| `dart format --output=none --set-exit-if-changed lib test` | 40 files checked, no changes. |
+| `python3 -B tool/assets.py --check` | 47 verified source crops, nine actor bodies × four palettes, manifest and unmodified font. |
+| `make assets-check` at repository root | 599 explicit bindings from 67 unchanged source PNGs; [log](evidence/goal-09/original-assets.log). |
+| Production build at `/roag/settlement/` | Passed locally and in CI; [local build](evidence/goal-09/release-build.log). |
+| HTTP prefix / port-zero / rebuilt directory | Actual HTTP responses checked; [result](evidence/goal-09/http-check.json). |
+| Original catalogue tests | **47 pass / 1 fail**, both baseline and final. The retained media-ownership assertion predates derived settlement/export/evidence images. Its baseline failure was reproduced using a temporary f2c Git index and byte-unchanged catalogue/test/source inputs. Final adds declared derived assets/evidence to that same unsupported category. The assertion was left intact; [baseline](evidence/goal-09/catalog-baseline.log), [final](evidence/goal-09/catalog-final.log). |
+
+Focused coverage includes automatic staffing and real arrival; empty/disconnected/damaged stations; the four-firefighter cap and weighted Watchpost range; rain/dry spread and bounded burnout; real rabbit approach, no-arrival/no-damage, retreat and guard benefit; actual refuge travel/capacity/fallback; physical interruption at roads/bridges; same-ID damage/relocation/repair; affordability, atomicity, cancellation, stale strokes, used-repair refunds, and fresh Undo/Redo; exact active fire/animal checkpoints, 240 successive checkpoints around repeated road edits, independent scheduling/cadence/inspection, strict malformed imports, legacy fields, Inn rest/service/rewards, and real visual development. Existing resident work, needs, promises, civic choices, weather, species, visitor memories, terrain/bridge, presentation and persistence tests remain unchanged and pass. The retained terrain suite also checks **600 seeds × three presets**.
+
+Two recovery regressions discovered during the final audit have dedicated tests: actual guard shooing consumes a repaired Watchpost's use, so it cannot then be refunded; and Undo can restore independent displacement after a fire has ended. Such an evacuation may have no active incident ID only while that resident's own home is unusable. Repair releases it before an immediate paused checkpoint. Actual shelter location/capacity and all responder incident references still validate strictly.
+
+### Running-game journeys and motion
+
+All browser input below uses **Playwright pointer/keyboard events and the real file menus in headless Chromium**. No game/simulation callbacks were invoked. Legacy origin preloads and quota faults are explicit isolated test setup. This is automated browser play, not native desktop manual play or human preference testing. Screenshots and sampled frames of the real recording were visually inspected.
+
+[Continuous preparation → incident → response → recovery recording](evidence/goal-09/preparation-response-recovery.mp4) shows paid Watchpost/Refuge/Inn placement, trained Firehouse staff, smoke/ignition, actual walking and suppression, shelter, aftermath and paid drag repair with Undo/Redo. It is one continuous running-game capture, including the exact active-save reload journey. [Recording checkpoints/results](evidence/goal-09/browser/results-continuous.json).
+
+[Full journey results](evidence/goal-09/browser/results-journeys.json) cover all 21 requested paths on the first published implementation f643d100; the healthy loop was re-recorded and the additional recovery cases verified live on 09bd8571 after its focused financial/save fixes: safe old-town continuation; new seeded Standard world; paid preparedness and automatic staffing; protected/unprotected fire; real damage/repair; protected/unprotected wildlife; bridge removal during response and legal rerouting/reconnection; natural scheduling; contextual speech/dialogue; ordinary activity/development; post-incident Undo/Redo; active reload/exact continuation; and continued free construction. Additional checks exercise export/import, 931×582 / 1024×640 / 1440×900 layouts, camera/zoom, reduced motion and mute/unmute controls. Audibility and human judgement were not assessed in headless mode.
+
+The small paid fixtures use seed **202**, 12 real inhabitants and the same target, Summer/Clear weather and fixed severity in each protected/unprotected comparison:
+
+| Incident | Prepared damage | Unprepared damage | Actual prepared response |
+|---|---:|---:|---|
+| Fire | **6** | **166** | Two firefighters arrived and suppressed; four residents reached shelter. |
+| Rabbit | **0** | **16** | One guard reached the Farm and actually drove the animal away. |
+
+The naturally scheduled case is separate: an eligible world with ordinary seeded Spring/Windy climate was legitimately advanced to 449 seconds, without a forced start. The shared scheduler chose a rabbit at **480.000 seconds**, after grace and within work hours. Its origin is stored as `scheduled`; the forced comparison fixtures store `fixture`. No human residents were deleted in any comparison.
+
+Readable evidence: [prepared Firehouse](evidence/goal-09/browser/01-prepared-firehouse.png), [real fire response](evidence/goal-09/browser/02-actual-fire-response.png), [recovered neighbourhood](evidence/goal-09/browser/04-repaired-same-neighbourhood.png), [actual rabbit](evidence/goal-09/browser/wildlife-protected-active.png), [bridge rerouting](evidence/goal-09/browser/09-response-reroutes-broken-bridge.png), [natural warning](evidence/goal-09/browser/10-natural-incident.png), [established town](evidence/goal-09/browser/07-established-real-use.png), [conversation](evidence/goal-09/browser/08-preparedness-conversation.png).
+
+[Storage-fault results](evidence/goal-09/browser/results-storage.json) demonstrate that a migration-backup quota fault preserves the original saved text and pauses autosave, and an invalid preparedness import leaves the active settlement byte-identical. These use isolated storage; the user's private browser profile was never opened.
+
+### Performance
+
+The baseline was rebuilt from **f2c3bf9b** with the same pinned toolchain. Both builds imported the exact same Goal08 85/250/500-resident JSON fixtures. Measurements use Chromium 155 / SwiftShader at 1024×640 on this **shared workstation**, with 16 wall-seconds before and after a real thirteen-cell road removal. The existing foreground clamp, 50 ms simulation step and eight-request planning budget remain. Measurements describe internal frame intervals and model-update time, not physical display latency or universal hardware performance.
+
+An initial pass was discarded because two owned browsers from failed harness calls were still running. Only those test process trees were closed; no user application was stopped. The existing benchmark now closes its browser on failure. Fresh baseline and candidate measurements are used below; [protocol](evidence/goal-09/performance-protocol.json).
+
+| Population / phase | Frame mean / p95 before (ms) | After (ms) | Model p95 before → after (ms) |
+|---|---:|---:|---:|
+| 85 / ordinary | 25.94 / 50.00 | 28.44 / 50.00 | 1.40 → 1.60 |
+| 85 / recovery | 24.51 / 33.40 | 21.99 / 33.40 | 1.10 → 0.90 |
+| 250 / ordinary | 34.05 / 66.70 | 27.50 / 50.00 | 2.80 → 2.50 |
+| 250 / recovery | 33.46 / 66.60 | 25.36 / 33.40 | 4.20 → 2.60 |
+| 500 / ordinary | 36.79 / 66.70 | 33.07 / 66.60 | 5.10 → 4.80 |
+| 500 / recovery | 35.68 / 50.10 | 32.59 / 50.00 | 5.30 → 4.60 |
+
+All comparable samples end with zero planning backlog. Additional fixtures contain real preparedness jobs, temporary shelter, Autumn/Rain and an active fire or rabbit. The weather sample legitimately advances 500 residents to 449.5 seconds, then crosses a scheduled weather boundary with an active incident. The spread stress case uses Summer/Wind and ordinary demolition of the Firehouse, allowing the three-site cap to be exercised.
+
+| Case / population | Frame p95 initial / road edit (ms) | Model p95 initial / road edit (ms) | End queue initial / edit |
+|---|---:|---:|---:|
+| Fire / 85 | 33.40 / 33.40 | 1.10 / 0.90 | 0 / 0 |
+| Fire / 250 | 49.90 / 33.40 | 2.80 / 2.20 | 0 / 0 |
+| Fire / 500 | 50.00 / 50.00 | 4.50 / 4.50 | 0 / 0 |
+| Rabbit / 85 | 33.40 / 33.40 | 1.10 / 0.90 | 0 / 0 |
+| Rabbit / 250 | 50.00 / 33.40 | 2.90 / 2.90 | 0 / 0 |
+| Rabbit / 500 | 50.10 / 83.30 | 5.20 / 7.30 | 0 / 0 |
+| Weather boundary + fire / 500 | 83.40 / 66.60 | 8.40 / 5.20 | 0 / 0 |
+| Three-site fire, 16+16s / 500 | 66.60 / 50.00 | 5.60 / 4.40 | 1 / 130 |
+| Rabbit targeted repeat / 500 | 50.00 / 50.00 | 4.00 / 4.60 | 0 / 0 |
+| Three-site fire, 20+20s / 500 | 50.00 / 50.00 | 4.00 / 4.30 | 3 / 0 |
+
+The first 500-person rabbit recovery sample measured 83.3 ms frame p95 / 7.301 ms model p95; its targeted repeat measured **50 ms / 4.599 ms**. Both are retained. This is observed variation on the shared software renderer, not an asserted rendering optimization. The original spread window ended with 130 requests still pending; extending this one case to 20+20 seconds ended at simulation time **62.6** with zero pending requests. No result was silently replaced. The spread run visited **72 site records across 35 hazard ticks**; there is no full-world per-frame fire propagation. The weather-boundary queue peaks at 495 and drains to zero through the existing budget and stale-request handling.
+
+Raw distributions include means, medians, p95, maxima, advanced simulation time, queue peaks/endpoints, route searches, reverse fields, cache hits/expansions and incident counters: [baseline](evidence/goal-09/performance-before.json), [comparable candidate](evidence/goal-09/performance-comparable.json), [fire](evidence/goal-09/performance-fire.json), [rabbit](evidence/goal-09/performance-wildlife.json), [weather transition](evidence/goal-09/performance-weather.json), [spread](evidence/goal-09/performance-spread.json), [rabbit repeat](evidence/goal-09/performance-wildlife-repeat.json), [longer spread recovery](evidence/goal-09/performance-spread-settled.json). Software-rendered 500-person frame intervals remain variable; no hardware-GPU frame-rate claim is made.
+
+### Deployment and preservation
+
+**Published and opened:** [https://gabrielongzm.com/roag/settlement/](https://gabrielongzm.com/roag/settlement/). [GitHub Actions run 43901381317](https://github.com/gongahkia/roag/actions/runs/43901381317) passed tests, analysis, asset validation, build and publication for implementation **09bd85712b2cfd72d8a6f9952ead45c313d0fdc0**. [Deployment metadata](evidence/goal-09/deployment.json), [live browser results](evidence/goal-09/browser/results-public.json).
+
+The actual HTTPS application was exercised with an old-town migration/backup, a paid seeded Standard neighbourhood and all four new buildings, real fire response, exact active reload, paid repair, the unusable-home repair/Undo/displacement/reload/re-repair regression, and a real rabbit/guard response. There were **zero page errors and zero failed asset responses**. The served `main.dart.js` SHA256 matches the locally tested release: `d702727e0a3defc6f0fde318fa2363a2d44a4e2890887484b09cd74f12968143`. [Public town](evidence/goal-09/browser/public-new-prepared-town.png), [public fire](evidence/goal-09/browser/public-actual-fire-response.png), [public repaired displacement](evidence/goal-09/browser/public-displacement-undo-repair.png), [public rabbit](evidence/goal-09/browser/public-real-rabbit.png).
+
+The existing GitHub Pages infrastructure and domain are reused. The workflow additionally accepts `release/settlement-goal-09`; main and both prior release policies are retained. Exactly one branch policy was added: [before](evidence/goal-09/pages-policies-before.json), [after](evidence/goal-09/pages-policies-after.json). No Sites deployment, paid resource or credential was introduced. Existing main/Goal07/Goal08 branch history was retained, including automatic workspace checkpoints; no force push or reset was used. No deployment blocker remains.
+
+[Initial fingerprints](evidence/goal-09/preservation-initial.json) and [final fingerprints](evidence/goal-09/preservation-final.json) verify **all six README files unchanged**, all four original Lua player-storage files unchanged, **1,677 protected original files** unchanged and all **75 existing settlement PNGs** unchanged. Root README SHA256 remains `3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a`. Original art, catalogue records and Lua code are byte-identical. Lua runtime journeys were not rerun for this Dart-only change. Existing town fixtures, migration backups, invalid-import handling and isolated browser contexts cover settlement compatibility; the user's private browser data was not inspected or rewritten.
+
+Reproduce the targeted checks from `apps/settlement`:
+
+```sh
+flutter analyze
+flutter test
+python3 -B tool/assets.py --check
+dart format --output=none --set-exit-if-changed lib test
+bash tool/release.sh /roag/settlement/
+dart run tool/goal09_fixture.dart /var/tmp/roag-goal09-fixtures
+node tool/goal09_browser.cjs /var/tmp/roag-goal09-browser
+node tool/goal09_journeys_browser.cjs /var/tmp/roag-goal09-journeys
+node tool/goal09_storage_browser.cjs /var/tmp/roag-goal09-storage
+node tool/goal09_public_browser.cjs /var/tmp/roag-goal09-public
+```
+
+Browser scripts require Playwright **1.65.1**, Chromium at `/usr/bin/chromium`, and Playwright's FFmpeg (the verification environment used system FFmpeg). `NODE_PATH` / `PLAYWRIGHT_BROWSERS_PATH` can point to an external installation. `SETTLEMENT_URL` and `SETTLEMENT_FIXTURE_DIR` select the served build and generated checkpoints. `tool/scaling_browser.cjs` retains the existing measurement path; `SETTLEMENT_POPULATIONS=500` selects the targeted repeat and `SETTLEMENT_SAMPLE_MS=20000` permits the longer settling sample. Generate comparable old checkpoints in the original f2c source tree with `tool/goal08_fixture.dart`; point both builds at those same files. Large population fixtures explicitly use developer unlimited construction; small comparison and recording towns use paid construction.
+
 
 ## Remaining limits and playtest questions
 
-This is the first bounded implementation: one serious incident, three fire sites, one rabbit, simple on-call rules and temporary shelter. Firebreaks are strong, Watchpost range is deliberately short, and an isolated animal can await a repaired route. The source assets are static small pictograms; response motion and damage/development cues are derived compositions. Human judgement about frequency, attractiveness and satisfaction is separate from deterministic functional victories.
+This is the first bounded implementation: one serious incident, three fire sites, one rabbit, simple on-call rules and temporary shelter. Firebreaks are strong, Watchpost range is deliberately short, and an isolated animal can await a repaired route. The source assets are static small pictograms; response motion and damage/development cues are derived compositions. Repair prices are forgiving and free paths make strong firebreaks; the financial value of protection versus reactive repair needs human playtesting. Human judgement about frequency, attractiveness and satisfaction is separate from deterministic functional victories.
 
 1. Do incidents feel like actual events happening to my town?
 2. Does infrastructure make a noticeable difference?
