@@ -10,6 +10,10 @@ external void _backupLegacy(JSString text);
 external void _backupLiving(JSString text);
 void backupLiving(String text) => _backupLiving(text.toJS);
 
+@JS('settlementPlatform.backupIncidents')
+external void _backupIncidents(JSString text);
+void backupIncidents(String text) => _backupIncidents(text.toJS);
+
 @JS('settlementPlatform.exportFile')
 external void _export(JSString text);
 @JS('settlementPlatform.importFile')

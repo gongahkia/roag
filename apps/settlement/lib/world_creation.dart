@@ -1,11 +1,17 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'model.dart';
+import 'colony.dart';
 
 class WorldDraft {
   final String seed;
   final EnvironmentPreset preset;
-  const WorldDraft(this.seed, this.preset);
+  final IncidentMode incidents;
+  const WorldDraft(
+    this.seed,
+    this.preset, [
+    this.incidents = IncidentMode.standard,
+  ]);
 }
 
 // draft controls do not hold or modify the active colony.
@@ -20,6 +26,7 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
   final seed = TextEditingController(text: '202');
   EnvironmentPreset preset = EnvironmentPreset.plains;
   String? error;
+  IncidentMode incidents = IncidentMode.standard;
   @override
   void dispose() {
     seed.dispose();
@@ -47,6 +54,25 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
             ),
             const SizedBox(height: 12),
             Text(preset.description),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<IncidentMode>(
+              initialValue: incidents,
+              decoration: const InputDecoration(labelText: 'Incidents'),
+              items: const [
+                DropdownMenuItem(
+                  value: IncidentMode.standard,
+                  child: Text('Standard · occasional, recoverable'),
+                ),
+                DropdownMenuItem(
+                  value: IncidentMode.peaceful,
+                  child: Text('Peaceful · no destructive incidents'),
+                ),
+              ],
+              onChanged: (value) => setState(() => incidents = value!),
+            ),
+            const Text(
+              'Standard begins after three days. Firehouses, Watchposts and Refuges help; repair after danger passes.',
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: seed,
@@ -87,7 +113,7 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
         onPressed: () {
           try {
             final text = canonicalSeed(seed.text);
-            Navigator.pop(context, WorldDraft(text, preset));
+            Navigator.pop(context, WorldDraft(text, preset, incidents));
           } on FormatException catch (e) {
             setState(() => error = e.message);
           }

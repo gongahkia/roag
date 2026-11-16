@@ -15,7 +15,9 @@ class Visit {
   final double starts;
   String venue;
   bool leaving = false, completed = false, encore = false;
-  double progress = 0;
+  double progress = 0, restProgress = 0;
+  String? inn;
+  bool restAttempted = false, rested = false;
   final Map<String, double> attendees = {};
   final Set<String> awarded = {};
   Visit(this.id, this.role, this.venue, this.starts, Cell entry)
@@ -27,7 +29,13 @@ class Visit {
       ..trait = role == VisitorRole.merchant ? Trait.brisk : Trait.sociable
       ..arrived = true;
   }
-  String get state => leaving
+  String get state => inn != null && !rested
+      ? actor.activity == Activity.socialising
+            ? 'Resting at the Inn'
+            : actor.moving
+            ? 'Walking to the Inn'
+            : 'Waiting for Inn service or access'
+      : leaving
       ? actor.route.isNotEmpty
             ? 'Leaving by the road'
             : 'Waiting for a way home'
@@ -117,6 +125,38 @@ extension LivingVisitors on Colony {
     final r = v.actor;
     r.replanAfterEdge = false;
     if (!_visitorVenue(v) || clock - v.starts > Rules.day) v.leaving = true;
+    if (v.completed && !v.restAttempted) {
+      v.restAttempted = true;
+      final inns = places(Place.inn)
+          .where(
+            (p) =>
+                jobs(p.key) > 0 &&
+                placeAccess(p.key) != null &&
+                occupancy(p.key) < capacity(p.key),
+          )
+          .toList();
+      inns.sort(
+        (a, b) => travelDistance(
+          r.cell,
+          placeAccess(a.key)!,
+        ).compareTo(travelDistance(r.cell, placeAccess(b.key)!)),
+      );
+      v.inn = inns
+          .where((p) => travelDistance(r.cell, placeAccess(p.key)!).isFinite)
+          .firstOrNull
+          ?.key;
+    }
+    if (v.inn != null && !v.rested) {
+      final access = placeAccess(v.inn);
+      if (clock - v.starts <= Rules.day &&
+          kind(v.inn) == Place.inn &&
+          jobs(v.inn!) > 0 &&
+          access != null) {
+        r.destination = v.inn;
+        if (go(r, access, Activity.socialTravel)) return;
+      }
+      v.inn = null;
+    }
     if (v.leaving) {
       r.destination = null;
       if (r.cell == world.arrival &&
@@ -137,6 +177,19 @@ extension LivingVisitors on Colony {
 
   void _visitorReached(Visit v) {
     final r = v.actor;
+    if (v.inn != null && !v.rested) {
+      if (placeAccess(v.inn) == r.cell &&
+          staffed(v.inn) &&
+          occupancy(v.inn!) < capacity(v.inn)) {
+        r.activity = Activity.socialising;
+        r.destination = v.inn;
+        _countsDirty = true;
+      } else {
+        r.activity = Activity.waiting;
+        r.timer = 3;
+      }
+      return;
+    }
     if (v.leaving && r.cell == world.arrival) {
       visits.remove(v.id);
       return;
@@ -163,8 +216,9 @@ extension LivingVisitors on Colony {
   void _reconcileVisitors() {
     for (final v in visits.values.toList()) {
       final r = v.actor;
-      if (!_visitorVenue(v) ||
-          placeAccess(v.venue) != r.cell &&
+      final currentVenue = v.inn != null && !v.rested ? v.inn : v.venue;
+      if (!v.completed && !_visitorVenue(v) ||
+          placeAccess(currentVenue) != r.cell &&
               r.activity == Activity.socialising) {
         // A moved venue can be reached again; a removed venue ends the visit.
         if (kind(v.venue) == null) v.leaving = true;
@@ -199,6 +253,28 @@ extension LivingVisitors on Colony {
       }
       if (!visits.containsKey(v.id) || r.moving) continue;
       if (r.activity == Activity.socialising) {
+        if (v.inn != null && !v.rested) {
+          if (placeAccess(v.inn) != r.cell || !staffed(v.inn)) {
+            if (placeAccess(v.inn) == null) v.inn = null;
+            r.activity = Activity.waiting;
+            r.timer = 0;
+            plan(r);
+            continue;
+          }
+          if (!wasActive) continue;
+          v.restProgress = math.min(6, v.restProgress + dt);
+          if (v.restProgress >= 6 - 1e-9) {
+            v.rested = true;
+            session.condition(v.inn!).uses++;
+            visitorCooldown[v.role] = math.max(
+              clock + 30,
+              (visitorCooldown[v.role] ?? clock) - 30,
+            );
+            plan(r);
+          }
+          continue;
+        }
+
         if (!_visitorVenue(v) ||
             placeAccess(v.venue) != r.cell ||
             v.role == VisitorRole.merchant && !staffed(v.venue)) {
@@ -290,6 +366,9 @@ extension LivingVisitors on Colony {
   }
 
   String visitorStory(Visit v) {
+    if (v.inn != null && !v.rested) {
+      return 'Our main visit is complete. I am following the roads to a staffed Inn, then resting six seconds before departure. A completed rest brings my next opportunity 30 seconds closer.';
+    }
     final familiar =
         (guestCompletions[v.role.name] ?? 0) > (v.completed ? 1 : 0);
     final returnLine = familiar
@@ -330,6 +409,10 @@ extension LivingVisitors on Colony {
           'completed': v.completed,
           'encore': v.encore,
           'progress': v.progress,
+          'inn': v.inn,
+          'restAttempted': v.restAttempted,
+          'rested': v.rested,
+          'restProgress': v.restProgress,
           'attendees': v.attendees,
           'awarded': v.awarded.toList(),
           'actor': _personJson(v.actor),
@@ -444,6 +527,21 @@ extension LivingVisitors on Colony {
           type == VisitorRole.merchant && (v.encore || v.progress > 6.05)) {
         bad();
       }
+      v.inn = row['inn'] == null ? null : id(row['inn']);
+      v.restAttempted = row.containsKey('restAttempted')
+          ? flag(row, 'restAttempted')
+          : false;
+      v.rested = row.containsKey('rested') ? flag(row, 'rested') : false;
+      v.restProgress = row.containsKey('restProgress')
+          ? numAt(row, 'restProgress', 0, 6)
+          : 0;
+      if (v.inn != null &&
+              (!v.completed ||
+                  !v.restAttempted ||
+                  !v.rested && kind(v.inn) != Place.inn) ||
+          v.rested && v.restProgress < 6 - 1e-6) {
+        bad();
+      }
       final a = row['actor'] as Map, r = v.actor;
       if (a['id'] != vid ||
           a['bodyId'] != type.body ||
@@ -495,8 +593,11 @@ extension LivingVisitors on Colony {
           r.activity == Activity.settling && r.settleTarget == null ||
           r.activity == Activity.socialising &&
               (r.moving ||
-                  placeAccess(v.venue) != r.cell ||
-                  !_visitorVenue(v)) ||
+                  placeAccess(v.inn != null && !v.rested ? v.inn : v.venue) !=
+                      r.cell ||
+                  (v.inn != null && !v.rested
+                      ? kind(v.inn) != Place.inn
+                      : !_visitorVenue(v))) ||
           !v.leaving && r.destination != v.venue) {
         bad();
       }
@@ -522,7 +623,8 @@ extension LivingVisitors on Colony {
     if (visits.values.any(
       (v) =>
           v.actor.activity == Activity.socialising &&
-          occupancy(v.venue) > capacity(v.venue),
+          occupancy(v.inn != null && !v.rested ? v.inn! : v.venue) >
+              capacity(v.inn != null && !v.rested ? v.inn : v.venue),
     )) {
       bad();
     }

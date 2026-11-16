@@ -21,6 +21,10 @@
       const backup = key + '.before-colony-v3';
       if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);
     },
+    backupIncidents(text) {
+      const backup = key + '.before-incidents-v5';
+      if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);
+    },
     backupLiving(text) {
       const backup = key + '.before-living-v4';
       if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);

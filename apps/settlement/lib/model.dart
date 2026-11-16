@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'rules.dart';
 import 'terrain.dart';
+import 'condition.dart';
 export 'terrain.dart';
 
 enum Tool {
@@ -18,7 +19,12 @@ enum Tool {
   gardenPath,
   clear,
   plant,
-  bridge;
+  bridge,
+  firehouse,
+  watchpost,
+  refuge,
+  inn,
+  repair;
 
   String get label => switch (this) {
     cottage => 'Cottage',
@@ -34,6 +40,11 @@ enum Tool {
     clear => 'Clear',
     plant => 'Plant',
     bridge => 'Bridge',
+    firehouse => 'Firehouse',
+    watchpost => 'Watchpost',
+    refuge => 'Refuge',
+    inn => 'Inn',
+    repair => 'Repair',
   };
   bool get isLandscape => this == clear || this == plant || this == bridge;
   bool get isRoad => this == path || this == stoneRoad || this == gardenPath;
@@ -48,6 +59,10 @@ enum Tool {
     workshop => Place.workshop,
     market => Place.market,
     hall => Place.hall,
+    firehouse => Place.firehouse,
+    watchpost => Place.watchpost,
+    refuge => Place.refuge,
+    inn => Place.inn,
     _ => null,
   };
   String get purpose => switch (this) {
@@ -68,6 +83,12 @@ enum Tool {
     plant =>
       'Plant a tree on empty ground · 1 coin/cell · no automatic benefit.',
     bridge => 'Drag bank to bank, straight across 1–6 water cells · 3 coins/water cell.',
+    firehouse =>
+      '2 automatic responder jobs · real road travel to fires · 18 coins.',
+    watchpost => '1 guard job · reachable wildlife response within 10 road-cost units · 14 coins.',
+    refuge => '8 temporary shelter places · real evacuation, no permanent housing · 10 coins.',
+    inn => '1 innkeeper + 4 covered social places · visitors can rest here · 16 coins.',
+    repair => 'Repair damaged, safe buildings · 1–5 coins each · drag for one transaction.',
   };
 }
 
@@ -78,7 +99,11 @@ enum Place {
   green,
   workshop,
   market,
-  hall;
+  hall,
+  firehouse,
+  watchpost,
+  refuge,
+  inn;
 
   String get label => switch (this) {
     garden => 'Farm',
@@ -86,26 +111,38 @@ enum Place {
     workshop => 'Workshop',
     market => 'Market',
     hall => 'Community Hall',
+    firehouse => 'Firehouse',
+    watchpost => 'Watchpost',
+    refuge => 'Refuge',
+    inn => 'Inn',
   };
   int get workCapacity => switch (this) {
     garden => Rules.gardenCapacity,
     workshop => 1,
-    market => 1,
+    market || watchpost || inn => 1,
+    firehouse => 2,
     _ => 0,
   };
   int get visitorCapacity => switch (this) {
     green => Rules.greenCapacity,
     hall => 8,
     market => 3,
+    inn => 4,
     _ => 0,
   };
   int get income => switch (this) {
     garden => Rules.workIncomePerSecond,
     workshop => 400,
-    market => 100,
+    market || firehouse || watchpost => 100,
+    inn => 150,
     _ => 0,
   };
-  double get workDuration => this == market ? 35 : Rules.workDuration;
+  bool get protective => this == firehouse || this == watchpost;
+  double get workDuration => protective
+      ? 60
+      : this == market || this == inn
+      ? 35
+      : Rules.workDuration;
 }
 
 enum Scenery { none, oak, vegetables }
@@ -155,6 +192,8 @@ class Lot {
     this.place,
     this.placeId,
   });
+
+  String? get buildingId => cottageId ?? placeId;
 
   List<Object?> toJson([String? identity]) => [
     'grass$grass',
@@ -405,7 +444,7 @@ class Landscape {
       throw const FormatException('File is too large.');
     }
     final d = jsonDecode(text);
-    if (d is! Map || ![1, 2, 3, 4].contains(d['schema'])) {
+    if (d is! Map || ![1, 2, 3, 4, 5].contains(d['schema'])) {
       throw const FormatException('Unsupported landscape format.');
     }
     int integer(String key, int min, int max) {
@@ -419,7 +458,7 @@ class Landscape {
     final seed = integer('seed', 0, 2147483646);
     final w = integer('width', 16, 80), h = integer('height', 12, 60);
     final legacy = d['schema'] == 1;
-    final modern = (d['schema'] == 3 || d['schema'] == 4);
+    final modern = (d['schema'] == 3 || d['schema'] == 4 || d['schema'] == 5);
     final nextId = legacy ? 1 : integer('nextCottageId', 1, 1000000000);
     final data = d['lots'];
     if (data is! List || data.length != w * h) {
@@ -666,7 +705,13 @@ Placement evaluateMove(Landscape world, Cell from, Cell to) {
   );
 }
 
-Placement evaluate(Landscape world, Tool tool, Cell c) {
+Placement evaluate(
+  Landscape world,
+  Tool tool,
+  Cell c, {
+  Map<String, BuildingCondition>? conditions,
+  bool Function(String)? unsafe,
+}) {
   Placement no(String why) => Placement(world, null, c, why);
   if (!world.contains(c)) return no('Stay within the landscape.');
   final old = world.at(c);
@@ -722,6 +767,26 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
       null,
       null,
       1000,
+    );
+  }
+  if (tool == Tool.repair) {
+    final id = old.buildingId, record = conditions?[old.buildingId];
+    if (id == null || record == null || record.health == 100) {
+      return no('Choose a damaged building.');
+    }
+    if (unsafe?.call(id) ?? false) {
+      return no(
+        'The incident is still active here. Wait until it is safe to repair.',
+      );
+    }
+    return Placement(
+      world,
+      world,
+      c,
+      'Repair ${old.place?.label ?? 'Cottage'} · ${Rules.exactCoins(record.repairCost)} coins · restores operation',
+      null,
+      null,
+      record.repairCost,
     );
   }
   if (tool == Tool.remove) {
@@ -821,12 +886,25 @@ Placement evaluate(Landscape world, Tool tool, Cell c) {
 class ConstructionEdit {
   final Landscape before, after;
   final int paid;
-  ConstructionEdit(this.before, this.after, this.paid);
+  final List<RepairChange> repairs;
+  ConstructionEdit(
+    this.before,
+    this.after,
+    this.paid, [
+    this.repairs = const [],
+  ]);
 }
 
 class LandscapeSession {
   Landscape world;
+  final Map<String, BuildingCondition> conditions = {};
+  bool Function(String)? unsafeBuilding;
+  double Function()? clock;
   BrushStroke? stroke;
+  BuildingCondition condition(String id) =>
+      conditions.putIfAbsent(id, () => BuildingCondition());
+  Placement preview(Tool tool, Cell c) =>
+      evaluate(world, tool, c, conditions: conditions, unsafe: unsafeBuilding);
   int revision = 0;
   int money;
   bool unlimited;
@@ -848,6 +926,12 @@ class LandscapeSession {
         !plan.valid) {
       return false;
     }
+    if (identical(plan.before, plan.after)) {
+      final checked = preview(Tool.repair, plan.cell);
+      if (!checked.valid) return false;
+      beginStroke(Tool.repair, plan.cell);
+      return finishStroke();
+    }
     final price = unlimited ? 0 : plan.cost;
     if (price > money) return false;
     return _commit(plan.after!, price);
@@ -858,6 +942,9 @@ class LandscapeSession {
         plan.movingFrom == null ||
         !identical(plan.before, world) ||
         !plan.valid) {
+      return false;
+    }
+    if (unsafeBuilding?.call(world.at(plan.movingFrom!).buildingId!) ?? false) {
       return false;
     }
     final checked = evaluateMove(world, plan.movingFrom!, plan.cell);
@@ -891,7 +978,24 @@ class LandscapeSession {
     }
     if (!canUndo) return false;
     final edit = _undo.removeLast();
-    _restore(edit.before);
+    if (edit.repairs.isNotEmpty) {
+      if (edit.repairs.any(
+        (r) =>
+            condition(r.id).damageRevision != r.damageRevision ||
+            condition(r.id).health != 100 ||
+            condition(r.id).productive != r.productive ||
+            condition(r.id).uses != r.uses ||
+            (unsafeBuilding?.call(r.id) ?? false),
+      )) {
+        historyError = 'This repair has since been used or met another incident. Its completed work and cost stay forward; Undo again for earlier construction.';
+        return false;
+      }
+      for (final r in edit.repairs) {
+        condition(r.id).health = r.health;
+      }
+    } else {
+      _restore(edit.before);
+    }
     money += edit.paid;
     _redo.add(edit);
     revision++;
@@ -911,8 +1015,28 @@ class LandscapeSession {
           'Redo needs ${Rules.coins(edit.paid)} coins. The grant and farm work can help.';
       return false;
     }
+    if (edit.repairs.isNotEmpty &&
+        edit.repairs.any(
+          (r) =>
+              condition(r.id).damageRevision != r.damageRevision ||
+              condition(r.id).health != r.health ||
+              (unsafeBuilding?.call(r.id) ?? false),
+        )) {
+      _redo.removeLast();
+      historyError = 'This repair changed after Undo. Make a new Repair stroke at its current cost.';
+      return false;
+    }
     _redo.removeLast();
-    _restore(edit.after);
+    if (edit.repairs.isNotEmpty) {
+      for (final r in edit.repairs) {
+        final record = condition(r.id);
+        record.health = 100;
+        record.repairs++;
+        record.repairedAt = clock?.call() ?? 0;
+      }
+    } else {
+      _restore(edit.after);
+    }
     money -= edit.paid;
     _undo.add(edit);
     revision++;
@@ -929,8 +1053,14 @@ class LandscapeSession {
 
   void beginStroke(Tool tool, Cell start) {
     cancelStroke();
-    stroke = BrushStroke(world, tool, budget: money, free: unlimited)
-      ..paintTo(start);
+    stroke = BrushStroke(
+      world,
+      tool,
+      budget: money,
+      free: unlimited,
+      conditions: conditions,
+      unsafe: unsafeBuilding,
+    )..paintTo(start);
   }
 
   bool finishStroke() {
@@ -941,6 +1071,40 @@ class LandscapeSession {
         !identical(edit.before, world) ||
         edit.price > money) {
       return false;
+    }
+    if (edit.tool == Tool.repair) {
+      if (edit.repairChanges.any(
+        (r) =>
+            condition(r.id).health != r.health ||
+            condition(r.id).damageRevision != r.damageRevision ||
+            (unsafeBuilding?.call(r.id) ?? false),
+      )) {
+        historyError = 'The incident changed a staged repair. Nothing was charged; try again when safe.';
+        return false;
+      }
+      for (final r in edit.repairChanges) {
+        final record = condition(r.id);
+        record.health = 100;
+        record.repairs++;
+        record.repairedAt = clock?.call() ?? 0;
+      }
+      _undo.add(
+        ConstructionEdit(world, world, edit.price, [
+          for (final r in edit.repairChanges)
+            RepairChange(
+              r.id,
+              r.health,
+              r.damageRevision,
+              condition(r.id).productive,
+              condition(r.id).uses,
+            ),
+        ]),
+      );
+      if (_undo.length > historyLimit) _undo.removeAt(0);
+      _redo.clear();
+      money -= edit.price;
+      revision++;
+      return true;
     }
     return _commit(edit.staged, edit.price);
   }
@@ -991,12 +1155,17 @@ class BrushStroke {
   Placement? firstInvalid;
   final int budget;
   final bool free;
+  final Map<String, BuildingCondition>? conditions;
+  final bool Function(String)? unsafe;
+  final List<RepairChange> repairChanges = [];
   int price = 0;
   BrushStroke(
     this.before,
     this.tool, {
     this.budget = Rules.startingMoney,
     this.free = false,
+    this.conditions,
+    this.unsafe,
   }) : staged = before;
   void paintTo(Cell target) {
     if (tool == Tool.bridge) {
@@ -1032,7 +1201,13 @@ class BrushStroke {
           staged.at(c).road == tool.roadKind) {
         continue;
       }
-      final plan = evaluate(staged, tool, c);
+      final plan = evaluate(
+        staged,
+        tool,
+        c,
+        conditions: conditions,
+        unsafe: unsafe,
+      );
       final cost = free ? 0 : plan.cost;
       if (plan.valid && price + cost > budget) {
         firstInvalid ??= Placement(
@@ -1045,6 +1220,12 @@ class BrushStroke {
       }
       if (plan.valid) {
         price += cost;
+        if (tool == Tool.repair) {
+          final id = staged.at(c).buildingId!, record = conditions![id]!;
+          repairChanges.add(
+            RepairChange(id, record.health, record.damageRevision),
+          );
+        }
         staged = plan.after!;
         changed.add(c);
       } else {

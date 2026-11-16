@@ -87,10 +87,12 @@ class _LandscapePageState extends State<LandscapePage> {
       introduction = saved.isEmpty;
       if (saved.isNotEmpty) {
         colony = Colony.decode(saved);
-        if (jsonDecode(saved)['schema'] != 4) {
+        if (jsonDecode(saved)['schema'] != 5) {
           try {
-            if (jsonDecode(saved)['schema'] != 3) browser.backupLegacy(saved);
-            browser.backupLiving(saved);
+            final schema = jsonDecode(saved)['schema'] as int;
+            if (schema < 3) browser.backupLegacy(saved);
+            if (schema < 4) browser.backupLiving(saved);
+            browser.backupIncidents(saved);
             needsMigrationSave = true;
           } catch (_) {
             migrationSafe = false;
@@ -320,9 +322,15 @@ class _LandscapePageState extends State<LandscapePage> {
             ? 'piece'
             : stroke.tool.label.toLowerCase();
         tell(
-          '${stroke.changed.length} $noun${stroke.changed.length == 1 ? '' : 's'} ${stroke.tool == Tool.remove ? 'removed' : 'placed'} · ${Rules.coins(stroke.price)} coins',
+          '${stroke.changed.length} $noun${stroke.changed.length == 1 ? '' : 's'} ${stroke.tool == Tool.repair
+              ? 'repaired'
+              : stroke.tool == Tool.remove
+              ? 'removed'
+              : 'placed'} · ${Rules.coins(stroke.price)} coins',
         );
       }
+    } else if (session.historyError != null) {
+      tell(session.historyError!);
     } else if (stroke?.firstInvalid != null) {
       browser.sound('invalid');
     }
@@ -460,7 +468,9 @@ class _LandscapePageState extends State<LandscapePage> {
     game.clearPreview();
     game.menuVisible = true;
     try {
-      if (action == 'yearwatch') {
+      if (action == 'incidents') {
+        await showPreparedness();
+      } else if (action == 'yearwatch') {
         setSpeed(colony.speed == 16 ? 1 : 16);
         tell(
           'Year watch: ${colony.speed}×. Ordinary speed buttons still work.',
@@ -514,7 +524,9 @@ class _LandscapePageState extends State<LandscapePage> {
         );
         if (draft != null && mounted) {
           final world = WorldGeneration.create(draft.seed, draft.preset);
-          replaceColony(Colony(LandscapeSession(world)));
+          replaceColony(
+            Colony(LandscapeSession(world))..incidentMode = draft.incidents,
+          );
           migrationSafe = true;
           introduction = true;
           final saved = save();
@@ -582,6 +594,8 @@ class _LandscapePageState extends State<LandscapePage> {
                 'Parks have ${Rules.greenCapacity} visitor spaces for actual social visits and relaxation. Work and leisure improve mood after real activity; newcomers get 75 seconds of grace. Connected, successful neighbourhoods can gather in the evening.\n\n'
                 'Landscape: Clear trees/wet ground (1), Plant a tree (1), Bridge a straight bank-to-bank span (3/water cell). Water blocks travel until the whole bridge connects. Clear marsh for buildings; roads can use it slowly. Stone mitigates wet ground and rain.\n\n'
                 'New landscape lets you choose an environment and seed; export before replacing your town. World information shows terrain rules and a copyable seed.\n\n'
+                'Preparedness (B): Firehouse 18 coins / 2 automatic staff; Watchpost 14 / 1 guard; Refuge 10 / 8 temporary shelter spaces. Inn 16 / 1 worker, 4 social spaces. Repair damaged safe buildings for 1–5 coins. Fresh unused repairs can be undone; used work and new damage remain forward.\n\n'
+                'Incidents can be Peaceful or Standard in the menu. Legacy towns start Peaceful. New Standard towns have three days of grace. Prepare roads, staff and shelter; inhabitants respond on their own.\n\n'
                 'B: grouped build catalogue. 6 Workshop · 7 Market · 8 Hall · 9 Stone Road · 0 Garden Path.\n\n'
                 'I: inspect; Talk opens a short optional conversation. Move (M) relocates an inspected building for free; right-click offers the same shortcut. Escape cancels. Click again to cycle overlapping people. Alt-click: quick inspection. T cycles pause/1×/2×/4×. People follow their routines automatically.\n\n'
                 'Right/middle or Space-drag pans. Scroll or +/− zooms. H returns to the lane. Ctrl/⌘ Z undoes; Shift Z redoes. Undo changes construction charges, not earned income or time.\n\n'
@@ -610,6 +624,71 @@ class _LandscapePageState extends State<LandscapePage> {
         focus.requestFocus();
       }
     }
+  }
+
+  Future<void> showPreparedness() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: const Text('Preparedness & incidents'),
+          content: SizedBox(
+            width: 430,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButton<IncidentMode>(
+                    value: colony.incidentMode,
+                    items: const [
+                      DropdownMenuItem(
+                        value: IncidentMode.peaceful,
+                        child: Text('Peaceful'),
+                      ),
+                      DropdownMenuItem(
+                        value: IncidentMode.standard,
+                        child: Text('Standard'),
+                      ),
+                    ],
+                    onChanged: (mode) {
+                      if (mode == null) return;
+                      setState(() => colony.setIncidentMode(mode));
+                      update(() {});
+                      save();
+                    },
+                  ),
+                  const Text(
+                    'Peaceful prevents new destructive incidents. Standard: at least 3 days of grace after opt-in, then occasional recoverable trouble. An incident already underway continues. Pause with Ⅱ while planning.',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    colony.incident?.description ?? 'No active incident. Build connected Firehouses, Watchposts and Refuges through B. Staff train by actually reaching work; no individual commands.',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Fire: at most 3 touching buildings; gaps and water stop spread. Responders must travel. Rabbit: real approach to a Farm; guards within 10 weighted road steps can shoo it. Repair only after danger passes.',
+                  ),
+                  for (final h in colony.incidentHistory.reversed.take(6))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        '${h.kind} · ${h.outcome} · ${h.damage} damage · ${h.responders} arrived · ${h.sheltered} sheltered',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Back to building'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void replaceColony(Colony next) {
@@ -731,7 +810,10 @@ class _LandscapePageState extends State<LandscapePage> {
 
   void talk({String? resident, bool civic = false}) {
     final id = resident ?? game.inspectedResident;
-    if (id == null || colony.actor(id) == null) return;
+    if (id == null ||
+        (!colony.people.containsKey(id) && !colony.visits.containsKey(id))) {
+      return;
+    }
     cancelGesture();
     setState(() {
       conversation = Conversation(
@@ -816,7 +898,9 @@ class _LandscapePageState extends State<LandscapePage> {
                 Wrap(
                   spacing: 6,
                   children: [
-                    if (person != null)
+                    if (person != null &&
+                        (colony.people.containsKey(person.homeId) ||
+                            colony.visits.containsKey(person.homeId)))
                       TextButton(
                         onPressed: () => talk(),
                         child: const Text('Talk'),
@@ -1143,6 +1227,12 @@ class _LandscapePageState extends State<LandscapePage> {
                         value: 'new',
                         child: Text('New landscape…'),
                       ),
+                      PopupMenuItem(
+                        value: 'incidents',
+                        child: Text(
+                          'Incidents: ${colony.incidentMode == IncidentMode.peaceful ? 'Peaceful' : 'Standard'}',
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'world',
                         child: Text('World information & seed'),
@@ -1262,6 +1352,59 @@ class _LandscapePageState extends State<LandscapePage> {
                                 ),
                               ),
                           ],
+                        ),
+                      ),
+                    if (colony.incident != null)
+                      Positioned(
+                        left: 20,
+                        top: 112,
+                        child: SizedBox(
+                          width: 320,
+                          child: Card(
+                            color: const Color(0xee202a25),
+                            child: TextButton(
+                              onPressed: () {
+                                final c = colony.buildingCell(
+                                  colony.incident!.target,
+                                );
+                                if (c != null) {
+                                  game.locate(c);
+                                  game.inspectBuilding(c);
+                                }
+                                menu('incidents');
+                              },
+                              child: Text(
+                                '${colony.incident!.title} · ${colony.incident!.state} · locate / details',
+                                style: const TextStyle(
+                                  color: Color(0xffe3b586),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (colony.incident == null &&
+                        colony.incidentHistory.isNotEmpty &&
+                        colony.clock - colony.incidentHistory.last.ends < 12)
+                      Positioned(
+                        left: 20,
+                        top: 112,
+                        child: SizedBox(
+                          width: 320,
+                          child: Card(
+                            color: const Color(0xee202a25),
+                            child: TextButton(
+                              onPressed: () => menu('incidents'),
+                              child: Text(
+                                '${colony.incidentHistory.last.kind}: ${colony.incidentHistory.last.outcome} · ${colony.incidentHistory.last.damage} damage · inspect recovery',
+                                style: const TextStyle(
+                                  color: Color(0xffd4c795),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     if (introduction)
@@ -1445,7 +1588,18 @@ class _LandscapePageState extends State<LandscapePage> {
                           ),
                           for (final group in <String, List<Tool>>{
                             'Homes': [Tool.cottage],
-                            'Work': [Tool.garden, Tool.workshop, Tool.market],
+                            'Work': [
+                              Tool.garden,
+                              Tool.workshop,
+                              Tool.market,
+                              Tool.inn,
+                            ],
+                            'Preparedness': [
+                              Tool.firehouse,
+                              Tool.watchpost,
+                              Tool.refuge,
+                              Tool.repair,
+                            ],
                             'Social': [Tool.green, Tool.hall],
                             'Roads': [
                               Tool.path,
@@ -1482,7 +1636,11 @@ class _LandscapePageState extends State<LandscapePage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              '${t.isLandscape ? '' : '${t.index == 9 ? 0 : t.index + 1} '}${t.label} · ${Rules.cost(t.name) == 0 ? 'Free' : '${Rules.coins(Rules.cost(t.name))} coins${t == Tool.bridge ? '/water cell' : ''}'}',
+                                              '${t.index > 9 ? '' : '${t.index == 9 ? 0 : t.index + 1} '}${t.label} · ${t == Tool.repair
+                                                  ? '1–5 coins/building'
+                                                  : Rules.cost(t.name) == 0
+                                                  ? 'Free'
+                                                  : '${Rules.coins(Rules.cost(t.name))} coins${t == Tool.bridge ? '/water cell' : ''}'}',
                                               style: TextStyle(
                                                 color: tool == t
                                                     ? const Color(0xffead39b)

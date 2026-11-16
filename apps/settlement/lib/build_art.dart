@@ -253,12 +253,25 @@ class BuildArt {
                     : const Color(0xff456347))
                 .withValues(alpha: opacity),
     );
-    if ([Place.workshop, Place.market, Place.hall].contains(lot.place)) {
+    if ([
+      Place.workshop,
+      Place.market,
+      Place.hall,
+      Place.firehouse,
+      Place.watchpost,
+      Place.inn,
+    ].contains(lot.place)) {
       frame(
         canvas,
         lot.place!.name,
         c,
-        lot.place == Place.workshop
+        lot.place == Place.firehouse
+            ? const Color(0xffd49d82)
+            : lot.place == Place.watchpost
+            ? const Color(0xffd5c38e)
+            : lot.place == Place.inn
+            ? const Color(0xffc5b9a0)
+            : lot.place == Place.workshop
             ? const Color(0xffb5beb6)
             : lot.place == Place.market
             ? const Color(0xffdbab78)
@@ -276,6 +289,15 @@ class BuildArt {
           );
         }
       }
+    } else if (lot.place == Place.refuge) {
+      frame(canvas, 'hall', c, const Color(0xffa8bd99), opacity: opacity);
+      frame(
+        canvas,
+        'refuge-gate',
+        c,
+        const Color(0xffd4c39a),
+        opacity: opacity,
+      );
     } else if (lot.place == Place.garden) {
       for (final row in [3.0, 7.0]) {
         canvas.drawRect(
@@ -345,6 +367,11 @@ class BuildArt {
     Tool.workshop => 'workshop',
     Tool.market => 'market',
     Tool.hall => 'hall',
+    Tool.firehouse => 'firehouse',
+    Tool.watchpost => 'watchpost',
+    Tool.refuge => 'refuge-gate',
+    Tool.inn => 'inn',
+    Tool.repair => 'workshop',
     Tool.remove || Tool.clear => 'clear',
     Tool.plant => 'oak',
     Tool.bridge => 'bridge-h',
@@ -386,6 +413,8 @@ class BuildArt {
       frame(canvas, 'bridge-h', c, const Color(0xffc1a26a));
     } else if (tool == Tool.plant) {
       frame(canvas, 'oak', c, const Color(0xff83a66c));
+    } else if (tool == Tool.repair) {
+      frame(canvas, 'workshop', c, const Color(0xffe8cc8d));
     } else if (tool == Tool.clear) {
       frame(canvas, 'clear', c, const Color(0xffb7c78d));
     } else if (tool.isRoad) {

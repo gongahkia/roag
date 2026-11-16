@@ -40,6 +40,8 @@ class SettlementGame extends FlameGame {
     'modelMicros': modelMicros,
     'presentationMicros': presentationMicros,
     'modelCalls': modelCalls,
+    'hazardTicks': colony.hazardTicks,
+    'fireSitesVisited': colony.fireSitesVisited,
     'routeSearches': colony.routeSearches,
     'population': colony.people.length,
     'clock': colony.clock,
@@ -75,6 +77,12 @@ class SettlementGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     final names = [
+      'firehouse',
+      'watchpost',
+      'refuge-gate',
+      'inn',
+      'flame',
+      'rabbit',
       'season-flowers',
       'autumn-leaf',
       'oak-winter',
@@ -101,7 +109,7 @@ class SettlementGame extends FlameGame {
     for (final name in names) {
       art[name] = Sprite(await images.load('$name.png'));
     }
-    residentAtlas = await images.load('world-actors-atlas.png');
+    residentAtlas = await images.load('incident-actors-atlas.png');
     await world.add(_LandscapeLayer(this));
     camera.viewfinder.zoom = 4;
     home();
@@ -139,14 +147,32 @@ class SettlementGame extends FlameGame {
         : session.stroke!.budget - session.stroke!.price;
     if (preview?.cell == c &&
         identical(preview?.before, session.view) &&
-        _previewBudget == budget) {
+        _previewBudget == budget &&
+        tool != Tool.repair &&
+        movingFrom == null) {
       return;
     }
     _previewBudget = budget;
     preview = movingFrom == null
         ? tool == Tool.bridge && session.stroke?.bridgeStart != null
               ? evaluateBridge(session.world, session.stroke!.bridgeStart!, c)
-              : evaluate(session.view, tool, c)
+              : evaluate(
+                  session.view,
+                  tool,
+                  c,
+                  conditions: session.conditions,
+                  unsafe: session.unsafeBuilding,
+                )
+        : (session.unsafeBuilding?.call(
+                session.world.at(movingFrom!).buildingId!,
+              ) ??
+              false)
+        ? Placement(
+            session.world,
+            null,
+            c,
+            'The incident is active here. Move this building after it is safe.',
+          )
         : evaluateMove(session.world, movingFrom!, c);
     final free = session.stroke?.free ?? session.unlimited;
     final cost = free || movingFrom != null ? 0 : preview!.cost;
@@ -332,6 +358,11 @@ class SettlementGame extends FlameGame {
     if (v != null) {
       return '${v.actor.name} · ${v.role.label}\n${v.state}\n${colony.visitorStory(v)}\nTemporary guest; no cottage or permanent population slot.';
     }
+    if (colony.incident?.animal?.homeId == inspectedResident &&
+        inspectedResident != null) {
+      final e = colony.incident!;
+      return 'Rabbit · wildlife\n${e.state} · ${e.damage} actual crop damage.\n${e.description}\nTemporary actor; guards respond automatically.';
+    }
     final r = colony.people[inspectedResident];
     if (r != null) {
       final reason = speechReason(r);
@@ -352,7 +383,11 @@ class SettlementGame extends FlameGame {
           .forResident(r.homeId)
           .map((q) => q.status)
           .join('\n');
-      return '${r.name} · ${r.peopleKind.label}\n${r.peopleKind.effect}\n${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\n$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
+      return '${r.name} · ${r.peopleKind.label}\n${r.peopleKind.effect}\n${Appearance.description(r.bodyId, r.palette)}\n${r.trait.label}: ${r.trait.effect}\n${activityLabel(r.activity)}\nHome: Cottage ${home == null ? 'removed' : 'at ${home.x + 1}, ${home.y + 1}'}. Work: ${work == null ? 'seeking work' : '${colony.kind(r.workId)!.label} at ${work.x + 1}, ${work.y + 1}'}.\nHome: ${colony.status(r.homeId)?.label ?? 'Operational'} · Work: ${r.workId == null
+          ? 'none'
+          : colony.usable(r.workId)
+          ? colony.status(r.workId)?.label ?? 'Operational'
+          : 'Unavailable'}\n${r.safetyRole == null ? '' : 'Safety: ${r.safetyRole} · destination ${r.destination ?? 'safe road'}.\n'}$detail\nHappiness ${colony.happiness(r)} · base 50${mood.isEmpty ? '' : '\n$mood'}${requests.isEmpty ? '' : '\n$requests'}${nearbyPeople > 1 ? '\nClick again to cycle $nearbyPeople nearby people.' : ''}';
     }
     final c = inspectedCell;
     if (c == null || !session.world.contains(c)) return null;
@@ -360,22 +395,23 @@ class SettlementGame extends FlameGame {
     final place = lot.place;
     if (place != null) {
       final id = lot.placeId!;
+      final condition = conditionInfo(id);
       final work = place.workCapacity > 0
-          ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Income: ${Rules.coins(place.income)} coin/second per actual worker.${place == Place.garden && colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock) ? ' Good harvest: ${Rules.exactCoins((place.income * 1.25).round())}/second.' : ''}\n'
+          ? '${place.workCapacity} work positions\n${colony.workers(id)} working · ${colony.jobs(id)} assigned. Base income: ${Rules.coins(place.income)} coin/second per actual worker.${place == Place.garden && colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock) ? ' Good harvest: ${Rules.exactCoins((place.income * 1.25).round())}/second.' : ''}\n'
           : '';
       final farm = place == Place.garden
-          ? 'Current Farm rate: ${(place.income * colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock)) / 1000).toStringAsFixed(3)} coin/second; ${colony.season.label}, ${colony.weather.label}.\n'
+          ? 'Current Farm rate: ${(place.income * (colony.usable(id) ? colony.status(id)?.output ?? 1 : 0) * colony.climate.farmMultiplier(colony.clock, harvest: colony.special?.kind == SpecialKind.harvest && colony.special!.active(colony.clock)) / 1000).toStringAsFixed(3)} coin/second; ${colony.season.label}, ${colony.weather.label}.\n'
           : '';
       final visits = place.visitorCapacity > 0
-          ? '${place.visitorCapacity} visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'
+          ? '${colony.capacity(id)} current visitor spaces · ${colony.occupancy(id)} visiting. ${Rules.socialDuration.toInt()} seconds of actual leisure improves mood.\n'
           : '';
       final trade = place == Place.market
           ? '${colony.staffed(id) ? 'Vendor present' : 'Waiting for a working vendor'}. Completed service earns ${Rules.exactCoins(Rules.tradeCredit)} coin once per resident/day across all Markets${colony.marketDay ? ' + ${Rules.exactCoins(Rules.marketDayBonus)} Market-day bonus' : ''}. Vendor work pays separately.\n'
           : '';
-      return '${place.label} · $work$farm$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
+      return '${place.label} · $condition\n${preparednessInfo(id)}$work$farm$visits$trade${place == Place.hall ? 'Covered; preferred in rain.\n' : ''}${place.workCapacity > 0 ? '${colony.people.values.where((r) => r.workIssue != Reason.none).length} residents seeking reachable work.\n' : ''}${access == null ? 'Restore a path to the arrival lane.' : 'Residents follow their routines automatically.'}';
     }
     if (lot.cottage != null) {
-      return 'Cottage · one resident\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
+      return 'Cottage · one resident\n${conditionInfo(lot.cottageId!)}\n${access == null ? 'Disconnected. Restore a path to the arrival lane.' : 'Connected. Inspect its resident for work and leisure needs.'}';
     }
     if (lot.bridge != null) {
       return 'Bridge · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n${session.world.roadCell(c) ? 'Complete bank-to-bank crossing. Ordinary path pace; rain slows travel.' : 'Broken crossing. Restore every missing water cell and both land approaches before residents can cross.'}';
@@ -396,7 +432,35 @@ class SettlementGame extends FlameGame {
     return '${lot.scenery == Scenery.oak ? 'Woodland' : lot.terrain.label}\n${lot.scenery == Scenery.oak ? 'Clear the tree before building or laying a path.' : lot.terrain.instruction}';
   }
 
+  String conditionInfo(String id) {
+    final state = colony.status(id);
+    return '${colony.burning(id) ? 'Burning · unsafe to repair' : state?.label ?? 'Operational'}${state != null && state.health < 100 ? ' · Repair ${Rules.exactCoins(state.repairCost)} coins when safe' : ''}${state?.developed == true ? ' · Established by actual use' : ''}${(state?.repairs ?? 0) > 0 ? ' · Repaired ${state!.repairs}×' : ''}';
+  }
+
+  String preparednessInfo(String id) {
+    final type = colony.kind(id);
+    if (type?.protective == true) {
+      final staff = colony.people.values.where((r) => r.workId == id);
+      return '${staff.where(colony.ready).length}/${type!.workCapacity} trained on-call · ${staff.where((r) => r.safetyRole != null).length} responding.\n${type == Place.firehouse ? 'Two employees; at most four town-wide. Suppression only after actual arrival.' : 'One guard; at most one per disturbance. Farm must be within 10 weighted road steps.'}\n';
+    }
+    if (type == Place.refuge) {
+      return '${colony.shelterCapacity(id)} temporary shelter spaces · ${colony.people.values.where((r) => r.safetyTarget == id && r.safetyRole == 'evacuating').length} reserved. Residents must reach shelter.\n';
+    }
+    if (type == Place.inn) {
+      return 'One innkeeper; four covered social spaces. Completed guests may rest six seconds, bringing their next visit 30 seconds closer.\n';
+    }
+    return '';
+  }
+
   String activityLabel(Activity activity) => switch (activity) {
+    Activity.responseTravel => 'Responding along the roads',
+    Activity.responding => 'At the incident, helping',
+    Activity.shelterTravel => 'Walking to safety',
+    Activity.sheltering => 'Temporarily sheltered',
+    Activity.emergencyWaiting => 'Waiting safely for access',
+    Activity.incidentTravel => 'Approaching the Farm',
+    Activity.disturbing => 'Eating crops',
+    Activity.fleeing => 'Following a safe road',
     Activity.pending => 'Moving in soon',
     Activity.arriving => 'Arriving',
     Activity.workTravel => 'Walking to work',
@@ -745,10 +809,11 @@ class _LandscapeLayer extends Component {
               : green,
         );
       }
+      buildingHistory(canvas, c, l);
     }
     for (final v in game.colony.visits.values) {
       if (v.actor.activity != Activity.socialising) continue;
-      final venue = scene.places[v.venue];
+      final venue = scene.places[v.actor.destination];
       if (venue != null) {
         frame(
           canvas,
@@ -922,8 +987,107 @@ class _LandscapeLayer extends Component {
     }
   }
 
+  void buildingHistory(Canvas canvas, Cell c, Lot lot) {
+    final id = lot.buildingId;
+    if (id == null) return;
+    final state = game.colony.status(id), x = c.x * 12.0, y = c.y * 12.0;
+    if (state?.scorched == true) {
+      canvas.drawRect(
+        Rect.fromLTWH(x + 1, y + 10, 10, 2),
+        Paint()..color = const Color(0xff393c32),
+      );
+    }
+    if ((state?.health ?? 100) < 100) {
+      canvas.drawLine(
+        Offset(x + 4, y + 4),
+        Offset(x + 7, y + 10),
+        Paint()
+          ..color = const Color(0xff392f2b)
+          ..strokeWidth = 1,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(x + 9, y + 1, 2, 2),
+        Paint()
+          ..color = state!.usable
+              ? const Color(0xffd9b974)
+              : const Color(0xffcc856c),
+      );
+    }
+    if (state?.developed == true) {
+      if (lot.cottage != null) {
+        for (final dx in [1.0, 9.0]) {
+          canvas.drawRect(
+            Rect.fromLTWH(x + dx, y + 9, 2, 1),
+            Paint()..color = const Color(0xffdbba88),
+          );
+          canvas.drawRect(
+            Rect.fromLTWH(x + dx, y + 8, 1, 1),
+            Paint()..color = const Color(0xffa9b982),
+          );
+        }
+      } else {
+        canvas.drawRect(
+          Rect.fromLTWH(x + 1, y + 10, 3, 1),
+          Paint()..color = const Color(0xffc4ab7b),
+        );
+        canvas.drawRect(
+          Rect.fromLTWH(x + 2, y + 9, 1, 1),
+          Paint()..color = const Color(0xffa1b27d),
+        );
+      }
+    }
+    final site = game.colony.incident?.fires
+        .where((f) => f.building == id && f.heat > 0)
+        .firstOrNull;
+    if (site != null) {
+      if (game.colony.incident!.state != 'warning') {
+        final shift = game.reducedMotion
+            ? 0.0
+            : math.sin(game.colony.clock * 7 + c.x) * .5;
+        canvas.save();
+        canvas.translate(0, shift);
+        game.art['flame']?.render(
+          canvas,
+          position: Vector2(x + 2, y - 4),
+          size: Vector2(8, 9),
+          overridePaint: Paint()
+            ..filterQuality = FilterQuality.none
+            ..isAntiAlias = false
+            ..colorFilter = const ColorFilter.mode(
+              Color(0xffffcb79),
+              BlendMode.srcIn,
+            ),
+        );
+        canvas.drawRect(
+          Rect.fromLTWH(x + 1, y, 10, 11),
+          Paint()
+            ..color = const Color(0xffdb9c67)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = .35,
+        );
+        canvas.restore();
+      }
+      final lift = game.reducedMotion ? 0.0 : game.colony.clock % 1 * 3;
+      canvas.drawRect(
+        Rect.fromLTWH(x + 5, y - 2 - lift, 3, 2),
+        Paint()..color = const Color(0xaaafb2a1),
+      );
+    }
+    if (state != null &&
+        state.repairedAt >= 0 &&
+        game.colony.clock - state.repairedAt < 2) {
+      canvas.drawRect(
+        Rect.fromLTWH(x, y, 12, 12),
+        Paint()
+          ..color = gold
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .5,
+      );
+    }
+  }
+
   final _atlasRects = List<Rect>.generate(
-    64,
+    72,
     (i) => Rect.fromLTWH(
       i % 8 * 52.0,
       (i ~/ 8 + (i >= 32 ? 1 : 0)) * 52.0,
@@ -950,7 +1114,7 @@ class _LandscapeLayer extends Component {
       );
       rects.add(const Rect.fromLTWH(0, 208, 26, 7));
       colors.add(color);
-      final body = Appearance.worldBodies.indexOf(
+      final body = Appearance.renderBodies.indexOf(
         Appearance.resolveBody(r.bodyId),
       );
       final index =
@@ -984,6 +1148,26 @@ class _LandscapeLayer extends Component {
 
   void personAccents(Canvas canvas, Resident r, double alpha) {
     final pose = game.pose(r), position = pose.feet;
+    if (r.safetyRole != null) {
+      final target = game.colony.buildingCell(r.safetyTarget);
+      canvas.drawCircle(
+        position + const Offset(0, -7),
+        .9,
+        Paint()
+          ..color = r.safetyRole == 'fire' ? const Color(0xff93cdd0) : gold,
+      );
+      if (r.activity == Activity.responding &&
+          target != null &&
+          r.safetyRole == 'fire') {
+        canvas.drawLine(
+          position + const Offset(1, -3),
+          Offset((target.x + .5) * 12, (target.y + .5) * 12),
+          Paint()
+            ..color = const Color(0xff93cdd0)
+            ..strokeWidth = .6,
+        );
+      }
+    }
     if (r.activity != Activity.working &&
         !(pose.gesture > .25 &&
             [Activity.socialising, Activity.gathering].contains(r.activity)) &&

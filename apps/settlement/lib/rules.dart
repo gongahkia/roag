@@ -12,6 +12,10 @@ abstract final class Rules {
   static const morningEnd = 15.0, eveningStart = 90.0, nightStart = 125.0;
   static const startingMoney = 200000;
   static const costs = {
+    'firehouse': 18000,
+    'watchpost': 14000,
+    'refuge': 10000,
+    'inn': 16000,
     'cottage': 5000,
     'clear': 1000,
     'plant': 1000,

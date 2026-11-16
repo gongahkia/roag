@@ -17,8 +17,9 @@ abstract final class Appearance {
     2 => 'hood-v1',
     _ => 'cap-v1',
   };
+  static const renderBodies = [...worldBodies, 'rabbit-body-v1'];
   static String resolveBody(String id) =>
-      worldBodies.contains(id) ? id : 'plain-v1';
+      renderBodies.contains(id) ? id : 'plain-v1';
   static String sprite(String body, int palette) =>
       'person-${resolveBody(body)}-${palettes[palette.clamp(0, 3)]}';
   static String description(String body, int palette) =>

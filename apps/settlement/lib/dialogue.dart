@@ -112,6 +112,34 @@ abstract final class Dialogues {
         close,
       ],
     ),
+    'preparedness': DialogueNode('preparedness', (c) {
+      final r = c.person!, town = c.colony;
+      if (r.safetyRole == 'fire' || r.safetyRole == 'guard') {
+        return r.activity == Activity.responding
+            ? 'I reached the incident. I can help here while my station stays operational.'
+            : 'I am following the legal roads to help. A broken crossing can stop me.';
+      }
+      if (r.activity == Activity.sheltering) {
+        return 'I reached a Refuge. This is temporary shelter; my own cottage is still mine.';
+      }
+      if (r.safetyRole != null) {
+        return 'I am finding a safe road or a Refuge with room. I cannot cross a broken bridge.';
+      }
+      if (!town.homeUsable(r)) {
+        return 'My cottage needs repairs before I can return. Please use Repair when it is safe; I will keep my home.';
+      }
+      if (r.workId != null && !town.usable(r.workId)) {
+        return 'My workplace is unavailable. Repair it when it is safe; I will return on my own.';
+      }
+      if ((town.status(r.homeId)?.repairs ?? 0) > 0) {
+        return 'My cottage has been repaired. The same home, with a little history.';
+      }
+      if (town.incidentHistory.isNotEmpty) {
+        final h = town.incidentHistory.last;
+        return 'The last ${h.kind} ended: ${h.outcome}. ${h.responders} responders reached it; ${h.sheltered} neighbours found shelter. Roads and staffed buildings make the difference.';
+      }
+      return 'A connected Firehouse trains two responders, a Watchpost one guard. A Refuge has eight temporary places. They act on their own when needed.';
+    }, [back, close]),
     'heritage': DialogueNode(
       'heritage',
       (c) =>
@@ -123,6 +151,11 @@ abstract final class Dialogues {
       (c) => c.helped?.need.thanks ?? 'Hello. It is good to stop for a moment.',
       [
         back,
+        const DialogueChoice(
+          'preparedness',
+          'How is the town prepared?',
+          'preparedness',
+        ),
         const DialogueChoice(
           'heritage',
           'Tell me about your people.',

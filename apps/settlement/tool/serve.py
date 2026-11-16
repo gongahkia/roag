@@ -4,7 +4,6 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import argparse
 import errno
-import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=8765)
@@ -19,6 +18,9 @@ if not (build/'index.html').exists():
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *handler_args, **kwargs):
+        super().__init__(*handler_args, directory=str(build), **kwargs)
+
     def route(self):
         if self.path == '/':
             self.send_response(302)
@@ -40,7 +42,6 @@ class Handler(SimpleHTTPRequestHandler):
             super().do_HEAD()
 
 
-os.chdir(build)
 try:
     server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
 except OSError as error:

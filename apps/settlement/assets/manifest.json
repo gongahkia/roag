@@ -3,6 +3,102 @@
   "source_sha256": "f5d927e5e9877a3c088bc488aa64d50f85ce09fd73ded3c1fd25ad715b3ac617",
   "extraction": "RGB <= 8 keyed transparent; source pixels otherwise retained. Renderer applies semantic tint.",
   "frames": {
+    "firehouse": {
+      "id": "urizen-onebit-r06-c053",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        690,
+        79,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/firehouse.png",
+      "sha256": "47df8a8b6c2c23dc5d2b3d1e431f109bc9ebdb1c641c6fe11a8bab92f0d8ed6b"
+    },
+    "watchpost": {
+      "id": "urizen-onebit-r05-c027",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        352,
+        66,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/watchpost.png",
+      "sha256": "e156bfb3095422dace159c5e32eaa7ea0e378bd31146dd03f0c778acfdf19ba6"
+    },
+    "refuge-gate": {
+      "id": "urizen-onebit-r05-c030",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        391,
+        66,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/refuge-gate.png",
+      "sha256": "3833b65c67738f633e93a2c5a5a6d16e82a4c2c637973c997572eb8108ee6efa"
+    },
+    "inn": {
+      "id": "urizen-onebit-r33-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        430,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/inn.png",
+      "sha256": "59786c2051c08144344a770809f4999256cae15038fe29961e56386b9fb377cb"
+    },
+    "flame": {
+      "id": "urizen-onebit-r42-c000",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        1,
+        547,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/flame.png",
+      "sha256": "e14f8d750d9cbc1334cb4584aee558cce4a950e585dc26f0864a480414c67d70"
+    },
+    "rabbit": {
+      "id": "urizen-onebit-r16-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        209,
+        12,
+        12
+      ],
+      "footprint": [
+        1,
+        1
+      ],
+      "file": "images/rabbit.png",
+      "sha256": "3cc10a5f081769689fcceb32aa38c8cb250528de2c80fbdad336605fcde2f75a"
+    },
     "grass0": {
       "id": "urizen-onebit-r05-c015",
       "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
@@ -1219,6 +1315,66 @@
       "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
       "sha256": "bd689e6b17a36463bbf9b235d52128ed19c11b32d45a2f83e60cdf7186d6b918"
     },
+    "person-rabbit-body-v1-cream": {
+      "id": "urizen-onebit-r16-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        209,
+        12,
+        12
+      ],
+      "file": "images/person-rabbit-body-v1-cream.png",
+      "body": "rabbit-body-v1",
+      "palette": "cream",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "1d1f490159d71d929ca382f7b9cbacae1685b73f39199297bf2a25eb4d0104ba"
+    },
+    "person-rabbit-body-v1-teal": {
+      "id": "urizen-onebit-r16-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        209,
+        12,
+        12
+      ],
+      "file": "images/person-rabbit-body-v1-teal.png",
+      "body": "rabbit-body-v1",
+      "palette": "teal",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "90c6a3f8421ed47e4036fef8d2d0ef600137be88cbd9984957a3779610598fdd"
+    },
+    "person-rabbit-body-v1-clay": {
+      "id": "urizen-onebit-r16-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        209,
+        12,
+        12
+      ],
+      "file": "images/person-rabbit-body-v1-clay.png",
+      "body": "rabbit-body-v1",
+      "palette": "clay",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "df69c088f34c196eca5382be6d49033b7e840b7b67b5e7aaabc8c2fe97127c5c"
+    },
+    "person-rabbit-body-v1-lilac": {
+      "id": "urizen-onebit-r16-c003",
+      "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+      "rect": [
+        40,
+        209,
+        12,
+        12
+      ],
+      "file": "images/person-rabbit-body-v1-lilac.png",
+      "body": "rabbit-body-v1",
+      "palette": "lilac",
+      "treatment": "source silhouette and luminance retained; semantic living-world palette; static source drawing",
+      "sha256": "c27ebc8caec67021189efb54b632241b3676ff7b7cd15f9847f621ee57e3b797"
+    },
     "hammer": {
       "source": "assets/godot-node-icons/white/icon_hammer.png",
       "rect": [
@@ -2377,6 +2533,849 @@
       7
     ],
     "treatment": "4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow"
+  },
+  "incident_atlas": {
+    "file": "images/incident-actors-atlas.png",
+    "sha256": "440fbe4f1a6dd575014026da2ad8ebd21599769da5ac7d1e03187d1765ac47f2",
+    "cell": [
+      52,
+      52
+    ],
+    "feet": [
+      26,
+      50
+    ],
+    "world_scale": 0.1875,
+    "frames": [
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "plain-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          0,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "longhair-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          52,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "hood-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          104,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "cap-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          156,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "imp-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          260,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "djinn-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          312,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "merchant-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          364,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "storyteller-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          416,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "cream",
+        "mirrored": false,
+        "rect": [
+          0,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "cream",
+        "mirrored": true,
+        "rect": [
+          52,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "teal",
+        "mirrored": false,
+        "rect": [
+          104,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "teal",
+        "mirrored": true,
+        "rect": [
+          156,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "clay",
+        "mirrored": false,
+        "rect": [
+          208,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "clay",
+        "mirrored": true,
+        "rect": [
+          260,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "lilac",
+        "mirrored": false,
+        "rect": [
+          312,
+          468,
+          52,
+          52
+        ]
+      },
+      {
+        "body": "rabbit-body-v1",
+        "palette": "lilac",
+        "mirrored": true,
+        "rect": [
+          364,
+          468,
+          52,
+          52
+        ]
+      }
+    ],
+    "shadow": [
+      0,
+      208,
+      26,
+      7
+    ],
+    "treatment": "4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow"
+  },
+  "preparedness": {
+    "version": 1,
+    "casts": {
+      "firehouse": "factory pictogram, game casting",
+      "watchpost": "stockade tower",
+      "refuge": "granary canopy plus stockade gate composition",
+      "inn": "household miniature, game casting",
+      "wildlife": "publisher-labelled rabbit",
+      "fire": "static bonfire drawing; procedural intensity, no claimed source animation"
+    },
+    "footprints": {
+      "firehouse": [
+        1,
+        1
+      ],
+      "watchpost": [
+        1,
+        1
+      ],
+      "refuge": [
+        1,
+        1
+      ],
+      "inn": [
+        1,
+        1
+      ]
+    }
   },
   "living_world": {
     "version": 1,

@@ -23,9 +23,20 @@ enum Activity {
   gatheringTravel,
   gathering,
   resting,
+  responseTravel,
+  responding,
+  shelterTravel,
+  sheltering,
+  fleeing,
+  emergencyWaiting,
+  incidentTravel,
+  disturbing,
 }
 
 class Resident {
+  String? safetyRole, safetyTarget, safetyIncident, dutyBuilding;
+  double dutyAt = -10000, responseSince = -1, exposureUntil = -1;
+  bool sheltered = false;
   PeopleKind peopleKind = PeopleKind.human;
   double visitorBenefitUntil = -1;
   final String homeId;
@@ -192,6 +203,8 @@ class Residents {
       }
     }
   }
+
+  void settleActor(Resident r) => _settle(r);
 
   void _settle(Resident r) {
     final candidates = <Cell>{

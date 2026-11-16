@@ -12,6 +12,7 @@ from asset_catalog import Png, encode_rgba_png
 APP = ROOT / 'apps/settlement'
 SOURCE = 'assets/urizen/urizen_onebit_tileset__v2d0.png'
 FRAMES = {
+    'firehouse': (6,53), 'watchpost': (5,27), 'refuge-gate': (5,30), 'inn': (33,3), 'flame': (42,0), 'rabbit': (16,3),
     'grass0': (5, 15), 'grass1': (5, 16), 'dirt': (5, 1),
     'oak': (8, 1), 'vegetables': (24, 5),
     'cottage0': (33, 0), 'cottage1': (33, 1),
@@ -77,12 +78,15 @@ LIVING_COLORS = {
     'storyteller-body-v1': ('c3a9d5','adbbd6','c7b4d2','ada5cf'),
 }
 
+INCIDENT_BODIES = {'rabbit-body-v1': (16,3)}
+INCIDENT_COLORS = {'rabbit-body-v1': ('bbb59b','a8b9a0','c8b38c','b3b3ad')}
+
 def living_crop(png, body, palette):
-    row, col = LIVING_BODIES[body]
+    row, col = {**LIVING_BODIES,**INCIDENT_BODIES}[body]
     rect = [1+col*13, 1+row*13, 12, 12]
     rgba = bytearray(png.crop(rect))
     peak = max(max(rgba[i:i+3]) for i in range(0,len(rgba),4))
-    color = bytes.fromhex(LIVING_COLORS[body][list(PALETTES).index(palette)])
+    color = bytes.fromhex({**LIVING_COLORS,**INCIDENT_COLORS}[body][list(PALETTES).index(palette)])
     for i in range(0,len(rgba),4):
         value=max(rgba[i:i+3])
         if value<=8: rgba[i+3]=0
@@ -90,14 +94,14 @@ def living_crop(png, body, palette):
     return rect, rgba
 
 
-def resident_atlas(png, living=False):
+def resident_atlas(png, living=False, incidents=False):
     # bake the existing four-direction outline at 4x; original colour pixels stay intact.
-    cell, width, height = 52, 416, 468 if living else 260
+    cell, width, height = 52, 416, 520 if incidents else 468 if living else 260
     atlas = bytearray(width * height * 4)
     frames = []
-    for body in [*BODIES, *(LIVING_BODIES if living else {})]:
+    for body in [*BODIES, *(LIVING_BODIES if living else {}), *(INCIDENT_BODIES if incidents else {})]:
         for palette in PALETTES:
-            _, rgba = living_crop(png, body, palette) if body in LIVING_BODIES else resident_crop(png, body, palette)
+            _, rgba = living_crop(png, body, palette) if body in LIVING_BODIES or body in INCIDENT_BODIES else resident_crop(png, body, palette)
             for mirrored in [False, True]:
                 index = len(frames)
                 ox, oy = index % 8 * cell, (index // 8 + (1 if index >= 32 else 0)) * cell
@@ -124,7 +128,7 @@ def resident_atlas(png, living=False):
                 at=((208+y)*width+x)*4
                 atlas[at:at+4]=bytes.fromhex('17291fbf')
     data=encode_rgba_png(width,height,atlas)
-    return data, {'file':'images/world-actors-atlas.png' if living else 'images/resident-atlas.png','sha256':hashlib.sha256(data).hexdigest(),
+    return data, {'file':'images/incident-actors-atlas.png' if incidents else 'images/world-actors-atlas.png' if living else 'images/resident-atlas.png','sha256':hashlib.sha256(data).hexdigest(),
                   'cell':[52,52],'feet':[26,50],'world_scale':9/48,
                   'frames':frames,'shadow':[0,208,26,7],
                   'treatment':'4x nearest-neighbour copies of the same source/palette; two-pixel outline; explicit mirrored copies; procedural shadow'}
@@ -165,13 +169,13 @@ def products():
                 mask = bytes(rgba[3::4])
                 assert mask not in masks, 'cast contains duplicate silhouettes'
                 masks.add(mask)
-    for body in LIVING_BODIES:
+    for body in {**LIVING_BODIES,**INCIDENT_BODIES}:
         for palette in PALETTES:
             rect, rgba = living_crop(png, body, palette)
             name=f'person-{body}-{palette}'
             data=encode_rgba_png(12,12,rgba)
             output[f'assets/images/{name}.png']=data
-            row,col=LIVING_BODIES[body]
+            row,col={**LIVING_BODIES,**INCIDENT_BODIES}[body]
             frames[name]={'id':f'urizen-onebit-r{row:02d}-c{col:03d}', 'source':SOURCE,
                           'rect':rect,'file':f'images/{name}.png','body':body,'palette':palette,
                           'treatment':'source silhouette and luminance retained; semantic living-world palette; static source drawing',
@@ -196,6 +200,10 @@ def products():
     world_atlas, world_manifest=resident_atlas(png, living=True)
     output['assets/images/world-actors-atlas.png']=world_atlas
     manifest['world_atlas']=world_manifest
+    atlas, definition=resident_atlas(png,living=True,incidents=True)
+    output['assets/images/incident-actors-atlas.png']=atlas
+    manifest['incident_atlas']=definition
+    manifest['preparedness']={'version':1,'casts':{'firehouse':'factory pictogram, game casting','watchpost':'stockade tower','refuge':'granary canopy plus stockade gate composition','inn':'household miniature, game casting','wildlife':'publisher-labelled rabbit','fire':'static bonfire drawing; procedural intensity, no claimed source animation'},'footprints':{'firehouse':[1,1],'watchpost':[1,1],'refuge':[1,1],'inn':[1,1]}}
     manifest['living_world']={
         'version':1,
         'peoples':{'human-v1':list(BODIES),'imp-v1':['imp-body-v1'],'djinn-v1':['djinn-body-v1']},
@@ -222,4 +230,4 @@ if __name__ == '__main__':
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-    print(f'Verified {len(FRAMES)+len(ICONS)} source crops and {len(BODIES) + len(LIVING_BODIES)} actor bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')
+    print(f'Verified {len(FRAMES)+len(ICONS)} source crops and {len(BODIES) + len(LIVING_BODIES) + len(INCIDENT_BODIES)} actor bodies × {len(PALETTES)} palettes, manifest and unmodified font.' if check else 'Exported small settlement asset set.')

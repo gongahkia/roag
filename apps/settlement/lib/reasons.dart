@@ -2,6 +2,51 @@ import 'rules.dart';
 
 enum Reason {
   none('', '', false),
+  incidentWarning(
+    'There is trouble nearby.',
+    'An active incident threatens this area. Residents seek safe roads or a reachable Refuge automatically.',
+    true,
+  ),
+  safetyRoad(
+    'Waiting on a safe road.',
+    'No reachable Refuge place is available. This resident remains on a safe road and retains their cottage.',
+    false,
+  ),
+  responseCut(
+    'I cannot respond here.',
+    'A response needs a working station and legal road or bridge access. Restore the affected connection or building.',
+    true,
+  ),
+  fightingFire(
+    'At the fire front.',
+    'Reached the real site. Active flames are suppressed only while this responder remains here.',
+    false,
+  ),
+  guarding(
+    'Keeping watch here.',
+    'A guard reached the threatened Farm. Wildlife must be nearby before it can be driven away.',
+    false,
+  ),
+  sheltered(
+    'Safe in the Refuge.',
+    'Actually reached a functioning Refuge with a reserved shelter place.',
+    false,
+  ),
+  safeAgain(
+    'It is safe to return.',
+    'The incident has ended and this person has a usable home again.',
+    false,
+  ),
+  homeDamaged(
+    'My home needs repairs.',
+    'The cottage is temporarily unusable; its resident identity and housing association are retained.',
+    true,
+  ),
+  workDamaged(
+    'My workplace needs repairs.',
+    'Damage affects actual service or productive work. Use Repair after the site is safe.',
+    true,
+  ),
   visitorTrading(
     'A fine Market stop.',
     'The travelling merchant reached a staffed Market and is spending real time trading.',

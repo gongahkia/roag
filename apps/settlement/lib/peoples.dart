@@ -30,6 +30,7 @@ enum PeopleKind {
       'djinn-body-v1',
       'merchant-body-v1',
       'storyteller-body-v1',
+      'rabbit-body-v1',
     ].contains(body),
     imp => body == 'imp-body-v1',
     djinn => body == 'djinn-body-v1',

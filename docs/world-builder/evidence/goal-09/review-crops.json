@@ -1,0 +1,383 @@
+[
+  {
+    "audit_id": "urizen-onebit-r06-c053",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      690,
+      79,
+      12,
+      12
+    ],
+    "rgba_sha256": "cb5d599759d38ac78c0f7aa7b477fd858b3a1dd7babc52bc9dd7993b7d4c6eb7",
+    "foreground_mask_sha256": "3cade7486d3b3cf3a6a3224b1a358c0bd3a2cfc95b6b782d961da88812204d5d",
+    "name": "factory; index=0",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-modern",
+          "tile_id": 116,
+          "properties": {
+            "group1": "factory",
+            "group2": "",
+            "group3": "",
+            "index": 0,
+            "tags": "modern",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r05-c027",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      352,
+      66,
+      12,
+      12
+    ],
+    "rgba_sha256": "213416eda854e034e0840c9d8516fe3dbde15f26c15cfd604049ff0a46e8799d",
+    "foreground_mask_sha256": "4dc57137512a2bf409df268c1113b52608d226d1506d5f4a6f905cfb0e9c87c8",
+    "name": "stockade / tower; orientation=D",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-fantasy-medieval",
+          "tile_id": 94,
+          "properties": {
+            "group1": "stockade",
+            "group2": "tower",
+            "group3": "",
+            "orientation": "D",
+            "tags": "",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r05-c030",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      391,
+      66,
+      12,
+      12
+    ],
+    "rgba_sha256": "17e585bd4114a33c4695193014047904a6dfe24385677024d663119fc9cf49ca",
+    "foreground_mask_sha256": "92036b77f794620d8ad8604b46f5844da7b706c61a45de01ba8bdd661c00ce23",
+    "name": "stockade / gate; orientation=H",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-fantasy-medieval",
+          "tile_id": 97,
+          "properties": {
+            "group1": "stockade",
+            "group2": "gate",
+            "group3": "",
+            "orientation": "H",
+            "tags": "",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r33-c003",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      40,
+      430,
+      12,
+      12
+    ],
+    "rgba_sha256": "647337d1593445698b69724114b8d20e5a51e642fbdc65fbef161be34627944f",
+    "foreground_mask_sha256": "58d84dcf8dd9efe78e894b3add175b22c271ee0fd6c2e3807c6975dae0c1c8a8",
+    "name": "building / household",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 283,
+          "properties": {
+            "group1": "building",
+            "group2": "household",
+            "group3": "",
+            "tags": "default,building",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r33-c002",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      27,
+      430,
+      12,
+      12
+    ],
+    "rgba_sha256": "916a40df565887eb9b2cee6475b66429ef2a30f723d4f9837571887567c9ac95",
+    "foreground_mask_sha256": "24467c33c974104c8a93a9b1bea4bf303160aa89a95682ef6be37d002c7d71a0",
+    "name": "building / granary",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 282,
+          "properties": {
+            "group1": "building",
+            "group2": "granary",
+            "group3": "",
+            "tags": "default,building",
+            "type": "cell"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r42-c000",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      1,
+      547,
+      12,
+      12
+    ],
+    "rgba_sha256": "6a06aeee622d1605ef07f474babb1c2bfc4c33ff31ad49115f1e2c00895a6937",
+    "foreground_mask_sha256": "e83270832b0f16f844dc84d0664cbc7c0e58b63c8ef2b415cd8edf2f389f7656",
+    "name": "bonfire",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 206,
+          "properties": {
+            "group1": "bonfire",
+            "group2": "",
+            "group3": "",
+            "tags": "default,light",
+            "type": "thing"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "campfire",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [
+      {
+        "role": "core:object/review_brazier_lit",
+        "flip_x": false,
+        "notes": "Source identity: bonfire (high confidence; author_metadata_visible_rgb_match). Local representative motif for core:object/review_brazier_lit; source identity is separate from the game role. Static binding; no animation or adjacent-frame claim."
+      }
+    ],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r16-c003",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      40,
+      209,
+      12,
+      12
+    ],
+    "rgba_sha256": "7ff621e66c90a843746a575618a8e5ee87a709df9df707bc55da16b5a39a2f0f",
+    "foreground_mask_sha256": "aa452f356da935ee52e30540b76b4e5a9dfea09bf8cdba6cf15e25194ed128c9",
+    "name": "animal / rabbit",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 190,
+          "properties": {
+            "group1": "animal",
+            "group2": "rabbit",
+            "group3": "",
+            "tags": "default,animal,domestic",
+            "type": "actor"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [
+      {
+        "file": "assets/ithica-expedition-bindings.json",
+        "alias": "rabbit",
+        "activity": "historical selection, not proof of active ROAG use"
+      }
+    ],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  },
+  {
+    "audit_id": "urizen-onebit-r47-c006",
+    "source": "assets/urizen/urizen_onebit_tileset__v2d0.png",
+    "native_size": [
+      12,
+      12
+    ],
+    "rect": [
+      79,
+      612,
+      12,
+      12
+    ],
+    "rgba_sha256": "445801e6383f2f3df322d9c70926e16c5d6a5d7a6d77e45b5d0af54a18465779",
+    "foreground_mask_sha256": "c5e412997afca1d19933631d959abc3f9c6898e0272d267ca5ba280910f40b1c",
+    "name": "bag",
+    "publisher_identity": {
+      "basis": "author_metadata_visible_rgb_match",
+      "confidence": "high",
+      "upstream_matches": [
+        {
+          "set": "urizen-onebit-basic",
+          "tile_id": 334,
+          "properties": {
+            "group1": "bag",
+            "group2": "",
+            "group3": "",
+            "tags": "default,item,storage",
+            "type": "thing"
+          }
+        }
+      ]
+    },
+    "historical_aliases": [],
+    "active_roles": [],
+    "animation": {
+      "verified_frames": [],
+      "claim": "unconfirmed",
+      "note": "adjacent poses/professions/variants are not verified animation sequences"
+    },
+    "provenance": [
+      "assets/CREDITS.txt",
+      "assets/reference/urizen-names.json"
+    ]
+  }
+]
