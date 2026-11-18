@@ -24,7 +24,7 @@ enum Reason {
   ),
   guarding(
     'Keeping watch here.',
-    'A guard reached the threatened Farm. Wildlife must be nearby before it can be driven away.',
+    'A guard reached the threatened Farm or Market. The actual wildlife or brigand must be nearby before it can be driven away.',
     false,
   ),
   sheltered(

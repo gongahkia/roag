@@ -14,6 +14,10 @@ void backupLiving(String text) => _backupLiving(text.toJS);
 external void _backupIncidents(JSString text);
 void backupIncidents(String text) => _backupIncidents(text.toJS);
 
+@JS('settlementPlatform.backupStories')
+external void _backupStories(JSString text);
+void backupStories(String text) => _backupStories(text.toJS);
+
 @JS('settlementPlatform.exportFile')
 external void _export(JSString text);
 @JS('settlementPlatform.importFile')

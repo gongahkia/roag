@@ -1,0 +1,11 @@
+{
+  "url": "http://127.0.0.1:42863/roag/settlement/",
+  "input": "Playwright pointer/file menus; explicit isolated legacy preloads and quota fault injection, no private player storage",
+  "checks": [
+    "goal08-town.json: failed .before-incidents-v5 backup leaves original bytes protected and autosave paused",
+    "goal09-town.json: failed .before-stories-v6 backup leaves original bytes protected and autosave paused",
+    "Malformed incidentRng rejected through real file picker before replacement",
+    "Malformed scenario rejected through real file picker before replacement"
+  ],
+  "errors": []
+}

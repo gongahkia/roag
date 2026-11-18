@@ -263,8 +263,23 @@ class Landscape {
     ]);
   }
 
-  late final Set<Cell> activePaths = _connected();
+  Set<Cell>? _activePaths;
+  Set<Cell> get activePaths => _activePaths ??= _connected();
+  // temporary hazards never enter concrete terrain saves or construction history.
+  Set<Cell> closures = const {};
+  void closeRoads(Set<Cell> cells) {
+    closures = Set.unmodifiable(cells);
+    _activePaths = null;
+  }
+
   late final Set<Cell> completeBridgeCells = _completeBridges();
+  late final Set<Cell> floodRisk = {
+    for (final c in cells.where((c) => at(c).terrain == Terrain.water))
+      for (var dy = -2; dy <= 2; dy++)
+        for (var dx = -2; dx <= 2; dx++)
+          if (dx.abs() + dy.abs() <= 2 && contains(Cell(c.x + dx, c.y + dy)))
+            Cell(c.x + dx, c.y + dy),
+  };
   Set<Cell> _completeBridges() {
     final valid = <Cell>{};
     for (final c in cells) {
@@ -298,6 +313,7 @@ class Landscape {
 
   bool roadCell(Cell c) {
     if (!contains(c)) return false;
+    if (closures.contains(c)) return false;
     final lot = at(c);
     return lot.path &&
         (lot.bridge != null
@@ -375,7 +391,7 @@ class Landscape {
     lots,
     nextCottageId: counter,
     generation: generation,
-  );
+  )..closeRoads(closures);
   Cell? localAccess(Cell home, {Cell? from}) {
     for (final n in pathNeighbours(home)) {
       if (from == null || pathRoute(from, n) != null) return n;
@@ -422,7 +438,7 @@ class Landscape {
       next,
       nextCottageId: nextCottageId + (allocateCottage ? 1 : 0),
       generation: generation,
-    );
+    )..closeRoads(closures);
   }
 
   Map<String, Object> toJson() => {
@@ -444,7 +460,7 @@ class Landscape {
       throw const FormatException('File is too large.');
     }
     final d = jsonDecode(text);
-    if (d is! Map || ![1, 2, 3, 4, 5].contains(d['schema'])) {
+    if (d is! Map || ![1, 2, 3, 4, 5, 6].contains(d['schema'])) {
       throw const FormatException('Unsupported landscape format.');
     }
     int integer(String key, int min, int max) {
@@ -458,7 +474,7 @@ class Landscape {
     final seed = integer('seed', 0, 2147483646);
     final w = integer('width', 16, 80), h = integer('height', 12, 60);
     final legacy = d['schema'] == 1;
-    final modern = (d['schema'] == 3 || d['schema'] == 4 || d['schema'] == 5);
+    final modern = [3, 4, 5, 6].contains(d['schema']);
     final nextId = legacy ? 1 : integer('nextCottageId', 1, 1000000000);
     final data = d['lots'];
     if (data is! List || data.length != w * h) {

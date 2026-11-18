@@ -134,6 +134,8 @@ abstract final class Dialogues {
       if ((town.status(r.homeId)?.repairs ?? 0) > 0) {
         return 'My cottage has been repaired. The same home, with a little history.';
       }
+      final memory = town.rememberedBy(r.homeId);
+      if (memory != null) return 'I remember: $memory';
       if (town.incidentHistory.isNotEmpty) {
         final h = town.incidentHistory.last;
         return 'The last ${h.kind} ended: ${h.outcome}. ${h.responders} responders reached it; ${h.sheltered} neighbours found shelter. Roads and staffed buildings make the difference.';

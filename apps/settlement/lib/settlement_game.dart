@@ -42,6 +42,9 @@ class SettlementGame extends FlameGame {
     'modelCalls': modelCalls,
     'hazardTicks': colony.hazardTicks,
     'fireSitesVisited': colony.fireSitesVisited,
+    'hazardUsLast': colony.hazardUsLast,
+    'hazardUsMax': colony.hazardUsMax,
+    'incidentActors': colony.incident?.animal == null ? 0 : 1,
     'routeSearches': colony.routeSearches,
     'population': colony.people.length,
     'clock': colony.clock,
@@ -361,7 +364,7 @@ class SettlementGame extends FlameGame {
     if (colony.incident?.animal?.homeId == inspectedResident &&
         inspectedResident != null) {
       final e = colony.incident!;
-      return 'Rabbit · wildlife\n${e.state} · ${e.damage} actual crop damage.\n${e.description}\nTemporary actor; guards respond automatically.';
+      return '${e.animal!.name} · ${e.title}\n${e.state} · ${e.damage} actual damage.\n${e.description}\nTemporary actor; follows real roads.';
     }
     final r = colony.people[inspectedResident];
     if (r != null) {
@@ -417,6 +420,9 @@ class SettlementGame extends FlameGame {
       return 'Bridge · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n${session.world.roadCell(c) ? 'Complete bank-to-bank crossing. Ordinary path pace; rain slows travel.' : 'Broken crossing. Restore every missing water cell and both land approaches before residents can cross.'}';
     }
     if (lot.path) {
+      if (session.world.closures.contains(c)) {
+        return 'Flooded road · temporarily closed\nResidents reroute or wait. Upgrade to Stone Road for a resilient approach, or wait for recession. Underlying terrain is preserved.';
+      }
       final title = lot.road == RoadKind.dirt
           ? 'Dirt path'
           : lot.road == RoadKind.stone
@@ -425,7 +431,7 @@ class SettlementGame extends FlameGame {
       final speed = lot.road == RoadKind.stone
           ? '18% quicker travel; unaffected by wet ground or weather.'
           : lot.terrain == Terrain.marsh
-          ? 'Wet ground: 1.5× travel time; rain does not stack with this penalty.'
+          ? 'Wet ground: ${colony.marshTravel}× travel time; weather uses the larger penalty once. Wetlands reach 2× after prolonged rain.'
           : 'Ordinary pace; rain slows travel.';
       return '$title · ${session.world.activePaths.contains(c) ? 'connected' : 'disconnected'}\n$speed${lot.road == RoadKind.gardenPath ? '\n+3 mood after actual traversal, once per day.' : ''}';
     }
@@ -767,6 +773,32 @@ class _LandscapeLayer extends Component {
         ..isAntiAlias = false,
     );
     final visible = game.camera.visibleWorldRect.inflate(14);
+    final hazard = game.colony.incident;
+    if (hazard?.kind == IncidentKind.flood) {
+      for (final c in hazard!.flood) {
+        final rect = Rect.fromLTWH(c.x * 12.0 + .5, c.y * 12.0 + .5, 11, 11);
+        if (!visible.overlaps(rect)) continue;
+        final lot = scene.at(c),
+            elevated =
+                lot.path && (lot.bridge != null || lot.road == RoadKind.stone);
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..style = elevated ? PaintingStyle.stroke : PaintingStyle.fill
+            ..strokeWidth = .5
+            ..color = Color(
+              hazard.state == 'warning' ? 0x2456b9cf : 0x7756a7c6,
+            ),
+        );
+        canvas.drawLine(
+          rect.bottomLeft,
+          rect.bottomRight,
+          Paint()
+            ..color = const Color(0xffa5d0cc)
+            ..strokeWidth = .7,
+        );
+      }
+    }
     final people =
         game.residents.allVisible
             .where(

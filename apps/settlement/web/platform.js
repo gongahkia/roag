@@ -25,6 +25,10 @@
       const backup = key + '.before-incidents-v5';
       if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);
     },
+    backupStories(text) {
+      const backup = key + '.before-stories-v6';
+      if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);
+    },
     backupLiving(text) {
       const backup = key + '.before-living-v4';
       if (localStorage.getItem(backup) === null) localStorage.setItem(backup, text);

@@ -1,0 +1,139 @@
+{
+  "url": "http://127.0.0.1:42863/roag/settlement/",
+  "input": "Playwright pointer/keyboard/file-picker, real production release in isolated Chromium; not native desktop manual play. Imported deterministic comparison fixtures and natural scheduler are separately labelled.",
+  "checks": [
+    "Schema-5 private-copy fixture continues, same people and concrete lots; original text backed up before schema-6 write",
+    "Cancelling New World retains active town",
+    "Paid Wetlands neighbourhood has actual residents, work and social services",
+    "Paid bank-to-bank Wetlands bridge carries a real arriving resident to the far bank",
+    "Paid Highlands neighbourhood has actual residents, work and social services",
+    "Paid Harsh Frontier neighbourhood has actual residents, work and social services",
+    "Entered same seed reproduces initial terrain; different seed changes it",
+    "Real UI scenario selection completes three actual trade objectives; free construction continues",
+    "Active flood and actual resident movements reload exactly while paused",
+    "Continuous paid flood preparation, real shelter, lasting damage, repair and forward Undo/Redo",
+    "Same seeded road brigand actually damages unprepared Market; trained arriving guard reduces loss",
+    "Stranded actual pack traveller waits at missing road, receives real Inn service after reconnection, departs and retains helped memory",
+    "Developed world reload and real download/import retain terrain, persistent story and financial outcomes",
+    "Valid Standard town experiences a naturally scheduled major incident after ordinary grace; not fixture-triggered",
+    "Normal construction and inspection remain usable after pan, zoom and resize"
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "outcomes": {
+    "floodPrepared": {
+      "id": "incident-1",
+      "kind": "flood",
+      "outcome": "water receded",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 71.04999999999811,
+      "damage": 54,
+      "responders": 0,
+      "sheltered": 6,
+      "buildings": [
+        "home-6"
+      ]
+    },
+    "raidunprepared": {
+      "id": "incident-1",
+      "kind": "raiders",
+      "outcome": "Market disrupted",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 49.09999999999935,
+      "damage": 12,
+      "responders": 0,
+      "sheltered": 4,
+      "buildings": [
+        "market-15"
+      ]
+    },
+    "raidprepared": {
+      "id": "incident-1",
+      "kind": "raiders",
+      "outcome": "driven away",
+      "origin": "fixture",
+      "starts": 20.00000000000015,
+      "ends": 39.54999999999989,
+      "damage": 0,
+      "responders": 1,
+      "sheltered": 1,
+      "buildings": [
+        "market-15"
+      ]
+    },
+    "natural": {
+      "id": "incident-1",
+      "kind": "wildlife",
+      "outcome": "driven away",
+      "origin": "scheduled",
+      "starts": 480.00000000007486,
+      "ends": 494.6000000000782,
+      "damage": 0,
+      "responders": 1,
+      "sheltered": 2,
+      "buildings": [
+        "garden-13"
+      ]
+    }
+  },
+  "shots": [
+    {
+      "name": "environment-wetlands",
+      "seconds": 12.51
+    },
+    {
+      "name": "wetlands-real-crossing",
+      "seconds": 37.204
+    },
+    {
+      "name": "environment-highlands",
+      "seconds": 43.689
+    },
+    {
+      "name": "environment-frontier",
+      "seconds": 58.111
+    },
+    {
+      "name": "scenario-trade-completed",
+      "seconds": 102.909
+    },
+    {
+      "name": "flood-preparation",
+      "seconds": 111.594
+    },
+    {
+      "name": "flood-active-shelter",
+      "seconds": 121.953
+    },
+    {
+      "name": "flood-recovery-history",
+      "seconds": 146.568
+    },
+    {
+      "name": "raid-unprepared-outcome",
+      "seconds": 163.836
+    },
+    {
+      "name": "raid-prepared-outcome",
+      "seconds": 176.103
+    },
+    {
+      "name": "caravan-stranded",
+      "seconds": 185.485
+    },
+    {
+      "name": "caravan-departure-memory",
+      "seconds": 195.197
+    },
+    {
+      "name": "naturally-scheduled-major",
+      "seconds": 212.822
+    },
+    {
+      "name": "resized-inspection",
+      "seconds": 217.611
+    }
+  ]
+}

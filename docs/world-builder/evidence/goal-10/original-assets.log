@@ -1,0 +1,2 @@
+python3 -B tools/build_classic_assets.py --check
+Checked 599 explicit bindings from 67 unchanged source PNGs.

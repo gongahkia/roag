@@ -2,7 +2,7 @@ part of 'colony.dart';
 
 enum IncidentMode { peaceful, standard }
 
-enum IncidentKind { fire, wildlife }
+enum IncidentKind { fire, wildlife, flood, raiders, caravan }
 
 class FireSite {
   final String building;
@@ -29,6 +29,7 @@ class Incident {
   final double starts;
   final List<FireSite> fires = [];
   final Set<String> responders = {}, sheltered = {};
+  final Set<String> experienced = {};
   Resident? animal;
   String state = 'warning';
   double lastTick = 0, grazingAt = -1;
@@ -36,6 +37,13 @@ class Incident {
   double activeAt, ends = -1, animalProgress = 0, shoo = 0;
   int damage = 0;
   bool driven = false;
+  final Set<Cell> flood = {};
+  final Map<String, int> losses = {};
+  Cell? floodSource;
+  bool paid = false;
+  bool passageHeld = false;
+  bool passageWork = false;
+  int moneyLost = 0;
   Incident(
     this.id,
     this.kind,
@@ -44,8 +52,20 @@ class Incident {
     this.activeAt,
     this.origin,
   );
-  String get title => kind == IncidentKind.fire ? 'Fire' : 'Rabbit disturbance';
-  String get description => kind == IncidentKind.fire
+  String get title => switch (kind) {
+    IncidentKind.fire => 'Fire',
+    IncidentKind.wildlife => 'Rabbit disturbance',
+    IncidentKind.flood => 'Storm surge',
+    IncidentKind.raiders => 'Road brigand',
+    IncidentKind.caravan => 'Stranded caravan',
+  };
+  String get description => kind == IncidentKind.flood
+      ? 'Rising water from the marked bank: ordinary roads close for 45 seconds; Stone Roads and complete bridges remain passable. Exposed buildings can take up to 18 damage. Refuges shelter reachable residents. Water recedes; damage needs Repair.'
+      : kind == IncidentKind.raiders
+      ? 'A warned road brigand approaches the Market. A trained Watchpost guard must physically reach it. Only actual arrival can cost up to 4 coins and 12 building damage; then the brigand retreats.'
+      : kind == IncidentKind.caravan
+      ? 'A pack traveller needs eight seconds at a staffed Inn or a Refuge with a spare place. Restore access to help; actual assistance earns 2 coins once. The traveller departs by the real roads.'
+      : kind == IncidentKind.fire
       ? state == 'warning'
             ? 'Smoke warning: prepare connected Firehouses and Refuges. Responders travel automatically.'
             : 'Fire is damaging nearby buildings. Staffed responders must reach it; repair only after it is safe.'
@@ -66,6 +86,16 @@ class Incident {
     'fires': fires.map((f) => f.toJson()).toList(),
     'responders': responders.toList(),
     'sheltered': sheltered.toList(),
+    'experienced': experienced.toList(),
+    'flood': flood.map((c) => [c.x, c.y]).toList(),
+    'floodSource': floodSource == null
+        ? null
+        : [floodSource!.x, floodSource!.y],
+    'losses': losses,
+    'paid': paid,
+    'moneyLost': moneyLost,
+    'passageHeld': passageHeld,
+    'passageWork': passageWork,
   };
 }
 
@@ -112,7 +142,11 @@ extension Preparedness on Colony {
       id != null &&
       (status(id)?.usable ?? true) &&
       !burning(id) &&
-      !(incident?.kind == IncidentKind.wildlife &&
+      !flooded(id) &&
+      !([
+            IncidentKind.wildlife,
+            IncidentKind.raiders,
+          ].contains(incident?.kind) &&
           incident!.target == id &&
           incident!.state == 'grazing');
   int socialCapacity(String? id) {
@@ -195,7 +229,9 @@ extension Preparedness on Colony {
   bool threatened(Cell c) {
     final e = incident;
     if (e == null) return false;
-    if (e.kind == IncidentKind.wildlife) {
+    if (e.kind == IncidentKind.caravan) return false;
+    if (e.kind == IncidentKind.flood) return e.flood.contains(c);
+    if (e.kind == IncidentKind.wildlife || e.kind == IncidentKind.raiders) {
       final farm = buildingCell(e.target), animal = e.animal;
       if (farm == null ||
           animal == null ||
@@ -215,6 +251,11 @@ extension Preparedness on Colony {
 
   bool homeUsable(Resident r) => usable(r.homeId);
   void _safetyStart(Resident r, String role, {String? target}) {
+    if (incident != null &&
+        incident!.experienced.length < 500 &&
+        threatened(r.cell)) {
+      incident!.experienced.add(r.homeId);
+    }
     _countsDirty = true;
     if (role == 'fire' || role == 'guard') incident?.dispatched.add(r.homeId);
     r.safetyRole = role;
@@ -364,8 +405,7 @@ extension Preparedness on Colony {
   void _incidentOpportunity() {
     if (clock + 1e-9 < nextIncidentAt) return;
     nextIncidentAt = clock + 30;
-    if (incidentMode != IncidentMode.standard ||
-        incident != null ||
+    if (incident != null ||
         clock < incidentCooldown ||
         !workPeriod ||
         people.length < 6 ||
@@ -384,7 +424,12 @@ extension Preparedness on Colony {
       return;
     }
     final choices = <IncidentKind>[];
-    if (_fireTargets().isNotEmpty) {
+    if (_caravanTargets().isNotEmpty &&
+        (climate.covered(clock) ||
+            incidentHistory.any((h) => h.kind == 'caravan'))) {
+      choices.add(IncidentKind.caravan);
+    }
+    if (incidentMode == IncidentMode.standard && _fireTargets().isNotEmpty) {
       choices.addAll(
         List.filled(
           weather == WeatherKind.rain || weather == WeatherKind.snow
@@ -396,13 +441,30 @@ extension Preparedness on Colony {
         ),
       );
     }
-    if (_wildTargets().isNotEmpty) {
+    if (incidentMode == IncidentMode.standard && _wildTargets().isNotEmpty) {
       choices.addAll(
         List.filled(
           season == Season.spring || season == Season.summer ? 3 : 1,
           IncidentKind.wildlife,
         ),
       );
+    }
+    if (incidentMode == IncidentMode.standard) {
+      if (rainExposure >= 20 && _floodTargets().isNotEmpty) {
+        choices.addAll(List.filled(4, IncidentKind.flood));
+      }
+      if (_raidTargets().isNotEmpty) {
+        choices.addAll(
+          List.filled(
+            world.generation?.preset == EnvironmentPreset.frontier ? 3 : 1,
+            IncidentKind.raiders,
+          ),
+        );
+      }
+    }
+    // Recent family loses its tickets when an alternative is available.
+    if (choices.toSet().length > 1 && incidentHistory.isNotEmpty) {
+      choices.removeWhere((k) => k.name == incidentHistory.last.kind);
     }
     if (choices.isEmpty) return;
     incidentRng = incidentRng * 48271 % 2147483647;
@@ -431,12 +493,12 @@ extension Preparedness on Colony {
     String? target,
     bool fixture = false,
   }) {
-    if (incidentMode != IncidentMode.standard ||
+    if (incidentMode != IncidentMode.standard && kind != IncidentKind.caravan ||
         incident != null ||
         !fixture && (clock < 450 || clock < incidentCooldown)) {
       return false;
     }
-    final options = kind == IncidentKind.fire ? _fireTargets() : _wildTargets();
+    final options = _incidentTargets(kind);
     if (options.isEmpty || target != null && !options.contains(target)) {
       return false;
     }
@@ -459,7 +521,7 @@ extension Preparedness on Colony {
           ? 18.0
           : 22.0;
       e.fires.add(FireSite(target, buildingCell(target)!, heat));
-    } else {
+    } else if (kind == IncidentKind.wildlife) {
       e.animal =
           Resident(
               'animal-${nextIncidentId - 1}',
@@ -470,8 +532,18 @@ extension Preparedness on Colony {
             ..name = 'Wild rabbit'
             ..trait = Trait.sociable
             ..arrived = true;
+    } else {
+      _prepareEncounter(e);
     }
     incident = e;
+    e.passageHeld = world.activePaths.any((c) => c.x >= 20);
+    remember(
+      'warning',
+      '${e.title} warning at (${buildingCell(target)!.x + 1}, ${buildingCell(target)!.y + 1}). ${e.description}',
+      buildingCell(target)!,
+      const [],
+      e.id,
+    );
     if (kind == IncidentKind.fire) {
       _invalidateBuildingUse(target);
       _tickEvent();
@@ -482,6 +554,7 @@ extension Preparedness on Colony {
     for (final r in people.values.where(
       (r) => r.arrived && threatened(r.cell),
     )) {
+      if (e.experienced.length < 500) e.experienced.add(r.homeId);
       r.say(Reason.incidentWarning);
     }
     _problems();
@@ -491,6 +564,11 @@ extension Preparedness on Colony {
   void _dispatch() {
     final e = incident;
     if (e == null) return;
+    if (e.kind == IncidentKind.flood ||
+        e.kind == IncidentKind.caravan ||
+        e.state == 'retreating') {
+      return;
+    }
     final role = e.kind == IncidentKind.fire ? 'fire' : 'guard',
         type = e.kind == IncidentKind.fire ? Place.firehouse : Place.watchpost;
     final assigned = people.values
@@ -532,6 +610,40 @@ extension Preparedness on Colony {
   void _finishIncident(String outcome) {
     final e = incident;
     if (e == null) return;
+    if (e.kind == IncidentKind.caravan) {
+      outcome = e.paid
+          ? 'assisted and departed'
+          : 'departed without assistance';
+    }
+    if (e.kind == IncidentKind.raiders) {
+      outcome = e.driven
+          ? 'driven away'
+          : e.paid
+          ? 'Market disrupted'
+          : 'retreated without reaching Market';
+    }
+    final location = buildingCell(e.target) ?? e.floodSource ?? world.arrival;
+    if (e.passageHeld && e.passageWork && e.kind != IncidentKind.caravan) {
+      remember(
+        'passage',
+        'The far plateau remained connected throughout ${e.title}, with actual productive work during the danger.',
+        location,
+        const [],
+        e.id,
+      );
+    }
+    remember(
+      e.kind.name,
+      '${e.title}: $outcome; ${e.damage} damage, ${e.responders.length} arrived responders, ${e.sheltered.length} sheltered${e.moneyLost > 0 ? ', ${Rules.coins(e.moneyLost)} coins taken' : ''}.',
+      location,
+      {
+        ...e.sheltered,
+        ...e.responders,
+        ...e.experienced,
+        ...e.losses.keys.where(people.containsKey),
+      },
+      e.id,
+    );
     incidentHistory.add(
       IncidentMemory(
         e.id,
@@ -554,7 +666,7 @@ extension Preparedness on Colony {
       planning.removeWhere((p) => p.id == animalId);
       _queued.remove(animalId);
     }
-    incidentCooldown = clock + 600;
+    incidentCooldown = clock + (e.kind == IncidentKind.caravan ? 150 : 600);
     nextIncidentAt = incidentCooldown;
     incident = null;
     for (final r
@@ -574,12 +686,16 @@ extension Preparedness on Colony {
     final e = incident;
     if (e == null) return;
     hazardTicks++;
+    e.passageHeld &= world.activePaths.any((c) => c.x >= 20);
+    if (clock >= e.activeAt + 1 && farSideWorking) e.passageWork = true;
     dt = (clock - math.max(e.activeAt, e.lastTick)).clamp(0.0, 1.0);
     e.lastTick = clock;
-    if (clock >= e.activeAt && e.state == 'warning') {
+    if (clock >= e.activeAt &&
+        e.state == 'warning' &&
+        e.kind != IncidentKind.flood) {
       e.state = e.kind == IncidentKind.fire ? 'burning' : 'approaching';
     }
-    if (buildingCell(e.target) == null && e.kind == IncidentKind.wildlife) {
+    if (buildingCell(e.target) == null && e.animal != null) {
       if (e.animal != null) _retreatAnimal(e);
     }
     _dispatch();
@@ -592,7 +708,13 @@ extension Preparedness on Colony {
         _safetyStart(r, 'evacuating');
       }
     }
-    if (e.kind == IncidentKind.fire && clock >= e.activeAt) {
+    if ([
+      IncidentKind.flood,
+      IncidentKind.raiders,
+      IncidentKind.caravan,
+    ].contains(e.kind)) {
+      _encounterTick(e, dt);
+    } else if (e.kind == IncidentKind.fire && clock >= e.activeAt) {
       fireSitesVisited += e.fires.length;
       for (final f in e.fires.toList()) {
         if (f.heat <= 0) continue;
@@ -673,7 +795,12 @@ extension Preparedness on Colony {
   void _retreatAnimal(Incident e) {
     e.state = 'retreating';
     e.animal!.destination = null;
-    plan(e.animal!);
+    if (e.animal!.route.isNotEmpty) {
+      e.animal!.route.removeRange(1, e.animal!.route.length);
+      e.animal!.replanAfterEdge = true;
+    } else {
+      plan(e.animal!);
+    }
   }
 
   void _planAnimal(Resident r) {
@@ -695,11 +822,15 @@ extension Preparedness on Colony {
       _finishIncident(e.driven ? 'driven away' : 'retreated');
       return;
     }
+    if (e.state == 'retreating') {
+      plan(r);
+      return;
+    }
     if (incidentAccess(e.target, r.cell) == r.cell) {
       e.state = 'grazing';
       r.activity = Activity.disturbing;
       e.grazingAt = clock;
-      _invalidateBuildingUse(e.target);
+      if (e.kind != IncidentKind.caravan) _invalidateBuildingUse(e.target);
     } else {
       r.activity = Activity.emergencyWaiting;
       r.timer = 3;
@@ -773,7 +904,10 @@ extension Preparedness on Colony {
     }
     if (clock + 1e-9 >= nextIncidentTick) {
       nextIncidentTick = clock + 1;
+      final watch = Stopwatch()..start();
       _hazardTick(1);
+      hazardUsLast = watch.elapsedMicroseconds;
+      hazardUsMax = math.max(hazardUsMax, hazardUsLast);
     }
   }
 
@@ -799,7 +933,12 @@ extension Preparedness on Colony {
         plan(r);
       }
     }
-    if (incident == null && homeUsable(r)) _releaseSafety(r);
+    if ((incident == null ||
+            incident!.kind == IncidentKind.caravan &&
+                r.safetyRole == 'evacuating') &&
+        homeUsable(r)) {
+      _releaseSafety(r);
+    }
   }
 
   void _rebalanceShelters() {
@@ -834,8 +973,7 @@ extension Preparedness on Colony {
         _finishIncident('site removed');
       }
     }
-    if (active?.kind == IncidentKind.wildlife &&
-        buildingCell(active!.target) == null) {
+    if (active?.animal != null && buildingCell(active!.target) == null) {
       _retreatAnimal(active);
     }
 

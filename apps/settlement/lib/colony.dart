@@ -16,6 +16,7 @@ import 'condition.dart';
 part 'visitors.dart';
 part 'incidents.dart';
 part 'preparedness_codec.dart';
+part 'emergence.dart';
 
 class Gathering {
   final String id, green;
@@ -48,11 +49,22 @@ class PlanningRequest {
 }
 
 class Colony extends Residents {
+  ScenarioKind scenario = ScenarioKind.free;
+  final Set<int> scenarioCompleted = {};
+  final List<StoryFact> stories = [];
+  int nextStoryId = 1, incidentSpent = 0;
+  double rainExposure = 0, nextStoryTick = 0;
+  double get marshTravel =>
+      world.generation?.preset == EnvironmentPreset.wetlands &&
+          rainExposure >= 20
+      ? 2
+      : 1.5;
   IncidentMode incidentMode = IncidentMode.peaceful;
   Incident? incident;
   final List<IncidentMemory> incidentHistory = [];
   int incidentRng = 1, nextIncidentId = 1;
   int hazardTicks = 0, fireSitesVisited = 0;
+  int hazardUsLast = 0, hazardUsMax = 0;
   double nextIncidentAt = 450, incidentCooldown = 0, nextIncidentTick = 0;
   final Map<String, int> _shelters = {};
   int shelterReservations(String id) {
@@ -275,7 +287,12 @@ class Colony extends Residents {
 
   void rebaseNavigation(int previousRevision) {
     final old = navigation.revision;
-    navigation.invalidate(world, raining: raining, weatherCost: weather.travel);
+    navigation.invalidate(
+      world,
+      raining: raining,
+      weatherCost: weather.travel,
+      marshCost: marshTravel,
+    );
     navigation.revision = math.max(navigation.revision, previousRevision + 1);
     final requests = planning.toList();
     planning.clear();
@@ -310,6 +327,7 @@ class Colony extends Residents {
         target,
         raining,
         weatherCost: weather.travel,
+        marshCost: marshTravel,
       );
   @override
   bool gardenSegment(Resident r, Cell target) =>
@@ -335,7 +353,11 @@ class Colony extends Residents {
     incidentRng = 1 + (world.seed + 95189) % 2147483646;
     session.unsafeBuilding = (id) =>
         burning(id) ||
-        incident?.kind == IncidentKind.wildlife &&
+        flooded(id) ||
+        [
+              IncidentKind.wildlife,
+              IncidentKind.raiders,
+            ].contains(incident?.kind) &&
             incident!.state == 'grazing' &&
             incident!.target == id;
     session.clock = () => clock;
@@ -394,6 +416,11 @@ class Colony extends Residents {
 
   int residentCapacity(String id) =>
       capacity(id) -
+      (incident?.kind == IncidentKind.caravan &&
+              incident!.target == id &&
+              incident!.state != 'retreating'
+          ? 1
+          : 0) -
       visits.values
           .where(
             (v) =>
@@ -416,15 +443,50 @@ class Colony extends Residents {
   @override
   void reconcile(Landscape next, {bool restored = false, bool reset = false}) {
     if (!identical(next, world)) {
+      final before = world.completeBridgeCells.length,
+          after = next.completeBridgeCells.length;
+      if (before != after) {
+        remember(
+          'crossing',
+          after < before
+              ? 'A bank-to-bank crossing was broken.'
+              : 'A complete bank-to-bank crossing opened.',
+          (after < before
+                  ? world.completeBridgeCells
+                  : next.completeBridgeCells)
+              .first,
+        );
+      }
+      if (incident?.kind == IncidentKind.flood &&
+          incident!.state == 'flooding') {
+        next.closeRoads(
+          incident!.flood
+              .where(
+                (c) =>
+                    next.at(c).path &&
+                    next.at(c).bridge == null &&
+                    next.at(c).road != RoadKind.stone,
+              )
+              .toSet(),
+        );
+      } else {
+        next.closeRoads({});
+      }
+    }
+    if (!identical(next, world)) {
       navigation.invalidate(
         next,
         raining: raining,
         weatherCost: weather.travel,
+        marshCost: marshTravel,
       );
     }
     _countsDirty = true;
     final known = records.map((r) => r.homeId).toSet();
     super.reconcile(next, restored: restored, reset: reset);
+    if (incident != null) {
+      incident!.passageHeld &= world.activePaths.any((c) => c.x >= 20);
+    }
     planning.removeWhere(
       (request) =>
           !people.containsKey(request.id) &&
@@ -1014,6 +1076,7 @@ class Colony extends Residents {
 
   void _step(double dt) {
     clock += dt;
+    _worldBoundary(dt);
     _specialBoundary();
     _visitorBoundary();
     _incidentOpportunity();
@@ -1299,7 +1362,12 @@ class Colony extends Residents {
           ),
   };
   void _weatherCostsChanged() {
-    navigation.invalidate(world, raining: raining, weatherCost: weather.travel);
+    navigation.invalidate(
+      world,
+      raining: raining,
+      weatherCost: weather.travel,
+      marshCost: marshTravel,
+    );
     for (final r in actors.where((r) => r.route.isNotEmpty)) {
       if (r.route.length > 1) r.route.removeRange(1, r.route.length);
       r.replanAfterEdge = true;
@@ -1323,7 +1391,8 @@ class Colony extends Residents {
   }
 
   void _specialBoundary() {
-    if (navigation.weatherCost != weather.travel) {
+    if (navigation.weatherCost != weather.travel ||
+        navigation.marshCost != marshTravel) {
       _weatherCostsChanged();
     }
     if (clock + 1e-9 < nextSpecialAt || special?.active(clock) == true) return;
@@ -1404,8 +1473,9 @@ class Colony extends Residents {
   };
   String encode() => jsonEncode({
     ...world.toJson(),
-    'schema': 5,
+    'schema': 6,
     'colony': {
+      'emergence': emergenceJson(),
       'preparedness': preparednessJson(),
       'climate': climate.toJson(clock),
       'visitors': visitorsJson(),
@@ -1449,8 +1519,8 @@ class Colony extends Residents {
   factory Colony.decode(String text) {
     final data = jsonDecode(text), world = Landscape.decode(text);
     final colony = Colony(LandscapeSession(world));
-    if (data['schema'] != 5) colony.incidentMode = IncidentMode.peaceful;
-    if (![3, 4, 5].contains(data['schema'])) {
+    if (data['schema'] < 5) colony.incidentMode = IncidentMode.peaceful;
+    if (![3, 4, 5, 6].contains(data['schema'])) {
       colony.migrated = true;
       return colony;
     }
@@ -1508,11 +1578,12 @@ class Colony extends Residents {
     colony.migrated = flag(d, 'migrated');
     colony.clock = number(d, 'clock', 0);
     colony.remainder = number(d, 'remainder', 0, .05);
-    if (data['schema'] == 5) {
+    if (data['schema'] >= 5) {
       colony.restorePreparedness(d['preparedness']);
     } else {
       colony.nextIncidentAt = colony.clock + 450;
     }
+    if (data['schema'] >= 6) colony.restoreEmergence(d['emergence']);
     colony.climate = data['schema'] >= 4
         ? Climate.decode(
             d['climate'],
@@ -1559,7 +1630,7 @@ class Colony extends Residents {
         ),
       );
       r.active = flag(row, 'active');
-      if (data['schema'] == 5) {
+      if (data['schema'] >= 5) {
         r.safetyRole = identity(row['safetyRole']);
         r.safetyTarget = identity(row['safetyTarget']);
         r.safetyIncident = identity(row['safetyIncident']);
@@ -1625,7 +1696,7 @@ class Colony extends Residents {
         row,
         'workProgress',
         0,
-        data['schema'] == 5 ? 60 : 35,
+        data['schema'] >= 5 ? 60 : 35,
       );
       r.socialProgress = number(row, 'socialProgress', 0, Rules.day);
       r.workedSeconds = number(row, 'workedSeconds', 0);
@@ -1921,6 +1992,7 @@ class Colony extends Residents {
     if (data['schema'] >= 4) colony.restoreVisitors(d['visitors']);
     colony.navigation.rain = colony.raining;
     colony.navigation.weatherCost = colony.weather.travel;
+    colony.navigation.marshCost = colony.marshTravel;
     final queued = d['planning'] ?? [];
     if (queued is! List ||
         queued.length >

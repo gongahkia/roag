@@ -8,10 +8,15 @@ double roadCost(RoadKind road, bool rain) => road == RoadKind.stone
     : rain
     ? Rules.rainCost
     : 1;
-double terrainRoadCost(Lot lot, bool rain, {double? weatherCost}) {
+double terrainRoadCost(
+  Lot lot,
+  bool rain, {
+  double? weatherCost,
+  double marshCost = 1.5,
+}) {
   if (lot.road == RoadKind.stone) return roadCost(lot.road, rain);
   // wet ground subsumes the lesser rain penalty; bridges behave like dry paths.
-  final ground = lot.terrain == Terrain.marsh ? 1.5 : 1.0;
+  final ground = lot.terrain == Terrain.marsh ? marshCost : 1.0;
   final weather = weatherCost ?? (rain ? Rules.rainCost : 1.0);
   return ground > weather ? ground : weather;
 }
@@ -22,9 +27,20 @@ double edgeTravelCost(
   Cell to,
   bool rain, {
   double? weatherCost,
+  double marshCost = 1.5,
 }) =>
-    (terrainRoadCost(world.at(from), rain, weatherCost: weatherCost) +
-        terrainRoadCost(world.at(to), rain, weatherCost: weatherCost)) /
+    (terrainRoadCost(
+          world.at(from),
+          rain,
+          weatherCost: weatherCost,
+          marshCost: marshCost,
+        ) +
+        terrainRoadCost(
+          world.at(to),
+          rain,
+          weatherCost: weatherCost,
+          marshCost: marshCost,
+        )) /
     2;
 
 class _Field {
@@ -74,6 +90,7 @@ class Navigation {
   Landscape world;
   bool rain;
   double? weatherCost;
+  double marshCost = 1.5;
   int revision;
   int searches = 0, hits = 0, expansions = 0, fieldsBuilt = 0, stale = 0;
   final Map<Cell, _Field> _fields = {};
@@ -87,10 +104,12 @@ class Navigation {
     Landscape next, {
     required bool raining,
     double? weatherCost,
+    double marshCost = 1.5,
   }) {
     world = next;
     rain = raining;
     this.weatherCost = weatherCost;
+    this.marshCost = marshCost;
     revision++;
     _fields.clear();
   }
@@ -117,7 +136,14 @@ class Navigation {
         final i = n.y * world.width + n.x,
             cost =
                 distance +
-                edgeTravelCost(world, n, cell, rain, weatherCost: weatherCost);
+                edgeTravelCost(
+                  world,
+                  n,
+                  cell,
+                  rain,
+                  weatherCost: weatherCost,
+                  marshCost: marshCost,
+                );
         if (cost < f.distance[i] - 1e-9) {
           f.distance[i] = cost;
           f.next[i] = index;

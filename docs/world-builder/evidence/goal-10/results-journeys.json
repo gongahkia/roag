@@ -1,0 +1,40 @@
+{
+  "url": "http://127.0.0.1:42863/roag/settlement/",
+  "input": "Playwright browser pointer/keyboard/file menus. Legacy preload is isolated setup; observations read localStorage. No gameplay callbacks.",
+  "checks": [
+    "A genuine active-response bridge is removed by pointer input; actor keeps physical position, rejects deleted edge and reroutes; Undo restores crossing",
+    "Naturally scheduled incident observed after actual 450-second grace; separately labelled from forced fixtures, with four-day post-incident cooldown",
+    "Existing pan/zoom/home, resize, reduced motion and mute/unmute controls remain available"
+  ],
+  "errors": [],
+  "failedAssets": [],
+  "shots": [
+    {
+      "name": "09-response-reroutes-broken-bridge",
+      "seconds": 16.14
+    },
+    {
+      "name": "10-natural-incident",
+      "seconds": 52.161
+    },
+    {
+      "name": "11-reduced-motion",
+      "seconds": 58.223
+    },
+    {
+      "name": "12-small-browser",
+      "seconds": 58.558
+    },
+    {
+      "name": "13-large-browser",
+      "seconds": 58.978
+    }
+  ],
+  "outcomes": {
+    "natural": {
+      "kind": "wildlife",
+      "starts": 480.00000000007486,
+      "origin": "scheduled"
+    }
+  }
+}

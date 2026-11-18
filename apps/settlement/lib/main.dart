@@ -87,12 +87,13 @@ class _LandscapePageState extends State<LandscapePage> {
       introduction = saved.isEmpty;
       if (saved.isNotEmpty) {
         colony = Colony.decode(saved);
-        if (jsonDecode(saved)['schema'] != 5) {
+        if (jsonDecode(saved)['schema'] != 6) {
           try {
             final schema = jsonDecode(saved)['schema'] as int;
             if (schema < 3) browser.backupLegacy(saved);
             if (schema < 4) browser.backupLiving(saved);
-            browser.backupIncidents(saved);
+            if (schema < 5) browser.backupIncidents(saved);
+            browser.backupStories(saved);
             needsMigrationSave = true;
           } catch (_) {
             migrationSafe = false;
@@ -470,6 +471,8 @@ class _LandscapePageState extends State<LandscapePage> {
     try {
       if (action == 'incidents') {
         await showPreparedness();
+      } else if (action == 'stories') {
+        await showHistory();
       } else if (action == 'yearwatch') {
         setSpeed(colony.speed == 16 ? 1 : 16);
         tell(
@@ -525,7 +528,9 @@ class _LandscapePageState extends State<LandscapePage> {
         if (draft != null && mounted) {
           final world = WorldGeneration.create(draft.seed, draft.preset);
           replaceColony(
-            Colony(LandscapeSession(world))..incidentMode = draft.incidents,
+            Colony(LandscapeSession(world))
+              ..incidentMode = draft.incidents
+              ..configureScenario(draft.scenario),
           );
           migrationSafe = true;
           introduction = true;
@@ -558,7 +563,7 @@ class _LandscapePageState extends State<LandscapePage> {
                       child: Text('${t.label}: ${t.instruction}'),
                     ),
                   const Text(
-                    'Wet paths cost 1.5× travel time; rain uses the larger penalty, without stacking. Stone stays 18% quicker. Bridges use ordinary path pace. Clear costs 1; Plant 1; Bridge 3 per water cell.',
+                    'Wet paths cost 1.5× travel time (2× after prolonged Wetlands rain); weather uses the larger penalty once. Stone stays 18% quicker and withstands bank floods. Complete bridges stay above floods; protect their approaches. Clear costs 1; Plant 1; Bridge 3 per water cell.',
                   ),
                 ],
               ),
@@ -626,6 +631,65 @@ class _LandscapePageState extends State<LandscapePage> {
     }
   }
 
+  Future<void> showHistory() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${colony.scenario.label} · settlement history'),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(colony.scenario.description),
+                for (var i = 0; i < colony.scenario.objectives.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '${colony.scenarioCompleted.contains(i) ? '✓' : '○'} ${colony.scenario.objectives[i]}',
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Objectives are optional, remain completed and never end the town. Peaceful keeps destructive incident goals optional. History records actual outcomes; no repeatable reward claims.',
+                ),
+                if (colony.stories.isEmpty && colony.incidentHistory.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text('No major memories yet. Keep building.'),
+                  ),
+                for (final s in colony.stories.reversed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Day ${(s.time / Rules.day).floor() + 1} · ${s.time.toStringAsFixed(1)}s · (${s.cell.x + 1}, ${s.cell.y + 1})\n${s.outcome}',
+                    ),
+                  ),
+                for (final h in colony.incidentHistory.reversed.where(
+                  (h) => !colony.stories.any((s) => s.source == h.id),
+                ))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      'Earlier · Day ${(h.ends / Rules.day).floor() + 1}\n${h.kind}: ${h.outcome}; ${h.damage} damage, ${h.responders} arrived responders.',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back to building'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> showPreparedness() async {
     await showDialog<void>(
       context: context,
@@ -667,7 +731,7 @@ class _LandscapePageState extends State<LandscapePage> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Fire: at most 3 touching buildings; gaps and water stop spread. Responders must travel. Rabbit: real approach to a Farm; guards within 10 weighted road steps can shoo it. Repair only after danger passes.',
+                    'Fire: gaps stop spread. Floods: coherent bank overflow; Stone Roads and complete bridges stay open, ordinary roads close temporarily. Wildlife and brigands: guards within 10 weighted road steps must arrive. Caravan: real Inn service or spare Refuge space. Repair after danger passes.',
                   ),
                   for (final h in colony.incidentHistory.reversed.take(6))
                     Padding(
@@ -1232,6 +1296,10 @@ class _LandscapePageState extends State<LandscapePage> {
                         child: Text(
                           'Incidents: ${colony.incidentMode == IncidentMode.peaceful ? 'Peaceful' : 'Standard'}',
                         ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'stories',
+                        child: Text('Scenario & settlement history'),
                       ),
                       const PopupMenuItem(
                         value: 'world',

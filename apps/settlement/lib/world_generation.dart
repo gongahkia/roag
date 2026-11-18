@@ -12,6 +12,13 @@ class _Stream {
 
 abstract final class WorldGeneration {
   static Landscape create(String input, EnvironmentPreset preset) {
+    if (preset.index >= EnvironmentPreset.wetlands.index) {
+      return _challenging(input, preset);
+    }
+    return _base(input, preset);
+  }
+
+  static Landscape _base(String input, EnvironmentPreset preset) {
     final text = canonicalSeed(input), seed = seedNumber(text);
     final scenery = _Stream(seed, 104729), environment = _Stream(seed, 130363);
     final geometry = _Stream(seed, 32452843);
@@ -120,7 +127,122 @@ abstract final class WorldGeneration {
       width,
       height,
       lots,
-      generation: GenerationInfo(text, preset, environment.next(4)),
+      generation: GenerationInfo(text, preset, environment.next(4), version: 2),
+    );
+  }
+
+  static Landscape _challenging(String input, EnvironmentPreset preset) {
+    // retain v2 fields and stream domains. Additional channels/ridges use their
+    // own stream; bounded corridors are generation rules, never live repairs.
+    final base = _base(input, preset);
+    final geometry = _Stream(base.seed, 49979687);
+    final lots = base.lots.toList();
+    final ridge = 15 + geometry.next(3), pass = 5 + geometry.next(5);
+    final tributary = 5 + geometry.next(3);
+    for (final c in base.cells) {
+      final old = base.at(c);
+      var terrain = old.terrain == Terrain.forest
+          ? Terrain.ground
+          : old.terrain;
+      if (preset == EnvironmentPreset.wetlands) {
+        if ((c.y - tributary).abs() <= 1 && c.x >= 12 ||
+            (c.y - 24).abs() <= 1 && c.x >= 12) {
+          terrain = Terrain.water;
+        } else if (terrain == Terrain.ground &&
+            variation(base.seed, Cell(c.x ~/ 3, c.y ~/ 3), 881) % 100 <
+                preset.wetThreshold) {
+          terrain = Terrain.marsh;
+        }
+      } else {
+        // coherent two-cell ridges with two true traversable passes.
+        if ((c.x == ridge || c.x == ridge + 1) &&
+            (c.y - pass).abs() > 1 &&
+            (c.y - 15).abs() > 1) {
+          terrain = Terrain.rock;
+        }
+        if (preset == EnvironmentPreset.frontier &&
+            c.x > 27 &&
+            c.y % 9 <= 1 &&
+            c.y != 15) {
+          terrain = Terrain.rock;
+        }
+      }
+      // Preserve the known affordable opening, plus a second dry corridor. All
+      // six presets retain the original 11x9 clearing and eight arrival roads.
+      if (c.x <= 10 && c.y >= 11 && c.y <= 19 ||
+          (c.y - 15).abs() <= 1 && old.terrain != Terrain.water) {
+        terrain = Terrain.ground;
+      }
+      lots[c.y * base.width + c.x] = Lot(
+        grass: old.grass,
+        terrain: terrain,
+        path: old.path,
+        scenery: terrain == Terrain.forest ? Scenery.oak : Scenery.none,
+      );
+    }
+    // Validate usable land before vegetation. Extreme fields receive one bounded
+    // dry corridor expansion, nearest the protected lane first. No live repair.
+    var open = lots.where((l) => l.terrain == Terrain.ground).length;
+    final recovery =
+        base.cells
+            .where(
+              (c) =>
+                  lots[c.y * base.width + c.x].terrain != Terrain.water &&
+                  !(c.x >= ridge &&
+                      c.x <= ridge + 1 &&
+                      (c.y - pass).abs() > 1 &&
+                      (c.y - 15).abs() > 1),
+            )
+            .toList()
+          ..sort((a, b) {
+            final d = (a.y - 15).abs().compareTo((b.y - 15).abs());
+            return d != 0
+                ? d
+                : (a.y * base.width + a.x).compareTo(b.y * base.width + b.x);
+          });
+    for (final c in recovery) {
+      if (open >= 450) break;
+      final i = c.y * base.width + c.x;
+      if (lots[i].terrain != Terrain.ground) {
+        lots[i] = Lot(grass: lots[i].grass, terrain: Terrain.ground);
+        open++;
+      }
+    }
+    if (open < 450) throw StateError('Invalid constrained starting landscape.');
+    final eligible = base.cells
+        .where(
+          (c) =>
+              lots[c.y * base.width + c.x].terrain == Terrain.ground &&
+              !(c.x <= 10 && c.y >= 11 && c.y <= 19) &&
+              (c.y - 15).abs() > 1,
+        )
+        .toList();
+    eligible.sort((a, b) {
+      final av = variation(base.seed, Cell(a.x ~/ 3, a.y ~/ 3), 983),
+          bv = variation(base.seed, Cell(b.x ~/ 3, b.y ~/ 3), 983);
+      final order = av.compareTo(bv);
+      return order != 0
+          ? order
+          : (a.y * base.width + a.x).compareTo(b.y * base.width + b.x);
+    });
+    final forestCount = eligible.length * preset.forestPercent ~/ 100;
+    for (final c in eligible.take(forestCount < 72 ? 72 : forestCount)) {
+      lots[c.y * base.width + c.x] = Lot(
+        grass: base.at(c).grass,
+        terrain: Terrain.forest,
+        scenery: Scenery.oak,
+      );
+    }
+    return Landscape(
+      base.seed,
+      base.width,
+      base.height,
+      lots,
+      generation: GenerationInfo(
+        canonicalSeed(input),
+        preset,
+        base.generation!.environmentVariant,
+      ),
     );
   }
 }

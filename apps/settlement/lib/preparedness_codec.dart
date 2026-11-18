@@ -143,6 +143,11 @@ extension PreparednessCodec on Colony {
             'driven away',
             'retreated',
             'site removed',
+            'water receded',
+            'Market disrupted',
+            'retreated without reaching Market',
+            'assisted and departed',
+            'departed without assistance',
           ].contains(h['outcome']) ||
           !['fixture', 'scheduled'].contains(h['origin'])) {
         r.bad();
@@ -194,12 +199,42 @@ extension PreparednessCodec on Colony {
       ..ends = r.number(a, 'ends', -1, clock)
       ..lastTick = r.number(a, 'lastTick', 0, clock)
       ..grazingAt = r.number(a, 'grazingAt', -1, clock)
-      ..animalProgress = r.number(a, 'animalProgress', 0, 10.01)
+      ..animalProgress = r.number(
+        a,
+        'animalProgress',
+        0,
+        kind == IncidentKind.flood ? 45 : 10.01,
+      )
       ..shoo = r.number(a, 'shoo', 0, 2.1)
       ..damage = r.integer(a, 'damage', 0, 210)
       ..driven = r.flag(a, 'driven');
+    if (a.containsKey('paid')) {
+      e.passageHeld = a.containsKey('passageHeld')
+          ? r.flag(a, 'passageHeld')
+          : false;
+      e.passageWork = a.containsKey('passageWork')
+          ? r.flag(a, 'passageWork')
+          : false;
+      e.paid = r.flag(a, 'paid');
+      e.moneyLost = r.integer(a, 'moneyLost', 0, 4000);
+      for (final item in r.list(a['flood'], 40)) {
+        if (!e.flood.add(r.cell(item))) r.bad();
+      }
+      e.floodSource = a['floodSource'] == null
+          ? null
+          : r.cell(a['floodSource']);
+      final losses = r.map(a['losses']);
+      if (losses.length > 8) r.bad();
+      for (final entry in losses.entries) {
+        if (entry.value is! int || entry.value < 0 || entry.value > 18) r.bad();
+        e.losses[r.building(entry.key)] = entry.value;
+      }
+    }
     e.responders.addAll(r.identities(a['responders']));
     e.sheltered.addAll(r.identities(a['sheltered']));
+    if (a.containsKey('experienced')) {
+      e.experienced.addAll(r.identities(r.list(a['experienced'], 500)));
+    }
     e.dispatched.addAll(r.identities(a['dispatched']));
     if (e.responders.length > 4 ||
         e.dispatched.length > 4 ||
@@ -234,6 +269,44 @@ extension PreparednessCodec on Colony {
           a['animal'] != null) {
         r.bad();
       }
+    } else if (kind == IncidentKind.flood) {
+      if (!['warning', 'flooding'].contains(e.state) ||
+          e.flood.isEmpty ||
+          e.floodSource == null ||
+          world.at(e.floodSource!).terrain != Terrain.water ||
+          !e.flood.contains(e.floodSource) ||
+          a['animal'] != null ||
+          e.fires.isNotEmpty ||
+          e.losses.values.fold<int>(0, (a, b) => a + b) != e.damage ||
+          e.flood.any(
+            (c) =>
+                (c.x - e.floodSource!.x).abs() +
+                    (c.y - e.floodSource!.y).abs() >
+                3,
+          )) {
+        r.bad();
+      }
+      final seen = <Cell>{}, queue = Queue<Cell>()..add(e.floodSource!);
+      while (queue.isNotEmpty) {
+        final c = queue.removeFirst();
+        if (!seen.add(c)) continue;
+        queue.addAll(
+          c.neighbours.where((n) => e.flood.contains(n) && !seen.contains(n)),
+        );
+      }
+      if (seen.length != e.flood.length) r.bad();
+      if (e.state == 'flooding') {
+        world.closeRoads(
+          e.flood
+              .where(
+                (c) =>
+                    world.at(c).path &&
+                    world.at(c).bridge == null &&
+                    world.at(c).road != RoadKind.stone,
+              )
+              .toSet(),
+        );
+      }
     } else {
       if (![
             'warning',
@@ -242,13 +315,24 @@ extension PreparednessCodec on Colony {
             'retreating',
           ].contains(e.state) ||
           e.fires.isNotEmpty ||
-          e.damage > 20) {
+          e.damage > 20 ||
+          kind == IncidentKind.caravan && e.damage != 0) {
         r.bad();
       }
       final v = r.map(a['animal']), key = r.id(v['id']);
+      final body = kind == IncidentKind.wildlife
+          ? 'rabbit-body-v1'
+          : kind == IncidentKind.raiders
+          ? 'hood-v1'
+          : 'merchant-body-v1';
+      final name = kind == IncidentKind.wildlife
+          ? 'Wild rabbit'
+          : kind == IncidentKind.raiders
+          ? 'Road brigand'
+          : 'Caravan traveller';
       if (key != 'animal-${int.parse(id.split('-').last)}' ||
-          v['bodyId'] != 'rabbit-body-v1' ||
-          v['name'] != 'Wild rabbit' ||
+          v['bodyId'] != body ||
+          v['name'] != name ||
           v['active'] != true ||
           v['arrived'] != true ||
           v['workId'] != null) {
@@ -263,8 +347,8 @@ extension PreparednessCodec on Colony {
                 orElse: r.bad,
               ),
             )
-            ..bodyId = 'rabbit-body-v1'
-            ..name = 'Wild rabbit'
+            ..bodyId = body
+            ..name = name
             ..arrived = true;
       if (![
         Activity.emergencyWaiting,
@@ -313,11 +397,18 @@ extension PreparednessCodec on Colony {
     final r = _SafetyReader(this),
         known = records.map((p) => p.homeId).toSet(),
         e = incident;
+    if (stories.any(
+      (s) =>
+          s.participants.length > 500 || !s.participants.every(known.contains),
+    )) {
+      r.bad();
+    }
     if (e != null) {
       if (![
         ...e.responders,
         ...e.sheltered,
         ...e.dispatched,
+        ...e.experienced,
       ].every(known.contains)) {
         r.bad();
       }

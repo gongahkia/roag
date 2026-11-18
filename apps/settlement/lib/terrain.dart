@@ -50,6 +50,29 @@ enum EnvironmentPreset {
     18,
     4,
     hasRiver: true,
+  ),
+  wetlands(
+    'Wetlands',
+    'Difficult · connected channels, marshy banks and small dry islands. Stone roads withstand flooding; bridges cross water.',
+    30,
+    57,
+    3,
+    hasRiver: true,
+  ),
+  highlands(
+    'Highlands',
+    'Difficult · rocky ridges separate wooded plateaus. Narrow passes reward alternative roads. No simulated elevation.',
+    30,
+    12,
+    47,
+  ),
+  frontier(
+    'Harsh Frontier',
+    'Challenging · exposed river approaches, rock and woodland. Prepare reachable protection; construction prices stay ordinary.',
+    42,
+    25,
+    25,
+    hasRiver: true,
   );
 
   final String label, description;
@@ -92,7 +115,7 @@ int seedNumber(String input) {
 }
 
 class GenerationInfo {
-  static const currentVersion = 2;
+  static const currentVersion = 3;
   final String seedText;
   final EnvironmentPreset preset;
   final int version, environmentVariant;

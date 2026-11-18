@@ -7,10 +7,12 @@ class WorldDraft {
   final String seed;
   final EnvironmentPreset preset;
   final IncidentMode incidents;
+  final ScenarioKind scenario;
   const WorldDraft(
     this.seed,
     this.preset, [
     this.incidents = IncidentMode.standard,
+    this.scenario = ScenarioKind.free,
   ]);
 }
 
@@ -27,6 +29,7 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
   EnvironmentPreset preset = EnvironmentPreset.plains;
   String? error;
   IncidentMode incidents = IncidentMode.standard;
+  ScenarioKind scenario = ScenarioKind.free;
   @override
   void dispose() {
     seed.dispose();
@@ -43,7 +46,23 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            DropdownButtonFormField<ScenarioKind>(
+              initialValue: scenario,
+              decoration: const InputDecoration(labelText: 'Scenario'),
+              items: [
+                for (final s in ScenarioKind.values)
+                  DropdownMenuItem(value: s, child: Text(s.label)),
+              ],
+              onChanged: (s) => setState(() {
+                scenario = s!;
+                preset = scenario.environment ?? preset;
+              }),
+            ),
+            const SizedBox(height: 8),
+            Text(scenario.description),
+            const SizedBox(height: 8),
             DropdownButtonFormField<EnvironmentPreset>(
+              key: ValueKey(preset),
               initialValue: preset,
               decoration: const InputDecoration(labelText: 'Environment'),
               items: [
@@ -113,7 +132,10 @@ class _WorldCreationDialogState extends State<WorldCreationDialog> {
         onPressed: () {
           try {
             final text = canonicalSeed(seed.text);
-            Navigator.pop(context, WorldDraft(text, preset, incidents));
+            Navigator.pop(
+              context,
+              WorldDraft(text, preset, incidents, scenario),
+            );
           } on FormatException catch (e) {
             setState(() => error = e.message);
           }
