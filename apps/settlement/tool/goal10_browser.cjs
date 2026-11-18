@@ -9,7 +9,7 @@ fs.mkdirSync(out,{recursive:true});let browser,lastPage;
  const legacy=fs.readFileSync(path.resolve(__dirname,'../test/fixtures/goal09-town.json'),'utf8');
  await context.addInitScript(({key,legacy})=>{if(!localStorage.getItem(key))localStorage.setItem(key,legacy)},{key,legacy});
  let mainJsHash;const page=await context.newPage();lastPage=page;const started=Date.now(),checks=[],errors=[],assets=[],outcomes={},shots=[];
- page.on('response',async r=>{if(r.url().endsWith('/main.dart.js'))mainJsHash=crypto.createHash('sha256').update(await r.body()).digest('hex')});page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400)assets.push([r.status(),r.url()])});
+ page.on('response',async r=>{if(r.url().endsWith('/main.dart.js')&&r.status()>=200&&r.status()<300){try{mainJsHash=crypto.createHash('sha256').update(await r.body()).digest('hex')}catch(e){errors.push('Script response could not be read: '+e.message)}}});page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400)assets.push([r.status(),r.url()])});
  const btn=n=>page.getByRole('button',{name:n,exact:typeof n==='string'}),state=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key),pass=t=>{checks.push(t);console.log('PASS',t)};
  async function ready(){await page.locator('#loading').waitFor({state:'detached'});const a=page.locator('flt-semantics-placeholder');if(await a.count())await a.press('Enter');await btn(/^1 Cottage/).waitFor()}
  async function menu(n){await btn('Landscape menu').click();await page.getByRole('menuitem',{name:n,exact:true}).click()}
