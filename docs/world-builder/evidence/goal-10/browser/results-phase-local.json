@@ -1,0 +1,11 @@
+{
+  "url": "http://127.0.0.1:42863/roag/settlement/",
+  "mainJsHash": "2b4221d4bc6742276372d7d17893e8e747b9f772c31c7dd62567dedcb8a24788",
+  "input": "Real release browser pointer/file menus; explicitly imported comparison fixtures. No gameplay callbacks.",
+  "checks": [
+    "raid-unprepared: readable Market disruption; original saved phase and complete paused checkpoint reload unchanged",
+    "caravan: readable shelter stop; original saved phase and complete paused checkpoint reload unchanged"
+  ],
+  "errors": [],
+  "failedAssets": []
+}

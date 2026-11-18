@@ -354,12 +354,29 @@ creation cost, not browser display latency.
 <https://gabrielongzm.com/roag/settlement/>.
 [GitHub Actions 44343582241](https://github.com/gongahkia/roag/actions/runs/44343582241)
 passed the web and publish jobs for `5a9bb7e27ffc0a9e9ef304bfb23d1a4e5fbd1cd0`.
-The actual browser-loaded `main.dart.js` SHA256 is
+The full-journey browser-loaded `main.dart.js` SHA256 is
 `41880434d79d69bb954bc7dc230ca944e93230f4f4f7bc41c9714bf3deea35a7`, matching the
 local tested release. All public journeys report zero failed asset responses and
 zero page errors. [Deployment](evidence/goal-10/deployment.json),
 [CI gates](evidence/goal-10/ci-gates.log),
 [build fingerprints](evidence/goal-10/build-fingerprints.json).
+
+A final presentation-only follow-up, `28550b09`, replaces the shared internal
+`grazing` word with **Market disruption** and **shelter stop** in human encounter
+cards/inspection. It changes no saved phase, timing, damage, RNG or actor rule.
+Analysis and all 214 tests passed again. The final public build's JavaScript is
+`2b4221d4bc6742276372d7d17893e8e747b9f772c31c7dd62567dedcb8a24788`.
+[Publication 44349324990](https://github.com/gongahkia/roag/actions/runs/44349324990)
+passed both jobs. Two additional real public browser journeys exercise the new
+labels and prove complete paused checkpoints reload exactly while retaining the
+original raw saved phases. [Final phase results](evidence/goal-10/browser/results-phase-public.json),
+[Market label](evidence/goal-10/browser/raid-unprepared-phase.png),
+[caravan label](evidence/goal-10/browser/caravan-phase.png).
+
+The 17-journey recording and measurements above use the complete release before
+that wording-only change; the final two UI checks cover the changed presentation.
+The final browser helper also skips cached/redirect response bodies when hashing
+scripts. Its automatic `3564b070 work~` checkpoint is retained.
 
 Only the `release/settlement-goal-10` workflow branch and exact Pages deployment
 policy were added; main and releases 07–09 are retained. No reset, force push,
@@ -380,6 +397,7 @@ bash tool/release.sh /roag/settlement/
 dart run tool/goal10_fixture.dart /var/tmp/roag-goal10/fixtures
 node tool/goal10_browser.cjs /var/tmp/roag-goal10/browser
 node tool/goal10_storage_browser.cjs /var/tmp/roag-goal10/storage
+node tool/goal10_phase_browser.cjs /var/tmp/roag-goal10/phase-ui
 SETTLEMENT_NETWORK_ONLY=1 node tool/goal09_journeys_browser.cjs /var/tmp/roag-goal10/regressions
 ```
 
@@ -393,7 +411,7 @@ builds' existing `tool/scaling_browser.cjs` at that one fixed fixture directory.
 Active measurement directories link `scale-N.json` to the corresponding
 `flood-scale-N.json`, `raiders-scale-N.json` or `caravan-scale-N.json` generated
 by the new fixture tool. `SETTLEMENT_POPULATIONS=500` selects the travelling-actor
-samples. Root checks remain `make assets-check` and the catalogue command above.
+samples. Root checks remain `make assets-check` and `make catalog-test`, from the repository root.
 
 ### Preservation and completion audit
 
@@ -418,7 +436,7 @@ this Dart-only change; their source and storage were verified by fingerprints.
 | Persistent factual stories | Bounded memories with source/participant IDs, resident conversation, repair/history and forward Undo checks |
 | Compatibility and storage | Existing assertions unchanged, schema-5 identity/land/clock comparison, active exact reload, file export/import and backup/import fault tests |
 | Scaling and presentation | 85/250/500 real browser populations, bounded hazards/actors, queue recovery, real screenshots and motion, retained bridge/mute/reduced-motion/resize regressions |
-| Public publication | Successful existing Pages workflow plus 17 full journeys on the actual matching HTTPS application |
+| Public publication | Successful existing Pages workflows, 17 full journeys plus two final phase/reload journeys on the matching HTTPS builds |
 
 The scope is complete. Human judgement of balance, memorability and enjoyment
 remains separate from these functional results.
