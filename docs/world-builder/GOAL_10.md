@@ -1,8 +1,8 @@
 # Goal 10 · Landscapes, encounters and settlement stories
 
-Implementation and verification record for the Dart/Flutter/Flame settlement.
-Goal 11 is outside this work. Verification sections below are updated as each
-release gate completes; a passing model test is not a claim of human playtesting.
+Implemented and publicly verified in the Dart/Flutter/Flame settlement.
+Goal 11 has not been started. Automated functional journeys are distinct from
+human preference testing.
 
 ## Play
 
@@ -64,9 +64,9 @@ Important owners under `apps/settlement/`:
 ## Generation and terrain
 
 Gentle Plains, Woodlands and River Country retain their exact **version 2**
-generation path. The new presets use **version 3**, starting from the existing
-integer coarse fields and applying an independent domain-49979687 geometry
-stream. No rendering, inspection, scenario objective or incident draws from it.
+generation path. The new presets use **version 3**, applying their own declared terrain weights
+to the existing integer coarse fields, then an independent domain-49979687
+geometry stream. No rendering, inspection, scenario objective or incident draws from it.
 Numeric seed normalisation and case-sensitive UTF-8 base-131 text seeds retain
 Goal 07's semantics. All concrete lots and version metadata are saved; loading
 never regenerates either old or new terrain.
@@ -141,6 +141,13 @@ attempts departure without an award. A cut exit causes physical waiting until
 the player restores access, following the existing visitor convention. Help and
 departure remain in persistent history; later caravan opportunities can recur.
 
+The brigand uses audited `urizen-onebit-r02-c104` (the existing hooded human),
+and the caravan uses `r00-c198` (the existing pack carrier). These are explicit
+game casting choices, not publisher claims that those drawings are raiders or
+a full caravan. Both come from the retained CC0 Urizen source and reuse the
+existing actor atlas, palettes and procedural movement; no source crop or new
+artwork was introduced.
+
 Fire and rabbit rules remain available. Response still depends on actual staff,
 condition, route and arrival. The shared retreat path now finishes only a legal
 current edge before replanning, so a moving actor cannot resume its old target
@@ -205,15 +212,226 @@ Construction Undo itself remains session-local, as before.
 
 ## Verification, performance and release
 
-Final measured results and browser/public evidence are recorded here after the
-corresponding gates complete. No private browser profile is used by the harnesses.
+The final source passed **214/214 Flutter tests**, versus the observed 189-test
+baseline, with all original test files and assertions unchanged. The 25 new tests
+cover generation, weather costs, coherent flooding, actual service/response,
+blocked/reconnected access, active-state continuation, financial limits,
+scenario causality, factual participation and invalid imports. Existing scheduler,
+construction, needs, income, dialogue, visitor, repair and save regressions pass.
+
+The existing sweep now tests **600 distinct seeds per preset across all six
+presets**: reproducible concrete maps, real variation, starter access, plots and
+terrain counts. The added 300-seed sweep for each new preset also actually builds
+the eastward route, checks work/social plots and the ≤9-coin crossing. Thus all
+three new environments have 600 distinct tested seeds; the first 300 receive the
+additional developed-route check. Full encoded seed-202 worlds for all three v2
+presets match independently captured baseline fingerprints.
+
+Analysis reports no issues; formatting reports 42 files / zero changes. The app
+asset validator verifies 47 source crops and nine actor bodies × four palettes.
+The original binding check verifies 599 bindings / 67 unchanged PNGs. The broad
+catalogue command remains **47 passes / 1 failure** in the same original
+media-ownership assertion. Newly captured Goal 10 media also fall outside that
+unchanged allow-list; this is not reported as an entirely green catalogue run.
+[Baseline log](evidence/goal-10/catalog-baseline.log),
+[final log](evidence/goal-10/catalog-final.log),
+[Flutter log](evidence/goal-10/tests-all.log),
+[analysis](evidence/goal-10/analyze.log),
+[asset check](evidence/goal-10/assets.log).
+
+### Actual browser journeys
+
+The production HTTPS build completed **17 grouped browser checks**, covering all
+25 requested journey items through the main harness, scaling fixtures and retained
+regression harness. These use actual Chromium 155 / Playwright 1.65.1 pointer,
+keyboard, context-menu, download and file-picker input against real CanvasKit
+rendering. State observations read saved checkpoints; no live Dart gameplay
+callbacks or direct actor orders are used. This is automated browser input,
+**not native desktop manual play or human preference testing**.
+
+- A genuine schema-5 fixture opens with identical lots, clock, money and complete
+  resident records, and its original text is backed up. Draft cancellation keeps it.
+- All three entered seed-202 environments receive paid neighbourhoods with actual
+  work and social services. A paid Wetlands bridge carries a real arriving resident.
+- A Highland Farm is relocated through its existing right-click menu, retaining
+  its ID. Workers cross the pass and actually produce; neighbours socialise and
+  the existing contextual conversation still opens.
+- Same-seed maps match, a different seed changes terrain, and the Trade scenario
+  completes all three actual objectives before further paid construction.
+- The labelled flood fixture receives paid Stone Roads, actual evacuation,
+  **six sheltered residents and 54 lasting building damage**, then recession,
+  paid repair and forward-moving Undo/Redo. Active paused reload is exact.
+- The same brigand takes **12 damage / up to four coins** at the unprepared Market;
+  the trained, physically arriving guard drives it away with **zero damage**.
+- The caravan earns nothing while its road is cut. Reconnection permits real Inn
+  service, exactly two coins, legal departure and retained assistance memory.
+- A real JSON download/import and reload retain the developed town and histories.
+- A separately labelled **naturally scheduled** rabbit incident starts at
+  **480.0 seconds**, ends at 494.6, and records a real guard response. Its fixture
+  was legitimately advanced to 449 seconds; no forced start selected that event.
+- Ordinary construction and inspection work after camera pan, zoom and resize.
+
+The unchanged Goal 09 network regression additionally removes a genuine bridge
+on a responder's route, observes physical rerouting/waiting, restores it with
+Undo and exercises reduced motion, 931×582 / 1440×900 layouts and mute/unmute.
+The new storage harness explicitly injects failures into both old v5 and new v6
+migration backups: original bytes remain intact and autosave pauses. Invalid
+incident RNG and unknown scenario files are refused before replacement.
+[Public results](evidence/goal-10/browser/results-public.json),
+[retained regression results](evidence/goal-10/results-journeys.json),
+[storage fault results](evidence/goal-10/results-storage.json).
+
+### Motion and screenshots
+
+[53-second actual public-game recording](evidence/goal-10/emergent-settlement.mp4) combines
+four excerpts from the continuous release-browser recording. It shows a seeded
+challenging landscape and construction, the Highland working district, flood
+preparation/warning, autonomous shelter, consequences and recovery/history.
+Only waits between excerpts were cut; no mock scene or invented actor motion is
+substituted. The incident sequence is explicitly a developer comparison fixture,
+not the naturally scheduled rabbit journey.
+
+Readable actual screenshots:
+[Wetlands](evidence/goal-10/browser/environment-wetlands.png),
+[Highlands](evidence/goal-10/browser/environment-highlands.png),
+[Frontier](evidence/goal-10/browser/environment-frontier.png),
+[bridge in use](evidence/goal-10/browser/wetlands-real-crossing.png),
+[far-side work](evidence/goal-10/browser/highlands-far-side-work.png),
+[completed scenario](evidence/goal-10/browser/scenario-trade-completed.png),
+[flood response](evidence/goal-10/browser/flood-active-shelter.png),
+[history](evidence/goal-10/browser/flood-recovery-history.png),
+[caravan memory](evidence/goal-10/browser/caravan-departure-memory.png).
+
+### Scaling and generation measurements
+
+A fresh isolated archive of exact starting commit `945c3f4e` was built with the
+same pinned SDK; no README was extracted. Its JavaScript matches the previously
+published Goal 09 hash. Both builds use the same valid pre-Goal-10 85/250/500-person
+checkpoints. One owned browser runs at a time, without concurrent builds or video
+encoding during measurements. Samples are 16 wall-seconds ordinary + 16 recovery
+after the same 13-cell road cut. Actors remain simulated off-screen.
+
+| Case | Population | Model p95 before edit → recovery | Frame p95 | Recovery queue |
+|---|---:|---:|---:|---:|
+| Baseline | 85 | 1.00 → 0.80 ms | 33.4 ms | 33 → 0 |
+| Final, comparable | 85 | 1.10 → 0.90 ms | 33.4 ms | 23 → 0 |
+| Baseline | 250 | 2.20 → 2.10 ms | 50 → 33.4 ms | 196 → 0 |
+| Final, comparable | 250 | 2.20 → 2.40 ms | 50 → 33.4 ms | 176 → 0 |
+| Baseline | 500 | 3.90 → 4.30 ms | 50 ms | 438 → 0 |
+| Final, comparable | 500 | 3.90 → 4.70 ms | 50 ms | 414 → 0 |
+| Rain + active flood | 85 | 1.90 → 1.40 ms | 33.4 ms | 31 → 0 |
+| Rain + active flood | 250 | 4.90 → 4.50 ms | 33.4 → 33.5 ms | 170 → 0 |
+| Rain + active flood | 500 | 8.50 → 8.40 ms | 50 ms | 413 → 0 |
+| Rain + brigand | 500 | 3.60 → 4.20 ms | 50 ms | 437 → 0 |
+| Rain + caravan | 500 | 3.80 → 4.90 ms | 50 ms | 442 → 0 |
+
+The comparable 500-person recovery adds approximately **0.40 ms** model p95;
+frame p95 remains 50 ms. Mean frame interval is 28.95 → 29.66 ms ordinary and
+28.85 → 30.32 ms recovery. Flood mean frame interval is 31.35 / 31.64 ms. Maximum
+observed 1 Hz hazard-check cost is **11.90 ms** for 500-person flooding, **4.70 ms**
+for the brigand and **1.40 ms** for caravan service. These are Chromium SwiftShader
+measurements on a shared Linux machine, not a hardware-GPU frame-rate or physical
+input-latency claim. Raw data retain maxima, distributions, clock advance,
+planning peaks, cache work and active actor counters; no assertion hides slow
+samples. A drained queue means planning has caught up; residents in genuinely cut
+districts can still wait for road repair.
+
+[Baseline](evidence/goal-10/performance-before.json),
+[comparable release](evidence/goal-10/performance-comparable.json),
+[flood](evidence/goal-10/performance-flood.json),
+[brigand](evidence/goal-10/performance-raiders.json),
+[caravan](evidence/goal-10/performance-caravan.json).
+
+A separate Dart VM sample of 100 generated seeds per new preset reports mean
+2.01 / 1.84 / 1.95 ms and p95 **3.61 / 3.19 / 2.62 ms** (Wetlands / Highlands /
+Frontier). The first series retains its 37.18 ms cold/JIT maximum. This is model
+creation cost, not browser display latency.
+[Raw generation timings](evidence/goal-10/generation-times.json).
+
+### Public release and reproducibility
+
+**Published and actually opened:**
+<https://gabrielongzm.com/roag/settlement/>.
+[GitHub Actions 44343582241](https://github.com/gongahkia/roag/actions/runs/44343582241)
+passed the web and publish jobs for `5a9bb7e27ffc0a9e9ef304bfb23d1a4e5fbd1cd0`.
+The actual browser-loaded `main.dart.js` SHA256 is
+`41880434d79d69bb954bc7dc230ca944e93230f4f4f7bc41c9714bf3deea35a7`, matching the
+local tested release. All public journeys report zero failed asset responses and
+zero page errors. [Deployment](evidence/goal-10/deployment.json),
+[CI gates](evidence/goal-10/ci-gates.log),
+[build fingerprints](evidence/goal-10/build-fingerprints.json).
+
+Only the `release/settlement-goal-10` workflow branch and exact Pages deployment
+policy were added; main and releases 07–09 are retained. No reset, force push,
+credential exposure, new paid resource or Sites deployment occurred. The
+workspace's automatic `0d22f22f work~` checkpoint was retained, followed by the
+browser-harness wait fix. Later documentation/media commits retain the same
+application bytes. [Policies before](evidence/goal-10/pages-policies-before.json),
+[after](evidence/goal-10/pages-policies-after.json). No deployment blocker remains.
+
+Reproduce focused checks from `apps/settlement`:
+
+```sh
+flutter analyze
+dart format --output=none --set-exit-if-changed lib test
+flutter test
+python3 -B tool/assets.py --check
+bash tool/release.sh /roag/settlement/
+dart run tool/goal10_fixture.dart /var/tmp/roag-goal10/fixtures
+node tool/goal10_browser.cjs /var/tmp/roag-goal10/browser
+node tool/goal10_storage_browser.cjs /var/tmp/roag-goal10/storage
+SETTLEMENT_NETWORK_ONLY=1 node tool/goal09_journeys_browser.cjs /var/tmp/roag-goal10/regressions
+```
+
+Set `SETTLEMENT_URL` to the served/production URL and `SETTLEMENT_FIXTURE_DIR` when
+using another fixture directory. Browser tooling requires the existing pinned
+Playwright package, Chromium at `/usr/bin/chromium` and recording FFmpeg. This
+verification used external `/var/tmp/roag-goal09-tools` SDK/Node/browser caches,
+not a new system installation or a private browser profile. For comparison,
+run `tool/goal08_fixture.dart` in the isolated baseline source and point both
+builds' existing `tool/scaling_browser.cjs` at that one fixed fixture directory.
+Active measurement directories link `scale-N.json` to the corresponding
+`flood-scale-N.json`, `raiders-scale-N.json` or `caravan-scale-N.json` generated
+by the new fixture tool. `SETTLEMENT_POPULATIONS=500` selects the travelling-actor
+samples. Root checks remain `make assets-check` and the catalogue command above.
+
+### Preservation and completion audit
+
+The final preservation manifest is recorded alongside the initial fingerprints.
+All six README files, four original Lua storage files, original Lua source,
+original artwork/catalogue and all **86 pre-existing settlement PNGs** retain
+their initial hashes. Root README SHA256 is
+`3b012aeb7f8e0ea8806989b96c9cb694831d714c24d84afb075c1109eb44b40a`.
+The manifest also verifies 238 Lua source files, 729 original artwork/catalogue
+files and all 14 pre-existing settlement test files unchanged. No private browser
+profile was opened. Lua runtime journeys were not rerun for
+this Dart-only change; their source and storage were verified by fingerprints.
+[Initial](evidence/goal-10/preservation-initial.json),
+[final](evidence/goal-10/preservation-final.json).
+
+| Objective group | Completion evidence |
+|---|---|
+| Seeded difficult worlds and viable access | Six-preset 600-seed sweep, 900 developed routes, v2 frozen full-world fingerprints, all three real browser neighbourhoods |
+| Consequential autonomous encounters | Coherent flood, real brigand/guard comparison, real caravan service/departure, phase-by-phase exact checkpoint tests |
+| Shared pacing and interactions | Existing director extended, weather costs/flood exposure, refuge capacity, disconnected response and cooldown tests; natural scheduled incident observed |
+| Optional replayability | Three scenarios, genuine far-side work/route-history test, actual public Trade completion followed by more building |
+| Persistent factual stories | Bounded memories with source/participant IDs, resident conversation, repair/history and forward Undo checks |
+| Compatibility and storage | Existing assertions unchanged, schema-5 identity/land/clock comparison, active exact reload, file export/import and backup/import fault tests |
+| Scaling and presentation | 85/250/500 real browser populations, bounded hazards/actors, queue recovery, real screenshots and motion, retained bridge/mute/reduced-motion/resize regressions |
+| Public publication | Successful existing Pages workflow plus 17 full journeys on the actual matching HTTPS application |
+
+The scope is complete. Human judgement of balance, memorability and enjoyment
+remains separate from these functional results.
 
 ## Limits and human playtesting
 
 Encounters deliberately use one brigand/pack traveller rather than squads or
 inventories. Floods are local bounded overflows, not hydrodynamics. Rock is 2D
 impassable ground. An isolated departing actor can wait for restored roads.
-Functional scripted outcomes do not establish balance or enjoyment. Software
+In crowded tiles at low zoom, the existing I inspection prioritises nearby
+residents; the building right-click menu gives unambiguous Move/Inspect. Browser
+verification covers Chromium, not Safari/Firefox, touchscreens or manual physical
+mouse/keyboard play. Functional scripted outcomes do not establish balance or enjoyment. Software
 browser frame timing is not physical display latency or a hardware-GPU promise.
 
 1. Do the new environments genuinely change how I build?

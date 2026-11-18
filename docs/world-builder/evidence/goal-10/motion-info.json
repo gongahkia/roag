@@ -1,0 +1,29 @@
+{
+  "format": {
+    "duration": "53.333333",
+    "size": "3164973"
+  },
+  "sourceURL": "https://gabrielongzm.com/roag/settlement/",
+  "sourceLoadedJsSha256": "41880434d79d69bb954bc7dc230ca944e93230f4f4f7bc41c9714bf3deea35a7",
+  "sourceVideoSha256": "b477c74d323b4d6ca15e9a0e32ff557d2841880776dcc642d82fb77581a607f7",
+  "excerptsSeconds": [
+    [
+      17.326,
+      29.326
+    ],
+    [
+      67.065,
+      80.065
+    ],
+    [
+      124.287,
+      143.566
+    ],
+    [
+      156.104,
+      165.104
+    ]
+  ],
+  "outputSha256": "15a64c91d736ec940e5600600c5daf0d3ac4634a936008fc1fb8c8ce1bf0a2d5",
+  "capture": "Actual public Chromium release via Playwright input; real frames with waits cut; no mock animation."
+}
