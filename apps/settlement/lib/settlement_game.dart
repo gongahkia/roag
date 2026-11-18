@@ -364,7 +364,7 @@ class SettlementGame extends FlameGame {
     if (colony.incident?.animal?.homeId == inspectedResident &&
         inspectedResident != null) {
       final e = colony.incident!;
-      return '${e.animal!.name} · ${e.title}\n${e.state} · ${e.damage} actual damage.\n${e.description}\nTemporary actor; follows real roads.';
+      return '${e.animal!.name} · ${e.title}\n${e.phaseLabel} · ${e.damage} actual damage.\n${e.description}\nTemporary actor; follows real roads.';
     }
     final r = colony.people[inspectedResident];
     if (r != null) {

@@ -59,6 +59,13 @@ class Incident {
     IncidentKind.raiders => 'Road brigand',
     IncidentKind.caravan => 'Stranded caravan',
   };
+  String get phaseLabel => state != 'grazing'
+      ? state
+      : switch (kind) {
+          IncidentKind.raiders => 'Market disruption',
+          IncidentKind.caravan => 'shelter stop',
+          _ => state,
+        };
   String get description => kind == IncidentKind.flood
       ? 'Rising water from the marked bank: ordinary roads close for 45 seconds; Stone Roads and complete bridges remain passable. Exposed buildings can take up to 18 damage. Refuges shelter reachable residents. Water recedes; damage needs Repair.'
       : kind == IncidentKind.raiders

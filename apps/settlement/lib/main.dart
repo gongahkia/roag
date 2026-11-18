@@ -1442,7 +1442,7 @@ class _LandscapePageState extends State<LandscapePage> {
                                 menu('incidents');
                               },
                               child: Text(
-                                '${colony.incident!.title} · ${colony.incident!.state} · locate / details',
+                                '${colony.incident!.title} · ${colony.incident!.phaseLabel} · locate / details',
                                 style: const TextStyle(
                                   color: Color(0xffe3b586),
                                   fontSize: 11,
